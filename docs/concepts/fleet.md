@@ -242,7 +242,9 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **A holder leaves the table with its clashes** where its needs are given back: a Job reaching a terminal status, a Session ending. Any check also drops a holder whose worktree, branch or Job is gone, or a terminal Session unheard for six hours. A Job has no way to reach a Session except a clash it is in: `leave_note` to a Session is refused where Fleet found none, and otherwise arrives as a message naming the Job.
 
-**Memory only.** A restart forgets the table and the next writes rebuild it. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session, for Bridge to mark both rows.
+**Memory only.** A restart forgets the table and the next writes rebuild it. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session.
+
+**Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Dashboard and Cockpit tiles, the Cockpit map and bays, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
 
 ### Declared needs
 

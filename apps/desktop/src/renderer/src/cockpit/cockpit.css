@@ -309,6 +309,10 @@ span.armada-view__dot { cursor: default; }
 .armada-star__halo { fill: var(--hue); opacity: 0.14; }
 .armada-star__halo[data-inner] { opacity: 0.24; }
 .armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.armada-star__clash { color: var(--status-awaiting-review); }
+.armada-star__clash circle { fill: var(--bg-raised); stroke: currentColor; stroke-width: 1; }
+.armada-star__clash[data-opens] { cursor: pointer; }
+.armada-star__clash[data-opens]:hover { color: var(--fg-default); }
 .armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); pointer-events: none; }
 .armada-star[data-lit] .armada-star__label,
 .armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
@@ -367,6 +371,8 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__row[data-wants="fixing"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-completed-failed) 11%, transparent), transparent 70%); }
 .armada-metro__row[data-selected] { box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--accent); }
 
+.armada-metro__cell { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.armada-metro__cell > .armada-metro__who { flex: 0 1 auto; }
 .armada-metro__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); text-align: left; cursor: default; }
 .armada-metro__who[data-opens] { cursor: pointer; }
 .armada-metro__who[data-opens]:hover .armada-metro__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }

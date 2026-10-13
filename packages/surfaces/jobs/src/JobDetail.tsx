@@ -10,7 +10,7 @@
 // `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
 // `tab-pulse.tsx`, `tab-settings.tsx`.
 
-import { JobDetailHeaderActions, RepairFileContext, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
+import { ClashNotice, JobDetailHeaderActions, RepairFileContext, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAtFloor, useLayout, useNarrow } from "@armada/shell";
 
@@ -426,7 +426,7 @@ function OneJob(props: JobDetailProps) {
       />
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
-      {replacedCallout(whole?.replaced_by, props.onOpenJob)}
+      {replacedCallout(whole?.replaced_by, props.onOpenJob)}<ClashNotice kind="job" id={job.id} />
       <JobTabs value={tab} onChange={toTab} counts={countsOf(whole, job)} />
 
       {tab === "overview" && held.drafted && held.edits !== undefined && held.edits.proposal.approved_at === undefined ? (

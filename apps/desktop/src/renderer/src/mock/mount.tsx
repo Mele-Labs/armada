@@ -13,6 +13,7 @@ import { HapticsProvider } from "@armada/components";
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
+import { ClashesFrom } from "../clashes";
 import { DraftedFrom } from "../drafted";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
@@ -128,7 +129,9 @@ export function mountApp(
                   <SleepSourceProvider value={mockSleep}>
                     <PlanUsageSourceProvider value={planUsage}>
                       <SessionsHere held={heldSessions(api)}>
-                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                        <ClashesFrom clashes={chosen.draft?.clashes}>
+                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                        </ClashesFrom>
                       </SessionsHere>
                     </PlanUsageSourceProvider>
                   </SleepSourceProvider>
