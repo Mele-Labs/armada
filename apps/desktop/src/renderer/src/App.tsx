@@ -54,8 +54,9 @@ import { nodeNamed, studioName } from "@armada/screens";
 import type { OpenStudio } from "@armada/studios";
 import { Worktrees } from "@armada/cleanup";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/manifest";
-import { Setup, useSetup } from "@armada/setup";
+import { Setup, startSetupSession, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
+import { said } from "@armada/screens/src/copy";
 import { JobDetail, LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
@@ -110,7 +111,7 @@ import {
   readBrief,
   readRetro,
   agreeLesson,
-  disagreeLesson, startLessonSession,
+  disagreeLesson, startLessonSession, setupSessionFleet,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -254,6 +255,8 @@ export function App({ draft }: AppProps = {}) {
   const [picked, setPicked] = useState<string | null>(null);
   // Whether Setup is the Manifest surface's view. Its own flag: the Manifest surface's own views are three.
   const [settingUp, setSettingUp] = useState(false);
+  // Set up with a session is out to Fleet: its press is pending until the Session opens or is refused.
+  const [startingSession, setStartingSession] = useState(false);
   // The row the cursor goes back to when the detail closes. A keyboard that
   // opened a row and came back to the top of the document has lost its place.
   const [returning, setReturning] = useState<string | null>(null);
@@ -468,6 +471,16 @@ export function App({ draft }: AppProps = {}) {
   function openSession(id: string): void {
     goTo(SURFACE.sessions);
     setSessionOpen(id);
+  }
+  /** Setup's reading handed to a new Session in the repository being set up, and that Session opened. */
+  function setUpWithSession(held: typeof setting.held, root: string): void {
+    if (held.state !== "open") return;
+    setStartingSession(true);
+    void startSetupSession(held, root, setupSessionFleet, said).then((answer) => {
+      setStartingSession(false);
+      if (!answer.ok) setTelling(answer.saying);
+      if (answer.id !== undefined) openSession(answer.id);
+    });
   }
   useOpenSessionAsked(openSession); useOpenHolderAsked({ job: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
@@ -949,6 +962,10 @@ export function App({ draft }: AppProps = {}) {
                   settingUp={settingUp}
                   onSettingUp={setSettingUp}
                   setUp={repository === undefined || scoped !== undefined}
+                  startingSession={startingSession}
+                  {...(setting.held.state !== "open" || repository === undefined
+                    ? {}
+                    : { onSetUpWithSession: () => setUpWithSession(setting.held, repository) })}
                   setup={
                     <Setup
                       setting={setting}
