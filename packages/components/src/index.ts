@@ -468,3 +468,5 @@ export * from "./compositions/WalkPanel/WalkPanel";
 export * from "./compositions/AutopilotBar/AutopilotBar";
 // A thought typed into Helm, on its way to running work: the match, the choice to start new.
 export * from "./compositions/ThoughtCard/ThoughtCard";
+// A write clash on a row, and the line it becomes in an open Job or Session.
+export * from "./compositions/ClashMark/ClashMark";

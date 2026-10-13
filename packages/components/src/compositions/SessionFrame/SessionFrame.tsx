@@ -7,6 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ClashMark, ClashNotice } from "../ClashMark/ClashMark";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -136,8 +137,10 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+        <ClashMark kind="session" id={id} size={16} />
         {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
       </header>
+      <ClashNotice kind="session" id={id} />
       <div className="armada-session-frame__body">{children}</div>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
