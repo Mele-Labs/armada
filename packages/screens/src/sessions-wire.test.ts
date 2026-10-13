@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -582,5 +582,40 @@ describe("a session its agent was started by another to hold", () => {
   it("keeps the Session the agent started as a row in its thread", () => {
     const row: SessionRow = { kind: "started", id: "st1", at: AT, session: { id: "n", title: "Port the clock" }, fork: true };
     expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "st1", kind: "started", session: { id: "n", title: "Port the clock" }, fork: true }]);
+  });
+});
+
+describe("a question that lapsed", () => {
+  const questions = [{ question: "Which night?", header: "Night", multi_select: false, options: [{ label: "Friday", description: "" }] }];
+  const ask = (id: string, state: "unanswered" | "waiting" | "allowed_once", asked = questions): SessionRow => ({
+    kind: "ask",
+    id,
+    at: AT,
+    state,
+    ask: { call: id, manifest_id: "armada", asked_at: AT, tool: "AskUserQuestion", detail: "", truncated: false, rule: "r", offers: ["refuse"], holding_for_seconds: 60, questions: asked },
+  });
+  const said = (id: string): SessionRow => ({ kind: "message", id, at: AT, from: { kind: "you" }, text: "ok" });
+
+  it("is the last unanswered ask that carried questions", () => {
+    expect(lapsedOf([said("1"), ask("2", "unanswered")])).toEqual({ id: "2", questions });
+  });
+
+  it("is gone once the person has said anything after it", () => {
+    expect(lapsedOf([ask("1", "unanswered"), said("2")])).toBeUndefined();
+  });
+
+  it("is superseded by a newer ask that carried questions", () => {
+    expect(lapsedOf([ask("1", "unanswered"), ask("2", "allowed_once")])).toBeUndefined();
+    expect(lapsedOf([ask("1", "unanswered"), ask("2", "waiting")])).toBeUndefined();
+  });
+
+  it("is not a permission that lapsed", () => {
+    expect(lapsedOf([ask("1", "unanswered", [])])).toBeUndefined();
+  });
+
+  it("goes back to the agent a line a question", () => {
+    expect(lapsedAnswerText([{ question: "Which night?", chosen: ["Friday", "Sat"] }, { question: "Where?", chosen: ["Home"] }])).toBe(
+      'Answering your earlier question "Which night?": Friday, Sat\nAnswering your earlier question "Where?": Home',
+    );
   });
 });
