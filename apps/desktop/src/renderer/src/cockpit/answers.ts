@@ -16,6 +16,7 @@ import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
+import { buildChangeOf, type BuildChange } from "../build-change";
 import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
@@ -245,6 +246,14 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
   };
 
+  /** A restart pressed as the Fleet panel presses it, then the item settled as a clean run settles it. */
+  const switchBuild = (change: BuildChange) =>
+    wait(change.label, async (): Promise<Told> => {
+      const done = await window.armada.changeFleetBuild(change.build, change.adopt);
+      if (!done.ok) return { kind: "refused", said: refusalWords(done) };
+      return waiting === undefined ? { kind: "answered" } : answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, text: "Ran: exit 0" });
+    });
+
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const actsOf = (): Answer[] => {
     if (sleep !== undefined) return [answer("Keep", () => (reviewed(sleep.id), finish()))];
@@ -263,8 +272,10 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       // An errand for him follows its act. A line with none is a word to the agent, in the text box.
       const act = given.act;
       if (act?.kind === "run") {
-        // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
+        // A slash command is the session's own: it is told, as a reply. A restart is the Fleet panel's button. Anything else he runs himself.
         if (act.target.startsWith("/")) return [answer(`Run ${act.target}`, () => sendWaiting(`Run ${act.target}`, { text: act.target }))];
+        const change = buildChangeOf(act.target);
+        if (change !== undefined) return [answer(change.label, () => switchBuild(change))];
         return [answer(`Copy ${act.target}`, () => copy(act.target))];
       }
       if (act?.kind === "approve_pr") {

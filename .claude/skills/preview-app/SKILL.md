@@ -66,5 +66,12 @@ Bridge asks before `--adopt`, listing the working Jobs. It runs
 `scripts/restart-build`, which retries a stale `libsqlite3-sys` once itself.
 `docs/practices/running-locally.md`, *Restarting from Bridge*.
 
+**To ask him to restart, put the exact command in `waiting_for` as a `run`
+item**: `scripts/preview --restart`, with `--adopt` only once he said so. Bridge
+draws it as that button and presses it, and does the same for a shell block of
+the command. Never ask him to run it any other way: a shell run from Bridge is
+Fleet's child, dies with the Fleet it stops, and leaves Bridge on the old
+protocol. Confirmed 13 Oct 2026.
+
 **Starting a Fleet or Bridge of your own** is not this: that is
 `.claude/skills/armada-local/SKILL.md` and `.claude/skills/dev-fleet/SKILL.md`.
