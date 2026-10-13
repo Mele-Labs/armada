@@ -288,10 +288,10 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   await expect.element(listed).toBeVisible();
   await expect.element(listed.getByRole("img", { name: "Job" }).first()).toBeVisible();
   await expect.element(listed.getByRole("img", { name: "Session" }).first()).toBeVisible();
-  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
+  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Docs for the pairing");
   await userEvent.keyboard("{Enter}");
-  expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s10" });
-  await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Migration notes/);
+  expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s15" });
+  await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Docs for the pairing screen/);
   await expect.element(act(/Open the Session/)).toBeVisible();
   expect(act(/Send a Drone/).query()).toBeNull();
 });

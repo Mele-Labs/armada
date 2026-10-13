@@ -333,6 +333,13 @@ describe("the hub Fleet serves beside the line", () => {
     });
   });
 
+  test("a red carries the instant main first read red, and none where the wire gave none", () => {
+    const red = (since?: string) =>
+      hubOf({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }], ...(since === undefined ? {} : { red_since: since }) } })?.main;
+    expect(red("2026-10-13T13:00:00Z")).toEqual({ state: "red", red: { check: "test-all", unmapped: true, since: "2026-10-13T13:00:00Z" } });
+    expect(red()).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
+  });
+
   test("a red nothing named a merge for draws no Broke in, and a bare job draws no Test", () => {
     const hub = hubOf({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }] } });
     expect(hub?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });

@@ -53,7 +53,7 @@ const dashboardNeedsYou = walk("dashboard-needs-you", [
   { key: "2", on: cockpit, say: "2 runs Attach, which opens the picker" },
   { look: inside(call(/^Pull request: #1823/), role("listbox", "Jobs and Sessions")), say: "Every live Job and Session, a filter over them" },
   { look: inside(call(/^Pull request: #1823/), role("img", "Job")), say: "A Job carries its glyph, and picking one claims the pull request for it" },
-  { type: "Migration notes", into: role("textbox", "Attach to"), say: "Typing narrows it" },
+  { type: "Docs for the pairing", into: role("textbox", "Attach to"), say: "Typing narrows it" },
   { key: "Enter", on: role("textbox", "Attach to"), say: "Enter attaches it" },
   { look: inside(call(/^Pull request: #1823/), role("group", "Owner")), say: "The card switches to its owned form, naming the Session" },
   { look: act(/Open the Session/), say: "Opening it is the answer now" },
