@@ -29,6 +29,8 @@ afterEach(() => void Object.assign(SLOW_FLEET, SLOW));
 
 const question = () => page.getByRole("region", { name: /^Session question/ });
 const radio = (name: RegExp) => page.getByRole("radio", { name });
+// The card's acts are keycaps on the rail beside it; the Session's own box under it has a Send of its own.
+const key = (name: RegExp) => page.getByRole("complementary").getByRole("button", { name });
 const FIRST = /A fake the test sets/;
 const SECOND = /Keep three/;
 
@@ -62,7 +64,7 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
   const app = await asking();
   const answer = vi.spyOn(app.api, "answerWaiting");
   // Every control on the card, measured at rest: none of them may change size while the answer is out.
-  const controls = () => [radio(FIRST), radio(/The real one, stopped/), radio(/Make the best decision/), radio(/Just get it done/), page.getByRole("button", { name: /^Send/ }), page.getByRole("button", { name: /^Later/ }), page.getByRole("button", { name: /^Dismiss/ })];
+  const controls = () => [radio(FIRST), radio(/The real one, stopped/), radio(/Make the best decision/), radio(/Just get it done/), key(/Send/), key(/Later/), key(/Dismiss/)];
   const size = (box: DOMRect) => [box.width, box.height];
   await entered(question());
   const resting = controls().map((one) => size(one.element().getBoundingClientRect()));
@@ -75,8 +77,8 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
   // Every other answer and Send cannot be pressed, and no other control on the card acts.
   await expect.element(radio(/The real one, stopped/)).toBeDisabled();
   await expect.element(radio(/Make the best decision/)).toBeDisabled();
-  await expect.element(page.getByRole("button", { name: /^Send/ })).toBeDisabled();
-  await expect.element(page.getByRole("button", { name: /^Later/ })).toBeDisabled();
+  await expect.element(key(/Send/)).toBeDisabled();
+  await expect.element(key(/Later/)).toBeDisabled();
   const during = controls().map((one) => size(one.element().getBoundingClientRect()));
   expect(during).toEqual(resting);
 
@@ -103,7 +105,7 @@ test("a refusal stops the loop, leaves the card where it was, and the toast says
   expect(getComputedStyle(radio(/Raise it to five/).element(), "::after").animationName).not.toBe("armada-button-waiting");
   // Nothing is held now, and the same answer can be sent again.
   await expect.element(radio(SECOND)).toBeEnabled();
-  await expect.element(page.getByRole("button", { name: /^Send/ })).toBeEnabled();
+  await expect.element(key(/Send/)).toBeEnabled();
   await expect.element(question()).toBeVisible();
 });
 
@@ -119,8 +121,10 @@ test("a dismissed call loops while Fleet takes it, and does not come back while 
   await motion();
   await asking();
   const from = Date.now();
+  // The cover lifts on the first press and the second dismisses.
   await userEvent.keyboard("d");
-  await expect.element(page.getByRole("button", { name: /^Dismiss/ })).toHaveAttribute("aria-busy", "true");
+  await userEvent.keyboard("d");
+  await expect.element(key(/Dismiss/)).toHaveAttribute("aria-busy", "true");
   await expect.element(radio(/The real one, stopped/)).toBeDisabled();
   await staysGone(from);
 });
