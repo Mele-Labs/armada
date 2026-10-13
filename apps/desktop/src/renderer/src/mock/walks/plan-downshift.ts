@@ -46,7 +46,7 @@ const planDownshiftChoosing = walk("plan-downshift", [
   ...crossing,
   { press: inside(card, button("Choose…")), say: "Choose…" },
   { look: text("Default model"), say: "Settings opens at the models" },
-  { type: "haiku", into: role("textbox", "Default model"), say: "Set it by hand" },
+  { type: "haiku", into: role("textbox", "Default model", { exact: true }), say: "Set it by hand" },
   { press: button("Save Default model"), say: "Save" },
   toSessions,
   { press: inside(region("Sessions"), button(/Cart totals rounding/)), say: "The Session" },

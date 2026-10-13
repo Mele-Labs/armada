@@ -1,6 +1,6 @@
 // The weekly window nearing its end, and the default model offered a step down until it resets. Behind a
 // source the way Sleep's state and the plan's windows are, so a Bridge with none draws nothing: no bell on
-// the meter, no notification. Only the mock has one (`mock/downshift.ts`); Fleet serves none yet.
+// the meter, no notification. Fleet's is `fleet-downshift.ts`; the mock has its own (`mock/downshift.ts`).
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { Toast } from "@armada/components";

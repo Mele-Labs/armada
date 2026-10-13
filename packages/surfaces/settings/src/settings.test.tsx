@@ -30,7 +30,7 @@ test("the index lists groups in order, and a group draws each of its sections un
   await expect.element(page.getByRole("textbox", { name: "Drones at once", exact: true })).toHaveValue("3");
   // Effort is under Agents, as Fleet groups it.
   await page.getByRole("tab", { name: "Agents" }).click();
-  for (const section of ["Harness", "Model", "Effort"]) {
+  for (const section of ["Harness", "Model", "Effort", "Plan"]) {
     await expect.element(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }
   // The dock is on every surface, Settings included — and it reaches this one over the content.
@@ -161,6 +161,16 @@ test("a palette row opens its section's group", async () => {
   openSettingsAt("fleet_settings", () => {});
   await expect.element(page.getByRole("tab", { name: "Fleet" })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByRole("heading", { name: "Limits", exact: true })).toBeVisible();
+});
+
+test("the Choose act of the plan's offer lands on the Default model row, beside the Plan section it is set by", async () => {
+  mount(onBoard([]), { slices: ["core", "settings"] });
+  openSettingsAt("settings:model", () => {});
+  await openSettings();
+  await expect.element(page.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(page.getByRole("textbox", { name: "Default model", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("textbox", { name: "Offer a lower default at", exact: true })).toHaveValue("80");
+  await expect.element(page.getByRole("textbox", { name: "Lower default model", exact: true })).toHaveValue("sonnet");
 });
 
 test("Settings → Keyboard rebinds a key, and the new key is the one that acts", async () => {

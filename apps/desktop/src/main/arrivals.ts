@@ -34,6 +34,7 @@ import type { SessionsHost } from "./sessions";
 import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
 import type { PlanUsageHost } from "./plan-usage";
+import type { ModelDownshiftHost } from "./model-downshift";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -64,6 +65,8 @@ export interface ArrivalHost {
   readonly sleep: Pick<SleepHost, "changed">;
   /** The plan's windows, told when a session reports a newer reading — `plan-usage.ts`. */
   readonly planUsage: Pick<PlanUsageHost, "changed">;
+  /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
+  readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
   readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
@@ -216,6 +219,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     void host.held.warm(fleet.port);
     // And every Autopilot, `sessions.again`'s reason.
     void host.issues.autopilotsAgain();
+    // And the default model's step down, once, for nobody: the notification is told where it stands, not that it moved.
+    void host.modelDownshift.seed();
     return;
   }
 
@@ -544,6 +549,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...usage } = event;
     host.planUsage.changed(usage);
+    return;
+  }
+  if (event.kind === "model_downshift.changed") {
+    // Above the tail for `plan_usage.changed`'s reason: no Job to find, and the state travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...state } = event;
+    host.modelDownshift.changed(state);
     return;
   }
   if (event.kind === "autopilot.changed") {

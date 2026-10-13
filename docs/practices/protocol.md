@@ -3795,6 +3795,8 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, f
 
 **The event stream.** `model_downshift.changed` is rare: an offer, an accept, a reset, a restore, and the percent moving a whole point while an offer stands. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
 
+**Bridge's side.** Main passes the event to every window and to `downshift-notice.ts`, which tells the OS when the state enters `offered` or `reset`, once for each entry; the state read on a connection is remembered and told to nobody. A window's source (`fleet-downshift.ts`) reads once Fleet is connected, and a 409 from an act makes it read again rather than show an error.
+
 ## The Fleet's timeline: kept as it happens, read as a window
 
 `get_fleet_timeline` (`GET /timeline?since=&until=&limit=`) and `timeline.appended` serve the Cockpit's

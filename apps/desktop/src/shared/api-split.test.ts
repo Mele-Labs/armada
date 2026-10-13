@@ -188,11 +188,12 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { PlanUsageRead } from "./api/plan-usage";
+import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { WriteClashesRead } from "./api/clashes";
 import type { IssuesRead } from "./api/issues";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { PlanUsage, SleepState } from "@armada/protocol";
+import type { ModelDownshiftState, PlanUsage, SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -492,6 +493,12 @@ type OldBridgeApi = {
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
+    getModelDownshift: () => Promise<ModelDownshiftRead>;
+    acceptDownshift: () => Promise<ModelDownshiftRead>;
+    restoreDownshift: () => Promise<ModelDownshiftRead>;
+    keepDownshift: () => Promise<ModelDownshiftRead>;
+    settleDownshift: () => Promise<ModelDownshiftRead>;
+    onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
@@ -809,6 +816,12 @@ const OLD_CHANNELS = {
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
     planUsageChanged: "bridge:plan-usage-changed",
+    getModelDownshift: "bridge:get-model-downshift",
+    acceptDownshift: "bridge:accept-downshift",
+    restoreDownshift: "bridge:restore-downshift",
+    keepDownshift: "bridge:keep-downshift",
+    settleDownshift: "bridge:settle-downshift",
+    modelDownshiftChanged: "bridge:model-downshift-changed",
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
