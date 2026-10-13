@@ -42,6 +42,7 @@ fn facts(standing: PullRequestStanding) -> PullRequestFacts {
         auto_merge: false,
         title: "Take a draft out".into(),
         url: ADDRESS.into(),
+        body: None,
     }
 }
 

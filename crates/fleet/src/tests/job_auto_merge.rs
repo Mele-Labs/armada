@@ -56,6 +56,7 @@ fn checks_running(fleet: &Fixture) {
         auto_merge: false,
         title: "Fix".into(),
         url: ADDRESS.into(),
+        body: None,
     }));
     fleet.vcs().now_under_review(UnderReview {
         checks: WhatTheForgeRan::StillWaiting { finished: 1, checks: 2 },

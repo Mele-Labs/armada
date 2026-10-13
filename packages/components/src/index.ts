@@ -455,6 +455,8 @@ export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
+export * from "./compositions/PullRequestPanel/PullRequestPanel";
+export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
 export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";

@@ -52,6 +52,7 @@ pub enum Section {
     Features,
     Editor,
     Terminal,
+    Links,
     Bridge,
 }
 
@@ -90,7 +91,7 @@ impl Section {
             Section::Prompt(_) => Group::Prompts,
             Section::Limits | Section::Timeouts | Section::Retention => Group::Fleet,
             Section::Features => Group::Features,
-            Section::Editor | Section::Terminal => Group::Tools,
+            Section::Editor | Section::Terminal | Section::Links => Group::Tools,
             Section::Bridge => Group::Appearance,
         }
     }
@@ -108,6 +109,7 @@ impl Section {
             Section::Features => "Features",
             Section::Editor => "Editor",
             Section::Terminal => "Terminal",
+            Section::Links => "Links",
             Section::Bridge => "Bridge",
         }
     }
@@ -208,6 +210,7 @@ pub fn entries() -> impl Iterator<Item = &'static Entry> {
                 machine::FEATURES,
                 machine::EDITOR,
                 machine::TERMINAL,
+                machine::LINKS,
                 bridge::BRIDGE,
             ]
             .into_iter()

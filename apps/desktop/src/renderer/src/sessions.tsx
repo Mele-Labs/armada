@@ -5,12 +5,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Alert,
   Button,
   ChipOwnership,
-  MergeLinePlace,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -18,8 +17,6 @@ import {
   PilotExits,
   RetroPress,
   Tooltip,
-  PullRequestActs,
-  PullRequestCard,
   Sheet,
   SessionComposer,
   SessionFrame,
@@ -76,13 +73,13 @@ import {
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
-import { placeOf } from "@armada/screens";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
-import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -475,19 +472,35 @@ function ReadingSheet({
       })
       .finally(() => setPressed(undefined));
   };
+  const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
+  if (one?.kind === "pull_request") {
+    return (
+      <SessionPullRequest
+        one={one}
+        lines={lines}
+        floor={floor}
+        pending={pressed?.number === one.number ? pressed.act : undefined}
+        reviewed={reviewed.has(`${sessionId}#${one.number}`)}
+        sentBack={sentBack(one)}
+        onAct={(act) => press(one.number, act)}
+        onSendBack={() => sendBack(one)}
+        onOpenLink={onOpenLink}
+        onClose={onClose}
+      >
+        <Refused />
+      </SessionPullRequest>
+    );
+  }
   const title =
     one === undefined
       ? ""
-      : one.kind === "pull_request"
-        ? `Pull request #${one.number}`
-        : one.kind === "sketch"
-          ? `Sketch ${one.title}`
-          : one.kind === "subagent"
-            ? `Subagent ${one.task}`
-            : one.kind === "artifact"
-              ? one.title
-              : "";
-  const place = one?.kind === "pull_request" ? placeOf(lines, one) : undefined;
+      : one.kind === "sketch"
+        ? `Sketch ${one.title}`
+        : one.kind === "subagent"
+          ? `Subagent ${one.task}`
+          : one.kind === "artifact"
+            ? one.title
+            : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
@@ -514,34 +527,7 @@ function ReadingSheet({
       closeBinding="Esc"
       onClose={onClose}
     >
-      {one?.kind === "pull_request" ? (
-        <div className="armada-session-reading">
-          <PullRequestCard
-            number={`#${one.number}`}
-            address={one.address}
-            title={one.title}
-            branch={one.branch}
-            checks={checksSaid(one.checks)}
-            {...(one.state === "merged" ? { state: { status: "completed-success", icon: GitMerge, label: "Merged" } } : {})}
-            onOpen={() => onOpenLink(one.address)}
-          >
-            {factsOf(one).map((fact) => (
-              <span key={fact}>{fact}</span>
-            ))}
-          </PullRequestCard>
-          {place === undefined ? null : <MergeLinePlace rows={place} onOpenPullRequest={onOpenLink} />}
-          <Refused />
-          <PullRequestActs
-            state={one.state}
-            checks={one.checks.state}
-            auto={one.auto}
-            queued={one.queued === true}
-            {...(pressed?.number === one.number ? { pending: pressed.act } : {})}
-            reviewed={reviewed.has(`${sessionId}#${one.number}`)}
-            onAct={(act) => press(one.number, act)}
-          />
-        </div>
-      ) : one?.kind === "sketch" ? (
+      {one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
       ) : one?.kind === "subagent" ? (
         <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
