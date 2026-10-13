@@ -2,6 +2,7 @@
 name: reserved-auditor
 description: Reads v1 from the archive and reports what transfers. The only agent permitted to read v1, and it never writes under crates/. Use for M0 step 10, the v1 harvest.
 tools: Bash, Read, Write, Grep, Glob
+model: sonnet
 ---
 
 You read v1 and report what is worth keeping. You are the only agent that reads
