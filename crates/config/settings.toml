@@ -684,7 +684,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet, store"
 notes = """
-Session-per-topic model — how long closed Helm sessions are kept before cleanup. Same shape as Job retention / archival window, applied to Helm rather than to Jobs. Owner corrected from Helm to Fleet in the Aug 2026 spot-check: nothing in Helm sweeps expired sessions, and the reaper that does is the same one Job retention names. Helm is what the setting is about, which is provenance, not ownership.
+**Since 13 Oct 2026 this sweeps a Job's Commander conversation alone**: a repository's Helm Session is a hosted Session and stays until Start fresh (`docs/concepts/helm.md`). Session-per-topic model — how long closed Helm sessions are kept before cleanup. Same shape as Job retention / archival window, applied to Helm rather than to Jobs. Owner corrected from Helm to Fleet in the Aug 2026 spot-check: nothing in Helm sweeps expired sessions, and the reaper that does is the same one Job retention names. Helm is what the setting is about, which is provenance, not ownership.
 
 Read from `#943`: resolved once at daemon start (`retention.helmSessionDays` in settings.json, `Fleet::helm_session_retention` in `crates/fleet/src/daemon/seams.rs`) and swept by `Store::forget_stale_helm_sessions` (`crates/store/src/helm_sessions.rs`) on every Helm reply rather than on a timer — `crate::rehearsing::records::swept`'s reason: a conversation still in use refreshes `kept_at` on that same reply, so it is never the row being swept.
 

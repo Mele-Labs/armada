@@ -1,6 +1,6 @@
-//! A Helm conversation's socket: a channel per conversation, the relay, the
-//! routes that speak into it, and the record it is reported with. `#939`,
-//! `#1367`.
+//! A conversation's socket: a channel per conversation, the relay, the
+//! routes that speak into it, and Helm's record. `#939`, `#1367`. **The socket and relay now carry
+//! a Job's Commander only**: Helm is a hosted Session, and its thread is a Session's.
 //!
 //! **`crate::observing`'s shape, one subject over**, and simpler for it: a
 //! conversation outlives every process that answers in it, so its channel is
@@ -14,14 +14,12 @@
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
-use axum::http::{header, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::http::StatusCode;
+use axum::response::Response;
 use ipc::{
     AnswerCommanderCard, AskCommander, AskHelm, AskTheOwner, AskingToRun, CommanderMessage,
-    CommanderOpened, HelmBoxFacts, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId,
-    ReadThought, SendRepairDrone, TellSession, ThoughtSent, TuneHelm,
+    CommanderOpened, Missed, ProtocolId, ReadThought, SendRepairDrone, TellSession, ThoughtSent,
 };
-use serde::Deserialize;
 use tokio::sync::broadcast;
 
 use crate::answers::{answer, refused, undecodable};
@@ -50,20 +48,6 @@ pub trait Spoken: Clone + serde::Serialize + Send + 'static {
     }
 }
 
-impl Spoken for HelmMessage {
-    fn missed(dropped: u64) -> HelmMessage {
-        HelmMessage::Missed(Missed { dropped })
-    }
-
-    fn ends_it(&self) -> bool {
-        matches!(self, HelmMessage::Closed(_))
-    }
-
-    fn live_only(&self) -> bool {
-        matches!(self, HelmMessage::Facts(_))
-    }
-}
-
 impl Spoken for CommanderMessage {
     fn missed(dropped: u64) -> CommanderMessage {
         CommanderMessage::Missed(Missed { dropped })
@@ -82,9 +66,6 @@ impl Spoken for CommanderMessage {
 pub struct ConversationFeed<M> {
     messages: broadcast::Sender<M>,
 }
-
-/// A repository's Helm conversation's feed.
-pub type HelmFeed = ConversationFeed<HelmMessage>;
 
 /// A Job's Commander's feed.
 pub type CommanderFeed = ConversationFeed<CommanderMessage>;
@@ -122,7 +103,6 @@ pub struct ConversationWatch<M> {
     inbound: broadcast::Receiver<M>,
 }
 
-pub type HelmWatch = ConversationWatch<HelmMessage>;
 pub type CommanderWatch = ConversationWatch<CommanderMessage>;
 
 /// What the channel has for the socket next.
@@ -132,8 +112,6 @@ pub enum ConversationSeen<M> {
     /// The bound dropped this many messages before this viewer read them.
     Missed(u64),
 }
-
-pub type HelmSeen = ConversationSeen<HelmMessage>;
 
 impl<M: Clone> ConversationWatch<M> {
     /// The next message, or `None` once every feed is gone.
@@ -146,22 +124,7 @@ impl<M: Clone> ConversationWatch<M> {
     }
 }
 
-/// What one viewer is answered with, **assembled by the daemon** in the order
-/// that loses nothing: the subscription, then the thread.
-pub struct ObservedHelm {
-    pub manifest_id: ManifestId,
-    pub replying: bool,
-    pub live: HelmWatch,
-    /// The thread so far, oldest first.
-    pub history: Vec<HelmMessage>,
-    /// Older messages the thread left out.
-    pub skipped: u64,
-    /// What the message box offers and runs on as this opens.
-    pub facts: HelmBoxFacts,
-}
-
-/// What one viewer of a Job's Commander is answered with, assembled as
-/// [`ObservedHelm`] is.
+/// What one viewer of a Job's Commander is answered with, assembled by the daemon in the order that loses nothing: the subscription, then the thread.
 pub struct ObservedCommander {
     pub job_id: ipc::JobId,
     pub replying: bool,
@@ -170,28 +133,8 @@ pub struct ObservedCommander {
     pub skipped: u64,
 }
 
-/// The thread, then everything said after, until the viewer goes, the thread is
-/// started fresh, or the channel is gone.
-pub(crate) async fn relay(socket: WebSocket, observed: ObservedHelm) {
-    let ObservedHelm {
-        manifest_id,
-        replying,
-        live,
-        history,
-        skipped,
-        facts,
-    } = observed;
-    let opened = HelmMessage::Opened(HelmOpened {
-        protocol_id: ProtocolId::current(),
-        manifest_id,
-        replying,
-        skipped,
-        facts,
-    });
-    relay_thread(socket, opened, history, live).await;
-}
-
-/// A Job's Commander's thread, on the relay Helm's is.
+/// A Job's Commander's thread: `opened`, the thread, then everything said after, until the viewer goes
+/// or the channel is gone.
 pub(crate) async fn relay_commander(socket: WebSocket, observed: ObservedCommander) {
     let ObservedCommander {
         job_id,
@@ -259,15 +202,13 @@ async fn send<M: serde::Serialize>(socket: &mut WebSocket, message: &M) -> bool 
     socket.send(Message::Text(text)).await.is_ok()
 }
 
-/// One repository's conversation. **Asked before the upgrade**, so a Manifest
-/// Fleet does not serve is refused at the moment it was asked.
-pub(crate) async fn observe_helm<D: Conversations>(
+/// The repository's live Helm Session and its thread, or none.
+pub(crate) async fn get_helm_session<D: Conversations>(
     State(served): State<Served<D>>,
     Query(scope): Query<InManifest>,
-    upgrade: WebSocketUpgrade,
 ) -> Response {
-    match served.daemon().observe_helm(scope.manifest()).await {
-        Ok(observed) => upgrade.on_upgrade(move |socket| relay(socket, observed)),
+    match served.shared().get_helm_session(scope.manifest()).await {
+        Ok(session) => answer(StatusCode::OK, &session, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -283,7 +224,8 @@ pub(crate) async fn get_helm_debug_info<D: Conversations>(
     }
 }
 
-/// Take a message. **202**: it is accepted and the reply is not here yet.
+/// Take a message for the repository's Helm Session, starting it if none is live. 200 with the
+/// Session's record; the reply is the Session's thread.
 pub(crate) async fn ask_helm<D: Conversations>(
     State(served): State<Served<D>>,
     Query(scope): Query<InManifest>,
@@ -294,48 +236,7 @@ pub(crate) async fn ask_helm<D: Conversations>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().ask_helm(asked, scope.manifest()).await {
-        Ok(conversation) => answer(StatusCode::ACCEPTED, &conversation, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Set the model and effort Helm's next reply runs on. 200 with what the box now offers.
-pub(crate) async fn tune_helm<D: Conversations>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-    body: Bytes,
-) -> Response {
-    let tuned: TuneHelm = match ipc::decode("Helm's model and effort", &body) {
-        Ok(tuned) => tuned,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.daemon().tune_helm(tuned, scope.manifest()).await {
-        Ok(facts) => answer(StatusCode::OK, &facts, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// `?manifest_id=` and `?file=` on `get_helm_file`.
-#[derive(Deserialize)]
-pub(crate) struct WhichHelmFile {
-    #[serde(default)]
-    manifest_id: Option<String>,
-    file: String,
-}
-
-/// The bytes, with the type they were sent as.
-pub(crate) async fn get_helm_file<D: Conversations>(
-    State(served): State<Served<D>>,
-    Query(which): Query<WhichHelmFile>,
-) -> Response {
-    let manifest = which.manifest_id.map(ManifestId::carried);
-    match served.daemon().get_helm_file(manifest, which.file).await {
-        Ok(stored) => (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, stored.media_type)],
-            stored.bytes,
-        )
-            .into_response(),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -365,7 +266,7 @@ pub(crate) async fn record_thought_sent<D: Conversations>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().record_thought_sent(sent, scope.manifest()).await {
-        Ok(conversation) => answer(StatusCode::OK, &conversation, served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -436,13 +337,13 @@ pub(crate) async fn answer_helm_call<D: Conversations>(
     }
 }
 
-/// Forget the stored session and the thread.
+/// End the repository's live Helm Session.
 pub(crate) async fn start_helm_fresh<D: Conversations>(
     State(served): State<Served<D>>,
     Query(scope): Query<InManifest>,
 ) -> Response {
     match served.daemon().start_helm_fresh(scope.manifest()).await {
-        Ok(conversation) => answer(StatusCode::OK, &conversation, served.run_id()),
+        Ok(session) => answer(StatusCode::OK, &session, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

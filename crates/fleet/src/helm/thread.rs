@@ -1,5 +1,6 @@
-//! A conversation's thread: what was said, kept in a file under the
-//! repository's records and offered to whoever is watching. `#939`.
+//! A Job's Commander's thread: what was said, kept in a file under the
+//! repository's records and offered to whoever is watching. `#939`. (Helm's thread is a Session's
+//! now, and is kept in the store with its rows.)
 //!
 //! **The file is the thread; the session is not.** The agent CLI keeps its own
 //! transcript, in its own format and on its own retention, and a Bridge opened
@@ -15,40 +16,34 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use api::{ConversationFeed, ConversationWatch, Spoken};
-use ipc::{HelmClosed, HelmMessage, HelmSilence};
 use serde::de::DeserializeOwned;
 
 /// How many messages a viewer is sent when it opens. What is left out is
 /// counted.
 pub const THREAD: usize = 512;
 
-/// What was said in a thread, as its file holds it: the person's asks and the
-/// session's prose, in order. `#1293`.
+/// What was said in the Helm Session's thread: the person's asks and the session's prose, in
+/// order. `#1293`.
 ///
-/// **Fleet's own read and never a tool.** `observe_helm` refuses every agent,
-/// so a scout reaching a thread through a tool would be that door opened; a
-/// read-in hands over this text instead.
+/// **Fleet's own read and never a tool.** `get_helm_session` refuses every agent, so a scout
+/// reaching a thread through a tool would be that door opened; a read-in hands over this text
+/// instead.
 ///
-/// Everything else in the file is the session's working — its calls, their
-/// results and what each reply cost — which is not what was argued.
-pub fn what_was_said(kept: &str) -> String {
+/// Everything else in the thread is the session's working (its calls, the asks it put to the
+/// person, where it sent words), which is not what was argued.
+pub fn what_was_said(rows: &[ipc::SessionRow]) -> String {
     let mut said: Vec<String> = Vec::new();
-    for line in kept.lines().filter(|line| !line.trim().is_empty()) {
-        let Ok(message) = ipc::decode::<HelmMessage>("a Helm thread line", line.as_bytes()) else {
+    for row in rows {
+        let ipc::SessionRow::Message { from, text, .. } = row else {
             continue;
         };
-        let spoke = match &message {
-            HelmMessage::Asked(asked) => Some(("The person", asked.text.clone())),
-            HelmMessage::Row(shown) => match &shown.row().saw {
-                ipc::Saw::Said { text } => Some(("Helm", text.clone())),
-                _ => None,
-            },
-            _ => None,
+        let who = match from {
+            ipc::SessionVoice::You => "The person",
+            ipc::SessionVoice::Agent => "Helm",
+            ipc::SessionVoice::Session { title, .. } => title.as_str(),
         };
-        if let Some((who, text)) = spoke {
-            if !text.trim().is_empty() {
-                said.push(format!("{who}: {}", text.trim()));
-            }
+        if !text.trim().is_empty() {
+            said.push(format!("{who}: {}", text.trim()));
         }
     }
     said.join("\n\n")
@@ -57,7 +52,7 @@ pub fn what_was_said(kept: &str) -> String {
 /// A conversation's thread. **Generic over what is said**, so a Job's
 /// Commander, whose conversation is Helm's host keyed by the Job, is kept in
 /// the same file format and offered on the same channel and not a copy of them.
-pub(crate) struct Thread<M = HelmMessage> {
+pub(crate) struct Thread<M> {
     feed: ConversationFeed<M>,
     held: Mutex<Held<M>>,
     file: PathBuf,
@@ -163,18 +158,5 @@ impl<M: Spoken + DeserializeOwned> Thread<M> {
             .append(true)
             .open(&self.file)?;
         writeln!(out, "{line}")
-    }
-}
-
-impl Thread<HelmMessage> {
-    /// Forget the thread, and tell every viewer it is gone. **Helm's alone**: a
-    /// Commander's thread has no one to start it fresh.
-    pub(crate) fn clear(&self) {
-        let mut held = self.held();
-        *held = Held::default();
-        let _ = std::fs::remove_file(&self.file);
-        self.feed.offer(HelmMessage::Closed(HelmClosed {
-            because: HelmSilence::StartedFresh,
-        }));
     }
 }

@@ -22,15 +22,13 @@ const RECORD: HelmDebugInfo = {
   checkout: "/Users/user/armada",
   authority: "acting",
   model: "a-model",
-  brief: "You are Helm, in Armada.",
+  note: "You are Helm, in Armada.",
   door: "armada-fleet",
   tools: ["list_jobs", "get_events_since"],
-  servers: 19,
   session: "a-session",
   thread: [
     { at: "2026-09-17T14:29:40.000Z", line: "asked", text: { text: "why did you refuse that" } },
     { at: "2026-09-17T14:29:46.000Z", line: "refused", tool: "Read", because: "the person refused it" },
-    { at: "2026-09-17T14:29:52.000Z", line: "ended", turns: 3, cost_micros: 24_300, refusals: 1 },
   ],
   cut: 0,
   run_id: "01K5RJ0F5H7TZ8QK6M9R1V2WXY",
@@ -82,7 +80,6 @@ test("one press in the dock copies the record, and the reading beside it is the 
   expect(text).toContain("You are Helm, in Armada.");
   expect(text).toContain("get_events_since");
   expect(text).toContain("refused Read · the person refused it");
-  expect(text).toContain("$0.0243 · 3 turns · 1 refused");
 
   // The same string the dock already copied, which is what one producer buys.
   expect(written[0]).toBe(text);

@@ -105,16 +105,15 @@ pub struct FakeDaemon {
     pub repository_allowed: Mutex<Vec<ipc::AllowedCommandRow>>,
     /// Kit's servers, as the fake's own acts leave them — `#1275`.
     pub kit_servers: Mutex<Vec<ipc::KitServerRow>>,
-    /// The one Helm conversation's channel, which a test can offer into.
-    pub helm: crate::HelmFeed,
+    /// Every message `ask_helm` was given, in order. The fake's Helm Session exists once there is
+    /// one, and `start_helm_fresh` forgets them.
+    pub helm_asked: Mutex<Vec<ipc::AskHelm>>,
+    /// What `tell_session` and `record_thought_sent` were given, in order, as the words and where.
+    pub helm_sent: Mutex<Vec<(String, ipc::ThoughtTarget)>>,
     /// The Commander conversations' channel, which a test can offer into.
     pub commander: crate::CommanderFeed,
     /// What `observe_commander` answers with as the thread. Set by a test.
     pub commander_thread: Mutex<Vec<ipc::CommanderMessage>>,
-    /// What `observe_helm` answers with as the thread. Set by a test.
-    pub helm_thread: Mutex<Vec<ipc::HelmMessage>>,
-    /// What the fake's message box offers; `tune_helm` replaces it.
-    pub helm_facts: Mutex<ipc::HelmBoxFacts>,
     /// Every permission question the door put to this daemon, in order.
     pub asked_to_run: Mutex<Vec<ipc::AskingToRun>>,
     /// What a Helm session's last poll was answered, as the door told this
@@ -184,11 +183,10 @@ impl FakeDaemon {
             settings: Mutex::new(settings::settings()),
             repository_allowed: Mutex::new(Vec::new()),
             kit_servers: Mutex::new(Vec::new()),
-            helm: crate::HelmFeed::new(),
+            helm_asked: Mutex::new(Vec::new()),
+            helm_sent: Mutex::new(Vec::new()),
             commander: crate::CommanderFeed::new(),
             commander_thread: Mutex::new(Vec::new()),
-            helm_thread: Mutex::new(Vec::new()),
-            helm_facts: Mutex::new(ipc::HelmBoxFacts::default()),
             asked_to_run: Mutex::new(Vec::new()),
             helm_polled: Mutex::new(None),
             helm_on: Mutex::new(None),

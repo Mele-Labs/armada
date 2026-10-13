@@ -471,16 +471,16 @@ fn no_agent_is_offered_a_persons_act_on_a_studio() {
 ///
 /// **The failure this is against is an agent reorganising a person's work.**
 /// The door answers a call the same whether it was asked for, so the line is
-/// the brief's: the unasked calls are named, writing up never dispatches on its
-/// own, and each unasked call is offered to Helm alone. What Helm did then
+/// the note's: the unasked calls are named, everything else waits for an ask,
+/// and each unasked call is offered to Helm alone. What Helm did then
 /// reaches a client as `studio.helm_acted`, a kind no person's act publishes,
 /// and a run it was asked to start is one it can read back.
 #[test]
 fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
-    let brief = fleet::helm::brief(&helms_manifest(), fleet::helm::Authority::Acting, None);
-    let (_, studio) = brief
+    let note = fleet::helm::brief(&helms_manifest(), fleet::helm::Authority::Acting, None);
+    let (_, studio) = note
         .as_str()
-        .split_once("ON A STUDIO")
+        .split_once("On a Studio you may")
         .expect("Helm is told about Studios");
     for unasked in ["add_studio_node", "propose_studio_edge", "rename_studio"] {
         assert!(studio.contains(unasked), "`{unasked}` is named as unasked");
@@ -490,25 +490,19 @@ fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
             "`{unasked}` is offered to Helm alone"
         );
     }
+    // Everything else on a Studio waits for a person's ask: the note says so in one sentence, and
+    // the asked acts are Helm's alone and none of them is in the unasked list.
     assert!(
-        studio.contains("\"write it up\" alone is a draft and nothing more"),
-        "writing up never dispatches on its own: {studio}"
+        studio.contains("Every other act on one waits for the person's ask"),
+        "the asked acts are named by what they are not: {studio}"
     );
-    // #1289 and #1292: starting a run and starting a scout both spend, so each
-    // is named where the asked acts are named and nowhere above them.
-    let (_, on_an_ask) = studio
-        .split_once("waits for a person's ask")
-        .expect("the asked acts are named");
     for asked in [
         "start_scout",
         "start_studio_run",
         "write_up_studio_node",
         "dispatch_studio_draft",
     ] {
-        assert!(
-            on_an_ask.contains(asked),
-            "`{asked}` waits for a person's ask: {studio}"
-        );
+        assert!(!studio.contains(asked), "`{asked}` is not among the unasked: {studio}");
     }
     for helms in [
         "start_studio_run",
@@ -527,7 +521,6 @@ fn helm_proposes_unasked_acts_on_an_ask_and_its_acts_are_its_own_event() {
         assert!(HELM_ONLY
             .iter()
             .any(|row| row.operation == read && row.kind == "query"));
-        assert!(studio.contains(read), "Helm is told it reads `{read}`");
     }
 
     let acted = ipc::Event::StudioHelmActed(ipc::StudioHelmActed {

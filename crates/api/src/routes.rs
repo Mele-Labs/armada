@@ -39,9 +39,8 @@ use crate::commands::{
     stop_proposal, take_up_remarks,
 };
 use crate::conversing::{
-    answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, get_helm_file,
-    list_helm_calls, observe_helm, read_thought, record_thought_sent, start_helm_fresh,
-    tell_session, tune_helm,
+    answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, get_helm_session,
+    list_helm_calls, read_thought, record_thought_sent, start_helm_fresh, tell_session,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -671,7 +670,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/checks/:kept/observe",
             get(observe_check_output::<D>),
         )
-        .route("/helm/observe", get(observe_helm::<D>))
+        .route("/helm/session", get(get_helm_session::<D>))
         .route("/helm/ask", post(ask_helm::<D>))
         .route(
             "/jobs/:job_id/commander/observe",
@@ -698,8 +697,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/helm/read_thought", post(read_thought::<D>))
         .route("/helm/thought_sent", post(record_thought_sent::<D>))
         .route("/helm/tell_session", post(tell_session::<D>))
-        .route("/helm/tune", post(tune_helm::<D>))
-        .route("/helm/file", get(get_helm_file::<D>))
         .route("/helm/permission", post(ask_the_person::<D>))
         .route("/helm/calls", get(list_helm_calls::<D>))
         .route("/helm/calls/answer", post(answer_helm_call::<D>))

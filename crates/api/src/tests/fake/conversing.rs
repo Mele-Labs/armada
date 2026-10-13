@@ -6,13 +6,13 @@
 use std::sync::Arc;
 
 use ipc::{
-    AskHelm, HelmAsked, HelmBoxFacts, HelmClosed, HelmConversation, HelmMessage, HelmSent, HelmSilence, Instant,
-    ManifestId, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget, TuneHelm,
+    AskHelm, HelmAsked, HelmSession, Instant, ManifestId, ReadThought, SessionRecord, TellSession,
+    ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
-use crate::{Conversations, ObservedHelm, Refusal, StoredFile};
+use crate::{Conversations, Refusal};
 
 /// The one Manifest the fake serves.
 pub const SERVED_MANIFEST: &str = "armada";
@@ -45,15 +45,20 @@ impl crate::Admitting for FakeDaemon {
 }
 
 impl Conversations for FakeDaemon {
-    async fn observe_helm(&self, manifest_id: Option<ManifestId>) -> Result<ObservedHelm, Refusal> {
+    /// The Helm Session this fake has, once a message was asked of it: no rows, because what a
+    /// Session's thread is made of is Fleet's.
+    async fn get_helm_session(
+        self: Arc<Self>,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<HelmSession, Refusal> {
         let manifest_id = self.serving(manifest_id)?;
-        Ok(ObservedHelm {
+        let asked = !self.helm_asked.lock().expect("not poisoned").is_empty();
+        Ok(HelmSession {
+            session: asked.then(|| ipc::SessionThread {
+                session: helm_record(&manifest_id),
+                rows: Vec::new(),
+            }),
             manifest_id,
-            replying: false,
-            live: self.helm.watch(),
-            history: self.helm_thread.lock().expect("not poisoned").clone(),
-            skipped: 0,
-            facts: self.helm_facts.lock().expect("not poisoned").clone(),
         })
     }
 
@@ -148,63 +153,17 @@ impl Conversations for FakeDaemon {
         self: Arc<Self>,
         asked: AskHelm,
         manifest_id: Option<ManifestId>,
-    ) -> Result<HelmConversation, Refusal> {
+    ) -> Result<SessionRecord, Refusal> {
         let manifest_id = self.serving(manifest_id)?;
-        if asked.text.trim().is_empty() && asked.attachments.is_empty() && asked.mentions.is_empty() {
+        if asked.text.trim().is_empty() && asked.attachments.is_empty() {
             return Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.helm_message_empty",
-                "A message to Helm needs words or something sent with it",
+                "fleet.session_message_empty",
+                "a message needs words or something sent with it",
                 run_id(),
             )));
         }
-        self.helm.offer(HelmMessage::Asked(HelmAsked {
-            ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-            text: asked.text,
-            files: Vec::new(),
-            tags: asked.mentions,
-        }));
-        Ok(HelmConversation {
-            manifest_id,
-            replying: true,
-            resumes: false,
-        })
-    }
-
-    /// Keeps the choice and offers it, as Fleet does. Which efforts are acceptable is Fleet's.
-    async fn tune_helm(
-        &self,
-        tuned: TuneHelm,
-        manifest_id: Option<ManifestId>,
-    ) -> Result<HelmBoxFacts, Refusal> {
-        self.serving(manifest_id)?;
-        let facts = HelmBoxFacts {
-            model: tuned.model,
-            effort: tuned.effort,
-            commands: Vec::new(),
-        };
-        *self.helm_facts.lock().expect("not poisoned") = facts.clone();
-        self.helm.offer(HelmMessage::Facts(facts.clone()));
-        Ok(facts)
-    }
-
-    /// One file, `f1`, which was sent as a picture. Any other id is none.
-    async fn get_helm_file(
-        &self,
-        manifest_id: Option<ManifestId>,
-        file: String,
-    ) -> Result<StoredFile, Refusal> {
-        self.serving(manifest_id)?;
-        match file.as_str() {
-            "f1" => Ok(StoredFile {
-                media_type: String::from("image/png"),
-                bytes: vec![0x89, b'P', b'N', b'G'],
-            }),
-            _ => Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.session_attachment_refused",
-                "nothing was sent under that id",
-                run_id(),
-            ))),
-        }
+        self.helm_asked.lock().expect("not poisoned").push(asked);
+        Ok(helm_record(&manifest_id))
     }
 
     /// **A question, unless the words ask to be routed**: then a thought for the one Session the
@@ -228,20 +187,13 @@ impl Conversations for FakeDaemon {
         &self,
         sent: ThoughtSent,
         manifest_id: Option<ManifestId>,
-    ) -> Result<HelmConversation, Refusal> {
+    ) -> Result<SessionRecord, Refusal> {
         let manifest_id = self.serving(manifest_id)?;
-        self.helm.offer(HelmMessage::Sent(HelmSent {
-            ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-            text: sent.text,
-            target: sent.target,
-            files: Vec::new(),
-            tags: sent.mentions,
-        }));
-        Ok(HelmConversation {
-            manifest_id,
-            replying: false,
-            resumes: false,
-        })
+        self.helm_sent
+            .lock()
+            .expect("not poisoned")
+            .push((sent.text, sent.target));
+        Ok(helm_record(&manifest_id))
     }
 
     /// Keeps the row and answers where the words went. **What a send is, is Fleet's**, and so is
@@ -260,13 +212,10 @@ impl Conversations for FakeDaemon {
             manifest_id: Some(manifest_id),
             slot: None,
         };
-        self.helm.offer(HelmMessage::Sent(HelmSent {
-            ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-            text: tell.text,
-            target: target.clone(),
-            files: Vec::new(),
-            tags: Vec::new(),
-        }));
+        self.helm_sent
+            .lock()
+            .expect("not poisoned")
+            .push((tell.text, target.clone()));
         Ok(target)
     }
 
@@ -313,10 +262,9 @@ impl Conversations for FakeDaemon {
             checkout: String::from("/repos/armada"),
             authority: ipc::HelmActionAuthority::Acting,
             model: String::from("a-model"),
-            brief: String::from("You are Helm, in Armada."),
+            note: String::from("You are Helm, docked in Armada."),
             door: String::from(ipc::door::SERVER),
             tools: vec![String::from("list_jobs")],
-            servers: Some(19),
             session: Some(String::from("a-session")),
             thread: Vec::new(),
             cut: 0,
@@ -334,16 +282,41 @@ impl Conversations for FakeDaemon {
     async fn start_helm_fresh(
         &self,
         manifest_id: Option<ManifestId>,
-    ) -> Result<HelmConversation, Refusal> {
+    ) -> Result<HelmSession, Refusal> {
         let manifest_id = self.serving(manifest_id)?;
-        self.helm_thread.lock().expect("not poisoned").clear();
-        self.helm.offer(HelmMessage::Closed(HelmClosed {
-            because: HelmSilence::StartedFresh,
-        }));
-        Ok(HelmConversation {
+        self.helm_asked.lock().expect("not poisoned").clear();
+        Ok(HelmSession {
             manifest_id,
-            replying: false,
-            resumes: false,
+            session: None,
         })
+    }
+}
+
+/// The fake's Helm Session: a hosted Session row with the mark set and nothing on it.
+fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
+    let at = Instant::carried("2026-10-13T09:00:00.000Z");
+    SessionRecord {
+        id: ipc::SessionId::carried("01HELMSESSION00000000000001"),
+        harness: String::from("claude_code"),
+        origin: ipc::SessionOrigin::Bridge,
+        manifest_id: Some(manifest_id.clone()),
+        cwd: String::from("/repos/armada"),
+        title: Some(String::from("Helm")),
+        state: ipc::SessionState::Live,
+        started_at: at.clone(),
+        last_seen_at: at,
+        last_turn_at: None,
+        ended_at: None,
+        end_reason: None,
+        usage: ipc::SessionUsage::default(),
+        attachments: Vec::new(),
+        hosted: None,
+        terminal: None,
+        mod_out_of_date: false,
+        waiting_for: Vec::new(),
+        done_since: None,
+        held_until: None,
+        context_breakdown: None,
+        helm: true,
     }
 }

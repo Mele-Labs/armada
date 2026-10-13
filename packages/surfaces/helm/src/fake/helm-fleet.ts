@@ -108,7 +108,7 @@ const CONVERSATION: HelmThreadItem[] = [
  * repository block**, from `crates/fleet/src/helm/brief.rs`; the whole brief
  * runs to nine blocks and the rest of them say nothing this scenario is for.
  */
-const BRIEF = [
+const NOTE = [
   "You are Helm, in Armada. A person asks you about the work in one repository, and about the " +
     "repository itself. You answer from what your tools return: Fleet's, for Jobs, Drones and " +
     "what is waiting on a person, and the ordinary ones for reading, searching, editing and " +
@@ -128,23 +128,19 @@ const RECORD: HelmDebugInfo = {
   checkout: "/Users/user/armada",
   authority: "acting",
   model: "sonnet",
-  brief: BRIEF,
+  note: NOTE,
   door: "armada-fleet",
   tools: ["list_jobs", "get_job", "get_check_output", "get_diff", "get_events_since", "ask_person_to_approve"],
-  servers: 3,
   session: "01M2C1TJ8G00HELMSESSION01",
   thread: [
     { at: "2026-09-10T14:31:06.000Z", line: "asked", text: { text: "why did 77 stop" } },
     { at: "2026-09-10T14:31:11.000Z", line: "called", tool: "get_job", detail: JOB.job.id },
     { at: "2026-09-10T14:31:19.000Z", line: "said", text: { text: ANSWER } },
-    { at: "2026-09-10T14:31:21.000Z", line: "ended", turns: 4, cost_micros: 21_400, refusals: 0 },
     {
       at: "2026-09-10T14:33:48.000Z",
       line: "asked",
       text: { text: "which test is it, and does it fail on main too" },
     },
-    { at: "2026-09-10T14:33:49.000Z", line: "fresh" },
-    { at: "2026-09-10T14:33:50.000Z", line: "unanswered", why: WENT_QUIET },
   ],
   cut: 0,
   polled: {

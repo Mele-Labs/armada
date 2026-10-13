@@ -20,17 +20,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/helm/tell_session",
     },
-    // The model and effort Helm's replies run on, and a file sent with one of its messages.
-    Route {
-        operation: "tune_helm",
-        method: "POST",
-        path: "/helm/tune",
-    },
-    Route {
-        operation: "get_helm_file",
-        method: "GET",
-        path: "/helm/file",
-    },
     Route {
         operation: "answer_session_ask",
         method: "POST",

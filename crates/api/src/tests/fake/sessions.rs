@@ -35,6 +35,7 @@ impl Sessions for FakeDaemon {
             done_since: None,
             held_until: None,
             context_breakdown: None,
+            helm: false,
         })
     }
 

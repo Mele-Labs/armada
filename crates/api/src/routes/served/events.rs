@@ -232,13 +232,6 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // Helm writing a file in the repository's own checkout, which it does on a
-    // person's ask and in no worktree. `#1373`.
-    Route {
-        operation: "helm.changed_checkout",
-        method: "GET",
-        path: "/events",
-    },
     // Helm's reading sent a person's words to a Session or a Job instead of to Helm.
     Route {
         operation: "helm.thought_routed",

@@ -2,9 +2,10 @@
 //! `#941`.
 //!
 //! **Placed by the connection, never by what the caller says.** A call is Helm's
-//! where `crate::peer::held_within` finds its socket inside a process the Helm
-//! host is running. The reach is [`may`] under [`Fleet::helm_authority`], so
-//! the brief and the door read one answer.
+//! where `crate::peer::held_within` finds its socket inside the process of a hosted Session that
+//! is a repository's Helm (`Fleet::session_placed`). The reach is [`may`] under
+//! [`Fleet::helm_authority`], so the note and the door read one answer. Any other hosted Session
+//! keeps a Session's door.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Admitting, Caller, CommanderReach, HelmReach};
@@ -23,11 +24,9 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     fn helm_at(&self, caller: Caller) -> Option<HelmReach> {
-        if self.session_holding(&caller).is_some() {
+        let (_, helm) = self.session_placed(&caller)?;
+        if !helm {
             return Some(HelmReach::of_a_hosted_session());
-        }
-        if !self.helm_holds(&caller) {
-            return None;
         }
         let authority = self.helm_authority();
         Some(HelmReach::deciding(

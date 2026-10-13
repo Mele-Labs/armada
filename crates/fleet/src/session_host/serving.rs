@@ -34,7 +34,7 @@ const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
 /// A command that is not one slash command, or a session that is not a terminal one. A 422.
 pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
-pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
+pub(crate) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// A reattached session the keeper called busy, and that then says nothing for
 /// this long, missed its turn's end: it goes to Idle.
 const REATTACH_QUIET: Duration = Duration::from_secs(120);
@@ -91,49 +91,7 @@ where
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
-        let served = self.served_named(Some(&start.manifest_id))?;
-        let id = new_id();
-        let now = self.now().as_str().to_string();
-        let title = start
-            .title
-            .map(|title| title.trim().to_string())
-            .filter(|title| !title.is_empty());
-        let manifest = served.manifest().id().as_str().to_string();
-        {
-            let mut store = self.store().lock().await;
-            store
-                .keep_session(&KeptSession {
-                    id: id.clone(),
-                    harness: String::from(adapters::HOSTED_HARNESS),
-                    origin: String::from("bridge"),
-                    manifest_id: Some(manifest.clone()),
-                    cwd: served.root().to_string(),
-                    title,
-                    state: store::SessionState::Live,
-                    started_at: now.clone(),
-                    last_seen_at: now,
-                    last_turn_at: None,
-                    ended_at: None,
-                    end_reason: None,
-                    figures: Default::default(),
-                    mod_version: None,
-                })
-                .map_err(|why| self.ledger_fault(why))?;
-            store
-                .keep_hosting(&KeptHosting {
-                    session_id: id.clone(),
-                    manifest_id: manifest,
-                    model: start.model.filter(|model| !model.trim().is_empty()),
-                    effort: start.effort.filter(|effort| !effort.trim().is_empty()),
-                    mode: mode_text(start.mode.unwrap_or_default()).to_string(),
-                    ran: false,
-                    lease_slot: None,
-                    lease_branch: None,
-                    fork_of: None,
-                })
-                .map_err(|why| self.ledger_fault(why))?;
-        }
-        self.published_hosted(&id).await
+        self.started_hosted(start, false).await
     }
 
     async fn send_session_message(
@@ -422,7 +380,7 @@ where
             .await?
             .into_iter()
             .find_map(|row| match row {
-                SessionRow::Message { files, .. } => {
+                SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } => {
                     files.into_iter().find(|candidate| candidate.id == file)
                 }
                 _ => None,
@@ -462,6 +420,70 @@ where
 
     async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// A plain hosted session's ledger row and its hosting. `helm` marks it as a repository's Helm
+    /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
+    pub(crate) async fn started_hosted(
+        &self,
+        start: StartSession,
+        helm: bool,
+    ) -> Result<SessionRecord, Refusal> {
+        let served = self.served_named(Some(&start.manifest_id))?;
+        let id = new_id();
+        let now = self.now().as_str().to_string();
+        let title = start
+            .title
+            .map(|title| title.trim().to_string())
+            .filter(|title| !title.is_empty());
+        let manifest = served.manifest().id().as_str().to_string();
+        {
+            let mut store = self.store().lock().await;
+            store
+                .keep_session(&KeptSession {
+                    id: id.clone(),
+                    harness: String::from(adapters::HOSTED_HARNESS),
+                    origin: String::from("bridge"),
+                    manifest_id: Some(manifest.clone()),
+                    cwd: served.root().to_string(),
+                    title,
+                    state: store::SessionState::Live,
+                    started_at: now.clone(),
+                    last_seen_at: now,
+                    last_turn_at: None,
+                    ended_at: None,
+                    end_reason: None,
+                    figures: Default::default(),
+                    mod_version: None,
+                })
+                .map_err(|why| self.ledger_fault(why))?;
+            store
+                .keep_hosting(&KeptHosting {
+                    session_id: id.clone(),
+                    manifest_id: manifest,
+                    model: start.model.filter(|model| !model.trim().is_empty()),
+                    effort: start.effort.filter(|effort| !effort.trim().is_empty()),
+                    mode: mode_text(start.mode.unwrap_or_default()).to_string(),
+                    ran: false,
+                    lease_slot: None,
+                    lease_branch: None,
+                    fork_of: None,
+                    helm,
+                })
+                .map_err(|why| self.ledger_fault(why))?;
+        }
+        self.published_hosted(&id).await
     }
 }
 
@@ -597,6 +619,18 @@ where
         sent: SendSessionMessage,
         from: SessionVoice,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_hosted_ahead(sent, from, None).await
+    }
+
+    /// [`Self::send_hosted`] with a line of Fleet's own ahead of the person's words in the turn.
+    /// **The thread's row keeps the words as typed**, so the line is the agent's and never drawn:
+    /// Helm's "where they are" is the one caller.
+    async fn send_hosted_ahead(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        from: SessionVoice,
+        ahead: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
@@ -637,6 +671,10 @@ where
                 turn.push_str(&preface);
                 turn.push_str("\n\nThe person's first message:\n\n");
             }
+        }
+        if let Some(line) = &ahead {
+            turn.push_str(line);
+            turn.push_str("\n\n");
         }
         if let Some(line) = mention_line(&addressed) {
             turn.push_str(&line);
@@ -751,6 +789,17 @@ where
         terminal: Option<KeptSession>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_known_ahead(terminal, sent, None).await
+    }
+
+    /// [`Self::send_known`] with the line [`Self::send_hosted_ahead`] puts ahead of the words.
+    /// Read only for a hosted session.
+    pub(crate) async fn send_known_ahead(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        ahead: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let approved = super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::readiness::note_address(&sent.text).map(str::to_string);
@@ -762,7 +811,9 @@ where
             self.send_to_terminal(&session, sent, addressed, paths)
                 .await?
         } else {
-            Arc::clone(&self).send_hosted(sent, SessionVoice::You).await?
+            Arc::clone(&self)
+                .send_hosted_ahead(sent, SessionVoice::You, ahead)
+                .await?
         };
         if let Some(url) = approved {
             self.walk_ended(&id, &url).await;
@@ -904,6 +955,11 @@ where
                         Some(_) => self.fork_cut_of(id).await,
                         None => None,
                     },
+                    // Read at each start, so an edit to the note reaches the next process.
+                    note: match hosting.helm {
+                        true => Some(self.helm_note_of(&served)),
+                        false => None,
+                    },
                     name: address_of(id),
                     model: hosting.model.clone(),
                     effort: hosting.effort.clone(),
@@ -920,6 +976,7 @@ where
         let generation = {
             let mut state = runtime.state();
             state.process = Some(process);
+            state.helm = hosting.helm;
             state.directory = directory;
             state.last_active = std::time::Instant::now();
             state.generation

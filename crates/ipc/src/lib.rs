@@ -324,12 +324,11 @@ pub use commander::{
     CommanderState, CommanderWoke,
 };
 pub use helm::{
-    AskHelm, Blank, Freshness, HelmAsked, HelmBoxFacts, HelmChangedCheckout, HelmClosed,
-    HelmContext, HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence,
-    HelmText, HelmUnanswered, TuneHelm,
+    AskHelm, Blank, Freshness, HelmAsked, HelmContext, HelmFresh, HelmScreen, HelmSession,
+    HelmText, HelmUnanswered,
 };
 pub use thought::{
-    HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
     ThoughtSent, ThoughtTarget,
 };
 pub use timeline::{

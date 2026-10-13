@@ -558,6 +558,10 @@ pub struct SessionRecord {
     /// until a mod reports one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
+    /// This hosted session is a repository's Helm: opening it from the Sessions list opens the
+    /// dock, and at most one is live per `manifest_id`. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub helm: bool,
 }
 
 /// `list_sessions`: the most recently seen first.

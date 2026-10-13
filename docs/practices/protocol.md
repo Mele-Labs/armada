@@ -547,36 +547,9 @@ published again under the kind its phase is rather than under a fourth kind. A J
 `server.exited` before the Job's own terminal `job.state_changed`, because they
 are torn down before its span is released.
 
-## The Helm socket: one repository's conversation
+## The Helm socket: retired
 
-`GET /helm/observe?manifest_id=` is the second socket's shape with a
-conversation for its subject, and `crates/api/src/conversing.rs`. It opens with
-the thread so far, then carries every message after it. `POST /helm/ask` takes a
-message and answers 202 at once, because the reply is the socket's;
-`POST /helm/start_fresh` forgets the stored session and the thread.
-
-**Who reads it.** Bridge's Helm thread. `agent_access` is `No` on all three: a
-session must not read or drive another session.
-
-**No end to close on.** A Drone ends and a run finishes; a conversation outlives
-every process that answers in it. So the socket carries reply after reply for as
-long as a viewer holds it, and `closed` is sent only when a person starts fresh.
-
-| What happened | What the viewer is told |
-| --- | --- |
-| A person asked | `asked`, then the session's own `row`s, ending in `ended` with what the reply cost |
-| The stored session was gone | `fresh` / `session_not_found`, then the rows of the new session |
-| No reply came | `unanswered`, with why |
-| Words were delivered to a Session or a Job | `sent`, the words and the target, in the thread like any other message |
-| A person started fresh | `closed` / `started_fresh` |
-| The Manifest is not served | **422 before the upgrade** |
-
-**A row is a `Shown` row**, so a reply is read with the vocabulary a Drone's turn
-already has. **Back-pressure** is the second socket's: a channel per
-conversation, drop-oldest, `missed` with the count, and the thread's file keeps
-what a slow viewer lost.
-
-**It is deliberately not `/events`**, for the second socket's reason.
+`GET /helm/observe`, `POST /helm/tune` and `GET /helm/file` are gone, with the socket's messages (`opened`, `asked`, `fresh`, `unanswered`, `sent`, `facts`, `missed`, `closed`) and the types that carried them. Helm is a hosted Session, and its thread is read the way a Session's is: *Helm is a Session*, below. The Commander socket after this section is the same shape and is still served; it was copied from this one and now keeps the relay on its own.
 
 ## The Commander socket: one Job's conversation
 
@@ -1257,7 +1230,7 @@ line clears it rather than being refused. A kind that is not a Link is refused a
 `fleet.studio_not_a_link`, a code added the way every other refusal here was.
 ## Protocol 14.16: Helm writes a file in the checkout
 
-`#1373`. `helm.changed_checkout`, a new event kind, additive: published as a Helm session's own
+`#1373`. **Retired 13 Oct 2026 with Helm's checkout writes; see *Helm is a Session*.** `helm.changed_checkout`, a new event kind, additive: published as a Helm session's own
 stream says it wrote a file, carrying `HelmChangedCheckout { manifest_id, tool, path, at }`.
 Helm edits the repository's checkout directly on a person's ask, with no worktree and no Job
 around the change, so this is what lets somebody who finds a file changed see that Helm changed
@@ -3754,6 +3727,8 @@ A Drone can ask several decisions in one ask, and a person answers them all at o
 
 ## Routing a thought: Helm reads words for where they belong
 
+**Since 13 Oct 2026 the `sent` row is a `SessionRow::Sent` in the Helm Session's thread, and `record_thought_sent` answers a `SessionRecord`.** The `observe_helm` message `sent` and `HelmSent` rows below are retired; see *Helm is a Session*.
+
 `docs/concepts/helm.md`, *Routing a thought*. **Additive only**: two operations, one event kind and one message on the Helm socket, all of Bridge's (`agent_access` `No`, `Bridge only` for the event). No type that exists changes. Bridge's half is `packages/protocol/src/thought.ts`, `helm.ts` and `helm-thread.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
 
 | Where | Carries | Notes |
@@ -3773,6 +3748,8 @@ A Drone can ask several decisions in one ask, and a person answers them all at o
 **Skew.** A refusal on an ID mismatch means no peer meets this change half built. A Fleet without the routes would answer 404 to a Bridge that has them, and Bridge treats a read that fails as `question`, so the words still reach Helm.
 
 ## Helm's message box: files, tags, model and effort, the `/` list
+
+**Retired 13 Oct 2026 but for `AskHelm`'s `attachments` and `mentions`, `get_issue` and `TagKind::Issue`.** `tune_helm`, `HelmBoxFacts`, the socket's `facts` message and `get_helm_file` are gone: the box is a Session's, tuned with `tune_session` and fed by `session.hosted`. See *Helm is a Session*.
 
 `docs/concepts/helm.md`, *The message box*, and `docs/concepts/session.md`, *What a message names*. **Additive only**: three operations, all `agent_access` `No` and Bridge's, one `TagKind`, and optional fields on existing DTOs. Two required fields are new, `HelmOpened.facts` and the `facts` message, which a Bridge from before them cannot read; the ID refuses that pairing, so nothing meets it half built. Bridge's half is `packages/protocol/src/helm.ts`, `helm-thread.ts`, `hosted-sessions.ts` and `issues.ts`, written by hand.
 
@@ -3850,6 +3827,36 @@ its row changes.
 
 **The event wraps the entry under `event`.** The stream tags its events with `kind`, and an entry has a
 `kind` of its own; spread into one message they produced a duplicate key, which a test caught.
+
+## Helm is a Session
+
+`docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`. Helm's dock moves off its own host and socket onto the hosted-Session engine. **Bridge has to move with it**: the dock still calls routes that are gone. `packages/protocol/src` carries the new types additively and leaves the retired ones in place, marked, until the dock stops importing them.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `SessionRecord.helm` (`ipc::SessionRecord`, `SessionRecord.helm?: true`) | Fleet writes, Bridge draws the mark | `true` on a repository's Helm Session, skipped when false. Marks it in `list_sessions` and in `get_session` |
+| `AskHelm.model`, `AskHelm.effort` | Bridge writes | Optional. The model and effort for the Session this message starts. Ignored once one is live: `tune_session` changes a live one. 422 `fleet.unacceptable_effort` for anything but `low`, `medium` or `high` |
+| `ask_helm` (`POST /helm/ask`) | Bridge calls | Answers 200 `SessionRecord` (was 202 `HelmConversation`). Finds or starts the repository's Helm Session, sends the message with the context line ahead of the words, and returns. The reply is `session.row` |
+| `get_helm_session` (`GET /helm/session?manifest_id=`), new | Bridge calls | Answers `HelmSession`: `manifest_id` and `session?`, a `SessionThread`. `session` is absent before the first message and after Start fresh |
+| `start_helm_fresh` (`POST /helm/start_fresh`) | Bridge calls | Answers `HelmSession` (was `HelmConversation`). Ends the live Helm Session with `close_session`, giving back the slot it held. The next message starts a new one |
+| `record_thought_sent` (`POST /helm/thought_sent`) | Bridge calls | Answers `SessionRecord`. Appends a `sent` row to the Helm Session's thread, starting the Session if the repository had none |
+| `SessionRow::Sent` (`kind: "sent"`) | Fleet writes, Bridge draws | `id`, `at`, `text`, `target: ThoughtTarget`, `files?`, `tags?`. Only a Helm Session's thread has one, written by `record_thought_sent` and by `tell_session` |
+| `tell_session` (`POST /helm/tell_session`) | Helm calls | Unchanged on the wire. Its `Helm only` reach and its `sent` row are what changed |
+| `get_helm_debug_info` (`GET /helm/debug`), `HelmDebugInfo` | Fleet writes, Bridge draws | `brief` renamed `note`; `servers` removed. `session` is the Helm Session's id and is absent when none is live |
+| `HelmDebugSaid` | Fleet writes, Bridge draws | `asked`, `said`, `called`, `refused`, and `sent` (`text`, `to`). `ended`, `fresh` and `unanswered` are gone: a Session's thread has no such rows |
+| `get_session_file` | Bridge calls | Also serves the files of a `sent` row |
+| `observe_commander`, `read_in_link`, `helm.call_answered`, `helm.thought_routed` | Fleet | Descriptions only. No field changed |
+| `prompts.helm`, `prompts.helmReadOnly` (settings) | Machine setting | Placeholders `{manifest}`, `{folder}`, `{unasked}` and `{manifest}`, `{folder}`. The brief's texts and their placeholders are gone. `agent-prompt.md` section 5a |
+
+**Retired from the wire.** Operations `observe_helm`, `tune_helm`, `get_helm_file` and the event `helm.changed_checkout`; types `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence`, `HelmChangedCheckout` and `HelmSent`. In Rust they are deleted. In `packages/protocol/src` `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence` and `HelmSent` remain, marked retired, because the dock's main process and renderer import them; Bridge deletes them when it rewires. A route typo is a runtime 500 here as everywhere (the accepted cost), so the dock should be walked against a Fleet that has this change.
+
+**How the dock reads a thread.** `get_helm_session` once, then `session.row` and `session.changed` on `/events` by the session's id, and `session.hosted` for `commands`, `model`, `effort` and `turn`. A Bridge that reconnects reads `get_helm_session` again, as a Session page does: that is what the `missed` message on `/events` is for.
+
+**The event stream, and the open risk.** Better in one respect and no worse in any other. The Helm socket had a bounded channel of its own, per conversation, with a drop-oldest `missed` message; that is gone, and with it a second thing that could outrun a slow viewer. Helm's thread now rides `session.row` and `session.changed` on the shared drop-oldest `/events` channel. It adds no queue and no event kind. **It does add rows**: a Helm Session streams what a Session streams, including its tool calls, and a Helm Session that works hard against a minimised Bridge is a source like any Session's. The unbounded sink on the application side of axum's WebSocket stays as it was, unmeasured. A viewer that fell behind learns it from `missed` on `/events` and resyncs with `get_helm_session`. Nothing here makes the "you missed N events, resync" message less necessary.
+
+**Skew.** None to meet beyond the rule: Protocol IDs equal or Bridge opens no socket and the lifeboat is the fallback. The change touches the wire, so the ID moves; there is no order between two IDs and nothing here depends on one. **The lifeboat is untouched**: `/v0/` is still four hand-written routes with no dependency, and none of this is on them.
+
+**What is not on the wire.** The old Helm thread files under the records root are not read. The Helm Session's `helm` flag is on the store's `hosted_sessions` row (migration `20261013T1700Z-helm_session.hosted_helm`), not a second table; `live_helm_of` and `latest_helm_of` find it.
 
 ## Open questions
 

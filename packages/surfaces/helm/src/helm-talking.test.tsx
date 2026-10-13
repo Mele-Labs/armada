@@ -90,10 +90,4 @@ test("the record's split button offers both acts, and Details opens this session
   const text = shown.element().textContent ?? "";
   expect(text).toContain("why did 77 stop");
   expect(text).toContain("called get_job");
-  expect(text).toContain("$0.0214 · 4 turns");
-  expect(text).toMatch(/fleet +Helm's door would not be configured: Permission denied \(os error 13\)/);
-  expect(text).not.toContain("no reply came: ");
-  // The record's own column has read lower case since it was written, which is
-  // the case the thread beside it now reads too — one rule, two surfaces.
-  expect(text).toMatch(/fleet +the stored session was gone, so this reply started a new one/);
 });

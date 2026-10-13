@@ -53,8 +53,8 @@ export type ThoughtSent = {
 };
 
 /**
- * A thread row: these words went to a Session or a Job and never to Helm's session. A message on
- * `GET /helm/observe`'s socket, `message: "sent"`.
+ * **Retired with `GET /helm/observe`.** These words went to a Session or a Job and never to Helm's
+ * session; the Helm Session's thread keeps them as a `sent` row, `SessionRow` in `hosted-sessions.ts`.
  */
 export type HelmSent = {
   ts: string;

@@ -1,16 +1,14 @@
 //! Helm on a Studio through a stand-in agent: an ask goes through `ask_helm`
-//! to a host that answers it by calling the agent door from a connection Fleet
+//! to a Helm Session whose process answers it by calling the agent door from a connection Fleet
 //! places as Helm's. `#1288`.
 //!
 //! **The stand-in chooses the calls**, so what is proved is what the door and
 //! Fleet do with them. A Run node is `#1289`'s, and writing up and dispatching
-//! from an Issue draft `#1291`'s; the brief's rule for both is pinned in
+//! from an Issue draft `#1291`'s; the note's line for both is pinned in
 //! `helm::tests`.
 
-use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::pin::Pin;
 use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -25,7 +23,8 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use tower::ServiceExt;
 
 use crate::daemon::Fleet;
-use crate::helm::{Authority, Carried, Carry, Carrying, Heard, Hosting};
+use crate::helm::Authority;
+use crate::session_host::{Process, Processes, Sink, Start};
 use crate::tests::daemon::fittings;
 use crate::tests::peer::Placing;
 use crate::tests::tmp::TempDir;
@@ -49,33 +48,64 @@ commands:
 /// every answer it was given.
 struct StandIn {
     door: OnceLock<Router>,
-    turns: Mutex<Vec<String>>,
+    /// The note each process of the Session was started with.
+    notes: Mutex<Vec<String>>,
     answered: tokio::sync::mpsc::UnboundedSender<Vec<String>>,
 }
 
-impl Hosting for StandIn {
-    fn carry<'a>(&'a self, carry: Carry, _heard: &'a dyn Heard) -> Carrying<'a> {
-        Box::pin(async move {
-            self.turns
-                .lock()
-                .expect("not poisoned")
-                .push(carry.turn.clone());
-            let door = self.door.get().expect("the door is mounted before an ask");
-            let answers = acted_on(door, &carry.turn).await;
-            let _ = self.answered.send(answers);
-            Carried::Answered {
-                session: "stand-in".to_string(),
-            }
-        }) as Pin<Box<dyn Future<Output = _> + Send>>
+/// The hosts for Sessions, over a stand-in that is shared with the test.
+struct Hosts(Arc<StandIn>);
+
+impl Processes for Hosts {
+    fn start(&self, start: &Start, _sink: Sink) -> Result<Arc<dyn Process>, String> {
+        self.0
+            .notes
+            .lock()
+            .expect("not poisoned")
+            .push(start.note.clone().unwrap_or_default());
+        Ok(Arc::new(Talking(Arc::clone(&self.0))))
+    }
+}
+
+/// The part of a turn's line the stand-in reads: the first text block of the message.
+#[derive(serde::Deserialize)]
+struct TurnLine {
+    message: TurnMessage,
+}
+
+#[derive(serde::Deserialize)]
+struct TurnMessage {
+    content: Vec<TurnBlock>,
+}
+
+#[derive(serde::Deserialize)]
+struct TurnBlock {
+    #[serde(default)]
+    text: Option<String>,
+}
+
+/// The one process: each line written to it is a turn, answered by calling the door.
+struct Talking(Arc<StandIn>);
+
+impl Process for Talking {
+    fn pid(&self) -> Option<u32> {
+        Some(SESSION)
     }
 
-    fn model(&self) -> String {
-        String::from("a-model")
+    fn send(&self, line: String) {
+        let host = Arc::clone(&self.0);
+        let turn = ipc::decode::<TurnLine>("a turn", line.as_bytes())
+            .ok()
+            .and_then(|line| line.message.content.into_iter().find_map(|block| block.text))
+            .unwrap_or_default();
+        tokio::spawn(async move {
+            let door = host.door.get().expect("the door is mounted before an ask");
+            let answers = acted_on(door, &turn).await;
+            let _ = host.answered.send(answers);
+        });
     }
 
-    fn running(&self) -> Vec<u32> {
-        vec![SESSION]
-    }
+    fn end(&self) {}
 }
 
 /// What the stand-in calls for each ask. **The first line of an answer is the
@@ -255,10 +285,13 @@ fn held(home: &TempDir, authority: Authority) -> Held {
     let (sender, answered) = tokio::sync::mpsc::unbounded_channel();
     let host = Arc::new(StandIn {
         door: OnceLock::new(),
-        turns: Mutex::new(Vec::new()),
+        notes: Mutex::new(Vec::new()),
         answered: sender,
     });
-    let fleet = Arc::new(Fleet::assembled(fittings).hosting_helm_on(host.clone()));
+    let fleet = Arc::new(
+        Fleet::assembled(fittings)
+            .hosting_sessions_on(Arc::new(Hosts(Arc::clone(&host))), Duration::from_secs(600)),
+    );
     let events = fleet.events();
     let door = api::router(api::Served::sharing(
         Arc::clone(&fleet),
@@ -281,6 +314,8 @@ impl Held {
             attachments: Vec::new(),
             mentions: Vec::new(),
             context: None,
+            model: None,
+            effort: None,
         };
         Arc::clone(&self.fleet)
             .ask_helm(ask, None)
@@ -292,8 +327,9 @@ impl Held {
             .expect("the host is held")
     }
 
-    fn first_turn(&self) -> String {
-        self.host.turns.lock().expect("not poisoned")[0].clone()
+    /// The note the Helm Session was started with.
+    fn note(&self) -> String {
+        self.host.notes.lock().expect("not poisoned")[0].clone()
     }
 }
 
@@ -306,12 +342,17 @@ fn answer(answers: &[String], at: usize, tool: &str) -> String {
     answer.clone()
 }
 
+/// The kinds published, **less what the Session itself publishes** (its rows and its record, and
+/// the timeline's account of them): Helm is a Session, and those say it was asked, not what it did.
 async fn kinds(watching: &mut Subscription) -> Vec<String> {
     let mut seen = Vec::new();
     while let Ok(Some(Next::Send(delivered))) =
         tokio::time::timeout(Duration::from_millis(30), watching.next()).await
     {
-        seen.push(delivered.event.kind());
+        let kind = delivered.event.kind();
+        if !kind.starts_with("session.") && !kind.starts_with("timeline.") {
+            seen.push(kind);
+        }
     }
     seen
 }
@@ -333,10 +374,11 @@ async fn what_helm_does_unasked_on_a_studio_is_proposed_and_starts_nothing() {
 
     let ask = format!("On Studio {}, what could we try here?", studio.id.as_str());
     let answers = held.asked(&ask).await;
-    let brief = held.first_turn();
+    let note = held.note();
     assert!(
-        brief.contains("ON A STUDIO"),
-        "the session is told: {brief}"
+        note.contains("On a Studio you may add a node that starts proposed")
+            && note.contains("add_studio_node, propose_studio_edge and rename_studio"),
+        "the session is told: {note}"
     );
     let unasked = [
         "get_studio",
@@ -422,7 +464,7 @@ async fn a_run_helm_is_asked_to_start_is_one_it_reads_back() {
 }
 
 /// **Read-only reaches a Studio too**: the Studio and the runs are read, every
-/// unasked act is refused by the setting, and the brief said so first.
+/// unasked act is refused by the setting, and the note said so first.
 #[tokio::test]
 async fn a_read_only_helm_proposes_nothing_on_a_studio() {
     let home = TempDir::new();
@@ -435,8 +477,9 @@ async fn a_read_only_helm_proposes_nothing_on_a_studio() {
 
     let ask = format!("On Studio {}, what could we try here?", studio.id.as_str());
     let answers = held.asked(&ask).await;
-    let brief = held.first_turn();
-    assert!(brief.contains("On a Studio you only read"), "{brief}");
+    let note = held.note();
+    assert!(note.contains("Helm only reads"), "{note}");
+    assert!(!note.contains("without being asked"), "{note}");
     let read = answer(&answers, 0, "get_studio");
     assert!(read.contains(r#""isError":false"#), "{read}");
     let refused = answer(&answers, 1, "add_studio_node");

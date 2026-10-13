@@ -2,12 +2,9 @@
 //! answered about the one it stands in, and refused one Fleet does not serve.
 //! `#987`.
 
-use std::future::Future;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::pin::Pin;
 use std::process::Command;
-use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -18,7 +15,7 @@ use testkit::FakeWorkProduct;
 use tower::ServiceExt;
 
 use crate::daemon::Fleet;
-use crate::helm::{Carry, Carrying, Heard, Hosting};
+use crate::tests::helm_session::with_helm_running;
 use crate::repositories::{Located, SetUp};
 use crate::tests::daemon::fittings;
 use crate::tests::http::call;
@@ -28,27 +25,10 @@ use crate::tests::tmp::TempDir;
 const FIRST: &str = "01FIXTUREMANIFEST";
 const SECOND: &str = "01SECONDMANIFEST";
 
-/// A Helm session's pid and the port its relay calls from: `propose_job` is
+/// A Helm Session's pid and the port its relay calls from: `propose_job` is
 /// offered to that session alone.
 const SESSION: u32 = 4242;
 const RELAY: u16 = 52000;
-
-/// A host whose one session is running, and never answers.
-struct Running;
-
-impl Hosting for Running {
-    fn carry<'a>(&'a self, _carry: Carry, _heard: &'a dyn Heard) -> Carrying<'a> {
-        Box::pin(std::future::pending()) as Pin<Box<dyn Future<Output = _> + Send>>
-    }
-
-    fn model(&self) -> String {
-        String::from("a-model")
-    }
-
-    fn running(&self) -> Vec<u32> {
-        vec![SESSION]
-    }
-}
 
 fn committed(at: &Path, text: &str) {
     let git = |args: &[&str]| {
@@ -74,7 +54,7 @@ fn committed(at: &Path, text: &str) {
 }
 
 /// A Fleet serving the fixture's repository and a second beside it, behind the router.
-fn two_repositories(home: &TempDir) -> Router {
+async fn two_repositories(home: &TempDir) -> Router {
     let first_text = format!("version: 1\nid: {FIRST}\n");
     committed(home.path(), &first_text);
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
@@ -85,7 +65,7 @@ fn two_repositories(home: &TempDir) -> Router {
     peers.holding(SESSION + 1, RELAY, fittings.host.port);
     peers.started(SESSION, SESSION + 1);
     fittings.peers = peers;
-    let fleet = Arc::new(Fleet::assembled(fittings).hosting_helm_on(Arc::new(Running)));
+    let fleet = with_helm_running(Fleet::assembled(fittings), SESSION).await;
     let root = home.path().join("second");
     let second_text = format!("version: 1\nid: {SECOND}\n");
     committed(&root, &second_text);
@@ -165,7 +145,7 @@ const HANDSHAKE: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params
 #[tokio::test]
 async fn a_session_standing_in_the_second_repository_is_answered_about_the_second() {
     let home = TempDir::new();
-    let app = two_repositories(&home);
+    let app = two_repositories(&home).await;
     let first = proposed(&app, FIRST, "the first repository's Job").await;
     proposed(&app, SECOND, "the second repository's Job").await;
 
@@ -212,7 +192,7 @@ async fn a_session_standing_in_the_second_repository_is_answered_about_the_secon
 #[tokio::test]
 async fn a_session_naming_a_manifest_this_fleet_does_not_serve_is_refused_plainly() {
     let home = TempDir::new();
-    let app = two_repositories(&home);
+    let app = two_repositories(&home).await;
     proposed(&app, FIRST, "the first repository's Job").await;
 
     let handshake = standing_in(&app, "01NOTSERVEDMANIFEST", HANDSHAKE).await;
@@ -232,7 +212,7 @@ async fn a_session_naming_a_manifest_this_fleet_does_not_serve_is_refused_plainl
 #[tokio::test]
 async fn a_proposal_through_the_door_is_owned_by_the_repository_the_session_stands_in() {
     let home = TempDir::new();
-    let app = two_repositories(&home);
+    let app = two_repositories(&home).await;
     let unowned = r#"{"title": "drafted in the second", "workflow_id": "fixture-workflow",
         "origin": "manual", "urgency": "normal", "atomic": false}"#;
     let drafted = helm_standing_in(
@@ -265,7 +245,7 @@ async fn a_proposal_through_the_door_is_owned_by_the_repository_the_session_stan
 #[tokio::test]
 async fn a_call_naming_the_other_repository_is_refused_and_events_are_counted_for_the_scope() {
     let home = TempDir::new();
-    let app = two_repositories(&home);
+    let app = two_repositories(&home).await;
     proposed(&app, FIRST, "the first repository's Job").await;
     proposed(&app, SECOND, "the second repository's Job").await;
 

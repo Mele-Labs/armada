@@ -40,6 +40,9 @@ pub struct Start {
     pub fork_note: Option<String>,
     /// The transcript line the copy ends at, included. Read only with `forking`. Since 23.79.
     pub fork_cut: Option<String>,
+    /// What every process of the session is told it is, appended to its system prompt. Helm's
+    /// note for a repository's Helm Session, and none for any other.
+    pub note: Option<String>,
     /// What another session addresses this one by.
     pub name: String,
     pub model: Option<String>,
@@ -206,6 +209,10 @@ impl Processes for ProcessHost {
         };
         let hosted = match &start.fork_cut {
             Some(line) => hosted.cut_at(line).map_err(|why| why.to_string())?,
+            None => hosted,
+        };
+        let hosted = match &start.note {
+            Some(note) => hosted.noting(note),
             None => hosted,
         };
         let launch = self
