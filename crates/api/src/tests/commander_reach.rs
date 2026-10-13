@@ -144,6 +144,8 @@ const ANSWERS_FOR_OR_REACHES_THE_PERSON: &[&str] = &[
     "waiting_for",
     "all_done",
     "tell_session",
+    "start_another_session",
+    "fork_this_session",
 ];
 
 /// The person's own checkout, runs, servers and mods.
