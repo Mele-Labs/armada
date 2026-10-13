@@ -84,6 +84,7 @@ mod studio_sketches;
 mod studio_unfrozen;
 mod studio_zones;
 mod task_drones;
+mod timeline;
 mod timings;
 mod tmp;
 mod tracing;

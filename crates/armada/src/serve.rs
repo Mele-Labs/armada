@@ -364,6 +364,9 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     eprintln!("a turn did not complete: {why}");
                 });
             println!("turning every {}ms", turn_interval.as_millis());
+            // What happens to Jobs, Sessions, pull requests and slots, kept with its instant
+            // for the Cockpit's timeline. Before anything can start one.
+            fleet::timeline::keep_timeline(Arc::clone(&fleet));
             // Main and the open pull requests, on the merge notice's interval but not
             // behind a turn, which waits on every Job's Checks.
             fleet::main_ci::keep_reading_main(
@@ -385,6 +388,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
                 events.clone(),
+                fleet.timeline().clone(),
                 fleet::merge_lines::EVERY,
             );
             // `GET /worktrees` kept in memory and read again behind its requests.

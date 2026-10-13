@@ -96,6 +96,8 @@ mod helm_call;
 mod helm_debug;
 /// Helm reading a thought for where it belongs, and recording where it went.
 mod thought;
+/// What happened across the Fleet and when, for the Cockpit's timeline.
+mod timeline;
 mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
@@ -317,6 +319,10 @@ pub use helm::{
 pub use thought::{
     HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
     ThoughtSent, ThoughtTarget,
+};
+pub use timeline::{
+    FleetTimeline, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
+    DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_LIMIT,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
