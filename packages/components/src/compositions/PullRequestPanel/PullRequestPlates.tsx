@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
-import { CircleCheck, CircleX, GitMerge, GitPullRequest, LoaderCircle } from "lucide-react";
+import { Ban, Check, CircleCheck, CircleX, GitBranch, GitMerge, GitPullRequest, LoaderCircle, UserCheck } from "lucide-react";
+import type { PullRequestMergeable, PullRequestReviewState } from "@armada/protocol";
 
 import { LAND_STATE } from "../../generated/vocabulary";
 import { Button } from "../../primitives/Button/Button";
@@ -18,6 +19,11 @@ export type PullRequestPlatesProps = {
   checks: PullRequestChecks;
   auto: boolean;
   queued: boolean;
+  /** What the reviews have come to, and how many approved. Absent where the page was not read: no fact is drawn. */
+  review?: PullRequestReviewState;
+  approvals?: number;
+  /** Where the forge says a merge would stand. Absent draws no fact; `unknown` draws none either. */
+  mergeable?: PullRequestMergeable;
   /** The merge line the pull request is in, its own row marked current. */
   place?: readonly PlaceRow[];
   onOpenPullRequest: (address: string) => void;
@@ -53,6 +59,23 @@ function standing(props: PullRequestPlatesProps, at: number | undefined): { what
   return { what: "Checks running", Glyph: LoaderCircle, tone: "running" };
 }
 
+/**
+ * What the reviews say, as one fact. **A request for changes outranks an approval**, since it is
+ * what holds a merge; `none` and an unread page say nothing.
+ */
+function reviewFact({ review, approvals = 0 }: PullRequestPlatesProps) {
+  if (review === "changes_requested") return { key: "review", Glyph: Ban, said: "Changes requested", tone: "failed" as const };
+  if (review === "approved" || approvals >= 1) return { key: "review", Glyph: Check, said: "Approved", tone: "success" as const };
+  if (review === "required") return { key: "review", Glyph: UserCheck, said: "Review required", tone: undefined };
+  return undefined;
+}
+
+function conflictFact({ mergeable }: PullRequestPlatesProps) {
+  if (mergeable === "conflicting") return { key: "conflicts", Glyph: GitBranch, said: "Conflicts", tone: "failed" as const };
+  if (mergeable === "mergeable") return { key: "conflicts", Glyph: GitBranch, said: "No conflicts", tone: "success" as const };
+  return undefined;
+}
+
 export function PullRequestPlates(props: PullRequestPlatesProps) {
   const { checks, auto, state, place, onOpenPullRequest, onSendBack, sentBack = false } = props;
   const at = place?.find((row) => row.current === true)?.place;
@@ -63,6 +86,7 @@ export function PullRequestPlates(props: PullRequestPlatesProps) {
   const facts = [
     ...(mark.said === what ? [] : [{ key: "checks", Glyph: mark.Glyph, said: mark.said, tone: mark.tone }]),
     ...(auto && state !== "merged" ? [{ key: "auto", Glyph: GitMerge, said: "Auto-merge on", tone: undefined }] : []),
+    ...[reviewFact(props), conflictFact(props)].filter((one) => one !== undefined),
   ];
   return (
     <>
