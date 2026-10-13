@@ -1,9 +1,9 @@
 // A repository's open issues, as main asks Fleet for them: one request, and nothing kept here, since
 // Fleet holds the list. #91. And the Autopilot that works them (#2092), which Fleet holds too.
 
-import type { Autopilot, AutopilotList, AutopilotProposal, IssueList, Outcome } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotProposal, IssueList, IssueRead, Outcome, PullRequestState } from "@armada/protocol";
 import type { AutopilotActed } from "../shared/api/autopilot";
-import type { IssuesRead } from "../shared/api/issues";
+import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import { ask, MODEL_CALL_MS } from "./request";
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
@@ -23,6 +23,22 @@ export class IssuesHost {
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, value: answer.body as IssueList };
+  }
+
+  /** `GET /issues/:repository/:number`: one issue, open or closed. */
+  async issue(manifestId: string, number: number): Promise<IssueNumberRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/issues/${encodeURIComponent(manifestId)}/${number}`);
+    return answer.ok === true ? { ok: true, value: answer.body as IssueRead } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** `GET /pull_requests/:repository/:number`: one pull request by the repository's Manifest, with no Session. */
+  async pullRequest(manifestId: string, number: number): Promise<PullRequestNumberRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/pull_requests/${encodeURIComponent(manifestId)}/${number}`);
+    return answer.ok === true ? { ok: true, value: answer.body as PullRequestState } : { ok: false, outcome: answer.outcome };
   }
 
   /** One Autopilot act. A sentence read and a set-aside pick dispatched are model calls, so they wait longer. */

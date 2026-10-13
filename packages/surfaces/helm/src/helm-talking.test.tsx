@@ -27,10 +27,10 @@ test("the dock opens on a conversation, both voices in it and the answer that ne
   // The person's ask, and the reply rendered as the prose it is — each of
   // Helm's paragraphs its own block, not one run-on line.
   await expect.element(page.getByText("why did 77 stop")).toBeVisible();
+  // "Job 77" is a link to the Job since the thread names what Bridge can open, so the sentence is split around it.
+  await expect.element(page.getByRole("link", { name: "Job 77" })).toBeVisible();
   await expect
-    .element(
-      page.getByText("Job 77 stopped on step 4 of 6, Regression check. cargo_nextest failed on all three attempts."),
-    )
+    .element(page.getByText(/stopped on step 4 of 6, Regression check\. cargo_nextest failed on all three attempts\./))
     .toBeVisible();
   await expect.element(page.getByText("Produced — exit 101 — 3 of 2034 tests failed")).toBeVisible();
   // The reply's cost, which every reply carries.

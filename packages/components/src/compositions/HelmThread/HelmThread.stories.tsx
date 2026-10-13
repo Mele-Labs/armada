@@ -195,3 +195,62 @@ export const ApprovalAlreadyMoved: Story = {
     await expect(canvas.getByText("No longer awaiting approval.")).toBeInTheDocument();
   },
 };
+
+/** A one-pixel picture, so a thumbnail has something to draw. */
+const PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
+
+/** What a message carried is drawn under its words: a picture as a thumbnail named for the file, and a file with none as its name. */
+export const SentWithFiles: Story = {
+  args: {
+    rows: [
+      {
+        ...asked,
+        message: "Do these explain the stale clock?",
+        files: [
+          { id: "f1", name: "Screenshot.png", src: PIXEL },
+          { id: "f2", name: "clock.log" },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: /Screenshot\.png/ })).toBeInTheDocument();
+    await expect(canvas.getByText("clock.log")).toBeInTheDocument();
+  },
+};
+
+/** A sketch sent from this window is drawn as the sketch, by its title. */
+export const SentWithASketch: Story = {
+  args: { rows: [{ ...asked, message: "Like this?", sketches: [{ id: "k1", title: "pin the clock" }] }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("pin the clock")).toBeInTheDocument();
+  },
+};
+
+/** Issues and pull requests the message tagged stand in its line, where `@` or `#` was typed. */
+export const SentWithTags: Story = {
+  args: {
+    rows: [
+      {
+        ...asked,
+        message: "see @#2214 Sessions list drops a quiet Session and @#2207 Stop the Drone count drifting",
+        tags: [
+          { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" },
+          { kind: "pull_request", id: "2207", title: "#2207 Stop the Drone count drifting", url: "https://forge.invalid/pull/2207" },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("#2214 Sessions list drops a quiet Session")).toBeInTheDocument();
+    await expect(canvas.getByText("#2207 Stop the Drone count drifting")).toBeInTheDocument();
+  },
+};
+
+/** A message that was only a picture has no words, and its row is the picture. */
+export const SentWithNoWords: Story = {
+  args: { rows: [{ ...asked, message: "", files: [{ id: "f1", name: "Screenshot.png", src: PIXEL }] }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: /Screenshot\.png/ })).toBeInTheDocument();
+  },
+};

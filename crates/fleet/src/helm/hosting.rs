@@ -24,6 +24,7 @@ use crate::daemon::Host;
 use crate::detach::Detached;
 use crate::drone::{environment, HostPaths};
 use crate::session::Turn;
+use crate::session_host::UserLine;
 
 use super::unanswered;
 
@@ -60,6 +61,14 @@ pub struct Carry {
     pub turn: String,
     /// The session to resume, or `None` to start one.
     pub resuming: Option<String>,
+    /// `(media type, base64)` for each picture sent with the message. They reach the session as
+    /// pictures; any other file is a path in `turn`.
+    pub pictures: Vec<(String, String)>,
+    /// The model and effort a person chose for this conversation. `None` runs on the host's own.
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    /// Where this conversation's uploads are kept, for the session to read without being asked.
+    pub readable: Option<String>,
     pub seat: Seat,
 }
 
@@ -79,6 +88,10 @@ pub trait Heard: Send + Sync {
     /// Every event one line decoded to. **Must not block**, for
     /// `crate::transcript::Tap`'s reason.
     fn heard(&self, events: &[DroneEvent]);
+
+    /// The commands the agent said it has, off its `init` line. A host with none to hear never
+    /// calls it, and a listener that wants none ignores it.
+    fn commands(&self, _names: Vec<String>) {}
 }
 
 pub type Carrying<'a> = Pin<Box<dyn Future<Output = Carried> + Send + 'a>>;
@@ -263,9 +276,20 @@ impl ProcessHost {
                 .render_commander(&commanding)
                 .map_err(|why| failed(why.to_string()));
         }
-        let model = Model::named_at(&self.model, self.effort).map_err(|why| failed(why.said()))?;
+        // A choice a person made for this conversation, else the host's own.
+        let effort = match carry.effort.as_deref() {
+            Some(chosen) => crate::tuning::effort_of(chosen).or(self.effort),
+            None => self.effort,
+        };
+        let model = Model::named_at(carry.model.as_deref().unwrap_or(&self.model), effort)
+            .map_err(|why| failed(why.said()))?;
         let mut conversing = Conversing::in_repository(&carry.directory, model, door, env)
             .map_err(|why| failed(why.to_string()))?;
+        if let Some(uploads) = &carry.readable {
+            conversing = conversing
+                .reading(uploads)
+                .map_err(|why| failed(why.to_string()))?;
+        }
         if let Some(session) = &carry.resuming {
             // An id the CLI could not have named is a session it does not have.
             conversing = conversing.resuming(session).map_err(|why| match why {
@@ -306,7 +330,7 @@ impl ProcessHost {
         else {
             return failed(unanswered::lost_before_held());
         };
-        let turn = match ipc::encode(&Turn::first(&carry.turn)) {
+        let turn = match turn_line(&carry) {
             Ok(turn) => turn + "\n",
             Err(why) => return failed(unanswered::message_not_encoded(why)),
         };
@@ -332,6 +356,9 @@ impl ProcessHost {
             let mut session: Option<String> = None;
             let mut lines = BufReader::new(output).lines();
             while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(names) = adapters::init_commands(&line) {
+                    heard.commands(names);
+                }
                 let events = self.agent.read(&line);
                 if session.is_none() {
                     session = events.iter().find_map(|event| match event {
@@ -363,6 +390,16 @@ impl ProcessHost {
                 failed(unanswered::never_started(&exited, &complaint))
             }
         }
+    }
+}
+
+/// The line written to the session's input. **A words-only turn is [`Turn::first`]'s bytes**, the
+/// shape every turn here was before pictures: `UserLine` writes `content` as a list of blocks,
+/// which is a different line, so it is used only when there is a picture to carry.
+pub(crate) fn turn_line(carry: &Carry) -> Result<String, ipc::Unencodable> {
+    match carry.pictures.is_empty() {
+        true => ipc::encode(&Turn::first(&carry.turn)),
+        false => ipc::encode(&UserLine::of(carry.turn.clone(), carry.pictures.clone())),
     }
 }
 
@@ -398,5 +435,92 @@ impl Hosting for ProcessHost {
                     .collect()
             })
             .unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn host() -> ProcessHost {
+        let mut host = ProcessHost::new(
+            HeadlessAgent::at("/usr/local/bin/agent"),
+            "the-hosts-model",
+            PathBuf::from("/var/armada/helm-mcp.json"),
+            HostPaths {
+                path: "/usr/bin:/bin",
+                home: "/Users/user",
+                user: "someone",
+            },
+        );
+        host.effort = Some(adapter_traits::Effort::Low);
+        host
+    }
+
+    fn words(turn: &str) -> Carry {
+        Carry {
+            directory: "/repos/armada".to_string(),
+            turn: turn.to_string(),
+            resuming: None,
+            pictures: Vec::new(),
+            model: None,
+            effort: None,
+            readable: None,
+            seat: Seat::Helm,
+        }
+    }
+
+    fn after<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+        let at = args.iter().position(|arg| arg == flag)?;
+        args.get(at + 1).map(String::as_str)
+    }
+
+    /// A conversation nobody tuned runs on the host's own model and the settings' effort.
+    #[test]
+    fn an_untuned_launch_is_the_hosts_own() {
+        let launch = host().launch(&words("hi")).expect("renders");
+        assert_eq!(after(launch.args(), "--model"), Some("the-hosts-model"));
+        assert_eq!(after(launch.args(), "--effort"), Some("low"));
+        assert_eq!(after(launch.args(), "--add-dir"), None);
+    }
+
+    /// What a person chose wins, each on its own: a model alone leaves the effort the host's.
+    #[test]
+    fn a_chosen_model_and_effort_replace_the_hosts_own_each_by_itself() {
+        let mut chosen = words("hi");
+        chosen.model = Some("a-chosen-model".to_string());
+        let launch = host().launch(&chosen).expect("renders");
+        assert_eq!(after(launch.args(), "--model"), Some("a-chosen-model"));
+        assert_eq!(after(launch.args(), "--effort"), Some("low"));
+
+        chosen.effort = Some("high".to_string());
+        let launch = host().launch(&chosen).expect("renders");
+        assert_eq!(after(launch.args(), "--effort"), Some("high"));
+    }
+
+    #[test]
+    fn the_uploads_directory_is_readable_without_an_ask() {
+        let mut carry = words("hi");
+        carry.readable = Some("/var/armada/helm/armada".to_string());
+        let launch = host().launch(&carry).expect("renders");
+        assert_eq!(after(launch.args(), "--add-dir"), Some("/var/armada/helm/armada"));
+    }
+
+    /// `UserLine` writes `content` as blocks and `Turn::first` as a string, so they are not the
+    /// same line; a words-only turn keeps the second, and a picture takes the first.
+    #[test]
+    fn a_words_only_turn_is_turn_firsts_line_and_a_picture_makes_it_blocks() {
+        let carry = words("why did 77 stop");
+        let line = turn_line(&carry).expect("encodes");
+        assert_eq!(line, ipc::encode(&Turn::first("why did 77 stop")).expect("encodes"));
+        let blocks = ipc::encode(&UserLine::of(carry.turn.clone(), Vec::new())).expect("encodes");
+        assert_ne!(line, blocks, "the two shapes are not one line");
+
+        let mut with_picture = words("look");
+        with_picture.pictures = vec![("image/png".to_string(), "aGk=".to_string())];
+        let line = turn_line(&with_picture).expect("encodes");
+        assert!(line.contains(r#""type":"image""#), "{line}");
+        assert!(line.contains(r#""media_type":"image/png""#), "{line}");
+        assert!(line.contains(r#""text":"look""#), "{line}");
     }
 }

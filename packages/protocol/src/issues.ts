@@ -27,3 +27,12 @@ export type IssueList = {
   issues: TrackedIssue[];
   stale?: string;
 };
+
+/** `get_issue` (`GET /issues/:repository/:number`): one issue by number, open or closed. 404 `fleet.no_such_issue`, 500 `fleet.issues_unreadable`. */
+export type IssueRead = {
+  number: number;
+  title: string;
+  /** The tracker's address for it. */
+  url: string;
+  state: "open" | "closed";
+};

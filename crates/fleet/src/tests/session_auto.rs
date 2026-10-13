@@ -39,11 +39,11 @@ fn call<T: serde::Serialize>(tool: &str, input: T) -> AskingToRun {
 }
 
 fn bash(line: &str) -> Option<Because> {
-    because_in_a_session(&call("Bash", Command { command: line }), SLOT)
+    because_in_a_session(&call("Bash", Command { command: line }), &[SLOT])
 }
 
 fn edit(tool: &str, path: &str) -> Option<Because> {
-    because_in_a_session(&call(tool, Path { file_path: path }), SLOT)
+    because_in_a_session(&call(tool, Path { file_path: path }), &[SLOT])
 }
 
 #[test]
@@ -54,9 +54,9 @@ fn a_read_a_search_and_the_ordinary_shell_run_unasked() {
             file_path: "/repo/src/lib.rs",
         },
     );
-    assert_eq!(because_in_a_session(&read, SLOT), None);
+    assert_eq!(because_in_a_session(&read, &[SLOT]), None);
     let grep = call("Grep", Pattern { pattern: "fn main" });
-    assert_eq!(because_in_a_session(&grep, SLOT), None);
+    assert_eq!(because_in_a_session(&grep, &[SLOT]), None);
     for line in [
         "git status",
         "git log --oneline -5",
@@ -89,7 +89,7 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
                     file_path: "src/lib.rs"
                 }
             ),
-            SLOT
+            &[SLOT]
         ),
         None,
         "a relative path is read against the slot"
@@ -101,7 +101,7 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
         "outside the slot, an overwrite keeps its card"
     );
     // A `..` is not read as inside, even under the directory's own prefix.
-    let under = |path: &str| because_in_a_session(&call("Edit", Path { file_path: path }), "/etc");
+    let under = |path: &str| because_in_a_session(&call("Edit", Path { file_path: path }), &["/etc"]);
     assert_eq!(under("/etc/hosts"), None);
     assert_eq!(under("/etc/../etc/hosts"), Some(Because::Destructive));
 }
@@ -161,7 +161,7 @@ fn removing_or_overwriting_a_file_in_the_sessions_own_slot_runs() {
 #[test]
 fn before_a_lease_the_repositorys_root_is_not_a_slot() {
     let at_root =
-        |line: &str| because_in_a_session(&call("Bash", Command { command: line }), "/repo");
+        |line: &str| because_in_a_session(&call("Bash", Command { command: line }), &["/repo"]);
     assert_eq!(at_root("rm notes.txt"), Some(Because::Destructive));
     assert_eq!(at_root("echo hi > notes.txt"), Some(Because::Destructive));
 }
@@ -188,7 +188,7 @@ fn reaching_into_the_owners_files_asks_unless_it_names_armada() {
     ] {
         assert_eq!(bash(line), None, "{line} should run");
     }
-    let read = |path: &str| because_in_a_session(&call("Read", Path { file_path: path }), SLOT);
+    let read = |path: &str| because_in_a_session(&call("Read", Path { file_path: path }), &[SLOT]);
     assert!(bash("rm ~/notes.txt").is_some(), "outside the slot still asks");
     assert!(bash("rm $HOME/x").is_some(), "outside the slot still asks");
     assert_eq!(read("/Users/someone/Desktop/shot.png"), Some(Because::ReachesOutside));
@@ -248,4 +248,46 @@ fn a_session_rewrites_its_own_branch_and_writes_scratch_unasked() {
         assert_eq!(bash(line), None, "{line} should run");
     }
     assert!(bash("rm /tmp/../etc/hosts").is_some());
+}
+
+/// A slot a subagent leased is the session's own: what the session may do in the slot it runs in
+/// it may do in that one.
+#[test]
+fn every_slot_the_session_holds_is_its_own_for_an_edit_and_a_shell_line() {
+    const OTHER: &str = "/repo/.armada/slots/slot-9";
+    let held = [SLOT, OTHER];
+    let bash = |line: &str| because_in_a_session(&call("Bash", Command { command: line }), &held);
+
+    // The file exists, so overwriting it is the destructive act anywhere it is not held.
+    let real = std::env::temp_dir().join(format!("armada-held-{}", std::process::id()));
+    let slot = real.join(".armada/slots/slot-9");
+    std::fs::create_dir_all(slot.join("src")).unwrap();
+    std::fs::write(slot.join("src/lib.rs"), "fn a() {}").unwrap();
+    let file = slot.join("src/lib.rs").to_string_lossy().into_owned();
+    let theirs = slot.to_string_lossy().into_owned();
+    let edit = |held: &[&str]| because_in_a_session(&call("Edit", Path { file_path: &file }), held);
+    assert_eq!(edit(&[SLOT]), Some(Because::Destructive));
+    assert_eq!(edit(&[SLOT, &theirs]), None);
+    std::fs::remove_dir_all(&real).unwrap();
+
+    for line in [
+        format!("sed -i '' 's/a/b/' {OTHER}/src/lib.rs"),
+        format!("sed -i 's/a/b/' {OTHER}/src/lib.rs"),
+        format!("rm {OTHER}/src/old.rs"),
+        format!("echo x > {OTHER}/notes.txt"),
+        format!("cd {OTHER} && git merge main"),
+        format!("cd {OTHER} && git reset --hard HEAD~1"),
+        format!("python3 -c \"open('{OTHER}/a.py', 'w').write('x')\""),
+    ] {
+        assert_eq!(bash(&line), None, "{line} should run");
+    }
+    // A slot it does not hold is still outside it.
+    assert_eq!(
+        because_in_a_session(&call("Bash", Command { command: "rm /repo/.armada/slots/slot-2/a.rs" }), &held),
+        Some(Because::Destructive)
+    );
+    assert_eq!(
+        because_in_a_session(&call("Bash", Command { command: "echo x > /repo/.armada/slots/slot-2/a.rs" }), &held),
+        Some(Because::Destructive)
+    );
 }

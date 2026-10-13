@@ -50,29 +50,7 @@
   white-space: nowrap;
 }
 
-/* The field, with Send inside it. No frame of its own: `.armada-textarea-field`
-   fills it, so the edge, the well and the focus ring stay the Textarea's. */
-.armada-helm-composer__field {
-  position: relative;
-  min-width: 0;
-}
-
-/* The room Send occupies, reserved as the field's own bottom padding rather
-   than left to overlap: a typed line stops above the button instead of running
-   under it. --h-control-sm is Send's height at `sm`; --space-4 is the
-   --space-2 inset below it plus the --space-2 gap above it. */
-.armada-helm-composer__field .armada-textarea {
-  padding-block-end: calc(var(--h-control-sm) + var(--space-4));
-}
-
-.armada-helm-composer__field > .armada-button {
-  position: absolute;
-  inset-block-end: var(--space-2);
-  inset-inline-end: var(--space-2);
-}
-
-/* Where the person is — #1094. Its own line under the field now that Send has
-   moved inside: the dock is too narrow to read a location beside a button. */
+/* Where the person is — #1094. Its own line under the box: the dock is too narrow to read a location beside a button. */
 .armada-helm-composer__location {
   display: block;
   min-width: 0;
@@ -84,30 +62,26 @@
   color: var(--fg-muted);
 }
 
-/* The message box: --bg-sunken, as Textarea already rests, on a --border-glass
-   edge rather than --border-default, so it sits in the dock's glass rather
-   than reading as a second card (design-system.md, Component → token mapping
-   → Helm dock). Focus is Textarea's own: the 2px --accent ring and the lift
-   to --bg-raised, never indigo. Disabled keeps its --border-subtle. */
-.armada-helm-composer .armada-textarea:not(:disabled) {
+/* The message box is the Sessions box: --bg-sunken on a --border-glass edge rather than
+   --border-default, so it sits in the dock's glass rather than reading as a second card
+   (design-system.md, Component → token mapping → Helm dock). Focus is the box's own. */
+.armada-helm-composer .armada-session-composer:not(:focus-within) {
   border-color: var(--border-glass);
 }
 
-/* Send, tinted Helm: --helm-muted fill, --helm text (4.82:1 on the fill), a
-   --helm-edge border, and no shadow — the tint is Helm's chrome, not the one
-   Primary a view is allowed. Hover brightens only the border to --helm, so the
-   text keeps the contrast it was measured at; a press keeps the rest and lets
-   Button's line carry it, as tonal does. Disabled, pending and an answer keep
-   Button's own renderings, which is why this skips them. Focus stays Button's
-   --accent ring. */
-.armada-helm-composer__field > .armada-button[type="submit"]:not(:disabled):not([data-pending]) {
+/* Send, tinted Helm: --helm-muted fill, --helm text (4.82:1 on the fill), a --helm-edge border,
+   and no shadow — the tint is Helm's chrome, not the one Primary a view is allowed. Hover
+   brightens only the border to --helm, so the text keeps the contrast it was measured at.
+   Disabled, pending and an answer keep Button's own renderings, which is why this skips them.
+   Focus stays Button's --accent ring. */
+.armada-helm-composer .armada-session-composer__bar .armada-button[type="submit"]:not(:disabled):not([data-pending]) {
   background: var(--helm-muted);
   border-color: var(--helm-edge);
   color: var(--helm);
   box-shadow: none;
 }
 
-.armada-helm-composer__field > .armada-button[type="submit"]:hover:not(:disabled):not([data-pending]),
-.armada-helm-composer__field > .armada-button[type="submit"][data-preview-hover]:not(:disabled):not([data-pending]) {
+.armada-helm-composer .armada-session-composer__bar .armada-button[type="submit"]:hover:not(:disabled):not([data-pending]),
+.armada-helm-composer .armada-session-composer__bar .armada-button[type="submit"][data-preview-hover]:not(:disabled):not([data-pending]) {
   border-color: var(--helm);
 }

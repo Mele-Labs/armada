@@ -15,6 +15,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";
 import { DraftedFrom } from "../drafted";
+import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { skipsMods } from "../theme-loader";
@@ -25,6 +26,7 @@ import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
+import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
 import { SleepSourceProvider } from "../sleep";
@@ -127,13 +129,15 @@ export function mountApp(
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
                   <SleepSourceProvider value={mockSleep}>
-                    <PlanUsageSourceProvider value={planUsage}>
-                      <SessionsHere held={heldSessions(api)}>
-                        <ClashesFrom clashes={chosen.draft?.clashes}>
-                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                        </ClashesFrom>
-                      </SessionsHere>
-                    </PlanUsageSourceProvider>
+                    <NumberedFrom held={mockNumbered}>
+                      <PlanUsageSourceProvider value={planUsage}>
+                        <SessionsHere held={heldSessions(api)}>
+                          <ClashesFrom clashes={chosen.draft?.clashes}>
+                            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                          </ClashesFrom>
+                        </SessionsHere>
+                      </PlanUsageSourceProvider>
+                    </NumberedFrom>
                   </SleepSourceProvider>
                 </PhoneSourceProvider>
               </MockFleetBuild>

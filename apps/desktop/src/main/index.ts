@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
+import type { HelmCarry } from "../shared/api/helm";
 import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
 import type { AskTurn } from "@armada/jobs/review-wire";
 import type { HelmContext, LandCheckAt, StagedAttachment, ThoughtTarget } from "@armada/protocol";
@@ -910,13 +911,25 @@ void app.whenReady().then(() => {
   // Helm's conversation: say something, forget it, and point it without moving the rail's own
   // pick. Fleet-wide, unlike the window's own reads above: one conversation per repository,
   // whichever window's dock is open on it.
-  ipcMain.handle(CHANNELS.askHelm, (_event, text: string, context?: HelmContext) =>
-    connection?.askHelm(text, context),
+  ipcMain.handle(CHANNELS.askHelm, (_event, text: string, context?: HelmContext, carry?: HelmCarry) =>
+    connection?.askHelm(text, context, carry),
+  );
+  ipcMain.handle(CHANNELS.tuneHelm, (_event, manifestId: unknown, model: unknown, effort: unknown) =>
+    connection?.tuneHelm(
+      typeof manifestId === "string" && manifestId !== "" ? manifestId : undefined,
+      typeof model === "string" ? model : null,
+      typeof effort === "string" ? effort : null,
+    ),
+  );
+  ipcMain.handle(CHANNELS.readHelmFile, (_event, manifestId: unknown, file: unknown) =>
+    typeof manifestId === "string" && manifestId !== "" && typeof file === "string" && file !== ""
+      ? connection?.readHelmFile(manifestId, file)
+      : { ok: false, outcome: { ok: false, why: "not_connected" } },
   );
   ipcMain.handle(CHANNELS.helmDebugInfo, () => connection?.helmDebugInfo());
   ipcMain.handle(CHANNELS.readThought, (_event, text: string) => connection?.readThought(text));
-  ipcMain.handle(CHANNELS.recordThoughtSent, (_event, manifestId: string, text: string, target: ThoughtTarget) =>
-    connection?.recordThoughtSent(manifestId, text, target),
+  ipcMain.handle(CHANNELS.recordThoughtSent, (_event, manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) =>
+    connection?.recordThoughtSent(manifestId, text, target, carry),
   );
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
   ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));

@@ -118,11 +118,39 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                 ),
                 None => format!("Job \"{}\" (id {})", tag.title, tag.id),
             },
-            TagKind::PullRequest => format!("pull request #{} \"{}\"", tag.id, tag.title),
+            TagKind::PullRequest => format!(
+                "pull request #{} \"{}\"{}",
+                tag.id,
+                bare_title(tag),
+                address_suffix(tag)
+            ),
+            TagKind::Issue => format!(
+                "issue #{} \"{}\"{}",
+                tag.id,
+                bare_title(tag),
+                address_suffix(tag)
+            ),
             TagKind::Branch => format!("branch {}", tag.id),
         })
         .collect();
     Some(format!("The person named: {}.", named.join("; ")))
+}
+
+/// The title without the `#<id> ` Bridge puts in front of an issue's or a pull request's, so the
+/// line does not say `#219 "#219 ..."`.
+fn bare_title(tag: &SessionTag) -> &str {
+    tag.title
+        .strip_prefix('#')
+        .and_then(|rest| rest.strip_prefix(tag.id.as_str()))
+        .and_then(|rest| rest.strip_prefix(' '))
+        .unwrap_or(&tag.title)
+}
+
+fn address_suffix(tag: &SessionTag) -> String {
+    tag.url
+        .as_ref()
+        .map(|url| format!(" ({url})"))
+        .unwrap_or_default()
 }
 
 /// A file name as one path component: anything that is not a letter, a digit,
