@@ -147,7 +147,6 @@
 }
 
 .armada-title-bar__usage-meter {
-  --level: var(--fg-muted);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -158,14 +157,15 @@
   font-weight: var(--weight-medium);
   color: var(--fg-muted);
   white-space: nowrap;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
 }
 
-.armada-title-bar__usage-meter[data-level="warning"] {
-  --level: var(--status-awaiting-review);
-}
-
-.armada-title-bar__usage-meter[data-level="danger"] {
-  --level: var(--status-completed-failed);
+.armada-title-bar__usage-meter:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .armada-title-bar__usage-track {
@@ -182,28 +182,29 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--fill);
-  background: var(--level);
+  background: var(--tone);
 }
 
-/* The hover card's lines, on the tooltip's own bubble: an overlay surface, as the ledger's card is. */
-.armada-title-bar__usage-card {
+/* A limit's card hangs under its meter, right edges aligned, in the meter's level tone. Its look is `StopCard`'s. */
+.armada-title-bar__usage-limit {
+  --tone: var(--fg-muted);
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  white-space: nowrap;
 }
 
-.armada-title-bar__usage-card-title {
-  font-weight: var(--weight-medium);
+.armada-title-bar__usage-limit[data-level="warning"] {
+  --tone: var(--status-awaiting-review);
+}
+
+.armada-title-bar__usage-limit[data-level="danger"] {
+  --tone: var(--status-completed-failed);
+}
+
+.armada-title-bar__usage-card {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  top: 100%;
+  inset-inline-end: 0;
 }
 
 .armada-title-bar__helm {

@@ -1,5 +1,5 @@
 import { Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -8,7 +8,7 @@ import { Input } from "../../primitives/Input/Input";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { StopCard } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 
@@ -33,36 +33,86 @@ import { usageLevel } from "../../usage";
  */
 export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string };
 
-const LIMITS: Record<string, { short: string; name: string; weekly: boolean } | undefined> = {
-  five_hour: { short: "5h", name: "5-hour limit", weekly: false },
-  seven_day: { short: "wk", name: "Weekly limit", weekly: true },
+const LIMITS: Record<string, { short: string; name: string } | undefined> = {
+  five_hour: { short: "5h", name: "5-hour limit" },
+  seven_day: { short: "wk", name: "Weekly limit" },
 };
 
-/** "Resets 6:40 PM", in local time; the weekly limit adds the day. Absent where there is no time to say. */
-function resetsSaid(weekly: boolean, at: Date): string {
-  const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `Resets ${weekly ? `${at.toLocaleDateString("en-US", { weekday: "short" })} ` : ""}${time}`;
-}
-
-/** "in 2h 14m", "in 2d 17h", "in 9m": the two largest units left. */
+/** "2h 14m", "2d 17h", "9m": the two largest units left. */
 function countdown(ms: number): string {
   const minutes = Math.max(0, Math.floor(ms / 60_000));
   const days = Math.floor(minutes / 1_440);
   const hours = Math.floor((minutes % 1_440) / 60);
-  if (days > 0) return `in ${days}d ${hours}h`;
-  if (hours > 0) return `in ${hours}h ${minutes % 60}m`;
-  return `in ${minutes}m`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
 }
 
-/** The hover card's lines: the limit, how much is used, and when it resets. */
-function LimitCard({ name, weekly, percent, resetsAt }: { name: string; weekly: boolean; percent: number; resetsAt: string | undefined }) {
-  const at = resetsAt === undefined ? undefined : new Date(resetsAt);
-  const known = at !== undefined && !Number.isNaN(at.getTime());
+/**
+ * One limit as a fill meter, and the card it opens: **hover or focus opens it, a press keeps it open, and
+ * Esc or a press outside closes it**, as a metro stop's card does in the Bays view. No acts.
+ */
+function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; name: string } }) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const here = useRef<HTMLSpanElement>(null);
+  const open = hovered || pinned;
+  useEffect(() => {
+    if (!open) return;
+    const close = () => {
+      setPinned(false);
+      setHovered(false);
+    };
+    const outside = (event: PointerEvent) => {
+      if (here.current !== null && !here.current.contains(event.target as Node)) close();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  const percent = Math.round(one.percentUsed);
+  const level = usageLevel(percent);
+  const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
+  const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
   return (
-    <span className="armada-title-bar__usage-card">
-      <span className="armada-title-bar__usage-card-title">{name}</span>
-      <span>{percent}% used</span>
-      {known ? <span>{`${resetsSaid(weekly, at)} · ${countdown(at.getTime() - Date.now())}`}</span> : null}
+    <span
+      ref={here}
+      className="armada-title-bar__usage-limit"
+      data-level={level}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        className="armada-title-bar__usage-meter"
+        aria-label={`${limit.name} ${percent}%`}
+        aria-expanded={open}
+        style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
+        onClick={() => setPinned((on) => !on)}
+      >
+        <span className="armada-title-bar__usage-label">{limit.short}</span>
+        <span className="armada-title-bar__usage-track" />
+      </button>
+      {open ? (
+        <StopCard
+          className="armada-title-bar__usage-card"
+          role="dialog"
+          aria-label={limit.name}
+          data-pinned={pinned || undefined}
+          pill={`${percent}% used`}
+          where={limit.short}
+          title={limit.name}
+          rows={resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true]]}
+        />
+      ) : null}
     </span>
   );
 }
@@ -75,23 +125,9 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   if (drawn.length === 0) return null;
   return (
     <div className="armada-title-bar__usage">
-      {drawn.map(({ one, limit }) => {
-        const percent = Math.round(one.percentUsed);
-        return (
-          <Tooltip key={one.kind} card label={<LimitCard name={limit.name} weekly={limit.weekly} percent={percent} resetsAt={one.resetsAt} />}>
-            <span
-              className="armada-title-bar__usage-meter"
-              role="img"
-              aria-label={`${limit.name} ${percent}%`}
-              data-level={usageLevel(percent)}
-              style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
-            >
-              <span className="armada-title-bar__usage-label">{limit.short}</span>
-              <span className="armada-title-bar__usage-track" />
-            </span>
-          </Tooltip>
-        );
-      })}
+      {drawn.map(({ one, limit }) => (
+        <LimitMeter key={one.kind} one={one} limit={limit} />
+      ))}
     </div>
   );
 }
