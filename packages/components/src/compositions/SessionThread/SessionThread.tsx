@@ -10,6 +10,7 @@ import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
+import { SessionStop } from "./SessionStop";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
@@ -134,6 +135,8 @@ export type SessionThreadProps = {
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
   working?: boolean;
+  /** Ends the running turn: a Stop sits beside the working mark. Absent, none is drawn. */
+  onStop?: () => void;
   /** What the agent's own rows are labelled. Absent reads `Agent`. */
   agentName?: string;
   /**
@@ -330,7 +333,7 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows, working }: { rows: readonly { id: string; text: string; fromPhone?: true }[]; working?: boolean }) {
+function Calls({ rows, working, onStop }: { rows: readonly { id: string; text: string; fromPhone?: true }[]; working?: boolean; onStop?: () => void }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
@@ -338,6 +341,7 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string; f
         <summary className="armada-session-fold__head" aria-label={`Tool calls: ${names.join(", ")}`}>
           <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
           {working === true ? <SessionMark state="working" said="Working" /> : <Wrench size={12} strokeWidth={2} aria-hidden />}
+          {working === true && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
           <span className="armada-session-fold__names">{names.join(", ")}</span>
         </summary>
         <ol className="armada-session-fold__calls">
@@ -625,7 +629,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -659,7 +663,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, on
         <ol className="armada-helm-thread__rows">
           {items.map((item, at) =>
             item.kind === "calls" ? (
-              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
+              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
@@ -669,6 +673,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, on
           {working === true && !endsInCalls ? (
             <li className="armada-session-thread__working">
               <SessionMark state="working" said="Working" />
+              {onStop === undefined ? null : <SessionStop onStop={onStop} />}
             </li>
           ) : null}
         </ol>
