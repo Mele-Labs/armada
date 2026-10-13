@@ -86,6 +86,7 @@ import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
+import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
 import { useViewing } from "./cockpit/viewed";
 
@@ -625,17 +626,24 @@ function entriesOf(
     if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
+    // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
+    const restart = restartOf(act);
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
-      name: one.text,
-      text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
-      card: {
-        title: one.text,
-        facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
-      },
+      name: restart?.label ?? one.text,
+      text: restart !== undefined ? restart.label : act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      ...(restart !== undefined
+        ? {}
+        : {
+            card: {
+              title: one.text,
+              facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
+            },
+          }),
       ...(act === undefined ? {} : { act: act.kind }),
-      ...(act?.kind === "run" && runner !== undefined ? { run: { command: act.target, runner } } : {}),
+      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, ...(runner === undefined ? {} : { runner }) } } : {}),
+      ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
         : {
@@ -650,7 +658,7 @@ function entriesOf(
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
       onOpen: () => {
-        if (act === undefined) return;
+        if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
         else if (act.kind === "approve_pr") read({ kind: "pull_request", number: Number(act.target.replace(/^#/, "")) });
         else if (act.kind === "run") {

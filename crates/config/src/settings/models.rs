@@ -6,6 +6,7 @@ use super::{Applies, Entry, Integer, Kind, List, Options, Section, Shipped, Word
 
 pub const MODELS_ROSTER: List = List("models.roster");
 pub const MODELS_DEFAULT: Words = Words("models.default");
+pub const MODELS_SESSION: Words = Words("models.session");
 pub const MODELS_JUDGE: Words = Words("models.judge");
 pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
@@ -45,12 +46,25 @@ pub(super) const MODEL: &[Entry] = &[
         key: MODELS_DEFAULT.0,
         section: Section::Model,
         title: "Default model",
-        description: "The model a Job's Drones and a Session run on when none is named.",
+        description: "The model a Job's Drones run on when none is named.",
         kind: Kind::Choice(Options::Models),
         shipped: Shipped::Supplied,
         applies: Applies::Live,
         row: Some("default-model-per-job-type"),
         env: Some("ARMADA_MODEL"),
+    },
+    // The strongest in the roster, and its own dial so the plan's step down
+    // moves Sessions without moving what Drones run on.
+    Entry {
+        key: MODELS_SESSION.0,
+        section: Section::Model,
+        title: "Session model",
+        description: "The model a Session runs on when none is chosen.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("session-model"),
+        env: None,
     },
     // The cheapest in the roster: the Judge is the cheap one checking the work,
     // and a machine that raised it by raising the Drone's would pay Drone
@@ -183,7 +197,7 @@ pub(super) const PLAN: &[Entry] = &[
         key: PLAN_DOWNSHIFT_AT.0,
         section: Section::Plan,
         title: "Offer a lower default at",
-        description: "How much of the weekly plan window must be used before the default model is offered a step down until the window resets.",
+        description: "How much of the weekly plan window must be used before the Session model is offered a step down until the window resets.",
         kind: Kind::Integer { min: 1, max: 100, unit: "percent" },
         shipped: Shipped::Integer(80),
         applies: Applies::Live,
@@ -196,7 +210,7 @@ pub(super) const PLAN: &[Entry] = &[
         key: PLAN_DOWNSHIFT_TO.0,
         section: Section::Plan,
         title: "Lower default model",
-        description: "The model the default steps down to when you accept the offer.",
+        description: "The model the Session model steps down to when you accept the offer.",
         kind: Kind::Choice(Options::Models),
         shipped: Shipped::Supplied,
         applies: Applies::Live,

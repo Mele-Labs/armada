@@ -38,6 +38,7 @@ pub(crate) fn supplied() -> Supplied {
         .words(s::HARNESS_BINARY_PATH, "the-agent")
         .list(s::MODELS_ROSTER, &["a-model", "another-model"])
         .words(s::MODELS_DEFAULT, "a-model")
+        .words(s::MODELS_SESSION, "a-model")
         .words(s::MODELS_JUDGE, "a-model")
         .words(s::MODELS_PROPOSER, "a-model")
         .words(s::MODELS_RETRO, "another-model")

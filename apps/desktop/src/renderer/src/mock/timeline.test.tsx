@@ -61,6 +61,20 @@ test("a take remembered from before is the one it opens on", async () => {
   await expect.element(take("Split")).toHaveAttribute("aria-selected", "true");
 });
 
+test("Lanes scrolls sideways, opens at now, and a Session's mark never turns its card", async () => {
+  await timeline();
+  const body = document.querySelector<HTMLElement>(".armada-tl__body")!;
+
+  expect(body.scrollWidth).toBeGreaterThan(body.clientWidth);
+  expect(body.scrollLeft + body.clientWidth).toBeGreaterThanOrEqual(body.scrollWidth - 1);
+  body.scrollLeft = 0;
+  expect(body.scrollLeft).toBe(0);
+
+  // The diamond is drawn on the mark, not the button the card hangs from.
+  const pip = document.querySelector<HTMLElement>('.armada-tl__pip[data-shape="session"]')!;
+  expect(getComputedStyle(pip).transform).toBe("none");
+});
+
 test("the filter narrows it as it narrows the grid: Your move keeps what needs him, Done what is over", async () => {
   await timeline();
   const subject = (name: RegExp) => page.getByRole("button", { name });

@@ -1,5 +1,5 @@
-//! The default model's step down through a real Fleet: the weekly window fed as sessions report it,
-//! the owner's four commands, and what `models.default` is afterwards. `docs/concepts/machine.md`, *Quota*.
+//! The Session model's step down through a real Fleet: the weekly window fed as sessions report it,
+//! the owner's four commands, and what `models.session` is afterwards. `docs/concepts/machine.md`, *Quota*.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -56,6 +56,12 @@ async fn state(fleet: &Fixture) -> Option<ModelDownshift> {
 
 fn changing(value: Option<&str>) -> SaveSettings {
     SaveSettings {
+        changes: BTreeMap::from([("models.session".to_string(), value.map(|one| SettingValue::Text(one.into())))]),
+    }
+}
+
+fn changing_default(value: Option<&str>) -> SaveSettings {
+    SaveSettings {
         changes: BTreeMap::from([("models.default".to_string(), value.map(|one| SettingValue::Text(one.into())))]),
     }
 }
@@ -64,6 +70,15 @@ fn changing(value: Option<&str>) -> SaveSettings {
 fn file_default(home: &TempDir) -> Option<String> {
     let file = settings_file::read(&settings_file_in(home)).ok().flatten()?;
     match file.get("models.default") {
+        Some(settings_file::SettingValue::Text(text)) => Some(text.clone()),
+        _ => None,
+    }
+}
+
+/// What settings.json holds for `models.session`.
+fn file_session(home: &TempDir) -> Option<String> {
+    let file = settings_file::read(&settings_file_in(home)).ok().flatten()?;
+    match file.get("models.session") {
         Some(settings_file::SettingValue::Text(text)) => Some(text.clone()),
         _ => None,
     }
@@ -122,7 +137,7 @@ async fn the_line_offers_once_for_a_window_and_the_percent_follows_while_it_stan
     assert_eq!(next_state(&mut watching).await, None, "settled");
     feed(&fleet, 95, WEEK).await;
     assert_eq!(state(&fleet).await, None, "a settled window is not offered again");
-    assert_eq!(fleet.default_model(), "a-model", "settling touches no setting");
+    assert_eq!(fleet.session_model(), "a-model", "settling touches no setting");
 }
 
 #[tokio::test]
@@ -155,14 +170,14 @@ async fn accepting_writes_the_saved_word_and_restoring_puts_it_back() {
 
     let answered = fleet.accept_downshift().await.unwrap();
     assert_eq!(answered.downshift, Some(shifted(WEEK)));
-    assert_eq!(file_default(&home).as_deref(), Some("another-model"));
-    assert_eq!(fleet.default_model(), "another-model");
-    assert_eq!(fleet.list_models().await.unwrap().default, "another-model", "the picker follows");
+    assert_eq!(file_session(&home).as_deref(), Some("another-model"));
+    assert_eq!(fleet.session_model(), "another-model");
+    assert_eq!(fleet.list_models().await.unwrap().session, "another-model", "the picker follows");
 
     let answered = fleet.restore_downshift().await.unwrap();
     assert_eq!(answered.downshift, None);
-    assert_eq!(file_default(&home).as_deref(), Some("a-model"), "the word the file held");
-    assert_eq!(fleet.default_model(), "a-model");
+    assert_eq!(file_session(&home).as_deref(), Some("a-model"), "the word the file held");
+    assert_eq!(fleet.session_model(), "a-model");
 }
 
 #[tokio::test]
@@ -171,11 +186,11 @@ async fn restoring_a_default_that_was_not_saved_removes_the_key_rather_than_pinn
     let fleet = fleet_in(&home);
     feed(&fleet, 90, WEEK).await;
     fleet.accept_downshift().await.unwrap();
-    assert_eq!(file_default(&home).as_deref(), Some("another-model"));
+    assert_eq!(file_session(&home).as_deref(), Some("another-model"));
 
     fleet.restore_downshift().await.unwrap();
-    assert_eq!(file_default(&home), None, "the key is gone, so what ships is back in force");
-    assert_eq!(fleet.default_model(), "a-model");
+    assert_eq!(file_session(&home), None, "the key is gone, so what ships is back in force");
+    assert_eq!(fleet.session_model(), "a-model");
 }
 
 #[tokio::test]
@@ -192,11 +207,11 @@ async fn the_window_rolling_over_while_shifted_offers_the_way_back_and_keep_leav
         state(&fleet).await,
         Some(ModelDownshift::Reset { was: "a-model".into(), to: "another-model".into() })
     );
-    assert_eq!(fleet.default_model(), "another-model", "still lowered until the owner says");
+    assert_eq!(fleet.session_model(), "another-model", "still lowered until the owner says");
 
     let answered = fleet.keep_downshift().await.unwrap();
     assert_eq!(answered.downshift, None);
-    assert_eq!(file_default(&home).as_deref(), Some("another-model"));
+    assert_eq!(file_session(&home).as_deref(), Some("another-model"));
     feed(&fleet, 90, NEXT_WEEK).await;
     assert_eq!(state(&fleet).await, None, "default already is the lower model");
 }
@@ -210,7 +225,7 @@ async fn restoring_after_the_reset_puts_the_default_back() {
     feed(&fleet, 3, NEXT_WEEK).await;
     fleet.restore_downshift().await.unwrap();
     assert_eq!(state(&fleet).await, None);
-    assert_eq!(fleet.default_model(), "a-model");
+    assert_eq!(fleet.session_model(), "a-model");
 }
 
 #[tokio::test]
@@ -241,7 +256,7 @@ async fn a_refused_write_keeps_the_offer_and_the_default() {
     std::fs::create_dir(settings_file_in(&home)).unwrap();
     assert!(matches!(fleet.accept_downshift().await, Err(Refusal::Fault(_))));
     assert_eq!(state(&fleet).await, Some(offered(85)));
-    assert_eq!(fleet.default_model(), "a-model");
+    assert_eq!(fleet.session_model(), "a-model");
 }
 
 #[tokio::test]
@@ -254,7 +269,7 @@ async fn a_shifted_default_survives_a_restart_and_an_empty_reading_does_not_clea
     }
     let fleet = fleet_in(&home);
     assert_eq!(state(&fleet).await, Some(shifted(WEEK)), "no session has measured since the start");
-    assert_eq!(fleet.default_model(), "another-model");
+    assert_eq!(fleet.session_model(), "another-model");
 
     feed(&fleet, 30, WEEK).await;
     assert_eq!(state(&fleet).await, Some(shifted(WEEK)));
@@ -284,7 +299,7 @@ async fn setting_the_default_by_hand_settles_an_offer_and_a_shift_but_an_unrelat
     assert!(matches!(fleet.settings_reread().await, Reread::Taken));
     assert_eq!(state(&fleet).await, Some(offered(85)), "another setting is not the default");
 
-    std::fs::write(settings_file_in(&home), r#"{"models.default": "another-model"}"#).unwrap();
+    std::fs::write(settings_file_in(&home), r#"{"models.session": "another-model"}"#).unwrap();
     assert!(matches!(fleet.settings_reread().await, Reread::Taken));
     assert_eq!(state(&fleet).await, None, "the owner chose");
     feed(&fleet, 93, WEEK).await;
@@ -304,13 +319,13 @@ async fn a_hand_edit_away_from_the_lower_model_ends_a_shift() {
     let fleet = fleet_in(&home);
     feed(&fleet, 85, WEEK).await;
     fleet.accept_downshift().await.unwrap();
-    std::fs::write(settings_file_in(&home), r#"{"models.default": "a-model", "limits.dronesAtOnce": 2}"#).unwrap();
+    std::fs::write(settings_file_in(&home), r#"{"models.session": "a-model", "limits.dronesAtOnce": 2}"#).unwrap();
     assert!(matches!(fleet.settings_reread().await, Reread::Taken));
     assert_eq!(state(&fleet).await, None);
 }
 
 #[tokio::test]
-async fn a_job_proposed_with_no_model_takes_the_default_as_it_stands() {
+async fn a_job_proposed_with_no_model_takes_models_default_and_the_step_down_never_moves_it() {
     let home = TempDir::new();
     let fleet = fleet_in(&home);
     let mut proposal = a_proposal("the reader is off by one");
@@ -319,11 +334,30 @@ async fn a_job_proposed_with_no_model_takes_the_default_as_it_stands() {
 
     feed(&fleet, 85, WEEK).await;
     fleet.accept_downshift().await.unwrap();
-    assert_eq!(fleet.propose(proposal).await.unwrap().model().as_str(), "another-model");
+    assert_eq!(fleet.session_model(), "another-model");
+    assert_eq!(fleet.default_model(), "a-model", "the Drone's default is not the Session's");
+    assert_eq!(file_default(&home), None, "and nothing was written to it");
+    assert_eq!(fleet.propose(proposal).await.unwrap().model().as_str(), "a-model");
 }
 
 #[tokio::test]
-async fn a_session_started_with_no_model_runs_on_the_default_at_the_time_its_process_starts() {
+async fn the_offer_follows_the_session_model_and_not_the_drones() {
+    let home = TempDir::new();
+    let fleet = fleet_in(&home);
+    // The Drone's default already is the lower model; the Session's is not.
+    fleet.save_settings(changing_default(Some("another-model"))).await.unwrap();
+    feed(&fleet, 80, WEEK).await;
+    assert_eq!(state(&fleet).await, Some(offered(80)), "at the line, over the Session's model");
+
+    // Editing the Drone's default by hand while offered is nobody's step down, so it settles nothing.
+    fleet.save_settings(changing_default(Some("a-model"))).await.unwrap();
+    assert_eq!(state(&fleet).await, Some(offered(80)));
+    fleet.accept_downshift().await.unwrap();
+    assert_eq!(file_session(&home).as_deref(), Some("another-model"));
+}
+
+#[tokio::test]
+async fn a_session_started_with_no_model_runs_on_the_session_model_at_the_time_its_process_starts() {
     let rig = rig_placing(None);
     let first = rig.start().await;
     rig.send(&first, "hello").await;
@@ -336,4 +370,5 @@ async fn a_session_started_with_no_model_runs_on_the_default_at_the_time_its_pro
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
     assert_eq!(rig.stand_in.starts()[1].model.as_deref(), Some("another-model"));
     assert_eq!(rig.stand_in.starts()[0].model.as_deref(), Some("a-model"), "a process running is not moved");
+    assert_eq!(rig.fleet.default_model(), "a-model", "a Drone's default is not the Session's");
 }

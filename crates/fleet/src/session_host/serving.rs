@@ -957,8 +957,8 @@ where
                         None => None,
                     },
                     name: address_of(id),
-                    // None chosen is the default at the time the process starts, not when it was made.
-                    model: hosting.model.clone().or_else(|| Some(self.default_model())),
+                    // None chosen is the Session default at the time the process starts, not when it was made.
+                    model: hosting.model.clone().or_else(|| Some(self.session_model())),
                     effort: hosting.effort.clone(),
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],

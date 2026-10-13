@@ -3836,7 +3836,7 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, f
 
 **The event stream.** `plan_usage.changed` is one small message per moved whole percent, through the shared drop-oldest backlog, and a mod reports at most every ten seconds a session. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_plan_usage` on the resync that follows a `Missed`. It leaves the unmeasured sink risk where it was. Held sessions and Jobs add no event of their own; they ride `session.changed` and `job.paused`.
 
-## The default model steps down
+## The Session model steps down
 
 **Additive only**: five operations, one event kind, two types. Bridge's half is `packages/protocol/src/model-downshift.ts` and `events.ts`, written by hand.
 
@@ -3844,16 +3844,27 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, f
 | --- | --- | --- |
 | `get_model_downshift` (`GET /model_downshift`) | `ModelDownshiftState`: `downshift?`, tagged by `phase` | `offered` (`percent`, `was`, `to`), `shifted` (`was`, `to`, `until`) or `reset` (`was`, `to`). Absent is none |
 | `model_downshift.changed` (event) | `ModelDownshiftState`, whole | Published when the state moves, the offer's percent included. Served and published, so a Bridge opened later asks |
-| `accept_downshift` (`POST /model_downshift/accept`) | no body | Valid while `offered`. Writes `models.default` through `save_settings`' path; a refused write keeps the state |
+| `accept_downshift` (`POST /model_downshift/accept`) | no body | Valid while `offered`. Writes `models.session` through `save_settings`' path; a refused write keeps the state |
 | `restore_downshift` (`POST /model_downshift/restore`) | no body | Valid while `shifted` or `reset`. Puts the saved word back, or removes the key |
 | `keep_downshift` (`POST /model_downshift/keep`) | no body | Valid while `reset`. Leaves the lower model as the default |
 | `settle_downshift` (`POST /model_downshift/settle`) | no body | Valid while `offered`. Makes no second offer in this window |
 
-**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left. All four are `agent_access` `No`, `save_settings`' reason. Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` is now `live`.
+**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left. All four are `agent_access` `No`, `save_settings`' reason. Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` and `models.session` are `live`. The step down moves `models.session` and never `models.default`, which Drones and Jobs keep.
 
 **The event stream.** `model_downshift.changed` is rare: an offer, an accept, a reset, a restore, and the percent moving a whole point while an offer stands. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
 
 **Bridge's side.** Main passes the event to every window and to `downshift-notice.ts`, which tells the OS when the state enters `offered` or `reset`, once for each entry; the state read on a connection is remembered and told to nobody. A window's source (`fleet-downshift.ts`) reads once Fleet is connected, and a 409 from an act makes it read again rather than show an error.
+
+## A Session's own default model
+
+**One required field and one setting.** `ModelChoices.session` is `models.session` as it stands when `list_models` is asked, always a member of `models`, and `default` stays `models.default`. It is required, not additive: Bridge and Fleet ship together, and a Fleet that omits it fails Bridge's read rather than drawing a picker with no Session default. Bridge's half is `packages/protocol/src/setup.ts`, written by hand.
+
+| Setting | Ships as | Read by |
+| --- | --- | --- |
+| `models.session` | The roster's strongest model, derived in `adapters` | A hosted Session whose process starts with no model chosen, and the step down |
+| `models.default` | The Drone's model | A Job proposed with no model, and nothing that starts a Session |
+
+**No environment variable** names `models.session`; `ARMADA_MODEL` still names `models.default`. The setting is `live` and a Session already running keeps its process until the next message starts another.
 
 ## The Fleet's timeline: kept as it happens, read as a window
 

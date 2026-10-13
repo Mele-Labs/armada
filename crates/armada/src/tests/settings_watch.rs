@@ -50,3 +50,19 @@ async fn a_file_made_after_the_watch_and_a_rename_over_it_are_each_noticed_once(
 fn the_composition_root_supplies_every_default_it_alone_can_know() {
     assert_eq!(crate::settings::supplied().missing(), Vec::<&str>::new());
 }
+
+/// The owner's own machine: a Session ships on a different model from the step down's target and
+/// from the Drone's, so the offer is made and moving it never moves what Drones run on.
+#[test]
+fn a_machine_that_changed_nothing_has_a_session_model_the_step_down_can_lower() {
+    use config::settings as keys;
+    let shipped = config::settings::Resolved::new(
+        config::settings::Saved::nothing(),
+        crate::settings::supplied(),
+        config::settings::Env::read(|_| None),
+    );
+    assert_eq!(shipped.get(keys::MODELS_SESSION), adapters::HeadlessAgent::session_model());
+    assert_ne!(shipped.get(keys::MODELS_SESSION), shipped.get(keys::PLAN_DOWNSHIFT_TO));
+    assert_ne!(shipped.get(keys::MODELS_SESSION), shipped.get(keys::MODELS_DEFAULT));
+    assert!(shipped.models().contains(&shipped.get(keys::MODELS_SESSION)));
+}

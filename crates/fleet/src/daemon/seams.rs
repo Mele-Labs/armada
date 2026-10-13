@@ -442,10 +442,15 @@ where
     pub(crate) fn downshift(&self) -> &crate::model_downshifting::Holding {
         &self.downshift
     }
-    /// The model a proposal or a session that names none is given. **Read when it is asked**:
-    /// `models.default` is live, so the plan's step down reaches the next Job and the next process.
+    /// The model a proposal that names none is given. **Read when it is asked**: `models.default`
+    /// is live, so a change reaches the next Job.
     pub(crate) fn default_model(&self) -> String {
         self.machine_settings().now().get(config::settings::MODELS_DEFAULT)
+    }
+    /// The model a hosted Session that names none starts on, read when its process starts for
+    /// `default_model`'s reason. A Job's Drone never reads it.
+    pub(crate) fn session_model(&self) -> String {
+        self.machine_settings().now().get(config::settings::MODELS_SESSION)
     }
     /// What a request's own link resolves to. Read by `crate::proposal`
     /// before a request becomes a Job's `facts`.

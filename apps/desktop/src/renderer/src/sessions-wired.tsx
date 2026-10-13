@@ -152,9 +152,16 @@ export class WiredStore {
     });
   }
 
+  /** Where a Session about a Job starts: the Job's own repository, so All never has to ask. */
+  private rootOfJob(tag: SessionTag | undefined): string | undefined {
+    if (tag?.kind !== "job") return undefined;
+    const manifest = this.inputs?.jobs.find((one) => one.id === tag.id)?.owner_manifest_id;
+    return manifest === undefined ? undefined : this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifest)?.root;
+  }
+
   private async starting(tag: SessionTag | undefined, root: string | undefined): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession(undefined, root);
+    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag));
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -393,7 +400,7 @@ export class WiredStore {
       return store.inputs?.holds.models?.models ?? NONE;
     },
     get defaultModel() {
-      return store.inputs?.holds.models?.default;
+      return store.inputs?.holds.models?.session;
     },
     efforts: EFFORTS,
     get commands() {
