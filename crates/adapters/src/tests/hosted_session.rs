@@ -220,6 +220,7 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
         "git branch --show-current",
         "gh pr view 12",
         "armada need --status",
+        "armada worktree --status",
     ] {
         assert!(reads_only(read), "{read}");
     }
@@ -233,6 +234,8 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
         "cat $(touch x)",
         "find . -delete",
         "npm install",
+        "armada worktree release /repo/.armada/slots/slot-5",
+        "armada worktree --status && armada worktree release",
     ] {
         assert!(!reads_only(write), "{write}");
     }

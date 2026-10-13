@@ -335,6 +335,10 @@ fn reads(segment: &str) -> bool {
     if segment.starts_with("find ") && (segment.contains("-delete") || segment.contains("-exec")) {
         return false;
     }
+    // `armada` is a read as a whole, but giving a slot back changes the pool and the slot.
+    if segment.split_whitespace().take(3).eq(["armada", "worktree", "release"]) {
+        return false;
+    }
     READS.iter().any(|read| named(read))
 }
 

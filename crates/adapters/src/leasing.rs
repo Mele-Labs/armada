@@ -142,7 +142,7 @@ impl Pool {
         mut waiting: impl FnMut(&Full),
     ) -> Result<Lease, LeaseRefused> {
         loop {
-            match self.try_lease(branch, holder, since, seed)? {
+            match self.take(Onto::New, branch, holder, since, seed)? {
                 Leased::Took(lease) => return Ok(lease),
                 Leased::Full(full) => waiting(&full),
             }
@@ -158,7 +158,29 @@ impl Pool {
         since: u64,
         seed: Seed<'_>,
     ) -> Result<Leased, LeaseRefused> {
+        if let Some(own) = self.handed_back(holder) {
+            return Ok(Leased::Took(own));
+        }
         self.take(Onto::New, branch, holder, since, seed)
+    }
+
+    /// A Job asking again is handed its own slot as it stands: resetting it
+    /// would throw away the work a Drone left there. **Only Fleet asks this
+    /// way** (`try_lease`); `armada worktree lease` takes a slot per call, so
+    /// a hosted session, which holds as a Job of its own id, can lease one
+    /// for a subagent beside its own.
+    fn handed_back(&self, holder: &Holder) -> Option<Lease> {
+        let Holder::Job(_) = holder else { return None };
+        let slot = self.held_by(holder)?;
+        Some(Lease {
+            slot,
+            path: self.path_of(slot),
+            reclaimed_from: None,
+            seeded_from: None,
+            unfetched: None,
+            made: false,
+            cut: false,
+        })
     }
 
     fn take(
@@ -169,21 +191,6 @@ impl Pool {
         since: u64,
         seed: Seed<'_>,
     ) -> Result<Leased, LeaseRefused> {
-        // A Job asking again is handed its own slot as it stands: resetting it
-        // would throw away the work a Drone left there.
-        if let Holder::Job(_) = holder {
-            if let Some(slot) = self.held_by(holder) {
-                return Ok(Leased::Took(Lease {
-                    slot,
-                    path: self.path_of(slot),
-                    reclaimed_from: None,
-                    seeded_from: None,
-                    unfetched: None,
-                    made: false,
-                    cut: false,
-                }));
-            }
-        }
         // A branch that exists is leased at its tip whatever was asked, and
         // nothing is cut from the base, so there is no base to fetch.
         let onto = self.resolved(onto, branch)?;
