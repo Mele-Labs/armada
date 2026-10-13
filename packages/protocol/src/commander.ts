@@ -62,3 +62,60 @@ export type CommanderChanged = {
   job_id: string;
   state: CommanderState;
 };
+
+/** Who put a card out: the Commander through `ask_the_owner`, or Fleet where the loop bound stopped it. */
+export type CardBy = "commander" | "fleet";
+
+/** One option of a card. `id` is what an answer names: its one-based place. */
+export type CardOption = {
+  id: string;
+  label: string;
+};
+
+/**
+ * The card a Job's Commander has out to the owner, which outlives the turn that raised it. #2166.
+ * A Drone's question one subject over: asked once, a closed set to pick from, and it waits however
+ * long he takes. **While it is out `JobSummary.asking` is true**, which puts the Job in Your move.
+ */
+export type CommanderCard = {
+  card_id: string;
+  job_id: string;
+  by: CardBy;
+  raised_at: string;
+  /** What is wrong. */
+  text: string;
+  /** What is out of the Commander's reach. */
+  reach: string;
+  question: string;
+  /** Two to four, in the order asked. */
+  options: CardOption[];
+};
+
+/** `POST /jobs/:job_id/commander/card`. Sent by a Commander only. Every line has something in it; two to four distinct labels. */
+export type AskTheOwner = {
+  text: string;
+  reach: string;
+  question: string;
+  options: string[];
+};
+
+/** `POST /jobs/:job_id/commander/card/answer` — his pick. No prose. */
+export type AnswerCommanderCard = {
+  card_id: string;
+  option_id: string;
+};
+
+/** What `answer_commander_card` answers with. */
+export type CommanderCardAnswered = {
+  job_id: string;
+  card_id: string;
+  option_id: string;
+  /** The Commander was woken with the answer. `false` where it could not start. */
+  woke: boolean;
+};
+
+/** `commander.card`: a card went out, or the one out was answered (no `card`). `job.asking`'s shape. */
+export type CommanderCardChanged = {
+  job_id: string;
+  card?: CommanderCard;
+};

@@ -227,9 +227,16 @@ effort is the harness's own. Their rows are `commander-model` in
 **A Job's own model wins over the Machine's, and absent defers.** The tier below
 is a record and not a file, `jobs.cost_cap_micros`'s shape one section up: a
 nullable value on the Job, where null means *use the Machine's* and is not a
-value of its own. Effort follows the same pattern. The Job's half is built with
-the Commander's card (`#2166`, second part), and until it lands the Machine's
-value is the only one.
+value of its own. Effort follows the same pattern, and **each half defers on its
+own**: a Job that names a model and no effort takes the Machine's effort. Both
+are columns on the Job (`commander_model_override`, `commander_effort_override`),
+chosen with `set_commander_model` and read back on `JobDetail`. The model must be
+one `list_models` offers, as `set_model` requires, and the effort one of the
+words the setting spells. `harness default` is a choice, so a Job may take the
+harness's own effort over a Machine that names one. Like `set_review_model` it is
+Helm's to call on request and not the Commander's: an agent does not choose its
+own model. It is read at the start of the next turn, and a turn running when it
+was chosen keeps the model it started with.
 
 **It is not an `armada.yml` key.** A Commander is not a step's Drone and a
 repository has no standing to choose what reads its Jobs; the two tiers that

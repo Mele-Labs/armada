@@ -166,6 +166,29 @@ where
         Ok(())
     }
 
+    /// `set_commander_model` as the daemon answers it: the choice kept, and the
+    /// Job's summary back, `set_model`'s shape.
+    pub(crate) async fn commander_model_chosen(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        choice: ipc::SetCommanderModel,
+    ) -> Result<ipc::JobSummary, api::Refusal> {
+        let job = crate::budget::budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = std::sync::Arc::clone(&self);
+            async move {
+                let id = job_id.to_domain();
+                let job = fleet.load(&id).await?;
+                Fleet::set_commander_model(&fleet, &id, choice.model.as_deref(), choice.effort.as_deref())
+                    .await
+                    .map_err(|why| why.about(&id))?;
+                Ok(job)
+            }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// What a person chose for this Job's Commander, for `get_job` and the next
     /// turn. **Nothing chosen where the store will not say**: the machine's
     /// `models.commander` and `effort.commander` then apply.

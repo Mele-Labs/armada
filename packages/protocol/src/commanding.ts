@@ -199,6 +199,17 @@ export type SetModel = {
 };
 
 /**
+ * The body of `set_commander_model`: the model and effort one Job's Commander runs on, over the
+ * machine's `models.commander` and `effort.commander`. #2166. **Both keys are sent**, `SetModel`'s
+ * reason: `null` clears that half, and a body missing either is refused.
+ */
+export type SetCommanderModel = {
+  model: string | null;
+  /** `harness default`, `low`, `medium` or `high`. */
+  effort: string | null;
+};
+
+/**
  * The body of `remove_allowed_command`. Since protocol 11.0. Answered with the
  * job's summary.
  *

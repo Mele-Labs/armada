@@ -66,7 +66,7 @@ impl Scripted {
         }
     }
 
-    fn carried(&self) -> Vec<Carry> {
+    pub(super) fn carried(&self) -> Vec<Carry> {
         self.carried.lock().expect("not poisoned").clone()
     }
 
@@ -136,7 +136,7 @@ impl Hosting for Scripted {
     }
 }
 
-fn hosted(home: &TempDir, host: &Arc<Scripted>) -> Arc<Hosted> {
+pub(super) fn hosted(home: &TempDir, host: &Arc<Scripted>) -> Arc<Hosted> {
     Arc::new(
         Fleet::assembled(fittings(home, FakeWorkProduct::changed(&["src/log.rs"])))
             .hosting_helm_on(Arc::clone(host) as Arc<dyn Hosting>),
@@ -151,7 +151,7 @@ pub(super) async fn working(fleet: &Hosted, home: &TempDir, title: &str) -> JobI
     job.id().clone()
 }
 
-async fn resolved(fleet: &Hosted, job: &JobId) -> api::Resolved {
+pub(super) async fn resolved(fleet: &Hosted, job: &JobId) -> api::Resolved {
     let record = fleet.load(job).await.expect("the Job reads");
     api::Resolved::of(ipc::JobId::from(job), record.handle())
 }
@@ -168,7 +168,7 @@ async fn ask(fleet: &Arc<Hosted>, job: &JobId, text: &str) -> ipc::CommanderConv
         .expect("the words are taken")
 }
 
-async fn said(fleet: &Hosted, job: &JobId) -> Vec<CommanderMessage> {
+pub(super) async fn said(fleet: &Hosted, job: &JobId) -> Vec<CommanderMessage> {
     let observed = fleet
         .observe_commander(resolved(fleet, job).await)
         .await
@@ -176,7 +176,7 @@ async fn said(fleet: &Hosted, job: &JobId) -> Vec<CommanderMessage> {
     observed.history
 }
 
-async fn settled(fleet: &Hosted, job: &JobId) {
+pub(super) async fn settled(fleet: &Hosted, job: &JobId) {
     for _ in 0..500 {
         let observed = fleet
             .observe_commander(resolved(fleet, job).await)
@@ -200,7 +200,7 @@ fn asked_rows(thread: &[CommanderMessage]) -> Vec<&str> {
         .collect()
 }
 
-fn woke_rows(thread: &[CommanderMessage]) -> Vec<&str> {
+pub(super) fn woke_rows(thread: &[CommanderMessage]) -> Vec<&str> {
     thread
         .iter()
         .filter_map(|message| match message {

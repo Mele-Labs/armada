@@ -607,6 +607,42 @@ the last one ends.
 **Nothing on it advances a Job.** A `row` is what the session said, read as what
 it said.
 
+### The Commander's card
+
+A card is the one question a Commander puts to the owner, and it outlives the
+turn that raised it. `POST /jobs/:job_id/commander/card` (`ask_the_owner`) takes
+`text` (what is wrong), `reach` (what is out of its reach), `question` and
+`options`, and answers 200 with the card as stored. `POST
+/jobs/:job_id/commander/card/answer` (`answer_commander_card`) takes the card's
+id and the option's id, and nothing else. `crates/ipc/src/commander_card.rs` has
+the types and `packages/protocol/src/commander.ts` is Bridge's half.
+
+| Rule | How it is held |
+| --- | --- |
+| Only a Commander raises one | `agent_access = "Commander only"`, a fourth table beside `Helm only` that the door lists to a Commander and to no one else, and the route refuses a call the door did not place as a Commander's |
+| The owner answers, never an agent | `answer_commander_card` is `agent_access = "No"` |
+| Two to four options, none blank or alike | The body does not decode otherwise, as a Drone's question's rule |
+| An option's id is its place | A card carries no ids of its own to invent; an answer names `1` to `4` |
+| One card out per Job | A second is a 409 naming the question already waiting |
+| A stale answer is refused | A card that is not the one out, or an option it never offered, is a 409 and nothing is kept |
+| It waits however long he takes | Kept in `commander_cards`, not held on a call; a Fleet that restarts still has it |
+
+**Counted as the Job waiting on the owner.** While a card is out
+`JobSummary.asking` reads `true` and `JobDetail.commander_card` carries it, which
+is what puts the Job in Your move and in `list_alerts`' blocked list. Nothing
+else moves: a running Job keeps running, and an escalated one stays escalated
+with the card beside it. `commander.card` on `/events` is `job.asking`'s shape,
+two messages per card: the card going out, and none coming back.
+
+**Answering wakes the Commander.** The answer is kept first, then `wake_commander`
+is called with the question and the label he picked as its reason, and the
+answer says `woke: false` where the Commander could not start.
+
+**`set_commander_model`** takes `model` and `effort`, both sent and either
+`null`, and answers with the Job's summary. `JobDetail.commander_model_override`
+and `commander_effort_override` read the choice back. `agent_access` is `Helm
+only`.
+
 ## Changes before IDs
 
 The sections headed `Protocol N.M` below were written when the wire carried a
