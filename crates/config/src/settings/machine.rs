@@ -1,5 +1,6 @@
 //! Which agent CLI a Drone runs as and on what `PATH`, the switches that turn
-//! a behaviour on or off, and the programs Bridge opens a file or a folder in.
+//! a behaviour on or off, the programs Bridge opens a file or a folder in, and
+//! where a pull request link opens.
 
 use super::{Applies, Entry, Flag, Kind, List, Options, Section, Shipped, Words};
 
