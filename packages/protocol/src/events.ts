@@ -21,6 +21,7 @@ import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { SleepState } from "./sleep";
+import type { TimelineAppended } from "./timeline";
 import type { Autopilot } from "./autopilot";
 import type { CommanderCardChanged, CommanderChanged } from "./commander";
 import type { SessionRecord } from "./sessions";
@@ -117,7 +118,9 @@ export type Event =
   /** A Job's Commander started or finished a turn. #2166. */
   | ({ kind: "commander.changed" } & CommanderChanged)
   /** A Job's card to the owner went out, or the one out was answered. #2166. */
-  | ({ kind: "commander.card" } & CommanderCardChanged);
+  | ({ kind: "commander.card" } & CommanderCardChanged)
+  /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */
+  | ({ kind: "timeline.appended" } & TimelineAppended);
 
 /**
  * A Job exists that did not before, carrying the row whole.

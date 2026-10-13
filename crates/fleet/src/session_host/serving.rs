@@ -165,6 +165,7 @@ where
         if !held {
             return Err(self.ask_not_waiting());
         }
+        let said_answer = said.answer;
         let answer = AnswerHelmCall {
             call: said.call,
             answer: said.answer,
@@ -188,7 +189,9 @@ where
             self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer))
                 .await?;
         }
-        self.published_hosted(&id).await
+        let record = self.published_hosted(&id).await?;
+        self.session_answered(&record, crate::timeline::card_answer_says(said_answer));
+        Ok(record)
     }
 
     async fn answer_waiting(

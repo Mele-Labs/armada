@@ -1,0 +1,16 @@
+[operations.get_fleet_timeline]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What happened across Jobs, Sessions, pull requests, slots and main in a window of time, oldest first, each with its instant"
+notes = """
+`GET /timeline?since=&until=&limit=`, for the Cockpit's timeline. `since` and `until` are RFC3339 instants, `since` inclusive and `until` not, so two adjacent windows share no entry; either absent is open on that side. `limit` is the most entries, the newest, and defaults to 500 and is cut to 2000. Answers `FleetTimeline`: the entries oldest first, and `cut` when older ones inside the window were left out to keep to the limit.
+
+**Fleet writes an entry as each thing happens, and this serves the kept ones.** Before it, `get_events_since` counted kinds, `get_job_events` was one Job's own status moves, and a Session or a pull request moved as a row replaced whole. Kept: a Job's creation, queueing, start, steps, Checks beginning, Judge reading, files changed, ask, answer, landing and failure; a Session's start, ask, answer, turn end (with how long it took) and end; a pull request's opening, CI, queue place and merge; main going red and green; a slot leased and given back. A Drone's `ask_question` is `job.asked`, and an answered question, command or Judge is `job.answered`.
+
+**The entries are kept thirty days**, pruned on the next write. An entry is the fact as it read when it happened, title included, so a Job forgotten since still has its history.
+
+**Not kept: anything before this was shipped, and a slot an agent leases with `armada worktree lease`**, which never reaches Fleet. A Session already live when Fleet starts is entered once it first changes, with the start it has.
+
+Each entry has an `id` that rises with the order Fleet wrote them. A client holding a window and then hearing `timeline.appended` drops an entry whose `id` it already holds. Not offered to agents: a fleet-wide sweep stays in the session for the rest of it, the cost `get_events_since` names.
+"""

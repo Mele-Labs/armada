@@ -56,6 +56,11 @@ where
     pub(crate) fn names(&self) -> &Arc<crate::naming::Names> {
         &self.names
     }
+    /// What happened, for the timeline. Public so the composition root hands it to the loops that
+    /// see things Fleet does not publish.
+    pub fn timeline(&self) -> &crate::timeline::Timeline {
+        &self.timeline
+    }
     pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }

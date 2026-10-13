@@ -186,6 +186,7 @@ where
         hosting.lease_slot = Some(slot);
         hosting.lease_branch = Some(branch.clone());
         let now = self.now().as_str().to_string();
+        let titled = session.title.clone();
         {
             let mut store = self.store().lock().await;
             let _ = store.keep_hosting(&hosting);
@@ -210,6 +211,7 @@ where
             row.last_seen_at = now;
             let _ = store.keep_session(&row);
         }
+        self.session_slot(id, titled, Some(hosting.manifest_id.clone()), slot, true);
         runtime.state().moving = Some(Move {
             slot,
             branch: branch.clone(),

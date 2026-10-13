@@ -36,6 +36,7 @@ use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::sleep::SleepState;
+use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
@@ -222,6 +223,9 @@ pub enum Event {
     // A Job's card to the owner went out, or the one out was answered. `#2166`.
     #[serde(rename = "commander.card")]
     CommanderCard(crate::commander_card::CommanderCardChanged),
+    // One entry Fleet just kept for the timeline. Since 23.82.
+    #[serde(rename = "timeline.appended")]
+    TimelineAppended(TimelineAppended),
 }
 
 impl Event {
