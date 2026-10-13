@@ -508,7 +508,7 @@ export function Cockpit({
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
             {filter === "bays" ? (
               <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-                <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+                <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} onReleaseSlot={hosts.onReleaseSlot} />
               </div>
             ) : view === "map" ? (
               <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>

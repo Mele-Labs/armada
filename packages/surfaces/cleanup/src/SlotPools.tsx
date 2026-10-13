@@ -25,6 +25,7 @@ import type {
 
 import { said } from "@armada/screens/src/copy";
 import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting } from "@armada/screens/src/held";
+import { releaseRefusal } from "@armada/screens/src/releasing";
 import { canPause, canResume, pauseRefusal, pausedSaid } from "@armada/screens/src/pausing";
 import type { RescueOutcome } from "./slot-rescue";
 import { joined } from "./tiles";
@@ -107,6 +108,8 @@ export function SlotPools({
 }: SlotPoolsProps) {
   /** What Fleet refused, by tile. */
   const [refused, setRefused] = useState<Record<string, string>>({});
+  /** The Session whose work a release was refused for, by tile: its panel offers to open it. */
+  const [workingSession, setWorkingSession] = useState<Record<string, string>>({});
   /** What a Scrap or a Stash did, by tile, until the next act on it. */
   const [receipts, setReceipts] = useState<Record<string, string>>({});
   /** What a Clear or a Delete branch did, a fact to a line, by tile. */
@@ -121,6 +124,7 @@ export function SlotPools({
     setActing((was) => new Set(was).add(key));
     setRefused(({ [key]: _, ...rest }) => rest);
     setReceipts(({ [key]: _, ...rest }) => rest);
+    setWorkingSession(({ [key]: _, ...rest }) => rest);
     setGaveBack(({ [key]: _, ...rest }) => rest);
     await task();
     setActing((was) => {
@@ -142,13 +146,17 @@ export function SlotPools({
     });
   }
 
-  /** Release a session's slot for the holder the confirm showed, and say where its files went. */
+  /** Release a session's slot for the holder the confirm showed, and say where its files went. A hosted Session's holder is its id. */
   async function release(manifestId: string, slot: number, holder: string): Promise<void> {
     if (onChange === undefined) return;
     const key = keyOf(manifestId, slot);
     await run(key, async () => {
       const outcome = await onChange(manifestId, { act: "release", slot, holder });
-      if (!outcome.ok) return refuse(key, NOT.release, outcome);
+      if (!outcome.ok) {
+        const refusal = releaseRefusal(outcome);
+        if (refusal.working) setWorkingSession((was) => ({ ...was, [key]: holder }));
+        return setRefused((was) => ({ ...was, [key]: refusal.said }));
+      }
       const released = outcome.slotChanged?.released;
       const said = released?.saved == null ? "Slot released" : `Committed to ${released.branch}, slot released`;
       setReceipts((was) => ({ ...was, [key]: said }));
@@ -221,6 +229,7 @@ export function SlotPools({
       ...(sat === null ? {} : { sat }),
       ...(job === undefined ? {} : { job }),
       ...(refused[key] === undefined ? {} : { refused: refused[key] }),
+      ...(workingSession[key] === undefined ? {} : { openSession: workingSession[key] }),
       ...(receipts[key] === undefined ? {} : { said: receipts[key] }),
       ...(gaveBack[key] === undefined ? {} : { receipt: gaveBack[key] }),
       ...(acting.has(key) ? { acting: true } : {}),
