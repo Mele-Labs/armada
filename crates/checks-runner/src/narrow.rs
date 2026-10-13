@@ -197,7 +197,7 @@ fn spellable(value: &str) -> bool {
 
 /// A value as one argument. Quoted only where it holds whitespace, so the
 /// command a report prints is the command a person would have typed.
-fn quoted(value: &str) -> String {
+pub(crate) fn quoted(value: &str) -> String {
     match value.contains(char::is_whitespace) {
         true => format!("\"{value}\""),
         false => value.to_string(),
@@ -220,7 +220,7 @@ pub fn one_test(run: &str, test: &str) -> Option<String> {
 
 /// Every character a JavaScript or Rust regex reads as syntax, backslashed.
 /// `/` too, which ends nextest's `/…/`. Each escape here is legal in both.
-fn regex_escaped(text: &str) -> String {
+pub(crate) fn regex_escaped(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for c in text.chars() {
         if "\\^$.|?*+()[]{}/".contains(c) {
@@ -234,7 +234,7 @@ fn regex_escaped(text: &str) -> String {
 /// Any text as one argument to [`split`](crate::split), which has no escapes
 /// but joins adjacent quoted pieces: a run holding `'` goes in `"…"`, and one
 /// holding `"` in `'…'`.
-fn one_argument(text: &str) -> String {
+pub(crate) fn one_argument(text: &str) -> String {
     if !text.contains(['\'', '"']) {
         return quoted(text);
     }

@@ -192,12 +192,23 @@ async fn one_alone(
     telling: &Announcing,
 ) -> Option<OneTestRan> {
     let ResolvedCheck::ManifestCheck {
-        expect_exit_code, ..
+        expect_exit_code,
+        narrow,
+        manifest_dir,
+        ..
     } = check
     else {
         return None;
     };
-    let one = holding_every_place(check, Some(checks_runner::one_test(template, test)?))?;
+    // Compiled in the members that declare the test, not the workspace.
+    let command = checks_runner::one_test_in(
+        &again.worktree.join(manifest_dir),
+        template,
+        narrow.as_ref(),
+        test,
+    )
+    .ok()?;
+    let one = holding_every_place(check, Some(command))?;
     let done = checking::ran(
         std::slice::from_ref(&one),
         &[],

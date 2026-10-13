@@ -60,7 +60,8 @@ durable one.
 
 `armada check test`, which runs `cargo nextest` at the machine's width and in
 its turn among every other Check on the machine; one test by name is `armada
-check test <name>`. Never `cargo test`, and never `nextest` bare: nextest is
+check test <name>` (compiles the crate that declares it) and the tests you touched
+are `armada check test --changed` with the diff's paths on stdin. Never `cargo test`, and never `nextest` bare: nextest is
 measured at 3x `cargo test` on v1, 83 seconds against 27 for the same 2,034
 tests, and a bare run skips both the width and the turn. Install nextest with
 `--locked`.

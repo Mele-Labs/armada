@@ -2,7 +2,9 @@
 //! as the merge line asks for it. `docs/capabilities/merge-line.md`, *What a
 //! narrowed Check runs*.
 
-use checks_runner::{narrowed_over, Attempt, Narrowed};
+use std::path::Path;
+
+use checks_runner::{narrowed_over, touched_run, Attempt, Narrowed, Priority, TouchedRun};
 use verification::Exit;
 
 use crate::declared::Ran;
@@ -17,6 +19,25 @@ pub enum Asked<'a> {
     /// What these changed paths reach, through the Check's `narrow` as the
     /// merge line reads it: [`checks_runner::narrowed_over`].
     Changed(&'a [String]),
+    /// The tests these changed paths touch, in the members they are in, and
+    /// no dependents: an agent's reading of `--changed`. [`asked_changed`] says
+    /// who gets it, and a Check that cannot run a test by name reads it as
+    /// [`Asked::Changed`].
+    Touched(&'a [String]),
+}
+
+/// What `--changed` asks for from this process.
+///
+/// **The merge line's reading belongs to whoever is not an agent.** A run at
+/// agent priority on a machine somebody shares gets the tests it touched; a
+/// CI runner (`ARMADA_SOLE_TENANT`) and the merge line (`ARMADA_CHECK_PRIORITY=
+/// normal`) get what they always did, every member the paths name. An empty
+/// list is no change at all and runs the Check whole, as before.
+pub fn asked_changed(paths: &[String], priority: Priority, sole_tenant: bool) -> Asked<'_> {
+    match (priority, sole_tenant, paths.is_empty()) {
+        (Priority::Low, false, false) => Asked::Touched(paths),
+        _ => Asked::Changed(paths),
+    }
 }
 
 /// What [`Asked::Changed`] came to.
@@ -28,6 +49,10 @@ pub enum Reached {
     To(String),
     /// Nothing the Check runs, so nothing ran.
     Nothing,
+    /// Run the tests the change touched: these names, in these members.
+    Touched(String),
+    /// The change touched no test, so nothing ran.
+    NoTests,
 }
 
 /// The narrowed command, where there is one, and what `changed` came to.
@@ -46,8 +71,32 @@ pub fn reached(check: &config::Check, changed: &[String]) -> (Option<String>, Re
     }
 }
 
+/// [`reached`], or for an agent's [`Asked::Touched`] the tests the change
+/// touched, run from `dir`. A Check that cannot run a test by name has no such
+/// reading and is narrowed as [`reached`] narrows it.
+pub fn reading(
+    dir: &Path,
+    check: &config::Check,
+    changed: &[String],
+    touched: bool,
+) -> (Option<String>, Reached) {
+    if touched {
+        match touched_run(dir, check.one_test(), check.narrow(), changed) {
+            TouchedRun::Tests { command, said } => return (Some(command), Reached::Touched(said)),
+            TouchedRun::None => return (None, Reached::NoTests),
+            TouchedRun::NotApplicable => {}
+        }
+    }
+    reached(check, changed)
+}
+
 /// A Check with nothing to run, passed without running.
 pub fn ran_nothing(name: &str) -> Ran {
+    ran_nothing_because(name, Reached::Nothing)
+}
+
+/// [`ran_nothing`], saying which kind of nothing.
+pub fn ran_nothing_because(name: &str, because: Reached) -> Ran {
     Ran {
         name: name.to_string(),
         command: String::new(),
@@ -58,6 +107,6 @@ pub fn ran_nothing(name: &str) -> Ran {
             exit: Exit::Code(0),
             output: Default::default(),
         },
-        narrowed: Some(Reached::Nothing),
+        narrowed: Some(because),
     }
 }

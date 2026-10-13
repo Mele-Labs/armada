@@ -238,7 +238,7 @@ where
             .workflow()
             .step(&step)
             .ok_or(NotFixed::NothingIsWorking)?;
-        let (expect_exit_code, requires, template, places, width, manifest_dir, bare_name) =
+        let (expect_exit_code, requires, template, places, width, manifest_dir, bare_name, narrow) =
             declared
                 .checks()
                 .iter()
@@ -251,6 +251,7 @@ where
                         places,
                         width,
                         manifest_dir,
+                        narrow,
                         ..
                     } if c.key() == check => Some((
                         *expect_exit_code,
@@ -260,6 +261,7 @@ where
                         *width,
                         manifest_dir.clone(),
                         name.clone(),
+                        narrow.clone(),
                     )),
                     _ => None,
                 })
@@ -269,16 +271,34 @@ where
         let template = template.ok_or_else(|| NotFixed::NoWayToRunOneTest {
             check: check.to_string(),
         })?;
-        let command =
-            checks_runner::one_test(&template, test).ok_or_else(|| NotFixed::NotOneArgument {
+        if test.trim().is_empty() {
+            return Err(NotFixed::NotOneArgument {
                 test: test.to_string(),
-            })?;
+            });
+        }
         let owner = self
             .names()
             .owner_of(&job)
             .ok_or(NotFixed::NothingIsWorking)?;
         let served = self.served_by(&record).map_err(|why| NotFixed::NoMain {
             why: why.to_string(),
+        })?;
+        // **Only the members that declare the test are compiled**, where the
+        // Check's `narrow` says what a member is, as `armada check <name>
+        // <test>` does. A name no member declares matched nothing on main.
+        let command = checks_runner::one_test_in(
+            &std::path::Path::new(served.root()).join(&manifest_dir),
+            &template,
+            narrow.as_ref(),
+            test,
+        )
+        .map_err(|refused| match refused {
+            checks_runner::OneTestRefused::Blank => NotFixed::NotOneArgument {
+                test: test.to_string(),
+            },
+            checks_runner::OneTestRefused::NoMember { .. } => NotFixed::NoMatch {
+                test: test.to_string(),
+            },
         })?;
         Ok(Request {
             repository: ManifestId::carried(Ulid::carried(owner)),
