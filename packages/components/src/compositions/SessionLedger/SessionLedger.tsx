@@ -7,6 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { RunnableBlock, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
+import { QuestionDeck } from "../SessionThread/QuestionDeck";
 
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
@@ -96,8 +97,9 @@ export type LedgerEntry = {
   finished?: boolean;
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
-  /** A `waiting` row for a question with choices: each a numbered press under the row. */
-  options?: readonly { label: string; onPick: () => void }[];
+  /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
+  options?: readonly { label: string; description?: string; onPick: () => void }[];
+  onOther?: (text: string) => void;
   /**
    * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
@@ -319,6 +321,24 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             </li>
           );
         }
+        if (kind === "waiting" && row.options !== undefined) {
+          const { options } = row;
+          return (
+            <li key={row.key} aria-label={row.name}>
+              <QuestionDeck
+                questions={[{ question: row.name, header: "", multi_select: false, options: options.map((one) => ({ label: one.label, description: one.description ?? "" })) }]}
+                canSkip={false}
+                onAnswer={(_, answers) => {
+                  const chosen = answers?.[0]?.chosen[0];
+                  if (chosen === undefined) return;
+                  const at = options.findIndex((one) => one.label === chosen);
+                  if (at >= 0) options[at]!.onPick();
+                  else row.onOther?.(chosen);
+                }}
+              />
+            </li>
+          );
+        }
         const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;
@@ -396,15 +416,6 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               </Tooltip>
             )}
             {row.exits}
-            {row.options === undefined ? null : (
-              <div className="armada-session-ledger__options" role="group" aria-label={`Choices for ${row.name}`}>
-                {row.options.map((one, at) => (
-                  <Button key={one.label} variant="secondary" size="sm" aria-label={`Choice ${at + 1} ${one.label}`} onClick={one.onPick}>
-                    {at + 1} {one.label}
-                  </Button>
-                ))}
-              </div>
-            )}
             {replies && replying === row.key && row.onReply !== undefined ? (
               <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
             ) : null}

@@ -222,6 +222,11 @@ export type Session = {
   lastTurnAt?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
+  /**
+   * The last question the agent asked that nobody answered in time, while the person has said nothing since.
+   * `id` is the ask's row. Not `asked`: that is a live call the agent is held on.
+   */
+  lapsed?: { id: string; questions: readonly SessionQuestion[] };
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
