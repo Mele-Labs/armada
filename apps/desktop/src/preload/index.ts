@@ -36,6 +36,7 @@ import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/session
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
+import type { WriteClashesRead } from "../shared/api/clashes";
 import type { IssuesRead } from "../shared/api/issues";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
@@ -670,6 +671,7 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.planUsageChanged, handler);
     };
   },
+  getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),

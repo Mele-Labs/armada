@@ -790,6 +790,16 @@ export const register: Register = on => {
     return out
   })
 
+  // Its own transcript can end on a line that says it is still working (13 Oct 2026), so the
+  // engine's word that it stopped is what settles it.
+  on('classic.SubagentStop', async ($, e, next) => {
+    const out = await next(e)
+    void current($)
+      .then(([id]) => settle($, id, 'subagent', e.agent_id, 'spent'))
+      .catch(() => undefined)
+    return out
+  })
+
   on('session.send', async ($, e, next) => {
     const out = await next(e)
     if (out.isDelivered) void messaged($, 'sent', e.to).catch(() => undefined)

@@ -24,8 +24,8 @@ export type Commanding = {
   you: (text: string) => void;
   /** A read: a call that changes nothing, by the tool's name. */
   read: (tool: string) => void;
-  /** A call that changes the Job, by the tool's name. */
-  call: (tool: string) => void;
+  /** A call that changes the Job, by the tool's name, and the figure the wire carries for it: what the act was taken on. */
+  call: (tool: string, figure?: string) => void;
   say: (text: string) => void;
   /** The turn is over. `waiting` is the card it left out, which stays until he answers. */
   end: () => void;
@@ -159,7 +159,8 @@ export function commandedBy(script: CommanderScript) {
       publish();
     };
     const row = (saw: Saw) => add((itemId, ts) => ({ kind: "row", id: itemId, turn: { ts, seq: Number(itemId), by: "drone", saw } }));
-    const called = (tool: string) => row({ event: "called", tool: `mcp__armada__${tool}`, call: `call-${made}`, detail: script.job, truncated: false });
+    // A call with no figure carries the Job it names, as the door's calls do.
+    const called = (tool: string, figure?: string) => row({ event: "called", tool: `mcp__armada__${tool}`, call: `call-${made}`, detail: figure ?? script.job, truncated: false });
     /** The Job's detail carrying the card out, or none. */
     const carrying = (whole: JobDetail): JobDetail => {
       const { commander_card: _gone, ...rest } = whole;
@@ -186,7 +187,7 @@ export function commandedBy(script: CommanderScript) {
         replying = true;
         add((itemId, ts) => ({ kind: "asked", id: itemId, ts, text }));
       },
-      read: called,
+      read: (tool) => called(tool),
       call: called,
       say: (text) => row({ event: "said", text }),
       end: () => {

@@ -5,7 +5,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { LoaderCircle, Plane } from "lucide-react";
-import { Button, StopCard, Tooltip } from "@armada/components";
+import { Button, ClashMark, StopCard, Tooltip } from "@armada/components";
 
 import type { BaysRead } from "./bays";
 import { MAIN, REVIEW, STATIONS, metroOf, type Act, type Card, type Line, type LineHolder, type Metro, type Tone } from "./metro";
@@ -90,6 +90,7 @@ function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, next
 }) {
   return (
     <li className="armada-metro__row" data-wants={line.wants} data-owned={line.holder === undefined ? undefined : ""} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
+      <span className="armada-metro__cell">
       <button type="button" className="armada-metro__who" aria-label={line.from !== undefined ? `Pull request: ${line.title}` : line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
         title={line.pull !== undefined ? undefined : line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
         data-opens={line.open === undefined ? undefined : ""}
@@ -117,6 +118,8 @@ function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, next
           </Tooltip>
         )}
       </button>
+      {line.open?.kind === "job" || line.open?.kind === "session" ? <ClashMark kind={line.open.kind} id={line.open.id} /> : null}
+      </span>
       {!nextUp ? null : (
         <span className="armada-metro__station" data-next-up data-state={line.nextUp === undefined ? "ahead" : "now"}>
           {line.nextUp === undefined ? (

@@ -93,6 +93,7 @@ where
 
     /// The pool took the Job's slot back, or parked its work and freed it.
     pub(crate) async fn job_gave_back_slot(&self, job: &Job) {
+        self.hosts().slot_freed();
         let holder = Holder::job(job.id().as_str());
         let now = self.now().as_str().to_string();
         let gave = self

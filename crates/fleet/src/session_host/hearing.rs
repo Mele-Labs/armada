@@ -254,7 +254,7 @@ where
             self.moved_into(id, moving).await;
             return;
         }
-        {
+        let late = {
             let mut state = runtime.state();
             state.restart_after_turn = false;
             state.reattached_busy = false;
@@ -266,13 +266,22 @@ where
             } else {
                 SessionTurn::Idle
             };
+            // A slot granted to a queued session while this turn was ending.
+            match state.turn {
+                SessionTurn::Idle => state.moving.take(),
+                _ => None,
+            }
+        };
+        if let Some(late) = late {
+            self.moved_into(id, late).await;
+            return;
         }
         let _ = self.published_hosted(id).await;
     }
 
     /// The turn that held a write is over: end the process and resume the
     /// session with the slot as its directory, then tell it where it is.
-    async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
+    pub(super) async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
         let runtime = self.hosts().of(id);
         Self::let_go(&mut runtime.state());
         let Ok((_, hosting)) = self.session_and_hosting(id).await else {

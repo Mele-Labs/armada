@@ -70,7 +70,7 @@ const woken = commandedBy({
       c.read("get_job_log");
       c.read("get_diff");
       c.say("T7's Drone ended at the 300 turn cap with six files edited and nothing handed in. The task reaches the wire, main and the Cockpit card, which is more than one Drone holds in 300 turns. I split the card half off as T11, raised the cap to 600 and restarted T7.");
-      c.call("raise_turn_cap");
+      c.call("raise_turn_cap", "600");
       c.plan((whole) =>
         splitPlan(
           whole,
@@ -86,11 +86,11 @@ const woken = commandedBy({
         ),
       );
       // A split is the two calls it is: the task narrowed, and a new one added.
-      c.call("edit_task");
-      c.call("add_task");
+      c.call("edit_task", "T7");
+      c.call("add_task", "Draw a Drone's permission ask on the call card");
       c.mark("T7", "T11");
       c.plan((whole) => taskStates(whole, { T7: "working" }));
-      c.call("restart_task");
+      c.call("restart_task", "T7");
       c.panels({ now: { running: [droneOn("Read crates/ipc/src/asks.rs", ["Read crates/ipc/src/asks.rs"], true)] } });
       c.end();
     },
@@ -130,9 +130,9 @@ const asked = commandedBy({
     },
     // Fix it.
     (c) => {
-      c.call("raise_turn_cap");
+      c.call("raise_turn_cap", "600");
       c.mark("T7");
-      c.call("restart_task");
+      c.call("restart_task", "T7");
       c.panels({ now: { running: [droneOn("Read crates/ipc/src/asks.rs", ["Read crates/ipc/src/asks.rs"], true)] } });
       c.say("T7 has a new Drone and a cap of 600.");
       c.end();
@@ -169,7 +169,7 @@ const asks = commandedBy({
     }
     c.read("get_job");
     c.plan((whole) => groupState(runsCleared(taskStates(whole, { T9: "working" }), "G3"), "G3", "running"));
-    c.call("restart_task");
+    c.call("restart_task", "T9");
     c.mark("T9");
     c.panels({ now: { running: [droneOn("Read apps/desktop/src/renderer/src/cockpit/CallCard.tsx", ["Read apps/desktop/src/renderer/src/cockpit/CallCard.tsx"], true)] } });
     c.end();

@@ -5,7 +5,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { CircleDot, Workflow } from "lucide-react";
-import { Button, JobDiffSheet, NowPanel, UnifiedDiff, railOfPatch, type DiffFile, type NowPanelProps } from "@armada/components";
+import { Button, ClashMark, ClashNotice, JobDiffSheet, NowPanel, UnifiedDiff, useClashesOf, railOfPatch, type DiffFile, type NowPanelProps } from "@armada/components";
 import type { AboutFiles, AboutLink } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -108,6 +108,7 @@ export function CallPane({
   useEffect(() => (setAt(0), setPicked(undefined)), [item.key]);
   const decision = item.decisions?.[at];
   const asking = item.hue === "ask";
+  const clashing = useClashesOf(item.job !== undefined ? "job" : "session", item.job?.id ?? sessionId).length > 0;
   const hasSteps = item.job !== undefined && (workflows.find((one) => one.id === item.job!.workflow_id)?.steps ?? []).length > 0;
   return (
     <article className="armada-call" data-hue={item.hue} aria-label={item.title} key={item.key}>
@@ -123,11 +124,20 @@ export function CallPane({
             <h2 className="armada-call__title">{item.title}</h2>
             <Button variant="ghost" size="sm" onClick={() => onOpenSession(sessionId)}>Open Session</Button>
           </div>
+          <ClashNotice kind="session" id={sessionId} />
           <SessionMini sessionId={sessionId} onOpen={onOpenSession} />
         </div>
       ) : nowPanel !== undefined ? (
         <div className="armada-call__body">
-          <h2 className="armada-call__title">{item.title}</h2>
+          <h2 className="armada-call__title">
+            {item.title}
+            {!clashing ? null : (
+              <span className="armada-call__marks">
+                <ClashMark kind="job" id={item.job?.id} />
+              </span>
+            )}
+          </h2>
+          <ClashNotice kind="job" id={item.job?.id} />
           <NowPanel {...nowPanel} />
           <div className="armada-call__acts">{item.acts(onDone)}</div>
         </div>
@@ -135,12 +145,13 @@ export function CallPane({
       <div className="armada-call__body">
         <h2 className="armada-call__title">
           {item.title}
-          {item.job === undefined || !hasMarks(item.job, now) ? null : (
+          {item.job === undefined || !(hasMarks(item.job, now) || clashing) ? null : (
             <span className="armada-call__marks">
               <JobMarks job={item.job} now={now} />
             </span>
           )}
         </h2>
+        <ClashNotice kind="job" id={item.job?.id} />
         {item.about === undefined || item.about.length === 0 ? null : (
           <dl className="armada-call__about" aria-label="Where it lives">
             {item.about.map(([term, value]) => (

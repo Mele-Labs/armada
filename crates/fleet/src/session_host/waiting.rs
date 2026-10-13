@@ -39,6 +39,9 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 
+/// The last line of a message answering an agent item: it need not say the item again.
+const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
+
 /// A walk window a session showed, as the merge reads it.
 pub(crate) struct Window {
     pub url: String,
@@ -590,8 +593,12 @@ where
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::Agent => {
-                let body = reply(&item.text, both.as_deref(), line);
-                self.send_known(terminal.then_some(session), message(body)).await
+                let mut body = reply(&item.text, both.as_deref(), line);
+                body.push('\n');
+                body.push_str(TAKEN_OFF);
+                Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                // Delivered, so the item goes now: a failed send above leaves it standing.
+                self.drop_answered(&id, &item.id).await
             }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
@@ -638,6 +645,24 @@ where
             }
             store
                 .dismiss_waiting(&id, &dismiss.item_id)
+                .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// Take an answered agent item off the list for good and tell Bridge, as `dismiss_waited` does.
+    /// It does not refuse an item the agent has since restated away: the answer was delivered.
+    async fn drop_answered(&self, id: &str, item_id: &str) -> Result<SessionRecord, Refusal> {
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+            store
+                .dismiss_waiting(id, item_id)
                 .map_err(|why| self.ledger_fault(why))?;
             self.ledger_row(&store, &session)?
         };

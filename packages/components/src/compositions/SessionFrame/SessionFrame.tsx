@@ -7,6 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ClashMark, ClashNotice } from "../ClashMark/ClashMark";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 
 /**
@@ -163,8 +164,10 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         {actions}
         {context === undefined ? null : <ContextFigure fill={context} />}
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+        <ClashMark kind="session" id={id} size={16} />
         {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
       </header>
+      <ClashNotice kind="session" id={id} />
       <div className="armada-session-frame__body">{children}</div>
     </Card>
     {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}

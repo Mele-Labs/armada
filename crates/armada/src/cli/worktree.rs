@@ -10,8 +10,9 @@ use super::{Fault, Verb, WORKTREE};
 /// Which of `armada worktree`'s forms was asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WorktreeAct {
-    /// `lease <branch>`: a warm slot on a new branch cut from the base, or with
-    /// `--existing` on a branch that exists, at its tip.
+    /// `lease <branch>`: a warm slot on the branch at its tip if it exists
+    /// here or on `origin`, else on a new one cut from the base. With
+    /// `--existing`, a name nothing has is refused rather than cut.
     Lease { branch: String, existing: bool },
     /// `release [<path>]`: give a slot back, the one standing in by default.
     Release { path: Option<PathBuf> },
@@ -32,11 +33,11 @@ pub(super) fn usage(out: &mut fmt::Formatter<'_>) -> fmt::Result {
     for (shape, what) in [
         (
             "lease <branch>  ",
-            "a warm slot on a new branch; prints its path",
+            "a warm slot on the branch, at its tip, or on a new one cut from the base; prints its path",
         ),
         (
             "lease --existing <branch>",
-            "a warm slot on a branch that exists, at its tip",
+            "the same, refusing a name nothing has rather than cutting it",
         ),
         (
             "release [<path>]",

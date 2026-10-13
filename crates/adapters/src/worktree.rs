@@ -160,10 +160,6 @@ impl Vcs for GitVcs {
             CreateWorktreeError::SlotNotLeased {
                 repo: pool.repo_root().to_string(),
                 why: match refused {
-                    LeaseRefused::BranchHoldsWork { branch, commits } => format!(
-                        "{branch} already exists with {commits} commits on neither the remote \
-                         nor the base, and a lease would reset it"
-                    ),
                     LeaseRefused::Vcs(why) => why,
                     // A Job's lease cuts a new branch; these are the other
                     // lease's, said the same way.

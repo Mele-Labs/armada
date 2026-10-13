@@ -318,7 +318,11 @@ where
         let served = self.served_named(manifest_id)?;
         let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
         if asked.act == SlotAct::Release {
-            return self.session_released(&served, &asked);
+            let released = self.session_released(&served, &asked);
+            if released.is_ok() {
+                self.hosts().slot_freed();
+            }
+            return released;
         }
         let change = match (asked.act, asked.slot) {
             (SlotAct::Add, _) => SlotChange::Add,
@@ -366,6 +370,8 @@ where
                 }
                 SlotRefused::Vcs(said) => Refusal::Fault(raised(SLOT_UNCHANGED, said)),
             })?;
+        // A slot added or reopened is one a waiting session can take.
+        self.hosts().slot_freed();
         Ok(SlotPoolChanged {
             manifest_id: ManifestId::from(served.manifest().id()),
             slot,

@@ -307,6 +307,9 @@ where
                 .vcs()
                 .park_hosted_slot(&crate::leasing::pool_of(&served), slot, &id);
         }
+        // Out of the line if it was in it, and its slot, if it had one, is the next one's.
+        self.hosts().slot_queue().leave(&id);
+        self.hosts().slot_freed();
         let now = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
