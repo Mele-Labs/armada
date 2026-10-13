@@ -44,6 +44,7 @@ import type { SessionsState } from "./api/sessions";
 import { SLEEP_CHANNELS } from "./api/sleep";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { CLASHES_CHANNELS } from "./api/clashes";
+import { TIMELINE_CHANNELS } from "./api/timeline";
 import { ISSUES_CHANNELS } from "./api/issues";
 
 export type { HistoryStep, Summons } from "./api/core";
@@ -157,6 +158,7 @@ export const CHANNELS = {
   ...SLEEP_CHANNELS,
   ...PLAN_USAGE_CHANNELS,
   ...CLASHES_CHANNELS,
+  ...TIMELINE_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
 } as const;

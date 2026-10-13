@@ -188,11 +188,12 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { PlanUsageRead } from "./api/plan-usage";
+import type { FleetTimelineRead } from "./api/timeline";
 import type { WriteClashesRead } from "./api/clashes";
 import type { IssuesRead } from "./api/issues";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { PlanUsage, SleepState } from "@armada/protocol";
+import type { PlanUsage, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -491,6 +492,8 @@ type OldBridgeApi = {
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
+    getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
+    onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
@@ -808,6 +811,8 @@ const OLD_CHANNELS = {
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
+    getFleetTimeline: "bridge:get-fleet-timeline",
+    timelineAppended: "bridge:timeline-appended",
     planUsageChanged: "bridge:plan-usage-changed",
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",

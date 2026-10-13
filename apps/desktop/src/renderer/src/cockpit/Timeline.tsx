@@ -1,15 +1,18 @@
 // The Cockpit's other face: what Fleet did, newest first, one row per event, each naming what it happened
 // to. Three takes of it share one set of marks, Lanes first and his last pick kept: a feed of every
 // event, a lane for each Job, Session and pull request with its events along the last hour,
-// and the lanes beside the feed. The filter above narrows it as it narrows the grid. Mock only
-// (`fleet-events.tsx` says why). Nothing here moves but a subject that is working.
+// and the lanes beside the feed. The filter above narrows it as it narrows the grid. What it draws is Fleet's
+// timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, GitPullRequest, LoaderCircle, SquareTerminal } from "lucide-react";
 import { Button, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
+import type { JobSummary } from "@armada/protocol";
+import { titleOf as plainTitle } from "@armada/screens";
 
-import { STANDINGS, ageOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
+import { useSessions } from "../sessions-draft";
+import { STANDINGS, ageOf, fromWire, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
 
 type Take = "feed" | "lanes" | "split";
@@ -94,7 +97,7 @@ function Who({ subject, open, children }: { subject: Subject; open: Open; childr
       {children}
     </>
   );
-  return subject.kind === "main" ? (
+  return subject.kind === "main" || (subject.kind === "pull_request" && subject.url === undefined) ? (
     <span className="armada-tl__who">{inside}</span>
   ) : (
     <button type="button" className="armada-tl__who" data-opens aria-label={`${KIND[subject.kind]}: ${titleOf(subject)}`} onClick={() => open(subject)}>
@@ -302,6 +305,7 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
 
 export function Timeline({
   now,
+  jobs,
   filter,
   recessed,
   onOpenJob,
@@ -309,6 +313,8 @@ export function Timeline({
   onOpenLink,
 }: {
   now: number;
+  /** The Board's Jobs, for the name of a Job Fleet gave an entry no title for. */
+  jobs: readonly JobSummary[];
   /** The Cockpit's filter: what needs him, what is not over, what is. */
   filter: DashboardTab;
   /** A call is in front, and the glass is dimmed behind it. */
@@ -317,13 +323,27 @@ export function Timeline({
   onOpenSession: (id: string) => void;
   onOpenLink: (address: string) => void;
 }) {
-  const events = useFleetEvents();
+  const wire = useFleetEvents();
+  const sessions = useSessions();
   const [take, setTake] = useTake();
+  const events = useMemo(
+    () =>
+      wire.map((one) =>
+        fromWire(one, {
+          job: (id) => {
+            const job = jobs.find((row) => row.id === id);
+            return job === undefined ? undefined : plainTitle(job);
+          },
+          session: (id) => sessions.find((row) => row.id === id)?.title,
+        }),
+      ),
+    [wire, jobs, sessions],
+  );
   const lanes = useMemo(() => lanesFor(lanesOf(events, now), filter), [events, now, filter]);
   const open: Open = (subject) => {
     if (subject.kind === "job") onOpenJob(subject.id);
     else if (subject.kind === "session") onOpenSession(subject.id);
-    else if (subject.kind === "pull_request") onOpenLink(subject.url);
+    else if (subject.kind === "pull_request" && subject.url !== undefined) onOpenLink(subject.url);
   };
   return (
     <div className="armada-view__timeline" data-recessed={recessed ? "" : undefined}>

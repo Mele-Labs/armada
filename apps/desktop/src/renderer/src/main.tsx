@@ -16,6 +16,8 @@ import { WiredSessions } from "./sessions-wired";
 import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
+import { createFleetTimeline } from "./fleet-timeline";
+import { FleetEventsOver } from "./cockpit/fleet-events";
 import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetClashes } from "./fleet-clashes";
 import { ClashesFromFleet } from "./clashes";
@@ -50,6 +52,7 @@ const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request)
 const SLEEP = createFleetSleep(window.armada);
 /** The plan's windows in the title row, over Fleet. */
 const PLAN_USAGE = createFleetPlanUsage(window.armada);
+const TIMELINE = createFleetTimeline(window.armada);
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(window.armada);
 
@@ -79,7 +82,9 @@ function Root() {
                 <PlanUsageSourceProvider value={PLAN_USAGE}>
                   <WiredSessions>
                     <ClashesFromFleet source={CLASHES}>
-                      <App />
+                      <FleetEventsOver source={TIMELINE}>
+                        <App />
+                      </FleetEventsOver>
                     </ClashesFromFleet>
                   </WiredSessions>
                 </PlanUsageSourceProvider>

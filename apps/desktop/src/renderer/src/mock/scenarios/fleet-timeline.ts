@@ -4,7 +4,7 @@
 // `fleet-timeline-feed`, `fleet-timeline-lanes` and `fleet-timeline-split` play it, and `jobs-page`
 // plays the Jobs rail row over it.
 
-import type { FleetEvent, Subject } from "../../cockpit/fleet-events";
+import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
 import type { NowView } from "@armada/jobs/draft/now";
 
 import type { Scenario } from "../moment";
@@ -14,19 +14,23 @@ const jobs = base.state.jobs;
 const FORGE = "https://git.example/armada/pull/";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const job = (number: number): Extract<Subject, { kind: "job" }> => {
+/** What an entry happened to, and what it was called then. */
+type Who = { subject: TimelineSubject; title?: string };
+
+const job = (number: number): Who => {
   const one = jobs.find((row) => row.handle.startsWith(`${number}-`))!;
-  return { kind: "job", id: one.id, number, title: one.title };
+  return { subject: { kind: "job", id: one.id }, title: one.title };
 };
-const session = (id: string, title: string): Subject => ({ kind: "session", id, title });
-const pull = (number: number, title: string): Subject => ({ kind: "pull_request", number, title, url: `${FORGE}${number}` });
-const MAIN: Subject = { kind: "main" };
+const session = (id: string, title: string): Who => ({ subject: { kind: "session", id }, title });
+const pull = (number: number, title: string): Who => ({ subject: { kind: "pull_request", number, url: `${FORGE}${number}` }, title });
+const MAIN: Who = { subject: { kind: "main" } };
 
 let count = 0;
-/** One event, `minutes` ago. */
-function event(minutes: number, subject: Subject, kind: FleetEvent["kind"], tone: FleetEvent["tone"], says: string, rest: Partial<FleetEvent> = {}): FleetEvent {
+/** One entry, `minutes` ago, as Fleet would number and serve it. */
+function event(minutes: number, who: Who, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, rest: { detail?: string; live?: boolean; over?: boolean; repo?: string } = {}): TimelineEvent {
   count += 1;
-  return { id: `e${count}`, at: ago(minutes), kind, subject, tone, says, repo: "armada", ...rest };
+  const { repo, ...more } = rest;
+  return { id: count, at: ago(minutes), kind, subject: who.subject, ...(who.title === undefined ? {} : { title: who.title }), tone, says, manifest_id: repo ?? "armada", ...more };
 }
 
 const landed = job(91);
@@ -47,7 +51,7 @@ const s10 = session("s10", "Migration notes");
 const s11 = session("s11", "Release script");
 const s12 = session("s12", "Theme token audit");
 
-const EVENTS: FleetEvent[] = [
+const EVENTS: TimelineEvent[] = [
   // Work that is over.
   event(168, broke, "job.created", "idle", "Dispatched"),
   event(167, broke, "job.started", "run", "Started", { live: true }),
@@ -92,7 +96,7 @@ const EVENTS: FleetEvent[] = [
   event(12, cache, "job.asked", "ask", "Asked to run a command", { detail: "cargo test -p manifest read_again" }),
 
   // Main is red and a fix is on it.
-  event(70, MAIN, "pr.merged", "ok", "Main green"),
+  event(70, MAIN, "main.green", "ok", "Main green"),
   event(12, MAIN, "main.red", "bad", "Main red", { detail: "components_test" }),
   event(10, fixMain, "job.created", "idle", "Dispatched to fix main"),
   event(9.5, fixMain, "slot.leased", "idle", "Slot 7 leased", { detail: "slot-7" }),

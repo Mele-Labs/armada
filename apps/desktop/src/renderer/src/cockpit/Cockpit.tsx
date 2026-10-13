@@ -505,7 +505,7 @@ export function Cockpit({
                 <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
               </div>
             ) : view === "map" ? (
-              <Timeline now={now} filter={filter} recessed={front !== undefined && leaving === undefined} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+              <Timeline now={now} jobs={state.jobs} filter={filter} recessed={front !== undefined && leaving === undefined} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
             ) : (
               <ul ref={grid} className="armada-tiles armada-view__grid" role="listbox" aria-label="Tiles" tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 {instruments.map((one) => (

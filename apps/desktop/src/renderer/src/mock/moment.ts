@@ -10,8 +10,7 @@ import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { FleetEvent } from "../cockpit/fleet-events";
-import type { WriteClash } from "@armada/protocol";
+import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -33,7 +32,7 @@ export type MockDraft = ArcDraft & {
   /** A Job's Commander, built per window over its Fleet: its thread, and what it changes on the Job. */
   commanding?: (fleet: Fleet) => CommanderStore;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
-  events?: readonly FleetEvent[];
+  events?: readonly TimelineEvent[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
 };

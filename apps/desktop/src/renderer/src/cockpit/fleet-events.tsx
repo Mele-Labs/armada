@@ -1,46 +1,26 @@
-// The Fleet's events as the Cockpit's timeline reads them: one row per thing that happened, naming
-// what it happened to. Mock only. Fleet publishes the facts on `/events` and a Job's own moves in
-// `get_job_history`, but serves no fleet-wide, timestamped window of them, and a pull request,
-// a Session or a slot lease moves as a whole row replaced rather than as an event. A scenario
-// carries these and hands them down through `FleetEventsFrom`; a real Fleet hands down none.
+// The Fleet's events as the Cockpit's timeline draws them: one row per thing that happened, naming what it
+// happened to. Fleet serves them as `get_fleet_timeline` and `timeline.appended` (`@armada/protocol`,
+// `TimelineEvent`); `fleet-timeline.ts` reads them in the app, and a mock scenario carries its own list.
+// Both reach the window through `FleetEventsFrom` or `FleetEventsOver`, and `fromWire` is where an entry
+// becomes what the takes draw.
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
 import type { DashboardTab } from "@armada/overview";
+import type { TimelineEvent, TimelineKind, TimelineTone } from "@armada/protocol";
+
+import type { TimelineSource } from "../fleet-timeline";
 
 /** What an event is a state of, as the colour reads it: working, needs him, failing, passed, waiting. */
-export type EventTone = "run" | "ask" | "bad" | "ok" | "idle";
+export type EventTone = TimelineTone;
 
 export type Subject =
-  | { kind: "job"; id: string; number: number; title: string }
+  | { kind: "job"; id: string; title: string }
   | { kind: "session"; id: string; title: string }
-  | { kind: "pull_request"; number: number; title: string; url: string }
+  | { kind: "pull_request"; number: number; title: string; url?: string }
   | { kind: "main" };
 
-/** What happened. Each names the wire fact it would be read from, or says none is. */
-export type EventKind =
-  | "job.created" // job.created
-  | "job.queued" // job.state_changed to queued
-  | "job.started" // job.state_changed to running
-  | "job.step" // job.step_advanced
-  | "job.check" // job.checking
-  | "job.judged" // job.judging
-  | "job.files" // job.files_changed
-  | "job.asked" // job.asking
-  | "job.answered" // none: the answer is a command, and the row it clears is replaced
-  | "job.landed" // job.landed
-  | "job.failed" // job.state_changed to a failed end
-  | "session.started" // session.changed, first row
-  | "session.turn" // session.row
-  | "session.asked" // session.changed, waiting_for appears
-  | "session.answered" // none: as job.answered
-  | "session.ended" // session.changed, dead
-  | "slot.leased" // none: worktrees are read whole, never published
-  | "pr.opened" // none: merge_lines.changed carries the list whole
-  | "pr.checks" // none: as pr.opened
-  | "pr.queued" // none: as pr.opened
-  | "pr.merged" // none: as pr.opened
-  | "main.red"; // none: as pr.opened
+export type EventKind = TimelineKind;
 
 export type FleetEvent = {
   id: string;
@@ -53,7 +33,7 @@ export type FleetEvent = {
   says: string;
   /** What it opens to, in mono: a command, a branch, a Check's name. */
   detail?: string;
-  /** The repository it belongs to, by name. */
+  /** The repository it belongs to, by manifest id. Empty where Fleet could not place it. */
   repo: string;
   /** The subject is still working after this. */
   live?: boolean;
@@ -61,23 +41,60 @@ export type FleetEvent = {
   over?: boolean;
 };
 
-const Held = createContext<readonly FleetEvent[]>([]);
+const NOTHING: readonly TimelineEvent[] = [];
+const NO_SOURCE: TimelineSource = { get: () => NOTHING, subscribe: () => () => undefined };
+const Held = createContext<TimelineSource>(NO_SOURCE);
 
-/** Hand a moment's events to the window. The mock's own mount is the one caller. */
-export function FleetEventsFrom({ events, children }: { events: readonly FleetEvent[] | undefined; children: ReactNode }) {
-  return <Held.Provider value={events ?? []}>{children}</Held.Provider>;
+/** Hand a moment's events to the window, fixed. The mock's own mount is the one caller. */
+export function FleetEventsFrom({ events, children }: { events: readonly TimelineEvent[] | undefined; children: ReactNode }) {
+  const source = useMemo<TimelineSource>(() => ({ get: () => events ?? NOTHING, subscribe: () => () => undefined }), [events]);
+  return <Held.Provider value={source}>{children}</Held.Provider>;
 }
 
-/** The events this window was mounted holding, in no order. Empty where a Fleet serves none. */
-export function useFleetEvents(): readonly FleetEvent[] {
-  return useContext(Held);
+/** Hand the window what Fleet serves. Nothing is read until a timeline is on screen to subscribe. */
+export function FleetEventsOver({ source, children }: { source: TimelineSource; children: ReactNode }) {
+  return <Held.Provider value={source}>{children}</Held.Provider>;
+}
+
+/** The entries this window holds, oldest first, current while the caller is mounted. Empty where nothing serves them. */
+export function useFleetEvents(): readonly TimelineEvent[] {
+  const source = useContext(Held);
+  return useSyncExternalStore(source.subscribe, source.get);
+}
+
+/** What a subject is called where the entry itself carries no title: the Jobs and Sessions the window holds. */
+export type Names = { job: (id: string) => string | undefined; session: (id: string) => string | undefined };
+
+/** An entry as the takes draw it. A subject Fleet gave no title takes the window's own name for it. */
+export function fromWire(event: TimelineEvent, names: Names): FleetEvent {
+  const { subject } = event;
+  const drawn: Subject =
+    subject.kind === "job"
+      ? { kind: "job", id: subject.id, title: event.title ?? names.job(subject.id) ?? "Job" }
+      : subject.kind === "session"
+        ? { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Session" }
+        : subject.kind === "pull_request"
+          ? { kind: "pull_request", number: subject.number, title: event.title ?? "", ...(subject.url === undefined ? {} : { url: subject.url }) }
+          : { kind: "main" };
+  return {
+    id: String(event.id),
+    at: event.at,
+    kind: event.kind,
+    subject: drawn,
+    tone: event.tone,
+    says: event.says,
+    ...(event.detail === undefined ? {} : { detail: event.detail }),
+    repo: event.manifest_id ?? "",
+    ...(event.live === true ? { live: true } : {}),
+    ...(event.over === true ? { over: true } : {}),
+  };
 }
 
 export const keyOf = (subject: Subject): string =>
   subject.kind === "job" ? `job:${subject.id}` : subject.kind === "session" ? `session:${subject.id}` : subject.kind === "pull_request" ? `pr:${subject.number}` : "main";
 
 export const titleOf = (subject: Subject): string =>
-  subject.kind === "pull_request" ? `#${subject.number} ${subject.title}` : subject.kind === "main" ? "main" : subject.title;
+  subject.kind === "pull_request" ? (subject.title === "" ? `#${subject.number}` : `#${subject.number} ${subject.title}`) : subject.kind === "main" ? "main" : subject.title;
 
 /** How a subject stands, from its newest event: the order the lanes group in. */
 export type Standing = "ask" | "bad" | "stuck" | "run" | "idle" | "done";
