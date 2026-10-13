@@ -1,4 +1,4 @@
-// The default model's step down over Fleet: the state, read once Fleet is connected and kept current by
+// The Session model's step down over Fleet: the state, read once Fleet is connected and kept current by
 // `model_downshift.changed`, which carries it whole, and the four acts that answer it. The mock has its own
 // source (`mock/downshift.ts`); this one is the real wire.
 

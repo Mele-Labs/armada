@@ -1,6 +1,6 @@
 // Mock-only: the weekly window's downshift offer with no Fleet behind it. It reads the plan's windows the
-// title bar reads, offers the lower model once per window at or over the line, and moves the default by
-// saving `models.default` the way the Settings page does, so the composer and Settings follow.
+// title bar reads, offers the lower model once per window at or over the line, and moves the Session default by
+// saving `models.session` the way the Settings page does, so the composer and Settings follow.
 
 import type { SettingValue } from "@armada/protocol";
 
@@ -12,14 +12,14 @@ import type { PlanUsageSource } from "../plan-usage";
 const LINE = 80;
 /** The model the default steps down to. */
 const LOWER = "sonnet";
-const KEY = "models.default";
+const KEY = "models.session";
 
 export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): DownshiftSource {
   let state: Downshift | undefined;
   /** The reset time of the weekly window last read, and the one an offer was last made for. */
   let window: string | undefined;
   let offeredFor: string | undefined;
-  /** What `models.default` held in settings.json before the step down: `null` is not saved, so shipped. */
+  /** What `models.session` held in settings.json before the step down: `null` is not saved, so shipped. */
   let saved: SettingValue | null = null;
   const listeners = new Set<() => void>();
   let stop: (() => void) | null = null;
@@ -29,7 +29,7 @@ export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): Dow
     listeners.forEach((on) => on());
   };
 
-  const defaultSetting = async () => (await api.state()).settings?.settings.find((one) => one.key === KEY);
+  const sessionSetting = async () => (await api.state()).settings?.settings.find((one) => one.key === KEY);
 
   const read = (): void => {
     const weekly = usage.get()?.windows.find((one) => one.kind === "seven_day");
@@ -42,7 +42,7 @@ export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): Dow
     if (state?.phase === "offered") return set({ ...state, percent: weekly.percent_used });
     if (state !== undefined || weekly.percent_used < LINE || offeredFor === reset) return;
     offeredFor = reset;
-    void defaultSetting().then((one) => {
+    void sessionSetting().then((one) => {
       const was = typeof one?.value === "string" ? one.value : "opus";
       if (was !== LOWER) set({ phase: "offered", percent: weekly.percent_used, was, to: LOWER });
     });
@@ -68,7 +68,7 @@ export function createMockDownshift(usage: PlanUsageSource, api: BridgeApi): Dow
       const offer = state;
       if (offer?.phase !== "offered" || window === undefined) return;
       const until = window;
-      void defaultSetting().then(async (one) => {
+      void sessionSetting().then(async (one) => {
         saved = one?.saved ?? null;
         await api.saveSettings({ [KEY]: offer.to });
         set({ phase: "shifted", was: offer.was, to: offer.to, until });

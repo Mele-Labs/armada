@@ -71,6 +71,7 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Harness", "harness.dronePath", "Drone PATH", "The directories a drone's PATH holds, in order.", LIST, ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]),
     row("Model", "models.roster", "Models", "The models a job or a step may choose from.", LIST, ["opus", "sonnet", "haiku"]),
     row("Model", "models.default", "Default model", "The model a step runs on when nothing names one.", TEXT, "opus"),
+    row("Model", "models.session", "Session model", "The model a Session starts on when nothing names one.", TEXT, "opus"),
     row("Model", "models.proposer", "Job proposer model", "The model that reads a request and proposes a job.", TEXT, "haiku", { saved: "sonnet" }),
     row("Effort", "effort.default", "Default effort", "The effort a step runs at when it names none. Harness default passes nothing.", EFFORT, "harness default"),
     row("Effort", "effort.judge", "Judge effort", "The effort each Judge call runs at.", EFFORT, "harness default"),
