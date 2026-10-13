@@ -1,0 +1,8 @@
+[operations.keep_downshift]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Leave the lower model as the default after the window has reset"
+notes = """
+`POST /model_downshift/keep`, no body. Valid while the state is `reset`; answered with `ModelDownshiftState`, now empty. `models.default` is not touched, so the lower model stays the default as though the owner had chosen it. A 409 in any other phase.
+"""

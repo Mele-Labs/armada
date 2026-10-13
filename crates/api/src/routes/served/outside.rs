@@ -10,6 +10,32 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/plan_usage",
     },
+    // The default model's step down as the weekly window runs out, and the four things the owner does to it.
+    Route {
+        operation: "get_model_downshift",
+        method: "GET",
+        path: "/model_downshift",
+    },
+    Route {
+        operation: "accept_downshift",
+        method: "POST",
+        path: "/model_downshift/accept",
+    },
+    Route {
+        operation: "restore_downshift",
+        method: "POST",
+        path: "/model_downshift/restore",
+    },
+    Route {
+        operation: "keep_downshift",
+        method: "POST",
+        path: "/model_downshift/keep",
+    },
+    Route {
+        operation: "settle_downshift",
+        method: "POST",
+        path: "/model_downshift/settle",
+    },
     // Sleep mode: the switch, the night it keeps, and a correction of one decision.
     Route {
         operation: "get_sleep",

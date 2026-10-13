@@ -1,0 +1,10 @@
+[operations.restore_downshift]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Put the default model back to what it was before the step down"
+notes = """
+`POST /model_downshift/restore`, no body. Valid while the state is `shifted` or `reset`; answered with `ModelDownshiftState`, now empty, and `model_downshift.changed` is published.
+
+Writes `models.default` back through the same path as `accept_downshift`: the word the file held, or the key removed where it held none. A refused write keeps the state. A 409 in any other phase.
+"""
