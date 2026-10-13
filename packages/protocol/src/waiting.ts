@@ -15,6 +15,8 @@
 // The header rules in `protocol.ts` hold here: hand-written, they drift the day
 // a field moves, and every closed set is left as `string`.
 
+import type { AnswerMode } from "./asking";
+
 /**
  * A redirect that has gone into the drone's session and has not been answered.
  * `crates/ipc/src/detail.rs`.
@@ -140,8 +142,13 @@ export type AskedOption = {
  */
 export type ChosenAnswer = {
   question_id: string;
-  /** The `AskedOption.label` chosen, verbatim. Absent when the question is an interview. */
+  /** The `AskedOption.label` chosen, verbatim. Absent when the answer is a `mode` alone or the question is an interview. */
   chose?: string;
+  /**
+   * Leave the choice to the drone, and how hard to think about it. With a label
+   * too, the label is the answer and the mode rides with it.
+   */
+  mode?: AnswerMode;
   /**
    * The pick for each decision of an interview: every decision, once each, and
    * no `chose`. A partial set, an unknown decision or a label the decision did

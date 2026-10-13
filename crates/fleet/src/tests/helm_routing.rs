@@ -19,7 +19,7 @@ use testkit::{FakeJudge, FakeWorkProduct};
 
 use super::retro::{running, sent, From, Fixture};
 use crate::daemon::Fleet;
-use crate::helm::routing::{plainly_a_question, reading_of, Candidate};
+use crate::helm::routing::{plainly_a_question, reading_of, Candidate, READ_BUDGET};
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
@@ -200,6 +200,14 @@ async fn blank_words_and_a_plain_wh_question_make_no_call() {
     assert_eq!(read(&app, "   ").await, ThoughtReading::Question);
     assert_eq!(read(&app, "why did Job 12 fail?").await, ThoughtReading::Question);
     assert!(asked(&judge).is_empty(), "no call was made");
+}
+
+/// A read measured 5.0 to 7.5 seconds on a live Fleet, most of it the CLI starting, and at eight
+/// seconds the slower ones were read as questions. Bridge shows the turning mark for as long as it
+/// takes, so the budget is generous and not tight.
+#[test]
+fn the_read_waits_for_a_slow_cli_start() {
+    assert_eq!(READ_BUDGET, Duration::from_secs(20));
 }
 
 fn candidates() -> Vec<Candidate> {

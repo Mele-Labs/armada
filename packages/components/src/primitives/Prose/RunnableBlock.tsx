@@ -9,7 +9,8 @@ export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: 
 
 /**
  * Runs a command where the Session works and reports back. The person's own act, so nothing
- * here reaches the agent. Bridge provides one per Session; absent, a block draws without Run.
+ * here reaches the agent, unless Bridge's runner settles a waiting item that asked for the command.
+ * Bridge provides one per Session; absent, a block draws without Run.
  */
 export type CodeRunner = (command: string, on: (event: CodeRunEvent) => void) => { stop: () => void };
 

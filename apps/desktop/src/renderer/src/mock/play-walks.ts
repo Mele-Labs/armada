@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { pace } from "@armada/jobs/fake";
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -50,13 +50,25 @@ export function walksIn(part: number, of: number): [string, Walk][] {
   return [...WALKS].filter(([name]) => share.get(name) === part);
 }
 
+/**
+ * The real pointer, moved to the window's corner. **A walk presses with
+ * synthetic events, so it never moves it**, and a file run earlier in the same
+ * worker can leave it resting where a plan option is drawn: that option then
+ * previews as hovered and hides the Asker. `unhover` is not enough — it moves
+ * to the middle of the page.
+ */
+export async function parkThePointer(): Promise<void> {
+  await userEvent.hover(page.elementLocator(document.body), { position: { x: 0, y: 0 } });
+}
+
 /** Registers the tests of share `part` of `of`. Called once, at the top of a test file. */
 export function playWalks(part: number, of: number): void {
   unmountAfterEach();
 
   const slow = pace.arrivingMs;
-  beforeEach(() => {
+  beforeEach(async () => {
     pace.arrivingMs = 100;
+    await parkThePointer();
   });
   afterEach(() => {
     pace.arrivingMs = slow;

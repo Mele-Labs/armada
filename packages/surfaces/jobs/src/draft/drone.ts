@@ -5,7 +5,7 @@
 // `task` is on the wire since 23.1, on a step that works its tasks a Drone each
 // (spike 022, slice 1b); a Drone that worked its whole step names none.
 
-import type { DroneState, JobDetail, JobDrones, Turn } from "@armada/protocol";
+import type { DroneActivity, DroneState, JobDetail, JobDrones, Turn } from "@armada/protocol";
 
 import type { GroupView } from "./group";
 
@@ -41,6 +41,8 @@ export type DroneView = {
    * its last finished invocation. **Absent is no price named**, never nought.
    */
   cost_micros?: number;
+  /** What Fleet last read off its transcript: the latest call and the few before it. Absent where it has said nothing. */
+  activity?: DroneActivity;
   /**
    * Every row this Drone's transcript holds, in order — the Job's observed
    * turns whose `drone_id` is this one's. **Absent is the Job's turns not in
@@ -82,6 +84,7 @@ export function droneViewsOf(listed: JobDrones | undefined, whole?: JobDetail, t
     ...(one.at_rest_since === undefined ? {} : { at_rest_since: one.at_rest_since }),
     ...(one.turns === undefined ? {} : { turns: one.turns }),
     ...(one.cost_micros === undefined ? {} : { cost_micros: one.cost_micros }),
+    ...(one.activity === undefined ? {} : { activity: one.activity }),
     ...rowsOf(one.drone_id),
   }));
   const id = whole?.job.assigned_drone;

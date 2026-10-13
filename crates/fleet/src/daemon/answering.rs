@@ -46,8 +46,10 @@ where
     /// **The boot read, and the reconciliation.** No Job moves until this has,
     /// and no command is answered until it has: `armada serve` runs it in a task
     /// after the router is up, with reads and health answering meanwhile and
-    /// commands held by `api::Reconciliation`. It can be long, because a pending
-    /// ruling below re-runs the Job's gate.
+    /// commands held by `api::Reconciliation`. **Evidence a restart found
+    /// pending is noted here and not ruled on**: its gate can take as long as a
+    /// Job's Checks, so the caller hands `awaiting_evidence` to
+    /// [`Fleet::rule_on_pending_evidence`] once commands are let through.
     ///
     /// A Job the store says was `running` **is asked about** rather than
     /// assumed dead. `libc::setsid()` at every spawn is what lets a Drone
@@ -127,6 +129,16 @@ where
         let mut reconciled = Reconciled::default();
         self.reconciled_jobs(served, &loaded.jobs, &mut reconciled)
             .await?;
+        // Ruled on here, in the add request: there is no boot barrier to keep
+        // commands out of, and no `Arc` to spawn from.
+        let awaiting = self
+            .held_for_pending_evidence(&reconciled.awaiting_evidence)
+            .await?;
+        let ruled = self.ruled_on_awaiting(awaiting).await;
+        reconciled.recovered_evidence.extend(ruled.recovered_evidence);
+        reconciled.adopted.extend(ruled.adopted);
+        reconciled.interrupted.extend(ruled.interrupted);
+        reconciled.restarted.extend(ruled.restarted);
         reconciled.admitted = self.admit_next().await?;
         Ok(reconciled)
     }
@@ -155,12 +167,11 @@ where
         reconciled
             .mended
             .extend(self.mended_wedged_reviews(&mut jobs).await?);
-        // Before the Drone-adoption pass below, for the same reason: a
-        // ruling here can move a Job or leave a stale Drone pointer, and the
-        // pass right after has to see the result. #796.
-        reconciled
-            .recovered_evidence
-            .extend(self.ruled_on_pending_evidence(&mut jobs).await?);
+        // Noted here and ruled on once commands are let through: a Job with a
+        // pending row is kept out of the adoption pass below, which would
+        // read its Drone as gone and lose the evidence. #796.
+        let awaiting = self.with_pending_evidence(&jobs).await?;
+        reconciled.awaiting_evidence.extend(awaiting.iter().cloned());
         // Every **step** the store says holds a Drone, whatever status its Job
         // is under. A Drone is spoken to through a pipe the Fleet that spawned
         // it holds, so this Fleet has none of them — and `assigned_drone` is
@@ -175,42 +186,56 @@ where
         // its Drone was ever recorded.
         let held: Vec<(Job, Vec<StepId>)> = jobs
             .iter()
+            .filter(|job| !awaiting.contains(job.id()))
             .map(|job| (job.clone(), steps_holding_a_drone(job)))
             .filter(|(job, steps)| !steps.is_empty() || job.status() == JobStatus::Running)
             .collect();
         for (job, steps) in held {
-            // **Asked before anything is recorded**, because the departure is
-            // what clears the pointer and the stored pid, and a Drone that is
-            // still there has not departed. A Job that is adopted keeps its
-            // pointer, its process row and its status.
-            if self.recovered(&job).await? == Recovered::Adopted {
-                reconciled.adopted.push(job.id().clone());
-                continue;
-            }
-            for step in steps {
-                self.drone_left(job.id(), &step).await?;
-            }
-            let job = self.load(job.id()).await?;
-            // A Job already `escalated` — `stalled` over a Drone this Fleet
-            // has just found gone — reads `Aftermath::AlreadyStopped` below
-            // and takes neither arm: the pointer is cleared above and the
-            // step stays `running`. `#1034`: a person's restart is what stops
-            // it, under `drone_gone`, once `Stuck::of` offers one.
-            if let Aftermath::JobMoves(target) =
-                aftermath(job.status(), &Ending::Vanished, self.left(job.id()))
-            {
-                // **The step, then the Job — `Fleet::kill_drone`'s order.** A
-                // restart that finds the Drone gone used to move the Job
-                // straight to `escalated` and leave its step `running`
-                // underneath, which is `#792`: the inner machine freezes the
-                // moment the Job leaves `running`, so the step has to stop
-                // first or not at all.
-                let job = self.stopped_at_rest(&job).await?;
-                self.move_job(&job, target, Actor::Fleet).await?;
-                reconciled.interrupted.push(job.id().clone());
-                if self.restarted_after_boot(job.id()).await? {
-                    reconciled.restarted.push(job.id().clone());
-                }
+            self.accounted_for_drone(job, steps, reconciled).await?;
+        }
+        Ok(())
+    }
+
+    /// What became of the Drone one Job's record names: adopted, or gone and
+    /// the Job interrupted. Shared by the boot pass and by the pass a pending
+    /// ruling is followed by, `crate::pending_evidence`.
+    pub(crate) async fn accounted_for_drone(
+        &self,
+        job: Job,
+        steps: Vec<StepId>,
+        reconciled: &mut Reconciled,
+    ) -> Result<(), Adrift> {
+        // **Asked before anything is recorded**, because the departure is
+        // what clears the pointer and the stored pid, and a Drone that is
+        // still there has not departed. A Job that is adopted keeps its
+        // pointer, its process row and its status.
+        if self.recovered(&job).await? == Recovered::Adopted {
+            reconciled.adopted.push(job.id().clone());
+            return Ok(());
+        }
+        for step in steps {
+            self.drone_left(job.id(), &step).await?;
+        }
+        let job = self.load(job.id()).await?;
+        // A Job already `escalated` — `stalled` over a Drone this Fleet
+        // has just found gone — reads `Aftermath::AlreadyStopped` below
+        // and takes neither arm: the pointer is cleared above and the
+        // step stays `running`. `#1034`: a person's restart is what stops
+        // it, under `drone_gone`, once `Stuck::of` offers one.
+        if let Aftermath::JobMoves(target) =
+            aftermath(job.status(), &Ending::Vanished, self.left(job.id()))
+        {
+            // **The step, then the Job — `Fleet::kill_drone`'s order.** A
+            // restart that finds the Drone gone used to move the Job
+            // straight to `escalated` and leave its step `running`
+            // underneath, which is `#792`: the inner machine freezes the
+            // moment the Job leaves `running`, so the step has to stop
+            // first or not at all.
+            let job = self.stopped_at_rest(&job).await?;
+            self.move_job(&job, target, Actor::Fleet).await?;
+            reconciled.interrupted.push(job.id().clone());
+            if self.restarted_after_boot(job.id()).await? {
+                reconciled.restarted.push(job.id().clone());
             }
         }
         Ok(())

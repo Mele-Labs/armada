@@ -298,7 +298,9 @@
 }
 
 /* Bracket, place, mark, branch, pull request, then what it is doing. The branch carries a floor and
-   grows to its longest name; the detail is the one filler, so slack lands there. */
+   grows to its longest name; the detail is the one filler, so slack lands there. **The detail has a
+   floor too**, for the owner chip: a branch longer than the lane gives way to it and is cut with an
+   ellipsis, rather than taking every track and leaving the chip to draw over the next column. */
 .armada-merge-line__lane,
 .armada-merge-line__side {
   display: grid;
@@ -308,7 +310,7 @@
     var(--space-4)
     minmax(var(--space-12), max-content)
     min-content
-    minmax(0, 1fr);
+    minmax(calc(var(--space-12) * 3), 1fr);
   column-gap: var(--space-3);
   align-content: start;
   min-width: 0;
@@ -536,6 +538,7 @@
 }
 
 .armada-merge-line__owner-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -556,6 +559,12 @@
 .armada-merge-line__owner--press:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
+}
+
+/* The owner chip sits in its tooltip's wrapper, which holds its whole title as its least width unless
+   told it may shrink. */
+.armada-merge-line__detail > * {
+  min-width: 0;
 }
 
 .armada-merge-line__detail {

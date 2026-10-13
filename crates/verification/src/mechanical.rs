@@ -170,6 +170,10 @@ pub enum Observed {
     /// A Check declared to run before handoff, not run because another Check
     /// on this gate did not pass. A skip, never a pass. #849.
     HeldBack,
+    /// A person pressed skip on this Check, running or waiting. **A skip, never
+    /// a pass**: it advances the step like any finished Check and says on its
+    /// row that nobody measured anything.
+    Waived,
     /// The gate is answering this Check from a Drone's own asked run rather than
     /// running it again. **The row, whole, and not re-derived** — `crate::gate`
     /// decided this Check qualifies before this variant is ever built, and a
@@ -187,6 +191,7 @@ impl Observed {
             Observed::Plan { .. } => "a reading of the plan",
             Observed::Skipped { .. } => "a skipped check",
             Observed::HeldBack => "a check held back for handoff",
+            Observed::Waived => "a check a person skipped",
             Observed::Reused(_) => "a Drone's own asked run",
         }
     }
@@ -537,6 +542,8 @@ enum Answer {
     },
     /// See [`Observed::HeldBack`].
     HeldBack,
+    /// See [`Observed::Waived`].
+    Waived,
     Failed(CheckFailed),
     /// Answered from a Drone's own asked run rather than run again. The row,
     /// already whole — see [`Observed::Reused`].
@@ -653,7 +660,7 @@ impl Ran {
     pub fn skipped(&self) -> usize {
         self.each
             .iter()
-            .filter(|(_, answer)| matches!(answer, Answer::Skipped { .. } | Answer::HeldBack))
+            .filter(|(_, answer)| matches!(answer, Answer::Skipped { .. } | Answer::HeldBack | Answer::Waived))
             .count()
     }
 
@@ -680,7 +687,7 @@ impl Ran {
                     name: name.clone(),
                     outcome: match answer {
                         Answer::Passed => CheckOutcome::Passed,
-                        Answer::Skipped { .. } | Answer::HeldBack => CheckOutcome::Skipped,
+                        Answer::Skipped { .. } | Answer::HeldBack | Answer::Waived => CheckOutcome::Skipped,
                         Answer::Failed(failed) => failed.outcome(),
                         Answer::Reused(_) => unreachable!("returned above"),
                     },
@@ -698,6 +705,7 @@ impl Ran {
                             Some(format!("no changed file is under {covers}"))
                         }
                         Answer::HeldBack => Some(HELD_BACK.to_string()),
+                        Answer::Waived => Some(WAIVED.to_string()),
                         Answer::Passed => None,
                         Answer::Reused(_) => unreachable!("returned above"),
                     },
@@ -715,6 +723,9 @@ impl Ran {
 /// What a held-back Check's row says instead of a result.
 const HELD_BACK: &str =
     "not run: it runs before handoff, once every other check here passes, and one did not";
+
+/// What a Check a person skipped says instead of a result.
+const WAIVED: &str = "not run to an end: skipped on a person's press";
 
 /// One check against one observation.
 fn verdict(
@@ -735,6 +746,7 @@ fn verdict(
         // question the reuse decision already answered.
         (_, Observed::Reused(row)) => Ok(Answer::Reused(row.clone())),
         (_, Observed::HeldBack) => Ok(Answer::HeldBack),
+        (_, Observed::Waived) => Ok(Answer::Waived),
         (
             ResolvedCheck::ManifestCheck {
                 name,

@@ -20,8 +20,10 @@
 //! through, and sleeping for it would be a test that is slow *and* timing-
 //! dependent — this way the number under test is the real one.
 
+mod issues;
 mod patience;
 mod poking;
+mod waiting;
 
 use std::sync::Arc;
 use std::time::Duration;

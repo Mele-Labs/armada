@@ -100,6 +100,8 @@ mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
+/// What is wrong with a Job, and what a quiet one is waiting on.
+mod job_issues;
 /// A session Bridge hosts: its commands, its thread and the gate its first
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
@@ -252,7 +254,7 @@ pub use approving::{
     LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning, ToProposer,
 };
 pub use asked::{AskedRun, AskedRunState};
-pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
+pub use asking::{AnswerMode, JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
 pub use building::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport};
@@ -280,7 +282,7 @@ pub use detail::{
     Settled, StepDetail, StepFacts, StepPass, Stuck, Verdict, WaveRound,
 };
 pub use drift::{Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed};
-pub use drones::{DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, JobDrones};
+pub use drones::{DroneActivity, DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, JobDrones};
 pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
@@ -306,8 +308,8 @@ pub use helm::{
     HelmUnanswered,
 };
 pub use thought::{
-    HelmSent, HelmThoughtRouted, ReadThought, ThoughtKind, ThoughtReading, ThoughtSent,
-    ThoughtTarget,
+    HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    ThoughtSent, ThoughtTarget,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
@@ -363,7 +365,7 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub,
 };
@@ -376,6 +378,7 @@ pub use mods::{
     SetModEnabled,
 };
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
+pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use piloting::{
     DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
@@ -501,7 +504,7 @@ pub use turn::{
     Voice, Withheld,
 };
 pub use underway::{
-    CheckUnderway, ChecksUnderway, OutputClosed, OutputEnded, OutputLines, OutputMessage,
+    CheckNamed, CheckUnderway, ChecksUnderway, OutputClosed, OutputEnded, OutputLines, OutputMessage,
     OutputOpened,
 };
 pub use usage::{FleetUsage, ManifestSpend, Overspending};
@@ -517,5 +520,5 @@ pub use work::{
 };
 pub use work_plan::{
     AddTask, ChangedBy, DropTask, EditTask, JobPlanChanged, MovePlan, PlanGroup, PlanGroupRun,
-    PlanTask, RestartTask, SetTiers, TaskCounts, TierModels, WorkPlan, WorkingWindow,
+    PlanTask, RestartTask, SetTiers, TaskBy, TaskCounts, TierModels, WorkPlan, WorkingWindow,
 };

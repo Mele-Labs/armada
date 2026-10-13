@@ -417,6 +417,26 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord({ ...asTerminal, state: "ended", terminal: { listening: true } }, undefined, beside()).dead).toBe("ended");
   });
 
+  it("keeps what an ended session made, its pull requests and artifacts and the link to its forks, and drops its slot and branch", () => {
+    const ended = record("old", {
+      state: "ended",
+      attachments: [
+        held("slot", "3"),
+        held("branch", "fix/x"),
+        held("pr", "1847", { state: "merged", title: "Pin the clock", checks: "passed" }, "spent"),
+        held("pr", "1850", { title: "Open one", checks: "pending" }),
+        held("artifact", "https://example.com/a", { form: "page", title: "Findings" }, "spent"),
+        held("forked_to", "new", {}, "spent"),
+      ],
+    });
+    expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([
+      expect.objectContaining({ kind: "pull_request", number: 1847, state: "merged", checks: { state: "passed" } }),
+      expect.objectContaining({ kind: "pull_request", number: 1850, state: "open", checks: { state: "pending" } }),
+      { kind: "artifact", form: "page", id: "https://example.com/a", title: "Findings" },
+      { kind: "forked_to", id: "new" },
+    ]);
+  });
+
   it("keeps the link to its forks and nothing else it held", () => {
     const ended = record("old", {
       state: "ended",

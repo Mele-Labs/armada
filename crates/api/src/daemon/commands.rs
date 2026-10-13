@@ -206,6 +206,32 @@ pub trait Commands: Send + Sync + 'static {
         by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `retry_check` — runs one Check of the Job's running gate again, and
+    /// only that one; the ruling waits for it. 409 where no gate is running
+    /// Checks, where it has none of that name, and where the ruling is being
+    /// written.
+    fn retry_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `skip_check` — ends one Check of the Job's running gate, recorded as
+    /// skipped: it advances the step and is not a pass. 409 on `retry_check`'s
+    /// refusals and where that Check has already finished.
+    fn skip_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `skip_checks` — `skip_check` for every Check that has not finished. 409
+    /// where no gate is running Checks, and where all of them have finished.
+    fn skip_checks(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `kill_process` — ends one process the Job holds, and everything under
     /// it. Fleet reads the Job's process tree at the act and refuses a pid
     /// that is not in it, so the pid names a process and never grants one.
@@ -770,7 +796,8 @@ pub trait Commands: Send + Sync + 'static {
     /// re-reading the board.
     ///
     /// **There is no field for prose.** [`ChosenAnswer::chose`] is one of the labels
-    /// the Drone offered and a label matching none is refused, which keeps this from
+    /// the Drone offered, or absent where a [`ChosenAnswer::mode`] leaves the choice
+    /// to the Drone, and a label matching none is refused, which keeps this from
     /// becoming the conversation `docs/scope.md` rejected. Words reach a Drone by
     /// redirect, and since 11.5 by a reject's note on [`Commands::answer_command`]
     /// — about the one command it refuses. Never through this one.
@@ -1058,15 +1085,20 @@ pub trait Commands: Send + Sync + 'static {
         removing: ipc::RemoveKitAllowedCommand,
     ) -> impl Future<Output = Result<ipc::KitAllowedCommands, Refusal>> + Send;
 
-    /// `add_task` — a person adds a task to the Job's plan, and the plan it
+    /// `add_task` — a task is added to the Job's plan, and the plan it
     /// leaves comes back. `#897`. Refused where the Job has no plan, or
     /// `after` names no task the plan holds — `crates/ipc/operations/`.
+    ///
+    /// **`by` on this act and the four below is the transport's word, never
+    /// the body's** (`#2168`): a person's unless the door placed the call as
+    /// Helm's or a Commander's. It signs the change, and no act has a default.
     /// **A working Drone is told**, mid-step; at a step boundary the next
     /// brief's THE PLAN carries it, and nothing respawns to deliver it.
     fn add_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         add: AddTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
     /// `drop_task` — a person drops a task with a reason, and the plan it
@@ -1077,6 +1109,7 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         drop: DropTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
     /// `restart_task` — a fresh Drone on one failed task, with an optional
@@ -1087,6 +1120,7 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         task: String,
         restart: ipc::RestartTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `move_plan` — a person moves a task or a group by `after`, and the plan
@@ -1096,6 +1130,7 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         move_plan: ipc::MovePlan,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
     /// `edit_task` — a person changes a task's title, note, scope, expects or
@@ -1106,5 +1141,6 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         task: String,
         edit: ipc::EditTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 }

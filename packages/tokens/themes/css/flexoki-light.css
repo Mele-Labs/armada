@@ -1,6 +1,6 @@
 /* Derived from the Flexoki Light terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
    Tone light. foreground 16.3:1, accent 5.6:1 at the worst ground.
-   Lightness moved to reach 4.5:1: success, review, escalated, not-started, killed. */
+   Lightness moved to reach 4.5:1: success, review, escalated, not-started, killed, you. */
 [data-theme="catalogue:flexoki-light"] {
   color-scheme: light;
   /* Ground */
@@ -38,8 +38,9 @@
   --status-rejected: #A02F6F;
   --status-killed: #63615D;
   --status-handed-in: #376867;
-  /* Helm, tools, diff */
+  /* Helm, you, tools, diff */
   --helm: #704F8B;
+  --you: #8A7400;
   --tool-look: #0D766E;
   --tool-change: #A02F6F;
   --tool-run: #8A6100;

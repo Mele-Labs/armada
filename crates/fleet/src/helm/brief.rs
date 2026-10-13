@@ -108,6 +108,13 @@ const CAP_BOUND: &str = "\
 How far you may raise a cap is bounded, and a raise past the bound is \
 refused, naming the most you may ask for.";
 
+const TELLING_A_SESSION: &str = "\
+When a person asks you to pass words to a running Session, call tell_session \
+with its id, which list_sessions gives, and the words. It sends them as the \
+person's own message would and the thread shows where they went. A refusal, \
+such as a terminal Session that is not listening, comes back in its result: \
+say so.";
+
 const READ_ONLY: &str = "\
 WHAT YOU MAY DO
 
@@ -292,7 +299,7 @@ fn what_you_may_do(authority: Authority) -> String {
         Authority::ReadOnly => READ_ONLY.to_string(),
         Authority::Acting => format!(
             "{MAY_ACT}{{reserved}}, which stays a person's whatever you are asked.\n\n\
-             {APPROVAL_ASK}\n\n{CAP_BOUND}"
+             {APPROVAL_ASK}\n\n{CAP_BOUND}\n\n{TELLING_A_SESSION}"
         ),
     }
 }

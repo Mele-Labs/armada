@@ -403,6 +403,10 @@ pub fn detail(job: JobSummary) -> JobDetail {
         walk_notes: Vec::new(),
         triggers: Vec::new(),
         additions: Vec::new(),
+        // The fake reads no transcript and no board, so it finds nothing wrong
+        // and nothing waited on.
+        issues: Vec::new(),
+        waiting: Vec::new(),
         created_via: None,
     }
 }
@@ -885,6 +889,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 at_rest_since: None,
                 turns: Some(7),
                 cost_micros: Some(146_473),
+                activity: None,
             },
             JobDrone {
                 drone_id: DroneId::carried("01DRONEDONE"),
@@ -897,6 +902,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 at_rest_since: None,
                 turns: Some(12),
                 cost_micros: Some(388_120),
+                activity: None,
             },
             JobDrone {
                 drone_id: DroneId::carried(THE_DRONE),
@@ -909,6 +915,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 at_rest_since: None,
                 turns: Some(3),
                 cost_micros: Some(41_002),
+                activity: None,
             },
         ],
     }

@@ -18,7 +18,7 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::{
     AskHelm, AskingToRun, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId, ReadThought,
-    ThoughtSent,
+    TellSession, ThoughtSent,
 };
 use tokio::sync::broadcast;
 
@@ -225,6 +225,22 @@ pub(crate) async fn record_thought_sent<D: Conversations>(
     };
     match served.daemon().record_thought_sent(sent, scope.manifest()).await {
         Ok(conversation) => answer(StatusCode::OK, &conversation, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Helm passes words to a live Session. 200 with where they went; the send's own refusal otherwise.
+pub(crate) async fn tell_session<D: Conversations>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let tell: TellSession = match ipc::decode("words for a session", &body) {
+        Ok(tell) => tell,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().tell_session(tell, scope.manifest()).await {
+        Ok(target) => answer(StatusCode::OK, &target, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

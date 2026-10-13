@@ -416,6 +416,10 @@ pub enum Adrift {
     /// three** — the recourse is identical in all three, and
     /// `crate::questioning::NotAnswered` says which this is.
     NotAnswerable { job: JobId, because: String },
+    /// A skip or a retry on a Check the gate is not running: no gate, no Check of
+    /// that name, one already finished, or the ruling already being written.
+    /// **One sentence rather than five**, for `NotAnswerable`'s reason.
+    NoCheckToAct { job: JobId, because: String },
     /// A review act was asked for on a Job that is not at a human gate.
     ///
     /// **Not an illegal transition.** Two of the three moves a review makes are

@@ -64,6 +64,8 @@
   --color-helm-muted: var(--helm-muted);
   --color-helm-edge: var(--helm-edge);
   --color-helm-faint: var(--helm-faint);
+  --color-you: var(--you);
+  --color-you-edge: var(--you-edge);
   --color-diff-add-bg: var(--diff-add-bg);
   --color-diff-add-fg: var(--diff-add-fg);
   --color-diff-del-bg: var(--diff-del-bg);

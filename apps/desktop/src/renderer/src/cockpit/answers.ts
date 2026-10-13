@@ -20,6 +20,7 @@ import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
+import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
 import { mainOwner, pullOwner, type Owner } from "./owner";
@@ -182,6 +183,13 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
   };
 
+  /** Best or quick on a Job's ask. An ask Fleet holds no question for, such as the mock's, only clears. */
+  const sendToJob = (mode: "best" | "quick") => {
+    const call = item.job === undefined ? undefined : answerJobAsk(item.job.id, item.asked, mode);
+    if (call === undefined) return finish();
+    wait(mode, call);
+  };
+
   /** A short nudge to whoever owns the pull request, through the path that reaches them. */
   const poke = (who: Owner) => {
     const said = `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
@@ -281,6 +289,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         : answer("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
       return [drone, answer("Attach", () => setAttaching(true))];
     }
+    // A Fleet-served issue has no answer here: the card opens the Job, where its acts are.
+    if (item.served) return [];
     if (item.kind === "Check failed") return [answer("Retry", finish)];
     if (item.kind === "Drone stuck") return [answer("Restart the step", finish), answer("Fresh Drone", finish)];
     return [];
@@ -295,7 +305,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         }))
       : actsOf();
   const permission = waiting?.item.source === "permission";
-  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? () => finish() : (mode) => sendWaiting(mode, { mode }), permission) : [];
+  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? sendToJob : (mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
   // One answer is the answer: Enter sends it without a number first.

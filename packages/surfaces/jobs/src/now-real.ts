@@ -4,26 +4,33 @@
 // `job.judging`, `job.asking`) re-read the detail, so this is a function of the latest read and
 // holds nothing between calls.
 //
-// **Only what is served.** The Plan interview, issues, a Drone's sketch and a Waiting source that
-// is not a queued reason stay on the draft; a row here never stands in for one of them.
+// **Only what is served.** The Plan interview and a Drone's sketch stay on the draft; a row here
+// never stands in for one of them. A Drone's line is the activity `list_job_drones` carries, else
+// its transcript; Issues and Waiting are `JobDetail.issues` and `waiting`.
 
 import { BUDGET_HOLD, CHECK_ADVANCES, JOB_LIFECYCLE, QUEUED_REASON } from "@armada/components";
-import type { CheckUnderway, JobDetail, JobSummary, StepDetail } from "@armada/protocol";
+import type { CheckUnderway, JobDetail, JobIssue, JobSummary, JobWaiting, StepDetail } from "@armada/protocol";
+import { span } from "@armada/screens/src/duration";
 
 import type { DroneView } from "./draft/drone";
 import { isWorking } from "./draft/drone";
-import type { NowAskView, NowRunningView, NowView, NowWaitingView } from "./draft/now";
+import type { NowAskView, NowIssueView, NowRunningView, NowView, NowWaitingView } from "./draft/now";
 import { basename } from "./phases";
 import { entriesOf } from "./story";
 
 /** The two a Job shows no panel at: nothing has run, and the approval draws its own canvas. */
 const BEFORE_THE_RUN = new Set(["awaiting_approval", "proposing"]);
 
-/** A quick act on a Check row. The host says what it would do; no Fleet command is behind either. */
+/** A quick act on a Check row: `retry_check` and `skip_check`. */
 const CHECK_ACTS = [
   { key: "retry", glyph: "retry", said: "Retry now" },
   { key: "skip", glyph: "skip", said: "Skip check" },
 ] as const;
+
+const RETRY_STEP = { key: "restart", glyph: "retry_step", said: "Retry step" } as const;
+
+/** What fixes a stuck Drone: a redirect it is told, or its step run again. */
+const STUCK_ACTS = [{ key: "redirect", glyph: "redirect", said: "Redirect Drone" }, RETRY_STEP] as const;
 
 /** How many of a Drone's last calls its tail holds. */
 const TAIL = 3;
@@ -34,6 +41,8 @@ export type NowRealInput = {
   drones: readonly DroneView[];
   /** The Board, for the title of a Job this one waits on. */
   board?: readonly JobSummary[];
+  /** Epoch milliseconds a quiet Drone is measured to. Absent is the clock. */
+  at?: number;
 };
 
 /**
@@ -42,7 +51,7 @@ export type NowRealInput = {
  * which draws "Nothing is actively running on this job" rather than no panel, so a live Job is
  * never mistaken for one the panel forgot.
  */
-export function nowViewOf({ whole, drones, board = [] }: NowRealInput): NowView | undefined {
+export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRealInput): NowView | undefined {
   if (whole === null) return undefined;
   const status = whole.job.status;
   if (JOB_LIFECYCLE[status]?.terminal !== false || BEFORE_THE_RUN.has(status)) return undefined;
@@ -81,7 +90,7 @@ export function nowViewOf({ whole, drones, board = [] }: NowRealInput): NowView 
   const asks: NowAskView[] = [];
   const judging = whole.judge_question;
   if (judging !== undefined) {
-    asks.push({ key: `judge:${judging.step_id}:${judging.criterion_id}`, kind: "judge", name: `Judge on ${stepOf(judging.step_id)?.label ?? judging.step_id}`, text: judging.question });
+    asks.push({ key: `judge:${judging.step_id}:${judging.criterion_id}`, kind: "judge", name: `Judge on ${stepOf(judging.step_id)?.label ?? judging.step_id}`, text: judging.question, asked: { kind: "judge", at: judging.asked_at } });
   }
   const asking = whole.asking;
   if (asking !== undefined) {
@@ -91,6 +100,7 @@ export function nowViewOf({ whole, drones, board = [] }: NowRealInput): NowView 
       kind: "drone",
       name: asker === undefined ? `${stepOf(asking.step_id)?.label ?? asking.step_id} Drone` : droneName(asker),
       text: asking.question,
+      asked: { kind: "question", id: asking.question_id },
       ...(asker === undefined ? {} : { target: asker.id }),
     });
   }
@@ -102,22 +112,28 @@ export function nowViewOf({ whole, drones, board = [] }: NowRealInput): NowView 
       kind: "drone",
       name: asker === undefined ? `${stepOf(command.step_id)?.label ?? command.step_id} Drone` : droneName(asker),
       text: command.detail === "" ? command.tool : `${command.tool} ${command.detail}`,
+      asked: { kind: "command" },
       ...(asker === undefined ? {} : { target: asker.id }),
     });
   }
 
-  const waiting = waitingOf(whole.job, board);
+  // What Fleet names it waits on; the queued row's own reason for a wait Fleet leaves unnamed, such as a pause.
+  const served = (whole.waiting ?? []).map((one) => waitingRow(one, board, stepOf, placed));
+  const waiting = served.length === 0 ? waitingOf(whole.job, board) : served;
+  const issues = (whole.issues ?? []).map((one) => issueRow(one, whole, drones, droneName, placed, at));
   return {
     ...(asks.length === 0 ? {} : { asks }),
+    ...(issues.length === 0 ? {} : { issues }),
     ...(running.length === 0 ? {} : { running }),
     ...(waiting.length === 0 ? {} : { waiting }),
   };
 }
 
 function droneRow(drone: DroneView, name: string, step: { id: string; name: string } | undefined): NowRunningView {
-  // Its own calls, newest last. A transcript the window has not read draws no line, never an empty one.
+  // What Fleet served first, else its own calls from the transcript in hand, newest last. A Drone
+  // that has said nothing draws no line, never an empty one.
   const calls = entriesOf(drone.transcript ?? [], undefined).flatMap((row) => (row.called === undefined ? [] : [`${row.called.tool} ${row.called.detail}`.trim()]));
-  const tail = calls.slice(-TAIL);
+  const tail = drone.activity === undefined ? calls.slice(-TAIL) : (drone.activity.tail ?? [drone.activity.line]).slice(-TAIL);
   return {
     key: `drone:${drone.id}`,
     of: "drone",
@@ -166,4 +182,74 @@ function waitingOf(job: JobSummary, board: readonly JobSummary[]): NowWaitingVie
   }
   const said = reason === "over_budget" ? (BUDGET_HOLD[job.budget_hold ?? ""]?.verb ?? QUEUED_REASON[reason]?.verb) : QUEUED_REASON[reason]?.verb;
   return said === undefined || said === null ? [] : [{ key: `held:${reason}`, kind: "resource", text: said.charAt(0).toUpperCase() + said.slice(1) }];
+}
+
+/** One entry of `JobDetail.waiting` as a row. A resource is spelled the way the queued reason is. */
+function waitingRow(
+  one: JobWaiting,
+  board: readonly JobSummary[],
+  stepOf: (id: string) => StepDetail | undefined,
+  placed: (id: string) => { id: string; name: string } | undefined,
+): NowWaitingView {
+  if (one.kind === "job") return { key: `job:${one.job_id}`, kind: "job", text: one.title ?? board.find((row) => row.id === one.job_id)?.title ?? one.job_id, target: one.job_id };
+  if (one.kind === "transition") {
+    const step = placed(one.step_id);
+    return { key: `transition:${one.step_id}`, kind: "transition", text: stepOf(one.step_id)?.label ?? one.step_id, ...(step === undefined ? {} : { step }) };
+  }
+  const said = BUDGET_HOLD[one.name]?.verb ?? QUEUED_REASON[one.name]?.verb ?? one.name;
+  return { key: `held:${one.name}`, kind: "resource", text: said.charAt(0).toUpperCase() + said.slice(1) };
+}
+
+/** One entry of `JobDetail.issues` as a row. */
+function issueRow(
+  one: JobIssue,
+  whole: JobDetail,
+  drones: readonly DroneView[],
+  droneName: (drone: DroneView) => string,
+  placed: (id: string) => { id: string; name: string } | undefined,
+  at: number,
+): NowIssueView {
+  switch (one.kind) {
+    case "breakage": {
+      const claim = whole.breakages?.find((row) => row.check === one.check && row.test === one.test);
+      return { key: `breakage:${one.check}:${one.test}`, of: "check", name: one.check, text: claim?.failure ?? one.test, said: "Test broken on main" };
+    }
+    case "write_scope_overlap": {
+      const peer = whole.write_scope_overlaps?.find((row) => row.job_id === one.job_id);
+      return {
+        key: `overlap:${one.job_id}`,
+        of: "drone",
+        name: peer?.title ?? one.job_id,
+        text: peer === undefined ? "Writes where this Job writes" : peer.paths.map((path) => path.path).join(", "),
+        said: "Write scope overlaps",
+      };
+    }
+    case "failed_verdict": {
+      const step = placed(one.step_id);
+      return {
+        key: `verdict:${one.step_id}:${one.attempt}`,
+        of: "judge",
+        name: `Judge on ${step?.name ?? one.step_id}`,
+        text: one.trigger === undefined ? `Attempt ${one.attempt} failed` : `Attempt ${one.attempt} failed: ${one.trigger}`,
+        said: "Verdict failed",
+        ...(step === undefined ? {} : { step }),
+        acts: [RETRY_STEP],
+      };
+    }
+    case "stuck_drone": {
+      const drone = drones.find((row) => row.id === one.drone_id);
+      const step = placed(one.step_id);
+      const quiet = span(one.quiet_since, at);
+      return {
+        key: `stuck:${one.drone_id}`,
+        of: "drone",
+        name: drone === undefined ? `${step?.name ?? one.step_id} Drone` : droneName(drone),
+        text: quiet === null ? "No output" : `No output for ${quiet}`,
+        said: "Drone stuck",
+        target: one.drone_id,
+        ...(step === undefined ? {} : { step }),
+        acts: STUCK_ACTS,
+      };
+    }
+  }
 }

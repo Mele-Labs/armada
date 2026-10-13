@@ -443,7 +443,7 @@ A terminal Session's thread is its transcript and carries no `check` row; its ru
 
 A fenced shell block in a Session's thread shows Run when the block is hovered or focused. Pressing it runs the command in the Session's working directory, its slot if it has one, and the output prints under the block as it arrives. A finished run carries a mark with the exit code on its tooltip, and Run again sits where Run was. A run that goes on shows Stop in Run's place, and a stopped run ends with no exit code.
 
-**It is the person's own act.** Nothing is sent to the agent, no row is added to the thread, and the Session's record does not change. Bridge starts the run with `start_session_run` (`POST /sessions/run/start`) and reads what it prints on `observe_session_run`, a socket of its own, until `exited`. A Session that has ended, or a run Fleet does not know, is refused in the same words as any other act on a Session.
+**It is the person's own act.** Nothing is sent to the agent, no row is added to the thread, and the Session's record does not change, with one exception: **a run that exits 0 settles the waiting item whose `run` act names that command**, from the thread or from the Needs you band, where the item is the command's own block with Run. Bridge answers it with `answer_waiting` and `text` `Ran: exit 0`, so the agent is told. Bridge starts the run with `start_session_run` (`POST /sessions/run/start`) and reads what it prints on `observe_session_run`, a socket of its own, until `exited`. A Session that has ended, or a run Fleet does not know, is refused in the same words as any other act on a Session.
 
 The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 

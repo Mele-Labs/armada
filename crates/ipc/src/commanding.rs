@@ -164,6 +164,9 @@ pub struct AnswerCommand {
     /// 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<AlwaysAllowScope>,
+    /// How the Drone is told to carry on, beside the answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::AnswerMode>,
 }
 
 /// Where an [`CommandAnswer::AlwaysAllow`] is kept.

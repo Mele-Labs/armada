@@ -140,6 +140,26 @@ pub struct JobDrone {
     /// whatever it has done since that line.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost_micros: Option<u64>,
+    /// What it is doing now and the last few things it did, off the same
+    /// transcript pass that yields `turns` and `cost_micros`. **Absent on a
+    /// Drone that has said nothing yet**, never an empty line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub activity: Option<DroneActivity>,
+}
+
+/// A Drone's latest action and the few before it.
+///
+/// **A window, not the transcript.** `get_drone` serves the rows; this is the
+/// line a Job's Now draws beside the Drone and the lines it folds under it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DroneActivity {
+    /// The latest action, in the words a row of the transcript is shown in.
+    /// Never blank.
+    pub line: String,
+    /// The last few actions, oldest first, the latest among them. Left out
+    /// where a reader has only the line to go on.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tail: Vec<String>,
 }
 
 /// Every Drone a Job has had, in the order they were spawned.

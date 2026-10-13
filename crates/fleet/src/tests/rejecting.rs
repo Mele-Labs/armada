@@ -58,6 +58,7 @@ async fn a_persons_reason_reaches_the_drone_inside_the_refusal() {
                 &job,
                 "c1",
                 Answered::of(CommandAnswer::Reject, Some(BECAUSE)),
+                None,
             )
             .await
     });
