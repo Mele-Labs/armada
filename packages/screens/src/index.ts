@@ -51,3 +51,4 @@ export * from "./locate-reads";
 // Overview's reads stay here, since Settings and the wire types read them; the surface is `@armada/overview`.
 export type * from "./overview-reads";
 export * from "./pausing";
+export * from "./limit-held";

@@ -73,7 +73,7 @@ import {
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
-import { placeOf } from "@armada/screens";
+import { limitHeldSaid, placeOf } from "@armada/screens";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
@@ -90,6 +90,7 @@ export function sessionsHidden(served: boolean): readonly string[] {
 function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
+  if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
   if (session.turn.state === "working") {
     const by = session.turn.wokenBy;
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
@@ -238,7 +239,7 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
-  { label: "Running", has: (state) => state === "working" },
+  { label: "Running", has: (state) => state === "working" || state === "limited" },
   { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },

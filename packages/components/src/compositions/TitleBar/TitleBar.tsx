@@ -88,7 +88,6 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
             >
               <span className="armada-title-bar__usage-label">{limit.short}</span>
               <span className="armada-title-bar__usage-track" />
-              <span className="armada-title-bar__usage-percent">{percent}%</span>
             </span>
           </Tooltip>
         );

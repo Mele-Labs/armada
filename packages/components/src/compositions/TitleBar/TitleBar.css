@@ -137,12 +137,12 @@
   min-width: 0;
 }
 
-/* The plan's limits: two small fill meters, a mono label then the track then the figure, coloured by how
- * full. The fill is the tokens' own status hues; the width is handed in as `--fill`. */
+/* The plan's limits: two small fill meters, a mono label then the track, coloured by how full. The figure is
+ * in the hover card, not beside the meter. The fill is the tokens' own status hues; the width is handed in as `--fill`. */
 .armada-title-bar__usage {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   flex: none;
 }
 
@@ -170,8 +170,8 @@
 
 .armada-title-bar__usage-track {
   position: relative;
-  width: calc(var(--space-12) + var(--space-1));
-  height: var(--space-2);
+  width: var(--space-8);
+  height: var(--space-1);
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--bg-hover);
@@ -183,12 +183,6 @@
   inset: 0 auto 0 0;
   width: var(--fill);
   background: var(--level);
-}
-
-.armada-title-bar__usage-percent {
-  min-width: var(--space-6);
-  color: var(--level);
-  text-align: end;
 }
 
 /* The hover card's lines, on the tooltip's own bubble: an overlay surface, as the ledger's card is. */

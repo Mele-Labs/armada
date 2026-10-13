@@ -30,6 +30,7 @@ import { SleepSourceProvider } from "../sleep";
 import { mockSleep } from "./sleep";
 import { PlanUsageSourceProvider } from "../plan-usage";
 import { mockPlanUsage } from "./plan-usage";
+import { limitHeld } from "@armada/screens/src/limit-held";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -104,6 +105,7 @@ export function mountApp(
   if (shared === undefined) mockThemes.reset();
   mockSleep.reset();
   mockPlanUsage.set(undefined);
+  limitHeld.set(new Map());
   if (shared === undefined) mockLayout.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;

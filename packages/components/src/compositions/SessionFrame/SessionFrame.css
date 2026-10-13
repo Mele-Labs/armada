@@ -90,6 +90,11 @@ button.armada-session-frame__title {
   gap: var(--space-4);
 }
 
+/* Held for the plan limit: the hue of a thing not running and not asking. */
+.armada-limit-mark {
+  color: var(--status-not-started);
+}
+
 .armada-session-mark {
   display: inline-flex;
   align-items: center;

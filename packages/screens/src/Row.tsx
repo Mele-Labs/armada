@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { AttestedMark, Button, FixingMainMark, JobAlertMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar, PilotedBy, pilotable, useOpenInSession, usePilot } from "@armada/components";
+import { AttestedMark, Button, LimitMark, FixingMainMark, JobAlertMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar, PilotedBy, pilotable, useOpenInSession, usePilot } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { ScrollText } from "lucide-react";
 
@@ -91,6 +91,7 @@ import { ROW_VERBS, verbOf } from "./keys";
 import { originReading } from "./origin";
 import { fixesMainMark, fixesMainOf, fixesMainSaid } from "./main-red";
 import { canPause, canResume, pausedSaid } from "./pausing";
+import { limitHeld, limitHeldSaid, useLimitedUntil } from "./limit-held";
 import type { PauseAct } from "./pausing";
 import { leading, readingOf } from "./reading";
 import type { Recent } from "./recent";
@@ -162,6 +163,7 @@ export function Row({
   onPausing?: (act: PauseAct, jobId: string) => void;
   onCopied: (value: string) => void;
 }) {
+  const limited = useLimitedUntil(job.id);
   const reading = readingOf(job);
   // Every row reaching here is renderable — the list filtered the rest out and
   // names them, rather than this picking a glyph the registry does not have.
@@ -342,7 +344,7 @@ export function Row({
       status={reading.status}
       statusIcon={reading.icon}
       statusLabel={reading.verb}
-      {...(hasMarks(job, now) ? { mark: <JobMarks job={job} now={now} /> } : {})}
+      {...(hasMarks(job, now, limited) ? { mark: <JobMarks job={job} now={now} /> } : {})}
       headline={headline}
       jobId={job.id}
       handle={job.handle}
@@ -372,16 +374,18 @@ export function Row({
 }
 
 /** Whether a Job carries any mark beside its badge: paused, fixing main, an alert, piloted, attested. */
-export function hasMarks(job: JobSummary, now: number): boolean {
-  return pausedSaid(job, now) !== undefined || fixesMainOf(job) !== undefined || job.alert !== undefined || job.status === "piloted" || job.piloted?.exit === "attested";
+export function hasMarks(job: JobSummary, now: number, limited: string | undefined = limitHeld.until(job.id)): boolean {
+  return limited !== undefined || pausedSaid(job, now) !== undefined || fixesMainOf(job) !== undefined || job.alert !== undefined || job.status === "piloted" || job.piloted?.exit === "attested";
 }
 
 /** The marks beside a Job's badge, as its Board row draws them. Out of `Row` for the Dashboard's pane. */
 export function JobMarks({ job, now }: { job: JobSummary; now: number }) {
   const paused = pausedSaid(job, now);
   const fixes = fixesMainOf(job);
+  const limited = useLimitedUntil(job.id);
   return (
     <>
+      {limited === undefined ? null : <LimitMark said={limitHeldSaid(limited)} size={12} />}
       {fixes === undefined ? null : <FixingMainMark state={fixesMainMark(fixes)} said={fixesMainSaid(fixes)} />}
       {job.alert === undefined ? null : <JobAlertMark alert={job.alert} />}
       {paused === undefined ? null : <PausedMark said={paused} />}

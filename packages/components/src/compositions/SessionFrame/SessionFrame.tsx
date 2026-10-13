@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -15,10 +15,10 @@ import { usageLevel } from "../../usage";
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
  * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, failing is a
  * pull request's Checks red, and ended is nothing listening, whether it was ended
- * or its terminal stopped asking. `[conventions.session_state_borrowing]` and
+ * or its terminal stopped asking, and limited is held until the plan's limit resets. `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended";
+export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended" | "limited";
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
@@ -28,15 +28,28 @@ const MARK: Record<SessionState, LucideIcon> = {
   idle: Check,
   quiet: Unplug,
   ended: Unplug,
+  limited: BatteryLow,
 };
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */
 export function SessionMark({ state, said }: { state: SessionState; said: string }) {
   const Glyph = MARK[state];
+  if (state === "limited") return <LimitMark said={said} />;
   return (
     <Tooltip label={said}>
       <span className="armada-session-mark" role="img" aria-label={said} data-pulsing={state === "working" || undefined}>
         <Glyph size={16} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** Held for the plan's limit, until Fleet wakes it at the reset: an icon and its tooltip, nothing animated. */
+export function LimitMark({ said, size = 16 }: { said: string; size?: 12 | 16 }) {
+  return (
+    <Tooltip label={said}>
+      <span className="armada-session-mark armada-limit-mark" role="img" aria-label={said}>
+        <BatteryLow size={size} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
   );
