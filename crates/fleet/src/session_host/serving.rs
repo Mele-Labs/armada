@@ -28,10 +28,9 @@ use crate::repositories::Served;
 /// A session id that names nothing. A 422.
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
+const SESSION_CLOSED: &str = "fleet.session_closed";
 /// The ledger rows that say a session holds a slot in the pool.
 const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
-
-const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A command that is not one slash command, or a session that is not a terminal one. A 422.
 pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
