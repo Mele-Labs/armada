@@ -292,10 +292,10 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   await expect.element(listed).toBeVisible();
   await expect.element(listed.getByRole("img", { name: "Job" }).first()).toBeVisible();
   await expect.element(listed.getByRole("img", { name: "Session" }).first()).toBeVisible();
-  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
+  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Docs for the pairing");
   await userEvent.keyboard("{Enter}");
-  expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s10" });
-  await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Migration notes/);
+  expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s15" });
+  await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Docs for the pairing screen/);
   await expect.element(act(/Open the Session/)).toBeVisible();
   expect(act(/Send a Drone/).query()).toBeNull();
 });
@@ -329,6 +329,21 @@ test("main's red goes to the Job that broke it: 1 opens it, 2 pokes it", async (
   await userEvent.keyboard("1");
   // The Job opens: the Dashboard's filters are no longer drawn.
   await expect.poll(() => page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
+});
+
+test("a poke on main's red says main is red and what failed, never that a pull request's checks did", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const redirect = vi.spyOn(app.api, "redirectDrone");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Main/);
+  await userEvent.keyboard("2");
+  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  const said = String(redirect.mock.calls[0]![1]);
+  expect(said).toMatch(/^main is red/);
+  expect(said).toContain("fixes main");
+  expect(said).not.toContain("checks failed");
 });
 
 test("a Session's own question shows its options and their lines, never Allow or Deny, and takes a reply in words", async () => {

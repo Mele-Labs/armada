@@ -7,7 +7,20 @@ use std::path::Path;
 
 use super::git::{count, git, git_ok};
 use super::saving::commit_all;
+use super::strays;
 use super::{Holder, ParkRefused, Parked, Pool, Record};
+
+/// Whose rules a park follows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tenant {
+    /// A Job, or a person's process: parked on the branch the lease names, and
+    /// refused on any other.
+    Job,
+    /// A session that has ended. It rewrites its own branch inside its slot, so
+    /// the work goes to the branch the checkout is on, and what it left running
+    /// in the slot is ended first.
+    Session,
+}
 
 impl Pool {
     /// Commits reachable from `HEAD` in `at` that `branch`, the remotes and
@@ -50,7 +63,7 @@ impl Pool {
         };
         match &record.holder {
             holder @ Holder::Process { .. } if !holder.alive() => {
-                self.park_named(number, holder, whose)
+                self.parked(number, holder, whose, Tenant::Session)
             }
             holder => Err(ParkRefused::HeldByAnother(holder.said())),
         }
@@ -64,6 +77,29 @@ impl Pool {
         number: usize,
         holder: &Holder,
         whose: &str,
+    ) -> Result<Parked, ParkRefused> {
+        self.parked(number, holder, whose, Tenant::Job)
+    }
+
+    /// [`park_named`](Pool::park_named) for a hosted session that has ended:
+    /// committed to whatever branch the slot is on, unless that is the base or
+    /// none, and with anything still running in the slot ended first. A refused
+    /// park ends nothing.
+    pub fn park_session(
+        &self,
+        number: usize,
+        holder: &Holder,
+        whose: &str,
+    ) -> Result<Parked, ParkRefused> {
+        self.parked(number, holder, whose, Tenant::Session)
+    }
+
+    fn parked(
+        &self,
+        number: usize,
+        holder: &Holder,
+        whose: &str,
+        tenant: Tenant,
     ) -> Result<Parked, ParkRefused> {
         let slot = self.path_of(number);
         if !self.bays().contains(&number) || !slot.exists() {
@@ -85,16 +121,19 @@ impl Pool {
         if on == self.base {
             return Err(ParkRefused::OnTheBase(on));
         }
-        if on != record.branch {
+        if tenant == Tenant::Job && on != record.branch {
             return Err(ParkRefused::OnAnotherBranch {
                 leased: record.branch,
                 on,
             });
         }
+        if tenant == Tenant::Session {
+            strays::end_in(&slot);
+        }
         let message = format!("WIP: uncommitted files of {whose}, saved to free slot-{number}");
         let committed = commit_all(&slot, &message).map_err(ParkRefused::Vcs)?;
         let released = self
-            .give_back_locked(number, Some(holder))
+            .give_back_locked(number, Some(holder), (tenant == Tenant::Session).then_some(&*on))
             .map_err(ParkRefused::Release)?;
         drop(lock);
         Ok(Parked {

@@ -95,6 +95,8 @@ impl<M: Spoken + DeserializeOwned> Thread<M> {
         if let Ok(text) = std::fs::read_to_string(&file) {
             for line in text.lines().filter(|line| !line.trim().is_empty()) {
                 match ipc::decode::<M>("a conversation's thread line", line.as_bytes()) {
+                    // Live only; a hand-edited line that says so is not a thread message.
+                    Ok(message) if message.live_only() => {}
                     Ok(message) => held.push(message),
                     Err(_) => held.skipped += 1,
                 }
@@ -112,11 +114,21 @@ impl<M: Spoken + DeserializeOwned> Thread<M> {
     /// **A file that will not take the line loses it on a restart and nowhere
     /// else** — viewers already have it, and the session remembers regardless.
     pub(crate) fn say(&self, message: M) {
+        if message.live_only() {
+            return self.offered_only(message);
+        }
         let mut held = self.held();
         if let Ok(line) = ipc::encode(&message) {
             let _ = self.appended(&line);
         }
         held.push(message.clone());
+        self.feed.offer(message);
+    }
+
+    /// Offer a message to whoever is watching and keep it nowhere: not in the backfill and not in
+    /// the file. What the message box runs on is read again from the next `opened`, so a viewer
+    /// that missed one loses nothing a reload would not give back.
+    pub(crate) fn offered_only(&self, message: M) {
         self.feed.offer(message);
     }
 

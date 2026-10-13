@@ -24,6 +24,7 @@ mod fake;
 mod following;
 mod helm_kills;
 mod helm_pauses;
+mod helm_box;
 mod helm_tells;
 mod hosted_sessions;
 mod journal;

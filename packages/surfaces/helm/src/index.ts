@@ -3,3 +3,4 @@ export * from "./HelmDock";
 export * from "./helm-context";
 export * from "./helm-thread";
 export * from "./thought-routing";
+export * from "./helm-refs";

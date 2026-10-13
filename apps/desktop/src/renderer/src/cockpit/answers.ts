@@ -26,7 +26,7 @@ import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
 import { fixJob, type JobFix } from "./fix-job";
-import { mainOwner, pullOwner, type Owner } from "./owner";
+import { ownerOfCall, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
 import type { Hosts, Item } from "../Dashboard";
@@ -101,6 +101,20 @@ function pullOf(item: Item, state: BridgeState): { number: number; branch: strin
     return merge === undefined ? undefined : { number: merge.number, branch: merge.branch ?? "", url: merge.url ?? "", open: true };
   }
   return undefined;
+}
+
+/**
+ * What a poke about main's red says: main is red, after which merge, and what failed. The merge has landed, so its owner is asked for a fix against main, not a push to it.
+ */
+function mainRedSaid(views: ReturnType<typeof viewsOf>, root: string): string {
+  const main = views.find((view) => view.root === root)?.hub?.main;
+  const red = main?.state === "red" ? main.red : undefined;
+  const merged = red?.merge === undefined ? "" : ` after pull request #${red.merge.number} merged`;
+  const failed =
+    red === undefined
+      ? []
+      : [{ check: red.check, test: red.test }, ...(red.also ?? [])].map((one) => `- ${one.check}${one.test === undefined ? "" : `: ${one.test}`}`);
+  return [`main is red${merged}. Find why and open a pull request that fixes main.`, ...failed].join("\n");
 }
 
 /** Where `o` goes: the Job, the Session, or the pull request the call is about. */
@@ -208,11 +222,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.
   const running = ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
   const pull = pullOf(item, state);
-  const owner = item.key.startsWith("pull:")
-    ? pullOwner(views, sessions, pull?.number ?? 0)
-    : item.key.startsWith("main:")
-      ? mainOwner(views, sessions, item.key.slice("main:".length))
-      : undefined;
+  const owner = ownerOfCall(views, sessions, item.key);
 
   // A Session's call answers through Fleet.
   const waiting = item.waiting;
@@ -229,9 +239,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     wait(mode, call);
   };
 
-  /** A short nudge to whoever owns the pull request, through the path that reaches them. */
+  /** A short nudge to whoever owns the pull request or main's red, saying which, through the path that reaches them. */
   const poke = (who: Owner) => {
-    const said = `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
+    const said = item.key.startsWith("main:") ? mainRedSaid(views, item.key.slice("main:".length)) : `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
     if (who.kind === "session") {
       draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
       finish();

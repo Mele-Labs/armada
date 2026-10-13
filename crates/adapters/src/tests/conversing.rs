@@ -195,3 +195,21 @@ fn a_relative_root_is_refused() {
         Err(ConversationRefused::DirectoryNotAbsolute { .. })
     ));
 }
+
+/// A message's uploads are read from a directory outside the repository, so the session is let
+/// into it with `--add-dir`, as a hosted session is.
+#[test]
+fn a_directory_it_may_read_is_added_and_a_relative_one_is_refused() {
+    let args = rendered(&fresh().reading("/var/armada/helm/armada").expect("absolute"))
+        .args()
+        .to_vec();
+    assert_eq!(
+        value_after(&args, "--add-dir").as_deref(),
+        Some("/var/armada/helm/armada")
+    );
+    assert!(!rendered(&fresh()).args().iter().any(|arg| arg == "--add-dir"));
+    assert!(matches!(
+        fresh().reading("uploads"),
+        Err(ConversationRefused::DirectoryNotAbsolute { .. })
+    ));
+}

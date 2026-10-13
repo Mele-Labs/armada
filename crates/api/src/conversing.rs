@@ -14,12 +14,14 @@
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
-use axum::response::Response;
+use axum::http::{header, StatusCode};
+use axum::response::{IntoResponse, Response};
 use ipc::{
-    AnswerCommanderCard, AskCommander, AskHelm, AskTheOwner, AskingToRun, CommanderMessage, CommanderOpened, HelmMessage,
-    HelmOpened, ManifestId, Missed, ProtocolId, ReadThought, SendRepairDrone, TellSession, ThoughtSent,
+    AnswerCommanderCard, AskCommander, AskHelm, AskTheOwner, AskingToRun, CommanderMessage,
+    CommanderOpened, HelmBoxFacts, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId,
+    ReadThought, SendRepairDrone, TellSession, ThoughtSent, TuneHelm,
 };
+use serde::Deserialize;
 use tokio::sync::broadcast;
 
 use crate::answers::{answer, refused, undecodable};
@@ -40,6 +42,12 @@ pub trait Spoken: Clone + serde::Serialize + Send + 'static {
 
     /// Whether the connection ends after this one.
     fn ends_it(&self) -> bool;
+
+    /// Whether it is offered to a viewer and kept nowhere: not in the backfill and not in the
+    /// file.
+    fn live_only(&self) -> bool {
+        false
+    }
 }
 
 impl Spoken for HelmMessage {
@@ -49,6 +57,10 @@ impl Spoken for HelmMessage {
 
     fn ends_it(&self) -> bool {
         matches!(self, HelmMessage::Closed(_))
+    }
+
+    fn live_only(&self) -> bool {
+        matches!(self, HelmMessage::Facts(_))
     }
 }
 
@@ -144,6 +156,8 @@ pub struct ObservedHelm {
     pub history: Vec<HelmMessage>,
     /// Older messages the thread left out.
     pub skipped: u64,
+    /// What the message box offers and runs on as this opens.
+    pub facts: HelmBoxFacts,
 }
 
 /// What one viewer of a Job's Commander is answered with, assembled as
@@ -165,12 +179,14 @@ pub(crate) async fn relay(socket: WebSocket, observed: ObservedHelm) {
         live,
         history,
         skipped,
+        facts,
     } = observed;
     let opened = HelmMessage::Opened(HelmOpened {
         protocol_id: ProtocolId::current(),
         manifest_id,
         replying,
         skipped,
+        facts,
     });
     relay_thread(socket, opened, history, live).await;
 }
@@ -279,6 +295,47 @@ pub(crate) async fn ask_helm<D: Conversations>(
     };
     match served.shared().ask_helm(asked, scope.manifest()).await {
         Ok(conversation) => answer(StatusCode::ACCEPTED, &conversation, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Set the model and effort Helm's next reply runs on. 200 with what the box now offers.
+pub(crate) async fn tune_helm<D: Conversations>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let tuned: TuneHelm = match ipc::decode("Helm's model and effort", &body) {
+        Ok(tuned) => tuned,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().tune_helm(tuned, scope.manifest()).await {
+        Ok(facts) => answer(StatusCode::OK, &facts, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?manifest_id=` and `?file=` on `get_helm_file`.
+#[derive(Deserialize)]
+pub(crate) struct WhichHelmFile {
+    #[serde(default)]
+    manifest_id: Option<String>,
+    file: String,
+}
+
+/// The bytes, with the type they were sent as.
+pub(crate) async fn get_helm_file<D: Conversations>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichHelmFile>,
+) -> Response {
+    let manifest = which.manifest_id.map(ManifestId::carried);
+    match served.daemon().get_helm_file(manifest, which.file).await {
+        Ok(stored) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, stored.media_type)],
+            stored.bytes,
+        )
+            .into_response(),
         Err(refusal) => refused(refusal),
     }
 }

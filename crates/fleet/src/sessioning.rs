@@ -542,7 +542,7 @@ where
         if ended {
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
-            self.session_checks_ended(&session.id).await;
+            self.session_wound_up(&session.id).await;
             self.writes().left(&crate::clashing::Who::Session(session.id.clone()));
         }
         if changed {

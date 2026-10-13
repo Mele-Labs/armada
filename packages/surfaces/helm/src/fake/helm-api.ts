@@ -1,7 +1,7 @@
 // Helm's members as a mock Fleet answers them: asking, reading a thought, debugging and pointing the dock.
 
 import type { FleetHandle } from "@armada/bridge-api";
-import type { Outcome } from "@armada/protocol";
+import type { HelmBoxFacts, Outcome } from "@armada/protocol";
 
 import type { HelmApi, HelmState } from "../api";
 
@@ -12,10 +12,27 @@ export type HelmFleet = FleetHandle<HelmState> & {
   refused: (route: string) => { ok: false; outcome: Outcome };
 };
 
-export function helmApi({ publish, refused }: HelmFleet): HelmApi {
+export function helmApi({ publish, refused, state }: HelmFleet): HelmApi {
   return {
     answerHelmCall: async () => OK,
     askHelm: async () => OK,
+    /**
+     * Keeps the model and effort in the conversation's facts, as Fleet's `facts` message would
+     * replace them, and leaves the command names as they were. A mock with no conversation open has
+     * nothing to keep them in.
+     */
+    tuneHelm: async (_manifestId, model, effort) => {
+      const held = state().helm;
+      const facts: HelmBoxFacts = {
+        ...(model === null ? {} : { model }),
+        ...(effort === null ? {} : { effort }),
+        ...((held.state === "open" || held.state === "failed") && held.facts.commands !== undefined ? { commands: held.facts.commands } : {}),
+      };
+      if (held.state === "open" || held.state === "failed") publish({ helm: { ...held, facts } });
+      return { ok: true, facts };
+    },
+    // No file behind a mock Fleet unless a scenario keeps one: the refusal a window with nothing connected draws.
+    readHelmFile: async () => refused("/helm/file"),
     // No session behind a mock Fleet, so the record is the refusal a window
     // with nothing connected already draws — never an invented record.
     helmDebugInfo: async () => refused("/helm/debug"),
@@ -38,6 +55,6 @@ export function helmApi({ publish, refused }: HelmFleet): HelmApi {
      * switch, so nothing there passes through here.
      */
     pointHelm: async (manifestId) =>
-      publish({ helm: { state: "open", manifestId, replying: false, skipped: 0, missed: 0, items: [] } }),
+      publish({ helm: { state: "open", manifestId, replying: false, skipped: 0, missed: 0, items: [], facts: {} } }),
   };
 }

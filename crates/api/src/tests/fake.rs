@@ -113,6 +113,8 @@ pub struct FakeDaemon {
     pub commander_thread: Mutex<Vec<ipc::CommanderMessage>>,
     /// What `observe_helm` answers with as the thread. Set by a test.
     pub helm_thread: Mutex<Vec<ipc::HelmMessage>>,
+    /// What the fake's message box offers; `tune_helm` replaces it.
+    pub helm_facts: Mutex<ipc::HelmBoxFacts>,
     /// Every permission question the door put to this daemon, in order.
     pub asked_to_run: Mutex<Vec<ipc::AskingToRun>>,
     /// What a Helm session's last poll was answered, as the door told this
@@ -190,6 +192,7 @@ impl FakeDaemon {
             commander: crate::CommanderFeed::new(),
             commander_thread: Mutex::new(Vec::new()),
             helm_thread: Mutex::new(Vec::new()),
+            helm_facts: Mutex::new(ipc::HelmBoxFacts::default()),
             asked_to_run: Mutex::new(Vec::new()),
             helm_polled: Mutex::new(None),
             helm_on: Mutex::new(None),

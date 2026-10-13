@@ -3,7 +3,10 @@
 //! `&self`, because nobody reads or readies a pull request until the Fleet
 //! holding this fake exists.
 
-use adapter_traits::{PullRequestFacts, PullRequestStanding, Remark, UnderReview};
+use adapter_traits::{
+    PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, Remark,
+    UnderReview,
+};
 
 use super::{commit, Delivered, FakeVcs};
 
@@ -14,6 +17,10 @@ pub(super) struct PullRequests {
     pub(super) facts: Option<PullRequestFacts>,
     /// The forge's reply to taking a pull request out of draft.
     pub(super) ready: Result<(), String>,
+    /// What the forge answers for a pull request's page. `None` is silence.
+    pub(super) page: Option<PullRequestPageFacts>,
+    /// The forge's reply to a write on a pull request.
+    pub(super) written: Result<(), String>,
     /// What the forge's facts become once a merge, a ready or an auto-merge is
     /// taken, as a real forge's would. A test that wants them to stay put
     /// scripts nothing.
@@ -25,6 +32,8 @@ impl Default for PullRequests {
         PullRequests {
             facts: None,
             ready: Ok(()),
+            page: None,
+            written: Ok(()),
             follows_writes: true,
         }
     }
@@ -95,6 +104,59 @@ impl FakeVcs {
             forge.took_ready();
         }
         answered
+    }
+
+    /// `Delivery::pull_request_page`: recorded, then answered as scripted.
+    pub(super) fn page_read(&self, pull_request: &str) -> Option<PullRequestPageFacts> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadPullRequestPage {
+                pull_request: pull_request.to_string(),
+            });
+        self.pull_requests.lock().expect("not poisoned").page.clone()
+    }
+
+    /// `Delivery::write_pull_request`: recorded, then answered as scripted.
+    pub(super) fn write_asked(
+        &self,
+        pull_request: &str,
+        write: &PullRequestWrite,
+    ) -> Result<(), String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::WroteOnPullRequest {
+                pull_request: pull_request.to_string(),
+                write: write.clone(),
+            });
+        self.pull_requests.lock().expect("not poisoned").written.clone()
+    }
+
+    /// Say what the forge shows on a pull request's page, or that it is silent.
+    pub fn now_pull_request_page(&self, page: Option<PullRequestPageFacts>) {
+        self.pull_requests.lock().expect("not poisoned").page = page;
+    }
+
+    /// Say that a write on a pull request is refused, in the forge's own sentence.
+    pub fn write_on_pull_request_refuses(&self, said: &str) {
+        self.pull_requests.lock().expect("not poisoned").written = Err(said.to_string());
+    }
+
+    /// Every write the forge was asked to take, in order, with the pull request's number.
+    pub fn pull_request_writes(&self) -> Vec<(String, PullRequestWrite)> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .iter()
+            .filter_map(|it| match it {
+                Delivered::WroteOnPullRequest {
+                    pull_request,
+                    write,
+                } => Some((pull_request.clone(), write.clone())),
+                _ => None,
+            })
+            .collect()
     }
 
     /// A merge the forge took, as it shows on the next read.

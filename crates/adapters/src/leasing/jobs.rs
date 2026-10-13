@@ -69,22 +69,23 @@ pub(crate) fn lease_existing(
 
 /// Commit the Job's work to its branch and give the slot back.
 pub(crate) fn park(slots: &SlotPool, slot: u32, job: &str) -> Result<SlotParked, SlotParkRefused> {
-    parked_as(slots, slot, &Holder::job(job), None)
+    parked_as(slots, slot, &Holder::job(job))
 }
 
 /// [`park`] for a slot a hosted session leased. **It holds it as a Job of its
-/// own id**, so the WIP commit is told whose it is.
+/// own id**, so the WIP commit is told whose it is. A session rewrites its own
+/// branch inside its slot, so the work goes to the branch the slot is on, and
+/// what it left running there is ended first.
 pub(crate) fn park_hosted(
     slots: &SlotPool,
     slot: u32,
     session: &str,
 ) -> Result<SlotParked, SlotParkRefused> {
-    parked_as(
-        slots,
-        slot,
+    answered(pool(slots).park_session(
+        slot as usize,
         &Holder::job(session),
-        Some(&format!("session {session}")),
-    )
+        &format!("session {session}"),
+    ))
 }
 
 /// [`park`] for a slot an agent session holds, only while it is still held by
@@ -98,7 +99,7 @@ pub(crate) fn release_session(
         SlotState::Held {
             holder: holder @ Holder::Process { .. },
             ..
-        } if holder.said() == expected => parked_as(slots, slot, &holder, None),
+        } if holder.said() == expected => parked_as(slots, slot, &holder),
         SlotState::Held { holder, .. } => Err(SlotParkRefused::HolderChanged(holder.said())),
         SlotState::Free | SlotState::Abandoned { .. } => {
             Err(SlotParkRefused::HolderChanged(String::from("nobody")))
@@ -122,12 +123,8 @@ fn parked_as(
     slots: &SlotPool,
     slot: u32,
     holder: &Holder,
-    whose: Option<&str>,
 ) -> Result<SlotParked, SlotParkRefused> {
-    answered(match whose {
-        Some(whose) => pool(slots).park_named(slot as usize, holder, whose),
-        None => pool(slots).park(slot as usize, holder),
-    })
+    answered(pool(slots).park(slot as usize, holder))
 }
 
 fn answered(parked: Result<Parked, ParkRefused>) -> Result<SlotParked, SlotParkRefused> {

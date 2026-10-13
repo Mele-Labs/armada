@@ -19,6 +19,12 @@ export function handleIssues({ ipc, connection }: Hosts): void {
       ? (connection()?.issues.list(manifestId, refresh === true) ?? unsent)
       : unsent,
   );
+  ipc.handle(CHANNELS.getIssue, (_event, manifestId: unknown, number: unknown) =>
+    named(manifestId) && Number.isInteger(number) ? (connection()?.issues.issue(manifestId, number as number) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.getPullRequest, (_event, manifestId: unknown, number: unknown) =>
+    named(manifestId) && Number.isInteger(number) ? (connection()?.issues.pullRequest(manifestId, number as number) ?? unsent) : unsent,
+  );
   handleAutopilot({ ipc, connection });
 }
 
