@@ -19,11 +19,12 @@ test("PR panel: the merge line it is in, itself current; none for one in no queu
   await userEvent.click(ledger.getByRole("button", { name: "Open Pull request #1849" }));
   const first = page.getByRole("dialog", { name: "Pull request #1849" });
   await expect.element(first).toBeVisible();
-  await expect.element(first.getByRole("region", { name: "Merge line" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("region", { name: "Merge line" })).not.toBeInTheDocument();
   await userEvent.click(first.getByRole("button", { name: "Close" }));
 
   await userEvent.click(ledger.getByRole("button", { name: "Open Pull request #1850" }));
-  const queue = page.getByRole("dialog", { name: "Pull request #1850" }).getByRole("list", { name: "Merge queue" });
+  await expect.element(page.getByRole("dialog", { name: "Pull request #1850" })).toBeVisible();
+  const queue = page.getByRole("list", { name: "Merge queue" });
   await expect.element(queue).toBeVisible();
   await expect.element(queue.getByRole("listitem").nth(2)).toHaveAttribute("aria-current", "true");
   await expect.element(queue.getByRole("listitem").nth(2)).toHaveAccessibleName(/^Record each migration once/);

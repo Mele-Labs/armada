@@ -118,7 +118,7 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
         PullRequestStanding::Merged => "merged",
         PullRequestStanding::Closed => "closed",
     };
-    BTreeMap::from([
+    let mut detail = BTreeMap::from([
         ("state".to_string(), standing.to_string()),
         ("auto_merge".to_string(), state.auto_merge.to_string()),
         ("queued".to_string(), state.queued.to_string()),
@@ -127,7 +127,12 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
         ("title".to_string(), state.title.clone()),
         ("branch".to_string(), state.branch.clone()),
         ("address".to_string(), state.address.clone()),
-    ])
+    ]);
+    // Left out where there is none, so a row never holds a description of nothing.
+    if let Some(body) = &state.body {
+        detail.insert("body".to_string(), body.clone());
+    }
+    detail
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -192,6 +197,7 @@ where
             title: facts.title,
             branch: facts.branch,
             address: facts.url,
+            body: facts.body,
         })
     }
 

@@ -46,6 +46,7 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
   { id: "features", label: "Features", palette: "Features", schema: true, settings: [["Features", "switch", "helm", "draft pull requests"]] },
   { id: "editor", label: "Editor", palette: "Editor", schema: true, settings: [["Editor", "open", "code", "vscode", "visual"]] },
   { id: "terminal", label: "Terminal", palette: "Terminal", schema: true, settings: [["Terminal", "iterm", "ghostty", "warp", "wezterm", "shell"]] },
+  { id: "links", label: "Links", palette: "Links", schema: true, settings: [["Open pull requests in", "pull request", "link", "browser", "panel"]] },
 ];
 
 /** Bridge's own panes: their values live in settings.json too, and each is drawn by its own pane. */
@@ -106,7 +107,7 @@ const SHIPPED_GROUPS: readonly { id: string; label: string; sections: readonly s
   { id: "prompts", label: "Prompts", sections: ["prompts"] },
   { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention"] },
   { id: "features", label: "Features", sections: ["features"] },
-  { id: "tools", label: "Tools", sections: ["editor", "terminal"] },
+  { id: "tools", label: "Tools", sections: ["editor", "terminal", "links"] },
   { id: "appearance", label: "Appearance", sections: ["theme", "layout", "keyboard"] },
   { id: "phone", label: "Phone", sections: ["phone"] },
   { id: "guides", label: "Guides", sections: ["guides"] },
