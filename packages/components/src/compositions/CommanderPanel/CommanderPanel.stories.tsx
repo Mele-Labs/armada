@@ -88,7 +88,7 @@ export const OwnerMessage: Story = {
     await userEvent.click(send);
     await expect(args.onSend).toHaveBeenCalledTimes(1);
     await expect(args.onSend).toHaveBeenCalledWith("Raise the cost cap too");
-    await expect(box).toHaveValue("");
+    await expect(box).toHaveTextContent("");
     await expect(canvas.getByText("Raise the cost cap too")).toBeVisible();
     await expect(send).toBeDisabled();
   },
@@ -134,10 +134,10 @@ export const KeepsADraft: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
     await expect(canvas.queryByRole("textbox", { name: "Tell the Commander" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-    await expect(box()).toHaveValue("half a thought");
+    await expect(box()).toHaveTextContent("half a thought");
     await userEvent.click(canvas.getByRole("button", { name: "Other Job" }));
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-    await expect(box()).toHaveValue("");
+    await expect(box()).toHaveTextContent("");
   },
 };
