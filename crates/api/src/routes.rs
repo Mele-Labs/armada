@@ -264,6 +264,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::claim_pull_request::<D>),
         )
         .route(
+            "/sessions/start_another",
+            post(crate::sessions::start_another_session::<D>),
+        )
+        .route(
+            "/sessions/fork_this",
+            post(crate::sessions::fork_this_session::<D>),
+        )
+        .route(
             "/sessions/start",
             post(crate::hosted_sessions::start_session::<D>),
         )

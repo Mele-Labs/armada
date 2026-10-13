@@ -208,6 +208,10 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
       })) ?? unsent
     );
   });
+  // A take of several the Session showed, by its index: main reads the address off what the Session sent.
+  ipc.handle(CHANNELS.captureWindowPick, (event, at: unknown) => {
+    if (typeof at === "number" && Number.isInteger(at)) barred(event)?.pick(at);
+  });
   ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
     if (typeof open === "boolean") barred(event)?.showPanel(open);
   });
@@ -221,6 +225,13 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {
     const owner = barred(event)?.owner ?? null;
     if (owner !== null) summon(owner.kind === "job" ? { jobId: owner.id } : { jobId: null, sessionId: owner.id });
+  });
+  // The walk the page plays: four entries and one boolean, each a call main makes on the page's walk handle.
+  ipc.handle(CHANNELS.captureWindowWalkNext, async (event) => void (await barred(event)?.walkAct("next")));
+  ipc.handle(CHANNELS.captureWindowWalkBack, async (event) => void (await barred(event)?.walkAct("back")));
+  ipc.handle(CHANNELS.captureWindowWalkReplay, async (event) => void (await barred(event)?.walkAct("replay")));
+  ipc.handle(CHANNELS.captureWindowWalkAutoplay, async (event, on: unknown) => {
+    if (typeof on === "boolean") await barred(event)?.walkAct(on ? "autoplay_on" : "autoplay_off");
   });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;

@@ -186,6 +186,32 @@ it("opens a window when a Session shows a page, once, and never for a row a thre
   expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]);
 });
 
+it("opens the window with its takes, from the row that shows it and from the ledger that reopens it, and reads a ledger that is not takes as none", async () => {
+  const sent: Sent[] = [];
+  const url = "http://localhost:5173/";
+  const takes = [
+    { name: "Every state", url },
+    { name: "Needs you first", url: `${url}?scenario=needs-you` },
+  ];
+  const attached = (variations: string) => ({
+    kind: "artifact",
+    target: url,
+    state: "standing" as const,
+    detail: { form: "window", title: "Findings", variations },
+    since: AT,
+    changed_at: AT,
+  });
+  const port = await fleet(sent, [record("a", { attachments: [attached(JSON.stringify(takes))] }), record("b", { attachments: [attached(`[{"name":"x","url":"javascript:1"}]`)] })]);
+  const { sessions } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, address, withTakes) => opened.push([id, address, withTakes]));
+  await sessions.again(port);
+  sessions.row({ session_id: "a", row: { kind: "window", id: "w1", at: AT, title: "Findings", url, variations: takes } });
+  expect(sessions.openWindow("a", url)).toEqual({ ok: true });
+  expect(sessions.openWindow("b", url)).toEqual({ ok: true });
+  expect(opened).toEqual([["a", url, takes], ["a", url, takes], ["b", url, []]]);
+});
+
 it("brings the walk forward when a Session asks in it, once, and never for an answered question or one a read brought", async () => {
   const sent: Sent[] = [];
   const walk = "http://localhost:5173/";

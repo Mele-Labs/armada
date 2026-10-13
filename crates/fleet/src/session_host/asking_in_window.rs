@@ -118,6 +118,20 @@ where
                 .max_by(|a, b| a.changed_at.cmp(&b.changed_at))
                 .map(|one| one.target)
         };
+        // A window of several takes is on the origin of any of them, not only its first's.
+        let window = match window {
+            Some(window) => Some(window),
+            None => self.rows_of(&id).await.ok().and_then(|rows| {
+                rows.into_iter().rev().find_map(|row| match row {
+                    SessionRow::Window { url, variations, .. }
+                        if variations.iter().any(|take| origin_of(&take.url).as_deref() == Some(origin.as_str())) =>
+                    {
+                        Some(url)
+                    }
+                    _ => None,
+                })
+            }),
+        };
         let Some(window) = window else {
             return Err(self.hosted_refusal(
                 WINDOW_ASK_NOT_WALKED,

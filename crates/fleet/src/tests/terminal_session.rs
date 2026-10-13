@@ -709,7 +709,7 @@ async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_cl
     rig.started().await;
     let url = "http://localhost:5173/";
     rig.fleet
-        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)) })
+        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)), variations: Vec::new() })
         .await
         .expect("shown");
 
@@ -731,7 +731,7 @@ async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_cl
 
     // Approve in the window is a message the mod is holding for, and it ends the walk too.
     rig.fleet
-        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)) })
+        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)), variations: Vec::new() })
         .await
         .expect("shown again");
     assert_eq!(rig.fleet.walk_open(ID).await.as_deref(), Some(url));
@@ -749,7 +749,7 @@ async fn a_terminal_walk_stops_waiting_once_the_person_has_written_to_it() {
     let url = "http://localhost:5173/";
     let shown = rig
         .fleet
-        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)) })
+        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)), variations: Vec::new() })
         .await
         .expect("shown");
     assert!(shown.waiting_for.iter().any(|one| one.id == format!("walk:{url}")), "{:?}", shown.waiting_for);
