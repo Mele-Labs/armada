@@ -36,6 +36,8 @@ pub mod allowance;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
 /// `editing::save`.
 mod amending;
+/// The two lines that tell a Drone to settle a question itself.
+mod answer_mode;
 /// What Fleet does with a proposal a person left: keeps, releases, lands and
 /// serves it. Spike 022, slice 4.
 mod approved;
@@ -66,6 +68,8 @@ mod building;
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
 mod carrying_on;
+/// A person's skip or retry on the Checks a gate is running.
+mod check_acts;
 mod check_history;
 mod check_output;
 mod checking;
@@ -146,9 +150,11 @@ pub mod holding;
 /// The issue a Job came from, asked about again on its own cursor. Spike 022,
 /// answer 5.
 mod issue_noticing;
+mod job_issues;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
+mod job_waiting;
 /// A press to merge under `merge_by: push`, joining the merge line.
 mod joining_the_line;
 /// A Job's own log, read back and served. **The other side of the file every
@@ -211,7 +217,7 @@ mod ordering;
 pub mod orphans;
 pub mod overlap;
 pub mod overruling;
-/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
+/// Evidence a restart found still waiting for the gate, ruled on after boot. #796.
 mod pausing;
 mod limit_hold;
 mod session_limit;

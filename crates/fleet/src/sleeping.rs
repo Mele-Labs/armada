@@ -28,7 +28,7 @@ use store::{SessionState, SleepRow};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::resume::{Ending, Redirection, Steer};
-use crate::session_host::waiting::mode_line;
+use crate::answer_mode::mode_line;
 
 /// How long an item waits before the night answers it.
 pub const GRACE: Duration = Duration::from_secs(120);
@@ -304,7 +304,7 @@ where
                 self.leave(done).await?;
                 continue;
             }
-            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(WaitingMode::Best))) else {
+            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(ipc::AnswerMode::Best))) else {
                 continue;
             };
             let by = Actor::Fleet;
@@ -395,6 +395,8 @@ where
                     WaitingSource::Walk | WaitingSource::WindowAsk => {
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
+                    // Nothing to decide: sending it is his, and it stays on the list for the morning.
+                    WaitingSource::FirstMessage => continue,
                     WaitingSource::Permission => {
                         self.leave(row("blocked", id, who.clone(), item.text.clone())).await?;
                     }
@@ -436,7 +438,7 @@ where
 
 /// The first non-empty line of the agent's message after the last "decide this yourself" the night sent.
 pub(crate) fn next_words(rows: &[ipc::SessionRow]) -> Option<String> {
-    let line = mode_line(WaitingMode::Best);
+    let line = mode_line(ipc::AnswerMode::Best);
     let from = rows.iter().rposition(|row| {
         matches!(row, ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } if text.contains(line))
     })?;

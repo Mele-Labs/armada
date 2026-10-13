@@ -52,4 +52,5 @@ export type Fact =
     }
   | { kind: 'turn_completed' }
   | { kind: 'limited'; resets_at: string }
+  | { kind: 'wrote' }
   | { kind: 'ended'; reason: string }

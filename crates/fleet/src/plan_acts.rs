@@ -1,4 +1,4 @@
-//! A person's two acts on a plan's groups: Restart this task (`#1656`) and a
+//! A caller's two acts on a plan's groups: Restart this task (`#1656`) and a
 //! move (`#1685`). Spike 022, slice 2, with the bodies its lock agrees.
 //!
 //! **Both apply once a group's own rounds are spent** (answer 9): a task still
@@ -8,17 +8,14 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::{
-    Actor, GroupId, Job, JobId, PlanChange, PlanRefused, TaskId, TaskUpdate, WorkPlan,
-};
-use store::PlanHand;
+use core_model::{GroupId, Job, JobId, PlanChange, PlanRefused, TaskId, TaskUpdate, WorkPlan};
 
 use crate::adrift::Adrift;
 use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
 use crate::grouping::{in_flight, restartable, NotRestartable};
 use crate::resume::{Ending, Redirection as Instruction};
-use crate::work_plan::plan_not_kept;
+use crate::work_plan::{plan_not_kept, signed};
 
 /// What a `move_plan` body asks for, or `None` where an id does not read.
 pub(crate) fn the_move(body: &ipc::MovePlan) -> Option<PlanChange> {
@@ -52,14 +49,15 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Restart this task, from Bridge: refused unless the task failed or the
+    /// Restart this task, for whoever `by` places: refused unless the task failed or the
     /// Judge refused its group, then the task reopens and `restart_step`'s own
     /// act puts a Drone on it, which opens with what stopped the step.
-    pub(crate) async fn restart_task_by_person(
+    pub(crate) async fn restart_task_by(
         self: Arc<Self>,
         job_id: ipc::JobId,
         task: String,
         body: ipc::RestartTask,
+        by: api::Steerer,
     ) -> Result<Job, Refusal> {
         let task = TaskId::read(task.trim()).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
         let said = match &body.note {
@@ -72,7 +70,7 @@ where
             let fleet = Arc::clone(&self);
             async move {
                 fleet
-                    .restarted_task(&job_id.to_domain(), task, said.as_ref())
+                    .restarted_task(&job_id.to_domain(), task, said.as_ref(), by)
                     .await
             }
         })
@@ -80,18 +78,19 @@ where
         .map_err(|why| self.refusal(why))
     }
 
-    /// A person moves a task or a group, from Bridge, by `after`.
-    pub(crate) async fn move_plan_by_person(
+    /// A person, Helm or the Commander moves a task or a group, by `after`.
+    pub(crate) async fn move_plan_by(
         self: Arc<Self>,
         job_id: ipc::JobId,
         body: ipc::MovePlan,
+        by: api::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
         let change = the_move(&body).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
         let job = job_id.to_domain();
         let plan = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             let job = job.clone();
-            async move { fleet.moved_by_person(&job, &change).await }
+            async move { fleet.moved_by(&job, &change, by).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
@@ -107,7 +106,9 @@ where
         job: &JobId,
         task: TaskId,
         note: Option<&Instruction>,
+        by: api::Steerer,
     ) -> Result<Job, Adrift> {
+        let (actor, _) = signed(by);
         let plan = self.planned(job).await?;
         let runs = self.group_runs_of(job).await?;
         let held = self.load(job).await?;
@@ -135,22 +136,27 @@ where
             ),
             None => (Some(TaskUpdate::Done), Ending::Any),
         };
-        self.changed_by_person(job, &reopened(task, TaskUpdate::Open))
+        self.changed_by(job, &reopened(task, TaskUpdate::Open), by)
             .await?;
-        match self.restart_step_ending(job, note, ending).await {
+        match self.restart_step_by(job, note, ending, actor).await {
             Ok(job) => Ok(job),
             // Refused: the task goes back as it was, so the plan says what the
             // Job does.
             Err(why) => {
                 if let Some(was) = was {
-                    self.changed_by_person(job, &reopened(task, was)).await?;
+                    self.changed_by(job, &reopened(task, was), by).await?;
                 }
                 Err(why)
             }
         }
     }
 
-    async fn moved_by_person(&self, job: &JobId, change: &PlanChange) -> Result<WorkPlan, Adrift> {
+    async fn moved_by(
+        &self,
+        job: &JobId,
+        change: &PlanChange,
+        by: api::Steerer,
+    ) -> Result<WorkPlan, Adrift> {
         let plan = self.planned(job).await?;
         if let Some((named, state)) = in_flight(&plan, change) {
             return Err(Adrift::TaskInFlight {
@@ -159,7 +165,7 @@ where
                 state,
             });
         }
-        self.changed_by_person(job, change).await
+        self.changed_by(job, change, by).await
     }
 
     async fn planned(&self, job: &JobId) -> Result<WorkPlan, Adrift> {
@@ -169,26 +175,22 @@ where
         })
     }
 
-    /// Keep a person's change, and say so on `job.plan_changed`.
-    pub(crate) async fn changed_by_person(
+    /// Keep a change `by` made, and say so on `job.plan_changed`.
+    pub(crate) async fn changed_by(
         &self,
         job: &JobId,
         change: &PlanChange,
+        by: api::Steerer,
     ) -> Result<WorkPlan, Adrift> {
+        let (actor, hand) = signed(by);
         let at = self.now();
         let plan = self
             .store()
             .lock()
             .await
-            .change_plan(job, change, PlanHand::Person, &at)
+            .change_plan(job, change, hand, &at)
             .map_err(|why| plan_not_kept(job, why))?;
-        self.publish(ipc::Event::JobPlanChanged(ipc::JobPlanChanged::changed(
-            job,
-            change,
-            &plan,
-            Actor::Human,
-            &at,
-        )));
+        self.told_plan_changed(job, change, &plan, actor, &at);
         Ok(plan)
     }
 }

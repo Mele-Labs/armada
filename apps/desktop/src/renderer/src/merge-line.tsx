@@ -6,17 +6,18 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine, useTileGrid } from "@armada/components";
-import { mergeLineViews, type MergeLineView } from "@armada/screens";
+import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { followLandCheck } from "./commands";
 import { usePanelOpen } from "./panel-open";
+import { useSessions } from "./sessions-draft";
 
 type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed" | "jobs">;
 
@@ -38,7 +39,9 @@ export function MergeLinePanel({
   state,
   onOpenLink,
   onOpenJob,
+  onOpenSession,
   onFix,
+  onSendToSession,
   focus,
   surface = false,
 }: {
@@ -46,8 +49,12 @@ export function MergeLinePanel({
   onOpenLink: (address: string) => void;
   /** A Job the head or a pull request names. Absent, it is not a press. */
   onOpenJob?: (jobId: string) => void;
+  /** A Session the head names. Absent, it is not a press. */
+  onOpenSession?: (sessionId: string) => void;
   /** Hands main's red to a Job. Absent, the band offers no way to. */
   onFix?: (fix: FixMain) => void;
+  /** Sends main's red to a Session as a message. */
+  onSendToSession?: (sessionId: string, message: string) => void;
   focus?: string;
   /** On the rail's own page, where the band and horizon stay put while the tiles scroll. */
   surface?: boolean;
@@ -67,7 +74,9 @@ export function MergeLinePanel({
           {...(pinned === undefined ? {} : { pinned })}
           {...(focus === undefined ? {} : { focus })}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onFix === undefined ? {} : { onFix })}
+          {...(onSendToSession === undefined ? {} : { onSendToSession })}
           onOpenLink={onOpenLink}
           onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
         />
@@ -91,7 +100,9 @@ function OneLine({
   focus,
   onOpenLink,
   onOpenJob,
+  onOpenSession,
   onFix,
+  onSendToSession,
   onOpenCheck,
   pinned,
 }: {
@@ -101,10 +112,16 @@ function OneLine({
   focus?: string;
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   onFix?: (fix: FixMain) => void;
+  onSendToSession?: (sessionId: string, message: string) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
+  // The Sessions work can be sent back to are the ones the window already holds, the one that merged among them.
+  const sessions = useSessions();
+  const culprit = view.hub?.main?.state === "red" ? view.hub.main.red.merge?.session : undefined;
+  const hub = useMemo(() => (view.hub === undefined ? undefined : { ...view.hub, recentSessions: recentSessionsOf(sessions, culprit) }), [view.hub, sessions, culprit]);
   const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack].some((one) => one.branch === focus);
   useEffect(() => {
     // Only when the ask arrives: `setOpen` is not stable, and a fold the person closes stays closed.
@@ -118,8 +135,9 @@ function OneLine({
       landed={view.landed}
       sentBack={view.sentBack}
       notice={view.notice}
-      {...(view.hub === undefined ? {} : { hub: view.hub })}
+      {...(hub === undefined ? {} : { hub })}
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
+      {...(onOpenSession === undefined ? {} : { onOpenSession })}
       open={open}
       {...(pinned === undefined ? {} : { pinned })}
       {...(holds ? { focus } : {})}
@@ -127,10 +145,9 @@ function OneLine({
         ? {}
         : {
             onFix: (choice) =>
-              onFix({
-                root: view.root,
-                ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }),
-              }),
+              choice.kind === "session"
+                ? onSendToSession?.(choice.session, choice.message)
+                : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
           })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
@@ -146,7 +163,9 @@ export function MergeLineSurface({
   onCopied,
   onOpenLink,
   onOpenJob,
+  onOpenSession,
   onFix,
+  onSendToSession,
   focus,
 }: {
   state: Lined;
@@ -154,7 +173,9 @@ export function MergeLineSurface({
   onCopied: (value: string) => void;
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   onFix?: (fix: FixMain) => void;
+  onSendToSession?: (sessionId: string, message: string) => void;
   focus?: string;
 }) {
   // One Tab stop for every repository's tiles, the arrows across them all. Enter on a tile, and `o`
@@ -176,7 +197,9 @@ export function MergeLineSurface({
           state={state}
           onOpenLink={onOpenLink}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onFix === undefined ? {} : { onFix })}
+          {...(onSendToSession === undefined ? {} : { onSendToSession })}
           {...(focus === undefined ? {} : { focus })}
         />
       </div>

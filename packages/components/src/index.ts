@@ -449,6 +449,7 @@ export * from "./compositions/CommanderPanel/CommanderPanel";
 export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";
+export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/SessionList/SessionList";

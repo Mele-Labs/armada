@@ -24,6 +24,7 @@ use ipc::{
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries, Redirector};
 use crate::door::HelmCalled;
+use crate::placed::{steered_by, CommanderCalled};
 use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -707,18 +708,26 @@ pub(crate) async fn redispatch_job<D: Commands>(
     }
 }
 
-/// A person adds a task to the Job's plan. **The plan it leaves comes back**,
+/// A task is added to the Job's plan. **Signed as the caller the door placed**
+/// (`#2168`, and the four plan acts below): a person's unless the call is Helm's
+/// or a Commander's, and never as the body says. **The plan it leaves comes back**,
 /// so the Plan region redraws without a second read. `#897`.
 pub(crate) async fn add_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let add: AddTask = match ipc::decode("a task to add", &body) {
         Ok(add) => add,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().add_task(job.id(), add).await {
+    match served
+        .shared()
+        .add_task(job.id(), add, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -729,13 +738,19 @@ pub(crate) async fn add_task<D: Commands>(
 pub(crate) async fn drop_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let drop: DropTask = match ipc::decode("a task to drop", &body) {
         Ok(drop) => drop,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().drop_task(job.id(), drop).await {
+    match served
+        .shared()
+        .drop_task(job.id(), drop, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -754,6 +769,8 @@ pub(crate) async fn restart_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     Path(NamedTask { task_id }): Path<NamedTask>,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let restart: ipc::RestartTask = if body.is_empty() {
@@ -766,7 +783,7 @@ pub(crate) async fn restart_task<D: Commands>(
     };
     match served
         .shared()
-        .restart_task(job.id(), task_id, restart)
+        .restart_task(job.id(), task_id, restart, steered_by(helm, commander))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -779,13 +796,19 @@ pub(crate) async fn restart_task<D: Commands>(
 pub(crate) async fn move_plan<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let moving: ipc::MovePlan = match ipc::decode("a plan move", &body) {
         Ok(moving) => moving,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().move_plan(job.id(), moving).await {
+    match served
+        .shared()
+        .move_plan(job.id(), moving, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -799,13 +822,19 @@ pub(crate) async fn edit_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     Path(NamedTask { task_id }): Path<NamedTask>,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let edit: ipc::EditTask = match ipc::decode("a task edit", &body) {
         Ok(edit) => edit,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().edit_task(job.id(), task_id, edit).await {
+    match served
+        .shared()
+        .edit_task(job.id(), task_id, edit, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -820,16 +849,14 @@ pub(crate) async fn redirect_drone<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let instruction: Redirection = match ipc::decode("a redirect", &body) {
         Ok(instruction) => instruction,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
+    let by = steered_by(helm, commander);
     match served
         .shared()
         .redirect_drone(job.id(), instruction, by)

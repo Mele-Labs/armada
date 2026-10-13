@@ -58,11 +58,18 @@ export type PlanGroupRun = {
   commit?: string;
 };
 
-/** A run of a step, a person, or the Job's Commander. */
+/** A run of a step, a person, a Helm session acting for one, or the Job's Commander. */
 export type ChangedBy =
   | { by: "step"; step_id: string; attempt: number }
   | { by: "person" }
+  | { by: "helm" }
   | { by: "commander" };
+
+/**
+ * Whose hand a task wears: who last added, edited, moved, dropped or reopened
+ * it. **Never a step.** The draft's `TaskBy` adds the words the Commander said.
+ */
+export type TaskBy = { who: "person" | "helm" | "commander" };
 
 /** One line of the plan. */
 export type PlanTask = {
@@ -134,6 +141,12 @@ export type PlanTask = {
    * write through the shell is not seen. Absent where false. Since 23.10.
    */
   touched_after_done?: boolean;
+  /**
+   * Who last changed it, where that was a person, Helm or the Commander. Absent
+   * for a task only steps and Fleet have touched. The owner's own change reads
+   * `person`.
+   */
+  by?: TaskBy;
 };
 
 /**

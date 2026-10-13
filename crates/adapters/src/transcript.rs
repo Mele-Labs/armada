@@ -689,6 +689,37 @@ pub fn viewed_image(tool: &str, detail: &str, home: &str) -> Option<String> {
 }
 
 #[derive(Deserialize)]
+struct Parented {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    parent_tool_use_id: Option<String>,
+}
+
+/// Whether a line is a subagent's own message rather than the agent's.
+///
+/// **The stream marks it and `read` does not carry it.** Claude Code sets
+/// `parent_tool_use_id` on every `assistant` and `user` line produced inside a
+/// subagent — a background one included — to the call that started it, and
+/// `null` on the agent's own. Measured against a haiku run with
+/// `run_in_background`: the subagent's text arrived as an ordinary `assistant`
+/// text block, indistinguishable from the agent's by `read` alone.
+///
+/// **Read beside `read`, not inside it**, because a Drone wants those lines: a
+/// subagent's edits are the Job's edits, and its calls are the Drone's liveness.
+/// Only a hosted session's thread, which draws what the agent said, must not
+/// show them as its own. `tool_progress` also carries the key, naming a Bash
+/// call; it is not a message, so it is not this.
+pub fn inside_a_subagent(line: &str) -> bool {
+    // Every line of a turn passes here, and few carry the key set.
+    if !line.contains("\"parent_tool_use_id\"") {
+        return false;
+    }
+    ipc::decode::<Parented>("a transcript line", line.trim().as_bytes())
+        .is_ok_and(|one| matches!(one.kind.as_str(), "assistant" | "user") && one.parent_tool_use_id.is_some())
+}
+
+#[derive(Deserialize)]
 struct InitLine {
     #[serde(rename = "type", default)]
     kind: String,

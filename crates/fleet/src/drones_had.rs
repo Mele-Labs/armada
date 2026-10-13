@@ -11,7 +11,7 @@ use api::Refusal;
 use core_model::{
     DroneId, DronePresence, EscalationTrigger, JobStatus, StepId, StepState, Timestamp,
 };
-use ipc::{DroneState, JobDrone, JobDrones, Saw, TranscriptRow};
+use ipc::{DroneActivity, DroneState, JobDrone, JobDrones, Saw, TranscriptRow, Voice};
 use store::{Moved, RecordedEvent};
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -158,15 +158,37 @@ pub(crate) struct SoFar {
     /// When its last run ended, where no run has started since: a Drone Fleet
     /// is holding at rest, for the gate or for a person.
     pub at_rest_since: Option<ipc::Instant>,
+    /// Its latest call and the few before it. **`None` until it has made one**,
+    /// never an empty line.
+    pub activity: Option<DroneActivity>,
+    /// When the Drone or Armada last wrote into its transcript. **Never a row
+    /// Fleet wrote beside the Drone**, for the reason `so_far` gives: a Check's
+    /// outcome is not the Drone working. `None` until a row has been written.
+    pub last_wrote: Option<ipc::Instant>,
+}
+
+/// How many of a Drone's last calls its activity holds, the latest among them.
+/// Bridge's `now-real.ts` draws the same count.
+const TAIL: usize = 3;
+
+/// A call as one line: the tool and what it was on.
+fn line_of(tool: &str, detail: &str) -> String {
+    format!("{tool} {detail}").trim().to_string()
 }
 
 /// [`SoFar`], folded over a transcript's rows in the order they were written.
+///
+/// **The activity is the Drone's own calls and nothing Fleet writes beside
+/// them**, in the order it made them.
 ///
 /// **A run is woken by a start or by Fleet speaking into it**, never by a
 /// row Fleet writes beside it: a Check's outcome or a produced file comes
 /// after the end and is not the Drone working.
 pub(crate) fn so_far(rows: impl IntoIterator<Item = TranscriptRow>) -> SoFar {
     rows.into_iter().fold(SoFar::default(), |mut so_far, row| {
+        if row.by != Voice::Fleet {
+            so_far.last_wrote = Some(row.ts.clone());
+        }
         match row.saw {
             Saw::Ended {
                 turns, cost_micros, ..
@@ -178,6 +200,13 @@ pub(crate) fn so_far(rows: impl IntoIterator<Item = TranscriptRow>) -> SoFar {
             Saw::Started { .. } | Saw::Instructed { .. } => {
                 so_far.at_rest_since = None;
             }
+            Saw::Called { tool, detail, .. } if !line_of(&tool, &detail).is_empty() => {
+                let line = line_of(&tool, &detail);
+                let mut tail = so_far.activity.take().map(|had| had.tail).unwrap_or_default();
+                tail.push(line.clone());
+                tail.drain(..tail.len().saturating_sub(TAIL));
+                so_far.activity = Some(DroneActivity { line, tail });
+            }
             _ => {}
         }
         so_far
@@ -187,7 +216,7 @@ pub(crate) fn so_far(rows: impl IntoIterator<Item = TranscriptRow>) -> SoFar {
 /// [`so_far`] off one Drone's own transcript file, rather than off its slot,
 /// because reading the slot waits behind a Check. A row that will not decode
 /// is skipped; a file that will not open has said nothing.
-async fn read_so_far(records_root: &str, handle: &str, drone: &DroneId) -> SoFar {
+pub(crate) async fn read_so_far(records_root: &str, handle: &str, drone: &DroneId) -> SoFar {
     let Ok(file) = fs::File::open(transcript_of(records_root, handle, drone)).await else {
         return SoFar::default();
     };
@@ -247,12 +276,12 @@ where
                 Some(bound) => had.on_task(bound),
                 None => had,
             };
-            let (turns, cost_micros, at_rest_since) = match had.state {
+            let (turns, cost_micros, at_rest_since, activity) = match had.state {
                 DroneState::Running => {
                     let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
                     let read = read_so_far(served.records_root(), &job.handle(), &had.drone).await;
                     let (turns, cost) = read.spent.unzip();
-                    (turns, cost, read.at_rest_since)
+                    (turns, cost, read.at_rest_since, read.activity)
                 }
                 // A row's cost is set by the first terminating line and its
                 // turns are summed from nought, so a row with no cost saw no
@@ -262,8 +291,9 @@ where
                         spend.cost_micros.map(|_| spend.turns),
                         spend.cost_micros,
                         None,
+                        None,
                     ),
-                    None => (None, None, None),
+                    None => (None, None, None, None),
                 },
             };
             drones.push(JobDrone {
@@ -280,6 +310,7 @@ where
                 at_rest_since,
                 turns,
                 cost_micros,
+                activity,
             });
         }
         Ok(JobDrones { job_id, drones })

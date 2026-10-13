@@ -26,6 +26,12 @@ export type NowAskerDraft = {
 };
 
 /**
+ * What a real ask is answered through. **A command is answered by one of its offers**, which best
+ * and quick are not, so it takes no mode. The mock's asks name none.
+ */
+export type AskedOf = { kind: "question"; id: string } | { kind: "judge"; at: string } | { kind: "command" };
+
+/**
  * What the Commander cannot do itself, asked once as one card. **Mock only**: Fleet serves no
  * Commander. The answer is the owner's act, and the host hands it to the Commander, which Fleet
  * wakes on it.
@@ -42,7 +48,7 @@ export type NowCommanderAskView = {
 export type NowAskView =
   | NowCommanderAskView
   | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[]; asker?: NowAskerDraft }
-  | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; sketch?: NowSketchDraft; asker?: NowAskerDraft };
+  | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; asked?: AskedOf; sketch?: NowSketchDraft; asker?: NowAskerDraft };
 
 /** A quick act on a row. The host's handler is a stub on the mock. */
 export type NowActView = { key: string; glyph: "retry" | "skip" | "skip_all" | "redirect" | "retry_step"; said: string };

@@ -135,12 +135,17 @@ export type MainFailedJob = {
   tests?: string[];
 };
 
+/** A Session, by its id and the title the ledger holds for it. Since 23.80. */
+export type HubSession = { id: string; title?: string };
+
 export type MainMerge = {
   number: number;
   url?: string;
   branch?: string;
   /** The Job whose pull request that is. Absent for a person's. */
   job?: HubJob;
+  /** The Session that held the pull request or its branch, where no Job owns it. Since 23.80. */
+  session?: HubSession;
 };
 
 /** `ci` is `passed`, `running`, `failed` or `waiting_on_main`: failed only on the jobs main is failing. */

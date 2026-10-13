@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
+import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -124,6 +124,35 @@ export const MINE = "s7";
 /** The Session that shows a page in a window when it is next spoken to. */
 export const SHOWER = "s11";
 const SHOWN = "Clock read report";
+/** The Session that shows three takes of one page in a window when it is next spoken to. */
+export const VARIER = "s12";
+const VARIED = "Board layouts";
+/** Its takes: the mock itself on three scenarios, the way a Session would serve three branches of one page. */
+const takes = (): Variation[] =>
+  [
+    { name: "Every state", scenario: "every-state" },
+    { name: "Needs you first", scenario: "dashboard-needs-you" },
+    { name: "Sessions beside", scenario: "sessions" },
+  ].map(({ name, scenario }) => {
+    const url = new URL(mockPage());
+    url.searchParams.set("scenario", scenario);
+    return { name, url: url.toString() };
+  });
+
+/** The Session that shows three walks in a window when it is next spoken to: the bar draws their controls. */
+export const WALKER = "s13";
+const WALKED = "Walks in a window";
+/** Its takes: three short walks, each the mock playing itself in the frame, the way a Session would serve a walkthrough. */
+const walkTakes = (): Variation[] =>
+  [
+    { name: "Ledger filter", walk: "session-ledger-filter" },
+    { name: "Task marks", walk: "taskMarkTooltips" },
+    { name: "Sleep cockpit", walk: "sleepCockpit" },
+  ].map(({ name, walk }) => {
+    const url = new URL(mockPage());
+    url.search = `?walk=${walk}&walked`;
+    return { name, url: url.toString() };
+  });
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
@@ -212,12 +241,20 @@ export function sessionsStore(
       job: session.title ?? id,
       into: "Session",
       onOpenOwner: () => askToOpenSession(id),
-      onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
+      // A note taken on one of several takes names it first, so the Session knows which page it is about.
+      onNote: (note, picked) => {
+        const on = picked.variation === undefined ? "" : `${picked.variation.letter}, ${picked.variation.name}: `;
+        return store.send(id, { text: `${note}\nOn ${on}${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] });
+      },
       // Approve is a message from the person too, and wakes the Session the same way.
-      onApprove: async (address) => {
-        await store.send(id, { text: `Approved: ${address}`, files: [], sketches: [], tags: [] });
+      onApprove: async (address, variation) => {
+        const which = variation === undefined ? "" : ` ${variation.letter}, ${variation.name}`;
+        await store.send(id, { text: `Approved${which}: ${address}`, files: [], sketches: [], tags: [] });
         return { ok: true };
       },
+      ...(id === VARIER ? { variations: takes() } : id === WALKER ? { variations: walkTakes() } : {}),
+      // Shown is said to be ready: a Session shows a page when it is done with it.
+      readiness: "ready",
     });
   };
   /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
@@ -512,10 +549,30 @@ export function sessionsStore(
           if (had === 0) {
             addTo(id, [tool(`show_window ${SHOWN}`), said("The findings are in a window.")]);
             showWindow(id, mockPage(), SHOWN);
+            finishOf(id, "14:40");
+          } else {
+            // Asked to change what the window shows, the Session says so on the window, and again when it is done.
+            addTo(id, [said("Noted. I will change that.")]);
+            markWalkWindow("working");
+            after(2400, () => {
+              addTo(id, [tool("Edit report/clock.tsx"), said("Changed. The window is ready again.")]);
+              markWalkWindow("ready");
+              finishOf(id, "14:41");
+            });
+          }
+        });
+      } else if (id === VARIER || id === WALKER) {
+        const had = asked.get(id) ?? 0;
+        asked.set(id, had + 1);
+        after(900, () => {
+          if (had === 0) {
+            const walks = id === WALKER;
+            addTo(id, [tool(`show_window ${walks ? WALKED : VARIED}, 3 variations`), said(walks ? "Three walks are in a window." : "Three layouts are in a window.")]);
+            showWindow(id, (walks ? walkTakes() : takes())[0]!.url, walks ? WALKED : VARIED);
           } else {
             addTo(id, [said("Noted. I will change that.")]);
           }
-          finishOf(id, "14:40");
+          finishOf(id, "14:44");
         });
       } else if (id === MINE && !started) {
         started = true;
@@ -592,7 +649,7 @@ export function sessionsStore(
       // An agent's own item reaches it as Fleet words it: the item quoted, then the answer.
       const sent: SessionRow[] =
         item.source === "agent" ? [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: `Re: ${item.text}\n${chosen ?? ""}` }))] : [];
-      addTo(id, [...sent, said(`Going with ${chosen ?? "my own call"}.`)]);
+      addTo(id, [...sent, said(item.act?.kind === "run" ? "It ran clean." : `Going with ${chosen ?? "my own call"}.`)]);
     },
     // A fake terminal: the command is typed there and nothing comes back to the thread.
     command: () => undefined,

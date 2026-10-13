@@ -1,6 +1,6 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, Check, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -10,12 +10,14 @@ import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
+import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { StartedRow } from "./StartedRow";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
@@ -59,6 +61,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData
   | {
@@ -105,8 +109,17 @@ export type SessionThreadProps = {
    */
   asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
-  /** The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none. */
-  done?: { onEnd: () => void; onKeep: () => void };
+  /**
+   * The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none.
+   * `made` are ledger entries (pull requests, or artifacts), listed under the band as presses; none draws no body.
+   * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
+   */
+  done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
+  /**
+   * What the Session waits on the person for, in the done callout's place while it has not said it is done:
+   * a band of one glyph per item, which a press opens to the ledger's own rows. Empty or absent draws none.
+   */
+  waiting?: readonly LedgerEntry[];
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -331,6 +344,48 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string; f
   );
 }
 
+/**
+ * What the person did, as Fleet sends it to the agent in their name: `Approved: <address>` from a
+ * walk's Approve, and `Re: <item>` over the answer from a waiting item. Anything else is their words.
+ */
+type Act = { kind: "approved"; target: string; shown: string } | { kind: "answered"; target: string; said: string };
+
+function actOf(text: string): Act | null {
+  const approved = /^Approved: (\S+)$/.exec(text);
+  if (approved?.[1] !== undefined) {
+    const walk = /[?&]walk=[^&#\s]*/.exec(approved[1]);
+    return { kind: "approved", target: approved[1], shown: walk === null ? approved[1] : `?${walk[0].slice(1)}` };
+  }
+  const answered = /^Re: ([^\n]+)\n?([\s\S]*)$/.exec(text);
+  if (answered?.[1] !== undefined) return { kind: "answered", target: answered[1], said: (answered[2] ?? "").trim() };
+  return null;
+}
+
+/** A target this long is likely cut to one line, so it names itself in a tooltip. */
+const TARGET_TRUNCATES = 40;
+
+/** The person's act: one filled line in the inverse neutral, what it was and on what. */
+function Did({ act, at }: { act: Act; at: string }) {
+  const approved = act.kind === "approved";
+  const Glyph = approved ? Check : Reply;
+  const word = approved ? "Approved" : "Answered";
+  const shown = approved ? act.shown : act.target;
+  const chip = (
+    <span className="armada-session-did__chip" role="img" aria-label={`${word}: ${act.target}`}>
+      <Glyph size={12} strokeWidth={2} aria-hidden />
+      <span className="armada-session-did__target">{shown}</span>
+    </span>
+  );
+  return (
+    <li className="armada-session-did" role="region" aria-label={`You ${word.toLowerCase()}`}>
+      <span className="armada-session-did__eyebrow">{word}</span>
+      {shown !== act.target || act.target.length > TARGET_TRUNCATES ? <Tooltip label={act.target} asChild>{chip}</Tooltip> : chip}
+      {act.kind === "answered" && act.said !== "" ? <span className="armada-session-did__said">{act.said}</span> : null}
+      <span className="armada-session-did__at">{at}</span>
+    </li>
+  );
+}
+
 function Row({
   row,
   onOpenSession,
@@ -405,6 +460,7 @@ function Row({
     );
   }
   if (row.kind === "handoff") return <Handoff row={row} />;
+  if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">
@@ -462,26 +518,41 @@ function Row({
       </li>
     );
   }
+  if (row.from === "you") {
+    const act = actOf(row.text);
+    if (act !== null) return <Did act={act} at={row.at} />;
+    const placed = placeTags(row.text, row.tags ?? []);
+    return (
+      <li className="armada-session-you" role="region" aria-label="Your message">
+        <div className="armada-session-you__band">
+          <span className="armada-session-you__who">You</span>
+          <span className="armada-session-you__at">{row.at}</span>
+        </div>
+        <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
+          {placed.parts !== null ? (
+            <p className="armada-session-said">{placed.parts}</p>
+          ) : (
+            // Run is on what the agent wrote, not on what the person did.
+            <ProseRunner.Provider value={null}>
+              <ProseCommand.Provider value={null}>
+                <Prose text={row.text} />
+              </ProseCommand.Provider>
+            </ProseRunner.Provider>
+          )}
+          <Sent row={row} tags={placed.loose} />
+        </div>
+      </li>
+    );
+  }
   const placed = placeTags(row.text, row.tags ?? []);
   return (
-    <li className="armada-helm-thread__row" data-actor={row.from === "you" ? "you" : "helm"} data-from={row.from}>
+    <li className="armada-helm-thread__row" data-actor="helm" data-from={row.from}>
       <div className="armada-helm-thread__head">
-        <span className="armada-helm-thread__who">{row.from === "you" ? "You" : agentName}</span>
+        <span className="armada-helm-thread__who">{agentName}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
       <div className="armada-helm-thread__message" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
-        {placed.parts !== null ? (
-          <p className="armada-session-said">{placed.parts}</p>
-        ) : row.from === "you" ? (
-          // Run is on what the agent wrote, not on what the person did.
-          <ProseRunner.Provider value={null}>
-            <ProseCommand.Provider value={null}>
-              <Prose text={row.text} />
-            </ProseCommand.Provider>
-          </ProseRunner.Provider>
-        ) : (
-          <Prose text={row.text} />
-        )}
+        {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
       </div>
       <Sent row={row} tags={placed.loose} />
     </li>
@@ -491,7 +562,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -574,6 +645,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
           )}
         </Card>
       )}
+      {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
           <div className="armada-session-done__head">
@@ -584,6 +656,32 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
             </Tooltip>
             <span className="armada-session-done__label">Nothing left to do</span>
           </div>
+          {done.made === undefined || done.made.length === 0 ? null : (
+            <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
+              {done.made.map((row) => {
+                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+                return (
+                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
+                      {row.pr !== undefined ? (
+                        <PullRequestStateMark merged={row.pr.merged} />
+                      ) : form === undefined ? (
+                        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
+                      ) : (
+                        <Tooltip label={form.said}>
+                          <span className="armada-session-mark" role="img" aria-label={form.said}>
+                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
+                      <span className="armada-session-ledger__text">{row.text}</span>
+                      {row.pr === undefined ? null : <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <div className="armada-session-done__acts">
             <Button size="sm" variant="secondary" onClick={done.onEnd}>
               End session
@@ -595,5 +693,39 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
         </div>
       )}
     </div>
+  );
+}
+
+/** Folded, the band shows a glyph per item, named on hover; a press on the band opens the rows. */
+function NeedsYou({ rows }: { rows: readonly LedgerEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const Fold = open ? ChevronDown : ChevronUp;
+  return (
+    <section className="armada-session-needs" aria-label="Needs you">
+      <button type="button" className="armada-session-needs__band" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <BellRing size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-session-needs__label">Needs you</span>
+        {open ? null : (
+          <span className="armada-session-needs__glyphs">
+            {rows.map((row) => {
+              const { Glyph } = waitingMark(row);
+              return (
+                <Tooltip key={row.key} label={row.name}>
+                  <span className="armada-session-mark" role="img" aria-label={row.name}>
+                    <Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              );
+            })}
+          </span>
+        )}
+        <Fold className="armada-session-needs__fold" size={12} strokeWidth={2} aria-hidden />
+      </button>
+      {open ? (
+        <div className="armada-session-needs__rows">
+          <LedgerRows kind="waiting" Glyph={BellRing} rows={rows} />
+        </div>
+      ) : null}
+    </section>
   );
 }

@@ -360,8 +360,8 @@ async fn the_pull_request_body_is_assembled_from_what_was_checked() {
          that everything is fine: {body}"
     );
     assert!(
-        body.contains("- `src/log.rs` — modified"),
-        "and the outcome section is what the record can prove it changed: {body}"
+        body.contains("One file changed.") && !body.contains("src/log.rs"),
+        "the outcome counts the files and names none — the Files tab does that (#2161): {body}"
     );
     // **The delivering step has no verdict yet, and the body says so in the
     // present tense.** The branch goes out as that step is entered, which is
@@ -371,15 +371,15 @@ async fn the_pull_request_body_is_assembled_from_what_was_checked() {
     // moment `#520` had moved it to: a post-mortem verb on the one step a
     // reviewer is being asked to read.
     assert!(
-        body.contains("**Implement** — advanced")
+        body.contains("**Implement** — advanced, Checks 1 passed")
             && body.contains(
                 "**Summarise** — is being worked — the branch went out as it was entered"
             ),
-        "every step with its verdict: {body}"
+        "every step with its verdict and a count of its Checks: {body}"
     );
     assert!(
-        body.contains("`diff_nonempty` — passed"),
-        "and every Check with its outcome: {body}"
+        !body.contains("`diff_nonempty`"),
+        "and no Check that passed is named (#2161): {body}"
     );
     assert!(
         body.contains(job.id().as_str()),

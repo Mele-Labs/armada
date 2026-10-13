@@ -62,7 +62,10 @@ export type SessionAttachment =
   /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
   | { kind: "forked_to"; id: string }
   /** `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it. */
-  | { kind: "forked_from"; id: string; at?: string };
+  | { kind: "forked_from"; id: string; at?: string }
+  /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
+  | { kind: "started_to"; id: string }
+  | { kind: "started_by"; id: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -154,6 +157,8 @@ export type SessionRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 
@@ -200,6 +205,11 @@ export type Session = {
   waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
+  /**
+   * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
+   * Absent once it is sent, or on a Session nobody's agent started.
+   */
+  unsent?: string;
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
@@ -431,7 +441,8 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
 
 /** The Session that owns what a chip names, or none. **At most one**: a slot, a branch and a PR each belong to one. */
 export function ownerOf(sessions: readonly Session[], ref: ChipRef): Session | undefined {
-  return sessions.find((session) => session.attachments.some((one) => names(one, ref)));
+  // An ended Session keeps what it made on its ledger, but holds nothing.
+  return sessions.find((session) => session.dead !== "ended" && session.attachments.some((one) => names(one, ref)));
 }
 
 /** A Session found by a search, and what in it matched, so a list can say why it is there. */

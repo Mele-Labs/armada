@@ -650,13 +650,43 @@ where
         self.summarised(&job).await
     }
 
+    /// A person's hand on a running gate: `crate::check_acts`.
+    async fn retry_check(
+        self: Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        let job = Fleet::retry_check(&self, &job_id.to_domain(), &named.check)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    async fn skip_check(
+        self: Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        let job = Fleet::skip_check(&self, &job_id.to_domain(), &named.check)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    async fn skip_checks(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        let job = Fleet::skip_checks(&self, &job_id.to_domain())
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// Words to one Drone of the Job, by id: `crate::one_drone`.
     async fn redirect_one_drone(
         self: Arc<Self>,
         job_id: JobId,
         drone_id: ipc::DroneId,
         instruction: Redirection,
-        by: api::Redirector,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = Instruction::saying(&instruction.instruction)
             .ok_or_else(|| self.refusal(Adrift::Unnameable))?;
@@ -793,7 +823,7 @@ where
         self: Arc<Self>,
         job_id: JobId,
         instruction: Redirection,
-        by: api::Redirector,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = Instruction::saying(&instruction.instruction)
             .ok_or_else(|| self.refusal(Adrift::Unnameable))?;
@@ -881,14 +911,21 @@ where
             async move {
                 let id = job_id.to_domain();
                 let question = answer.question_id.as_str();
-                // A label answers a single question and picks answer an
-                // interview. Anything else goes the interview's way, where
+                // A label or a mode answers a single question and picks answer
+                // an interview. Anything else goes the interview's way, where
                 // the missing picks are refused by name.
-                match (answer.chose.as_deref(), answer.decisions.is_empty()) {
-                    (Some(chose), true) => {
-                        Fleet::answer_question(&fleet, &id, question, chose).await
-                    }
-                    _ => Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await,
+                if answer.decisions.is_empty() && (answer.chose.is_some() || answer.mode.is_some())
+                {
+                    Fleet::answer_question(
+                        &fleet,
+                        &id,
+                        question,
+                        answer.chose.as_deref(),
+                        answer.mode,
+                    )
+                    .await
+                } else {
+                    Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await
                 }
                 .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
@@ -924,7 +961,7 @@ where
             let fleet = Arc::clone(&self);
             async move {
                 let id = job_id.to_domain();
-                Fleet::answer_command(&fleet, &id, &answer.call, answered)
+                Fleet::answer_command(&fleet, &id, &answer.call, answered, answer.mode)
                     .await
                     .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
@@ -976,6 +1013,7 @@ where
                     answered.answer,
                     answered.asked_at,
                     answered.note,
+                    answered.mode,
                 )
                 .await
             }
@@ -1102,14 +1140,24 @@ where
         self.summarised(&job).await
     }
 
-    /// A person adds a task to the Job's plan. `#897`; `work_plan` has it.
-    async fn add_task(self: Arc<Self>, job: JobId, add: AddTask) -> Result<WorkPlan, Refusal> {
-        Fleet::add_task_by_person(self, job, add).await
+    /// A task added to the Job's plan, signed as `by`. `#897`; `work_plan` has it.
+    async fn add_task(
+        self: Arc<Self>,
+        job: JobId,
+        add: AddTask,
+        by: api::Steerer,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::add_task_by(self, job, add, by).await
     }
 
-    /// A person drops a task, with a reason. `#897`; `work_plan` has it.
-    async fn drop_task(self: Arc<Self>, job: JobId, body: DropTask) -> Result<WorkPlan, Refusal> {
-        Fleet::drop_task_by_person(self, job, body).await
+    /// A task dropped, with a reason, signed as `by`. `#897`; `work_plan` has it.
+    async fn drop_task(
+        self: Arc<Self>,
+        job: JobId,
+        body: DropTask,
+        by: api::Steerer,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::drop_task_by(self, job, body, by).await
     }
 
     /// Restart this task. `#1656`; `plan_acts` has it.
@@ -1118,18 +1166,20 @@ where
         job: JobId,
         task: String,
         body: ipc::RestartTask,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
-        let restarted = Fleet::restart_task_by_person(Arc::clone(&self), job, task, body).await?;
+        let restarted = Fleet::restart_task_by(Arc::clone(&self), job, task, body, by).await?;
         self.summarised(&restarted).await
     }
 
-    /// A person moves a task or a group. `#1685`; `plan_acts` has it.
+    /// A task or a group moved, signed as `by`. `#1685`; `plan_acts` has it.
     async fn move_plan(
         self: Arc<Self>,
         job: JobId,
         body: ipc::MovePlan,
+        by: api::Steerer,
     ) -> Result<WorkPlan, Refusal> {
-        Fleet::move_plan_by_person(self, job, body).await
+        Fleet::move_plan_by(self, job, body, by).await
     }
 
     /// Edit this task. `#1657`; `task_edits` has it.
@@ -1138,7 +1188,8 @@ where
         job: JobId,
         task: String,
         body: ipc::EditTask,
+        by: api::Steerer,
     ) -> Result<WorkPlan, Refusal> {
-        Fleet::edit_task_by_person(self, job, task, body).await
+        Fleet::edit_task_by(self, job, task, body, by).await
     }
 }

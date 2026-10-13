@@ -22,7 +22,9 @@
 //!    starts on the same `Arc` the router holds, since reconciliation can admit
 //!    a queued Job that needs turning whether or not anything ever connects,
 //!    and then commands are let through. A reconciliation that fails stops the
-//!    server.
+//!    server. Evidence a restart found pending is ruled on in a task started
+//!    here, not inside the reconciliation: its gate can take a Job's whole
+//!    Checks.
 //! 8. Wait to be stopped. A stop during step 7 ends its task where it stands,
 //!    as a crash would. The port goes back and the file's guard removes it.
 //!
@@ -259,10 +261,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     for why in fleet.served_again().await {
         eprintln!("  a remembered repository is not served: {why}");
     }
-    // **Served before it has reconciled**: reconciliation can take as long as a
-    // Job's gate, and the listener answered nothing for all of it. Reads and
-    // health answer at once; a command waits on `reconciliation`, so nothing
-    // races the Job moves below. `api::Reconciliation`.
+    // **Served before it has reconciled**: reconciliation reads and moves every
+    // Job, and the listener answered nothing for all of it. Reads and health
+    // answer at once; a command waits on `reconciliation`, so nothing races the
+    // Job moves below. `api::Reconciliation`. A Job's gate is not part of it.
     let reconciliation = api::Reconciliation::begun();
     let events = fleet.events();
     // The loops that move Jobs start inside the boot, after `reconcile`, and
@@ -328,6 +330,28 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 eprintln!("  a row would not rebuild: {unreadable}");
             }
 
+            // Evidence a restart interrupted is ruled on in a task and not
+            // here, since its gate can run for as long as a Job's Checks. The
+            // Jobs are held before this returns, so no command can race it.
+            let awaiting = reconciled.awaiting_evidence.len();
+            match fleet
+                .rule_on_pending_evidence(&reconciled.awaiting_evidence)
+                .await
+            {
+                Ok(ruling) if awaiting > 0 => {
+                    println!("  {awaiting} Job(s) hold evidence submitted before the restart; ruling on it");
+                    tokio::spawn(async move {
+                        if let Ok(ruled) = ruling.await {
+                            println!(
+                                "ruled on evidence from before the restart: {} of {awaiting}",
+                                ruled.recovered_evidence.len()
+                            );
+                        }
+                    });
+                }
+                Ok(_) => {}
+                Err(why) => eprintln!("  evidence from before the restart was not ruled on: {why}"),
+            }
             // **Started before commands are let through, not after.**
             // Reconciliation admitted a queued Job on the way out, and that Job
             // is already dispatched: it needs turning whether or not anything

@@ -1,0 +1,16 @@
+[operations.start_another_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Start a new session in any repository with a first message, which waits for the person to send it. Nothing runs until he does. Body: manifest_id, title, message"
+notes = """
+`POST /sessions/start_another`, body `StartAnotherSession`: `manifest_id`, `title` and `message`. Since 23.80. Answered with `SessionHeld`: the new session's id, its title and `fork` false.
+
+**The session is created and listed at once, and nothing runs.** No process starts and no turn begins. The message is the agent's first message and the person's to send: Fleet keeps it as an `unsent` attachment on the new session's ledger, standing, whose target is its words, and derives a waiting item `unsent:<session id>` with source `first_message` and an `act` of `message` on the session, labelled "First message". Bridge puts the words in the new session's message box once, where the box is empty. The person's ordinary `send_session_message` sends whatever the box then holds, starts the first turn, and settles both the attachment and the item; editing it first is the same call. `close_session` discards it.
+
+**The caller is placed as `show_window` places it**, by the connection of a hosted session's process, and the call names no session. A call that places no hosted session is refused with 422 `fleet.agent_start_unplaced`. A blank `title` or `message` is refused with 422 `fleet.agent_start_empty`, and a `manifest_id` Fleet does not serve with the refusal `start_session` gives.
+
+**Both ledgers record it.** The new session carries a `started_by` attachment naming the caller and the caller a `started_to` naming the new one, both `spent`. The caller's thread gets a `started` row, `{ session: { id, title }, fork: false }`, which Bridge draws as the press that opens it.
+
+`agent_access` is `Yes`: starting work in another repository is the agent's to propose, and holding the first message for the person is what keeps it his to start. `start_session` stays `No`, since that one starts a process.
+"""

@@ -1,6 +1,6 @@
 use crate::{
     decode, encode, FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi,
-    HubPullRequest, HubQueue, HubQueueState, Instant, JobId, MainChecking, MainCiState,
+    HubPullRequest, HubQueue, HubQueueState, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
 
@@ -25,6 +25,7 @@ fn a_red_hub() -> MergeLineHub {
                     id: JobId::carried("01JOB"),
                     title: "Cache the manifest read".to_string(),
                 }),
+                session: None,
             }),
             red_commit: Some("a".repeat(40)),
             checking: vec![MainChecking {
@@ -34,6 +35,10 @@ fn a_red_hub() -> MergeLineHub {
                     url: None,
                     branch: Some("fleet/flaky".to_string()),
                     job: None,
+                    session: Some(HubSession {
+                        id: "c279e883-d316-4202-8134-76ea8b531835".to_string(),
+                        title: Some("Session Messages Fail to Send".to_string()),
+                    }),
                 }),
             }],
         }),

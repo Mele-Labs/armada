@@ -1,7 +1,11 @@
-import { Check } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import type { KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
-import { KbdChord } from "../../primitives/Kbd/Kbd";
+import { Kbd, KbdChord } from "../../primitives/Kbd/Kbd";
+import { Switch } from "../../primitives/Switch/Switch";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { SessionMark } from "../SessionFrame/SessionFrame";
 
 /**
  * The bar Bridge owns above another repository's running web app —
@@ -89,7 +93,82 @@ export type CaptureBarProps = {
    * a Studio's window, which has none.** One press draws it or folds it away.
    */
   panel?: CaptureBarPanel;
+  /**
+   * The takes a Session showed of one change, each a page of its own. One is drawn at a time; a
+   * press swaps the page, and Approve and every note name the one on screen. **Absent: one page.**
+   */
+  variations?: CaptureBarVariations;
+  /**
+   * Whether the page is ready to walk, as the Session or the Job that opened it says: `ready` it is
+   * done and waiting on the person, `working` it is still changing it. Drawn as the Session mark at
+   * the bar's start and as the bar's own hue. **Absent: nobody has said.**
+   */
+  readiness?: CaptureBarReadiness;
+  /**
+   * The walk the page is playing, its controls drawn in a row of their own so the page keeps its
+   * room. **Absent: the page is not a walk.** Keys pressed on the bar act on the walk as they do in
+   * the page.
+   */
+  walk?: CaptureBarWalk;
 };
+
+/** Where a walk on the page stands, and the acts on it. `at` counts from 1. */
+export type CaptureBarWalk = {
+  name: string;
+  at: number;
+  of: number;
+  /** The step's caption. */
+  said: string;
+  autoplay: boolean;
+  /** The step's target is ringed, so Next has something to act on. */
+  ready: boolean;
+  /** Past the last step. */
+  done: boolean;
+  onBack: () => void;
+  onNext: () => void;
+  onAutoplay: (on: boolean) => void;
+  onReplay: () => void;
+};
+
+/**
+ * The walk's keys, as the page takes them: a key that is not one of them is left alone. Enter
+ * is left to a button of the bar's own row above, which it presses.
+ */
+function walkKey(event: KeyboardEvent<HTMLElement>, walk: CaptureBarWalk): void {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const key = event.key.toLowerCase();
+  const onAButton = event.target instanceof HTMLElement && event.target.closest("button") !== null;
+  const inWalkRow = event.target instanceof HTMLElement && event.target.closest(".armada-capture-bar__walk") !== null;
+  const act =
+    key === "arrowright" || (key === "enter" && (!onAButton || inWalkRow))
+      ? walk.onNext
+      : key === "arrowleft"
+        ? walk.onBack
+        : key === "a"
+          ? () => walk.onAutoplay(!walk.autoplay)
+          : key === "r"
+            ? walk.onReplay
+            : null;
+  if (act === null) return;
+  // Not the button's own press as well, and not the page behind that hears the same key.
+  event.preventDefault();
+  event.stopPropagation();
+  act();
+}
+
+export type CaptureBarReadiness = "ready" | "working";
+
+/** Each readiness as the Session mark draws it, and what its tooltip says. */
+const READINESS: Record<CaptureBarReadiness, { mark: "waiting" | "working"; said: string }> = {
+  ready: { mark: "waiting", said: "Ready to walk" },
+  working: { mark: "working", said: "Still changing" },
+};
+
+/** Each take's name in the order shown, which is on screen, and the press that swaps it. */
+export type CaptureBarVariations = { names: readonly string[]; at: number; onPick: (at: number) => void };
+
+/** A take's letter: A for the first. */
+export const variationLetter = (at: number): string => String.fromCharCode(65 + at);
 
 /** Which panel the window has, whether it is drawn, and the press that changes that. */
 export type CaptureBarPanel = { kind: "session" | "job"; open: boolean; onToggle: (open: boolean) => void };
@@ -102,7 +181,9 @@ export function hasASecondRow(
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel } = props;
+  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk } = props;
+  const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
+  const approved = approval?.state === "approved";
   const owner = job ?? session;
   const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
   const aim =
@@ -122,8 +203,23 @@ export function CaptureBar(props: CaptureBarProps) {
       landsOn
     );
   return (
-    <div className="armada-capture-bar" data-armed={armed ? "" : undefined}>
+    <div
+      className="armada-capture-bar"
+      data-armed={armed ? "" : undefined}
+      // Approved outranks ready: the walk is settled, and the bar says so in its own hue.
+      data-readiness={approved ? undefined : readiness}
+      data-approved={approved ? "" : undefined}
+      {...(walk === undefined ? {} : { onKeyDown: (event: KeyboardEvent<HTMLElement>) => walkKey(event, walk) })}
+    >
       <div className="armada-capture-bar__row">
+        {approved ? (
+          <span className="armada-capture-bar__approved">
+            <Check size={14} strokeWidth={2.5} aria-hidden />
+            {`Approved${taking}`}
+          </span>
+        ) : readiness === undefined ? null : (
+          <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />
+        )}
         {run === undefined ? null : (
           <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
             {run}
@@ -154,13 +250,18 @@ export function CaptureBar(props: CaptureBarProps) {
             variant="secondary"
             ground="sunken"
             size="sm"
-            disabled={approval?.state === "approved"}
+            // While the opener is still changing the page there is nothing settled to approve.
+            disabled={approval?.state === "approved" || readiness === "working"}
             pending={approval?.state === "pending"}
             {...(approval?.state === "refused" ? { answer: "refused" as const, title: approval.said } : {})}
             onClick={props.onApprove}
           >
-            <Check size={12} strokeWidth={2} aria-hidden />
-            {approval?.state === "approved" ? "Approved" : "Approve"}
+            {readiness === "working" ? null : <Check size={12} strokeWidth={2} aria-hidden />}
+            {readiness === "working"
+              ? "Not ready"
+              : approval?.state === "approved"
+                ? `Approved${taking}`
+                : `Approve${taking}`}
           </Button>
         )}
         {panel === undefined ? null : (
@@ -169,6 +270,60 @@ export function CaptureBar(props: CaptureBarProps) {
           </Button>
         )}
       </div>
+      {/* A row of their own, so the takes never push the acts off a narrow window's bar. */}
+      {variations === undefined ? null : (
+        <div role="radiogroup" aria-label="Variations" className="armada-capture-bar__row armada-capture-bar__takes">
+          {variations.names.map((name, at) => (
+            <button
+              key={at}
+              type="button"
+              role="radio"
+              aria-checked={at === variations.at}
+              className="armada-capture-bar__take"
+              onClick={() => variations.onPick(at)}
+            >
+              <span className="armada-capture-bar__take-letter">{variationLetter(at)}</span>
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+      {walk === undefined ? null : (
+        <div className="armada-capture-bar__row armada-capture-bar__walk" role="group" aria-label={`Walk ${walk.name}`}>
+          <Tooltip label="Replay to the step before">
+            <Button variant="ghost" size="sm" disabled={walk.at <= 1} onClick={walk.onBack}>
+              <ChevronLeft size={12} strokeWidth={2} aria-hidden />
+              Back
+            </Button>
+          </Tooltip>
+          <Kbd>←</Kbd>
+          <span className="armada-capture-bar__walk-where">
+            Step {walk.at} of {walk.of}
+          </span>
+          <span className="armada-capture-bar__walk-said" title={walk.said}>
+            {walk.said}
+          </span>
+          <Tooltip label="Replay from step 1">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Replay" onClick={walk.onReplay}>
+              <RotateCcw size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Kbd>R</Kbd>
+          <Tooltip label="Go on by itself">
+            <Switch checked={walk.autoplay} onChange={(event) => walk.onAutoplay(event.target.checked)}>
+              Autoplay
+            </Switch>
+          </Tooltip>
+          <Kbd>A</Kbd>
+          <Tooltip label="Act on the ringed target and go on">
+            <Button variant="primary" size="sm" disabled={!walk.ready || walk.done} onClick={walk.onNext}>
+              Next
+              <ChevronRight size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Kbd>→</Kbd>
+        </div>
+      )}
       {hasASecondRow(props) ? (
         <div className="armada-capture-bar__said" role="status">
           {serving ? null : (

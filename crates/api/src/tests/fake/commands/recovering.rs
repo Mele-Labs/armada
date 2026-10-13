@@ -198,13 +198,17 @@ impl FakeDaemon {
         &self,
         job_id: JobId,
         _instruction: ipc::Redirection,
-        by: crate::Redirector,
+        by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let jobs = self.jobs.lock().expect("not poisoned");
         let Some(job) = jobs.iter().find(|job| job.id == job_id) else {
             return Err(self.no_such_job(&job_id));
         };
         self.redirected_by.lock().expect("not poisoned").push(by);
+        self.redirected_via
+            .lock()
+            .expect("not poisoned")
+            .push(crate::via());
         if job.assigned_drone.is_none() {
             return Err(Refusal::IllegalMove(ipc::WireError::raised(
                 "fake.no_drone_to_redirect",
@@ -214,11 +218,16 @@ impl FakeDaemon {
         }
         Ok(job.clone())
     }
-    /// A person's add or drop, faked on the one thing there is to fake: **an
+    /// A plan act, faked on the one thing there is to fake: **an
     /// id naming no Job is the 404 every fake command gives it.** The plan
     /// itself, and delivering to a working Drone, are `fleet::work_plan`'s and
     /// asserted there — this daemon holds no plan and no slot. `#897`.
-    pub(super) async fn fake_plan_change(&self, job_id: JobId) -> Result<ipc::WorkPlan, Refusal> {
+    pub(super) async fn fake_plan_change(
+        &self,
+        job_id: JobId,
+        by: crate::Steerer,
+    ) -> Result<ipc::WorkPlan, Refusal> {
+        self.plan_changed_by.lock().expect("not poisoned").push(by);
         let jobs = self.jobs.lock().expect("not poisoned");
         if jobs.iter().find(|job| job.id == job_id).is_none() {
             return Err(self.no_such_job(&job_id));

@@ -30,4 +30,21 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/close_as_superseded",
     },
+    // A person's hand on the Checks a gate is running, not a take-over: the
+    // table is full at the 1200-line rule and this is the one beside it.
+    Route {
+        operation: "retry_check",
+        method: "POST",
+        path: "/jobs/:job_id/retry_check",
+    },
+    Route {
+        operation: "skip_check",
+        method: "POST",
+        path: "/jobs/:job_id/skip_check",
+    },
+    Route {
+        operation: "skip_checks",
+        method: "POST",
+        path: "/jobs/:job_id/skip_checks",
+    },
 ];

@@ -1,4 +1,4 @@
-// A waiting item the agent gave no act, through `App`: its glyph is Reply, a press opens a box under
+// A waiting item the agent gave no act, in the Needs you band, through `App`: its glyph is Reply, a press opens a box under
 // the row, Escape keeps the draft, and a send reaches the Session and takes the item off the list.
 // The walk `session-reply` draws it; this holds that the presses reach the same code.
 
@@ -15,7 +15,8 @@ test("Reply: a no-act item opens a box, keeps its draft, and a send answers it",
   await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Pin the store clock/ }));
 
-  const section = page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Waiting on you" });
+  const section = page.getByRole("region", { name: "Needs you" });
+  await userEvent.click(section.getByRole("button", { name: /^Needs you/ }));
   await expect.element(section.getByRole("img", { name: "Reply", exact: true }).first()).toBeVisible();
   const row = section.getByRole("button", { name: "Open Which date should the clock pin to?" });
   await userEvent.click(row);
@@ -39,11 +40,12 @@ test("Reply: an answer item with no choices and no question in the thread opens 
   await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Pin the store clock/ }));
 
-  const section = page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Waiting on you" });
+  const section = page.getByRole("region", { name: "Needs you" });
+  await userEvent.click(section.getByRole("button", { name: /^Needs you/ }));
   const row = section.getByRole("button", { name: "Open Name the helper eventually, or settle?" });
   await userEvent.click(row);
   await userEvent.type(section.getByRole("textbox", { name: /^Reply to Name the helper/ }), "Call it settle");
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Re: Name the helper eventually, or settle\?/)).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Thread" }).getByRole("region", { name: "You answered" }).getByRole("img", { name: "Answered: Name the helper eventually, or settle?" })).toBeVisible();
   await expect.element(row).not.toBeInTheDocument();
 });

@@ -112,7 +112,6 @@ fn pressed(by: Redirector) -> TopLevelOrigin {
     match by {
         Redirector::Person => TopLevelOrigin::StudioDispatched,
         Redirector::Helm => TopLevelOrigin::StudioHelmDrafted,
-        Redirector::Commander => unreachable!("a Commander does not work a Studio"),
     }
 }
 

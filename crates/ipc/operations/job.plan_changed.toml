@@ -4,7 +4,7 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "A Job's plan was recorded, or one of its tasks was added or changed state"
 notes = """
-`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by a person's `add_task` or `drop_task` (#897) — `actor` is `drone` for the first three and `human` for the last two, which is the whole of what tells them apart here. **And by Fleet, `actor` `fleet`, on a step that works a Drone per task**: a task's Drone spawned (`working`), handing in (`handed_in`), and its step's Checks passing (`done`).
+`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by an `add_task`, `drop_task`, `edit_task`, `move_plan` or `restart_task` (#897) — `actor` is `drone` for the first three and, for the rest, whoever made the act: `human`, `helm` or `commander` (`#2168`), placed from the caller's connection and never from the request, which is the whole of what tells them apart here. **And by Fleet, `actor` `fleet`, on a step that works a Drone per task**: a task's Drone spawned (`working`), handing in (`handed_in`), and its step's Checks passing (`done`).
 
 **`task` and `state` name the task a change moved and where it now stands**, since 23.1, so a timeline moves without a read. Both are absent on a whole recording, which moves every task at once.
 

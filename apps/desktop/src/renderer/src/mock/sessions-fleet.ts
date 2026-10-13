@@ -158,6 +158,8 @@ export class FakeSessionsFleet {
   refusesPress: { code: string; message: string } | undefined;
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
   subagents: Record<string, SessionSubagent> = {};
+  /** Hears each message the person sends, to script what the agent does with it. */
+  onSend: ((send: SendSessionMessage) => void) | undefined;
   private minted = 0;
   private rowed = 0;
 
@@ -247,7 +249,15 @@ export class FakeSessionsFleet {
             if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
             this.calls.sent.push(send);
             this.row(send.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: send.text });
-            return this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
+            // The first message of a Session an agent started: sent, it is no longer unsent and nothing waits on it.
+            const sent = this.change(send.session_id, (one) => ({
+              ...one,
+              attachments: one.attachments.map((a) => (a.kind === "unsent" ? { ...a, state: "spent" as const } : a)),
+              waiting_for: (one.waiting_for ?? []).filter((item) => !item.id.startsWith("unsent:")),
+              hosted: { ...one.hosted!, turn: { state: "working" } },
+            }));
+            this.onSend?.(send);
+            return sent;
           },
           answerSessionAsk: async (answer) => {
             this.calls.answered.push(answer);
@@ -425,6 +435,34 @@ export class FakeSessionsFleet {
     const record = how(found);
     this.set(this.records.map((one) => (one.id === sessionId ? record : one)));
     return { ok: true, value: record };
+  }
+
+  /**
+   * `start_session`, from the agent of `fromId` when the person asked it to: a new Session (`fork` absent), or a fork of
+   * the agent's own conversation, whole or at one of its messages. **Fleet holds it for him**: the agent's first
+   * message is stored as the Session's unsent message, and nothing runs until he sends it. Answers the new id.
+   */
+  agentStarts(fromId: string, how: { title: string; message: string; fork?: { at?: string } }): string {
+    const id = `01AGENT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHI`;
+    const link = how.fork === undefined ? held("started_by", fromId, {}, "spent") : held("forked_from", fromId, how.fork.at === undefined ? {} : { at: how.fork.at }, "spent");
+    const record = hosted(id, {
+      title: how.title,
+      attachments: [link, held("unsent", how.message)],
+      waiting_for: [{ id: `unsent:${id}`, text: "First message", since: new Date().toISOString(), source: "first_message", act: { kind: "message", target: id } }],
+    });
+    const back = how.fork === undefined ? held("started_to", id, {}, "spent") : held("forked_to", id, {}, "spent");
+    this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);
+    return id;
+  }
+
+  /** The agent takes a turn on its own clock: working, then the rows it writes (a function is made as its turn reaches it), then idle. */
+  async agentTurn(sessionId: string, rows: readonly (SessionRow | (() => SessionRow))[]): Promise<void> {
+    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
+    for (const row of rows) {
+      await new Promise((done) => setTimeout(done, 450));
+      this.row(sessionId, typeof row === "function" ? row() : row);
+    }
+    this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
   }
 
   /** `session.changed`: a session, whole, as Fleet publishes it after any fact. */

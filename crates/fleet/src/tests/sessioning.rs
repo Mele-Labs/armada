@@ -550,6 +550,7 @@ async fn a_page_a_session_shows_is_one_window_attachment_and_a_row_each_time() {
         url: url.into(),
         title: Some("Findings".into()),
         session_id: Some(SessionId::carried("s1")),
+        variations: Vec::new(),
     };
     let mut watching = fleet.events().subscribe();
     fleet
@@ -615,6 +616,7 @@ async fn an_address_that_is_not_http_or_a_call_with_no_session_shows_nothing() {
             url: url.into(),
             title: None,
             session_id: session.map(SessionId::carried),
+            variations: Vec::new(),
         };
         assert!(fleet.show_window(None, show).await.is_err(), "{url} {session:?}");
     }
