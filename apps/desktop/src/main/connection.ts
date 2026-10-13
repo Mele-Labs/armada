@@ -48,7 +48,7 @@ import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { RepositoryReads } from "./repositories";
-import { Picked, PickedByWindow, repositoryToStart } from "./picked";
+import { Picked, PickedByWindow, repositoryToStart, startOn } from "./picked";
 import { ReportsReader } from "./reports";
 import { ReviewMaterial } from "./review";
 import { startingIdentity } from "./runtime-file";
@@ -688,8 +688,9 @@ export class FleetConnection {
   async startSession(picked: Picked, title?: string, root?: string): Promise<SessionActed> {
     const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    if (repository.manifest === undefined) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
-    return await this.sessions.start({ manifest_id: repository.manifest.id, ...(title === undefined ? {} : { title }) });
+    const start = startOn(repository, title, root);
+    if (start === null) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
+    return await this.sessions.start(start);
   }
 
   /**
