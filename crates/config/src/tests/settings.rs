@@ -21,6 +21,7 @@ fn supplied() -> Supplied {
         .words(s::HARNESS_BINARY_PATH, "the-cli")
         .list(s::MODELS_ROSTER, &["big", "middle", "small"])
         .words(s::MODELS_DEFAULT, "big")
+        .words(s::MODELS_SESSION, "big")
         .words(s::MODELS_JUDGE, "small")
         .words(s::MODELS_PROPOSER, "small")
         .words(s::MODELS_RETRO, "middle")
@@ -185,6 +186,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::HARNESS_AGENT,
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
+        s::MODELS_SESSION,
         s::MODELS_JUDGE,
         s::MODELS_PROPOSER,
         s::MODELS_RETRO,

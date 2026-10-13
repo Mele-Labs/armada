@@ -27,7 +27,7 @@ const NOT_ANSWERED_BRIEF: BriefRead = { ok: false, outcome: NOT_CONNECTED };
 const NOT_ANSWERED_FRAME: FrameRead = { ok: false, outcome: NOT_CONNECTED };
 
 /** What `list_models` answers on every fixture, in the spelling Fleet uses. */
-const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet" };
+const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet", session: "opus" };
 
 function noop(): void {}
 
