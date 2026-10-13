@@ -5,12 +5,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Alert,
   Button,
   ChipOwnership,
-  MergeLinePlace,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -18,8 +17,6 @@ import {
   PilotExits,
   RetroPress,
   Tooltip,
-  PullRequestActs,
-  PullRequestCard,
   Sheet,
   SessionComposer,
   SessionFrame,
@@ -75,14 +72,15 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
-import { placeOf } from "@armada/screens";
+import type { HeldWorktrees, JobSummary, MergeLines, SettingsList } from "@armada/protocol";
+import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
-import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { runnerOf } from "./session-runner";
 import { useViewing } from "./cockpit/viewed";
@@ -477,19 +475,35 @@ function ReadingSheet({
       })
       .finally(() => setPressed(undefined));
   };
+  const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
+  if (one?.kind === "pull_request") {
+    return (
+      <SessionPullRequest
+        one={one}
+        lines={lines}
+        floor={floor}
+        pending={pressed?.number === one.number ? pressed.act : undefined}
+        reviewed={reviewed.has(`${sessionId}#${one.number}`)}
+        sentBack={sentBack(one)}
+        onAct={(act) => press(one.number, act)}
+        onSendBack={() => sendBack(one)}
+        onOpenLink={onOpenLink}
+        onClose={onClose}
+      >
+        <Refused />
+      </SessionPullRequest>
+    );
+  }
   const title =
     one === undefined
       ? ""
-      : one.kind === "pull_request"
-        ? `Pull request #${one.number}`
-        : one.kind === "sketch"
-          ? `Sketch ${one.title}`
-          : one.kind === "subagent"
-            ? `Subagent ${one.task}`
-            : one.kind === "artifact"
-              ? one.title
-              : "";
-  const place = one?.kind === "pull_request" ? placeOf(lines, one) : undefined;
+      : one.kind === "sketch"
+        ? `Sketch ${one.title}`
+        : one.kind === "subagent"
+          ? `Subagent ${one.task}`
+          : one.kind === "artifact"
+            ? one.title
+            : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
@@ -516,34 +530,7 @@ function ReadingSheet({
       closeBinding="Esc"
       onClose={onClose}
     >
-      {one?.kind === "pull_request" ? (
-        <div className="armada-session-reading">
-          <PullRequestCard
-            number={`#${one.number}`}
-            address={one.address}
-            title={one.title}
-            branch={one.branch}
-            checks={checksSaid(one.checks)}
-            {...(one.state === "merged" ? { state: { status: "completed-success", icon: GitMerge, label: "Merged" } } : {})}
-            onOpen={() => onOpenLink(one.address)}
-          >
-            {factsOf(one).map((fact) => (
-              <span key={fact}>{fact}</span>
-            ))}
-          </PullRequestCard>
-          {place === undefined ? null : <MergeLinePlace rows={place} onOpenPullRequest={onOpenLink} />}
-          <Refused />
-          <PullRequestActs
-            state={one.state}
-            checks={one.checks.state}
-            auto={one.auto}
-            queued={one.queued === true}
-            {...(pressed?.number === one.number ? { pending: pressed.act } : {})}
-            reviewed={reviewed.has(`${sessionId}#${one.number}`)}
-            onAct={(act) => press(one.number, act)}
-          />
-        </div>
-      ) : one?.kind === "sketch" ? (
+      {one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
       ) : one?.kind === "subagent" ? (
         <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
@@ -751,7 +738,7 @@ const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held, board, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null }) {
+function SessionView({ session, goes, onOpen, held, board, lines, settings }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -809,10 +796,16 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
     open(...args);
   };
   const runner = runnerOf(draft, session);
+  // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
+  const read = (one: Reading) => {
+    const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
+    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
+    else setReading(one);
+  };
   const entries = entriesOf(
     session,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
-    narrow ? fold(setReading) : setReading,
+    narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
     narrow ? fold(onOpen) : onOpen,
@@ -1117,6 +1110,7 @@ export function SessionsSurface({
   held,
   board = NO_JOBS,
   lines = null,
+  settings = null,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1125,6 +1119,7 @@ export function SessionsSurface({
   /** The Board's Jobs, for what a Job row's card says beyond the Session's own record of it. */
   board?: readonly JobSummary[];
   lines?: MergeLines | null;
+  settings?: SettingsList | null;
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1147,7 +1142,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }

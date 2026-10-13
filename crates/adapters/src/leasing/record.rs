@@ -3,7 +3,8 @@
 //! **A process is named by its pid and its start time together**, so a pid
 //! the system has since handed to something else never reads as the holder.
 //! **A Job is named by its id**, and is never gone: Fleet restarting is not
-//! the Job ending.
+//! the Job ending. **A hosted session is named the same way**, by its own id,
+//! because Fleet ends and resumes the process that leased the slot.
 
 use std::path::Path;
 use std::process::Command;
@@ -25,9 +26,27 @@ impl Holder {
         Some(Holder::Process { pid, started })
     }
 
+    /// What Fleet sets in a hosted session's process, to its session id.
+    /// `armada worktree lease` reads it, so what the session leases is held
+    /// for the session.
+    pub const SESSION_ENV: &'static str = "ARMADA_SESSION";
+
     /// The Job with this id.
     pub fn job(id: &str) -> Holder {
         Holder::Job(id.to_string())
+    }
+
+    /// Who a lease asked for by this process is held for, where `session` is
+    /// what [`Holder::SESSION_ENV`] holds. **A hosted session's process is
+    /// ended and resumed by Fleet when it moves slots**, and a lease held for
+    /// that process then reads as gone and is taken by the next caller. So a
+    /// hosted session holds as a Job of its own id, and anything else holds
+    /// as the process above the caller.
+    pub fn lessee(session: Option<&str>) -> Option<Holder> {
+        match session.filter(|id| !id.is_empty()) {
+            Some(id) => Some(Holder::job(id)),
+            None => Holder::the_caller(),
+        }
     }
 
     /// The first process above this one that is not a shell: an agent's

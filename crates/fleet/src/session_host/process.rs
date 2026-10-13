@@ -165,6 +165,9 @@ impl Processes for ProcessHost {
             },
             &[],
         )
+        // The id `armada worktree lease` holds a slot under, so Fleet ending
+        // and resuming this process does not read as the lease's holder gone.
+        .and_then(|env| env.and(adapters::leasing::Holder::SESSION_ENV, &start.session))
         .map_err(|why| why.said())?;
         // A conversation resumed from another directory (a Session moving into
         // its slot) is not found by the CLI unless it is put where it looks.

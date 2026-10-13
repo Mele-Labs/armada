@@ -7,7 +7,11 @@ use adapter_traits::{PullRequestFacts, PullRequestStanding};
 use crate::pull_request_facts::parsed;
 
 fn line(state: &str, draft: &str, auto: &str) -> String {
-    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\thttps://forge.invalid/a/b/pull/7\tTake a draft out")
+    with_body(state, draft, auto, "")
+}
+
+fn with_body(state: &str, draft: &str, auto: &str, body: &str) -> String {
+    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\thttps://forge.invalid/a/b/pull/7\t{body}\tTake a draft out")
 }
 
 #[test]
@@ -20,6 +24,7 @@ fn an_open_pull_request_that_is_a_draft_is_a_draft() {
             auto_merge: false,
             title: "Take a draft out".into(),
             url: "https://forge.invalid/a/b/pull/7".into(),
+            body: None,
         })
     );
 }
@@ -68,7 +73,25 @@ fn a_short_or_blank_line_is_no_reading() {
     assert_eq!(parsed("OPEN\ttrue"), None);
     assert_eq!(parsed(""), None);
     assert_eq!(
-        parsed("OPEN\tfalse\tfalse\t\thttps://forge.invalid/a/b/pull/7\ttitle"),
+        parsed("OPEN\tfalse\tfalse\t\thttps://forge.invalid/a/b/pull/7\t\ttitle"),
+        None
+    );
+}
+
+/// `@tsv` writes a description's newlines and tabs as escapes, and what reaches
+/// a person is the text the author wrote.
+#[test]
+fn a_description_comes_through_as_written_and_an_absent_one_stays_none() {
+    let said = with_body("OPEN", "false", "false", "Adds `body`.\\n\\n- one\\n- two\\tbullets\\\\");
+    assert_eq!(
+        parsed(&said).expect("read").body.as_deref(),
+        Some("Adds `body`.\n\n- one\n- two\tbullets\\")
+    );
+    assert_eq!(parsed(&line("OPEN", "false", "false")).expect("read").body, None);
+    assert_eq!(
+        parsed(&with_body("OPEN", "false", "false", "\\n \\n"))
+            .expect("read")
+            .body,
         None
     );
 }

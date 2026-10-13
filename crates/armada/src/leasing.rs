@@ -42,7 +42,8 @@ pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
         Ok(pool) => pool,
         Err(why) => return refused(&why),
     };
-    let Some(holder) = Holder::the_caller() else {
+    let hosted = std::env::var(Holder::SESSION_ENV).ok();
+    let Some(holder) = Holder::lessee(hosted.as_deref()) else {
         return refused(
             "the process this was run from could not be read, so nothing could hold the lease",
         );
