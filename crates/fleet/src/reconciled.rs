@@ -40,8 +40,12 @@ pub struct Reconciled {
     /// Empty once every Job it could have stranded has passed through here.
     pub mended: Vec<JobId>,
     /// Jobs whose Drone submitted evidence and did not survive the restart —
-    /// ruled on anyway, from the durable row it left. #796.
+    /// ruled on anyway, from the durable row it left. #796. **Filled by
+    /// `Fleet::rule_on_pending_evidence`, not by `reconcile`.**
     pub recovered_evidence: Vec<JobId>,
+    /// Jobs `reconcile` found a pending row for and left unruled and out of the
+    /// adoption pass, for `Fleet::rule_on_pending_evidence` to rule on.
+    pub awaiting_evidence: Vec<JobId>,
     /// Links on a Studio whose address an adapter recognised, written back as
     /// the Issue, Pull request or Epic they name. `#1394`. Nought on every
     /// boot after the one that converted them.

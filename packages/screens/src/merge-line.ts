@@ -5,11 +5,12 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { HubPull, MainRed, PlaceRow, MainState, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
+import type { HubPull, MainRed, PlaceRow, MainState, RecentSession, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
 import type { HubMerged, JobSummary, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
+import type { Session } from "./draft/sessions";
 
 /** One repository's line, as a panel takes it. */
 export type MergeLineView = {
@@ -87,6 +88,27 @@ export function mergeLineViews(
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
     ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs), owners) }),
   }));
+}
+
+/**
+ * The Sessions main's red can be sent back to, newest first, from the registry the window already
+ * holds: the ones that can still be spoken to and have a name. **The Session that merged is always
+ * among them**, even where the registry does not hold it, so the dialog can choose it before the
+ * owner looks.
+ */
+export function recentSessionsOf(sessions: readonly Session[], culprit?: { id: string; title: string }): readonly RecentSession[] {
+  const branchOf = (one: Session): string | undefined => {
+    for (const held of one.attachments) {
+      if (held.kind === "branch") return held.name;
+      if (held.kind === "pull_request") return held.branch;
+    }
+    return undefined;
+  };
+  const open = sessions
+    .filter((one) => one.title !== undefined && one.dead === undefined)
+    .sort((a, b) => (b.lastTurnAt ?? "").localeCompare(a.lastTurnAt ?? ""))
+    .map((one): RecentSession => ({ id: one.id, title: one.title!, ...(branchOf(one) === undefined ? {} : { branch: branchOf(one)! }) }));
+  return culprit === undefined || open.some((one) => one.id === culprit.id) ? open : [{ id: culprit.id, title: culprit.title }, ...open];
 }
 
 /** The Job each branch belongs to, from the Board's rows. The newest Job wins where two named one branch. */
@@ -195,6 +217,7 @@ function redOf(main: MainStanding): MainRed | undefined {
             ...(merge.url === undefined ? {} : { url: merge.url }),
             ...(merge.branch === undefined ? {} : { branch: merge.branch }),
             ...(merge.job === undefined ? {} : { job: merge.job }),
+            ...(merge.session === undefined ? {} : { session: { id: merge.session.id, title: merge.session.title ?? merge.branch ?? merge.session.id } }),
           },
         }),
   };

@@ -443,7 +443,8 @@ pub struct JobReview {
     /// What nothing checked, and what the base carries that this Job did not
     /// write, where there was a base to ask.
     pub risks: String,
-    /// Every step and every Check that ran against it, with its outcome.
+    /// Every step with its verdict and a count of its Checks, naming those
+    /// that did not pass.
     pub evidence: String,
 }
 

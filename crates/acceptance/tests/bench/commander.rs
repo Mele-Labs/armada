@@ -11,12 +11,12 @@
 //! with #2166; it is added here then.
 
 use core_model::{
-    Actor, EscalationTrigger, PlanAuthor, PlanEntry, StepId, StepLevelTrigger,
-    StepTarget, Timestamp, WorkPlan,
+    Actor, DropReason, EscalationTrigger, NewTask, PlanAuthor, PlanChange, PlanEntry, StepId,
+    StepLevelTrigger, StepTarget, TaskEdit, TaskId, TaskUpdate, Timestamp, WorkPlan,
 };
 use ipc::{Event, JobStateChanged, JobStepAdvanced, JobSummary};
 
-use super::plan::{called, received_event};
+use super::plan::{called, received_event, PLAN};
 use super::{Bench, Run};
 
 /// A Job dispatched and then stopped by Fleet, which its Commander then ran
@@ -91,4 +91,77 @@ pub fn a_plan_recorded_by(by: PlanAuthor) -> (ipc::WorkPlan, String) {
     let bytes = ipc::encode(&wire).expect("a plan that serialises");
     let read = ipc::decode("a work plan", bytes.as_bytes()).expect("a plan that reads back");
     (read, bytes)
+}
+
+const A_PLAN_OF_THREE: &str = r#"{"approach":"Cover the bound, then widen the reader",
+    "tasks":[{"title":"Cover the last row","note":"","scope":[],"expects":""},
+             {"title":"Stop the reader at the end","note":"","scope":[],"expects":""},
+             {"title":"Note the bound","note":"","scope":[],"expects":""}]}"#;
+
+/// What a client holds after `by` added a task, edited one, moved the added one
+/// and dropped another of a plan a step recorded, T3 left alone: the plan as the wire carries it, the bytes
+/// it arrived in, and each `job.plan_changed` as received, with the actor
+/// that signed it. `actor` is the signer the caller was placed as.
+pub fn a_plan_four_acts_were_made_on(
+    by: PlanAuthor,
+    actor: Actor,
+) -> (ipc::WorkPlan, String, Vec<ipc::JobPlanChanged>) {
+    let job = core_model::JobId::carried(core_model::Ulid::carried("01PLANJOB"));
+    let step = PlanAuthor::Step {
+        step_id: StepId::new(PLAN),
+        attempt: core_model::Attempt::stored(1).expect("one-based"),
+    };
+    let task = |id: &str| TaskId::read(id).expect("an id");
+    let changes = [
+        PlanChange::Added {
+            task: NewTask::new("Cover the empty file", "", &[], "").expect("a title"),
+            after: None,
+        },
+        PlanChange::Edited {
+            task: task("T1"),
+            edit: TaskEdit::new(Some("Stop one row early"), None, None, None, None)
+                .expect("an edit"),
+        },
+        PlanChange::MovedTask {
+            task: task("T4"),
+            group: core_model::GroupId::FIRST,
+            after: Some(task("T1")),
+        },
+        PlanChange::Updated {
+            task: task("T2"),
+            to: TaskUpdate::Dropped(DropReason::new("covered by T1").expect("a reason")),
+            shown: None,
+        },
+    ];
+    let recorded = PlanEntry {
+        change: called("record_plan", A_PLAN_OF_THREE).change,
+        by: step,
+        at: Timestamp::from_rfc3339("2026-10-12T10:00:00.000Z"),
+    };
+    let mut plan = WorkPlan::after(None, &recorded).expect("a plan that records");
+    let mut told = Vec::new();
+    for (change, second) in changes.into_iter().zip(1u32..) {
+        let at = Timestamp::from_rfc3339(&format!("2026-10-12T10:00:{second:02}.000Z"));
+        let entry = PlanEntry {
+            change,
+            by: by.clone(),
+            at: at.clone(),
+        };
+        plan = WorkPlan::after(Some(&plan), &entry).expect("a change the plan takes");
+        let event = Event::JobPlanChanged(ipc::JobPlanChanged::changed(
+            &job,
+            &entry.change,
+            &plan,
+            actor,
+            &at,
+        ));
+        match received_event(&event) {
+            Event::JobPlanChanged(received) => told.push(received),
+            other => panic!("a plan change came back as {other:?}"),
+        }
+    }
+    let wire = ipc::WorkPlan::from(&plan);
+    let bytes = ipc::encode(&wire).expect("a plan that serialises");
+    let read = ipc::decode("a work plan", bytes.as_bytes()).expect("a plan that reads back");
+    (read, bytes, told)
 }

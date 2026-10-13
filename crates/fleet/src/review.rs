@@ -22,9 +22,15 @@
 //!
 //! Risks come before evidence: a body ending on its passes reads as a claim
 //! that everything is fine.
+//!
+//! # Counted, not listed
+//!
+//! **The review names no file and no Check that passed or was skipped**: lists
+//! that long buried the one line that needed a reviewer (#2161). The forge has
+//! the files, and Bridge draws every Check from the Job's steps.
 
 use adapter_traits::{how_the_base_was_found, Base, BaseOnTheRemote, Changed, Review};
-use core_model::{Job, StepCheck, StepId, StepState};
+use core_model::{CheckOutcome, Job, StepCheck, StepId, StepState};
 
 /// What Fleet composed, in the four parts it is made of. No heading is baked
 /// into any of them — a heading is how one reader draws a part, not what the
@@ -33,12 +39,13 @@ use core_model::{Job, StepCheck, StepId, StepState};
 pub(crate) struct StructuredReview {
     /// The brief, in the requester's own words. `job.facts()`, trimmed.
     pub why: String,
-    /// What the Job's worktree changed, as far as a diff can say it.
+    /// How many files the Job's worktree changed.
     pub outcome: String,
     /// What nothing checked, and what the base carries that this Job did not
     /// write, where there is a base to ask.
     pub risks: String,
-    /// Every step and every Check that ran against it, with its outcome.
+    /// Every step with its verdict and a count of its Checks, naming those
+    /// that did not pass.
     pub evidence: String,
 }
 
@@ -129,45 +136,24 @@ fn why_and_satisfies(job: &Job, why: &str) -> String {
     out
 }
 
-/// What the Job changed, which is as much of an outcome as the record holds.
-///
-/// **Paths and not a count of lines.** `WorkProduct::counted_files` is the
-/// reading that carries `+94 −31` and it costs the patch that would render the
-/// diff — measured at 90ms over 414 files — and it is already spent once, on
-/// the transition that ends a Job. `changed_files` is a delta walk under a
-/// microsecond, and a reviewer about to open the diff wants the shape of the
-/// change rather than its arithmetic.
+/// What the Job changed: how many files, and none of their names. The pull
+/// request's own Files tab lists them, and better.
 ///
 /// **A Job that changed nothing says so.** An empty section under a heading
 /// reads as a body that gave up; the sentence is a fact, and an unusual one.
 fn outcome_of(changed: &Changed) -> String {
-    if changed.is_empty() {
-        return String::from(
+    match changed.len() {
+        0 => String::from(
             "This Job changed no file. Its work, if it did any, is not in the tree.\n\n",
-        );
+        ),
+        1 => String::from("One file changed. What the change does is in the commits.\n\n"),
+        many => format!("{many} files changed. What the change does is in the commits.\n\n"),
     }
-    let mut out = format!(
-        "{} changed:\n\n",
-        match changed.len() {
-            1 => String::from("One file"),
-            many => format!("{many} files"),
-        }
-    );
-    for file in changed.files() {
-        out.push_str(&format!(
-            "- `{}` — {}\n",
-            file.path(),
-            file.change().as_wire()
-        ));
-    }
-    out.push_str(
-        "\nWhat the change *does* is in the commits. Nothing in this repository reads a \
-         diff for meaning, so Fleet does not describe one.\n\n",
-    );
-    out
 }
 
-/// Every step with its verdict, and every Check under it with its outcome.
+/// Every step with its verdict and a count of its Checks, naming only those
+/// that did not pass. **A skip is counted and not named** — it is the gate
+/// declining a Check that covers nothing the step changed.
 fn evidence_of(job: &Job, checks: &[(StepId, Vec<StepCheck>)]) -> String {
     let mut out = String::new();
     for row in job.steps() {
@@ -176,20 +162,33 @@ fn evidence_of(job: &Job, checks: &[(StepId, Vec<StepCheck>)]) -> String {
             .step(row.step_id())
             .map(|step| step.label())
             .unwrap_or_else(|| row.step_id().as_str());
-        out.push_str(&format!("**{label}** — {}\n", said(row.state())));
         let ran = checks
             .iter()
             .find(|(step, _)| step == row.step_id())
             .map(|(_, ran)| ran.as_slice())
             .unwrap_or(&[]);
-        if ran.is_empty() {
-            out.push_str("- no Check ran against this step\n");
+        out.push_str(&format!("- **{label}** — {}", said(row.state())));
+        let passed = ran.iter().filter(|check| check.outcome.passed()).count();
+        let skipped = ran
+            .iter()
+            .filter(|check| check.outcome == CheckOutcome::Skipped)
+            .count();
+        let mut counts = Vec::new();
+        if passed > 0 {
+            counts.push(format!("{passed} passed"));
         }
-        for check in ran {
-            out.push_str(&one_check(check));
+        if skipped > 0 {
+            counts.push(format!("{skipped} skipped"));
+        }
+        if !counts.is_empty() {
+            out.push_str(&format!(", Checks {}", counts.join(", ")));
         }
         out.push('\n');
+        for check in ran.iter().filter(|check| !check.outcome.advances()) {
+            out.push_str(&format!("  {}", one_check(check)));
+        }
     }
+    out.push_str("\nEvery Check, with its output, is on the Job in Armada.\n\n");
     out
 }
 

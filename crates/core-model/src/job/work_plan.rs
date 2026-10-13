@@ -363,12 +363,25 @@ impl Approach {
     }
 }
 
-/// Who made a change: a run of a step, a person, or the Job's Commander.
+/// Who made a change: a run of a step, a person, a Helm session acting for
+/// one, or the Job's Commander.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlanAuthor {
     Step { step_id: StepId, attempt: Attempt },
     Person,
+    Helm,
     Commander,
+}
+
+impl PlanAuthor {
+    /// This author, where it is not a step: the hand a task's mark names. A
+    /// step's run is the plan's own bookkeeping and marks no task.
+    fn marking(&self) -> Option<PlanAuthor> {
+        match self {
+            PlanAuthor::Step { .. } => None,
+            other => Some(other.clone()),
+        }
+    }
 }
 
 /// One change to a Job's plan, as it is appended.
@@ -525,6 +538,10 @@ pub struct PlanTask {
     windows: Vec<WorkingWindow>,
     /// A person's pick, from an edit. Beats the Job's map for this task.
     model: Option<ModelName>,
+    /// Whoever last added, edited, moved, dropped or reopened it, where that
+    /// was not a step: a person, Helm or the Commander. `None` is a task only
+    /// steps and Fleet have touched.
+    by: Option<PlanAuthor>,
 }
 
 impl PlanTask {
@@ -537,12 +554,19 @@ impl PlanTask {
             shown: None,
             windows: Vec::new(),
             model: None,
+            by: None,
         }
     }
 
     /// How hard the planner thought it was. `None` is Armada picking.
     pub fn tier(&self) -> Option<TaskTier> {
         self.task.tier()
+    }
+
+    /// Who last changed it, where that was a person, Helm or the Commander.
+    /// **Never a step**: a task a step added, edited or marked carries none.
+    pub fn by(&self) -> Option<&PlanAuthor> {
+        self.by.as_ref()
     }
 
     /// The model a person picked for it, where one did.
@@ -677,7 +701,9 @@ impl WorkPlan {
                 };
                 let next = plan.tasks.iter().map(|t| t.id.number()).max().unwrap_or(0);
                 let id = TaskId(NonZeroU32::MIN.saturating_add(next));
-                plan.tasks.insert(at, PlanTask::new(id, group, task));
+                let mut added = PlanTask::new(id, group, task);
+                added.by = entry.by.marking();
+                plan.tasks.insert(at, added);
                 plan.in_group_order();
             }
             PlanChange::MovedTask { task, group, after } => {
@@ -689,6 +715,7 @@ impl WorkPlan {
                     .ok_or(PlanRefused::NoSuchTask { named: *task })?;
                 let mut moved = plan.tasks.remove(from);
                 moved.group = *group;
+                moved.by = entry.by.marking().or(moved.by);
                 let at = match after {
                     Some(named) => {
                         let at = plan
@@ -756,6 +783,7 @@ impl WorkPlan {
                     _ => {}
                 }
                 task.state = to.clone();
+                task.by = entry.by.marking().or(task.by.take());
                 // Kept rather than replaced, so reopening a task and finishing
                 // it again does not lose what the first pass showed.
                 if shown.is_some() {
@@ -789,6 +817,7 @@ impl WorkPlan {
                 if let Some(model) = edit.model() {
                     task.model = Some(model.clone());
                 }
+                task.by = entry.by.marking().or(task.by.take());
             }
         }
         Ok(plan)
@@ -815,7 +844,9 @@ impl WorkPlan {
             }
             numbered = Some(named);
             let id = TaskId(NonZeroU32::MIN.saturating_add(n - 1));
-            planned.push(PlanTask::new(id, groups[groups.len() - 1], task));
+            let mut recorded = PlanTask::new(id, groups[groups.len() - 1], task);
+            recorded.by = entry.by.marking();
+            planned.push(recorded);
         }
         for task in &planned {
             for named in task.task.runs_beside() {

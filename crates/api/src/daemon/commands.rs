@@ -1058,15 +1058,20 @@ pub trait Commands: Send + Sync + 'static {
         removing: ipc::RemoveKitAllowedCommand,
     ) -> impl Future<Output = Result<ipc::KitAllowedCommands, Refusal>> + Send;
 
-    /// `add_task` — a person adds a task to the Job's plan, and the plan it
+    /// `add_task` — a task is added to the Job's plan, and the plan it
     /// leaves comes back. `#897`. Refused where the Job has no plan, or
     /// `after` names no task the plan holds — `crates/ipc/operations/`.
+    ///
+    /// **`by` on this act and the four below is the transport's word, never
+    /// the body's** (`#2168`): a person's unless the door placed the call as
+    /// Helm's or a Commander's. It signs the change, and no act has a default.
     /// **A working Drone is told**, mid-step; at a step boundary the next
     /// brief's THE PLAN carries it, and nothing respawns to deliver it.
     fn add_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         add: AddTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
     /// `drop_task` — a person drops a task with a reason, and the plan it
@@ -1077,6 +1082,7 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         drop: DropTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
     /// `restart_task` — a fresh Drone on one failed task, with an optional
@@ -1087,6 +1093,7 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         task: String,
         restart: ipc::RestartTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `move_plan` — a person moves a task or a group by `after`, and the plan
@@ -1096,6 +1103,7 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         move_plan: ipc::MovePlan,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 
     /// `edit_task` — a person changes a task's title, note, scope, expects or
@@ -1106,5 +1114,6 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         task: String,
         edit: ipc::EditTask,
+        by: Steerer,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 }

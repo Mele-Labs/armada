@@ -7,9 +7,9 @@
 //! reading takes forge calls to rebuild, so it is kept; but only the newest
 //! commit's reading is, because an older commit's red is not what main is.
 //!
-//! **The culprit Job is plain text and no foreign key.** A Job `armada clean`
-//! forgets leaves its name here, and the row says what was true when it was
-//! read.
+//! **The culprit Job and Session are plain text and no foreign key.** A Job
+//! `armada clean` forgets leaves its name here, and the row says what was true
+//! when it was read.
 
 use core_model::{JobId, Timestamp, Ulid};
 use rusqlite::OptionalExtension;
@@ -100,6 +100,9 @@ pub struct MainMerge {
     pub branch: Option<String>,
     /// The Fleet Job whose pull request that is, where one is.
     pub job: Option<JobId>,
+    /// The id of the Session that held the pull request, or else its branch,
+    /// where no Job owns it.
+    pub session: Option<String>,
 }
 
 /// A repository's main, as last read.
@@ -165,11 +168,12 @@ impl Store {
         let merge = main.merge.as_ref();
         tx.execute(
             "INSERT INTO main_ci (repository, base, commit_sha, state, read_at, red_at, \
-             merge_number, merge_url, merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) \
+             merge_number, merge_url, merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running, merge_session) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) \
              ON CONFLICT (repository) DO UPDATE SET base = ?2, commit_sha = ?3, state = ?4, \
              read_at = ?5, red_at = ?6, merge_number = ?7, merge_url = ?8, merge_branch = ?9, \
-             merge_job = ?10, unfinished = ?11, red_commit = ?12, decided_commit = ?13, newer_running = ?14",
+             merge_job = ?10, unfinished = ?11, red_commit = ?12, decided_commit = ?13, newer_running = ?14, \
+             merge_session = ?15",
             (
                 &main.repository,
                 &main.base,
@@ -187,6 +191,7 @@ impl Store {
                 &main.red_commit,
                 &main.decided_commit,
                 main.newer_running,
+                merge.and_then(|merge| merge.session.clone()),
             ),
         )
         .map_err(keeping)?;
@@ -217,7 +222,7 @@ impl Store {
             .conn
             .query_row(
                 "SELECT base, commit_sha, state, read_at, red_at, merge_number, merge_url, \
-                 merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running FROM main_ci WHERE repository = ?1",
+                 merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running, merge_session FROM main_ci WHERE repository = ?1",
                 (repository,),
                 |row| {
                     Ok((
@@ -234,6 +239,7 @@ impl Store {
                         row.get::<_, Option<String>>(10)?,
                         row.get::<_, Option<String>>(11)?,
                         row.get::<_, u32>(12)?,
+                        row.get::<_, Option<String>>(13)?,
                     ))
                 },
             )
@@ -254,6 +260,7 @@ impl Store {
             red_commit,
             decided_commit,
             newer_running,
+            session,
         )) = head
         else {
             return Ok(None);
@@ -309,6 +316,7 @@ impl Store {
                 url,
                 branch,
                 job: job.map(|job| JobId::carried(Ulid::carried(job))),
+                session,
             }),
         }))
     }
