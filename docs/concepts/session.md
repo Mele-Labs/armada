@@ -173,17 +173,21 @@ waits for a slot itself.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so
 the gate tells three places apart: the main checkout, a slot, and anywhere
-else. A file tool is let through in **any slot whose lease is held by this
-session's process or by a process it started**, which is how `armada worktree
-lease` records its caller (the first process above it that is not a shell), so
-a slot the session's own subagent leased is writable. A slot held by anything
+else. A file tool is let through in **any slot whose lease is held for this
+session or by a process it started**. A slot the session leased with `armada
+worktree lease` is held for the session by its id (Fleet sets `ARMADA_SESSION`
+in the process it starts), as a Job's is, so it survives Fleet ending and
+resuming the process. One a subagent's process leased is held by that process,
+the first above the command that is not a shell, and is writable too. A slot held by anything
 else, or by a holder that has gone, is refused with a sentence saying so. The
 main checkout stays refused, and a `..` is resolved by reading before the path
 is placed. A shell line is also held when it **obviously names a path in the
 main checkout or in a slot the session does not hold**: a redirect (`>`, `>>`,
 `2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`,
 `chmod`, `truncate`, `dd`, `sed -i` and `perl -i` with an absolute path
-argument, and `git -C <path>` with any subcommand that is not a read. **A `cd`
+argument, and `git -C <path>` with any subcommand that is not a read, and `armada worktree
+release`, which names the slot it gives back (the directory it runs in, where it
+names none). **A `cd`
 or `pushd` moves what follows it**: a line that goes into the main checkout or
 a slot the session does not hold, by an absolute path or one relative to where
 the call started, and then runs anything that is not a read, is held. `cd
@@ -200,9 +204,14 @@ reason the agent reads and works around. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
 
 **The slot is held by the session's id as a Job's is held by its id**, so a
-restart of the process or of Fleet is not the session ending. It is given back
-on close by parking: what is in it is committed to the session's own branch and
-nothing is pushed.
+restart of the process or of Fleet is not the session ending. **So is every
+slot the session leases itself**: `armada worktree lease` run from a hosted
+session reads `ARMADA_SESSION` and holds as a Job of that id, and takes a slot
+of its own each call. Before this a lease was held for the agent's process,
+which Fleet ends when it moves the session into a slot, so the lease read as
+gone and the next caller took it. It is given back on close by parking every
+slot held under the id: what is in each is committed to the session's own
+branch and nothing is pushed.
 
 **The person sets the mode, the model and the effort** for each session. `auto`
 is the default and means what it means for Helm: everything runs except what is
@@ -233,7 +242,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
 | `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
-| `close_session` | Ends the process, parks the slot, ends the row. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
+| `close_session` | Ends the process, parks every slot held for the session, ends the row. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -388,7 +397,7 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 > Why: a merge pressed while the checks run must reach nobody, and a count of what the forge was asked to write is the only proof it did not.
 
 > **Rule.** The ledger follows the forge through its own attach.
-> Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`) is Fleet's reading of the same pull request, so one writer is not two.
+> Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
 **The three writes are a person's ask, `pushes to shared`.** Helm asks first, as for `merge_pull_request`, and the operations are `Helm only`. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
 

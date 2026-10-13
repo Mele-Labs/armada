@@ -135,6 +135,7 @@ impl Commands for FakeDaemon {
             title: "A pull request".to_string(),
             branch: "fake/branch".to_string(),
             address: "https://forge.invalid/armada/pull/1".to_string(),
+            body: None,
         })
     }
     async fn rerun_failed_checks(&self, job_id: JobId) -> Result<JobSummary, Refusal> {

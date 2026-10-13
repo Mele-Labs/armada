@@ -1,5 +1,6 @@
 //! Which agent CLI a Drone runs as and on what `PATH`, the switches that turn
-//! a behaviour on or off, and the programs Bridge opens a file or a folder in.
+//! a behaviour on or off, the programs Bridge opens a file or a folder in, and
+//! where a pull request link opens.
 
 use super::{Applies, Entry, Flag, Kind, List, Options, Section, Shipped, Words};
 
@@ -15,9 +16,14 @@ pub const EDITOR_COMMAND: Words = Words("editor.command");
 pub const TERMINAL_APP: Words = Words("terminal.app");
 pub const TERMINAL_COMMAND: Words = Words("terminal.command");
 
+pub const OPEN_PULL_REQUESTS_IN: Words = Words("links.openPullRequestsIn");
+
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.
 pub const TERMINALS: &[&str] = &["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"];
+
+/// Where a pull request link opens: Bridge's own panel, or the default browser.
+pub const PULL_REQUEST_PLACES: &[&str] = &["armada", "browser"];
 
 pub(super) const HARNESS: &[Entry] = &[
     // One adapter exists, so one choice; it is real plumbing so a second adapter
@@ -144,3 +150,15 @@ pub(super) const TERMINAL: &[Entry] = &[
         env: None,
     },
 ];
+
+pub(super) const LINKS: &[Entry] = &[Entry {
+    key: OPEN_PULL_REQUESTS_IN.0,
+    section: Section::Links,
+    title: "Open pull requests in",
+    description: "Where every pull request link in Bridge opens.",
+    kind: Kind::Choice(Options::Fixed(PULL_REQUEST_PLACES)),
+    shipped: Shipped::Text("armada"),
+    applies: Applies::Live,
+    row: None,
+    env: None,
+}];

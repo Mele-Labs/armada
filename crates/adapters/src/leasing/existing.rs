@@ -37,7 +37,7 @@ impl Pool {
         mut waiting: impl FnMut(&Full),
     ) -> Result<Lease, LeaseRefused> {
         loop {
-            match self.try_lease_existing(branch, holder, since, seed)? {
+            match self.take(Onto::Existing, branch, holder, since, seed)? {
                 Leased::Took(lease) => return Ok(lease),
                 Leased::Full(full) => waiting(&full),
             }
@@ -54,6 +54,9 @@ impl Pool {
         since: u64,
         seed: Seed<'_>,
     ) -> Result<Leased, LeaseRefused> {
+        if let Some(own) = self.handed_back(holder) {
+            return Ok(Leased::Took(own));
+        }
         self.take(Onto::Existing, branch, holder, since, seed)
     }
 

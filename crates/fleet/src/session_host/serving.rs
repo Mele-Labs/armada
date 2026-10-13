@@ -292,15 +292,10 @@ where
             // The worktree is the Job's, handed over: it goes back to it, and
             // is not committed to anyone's branch on the way.
             self.closed_while_piloting(&job).await;
-        } else if let (Some(slot), Ok(served)) = (
-            hosting.lease_slot,
-            self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))),
-        ) {
-            // Parked: what is in the slot is committed to the session's own
+        } else if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
+            // Parked: what is in each slot is committed to the session's own
             // branch and nothing is pushed, so closing loses no work.
-            let _ = self
-                .vcs()
-                .park_hosted_slot(&crate::leasing::pool_of(&served), slot, &id);
+            self.park_every_slot_of(&id, &served, hosting.lease_slot).await;
         }
         // Out of the line if it was in it, and its slot, if it had one, is the next one's.
         self.hosts().slot_queue().leave(&id);

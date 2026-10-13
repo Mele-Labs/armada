@@ -103,6 +103,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
     title: detail["title"] ?? "",
     branch: detail["branch"] ?? "",
     address: detail["address"] ?? "",
+    ...(detail["body"] === undefined || detail["body"] === "" ? {} : { body: detail["body"] }),
     checks: checksOf(detail),
     state: standingOf(detail, one.state === "spent"),
     auto: detail["auto_merge"] === "true",
