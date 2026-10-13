@@ -3,7 +3,8 @@
 // so a real Fleet fills the panel and the call cards without a draft. **The draft wins for a Job it
 // names**: the mock carries rows Fleet does not serve, and a walk holds them.
 
-import { callViewOf, droneViewsOf, nowViewOf } from "@armada/jobs";
+import { callViewOf, nowViewOf } from "@armada/jobs";
+import { droneViewsOf } from "@armada/jobs/draft/drone";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { Active, JobSummary } from "@armada/protocol";

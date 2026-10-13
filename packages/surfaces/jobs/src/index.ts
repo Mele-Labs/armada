@@ -62,4 +62,3 @@ export { detailOf } from "./mine";
 export { verdictSlotOf, type VerdictSlotOfArgs } from "./verdict-answered";
 export { nowViewOf } from "./now-real";
 export { callViewOf } from "./now-calls";
-export { droneViewsOf } from "./draft/drone";

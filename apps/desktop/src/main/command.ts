@@ -30,16 +30,14 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { ApproveDispatch, FixMain, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
-import type { AnswerMode, ApproveWave, CapRaise, CheckNamed, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { AnswerMode, ApproveWave, CapRaise, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
-  AnswerCommand,
   AnswerHelmCall,
   AlwaysAllowScope,
   CommandAnswer,
   HelmCallAnswer,
   CommandExplained,
   JudgeAnswer,
-  JudgeAnswered,
   RemoveAllowedCommand,
   SetModel,
   SetWhenBlocked,
@@ -48,8 +46,7 @@ import type {
   WhenRefused,
 } from "@armada/protocol";
 import type { ProposalInFlight, Proposed, ShownAgain } from "@armada/protocol";
-import type { Lesson, LessonAnswer } from "@armada/protocol";
-import type { LessonSessionStarted } from "@armada/protocol";
+import type { LessonAnswer } from "@armada/protocol";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
@@ -57,6 +54,15 @@ import { Clearing } from "./clearing";
 import { Preferring } from "./preferences";
 import { Settling } from "./settings";
 import { Reporting } from "./reporting";
+import { Lessoning } from "./lessoning";
+import {
+  actOnCheck,
+  answerCommand,
+  answerJudge,
+  answerQuestion,
+  skipChecks,
+  type Guarded,
+} from "./answers";
 import { proposeFromRequest as propose } from "./proposing";
 import {
   autoMerge,
@@ -168,8 +174,8 @@ export class JobCommands {
   private readonly restarting = new Set<string>();
   /** One set for both: a pause and a resume of one Job cannot both be in flight. */
   private readonly pausing = new Set<string>();
-  /** Retro items with an answer in flight, by item id. Not a Job's act, so not a Job's set. */
-  private readonly answeringLesson = new Set<string>();
+  /** Retro items being answered. Not a Job's act, so not a Job's set — `lessoning.ts`. */
+  private readonly lessoning: Lessoning;
   /** Jobs with an override in flight. Its own set: it is its own act. */
   private readonly overruling = new Set<string>();
   /**
@@ -232,7 +238,13 @@ export class JobCommands {
     this.preferring = new Preferring(board);
     this.settling = new Settling(board);
     this.reporting = new Reporting(board);
+    this.lessoning = new Lessoning(board);
   }
+
+  /** `answers.ts`'s guards: one `act` per Job, under the set that act is in flight in. */
+  private readonly answered: Guarded = (jobId, send) => this.act(jobId, this.answering, "already_answering", send);
+  private readonly checking: Guarded = (jobId, send) =>
+    this.act(jobId, this.rerunningChecks, "already_rerunning_checks", send);
 
   /**
    * One act on one Job: refuse a second press, POST to a route under the Job,
@@ -649,47 +661,13 @@ export class JobCommands {
     );
   }
 
-  /**
-   * Answer the question the job's drone asked. **The job comes back
-   * unchanged** — it was `running` while it waited and is `running` now; what
-   * moved is the drone, handed the answer as a turn.
-   *
-   * Nothing is validated here beyond emptiness. Which labels were offered is
-   * fleet's, read off a working slot no window holds, so a label this window
-   * believes in and fleet does not is a 409 rather than a guess.
-   */
-  async answerQuestion(
-    jobId: string,
-    questionId: string,
-    chose: string | undefined,
-    mode?: AnswerMode,
-  ): Promise<Outcome> {
-    // A mode alone is an answer; a label that is blank is not, with or without one.
-    if (chose === undefined ? mode === undefined : chose.trim() === "") {
-      return { ok: false, why: "empty_instruction" };
-    }
-    const body: ChosenAnswer = {
-      question_id: questionId,
-      ...(chose === undefined ? {} : { chose }),
-      ...(mode === undefined ? {} : { mode }),
-    };
-    return this.act(jobId, this.answering, "already_answering", (port) =>
-      ask(port, "POST", route(jobId, "answer_question"), body),
-    );
+  /** Answer the question the job's drone asked. `answers.ts`. */
+  answerQuestion(jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode): Promise<Outcome> {
+    return answerQuestion(this.answered, jobId, questionId, chose, mode);
   }
 
-  /**
-   * Allow or reject a command the job's drone was not given. **One act for
-   * both places a person meets one**, because the call id already says which:
-   * a command a drone is waiting on is answered in place, and a refused row on
-   * a stopped job moves the job on.
-   *
-   * **Under `answering`, beside the question's answer.** Both hand a waiting
-   * drone a person's choice, and a drone held inside one call is not asking
-   * the other. Which answers were offered is Fleet's, so one this window
-   * believes in and Fleet does not is a 409 rather than a guess.
-   */
-  async answerCommand(
+  /** Allow or reject a command the job's drone was not given. `answers.ts`. */
+  answerCommand(
     jobId: string,
     call: string,
     answer: CommandAnswer,
@@ -698,25 +676,7 @@ export class JobCommands {
     scope?: AlwaysAllowScope,
     mode?: AnswerMode,
   ): Promise<Outcome> {
-    // Nothing rather than an empty string. A bare refusal is the body every
-    // fleet before 11.5 took, and `{"note":""}` is a person's words nobody
-    // wrote — `restart_step`'s rule, on the seam that established it.
-    const said = note?.trim() ?? "";
-    const body: AnswerCommand = {
-      call,
-      answer,
-      ...(said === "" ? {} : { note: said }),
-      // Only always_allow reads it, and only the caller's own picker sends
-      // one — Fleet 409s a name outside that command's own candidates.
-      ...(rule === undefined ? {} : { rule }),
-      // Only always_allow reads it, and only the Kit choice sends one: absent
-      // is the repository, which is what every Fleet before 23.35 kept it in.
-      ...(scope === undefined ? {} : { scope }),
-      ...(mode === undefined ? {} : { mode }),
-    };
-    return this.act(jobId, this.answering, "already_answering", (port) =>
-      ask(port, "POST", route(jobId, "answer_command"), body),
-    );
+    return answerCommand(this.answered, jobId, call, answer, note, rule, scope, mode);
   }
 
   /**
@@ -775,22 +735,9 @@ export class JobCommands {
     );
   }
 
-  /**
-   * Answer the question a judge refusal opened: agree with it, disagree for
-   * this step, or disagree and stand the criterion down for the repository.
-   * One press is the whole answer — `note` is never required.
-   */
-  async answerJudge(
-    jobId: string,
-    askedAt: string,
-    answer: JudgeAnswer,
-    note?: string,
-    mode?: AnswerMode,
-  ): Promise<Outcome> {
-    const body: JudgeAnswered = { answer, asked_at: askedAt, note, ...(mode === undefined ? {} : { mode }) };
-    return this.act(jobId, this.answering, "already_answering", (port) =>
-      ask(port, "POST", route(jobId, "answer_judge"), body),
-    );
+  /** Answer the question a judge refusal opened. `answers.ts`. */
+  answerJudge(jobId: string, askedAt: string, answer: JudgeAnswer, note?: string, mode?: AnswerMode): Promise<Outcome> {
+    return answerJudge(this.answered, jobId, askedAt, answer, note, mode);
   }
 
   /**
@@ -860,63 +807,19 @@ export class JobCommands {
     );
   }
 
-  /**
-   * Agree with one retro item. Fleet proposes a Job at the approval gate for an Armada or
-   * Manifest item and saves a Kit item; the item comes back as it now stands. **The board is read
-   * again**, because a proposed Job is a row nobody had.
-   */
-  async agreeLesson(lessonId: string): Promise<LessonAnswer> {
-    return this.answerLesson(lessonId, "agree");
+  /** Agree with one retro item. `lessoning.ts`. */
+  agreeLesson(lessonId: string): Promise<LessonAnswer> {
+    return this.lessoning.answer(lessonId, "agree");
   }
 
   /** Disagree with one retro item: Fleet discards it. */
-  async disagreeLesson(lessonId: string): Promise<LessonAnswer> {
-    return this.answerLesson(lessonId, "disagree");
+  disagreeLesson(lessonId: string): Promise<LessonAnswer> {
+    return this.lessoning.answer(lessonId, "disagree");
   }
 
-  /**
-   * Agree with one retro item by starting a Session on its repository (`start_lesson_session`).
-   * **Fleet sends the brief as the Session's first message**, so the Session is running when this
-   * answers: the item, the Session's id and the brief sent. The Board is
-   * not read again, since a Session is no Board row. Shares `answerLesson`'s one-press guard, so a
-   * Session and a Job cannot both be started from one item.
-   */
-  async startLessonSession(lessonId: string): Promise<LessonSessionRead> {
-    if (this.answeringLesson.has(lessonId)) {
-      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
-    }
-    const port = this.board.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    this.answeringLesson.add(lessonId);
-    try {
-      const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/session`);
-      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
-      return { ok: true, started: sent.body as LessonSessionStarted };
-    } finally {
-      this.answeringLesson.delete(lessonId);
-    }
-  }
-
-  /**
-   * **Not `act`'s shape**: the subject is an item rather than a Job, and what comes back is the
-   * item. One press sends one answer per item, and a second answer on it while the first is out
-   * is refused here rather than sent.
-   */
-  private async answerLesson(lessonId: string, answer: "agree" | "disagree"): Promise<LessonAnswer> {
-    if (this.answeringLesson.has(lessonId)) {
-      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
-    }
-    const port = this.board.port();
-    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    this.answeringLesson.add(lessonId);
-    try {
-      const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/${answer}`);
-      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
-      if (answer === "agree") await this.board.reread(port);
-      return { ok: true, lesson: sent.body as Lesson };
-    } finally {
-      this.answeringLesson.delete(lessonId);
-    }
+  /** Agree with one retro item by starting a Session on its repository. `lessoning.ts`. */
+  startLessonSession(lessonId: string): Promise<LessonSessionRead> {
+    return this.lessoning.startSession(lessonId);
   }
 
   /**
@@ -976,33 +879,19 @@ export class JobCommands {
     );
   }
 
-  /**
-   * Run one Check of the running gate again. **Under `rerunningChecks`, the set
-   * `rerunChecks` uses**: that one answers a stopped step and these answer a
-   * running gate, so a Job never has both out and they need no set apart. The
-   * route answers when the Check is restarted rather than when it ends, so the
-   * default wait holds.
-   */
-  async retryCheck(jobId: string, check: string): Promise<Outcome> {
-    const body: CheckNamed = { check };
-    return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
-      ask(port, "POST", route(jobId, "retry_check"), body),
-    );
+  /** Run one Check of the running gate again. `answers.ts`, under `rerunChecks`'s set. */
+  retryCheck(jobId: string, check: string): Promise<Outcome> {
+    return actOnCheck(this.checking, jobId, "retry_check", check);
   }
 
-  /** End one Check of the running gate, recorded as skipped. `retryCheck`'s set and wait. */
-  async skipCheck(jobId: string, check: string): Promise<Outcome> {
-    const body: CheckNamed = { check };
-    return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
-      ask(port, "POST", route(jobId, "skip_check"), body),
-    );
+  /** End one Check of the running gate, recorded as skipped. */
+  skipCheck(jobId: string, check: string): Promise<Outcome> {
+    return actOnCheck(this.checking, jobId, "skip_check", check);
   }
 
-  /** End every Check of the running gate that has not finished. No body. */
-  async skipChecks(jobId: string): Promise<Outcome> {
-    return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
-      ask(port, "POST", route(jobId, "skip_checks")),
-    );
+  /** End every Check of the running gate that has not finished. */
+  skipChecks(jobId: string): Promise<Outcome> {
+    return skipChecks(this.checking, jobId);
   }
 
   /**
