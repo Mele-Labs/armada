@@ -22,7 +22,7 @@ use api::{HostedSessions, Refusal};
 use core_model::{Actor, EscalationTrigger, JobStatus, TransitionReason};
 use ipc::{
     AnswerWaiting, OverrideSleep, ReviewSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
-    SleepWalk, WaitingItem, WaitingMode, WaitingSource, WireError,
+    SleepWalk, WaitingItem, WaitingSource, WireError,
 };
 use store::{SessionState, SleepRow};
 
