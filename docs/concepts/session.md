@@ -187,6 +187,12 @@ shell, and is the session's while that process is in its tree. A slot held by
 anything else, or by a holder that has gone, is refused. The main checkout stays
 refused, and a `..` is resolved by reading before the path is placed.
 
+**Setup's session is the one exception** (the owner, 13 Oct 2026). Started by `root` in a
+repository with no `armada.yml`, it has no pool to lease from, so until that root's
+Manifest is served it writes only `armada.yml` and `.gitignore` at the root and is
+refused anything else. Fleet loads the Manifest when one of its turns ends, and from its
+next write the session leases a slot like any other.
+
 The same slots decide for **every write path alike**:
 
 | Write | Placed by |

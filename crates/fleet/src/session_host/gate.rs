@@ -58,7 +58,7 @@ where
 {
     pub(crate) async fn gated(&self, gate: SessionGate) -> GateAnswer {
         let id = gate.session_id.clone();
-        let Ok((session, hosting)) = self.session_and_hosting(&id).await else {
+        let Ok((session, mut hosting)) = self.session_and_hosting(&id).await else {
             return GateAnswer::pass();
         };
         if session.state == store::SessionState::Ended
@@ -66,8 +66,17 @@ where
         {
             return GateAnswer::pass();
         }
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) else {
-            return GateAnswer::pass();
+        let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
+            Ok(served) => served,
+            // Setup's session, until its root's Manifest is served (the owner, 13 Oct 2026).
+            Err(_) if hosting.manifest_id.is_empty() => {
+                let root = session.cwd.clone();
+                match self.set_up_since(session, &mut hosting).await {
+                    Some(served) => served,
+                    None => return setting_up(&gate, &root),
+                }
+            }
+            Err(_) => return GateAnswer::pass(),
         };
         let root = served.root().trim_end_matches('/').to_string();
         // The pool is read here, so the ledger's slot is the pool's before it decides.
@@ -173,6 +182,31 @@ where
             }
         }
         answer
+    }
+
+    /// Setup's session once its root's Manifest is served: bound to it from here
+    /// on, so it leases a slot like any other. `None` while there is none.
+    async fn set_up_since(
+        &self,
+        mut session: store::KeptSession,
+        hosting: &mut store::KeptHosting,
+    ) -> Option<Served> {
+        let manifest = self
+            .repositories()
+            .at(&session.cwd)?
+            .manifest()?
+            .id()
+            .clone();
+        let served = self.repositories().serving(manifest.as_str())?;
+        hosting.manifest_id = manifest.as_str().to_string();
+        session.manifest_id = Some(hosting.manifest_id.clone());
+        {
+            let mut store = self.store().lock().await;
+            let _ = store.keep_hosting(hosting);
+            let _ = store.keep_session(&session);
+        }
+        let _ = self.published_hosted(&session.id).await;
+        Some(served)
     }
 
     /// A first write into the checkout. **Behind everyone already waiting**, so a slot
@@ -312,6 +346,33 @@ pub(super) enum Taken {
     Refused(String),
     /// The session is ended or unreadable, and has no use for a slot.
     Gone,
+}
+
+/// The files Setup's session may write at its root, and nothing else, until the
+/// Manifest it writes is served (the owner, 13 Oct 2026).
+const SETUP_WRITES: [&str; 2] = ["armada.yml", ".gitignore"];
+
+/// Setup's session's call, before `root` has a Manifest. A relative path is read
+/// against where the call stands.
+fn setting_up(gate: &SessionGate, root: &str) -> GateAnswer {
+    let root = root.trim_end_matches('/');
+    let allowed = |path: &str| {
+        let at = match path.starts_with('/') {
+            true => normalised(path),
+            false => normalised(&format!("{}/{path}", gate.cwd.trim_end_matches('/'))),
+        };
+        SETUP_WRITES
+            .iter()
+            .any(|file| at == format!("{root}/{file}"))
+    };
+    match touch(gate) {
+        Touch::Nothing => GateAnswer::pass(),
+        Touch::File(path) if allowed(&path) => GateAnswer::pass(),
+        Touch::File(_) | Touch::Shell(_) => GateAnswer::deny(format!(
+            "Until this repository's armada.yml is served, this session writes only {root}/armada.yml \
+             and {root}/.gitignore, with the Write or Edit tool. Nothing else is written here."
+        )),
+    }
 }
 
 fn not_held(path: &str, slot: u32) -> String {
