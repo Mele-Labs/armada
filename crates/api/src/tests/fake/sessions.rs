@@ -34,6 +34,7 @@ impl Sessions for FakeDaemon {
             waiting_for: Vec::new(),
             done_since: None,
             held_until: None,
+            context_breakdown: None,
         })
     }
 

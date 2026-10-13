@@ -12,12 +12,13 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[] } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0, reports: 0 }
   const submitted: { text: string; asUser?: boolean }[] = []
+  const usages: unknown[] = []
   const asked: unknown[] = []
   const questions: any[] = []
   const ran: { command: string; args?: string }[] = []
@@ -92,12 +93,19 @@ function world(
   on('turn.complete', () => ({ text: '' }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('classic.StopFailure', () => ({}))
-  on('session.usage', () => ({
-    value: { startedAt: 0, context: { window: 200_000 }, rateLimits: options.limits ?? [] },
-  }))
+  on('session.usage', (_$, e) => {
+    usages.push(e.breakdown)
+    return {
+      value: {
+        startedAt: 0,
+        context: { window: 200_000, ...(e.breakdown === undefined ? {} : { breakdown: options.breakdown }) },
+        rateLimits: options.limits ?? [],
+      },
+    }
+  })
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -758,4 +766,63 @@ test('a Drone that fails on the plan limit tells Fleet nothing', async ($, on) =
   await clock.settle()
 
   expect(posts).toEqual([])
+})
+
+test('what fills the context window is told as names, paths and counts, ten tools at most, and only as the context moves', async ($, on) => {
+  const tools = Array.from({ length: 12 }, (_, at) => ({
+    name: `mcp__srv__tool${at}`,
+    serverName: 'srv',
+    tokens: 100 + at,
+    isLoaded: true,
+  }))
+  const breakdown = {
+    categories: [
+      { name: 'System prompt', tokens: 3000, color: 'promptBorder', isDeferred: false, kind: 'used' },
+      { name: 'Free space', tokens: 150_000, color: 'inactive', isDeferred: false, kind: 'free' },
+    ],
+    totalTokens: 50_000,
+    maxTokens: 200_000,
+    rawMaxTokens: 200_000,
+    gridRows: [[{ color: 'x', isFilled: true, categoryName: 'Messages', tokens: 9, percentage: 1, squareFullness: 1 }]],
+    memoryFiles: [{ path: '/repo/CLAUDE.md', type: 'Project', tokens: 800 }],
+    mcpTools: tools,
+    skills: { totalTokens: 5, skills: [{ name: 'a secret skill', source: 'plugin', tokens: 5 }] },
+    autoCompactThreshold: 160_000,
+    isAutoCompactEnabled: true,
+    apiUsage: null,
+  }
+  const { posts, usages, clock } = world(on, { breakdown })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['context'] })
+  // Only the cost moved, inside the throttle: nothing is asked of the engine or told.
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['cost'] })
+  await clock.settle()
+
+  expect(usages).toEqual(['summary'])
+  const told = facts(posts).find(fact => fact.kind === 'measured').context_breakdown
+  expect(told).toEqual({
+    categories: [
+      { name: 'System prompt', tokens: 3000, kind: 'used' },
+      { name: 'Free space', tokens: 150_000, kind: 'free' },
+    ],
+    memory_files: [{ path: '/repo/CLAUDE.md', tokens: 800 }],
+    mcp_tools: tools
+      .slice(2)
+      .reverse()
+      .map(one => ({ name: one.name, server: 'srv', tokens: one.tokens })),
+    total_tokens: 50_000,
+    max_tokens: 200_000,
+    autocompact_threshold: 160_000,
+  })
+  expect(JSON.stringify(posts)).not.toContain('secret')
+})
+
+test('a measurement whose context did not move asks the engine for no breakdown', async ($, on) => {
+  const { posts, usages, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['cost'] })
+  await clock.settle()
+
+  expect(usages).toEqual([])
+  expect('context_breakdown' in facts(posts).find(fact => fact.kind === 'measured')).toBe(false)
 })

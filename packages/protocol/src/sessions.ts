@@ -6,6 +6,7 @@
 
 import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
+import type { ContextBreakdown } from "./context-breakdown";
 import type { PlanWindow } from "./plan-usage";
 
 /** What started a session. */
@@ -89,6 +90,11 @@ export type SessionRecord = {
    * the wake and the session ending all let it go.
    */
   held_until?: string;
+  /**
+   * What fills the context window, as `/context` shows it, from the latest report. Absent until a
+   * mod reports one.
+   */
+  context_breakdown?: ContextBreakdown;
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
@@ -243,7 +249,7 @@ export type SessionFact =
       attachment: { kind: string; target: string };
       state: AttachmentState;
     }
-  | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[] }
+  | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
   | { kind: "turn_completed" }
   /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
   | { kind: "limited"; resets_at: string }

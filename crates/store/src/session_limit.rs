@@ -1,4 +1,5 @@
-//! A session the plan's limit stopped, and when the limit resets. `docs/concepts/session.md`.
+//! Two small per-session rows that `keep_session` would replace whole: the plan's limit a session
+//! hit and when it resets, and what fills its context window. `docs/concepts/session.md`.
 
 use rusqlite::{params, OptionalExtension};
 
@@ -57,6 +58,36 @@ impl Store {
             .map_err(WriteError::Database)?;
         rows.collect::<Result<_, _>>()
             .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+}
+
+impl Store {
+    /// The breakdown of a session's context window, as the wire spells it.
+    pub fn session_context(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT breakdown FROM session_context WHERE session_id = ?1",
+                [session_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(fault("reading what fills a session's context"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep the latest breakdown. Whether it differs from the one held.
+    pub fn keep_session_context(&mut self, session_id: &str, breakdown: &str) -> Result<bool, WriteError> {
+        if self.session_context(session_id)?.as_deref() == Some(breakdown) {
+            return Ok(false);
+        }
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO session_context (session_id, breakdown) VALUES (?1, ?2)",
+                params![session_id, breakdown],
+            )
+            .map(|_| true)
+            .map_err(fault("keeping what fills a session's context"))
             .map_err(WriteError::Database)
     }
 }

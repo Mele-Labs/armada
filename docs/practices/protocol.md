@@ -3615,7 +3615,7 @@ A Drone can ask several decisions in one ask, and a person answers them all at o
 
 ## The plan's windows, and what the limit holds
 
-Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, three optional fields. Bridge's half is `packages/protocol/src/plan-usage.ts`, `sessions.ts`, `protocol.ts` and `events.ts`, written by hand. Nothing here is the lifeboat's.
+Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, five optional fields. Bridge's half is `packages/protocol/src/plan-usage.ts`, `sessions.ts`, `protocol.ts` and `events.ts`, written by hand. Nothing here is the lifeboat's.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3623,6 +3623,8 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, t
 | `plan_usage.changed` (event) | `PlanUsage`, whole | Published when a report moves a window a whole percent or changes the windows. A repeat publishes nothing. Served and published, so a Bridge opened later asks |
 | `SessionFact::Measured.plan?` (mod to Fleet) | `PlanWindow[]` | Left out off a subscription. An empty report never clears the reading held |
 | `SessionFact::Limited` (mod to Fleet) | `resets_at` | The turn ended on the plan's limit |
+| `SessionFact::Measured.context_breakdown?` (mod to Fleet) | `ContextBreakdown` | What fills the context window. Names, paths and counts; the ten heaviest MCP tools. Fleet keeps the latest and an absent one leaves it |
+| `SessionRecord.context_breakdown?` | `ContextBreakdown`: `categories` (`name`, `tokens`, `kind` of `used`, `free`, `buffer` or `deferred`), `memory_files` (`path`, `tokens`), `mcp_tools` (`name`, `server`, `tokens`), `total_tokens`, `max_tokens`, `autocompact_threshold?` | Mirrored in `packages/protocol/src/context-breakdown.ts`. `kind` is a plain enum Bridge matches on, so a fifth value is a change to tell every reader |
 | `SessionRecord.held_until?` | an instant | The session is held for the limit and is woken a minute after it |
 | `JobSummary.paused.until?` | an instant | The Job's Drone was stopped by the limit; admission starts it again a minute after |
 

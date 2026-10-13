@@ -1,6 +1,8 @@
 // What a session's own words and tool results say about what it holds. Pure, so
 // each reading is a test and not a session.
 
+import type { SessionContextBreakdown } from 'claude-code'
+
 const TITLE_MOST = 80
 
 /**
@@ -9,6 +11,37 @@ const TITLE_MOST = 80
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
 export const MOD_VERSION = '0.3.12'
+
+/** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
+export type ContextBreakdown = {
+  categories: { name: string; tokens: number; kind: 'used' | 'free' | 'buffer' | 'deferred' }[]
+  memory_files: { path: string; tokens: number }[]
+  mcp_tools: { name: string; server: string; tokens: number }[]
+  total_tokens: number
+  max_tokens: number
+  autocompact_threshold?: number
+}
+
+const MOST_MCP_TOOLS = 10
+
+/**
+ * The breakdown as Fleet keeps it. **Names, paths and counts only**: the grid, the skill and agent
+ * listings and every other field are left behind, and the MCP tools are the ten that weigh most.
+ */
+export function breakdownOf(breakdown: SessionContextBreakdown): ContextBreakdown {
+  const trimmed: ContextBreakdown = {
+    categories: breakdown.categories.map(one => ({ name: one.name, tokens: one.tokens, kind: one.kind })),
+    memory_files: breakdown.memoryFiles.map(one => ({ path: one.path, tokens: one.tokens })),
+    mcp_tools: [...breakdown.mcpTools]
+      .sort((a, b) => b.tokens - a.tokens)
+      .slice(0, MOST_MCP_TOOLS)
+      .map(one => ({ name: one.name, server: one.serverName, tokens: one.tokens })),
+    total_tokens: breakdown.totalTokens,
+    max_tokens: breakdown.maxTokens,
+  }
+  if (breakdown.autoCompactThreshold !== undefined) trimmed.autocompact_threshold = breakdown.autoCompactThreshold
+  return trimmed
+}
 
 /** A plan window as the engine reports it (`SessionRateLimit`). */
 export type RateLimit = { kind: string; percentUsed: number; resetsAt?: string }

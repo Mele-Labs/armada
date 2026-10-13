@@ -29,6 +29,8 @@ pub(crate) struct LedgerReads {
     waiting: WaitingReads,
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,
+    /// The breakdown of the context window, as the wire spells it.
+    context: Option<String>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -158,6 +160,7 @@ where
             },
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
+            context: store.session_context(&session.id).map_err(fault)?,
         })
     }
 
@@ -207,6 +210,10 @@ where
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
             record.held_until = reads.limited.as_deref().map(wire_instant);
         }
+        record.context_breakdown = reads
+            .context
+            .as_deref()
+            .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
         record.waiting_for = self.waiting_from(reads.waiting, session, &record.attachments);
         record
     }
@@ -408,8 +415,13 @@ where
                     )
                     .map_err(fault)?;
             }
-            SessionFact::Measured { usage, plan } => {
+            SessionFact::Measured { usage, plan, context_breakdown } => {
                 plan_moved = self.hosts().plan_read(plan, &now);
+                if let Some(breakdown) = context_breakdown {
+                    if let Ok(kept) = ipc::encode(&breakdown) {
+                        changed |= store.keep_session_context(&id, &kept).map_err(fault)?;
+                    }
+                }
                 let figures = store::SessionFigures {
                     context_tokens: usage.context_tokens.or(session.figures.context_tokens),
                     context_window: usage.context_window.or(session.figures.context_window),
@@ -855,5 +867,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         waiting_for: Vec::new(),
         done_since: None,
         held_until: None,
+        context_breakdown: None,
     }
 }

@@ -8,7 +8,7 @@
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
-// or came from, and how many.
+// or came from, and how many. What fills the context window is reported as names, paths and counts, never contents.
 //
 // The helpers are top-level because the engine follows `$` only into a function
 // declared at the top of a file, and refuses the module otherwise.
@@ -25,6 +25,7 @@ import {
   mayMoveBranch,
   needAct,
   micros,
+  breakdownOf,
   planOf,
   spentUntil,
   pagesOpenedIn,
@@ -567,16 +568,30 @@ async function measured(
   window?: number,
   usd?: number,
   limits: RateLimit[] = [],
-  moved = false,
+  changed: string[] = [],
 ): Promise<void> {
   const at = await $.clock.now()
+  const held = at - measuredAt < MEASURE_EVERY_MS
   // A window that moved is the one reading nothing else reports, so it is not left behind by the throttle.
-  if (!moved && at - measuredAt < MEASURE_EVERY_MS) return
+  if (held && !changed.includes('rateLimits')) return
   measuredAt = at
   const [id] = await current($)
   const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
   const plan = planOf(limits)
-  say($, id, plan.length === 0 ? { kind: 'measured', usage } : { kind: 'measured', usage, plan })
+  const fact: Extract<Fact, { kind: 'measured' }> = { kind: 'measured', usage }
+  if (plan.length > 0) fact.plan = plan
+  // `summary` estimates locally; `full` would call the token-count API for every tool and file.
+  if (!held && changed.includes('context')) fact.context_breakdown = await breakdown($)
+  say($, id, fact)
+}
+
+async function breakdown($: Dollar) {
+  try {
+    const found = (await $.session.usage({ breakdown: 'summary' })).context.breakdown
+    return found === undefined ? undefined : breakdownOf(found)
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -757,8 +772,9 @@ export const register: Register = on => {
 
   on('session.measure', async ($, e, next) => {
     const out = await next(e)
-    const moved = e.changed.includes('rateLimits')
-    void measured($, e.context.tokens, e.context.window, e.cost?.usd, e.rateLimits, moved).catch(() => undefined)
+    void measured($, e.context.tokens, e.context.window, e.cost?.usd, e.rateLimits, e.changed).catch(
+      () => undefined,
+    )
     return out
   })
 

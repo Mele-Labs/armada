@@ -279,6 +279,7 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
                     cost_micros: None,
                 },
                 plan: Vec::new(),
+                context_breakdown: None,
             },
         ))
         .await
@@ -293,6 +294,7 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
                     cost_micros: Some(2_000_000),
                 },
                 plan: Vec::new(),
+                context_breakdown: None,
             },
         ))
         .await
@@ -630,6 +632,7 @@ fn measured_plan(plan: Vec<ipc::PlanWindow>) -> SessionFact {
     SessionFact::Measured {
         usage: SessionUsage::default(),
         plan,
+        context_breakdown: None,
     }
 }
 
@@ -681,4 +684,45 @@ async fn the_plan_reading_is_the_machines_and_the_newest_session_wins() {
     fleet.report_session(report("s2", measured_plan(later.clone()))).await.unwrap();
     assert_eq!(next_plan(&mut watching).await.windows, later, "nothing was published between");
     assert_eq!(fleet.get_plan_usage().await.unwrap().windows, later);
+}
+
+fn a_breakdown(total: u64) -> ipc::ContextBreakdown {
+    ipc::ContextBreakdown {
+        categories: vec![
+            ipc::ContextCategory { name: "System prompt".into(), tokens: 3_000, kind: ipc::ContextKind::Used },
+            ipc::ContextCategory { name: "Free space".into(), tokens: 150_000, kind: ipc::ContextKind::Free },
+        ],
+        memory_files: vec![ipc::ContextMemoryFile { path: "/repo/CLAUDE.md".into(), tokens: 800 }],
+        mcp_tools: vec![ipc::ContextMcpTool { name: "mcp__srv__a".into(), server: "srv".into(), tokens: 400 }],
+        total_tokens: total,
+        max_tokens: 200_000,
+        autocompact_threshold: Some(160_000),
+    }
+}
+
+/// The latest breakdown a session reported is the one its row carries, it survives in the ledger, and a
+/// report without one leaves it be.
+#[tokio::test]
+async fn a_sessions_context_breakdown_is_kept_and_a_report_without_one_leaves_it() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+    let mut watching = fleet.events().subscribe();
+
+    let measured = |breakdown| SessionFact::Measured {
+        usage: SessionUsage::default(),
+        plan: Vec::new(),
+        context_breakdown: breakdown,
+    };
+    let first = fleet.report_session(report("s1", measured(Some(a_breakdown(50_000))))).await.unwrap();
+    assert_eq!(first.context_breakdown, Some(a_breakdown(50_000)));
+    assert_eq!(next_session(&mut watching).await.context_breakdown, Some(a_breakdown(50_000)));
+
+    let bare = fleet.report_session(report("s1", measured(None))).await.unwrap();
+    assert_eq!(bare.context_breakdown, Some(a_breakdown(50_000)), "nothing reported takes nothing away");
+
+    let later = fleet.report_session(report("s1", measured(Some(a_breakdown(60_000))))).await.unwrap();
+    assert_eq!(later.context_breakdown.map(|one| one.total_tokens), Some(60_000));
+    let listed = fleet.list_sessions(None, None, None).await.unwrap();
+    assert_eq!(listed.sessions[0].context_breakdown.as_ref().map(|one| one.total_tokens), Some(60_000));
 }

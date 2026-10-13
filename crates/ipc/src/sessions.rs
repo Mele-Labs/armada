@@ -148,6 +148,9 @@ pub enum SessionFact {
         /// windows are the account's, so Fleet keeps the newest from any session (`PlanUsage`).
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         plan: Vec<crate::plan_usage::PlanWindow>,
+        /// What fills the context window, estimated by the mod. Fleet keeps the latest.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
     },
     /// What the terminal runs on: its model, its effort, its permission mode
     /// and the commands it lists. **A field left out is unchanged**, and an
@@ -518,6 +521,10 @@ pub struct SessionRecord {
     /// and the session ending. Absent on a session that is not held.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub held_until: Option<Instant>,
+    /// What fills the session's context window, as `/context` shows it, from the latest report. Absent
+    /// until a mod reports one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
 }
 
 /// `list_sessions`: the most recently seen first.
