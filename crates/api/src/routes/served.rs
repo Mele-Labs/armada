@@ -8,7 +8,8 @@
 //! **Split again at the 1200-line rule**, into tables joined at compile time: Studios' in
 //! [`studios`](mod@studios), the published event kinds in [`events`](mod@events), a pilot's in
 //! [`piloting`](mod@piloting), workflows' and Triggers' in [`authoring`](mod@authoring), the
-//! Machine's settings in [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot),
+//! Machine's settings in [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot), a pull
+//! request panel's in [`pull_request_panel`](mod@pull_request_panel),
 //! and every other row here. Each is a subject a reader opens on its own, and [`SERVED`] stays one
 //! slice to every caller. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
@@ -18,6 +19,7 @@ mod events;
 mod hosted_sessions;
 mod outside;
 mod piloting;
+mod pull_request_panel;
 mod settings;
 mod studios;
 
@@ -54,6 +56,7 @@ pub const SERVED: &[Route] = &joined::<
             + outside::ROUTES.len()
             + hosted_sessions::ROUTES.len()
             + autopilot::ROUTES.len()
+            + pull_request_panel::ROUTES.len()
     },
 >([
     ROUTES,
@@ -65,10 +68,11 @@ pub const SERVED: &[Route] = &joined::<
     outside::ROUTES,
     hosted_sessions::ROUTES,
     autopilot::ROUTES,
+    pull_request_panel::ROUTES,
 ]);
 
-/// The nine tables as one, in order. A count that disagrees with `N` fails the build.
-const fn joined<const N: usize>(tables: [&[Route]; 9]) -> [Route; N] {
+/// The ten tables as one, in order. A count that disagrees with `N` fails the build.
+const fn joined<const N: usize>(tables: [&[Route]; 10]) -> [Route; N] {
     // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);

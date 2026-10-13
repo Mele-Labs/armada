@@ -58,6 +58,7 @@ const ATTESTS_MERGES_OR_PUSHES: &[&str] = &[
     "enable_job_auto_merge",
     "ready_pull_request",
     "review_pull_request",
+    "write_pull_request",
     "claim_pull_request",
     "delete_branch",
     "set_landing_target",

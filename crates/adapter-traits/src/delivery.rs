@@ -945,6 +945,29 @@ pub trait Delivery {
     /// sentence, as [`enable_auto_merge`](Delivery::enable_auto_merge)'s is.
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
 
+    /// What a person reads on one pull request's page: the conversation, the
+    /// forge's checks, the files and commits. **`None` is the forge's
+    /// silence**, for [`landed`](Delivery::landed)'s reason. A list the reader
+    /// capped says by how much, in the facts.
+    fn pull_request_page(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<crate::PullRequestPageFacts>;
+
+    /// Write on a pull request: a comment, an approval, a request for changes.
+    ///
+    /// **A write to the forge, taken only from a person's ask**, like
+    /// [`mark_ready`](Delivery::mark_ready). The body travels on the tool's
+    /// standard input and never in its arguments. The refusal is the forge's
+    /// own sentence.
+    fn write_pull_request(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+        write: &crate::PullRequestWrite,
+    ) -> Result<(), String>;
+
     /// Land a Job's branch by making the `--no-ff` merge commit here and
     /// pushing the base, never forced — `merge_by: push`.
     ///
