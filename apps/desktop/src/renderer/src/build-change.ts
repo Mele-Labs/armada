@@ -20,3 +20,8 @@ export function buildChangeOf(command: string): BuildChange | undefined {
   if (flags.some((flag) => flag !== known.flag && flag !== "--adopt")) return undefined;
   return { build: known.build, adopt: flags.includes("--adopt"), label: known.label };
 }
+
+/** The build switch a waiting item's act asks for. **The one reading every surface of a waiting item shares**, so a restart is the same key on the Session's list and on its call card. */
+export function restartOf(act: { kind: string; target: string } | undefined): BuildChange | undefined {
+  return act?.kind === "run" ? buildChangeOf(act.target) : undefined;
+}
