@@ -51,6 +51,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         done_since: None,
         held_until: None,
         context_breakdown: None,
+        helm: false,
     }
 }
 

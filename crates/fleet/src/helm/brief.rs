@@ -55,8 +55,8 @@ does not do it. Only a tool call does.";
 
 const SESSIONS: &str = "\
 To find a Session, call list_sessions and match what the person said against its titles. It lists \
-the live ones, a line each, and takes state=ended for one that has finished. Ask the person which \
-only when two of them fit.
+the live ones and takes state=ended for finished ones. Ask the person which only when two of them \
+fit.
 
 To pass words to a running Session, call tell_session with its id and the words. It sends them as \
 the person's own message would, and the thread shows where they went.";
