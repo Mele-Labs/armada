@@ -6,7 +6,7 @@
 use ipc::{GateAnswer, SessionId};
 
 use super::session_gate::{in_its_slot, lease, leased_for, started, Quoted};
-use super::session_host::{denied, reason, Rig};
+use super::session_host::{denied, reason, rig_placing, Rig};
 use crate::tests::peer::Placing;
 
 const OTHER: &str = "0b0b0b0b-0000-0000-0000-000000000000";
@@ -254,4 +254,36 @@ async fn the_door_lets_the_session_write_in_a_slot_its_subagent_leased() {
     let foreign = leased_by(&rig, 3, OTHER);
     let refused = at_the_door(&rig, "Edit", &format!(r#"{{"file_path":"{foreign}/src/lib.rs"}}"#)).await;
     assert!(matches!(refused, ipc::RunOrNot::Deny { .. }));
+}
+
+/// #2239. A line that only looks (`cd` first, `git -C`, a GET) leased a slot to a session that
+/// never wrote, and the slot then had a holder that was not working it. A line that writes still
+/// leases.
+#[tokio::test]
+async fn a_read_that_looks_elsewhere_leases_no_slot_and_a_commit_still_does() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "look around").await;
+    rig.stand_in.init(0);
+
+    for line in [
+        "cd /tmp && git log --oneline | head -3",
+        "git -C /tmp status",
+        "git merge-base origin/main HEAD",
+        "git remote -v",
+        "gh issue view 2239",
+        "gh api repos/Mele-Labs/armada/pulls/2234",
+    ] {
+        assert!(!denied(&run(&rig, &id, &rig.root, line).await), "{line} should run");
+    }
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, None, "nothing leased for a read");
+
+    for line in ["git commit -m x", "gh pr create --fill", "sed -i s/a/b/ src/lib.rs"] {
+        let fresh = rig_placing(None);
+        let id = fresh.start().await;
+        fresh.send(&id, "change a file").await;
+        fresh.stand_in.init(0);
+        assert!(denied(&run(&fresh, &id, &fresh.root, line).await), "{line} should lease");
+    }
 }

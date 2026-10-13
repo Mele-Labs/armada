@@ -24,10 +24,11 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Attach each watched pull request no Session holds to the Session that held its branch.
-    /// **Never a second Session, and never a pull request a Session already holds**, in any
-    /// state: a merged one a Session took again is the pull watch's to settle, not this.
-    /// The standing branch holder is preferred, then the one that changed it last.
+    /// Attach each watched pull request no Session holds to the Session working its branch: the
+    /// one the pool confirms, else the one that stood on the branch first, and **only a Session
+    /// whose branch row still stands**, so a branch given back is nobody's. **Never a second
+    /// Session, and never a pull request a Session already holds**, in any state: a merged one a
+    /// Session took again is the pull watch's to settle, not this.
     pub(crate) async fn pulls_attached(&self, served: &Served, watched: &[WatchedPull]) {
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();
@@ -48,11 +49,15 @@ where
                     continue;
                 }
                 let branch = pull.branch.as_written();
-                let Some(owner) = held("branch", branch).into_iter().next() else {
+                let Some(owner) =
+                    crate::slot_holders::sessions_on_branch(&store, &manifest, served.root(), branch)
+                        .into_iter()
+                        .next()
+                else {
                     continue;
                 };
                 let row = KeptAttachment {
-                    holder: Holder::session(&owner.holder.id),
+                    holder: Holder::session(&owner),
                     kind: PR.into(),
                     manifest_id: manifest.clone(),
                     target: number,
@@ -69,7 +74,7 @@ where
                 if !matches!(store.attach(&row, false), Ok(true)) {
                     continue;
                 }
-                let Some(session) = store.session(&owner.holder.id).ok().flatten() else {
+                let Some(session) = store.session(&owner).ok().flatten() else {
                     continue;
                 };
                 if let Ok(record) = self.ledger_row(&store, &session) {

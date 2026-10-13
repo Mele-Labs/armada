@@ -204,6 +204,7 @@ where
                 if row.holder.kind == HolderKind::Session
                     && row.state == AttachmentState::Standing
                     && live(&row.holder.id)
+                    && crate::slot_holders::pool_allows_branch(&store, &manifest, served.root(), &row.holder.id, &row.target)
                 {
                     reasons.entry(row.holder.id).or_default().branches.insert(row.target);
                 }

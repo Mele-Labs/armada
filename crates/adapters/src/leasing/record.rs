@@ -31,6 +31,11 @@ impl Holder {
     /// for the session.
     pub const SESSION_ENV: &'static str = "ARMADA_SESSION";
 
+    /// What the agent sets in every command it runs, to its own session's id. A lease taken by a
+    /// terminal session's command is written with it, so the pool says which session holds a slot
+    /// that a bare process could not.
+    pub const AGENT_SESSION_ENV: &'static str = "CLAUDE_CODE_SESSION_ID";
+
     /// The Job with this id.
     pub fn job(id: &str) -> Holder {
         Holder::Job(id.to_string())
@@ -159,6 +164,9 @@ pub(super) struct Record {
     /// was. Only a Job's lease carries one: it is how a slot a finished Job
     /// could not give back says so.
     pub(super) kept: Option<String>,
+    /// The agent session that took the lease, where a session did: what a pool reader needs to
+    /// tell whose slot a process holds. A lease taken by hand, or before this was written, names none.
+    pub(super) session: Option<String>,
     /// The Job completed and holds the slot until a person clears it.
     pub(super) completed: bool,
 }
@@ -177,6 +185,7 @@ impl Record {
             holder: Holder::read(field("holder")?)?,
             since: field("since")?.parse().ok()?,
             kept: field("kept").map(str::to_string),
+            session: field("session").map(str::to_string),
             completed: text.lines().any(|line| line == "completed"),
         })
     }
@@ -190,6 +199,9 @@ impl Record {
         );
         if let Some(why) = &self.kept {
             text.push_str(&format!("kept {}\n", why.replace('\n', " ")));
+        }
+        if let Some(session) = &self.session {
+            text.push_str(&format!("session {}\n", session.replace('\n', " ")));
         }
         if self.completed {
             text.push_str("completed\n");

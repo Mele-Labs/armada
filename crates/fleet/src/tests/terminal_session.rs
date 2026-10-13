@@ -17,6 +17,7 @@ use testkit::{FakeVcs, FakeHarness, FakeWorkProduct};
 use super::session_host::{eventually, Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::daemon::a_fleet;
+use crate::tests::slot_leases::{leased, By};
 use crate::tests::tmp::TempDir;
 
 type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -884,10 +885,10 @@ async fn ending_a_terminal_that_is_not_listening_is_refused_and_ends_nothing() {
 #[tokio::test]
 async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
     let rig = rig();
-    let slot = adapter_traits::slot_path(&rig.root, 1);
-    std::fs::create_dir_all(&slot).unwrap();
     let holder = "agent (pid 7)";
     rig.fleet.vcs().hold_slot(&rig.root, 1, holder);
+    // The stand-in pool writes its holder as a Job's; the lease on disk is a process's.
+    let slot = leased(&rig.root, 1, "fleet/topic", By::Nobody);
     rig.reports(SessionFact::Started {
         cwd: slot.clone(),
         title: None,
@@ -919,9 +920,8 @@ async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
 impl Rig {
     /// A terminal session standing in slot 1, held by its agent's process.
     async fn in_slot(&self, holder: &str) {
-        let slot = adapter_traits::slot_path(&self.root, 1);
-        std::fs::create_dir_all(&slot).unwrap();
         self.fleet.vcs().hold_slot(&self.root, 1, holder);
+        let slot = leased(&self.root, 1, "fleet/topic", By::Nobody);
         self.reports(SessionFact::Started {
             cwd: slot,
             title: None,

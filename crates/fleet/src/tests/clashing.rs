@@ -14,6 +14,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use super::concurrency::{approved, one_scoped_step};
 use super::daemon::{fittings, one};
 use super::needs::git;
+use super::slot_leases::{lease_record, By};
 use super::tmp::TempDir;
 use crate::clashing::{Opposed, Side, Who, Writes};
 use crate::daemon::Fleet;
@@ -64,6 +65,8 @@ impl Rig {
             self.home.path(),
             &["worktree", "add", "--quiet", "-b", &format!("branch-{n}"), &at.to_string_lossy()],
         );
+        let root = self.fleet.repositories().first().expect("served").root().to_string();
+        lease_record(&root, n, &format!("branch-{n}"), By::Session(id));
         self.report(id, SessionFact::Started {
             cwd: at.to_string_lossy().to_string(),
             title: Some(format!("session {n}")),
