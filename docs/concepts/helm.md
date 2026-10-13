@@ -113,7 +113,7 @@ Helm may call any command it is offered, and the machine's authority setting dec
 
 **Permission is the Session's Auto gate.** A call runs unless it reaches into your own files outside the slots the Session holds, or removes or overwrites something outside them and `/tmp`; those are refused with the reason, which the agent reads. A question the agent asks is put to you as a card, as a Session's is. **A push runs**: Auto does not classify it, so `git push` and `gh pr merge` are not stopped here. The three classes Helm used to ask about (destructive, pushes to a shared space, writes off this machine) and their card are gone for the dock, and so is the 5-minute silence that refused. A Commander still has no person to ask and keeps its own launch.
 
-**The acts that stay a person's are the door's, not the gate's.** `ask_person_to_approve` puts a card in front of you and decides nothing. Raising a cap is bounded by connection, below.
+**The acts that stay a person's are the door's, not the gate's.** `ask_person_to_approve` asks for a person's press and decides nothing. The dock draws it as a tool line in the thread, not as a card; the press itself is on the Job's approval gate. Raising a cap is bounded by connection, below.
 
 | Rung | Action | Helm directly? |
 | --- | --- | --- |
@@ -206,4 +206,4 @@ The following settings (see `../contracts/configuration.md`) directly affect thi
 
 ## Open questions
 
-- **[helm-target-per-window]** Should each Bridge window keep its own Helm target, or does the most recent explicit act in any window set it for all? Today there is one conversation target for the whole Bridge: a pick or a "Discuss with Helm" in one window moves Helm in every open window, because since #1022 picks are per window while `HelmConnection` in `apps/desktop/src/main/helm.ts` holds one target. Two windows open at once is rare, and the rule as built is consistent with "the most recent explicit act wins". A per-window target would need one Helm socket per window in main, and the dock's switch and chip to read their own window's target.
+- **[helm-target-per-window]** Should each Bridge window keep its own Helm target, or does the most recent explicit act in any window set it for all? Today there is one conversation target for the whole Bridge: a pick or a "Discuss with Helm" in one window moves Helm in every open window, because since #1022 picks are per window while `HelmConnection` in `apps/desktop/src/main/helm.ts` holds one target. Two windows open at once is rare, and the rule as built is consistent with "the most recent explicit act wins". A per-window target would need `HelmConnection` to hold one aim per window in main, and the dock's switch and chip to read their own window's target.

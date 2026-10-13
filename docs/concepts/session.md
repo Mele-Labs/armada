@@ -296,8 +296,11 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 **What a message names is one line Fleet adds for the agent** and the thread
 keeps the person's words. A thread's rows are the person's messages, the agent's,
 another session's, one line for each tool call, the lease, and each ask with
-where it stands. **An ask is the session's own**: it never appears in the
-old Helm dock's holds and `answer_helm_call` does not find it.
+where it stands. A Helm Session's thread also has the `sent` row, the person's
+words routed on to another Session or a Job, with where they went. **An ask is
+the session's own**: it never appears in the old Helm dock's holds and
+`answer_helm_call` does not find it. Helm's own questions are asks of its
+Session, answered in its thread.
 
 ### What a restart does to a session
 

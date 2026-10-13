@@ -946,7 +946,7 @@ cannot work.
 
 ## Protocol 13.44: Helm puts an approval card in front of the person
 
-`ask_person_to_approve`, additive: a new command, `POST /jobs/:job_id/ask_person_to_approve`, answering `AskedApproval { job_id, handle }`. `agent_access = "Drafts only"`, the door offers it to a Helm session alone (#1041). It writes nothing — `Resolved` already turns a Job id that names nothing into the ordinary 404, and past that the route hands the id and handle back untouched. `approve_dispatch` stays `agent_access = "No"` for every agent; this only names which Job `HelmThread` draws a card for, and the person's own press on it is still what releases the Job.
+`ask_person_to_approve`, additive: a new command, `POST /jobs/:job_id/ask_person_to_approve`, answering `AskedApproval { job_id, handle }`. `agent_access = "Drafts only"`, the door offers it to a Helm session alone (#1041). It writes nothing — `Resolved` already turns a Job id that names nothing into the ordinary 404, and past that the route hands the id and handle back untouched. `approve_dispatch` stays `agent_access = "No"` for every agent; this only names which Job a card is for, and the person's own press on it is still what releases the Job. **Since Helm became a Session the dock draws no such card**: the call is a tool line in the Helm Session's thread, and the Job's own approval gate is where the person presses.
 
 ## Protocol 13.45: a Drone's own run of the Checks, shown as it runs
 
@@ -3918,7 +3918,7 @@ Since 13 Oct 2026. `docs/concepts/fleet.md`, *Rescuing a stranded slot*. **Addit
 
 ## Helm is a Session
 
-`docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`. Helm's dock moves off its own host and socket onto the hosted-Session engine. **Bridge has to move with it**: the dock still calls routes that are gone. `packages/protocol/src` carries the new types additively and leaves the retired ones in place, marked, until the dock stops importing them.
+`docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`. Helm's dock moves off its own host and socket onto the hosted-Session engine. Bridge has moved with it: the dock reads the Helm Session through the Sessions pipeline and calls only the routes below.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -3936,7 +3936,19 @@ Since 13 Oct 2026. `docs/concepts/fleet.md`, *Rescuing a stranded slot*. **Addit
 | `observe_commander`, `read_in_link`, `helm.call_answered`, `helm.thought_routed` | Fleet | Descriptions only. No field changed |
 | `prompts.helm`, `prompts.helmReadOnly` (settings) | Machine setting | Placeholders `{manifest}`, `{folder}`, `{unasked}` and `{manifest}`, `{folder}`. The brief's texts and their placeholders are gone. `agent-prompt.md` section 5a |
 
-**Retired from the wire.** Operations `observe_helm`, `tune_helm`, `get_helm_file` and the event `helm.changed_checkout`; types `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence`, `HelmChangedCheckout` and `HelmSent`. In Rust they are deleted. In `packages/protocol/src` `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence` and `HelmSent` remain, marked retired, because the dock's main process and renderer import them; Bridge deletes them when it rewires. A route typo is a runtime 500 here as everywhere (the accepted cost), so the dock should be walked against a Fleet that has this change.
+**Retired from the wire.** Operations `observe_helm`, `tune_helm`, `get_helm_file` and the event `helm.changed_checkout`; types `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence`, `HelmChangedCheckout` and `HelmSent`. They are deleted in Rust and in `packages/protocol/src` (`helm-thread.ts` with them). `observe_commander` and the Commander's types keep the old host. A route typo is a runtime 500 here as everywhere (the accepted cost), so the dock should be walked against a Fleet that has this change.
+
+**What lands in Bridge.**
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `BridgeState.helm` (`HelmAim`: `{state: "none"}` or `{state: "pointed", manifestId}`) | Bridge | Was `HelmThread`, the dock's whole conversation. It is only which repository Helm answers for. The thread, the turn, the model and the commands are the Helm Session's, in `BridgeState.sessions` |
+| `HelmCarry.model`, `HelmCarry.effort` | Bridge | Optional. What the box held before the Session existed, sent as `AskHelm.model` and `AskHelm.effort` on the first message. Once the Session is live the box tunes it with `tune_session` |
+| `SessionsDraft.helmOf(manifestId)` | Bridge | The Helm Session of the repository Helm is pointed at, which the Sessions list does not hold when the rail picks another repository |
+| `Session.helm` (`sessions-wire.ts`) | Bridge | Read from `SessionRecord.helm`. The Sessions list draws Helm's mark, and opening that row opens the dock |
+| `rowsOfThread`, kind `sent` | Bridge | Draws `SessionRow::Sent` as the person's words with a "Sent to" chip. `Beside.repository` names the target's repository |
+| `HelmConnection` (`apps/desktop/src/main/helm.ts`) | Bridge | No socket and no thread. `ask_helm` and `record_thought_sent` answer a `SessionRecord`, which main folds into the Sessions host at once. `HelmSocket` is gone |
+| `tuneHelm`, `readHelmFile` (preload and `ipc` channels) | Bridge | Removed. `tune_session` and `get_session_file` serve the same acts |
 
 **How the dock reads a thread.** `get_helm_session` once, then `session.row` and `session.changed` on `/events` by the session's id, and `session.hosted` for `commands`, `model`, `effort` and `turn`. A Bridge that reconnects reads `get_helm_session` again, as a Session page does: that is what the `missed` message on `/events` is for.
 
