@@ -70,6 +70,17 @@ where
         if self.job_took(job, SLOT, slot.to_string()).await {
             self.job_slot(job, slot, true);
         }
+        // Whether or not the ledger changed: the stint is idempotent, and a row
+        // that stood before the history existed is seeded by its migration.
+        let now = self.now().as_str().to_string();
+        if let Err(why) = self.store().lock().await.bay_taken(job.id(), slot, &now) {
+            self.said_about_the_ledger(
+                job.id(),
+                Level::Warn,
+                "the Job took a slot and its bay history could not be told",
+                Some(&why.to_string()),
+            );
+        }
     }
 
     /// The Job's work is on its branch.
@@ -89,6 +100,15 @@ where
             .lock()
             .await
             .give_back(&holder, Some(SLOT), &now);
+        // The bay history closes whether or not the ledger had a row to give back.
+        if let Err(why) = self.store().lock().await.bay_given_back(job.id(), &now) {
+            self.said_about_the_ledger(
+                job.id(),
+                Level::Warn,
+                "the Job's slot was given back and its bay history could not be told",
+                Some(&why.to_string()),
+            );
+        }
         match gave {
             Ok(true) => {
                 if let Some(slot) = job.worktree_slot() {

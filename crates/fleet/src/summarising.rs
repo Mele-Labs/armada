@@ -55,6 +55,22 @@ impl Waiting {
     }
 }
 
+/// The bays a Job has held, for its row. **A history the store cannot read leaves the row without
+/// it**, as the marks beside it do. Read on every path that builds a row a client replaces its own
+/// with, so an event's row does not drop what a refetch carries.
+pub(crate) fn bays_on_row(store: &store::Store, job: &Job) -> Vec<ipc::JobBay> {
+    store
+        .bays_of(job.id())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|one| ipc::JobBay {
+            slot: one.slot,
+            since: ipc::Instant::carried(one.since),
+            until: one.until.map(ipc::Instant::carried),
+        })
+        .collect()
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -112,6 +128,7 @@ where
             summary.fixes_main = self.fixes_main_of(&store, job);
             summary.piloted = self.piloted_on_row(&store, job);
             summary.alert = self.alert_on_row(&store, job);
+            summary.bays = bays_on_row(&store, job);
             // **A card the Job's Commander put out waits on the owner as a
             // Drone's question does**, so the Job reads `asking` and sits in
             // Your move. Not a status: a running Job keeps running.

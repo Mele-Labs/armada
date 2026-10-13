@@ -77,6 +77,45 @@ pub struct OpenPull {
     pub failing: Vec<FromOutside>,
     /// The forge will merge it by itself once its checks pass.
     pub auto_merge: bool,
+    /// What the same listing says beyond its checks.
+    pub facts: PullFacts,
+}
+
+/// What the forge's listing of open pull requests says of each beyond its
+/// checks, **read on the same call**: no field here costs a second ask. Every
+/// one is absent where the forge did not name it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PullFacts {
+    /// When it was opened, as the forge wrote it (RFC 3339).
+    pub opened_at: Option<FromOutside>,
+    /// When anything last happened on it, as the forge wrote it (RFC 3339).
+    pub updated_at: Option<FromOutside>,
+    /// Opened as a draft, and not yet marked ready.
+    pub draft: bool,
+    pub mergeable: Option<PullMergeable>,
+    pub review: Option<PullReview>,
+    pub additions: Option<u32>,
+    pub deletions: Option<u32>,
+}
+
+/// Whether the forge can merge a pull request as it stands, as its listing says.
+/// **`Unknown` is the forge still computing**, which it does for a while after
+/// a push, and is not a conflict nobody has found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PullMergeable {
+    Clean,
+    Conflicting,
+    Unknown,
+}
+
+/// The forge's review decision on a pull request. `None` is a decision the
+/// forge does not ask for: no review rule applies.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PullReview {
+    Approved,
+    ChangesRequested,
+    ReviewRequired,
+    None,
 }
 
 /// Where the forge's merge queue holds a pull request.

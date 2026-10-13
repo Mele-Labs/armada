@@ -36,6 +36,7 @@ mod commander_spend;
 mod commander_wakes;
 mod helm_sessions;
 mod iteration;
+mod job_bays;
 mod kit;
 mod lessons;
 mod limits;

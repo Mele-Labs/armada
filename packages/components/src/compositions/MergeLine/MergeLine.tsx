@@ -138,6 +138,19 @@ export type HubPull = {
   job?: HubJob;
   /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
   queue?: { state: "waiting_for_ci" | "in_queue" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
+  /** The login that opened it. Absent where the forge named none. */
+  author?: string;
+  /** When it was opened and last moved, RFC 3339. Absent from a Fleet before the pull request carried them. */
+  openedAt?: string;
+  updatedAt?: string;
+  /** Absent is ready. */
+  draft?: true;
+  /** `unknown` is the forge still computing, not a conflict. Absent where the listing named none. */
+  mergeable?: "clean" | "conflicting" | "unknown";
+  /** `none` is a pull request no review rule applies to. Absent where the listing carried none. */
+  review?: "approved" | "changes_requested" | "review_required" | "none";
+  additions?: number;
+  deletions?: number;
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */

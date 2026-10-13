@@ -101,6 +101,10 @@ async fn a_pull_request_merged_before_any_poll_keeps_the_title_fleet_opened_it_w
         delivery.pull_request_comments, None,
         "never counted, so unknown and not zero"
     );
+    assert!(
+        delivery.pull_request_opened_at.is_some(),
+        "the instant Fleet opened it outlives the merge, as the title does"
+    );
 }
 
 /// A title edited on the forge replaces the one Armada opened with, and the
