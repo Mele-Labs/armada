@@ -307,14 +307,93 @@ pub fn reads_only(line: &str) -> bool {
     if line.is_empty() {
         return true;
     }
-    // A redirect, a substitution or a chain that this reading cannot follow.
-    if line.contains('>') || line.contains('`') || line.contains("$(") {
+    let Some(segments) = segments(line) else {
         return false;
-    }
-    line.split(['|', ';', '&', '\n'])
-        .map(str::trim)
+    };
+    segments
+        .iter()
+        .map(|segment| segment.trim())
         .filter(|segment| !segment.is_empty())
-        .all(reads)
+        // A redirect, a substitution or a chain that this reading cannot follow; a quoted one
+        // counts too, since a quote is no proof the shell leaves it alone.
+        .all(|segment| !segment.contains(['>', '`']) && !segment.contains("$(") && reads(segment))
+}
+
+/// Redirects that write nothing: to the null device, or one descriptor onto another.
+const HARMLESS_REDIRECTS: &[&str] = &[
+    "2>>/dev/null",
+    "&>/dev/null",
+    "2>/dev/null",
+    "1>/dev/null",
+    ">/dev/null",
+    "2>&1",
+    "1>&2",
+    ">&2",
+    ">&1",
+];
+
+/// The length of a harmless redirect that `rest` opens as a word of its own.
+fn harmless_redirect(rest: &str) -> Option<usize> {
+    HARMLESS_REDIRECTS.iter().find_map(|form| {
+        let after = rest.strip_prefix(form)?;
+        after
+            .chars()
+            .next()
+            .is_none_or(|next| next.is_whitespace() || matches!(next, '|' | ';' | '&' | ')'))
+            .then_some(form.len())
+    })
+}
+
+/// The line cut at `|`, `;`, `&` and newline outside quotes, with the harmless redirects
+/// taken out. `None` for a quote left open, which this cannot say the end of.
+fn segments(line: &str) -> Option<Vec<String>> {
+    let mut segments = vec![String::new()];
+    let mut quote: Option<char> = None;
+    let mut word_start = true;
+    let mut skip_to = 0;
+    let mut chars = line.char_indices();
+    while let Some((at, c)) = chars.next() {
+        if at < skip_to {
+            continue;
+        }
+        let current = segments.last_mut()?;
+        if c == '\\' && quote != Some('\'') {
+            current.push(c);
+            current.extend(chars.next().map(|(_, escaped)| escaped));
+            word_start = false;
+            continue;
+        }
+        match quote {
+            Some(open) => {
+                current.push(c);
+                if c == open {
+                    quote = None;
+                }
+            }
+            None => {
+                if word_start {
+                    if let Some(len) = harmless_redirect(&line[at..]) {
+                        skip_to = at + len;
+                        continue;
+                    }
+                }
+                match c {
+                    '|' | ';' | '&' | '\n' => {
+                        segments.push(String::new());
+                        word_start = true;
+                        continue;
+                    }
+                    '"' | '\'' => quote = Some(c),
+                    _ => {}
+                }
+                current.push(c);
+                word_start = c.is_whitespace();
+                continue;
+            }
+        }
+        word_start = false;
+    }
+    quote.is_none().then_some(segments)
 }
 
 /// A `git` segment with the options that only say where to look taken off, so `git -C <path>
