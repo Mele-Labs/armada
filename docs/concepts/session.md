@@ -131,6 +131,8 @@ in their own configuration.
  first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
                 both on the ledger, refuses the write and the turn ends; the
                 process is ended and resumed with the slot as its directory
+ first write, pool full ─▶ the session is queued, told its place, and stops its
+                turn; Fleet leases it a slot when one frees and resumes it there
  later writes ─▶ held to the slot
  quiet for a while ─▶ the process is ended; the next message resumes it
  close ─▶ the slot is parked on its own branch, the row ends
@@ -151,6 +153,23 @@ holds a slot; after it, a file tool naming a path in the main checkout is
 refused with the slot's path. A shell line is read by its words, so one Fleet
 does not recognise as a read leases first.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
+
+**A full pool queues the session rather than telling it to try again.** Every
+slot held, the write is refused with the session's place in its repository's
+line and the instruction to stop for the turn. The line is in Fleet's memory,
+first come first served, and a session is in it once; a session behind others
+is not leased a slot a moment before the one ahead of it. When a slot is given
+back, Fleet leases one for the head of the line, writes the lease as it would
+for a first write and moves the session into it, whether or not its refused turn
+has ended: an idle session is resumed at once, one still finishing the turn is
+moved as that turn ends. A slot is given back by a session closing or its
+terminal ending, a Job ending, being paused or cleared, a release or rescue from
+Cleanup, and the pool growing or a slot reopening; a slot freed where Fleet is
+not told, as `armada worktree release` frees one, is found by a look every 15
+seconds while anyone waits. A session that ends, or is leased a slot another way,
+leaves the line, and a Fleet that restarts forgets it: the session's next write
+joins again. A terminal session is not queued, because `armada worktree lease`
+waits for a slot itself.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so
 the gate tells three places apart: the main checkout, a slot, and anywhere

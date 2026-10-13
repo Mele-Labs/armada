@@ -76,6 +76,7 @@ where
         };
         let pool = crate::leasing::pool_of(&served);
         let vcs = Arc::clone(self.vcs());
+        let queue = Arc::clone(self.hosts().slot_queue());
         let session = session.to_string();
         tokio::spawn(async move {
             let until = tokio::time::Instant::now() + PARK_WITHIN;
@@ -90,6 +91,7 @@ where
                     _ => break,
                 }
             }
+            queue.freed();
         });
     }
 
