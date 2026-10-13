@@ -11,14 +11,15 @@
 // exactly the `Turn` `turn.ts` already declares, so a surface drawing Helm's
 // reply reads it the way a step's own log already does.
 
-import type { HelmMessage } from "./helm";
+import type { HelmBoxFacts, HelmMessage } from "./helm";
+import type { SentFile, SessionTag } from "./hosted-sessions";
 import type { Turn } from "./reads";
 import type { ThoughtTarget } from "./thought";
 
 /** One thing a viewer of a Helm conversation is shown, in order. */
 export type HelmThreadItem =
-  /** What a person sent. */
-  | { kind: "asked"; id: string; ts: string; text: string }
+  /** What a person sent, with the files and tags it carried. */
+  | { kind: "asked"; id: string; ts: string; text: string; files?: SentFile[]; tags?: SessionTag[] }
   /** One row of the session's own reply — `turn.ts`'s own shape. */
   | { kind: "row"; id: string; turn: Turn }
   /** The stored session could not be resumed; a new one wrote what follows. */
@@ -26,7 +27,7 @@ export type HelmThreadItem =
   /** No reply came, and why. */
   | { kind: "unanswered"; id: string; ts: string; why: string }
   /** Words that went to a Session or a Job and never to Helm's session. */
-  | { kind: "sent"; id: string; ts: string; text: string; target: ThoughtTarget };
+  | { kind: "sent"; id: string; ts: string; text: string; target: ThoughtTarget; files?: SentFile[]; tags?: SessionTag[] };
 
 /**
  * One repository's Helm conversation, as a viewer holds it.
@@ -55,6 +56,8 @@ export type HelmThread =
       /** Messages this viewer fell behind and lost. */
       missed: number;
       items: HelmThreadItem[];
+      /** What the message box offers and holds. Not an item: it replaces itself. */
+      facts: HelmBoxFacts;
     }
   | { state: "cleared"; manifestId: string }
   | {
@@ -64,6 +67,7 @@ export type HelmThread =
       skipped: number;
       missed: number;
       items: HelmThreadItem[];
+      facts: HelmBoxFacts;
       detail: string;
     };
 
@@ -76,10 +80,11 @@ export type HeldHelmThread = {
   skipped: number;
   missed: number;
   items: HelmThreadItem[];
+  facts: HelmBoxFacts;
 };
 
 /** Nothing has arrived yet, and nothing has been lost. */
-export const NO_HELM_ITEMS: HeldHelmThread = { replying: false, skipped: 0, missed: 0, items: [] };
+export const NO_HELM_ITEMS: HeldHelmThread = { replying: false, skipped: 0, missed: 0, items: [], facts: {} };
 
 /**
  * What one message on the socket does to the thread held so far.
@@ -97,9 +102,22 @@ export function helmArrived(
 ): { held: HeldHelmThread; added: boolean; ended?: string } {
   if (message.message === "opened") {
     return {
-      held: { replying: message.replying, skipped: message.skipped, missed: 0, items: [] },
+      held: {
+        replying: message.replying,
+        skipped: message.skipped,
+        missed: 0,
+        items: [],
+        facts: message.facts,
+      },
       added: false,
     };
+  }
+
+  if (message.message === "facts") {
+    // Live only and no item: the box's facts are replaced whole, so a model or effort Fleet no longer
+    // names is Auto again.
+    const { message: _tag, ...facts } = message;
+    return { held: { ...held, facts }, added: false };
   }
 
   if (message.message === "asked") {
@@ -107,7 +125,17 @@ export function helmArrived(
       held: {
         ...held,
         replying: true,
-        items: [...held.items, { kind: "asked", id: String(seq), ts: message.ts, text: message.text }],
+        items: [
+          ...held.items,
+          {
+            kind: "asked",
+            id: String(seq),
+            ts: message.ts,
+            text: message.text,
+            ...(message.files === undefined ? {} : { files: message.files }),
+            ...(message.tags === undefined ? {} : { tags: message.tags }),
+          },
+        ],
       },
       added: true,
     };
@@ -157,7 +185,15 @@ export function helmArrived(
         ...held,
         items: [
           ...held.items,
-          { kind: "sent", id: String(seq), ts: message.ts, text: message.text, target: message.target },
+          {
+            kind: "sent",
+            id: String(seq),
+            ts: message.ts,
+            text: message.text,
+            target: message.target,
+            ...(message.files === undefined ? {} : { files: message.files }),
+            ...(message.tags === undefined ? {} : { tags: message.tags }),
+          },
         ],
       },
       added: true,

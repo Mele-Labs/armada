@@ -6,7 +6,7 @@
 
 use std::process::{Command, Output};
 
-use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, Tracker};
+use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, ReadIssue, Tracker};
 
 use crate::delivery::{said, FORGE};
 use crate::issue_lookup::issue_reference;
@@ -26,6 +26,9 @@ const OPEN_ISSUES: &str = "\
     ([.labels[]?.name] | join(\"\\u001f\")), ([.assignees[]?.login] | join(\"\\u001f\")), \
     (.updatedAt // \"\"), ((.body // \"\") | gsub(\"\\\\s+\"; \" \") | .[0:EXCERPT]), \
     LINKED] | @tsv";
+
+/// One issue as a line: number, title, address and state.
+const READ_ISSUE: &str = "[(.number | tostring), (.title // \"\"), (.url // \"\"), (.state // \"\")] | @tsv";
 
 /// The field that says a pull request closes it. Newer than the rest of the
 /// listing, so a CLI that does not know it is asked again without it.
@@ -58,6 +61,28 @@ impl Tracker for IssueTracker {
         // RFC 3339 in one zone sorts as text.
         issues.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
         Ok(issues)
+    }
+
+    fn read_issue(&self, in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked> {
+        let doing = "reading the issue";
+        let number = number.to_string();
+        let run = Command::new(FORGE)
+            .args(["issue", "view", number.as_str(), "--json", "number,title,url,state"])
+            .args(["--jq", READ_ISSUE])
+            .current_dir(in_repo)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .output()
+            .map_err(|why| NotTracked::of(doing, why.to_string()))?;
+        if !run.status.success() {
+            let refusal = said(&run);
+            return match refusal.contains("Could not resolve") || refusal.contains("not found") {
+                true => Ok(None),
+                false => Err(NotTracked::of(doing, refusal)),
+            };
+        }
+        Ok(String::from_utf8_lossy(&run.stdout)
+            .lines()
+            .find_map(read_issue_of_line))
     }
 
     fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked> {
@@ -195,9 +220,48 @@ pub(crate) fn issue_of_line(line: &str) -> Option<OpenIssue> {
     })
 }
 
+/// One `@tsv` line of [`READ_ISSUE`]. **An address under `/pull/` is a pull request's**, which the
+/// forge's issue view answers for a pull request's number, and is not an issue here.
+pub(crate) fn read_issue_of_line(line: &str) -> Option<ReadIssue> {
+    let mut field = line.split('\t');
+    let number = field.next()?.parse().ok()?;
+    let title = field.next().unwrap_or_default();
+    let url = field.next().unwrap_or_default();
+    let state = field.next().unwrap_or_default();
+    if url.contains("/pull/") {
+        return None;
+    }
+    Some(ReadIssue {
+        number,
+        title: FromOutside::verbatim(as_written(title)),
+        url: FromOutside::verbatim(as_written(url)),
+        closed: !state.eq_ignore_ascii_case("open"),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_closed_issue_reads_as_closed_and_an_open_one_as_open() {
+        let closed = read_issue_of_line("12\tOld\thttps://forge.example/o/r/issues/12\tCLOSED")
+            .expect("an issue");
+        assert!(closed.closed);
+        assert_eq!(closed.title.as_written(), "Old");
+        let open = read_issue_of_line("13\tNew\thttps://forge.example/o/r/issues/13\tOPEN")
+            .expect("an issue");
+        assert!(!open.closed);
+    }
+
+    #[test]
+    fn a_pull_requests_address_is_not_an_issue() {
+        assert_eq!(
+            read_issue_of_line("14\tA change\thttps://forge.example/o/r/pull/14\tMERGED"),
+            None
+        );
+        assert_eq!(read_issue_of_line(""), None);
+    }
 
     #[test]
     fn a_line_reads_into_an_issue_with_its_labels_apart() {

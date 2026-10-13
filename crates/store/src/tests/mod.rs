@@ -35,6 +35,7 @@ mod commander_model;
 mod commander_spend;
 mod commander_wakes;
 mod helm_sessions;
+mod helm_tuning;
 mod iteration;
 mod job_bays;
 mod kit;

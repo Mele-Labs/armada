@@ -63,6 +63,8 @@ fn the_words_and_where_they_went_round_trip() {
     let sent = ThoughtSent {
         text: "retries should back off".into(),
         target: a_session(),
+        attachments: Vec::new(),
+        mentions: Vec::new(),
     };
     let json = encode(&sent).expect("plain data");
     assert_eq!(decode::<ThoughtSent>("sent", json.as_bytes()).expect("round-trips"), sent);
@@ -74,6 +76,8 @@ fn the_thread_row_is_a_sent_message_and_round_trips() {
         ts: Instant::carried("2026-10-12T09:00:00.000Z"),
         text: "retries should back off".into(),
         target: a_session(),
+        files: Vec::new(),
+        tags: Vec::new(),
     });
     let json = encode(&row).expect("plain data");
     assert!(json.starts_with(r#"{"message":"sent","ts":"2026-10-12T09:00:00.000Z","text":"retries should back off","target":{"#), "{json}");
@@ -94,4 +98,27 @@ fn the_audit_event_is_spelled_as_declared_and_names_no_words() {
     assert!(json.contains(r#""kind":"helm.thought_routed""#), "{json}");
     assert!(json.contains(r#""to":"job""#), "{json}");
     assert!(!json.contains("text"), "{json}");
+}
+
+#[test]
+fn a_sent_row_with_files_and_tags_round_trips_and_leaves_empty_ones_out() {
+    let row = HelmMessage::Sent(HelmSent {
+        ts: Instant::carried("2026-10-12T09:00:00.000Z"),
+        text: "see this".into(),
+        target: a_session(),
+        files: vec![crate::SentFile { id: "f1".into(), name: "shot.png".into(), media_type: "image/png".into() }],
+        tags: vec![crate::SessionTag { kind: crate::TagKind::Issue, id: "214".into(), title: "#214 The title".into(), job: None, url: None }],
+    });
+    let json = encode(&row).expect("plain data");
+    assert!(json.contains(r#""files":[{"id":"f1""#) && json.contains(r#""tags":[{"kind":"issue""#), "{json}");
+    assert_eq!(decode::<HelmMessage>("a message", json.as_bytes()).expect("round-trips"), row);
+    let bare = encode(&HelmMessage::Sent(HelmSent {
+        ts: Instant::carried("2026-10-12T09:00:00.000Z"),
+        text: "x".into(),
+        target: a_session(),
+        files: Vec::new(),
+        tags: Vec::new(),
+    }))
+    .expect("plain data");
+    assert!(!bare.contains("files") && !bare.contains("tags") && !bare.contains("null"), "{bare}");
 }

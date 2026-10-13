@@ -103,6 +103,20 @@ function pullOf(item: Item, state: BridgeState): { number: number; branch: strin
   return undefined;
 }
 
+/**
+ * What a poke about main's red says: main is red, after which merge, and what failed. The merge has landed, so its owner is asked for a fix against main, not a push to it.
+ */
+function mainRedSaid(views: ReturnType<typeof viewsOf>, root: string): string {
+  const main = views.find((view) => view.root === root)?.hub?.main;
+  const red = main?.state === "red" ? main.red : undefined;
+  const merged = red?.merge === undefined ? "" : ` after pull request #${red.merge.number} merged`;
+  const failed =
+    red === undefined
+      ? []
+      : [{ check: red.check, test: red.test }, ...(red.also ?? [])].map((one) => `- ${one.check}${one.test === undefined ? "" : `: ${one.test}`}`);
+  return [`main is red${merged}. Find why and open a pull request that fixes main.`, ...failed].join("\n");
+}
+
 /** Where `o` goes: the Job, the Session, or the pull request the call is about. */
 function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | undefined {
   if (item.job !== undefined) return () => hosts.onOpen(item.job!.id);
@@ -229,9 +243,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     wait(mode, call);
   };
 
-  /** A short nudge to whoever owns the pull request, through the path that reaches them. */
+  /** A short nudge to whoever owns the pull request or main's red, saying which, through the path that reaches them. */
   const poke = (who: Owner) => {
-    const said = `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
+    const said = item.key.startsWith("main:") ? mainRedSaid(views, item.key.slice("main:".length)) : `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
     if (who.kind === "session") {
       draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
       finish();

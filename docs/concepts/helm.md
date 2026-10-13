@@ -43,6 +43,22 @@ Anything else that is genuinely cross-Manifest stays a Bridge job.
 
 **Built to change.** Conversations are looked up by a key that is a repository today, and Helm's host sits behind one interface — a key per topic, or a host inside Bridge instead of Fleet, is a switch on either, not a rebuild.
 
+## The message box
+
+**Helm's box is a [Session](session.md)'s**, with the files and pictures, the sketch pad, `/`, `@` and `#`, the model and effort, and `Enter` to send with `⇧Enter` for a new line. It has no permission mode. What Helm may do is *Action authority* and *What Helm asks about*, and the person's own settings decide the rest, so a mode here would be a second answer to a question already answered. The look is the walk `helm-rich-composer`.
+
+| The box offers | Where it comes from |
+|---|---|
+| Files, pictures and sketches | Sent with the ask as `attachments`. Fleet keeps each under `attachments/helm/<repository>` outside every worktree, a picture reaches Helm's session as a picture and any other file as an `Attached file:` path line. A sketch goes as the picture it renders to |
+| `@` | Sessions, Jobs, pull requests and branches Bridge holds, sent as `mentions`. Fleet writes one `The person named:` line ahead of the words, as a Session's send does, and the thread keeps the person's words alone |
+| `#` | The repository's open issues (`list_issues`), its open pull requests (the merge line's `hub.pull_requests`) and, for a number that is neither, one read by number: `get_pull_request` first, then `get_issue`. A merged pull request or a closed issue still tags, and says so. An issue tags as `issue`, with its number, title and address |
+| `/` | The commands the agent named on its `init` line when Helm's own process started, by name. Until Helm has spoken the list is the last one any Session read, so a Fleet that has run no agent offers none |
+| Model and effort | Held by Fleet for the conversation (`tune_helm`) and passed at the launch of every message. Left alone they are the machine's own. Start fresh keeps them, since they are the person's choice and not the thread |
+
+**A sent row keeps what it carried.** The `asked` row of the thread, and the `sent` row of a thought routed to a Session, have the files and the tags beside the words, so a window opened after a restart draws the same row. Fleet serves a file back (`get_helm_file`) for a picture's thumbnail. A message may be only a file or a tag; blank words with nothing carried are refused. **Start fresh deletes the files with the thread**, since nothing would name them again. Helm's session reads them through an added directory, as a Session's does.
+
+**What the thread names is a link.** `#N`, `Job N`, a Job's handle or id, and a Session's id, address or exact title link in Helm's replies and in the person's own rows, and so do the `@` and `#` chips of a sent row. A pull request opens on its row of the Merge line, and with nothing highlighted where the Merge line has no row for it; an issue opens the composer's open issues; a Job and a Session open as they do elsewhere. Bridge reads only what its window holds, so a number that resolves to nothing stays text, and a number that is not open is read once by number, as `#` reads it.
+
 ## Routing a thought
 
 **Every message typed in Helm's box is read before it is asked.** Helm decides whether it is a question for Helm or a thought meant for work that is already running, and there is no key to say which. A question goes to Helm as it always did. A thought gets a card over the box: a match names the Session or Job, with Send (`↵`), No (`N`) and Ask Helm (`H`); no match, or No, offers a new Session (`S`) or Job (`J`) in the Dispatch panel, holding the words, with Ask Helm (`H`) and Esc beside them. The keys act only while the box is empty. The look is the walk `route-a-thought`.

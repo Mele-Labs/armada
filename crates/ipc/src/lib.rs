@@ -324,9 +324,9 @@ pub use commander::{
     CommanderState, CommanderWoke,
 };
 pub use helm::{
-    AskHelm, Blank, Freshness, HelmAsked, HelmChangedCheckout, HelmClosed, HelmContext,
-    HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,
-    HelmUnanswered,
+    AskHelm, Blank, Freshness, HelmAsked, HelmBoxFacts, HelmChangedCheckout, HelmClosed,
+    HelmContext, HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence,
+    HelmText, HelmUnanswered, TuneHelm,
 };
 pub use thought::{
     HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
@@ -359,7 +359,7 @@ pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
 };
-pub use issues::{IssueList, TrackedIssue};
+pub use issues::{IssueList, IssueRead, IssueState, TrackedIssue};
 pub use job::{
     AttachmentRef, DependencyEdge, JobBay, JobForgotten, JobList, JobRequest, JobSummary, Paused,
     ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,

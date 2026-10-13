@@ -19,8 +19,9 @@ import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } f
  * a sketch, then what is waiting to be sent in a single row that scrolls
  * sideways, so nothing waiting ever takes room from the typing area.
  *
- * **`/` opens the skills and commands, and `@` opens the other Sessions**,
- * choosing one writes it into the message as a chip, at the caret, so the agent knows to talk to it. **A
+ * **`/` opens the skills and commands, `@` opens the other Sessions** and **`#` the repository's
+ * issues and pull requests by number**; choosing one writes it into the message as a chip, at the
+ * caret, so the agent knows what is meant. **A
  * picture or file is pasted or dropped in**, or attached. **A sketch is drawn
  * on the pad Dispatch draws on**, which the host opens, and comes back as a
  * chip.
@@ -40,6 +41,28 @@ export type SentFromComposer = {
   files: readonly ComposerFile[];
   tags: readonly ComposerTag[];
 };
+
+/**
+ * An issue or a pull request `#` offers, as a tag. `standing` is set on one that is not open (`Merged`,
+ * `Closed`), which only a lookup by number turns up.
+ */
+export type NumberedHit = { tag: ComposerTag; standing?: string };
+
+/**
+ * What `#` reads. **`open` is the repository's open issues and pull requests**, in any order. `find` looks
+ * one number up when it is not among them, and resolves to nothing where the repository has none.
+ */
+export type ComposerNumbered = {
+  open: readonly NumberedHit[];
+  find: (number: number) => Promise<NumberedHit | undefined>;
+};
+
+/** How many rows `#` offers at once, and how long a typed number rests before it is looked up. */
+const NUMBERED_ROWS = 6;
+const LOOKUP_MS = 150;
+
+/** What each kind is called, on the glyph that leads a `#` row. */
+const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
 
 /** The kinds in the order `@` groups them, each named for the group's label. */
 const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
@@ -62,7 +85,7 @@ const MODES: { id: ComposerMode; label: string; says: string }[] = [
 export type SessionComposerProps = {
   /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
-  /** Absent with `onMode` draws no permission mode. */
+  /** Absent with `onMode` draws no permission mode: Helm keeps its own rule. */
   mode?: ComposerMode;
   onMode?: (mode: ComposerMode) => void;
   model: string | null;
@@ -74,6 +97,21 @@ export type SessionComposerProps = {
   commands: readonly { name: string; says: string }[];
   /** What `@` offers, grouped by kind: other Sessions, Jobs, pull requests and branches. */
   taggable: readonly ComposerTag[];
+  /** What `#` offers for the repository this box speaks for. Absent, `#` is only a character. */
+  numbered?: ComposerNumbered;
+  /** The box's accessible name. */
+  label?: string;
+  /** Nothing can be sent: the box takes no focus and Send is off. */
+  disabled?: boolean;
+  /** Send's weight. Helm's is quieter than the one Primary a view is allowed. */
+  send?: "primary" | "secondary";
+  /** Send is its glyph, named on hover, so the row holds in a narrow dock. */
+  slim?: boolean;
+  /**
+   * What the box takes half of before it scrolls: the panel it sits in, or the nearest scrolling
+   * container above it, which is a dock's, whose own wrapper is no taller than the box.
+   */
+  grows?: "panel" | "scroller";
   /**
    * Tags that arrive from outside the box (a Job opened in a Session): each is written in at the
    * end of the message, and `onTags([])` says it was taken.
@@ -101,10 +139,6 @@ export type SessionComposerProps = {
    * survive a reload). Cleared by a send. Without it nothing is kept.
    */
   draftKey?: string;
-  /** The box's accessible name. */
-  label?: string;
-  /** Send's weight. A view that has a Primary of its own keeps this one quieter. */
-  send?: "primary" | "secondary";
   /**
    * Words and tags only: no model, effort, file or sketch, which this box's reader cannot take. A
    * pasted or dropped file is ignored. A Job's Commander reads text.
@@ -136,16 +170,43 @@ function matching<T extends { name: string }>(commands: readonly T[], query: str
   return [...starts, ...holds];
 }
 
-type Item = { id: string; name: string; says?: string; tag?: ComposerTag };
+type Item = { id: string; name: string; says?: string; standing?: string; tag?: ComposerTag };
 
-/** What the caret is in: a `/` at the start of the message, or an `@` at the start of a word. */
-function tokenAt(text: string, caret: number): { trigger: "/" | "@"; query: string; from: number } | undefined {
+/** A `#` row: the number in the name, the title after it. */
+const numberedRow = (hit: NumberedHit): Item => ({
+  id: `${hit.tag.kind}${hit.tag.id}`,
+  name: `#${hit.tag.id}`,
+  says: hit.tag.title.replace(/^#\d+\s*/, ""),
+  ...(hit.standing === undefined ? {} : { standing: hit.standing }),
+  tag: hit.tag,
+});
+
+/** What the caret is in: a `/` at the start of the message, or an `@` or a `#` at the start of a word. */
+function tokenAt(text: string, caret: number): { trigger: "/" | "@" | "#"; query: string; from: number } | undefined {
   const head = text.slice(0, caret);
   const slash = /^\/(\S*)$/.exec(head);
   if (slash !== null) return { trigger: "/", query: slash[1] ?? "", from: 0 };
   const at = /(^|\s)@(\S*)$/.exec(head);
   if (at !== null) return { trigger: "@", query: at[2] ?? "", from: head.length - (at[2]?.length ?? 0) - 1 };
+  const hash = /(^|\s)#(\d*)$/.exec(head);
+  if (hash !== null) return { trigger: "#", query: hash[2] ?? "", from: head.length - (hash[2]?.length ?? 0) - 1 };
   return undefined;
+}
+
+/**
+ * What `#` offers for a number typed so far: the open ones that start with it, newest number first,
+ * with a number looked up on its own coming ahead of them. A tag already in the message is not offered twice.
+ */
+function numberedItems(numbered: ComposerNumbered | undefined, query: string, looked: NumberedHit | undefined, held: readonly ComposerTag[]): Item[] {
+  if (numbered === undefined) return [];
+  const has = (tag: ComposerTag) => held.some((had) => had.kind === tag.kind && had.id === tag.id);
+  const hits = [
+    ...(looked === undefined ? [] : [looked]),
+    ...numbered.open
+      .filter((one) => one.tag.id.startsWith(query) && (looked === undefined || one.tag.id !== looked.tag.id))
+      .sort((a, b) => Number(b.tag.id) - Number(a.tag.id)),
+  ];
+  return hits.filter((one) => !has(one.tag)).slice(0, NUMBERED_ROWS).map(numberedRow);
 }
 
 export function SessionComposer({
@@ -158,6 +219,12 @@ export function SessionComposer({
   onTune,
   commands,
   taggable,
+  numbered,
+  label = "Message",
+  disabled = false,
+  send: sendWeight = "primary",
+  slim = false,
+  grows = "panel",
   tags,
   onTags,
   compact = false,
@@ -168,8 +235,6 @@ export function SessionComposer({
   modeLocked = false,
   modeHidden = false,
   bare = false,
-  label = "Message",
-  send: sendWeight = "primary",
   textOnly: textOnlyAsked = false,
   draftKey,
   focusFor,
@@ -193,17 +258,55 @@ export function SessionComposer({
   const listId = useId();
 
   const token = tokenAt(head, head.length);
+  const wanted = token?.trigger === "#" && token.query !== "" ? Number(token.query) : undefined;
+  // A number that is not open is looked up once it has rested, and offered first when it resolves.
+  const [found, setFound] = useState<{ number: number; hit: NumberedHit } | undefined>();
+  const source = useRef(numbered);
+  source.current = numbered;
+  useEffect(() => {
+    const reads = source.current;
+    if (wanted === undefined || reads === undefined || reads.open.some((one) => Number(one.tag.id) === wanted)) {
+      setFound(undefined);
+      return;
+    }
+    let live = true;
+    const timer = window.setTimeout(() => {
+      void reads.find(wanted).then((hit) => {
+        if (live) setFound(hit === undefined ? undefined : { number: wanted, hit });
+      });
+    }, LOOKUP_MS);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [wanted]);
   const items: Item[] =
     token === undefined
       ? []
       : token.trigger === "/"
         ? matching(commands, token.query).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
-        : TAG_KINDS.flatMap(({ kind }) =>
+        : token.trigger === "#"
+          ? numberedItems(numbered, token.query, wanted === undefined || found?.number !== wanted ? undefined : found.hit, draft.tags)
+          : TAG_KINDS.flatMap(({ kind }) =>
             taggable
               .filter((one) => one.kind === kind && !draft.tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
               .map((one) => ({ id: `${kind}${one.id}`, name: one.title, tag: one })),
           );
   const open = items.length > 0;
+  // The list hangs above the box, where a box at the foot of its window has the room. In Helm's dock a box
+  // with no thread over it has none, and the dock clips what leaves it: then it hangs below.
+  const form = useRef<HTMLFormElement>(null);
+  const [below, setBelow] = useState(false);
+  useLayoutEffect(() => {
+    const box = form.current;
+    if (!open || box === null) return;
+    let clip: HTMLElement | null = box.parentElement;
+    while (clip !== null && getComputedStyle(clip).overflowY === "visible") clip = clip.parentElement;
+    const bound = clip?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
+    const at = box.getBoundingClientRect();
+    const needs = Math.min(items.length, 6) * 28 + 16;
+    setBelow(at.top - bound.top < needs && bound.bottom - at.bottom > at.top - bound.top);
+  }, [open, items.length]);
   const current = Math.min(active, Math.max(items.length - 1, 0));
 
   // The box is drawn from the draft, and only when the box does not already say what the draft does:
@@ -229,9 +332,10 @@ export function SessionComposer({
   useLayoutEffect(() => {
     const box = editor.current;
     if (box === null) return;
-    const bound = box.closest("form")?.parentElement;
+    let bound = box.closest("form")?.parentElement ?? null;
+    if (grows === "scroller") while (bound !== null && !/auto|scroll|hidden/.test(getComputedStyle(bound).overflowY)) bound = bound.parentElement;
     box.style.maxHeight = bound ? `${bound.clientHeight / 2}px` : "";
-  }, [draft.text]);
+  }, [draft.text, grows]);
 
   // The caret moves by key, by press and by what is typed; the typeahead follows it.
   useEffect(() => {
@@ -343,14 +447,14 @@ export function SessionComposer({
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
-    if (textOnly) return;
+    if (disabled || textOnly) return;
     add([...event.dataTransfer.files]);
   };
 
   const held = files.length + drawn.length > 0;
 
   const send = () => {
-    if (text.trim() === "" && !held) return;
+    if (disabled || (text.trim() === "" && !held)) return;
     const sent = draft;
     const done = onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
     forget();
@@ -366,12 +470,28 @@ export function SessionComposer({
     send();
   };
 
+  const chips = (
+    <div className="armada-session-composer__chips" role="group" aria-label="Attached">
+      {files.map((one) => (
+        <AttachmentChip key={one.id} filename={one.name} {...(one.src === undefined ? {} : { preview: one.src })} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
+      ))}
+      {drawn.map((one) => (
+        <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
+      ))}
+    </div>
+  );
+  const sendButton = (
+    <Button type="submit" variant={sendWeight} size="sm" {...(slim ? { "aria-label": "Send" } : {})} disabled={disabled || (text.trim() === "" && !held)}>
+      <Send size={12} strokeWidth={2} aria-hidden />
+      {slim ? null : "Send"}
+    </Button>
+  );
   const said = MODES.find((one) => one.id === mode)!.says;
   return (
-    <form className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+    <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
-        <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Tag a Session, Job, pull request or branch"}>
-          {token?.trigger === "/"
+        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session, Job, pull request or branch"} data-numbered={token?.trigger === "#" ? "" : undefined}>
+          {token?.trigger === "/" || token?.trigger === "#"
             ? items.map((item, index) => <Row key={item.id} item={item} on={index === current} onHover={() => setActive(index)} onChoose={() => choose(item)} />)
             : TAG_KINDS.map(({ kind, label }) => {
                 const rows = items.filter((one) => one.tag?.kind === kind);
@@ -395,8 +515,9 @@ export function SessionComposer({
           role="textbox"
           aria-label={label}
           aria-multiline
+          aria-disabled={disabled || undefined}
           aria-controls={open ? listId : undefined}
-          contentEditable
+          contentEditable={!disabled}
           suppressContentEditableWarning
           className="armada-textarea armada-session-composer__editor"
           onInput={read}
@@ -404,6 +525,7 @@ export function SessionComposer({
           onPaste={onPaste}
         />
       </div>
+      {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
@@ -461,20 +583,8 @@ export function SessionComposer({
             </Tooltip>
           </>
         )}
-        {bare ? null : (
-          <div className="armada-session-composer__chips" role="group" aria-label="Attached">
-            {files.map((one) => (
-              <AttachmentChip key={one.id} filename={one.name} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
-            ))}
-            {drawn.map((one) => (
-              <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
-            ))}
-          </div>
-        )}
-        <Button type="submit" variant={sendWeight} size="sm" disabled={text.trim() === "" && !held}>
-          <Send size={12} strokeWidth={2} aria-hidden />
-          Send
-        </Button>
+        {bare || (compact && held) ? null : chips}
+        {slim ? <Tooltip label="Send">{sendButton}</Tooltip> : sendButton}
       </div>
     </form>
   );
@@ -483,6 +593,8 @@ export function SessionComposer({
 /** One row of a typeahead. A tag's row leads with its kind's glyph. */
 function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover: () => void; onChoose: () => void }) {
   const Glyph = item.tag === undefined ? undefined : TAG_GLYPH[item.tag.kind];
+  // A `#` row's glyph is the only word for its kind, so it is named on hover.
+  const kind = item.tag !== undefined && item.name.startsWith("#") ? KIND_SAID[item.tag.kind] : undefined;
   return (
     <div
       role="option"
@@ -497,9 +609,18 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
         onChoose();
       }}
     >
-      {Glyph === undefined ? null : <Glyph size={12} strokeWidth={2} aria-hidden className="armada-session-composer__glyph" />}
+      {Glyph === undefined ? null : kind === undefined ? (
+        <Glyph size={12} strokeWidth={2} aria-hidden className="armada-session-composer__glyph" />
+      ) : (
+        <Tooltip label={kind}>
+          <span role="img" aria-label={kind} className="armada-session-composer__glyph">
+            <Glyph size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      )}
       <span className="armada-session-composer__name">{item.name}</span>
       {item.says === undefined ? null : <span className="armada-session-composer__says">{item.says}</span>}
+      {item.standing === undefined ? null : <span className="armada-session-composer__standing">{item.standing}</span>}
     </div>
   );
 }

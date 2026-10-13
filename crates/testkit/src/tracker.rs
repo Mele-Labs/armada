@@ -3,7 +3,7 @@
 
 use std::sync::Mutex;
 
-use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, Tracker};
+use adapter_traits::{FromOutside, IssueAddress, NotTracked, OpenIssue, ReadIssue, Tracker};
 
 /// One write the fake was asked for, in the order it was asked.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -15,6 +15,7 @@ pub enum TrackerWrite {
 #[derive(Debug, Default)]
 pub struct FakeTracker {
     issues: Mutex<Vec<OpenIssue>>,
+    closed: Mutex<Vec<ReadIssue>>,
     listings: Mutex<usize>,
     unreadable: Mutex<Option<String>>,
     refusing: Mutex<Option<String>>,
@@ -46,6 +47,16 @@ impl FakeTracker {
             excerpt: FromOutside::verbatim(""),
             linked_pull_request: false,
         }
+    }
+
+    /// An issue that is closed: read by number, never listed.
+    pub fn knows_closed(&self, number: u64, title: &str) {
+        self.closed.lock().expect("closed").push(ReadIssue {
+            number,
+            title: FromOutside::verbatim(title),
+            url: FromOutside::verbatim(format!("https://forge.invalid/o/r/issues/{number}")),
+            closed: true,
+        });
     }
 
     /// What the next listing answers, from now on.
@@ -94,6 +105,34 @@ impl Tracker for FakeTracker {
             return Err(NotTracked::of("listing the open issues", said));
         }
         Ok(self.issues.lock().expect("issues").clone())
+    }
+
+    /// A listed issue is open, a closed one is what [`knows_closed`](Self::knows_closed) was told,
+    /// and any other number is none: a pull request's number is not told either.
+    fn read_issue(&self, _in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked> {
+        if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
+            return Err(NotTracked::of("reading the issue", said));
+        }
+        let listed = self
+            .issues
+            .lock()
+            .expect("issues")
+            .iter()
+            .find(|issue| issue.number == number)
+            .map(|issue| ReadIssue {
+                number,
+                title: issue.title.clone(),
+                url: issue.url.clone(),
+                closed: false,
+            });
+        let closed = self
+            .closed
+            .lock()
+            .expect("closed")
+            .iter()
+            .find(|issue| issue.number == number)
+            .cloned();
+        Ok(listed.or(closed))
     }
 
     fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked> {
