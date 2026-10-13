@@ -4,9 +4,9 @@
 // `helm: { state: "none" }`, so the thread, the composer in its pointed state
 // and the record's split button could only be seen by a test building the
 // state inline — which is how #1488 came to stand up a scenario, screenshot
-// through it and delete it again. This asserts the three things the scenario
-// was landed for, so a scenario quietly narrowed back to an empty thread fails
-// here rather than at the next person's screenshot.
+// through it and delete it again. This asserts the two things of it that are
+// the dock's own, the composer and the split button. The thread is a Session's, held in
+// `apps/desktop/src/renderer/src/mock/helm-session.test.tsx`.
 //
 // `helm-dock.test.tsx` beside this owns the *unpointed* dock and *Start fresh*.
 
@@ -19,40 +19,6 @@ unmountAfterEach();
 
 // Core and Helm only: what the dock reads is its own slice's.
 const SLICES = { slices: ["core", "helm"] } as const;
-
-test("the dock opens on a conversation, both voices in it and the answer that never came", async () => {
-  mount("helm-talking", SLICES);
-  await openHelm();
-
-  // The person's ask, and the reply rendered as the prose it is — each of
-  // Helm's paragraphs its own block, not one run-on line.
-  await expect.element(page.getByText("why did 77 stop")).toBeVisible();
-  // "Job 77" is a link to the Job since the thread names what Bridge can open, so the sentence is split around it.
-  await expect.element(page.getByRole("link", { name: "Job 77" })).toBeVisible();
-  await expect
-    .element(page.getByText(/stopped on step 4 of 6, Regression check\. cargo_nextest failed on all three attempts\./))
-    .toBeVisible();
-  await expect.element(page.getByText("Produced — exit 101 — 3 of 2034 tests failed")).toBeVisible();
-  // The reply's cost, which every reply carries.
-  await expect.element(page.getByText("~$0.02 · 4 turns")).toBeVisible();
-
-  // And the failure the record's controls exist for — a second ask with
-  // nothing behind it. Without this the split button stands in no moment.
-  // Fleet's own sentence, whole and unframed on both surfaces — the thread's
-  // "No reply came. " and the record's "no reply came: " are gone. Read off
-  // the row's whole text, because a substring match reads the same either way.
-  const failed = page.getByText("Helm's door would not be configured: Permission denied (os error 13)");
-  await expect.element(failed).toBeVisible();
-  expect(failed.element().textContent).toBe("Helm's door would not be configured: Permission denied (os error 13)");
-
-  // Bridge's own line, immediately above Fleet's, in the case Fleet's reads.
-  // The two rows a thread writes about itself are the only place two producers
-  // meet in one column, and the split the owner saw was here. Whole text
-  // again, because a substring match reads the same in either case.
-  const fresh = page.getByText("the stored session could not be resumed, so this reply starts a new one");
-  await expect.element(fresh).toBeVisible();
-  expect(fresh.element().textContent).toBe("the stored session could not be resumed, so this reply starts a new one");
-});
 
 test("pointed at a repository, the composer takes a message", async () => {
   mount("helm-talking", SLICES);

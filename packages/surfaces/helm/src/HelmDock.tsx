@@ -1,21 +1,20 @@
 // Helm's conversation zone, under the dock's questions — #944. `App.tsx` only
 // wires this in; which repository Helm answers for is main's own decision,
-// made in `main/helm.ts`, and this draws whatever it publishes.
+// made in `main/helm.ts`. **Helm is a hosted Session**, so its thread is drawn as a Session's is: the
+// window builds that thread and the chips for what Helm holds (`hosted`), and the dock lays them out
+// and keeps what is Helm's own — the thought cards, the repository switch and the record. Before a
+// repository's first message there is no Session and the thread is empty.
 //
-// It carries Helm's own permission asks too, since #1519: a Drone's question
-// and a Judge's stay in the block above, and an ask that stopped this
-// conversation is drawn in it.
+// It carries held asks too, since #1519: a Drone's question and a Judge's stay in the block above, and
+// an ask that stopped a conversation is drawn under the thread.
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread, ProseRefs, ThoughtCard } from "@armada/components";
 import { useRecentRepositories } from "@armada/shell";
 import type {
   DockQuestion,
-  HelmApprovalCard,
-  HelmApprovalCardState,
   HelmBox,
   HelmComposerChip,
-  HelmThreadRow,
   ProseReferences,
   SentFromComposer,
 } from "@armada/components";
@@ -25,30 +24,17 @@ import type {
   HelmDebugRead,
   JobSummary,
   RepositorySummary,
-  SentFile,
-  SessionTag,
-  WorkflowSummary,
 } from "@armada/protocol";
-import { helmRowsOf, type HelmApprovalAsk, type HelmFoldedRow } from "./helm-thread";
 import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
 import { recentManifestIds } from "./recent-manifests";
-import { routeTargetOf, type RouteTarget, type ThoughtCarry, type ThoughtReading, type ThoughtRouting } from "./thought-routing";
-
-/** What a window knows of the files its messages carried, which Fleet keeps and a row names by id. */
-export type HelmKept = {
-  /** A picture's address, once the window has read it. The first ask starts the read, and the dock is drawn again when it lands. */
-  picture: (fileId: string) => string | undefined;
-  /** The sketch a sent file was drawn from, where this window drew it. A file from before a reload is a picture. */
-  sketch: (fileName: string) => { id: string; title: string } | undefined;
-};
+import type { RouteTarget, ThoughtCarry, ThoughtReading, ThoughtRouting } from "./thought-routing";
 
 export type HelmDockProps = {
   helm: HelmState["helm"];
   repositories: readonly RepositorySummary[];
-  /** Resolved into a card's Job facts — never anything the model itself said. #1041. */
+  /** Names the Job the dock is on, in the footer. */
   jobs: readonly JobSummary[];
-  workflows: readonly WorkflowSummary[];
   live: boolean;
   /** The open Job's chip, while it stands — `App.tsx`'s own state. #1075. */
   chip?: HelmComposerChip;
@@ -58,8 +44,6 @@ export type HelmDockProps = {
    * blank when it is given**. The window turns it into what the wire takes.
    */
   onAsk: (text: string, context: HelmContext, carry?: ThoughtCarry) => void;
-  /** How a sent row draws the files it carried. Absent, a picture is a name and not a thumbnail. */
-  kept?: HelmKept;
   /** Where the person is, assembled by `App.tsx`. Sent with every ask, unchanged here. #1075. */
   context: HelmContext;
   /** The open Studio and its selected node, by name, for the footer. #1287. */
@@ -71,10 +55,8 @@ export type HelmDockProps = {
   onCopied: (what: string) => void;
   /** Told why the record could not be read, where nothing could be copied. */
   onSaid: (sentence: string) => void;
-  /** Approve, answered: the card waits on this, and a refusal puts it back to ready. #1117. */
-  onApprove: (jobId: string) => Promise<{ ok: boolean }>;
   /**
-   * Every permission ask this session is held inside, already worded by
+   * Every ask a conversation is held inside, already worded by
    * `dockQuestionsOf` — #1519. Drawn under the thread and over the message
    * box, which is where the reply it stopped is and where the person is
    * looking. Oldest first, and empty draws nothing.
@@ -97,10 +79,9 @@ export type HelmDockProps = {
    */
   refs?: ProseReferences;
   /**
-   * **Helm drawn as the Session it is hosted as.** The window builds the Session's thread, with its
-   * tool groups, subagents and questions, and the chips for what Helm holds; the dock lays them out
-   * and keeps what is Helm's own: the thought cards, the repository switch and the record. Present,
-   * the thread above is not drawn, and neither are the permission asks, since Helm runs in auto.
+   * **The Helm Session's thread.** The window builds it as it builds a Session's, with its tool groups,
+   * subagents and questions, and the chips for what Helm holds. Absent before the repository's first
+   * message, and the thread is then empty.
    */
   hosted?: {
     thread: ReactNode;
@@ -121,29 +102,20 @@ type Thought = { id: number; text: string; carry: ThoughtCarry } & (
   | { stage: "new" }
 );
 
-/**
- * A card's own press, held for this dock's lifetime alone — a reload starts
- * over. #1041. `"pending"` is Approve pressed and Fleet not yet answered. #1117.
- */
-type Pressed = "pending" | "approved" | "dismissed";
-
 export function HelmDock({
   helm,
   repositories,
   jobs,
-  workflows,
   live,
   chip,
   onRemoveChip,
   onAsk,
-  kept,
   context,
   studio,
   onSwitch,
   onReadRecord,
   onCopied,
   onSaid,
-  onApprove,
   asks = [],
   routing,
   box,
@@ -159,7 +131,6 @@ export function HelmDock({
   const counted = useRef(0);
   const held = useRef(new Set<number>());
   const [record, setRecord] = useState<Read>({ open: false });
-  const [pressed, setPressed] = useState<Record<string, Pressed>>({});
   const current = helm.state === "none" ? undefined : helm.manifestId;
   const [recentRoots, remember] = useRecentRepositories();
   const options = repositories
@@ -173,17 +144,7 @@ export function HelmDock({
     if (picked !== undefined) remember(picked.root);
     onSwitch(manifestId);
   }
-  const folded = helm.state === "open" || helm.state === "failed" ? helmRowsOf(helm.items) : [];
-  const rows: HelmThreadRow[] = folded.map(({ files, tags, ...row }) =>
-    withKept(withCards(row, jobs, workflows, pressed, onApprove, setPressed, repositories, routing), files, tags, kept),
-  );
-  const replying = helmReplying(helm);
-
-  const notice = !live
-    ? "Fleet is not connected. What Helm already said is still here."
-    : helm.state === "failed"
-      ? helm.detail
-      : undefined;
+  const notice = live ? undefined : "Fleet is not connected. What Helm already said is still here.";
 
   /**
    * Read the record, then draw it. **Asked each time**, never held: it is one
@@ -322,9 +283,7 @@ export function HelmDock({
     <div className="armada-helm-dock" data-hosted={hosted === undefined ? undefined : ""} onKeyDownCapture={keyed}>
       {hosted?.holds}
       {hosted === undefined ? (
-        <ProseRefs.Provider value={refs ?? null}>
-          <HelmThread rows={rows} replying={replying} notice={notice} />
-        </ProseRefs.Provider>
+        <HelmThread rows={[]} notice={notice} />
       ) : (
         <>
           {notice === undefined ? null : <HelmThread rows={[]} notice={notice} />}
@@ -334,9 +293,8 @@ export function HelmDock({
       {/* Between the thread and the message box: the reply is held open above
           it and the person is typing below it, so the ask is in the one place
           neither of them has to be left to find it — #1519. The same
-          `DockQuestions` the dock draws, so there is one card and not two.
-          A hosted Helm runs in auto and asks nothing here. */}
-      {hosted === undefined ? <DockQuestions questions={asks} /> : null}
+          `DockQuestions` the dock draws, so there is one card and not two. */}
+      <DockQuestions questions={asks} />
       {thought === undefined ? null : thought.stage === "routing" ? (
         <ThoughtCard key={thought.id} stage="routing" words={thought.text} />
       ) : thought.stage === "match" ? (
@@ -401,43 +359,6 @@ function onlyIfCarried(carry: ThoughtCarry): ThoughtCarry | undefined {
   return carry.files.length + carry.tags.length + carry.sketches.length === 0 ? undefined : carry;
 }
 
-/**
- * What a message carried, as its row draws it, from the files and tags Fleet kept on it. **A file this
- * window drew as a sketch is drawn as the sketch**; any other picture is a thumbnail once it is read.
- */
-function withKept(
-  row: HelmThreadRow,
-  files: readonly SentFile[] | undefined,
-  tags: readonly SessionTag[] | undefined,
-  kept: HelmKept | undefined,
-): HelmThreadRow {
-  if (files === undefined && tags === undefined) return row;
-  const drawn = (files ?? []).map((file) => ({ file, sketch: kept?.sketch(file.name) }));
-  const sketches = drawn.flatMap((one) => (one.sketch === undefined ? [] : [one.sketch]));
-  const plain = drawn.flatMap((one) => {
-    if (one.sketch !== undefined) return [];
-    const src = one.file.media_type.startsWith("image/") ? kept?.picture(one.file.id) : undefined;
-    return [{ id: one.file.id, name: one.file.name, ...(src === undefined ? {} : { src }) }];
-  });
-  return {
-    ...row,
-    ...(plain.length === 0 ? {} : { files: plain }),
-    ...(sketches.length === 0 ? {} : { sketches }),
-    ...(tags === undefined ? {} : { tags }),
-  };
-}
-
-/**
- * A reply is being written, or a message is waiting for one — the one rule
- * *Start fresh* is refused by, and Fleet's rather than a guess drawn here.
- * **Exported because the act left this component**: the head of the dock now
- * carries it (`App.tsx`), and the thread below still reads the same fact, so
- * the two must not be able to disagree about it.
- */
-export function helmReplying(helm: HelmState["helm"]): boolean {
-  return helm.state === "open" && helm.replying;
-}
-
 /** The record sheet's own state, held for as long as it is open and no longer. */
 type Read = { open: boolean; record?: HelmDebugInfo; failed?: string };
 
@@ -451,86 +372,4 @@ function whyRecord(read: Extract<HelmDebugRead, { ok: false }>): string {
   if (outcome.why === "not_connected") return "Fleet is not connected, so the session cannot be read.";
   if (outcome.why === "refused") return outcome.error.message;
   return "The session could not be read.";
-}
-
-/**
- * One folded row's bare `asks` resolved into drawable cards, off `jobs` and
- * `workflows` — the app's own published state, never anything Helm's tool
- * call said. `#1041`.
- */
-function withCards(
-  row: Omit<HelmFoldedRow, "files" | "tags">,
-  jobs: readonly JobSummary[],
-  workflows: readonly WorkflowSummary[],
-  pressed: Record<string, Pressed>,
-  onApprove: (jobId: string) => Promise<{ ok: boolean }>,
-  setPressed: (update: (was: Record<string, Pressed>) => Record<string, Pressed>) => void,
-  repositories: readonly RepositorySummary[],
-  routing: ThoughtRouting | undefined,
-): HelmThreadRow {
-  const { asks, sent, ...rest } = row;
-  // Words that went to other work: the repository is named as the picker names it, and the chip opens the Session or Job.
-  const target = sent === undefined ? undefined : routeTargetOf(sent, repositories);
-  const placed = target === undefined ? {} : { sent: { target, onOpen: () => routing?.open(target) } };
-  if (asks === undefined || asks.length === 0) return { ...rest, ...placed };
-  return {
-    ...rest,
-    ...placed,
-    cards: asks.map((ask) => cardOf(ask, jobs, workflows, pressed, onApprove, setPressed)),
-  };
-}
-
-function cardOf(
-  ask: HelmApprovalAsk,
-  jobs: readonly JobSummary[],
-  workflows: readonly WorkflowSummary[],
-  pressed: Record<string, Pressed>,
-  onApprove: (jobId: string) => Promise<{ ok: boolean }>,
-  setPressed: (update: (was: Record<string, Pressed>) => Record<string, Pressed>) => void,
-): HelmApprovalCard {
-  const job = jobs.find((one) => one.id === ask.jobId);
-  const workflow = job === undefined ? undefined : workflows.find(matching(job));
-  const state = stateOf(ask.id, job, pressed);
-  return {
-    id: ask.id,
-    jobHandle: job?.handle ?? ask.jobId,
-    workflow: workflow?.name,
-    stepCount: workflow?.steps.length,
-    state,
-    ...(state === "ready" || state === "pending"
-      ? {
-          onApprove: () => {
-            setPressed((was) => ({ ...was, [ask.id]: "pending" }));
-            // Refused: drop the press, so the card reads the Board again and can be pressed again.
-            void onApprove(ask.jobId).then((answer) =>
-              setPressed(({ [ask.id]: _pending, ...rest }) =>
-                answer.ok ? { ...rest, [ask.id]: "approved" } : rest,
-              ),
-            );
-          },
-          onDismiss: () => setPressed((was) => ({ ...was, [ask.id]: "dismissed" })),
-        }
-      : {}),
-  };
-}
-
-function matching(job: JobSummary): (workflow: WorkflowSummary) => boolean {
-  return (workflow) => workflow.id === job.workflow_id && workflow.manifest_id === job.owner_manifest_id;
-}
-
-/**
- * **A local press wins over the Board once it has been made** — so a card
- * this dock approved reads "Approved." rather than snapping straight to
- * `elsewhere` the instant the Job leaves `awaiting_approval` because the
- * press worked, and one still waiting on Fleet reads `pending`.
- *
- * Absent any press, the Board's own status decides: a Job no longer there, or
- * one this card never moved, reads `elsewhere`; a Job this dock has never
- * heard of reads `unknown`, in words rather than a broken card.
- */
-function stateOf(id: string, job: JobSummary | undefined, pressed: Record<string, Pressed>): HelmApprovalCardState {
-  const local = pressed[id];
-  if (local !== undefined) return local;
-  if (job === undefined) return "unknown";
-  return job.status === "awaiting_approval" ? "ready" : "elsewhere";
 }

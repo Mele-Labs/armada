@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { heldOfPicked, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
-import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, helmReplying, NO_CHIP, opened, screenOf } from "@armada/helm";
+import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, NO_CHIP, opened, screenOf } from "@armada/helm";
 import type { ChipState } from "@armada/helm";
 import { Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
@@ -665,12 +665,10 @@ export function App({ draft }: AppProps = {}) {
               helm={state.helm}
               repositories={repositories}
               jobs={state.jobs}
-              workflows={state.holds.workflows}
               live={live}
               chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
               onRemoveChip={() => setChip(dismissed)}
               onAsk={(text, context, carry) => void helmBox.ask(text, context, carry)}
-              kept={helmBox.kept}
               context={helmContext}
               studio={
                 shownStudio === null
@@ -687,7 +685,6 @@ export function App({ draft }: AppProps = {}) {
               onReadRecord={helmDebugInfo}
               onCopied={setCopied}
               onSaid={setTelling}
-              onApprove={commands.approve}
             />
             {helmBox.pad}
             {helmHosted.sheets}
@@ -697,14 +694,13 @@ export function App({ draft }: AppProps = {}) {
           // 18 Sep 2026. It ends the conversation the whole dock is showing, so
           // it belongs to the dock rather than to the row above the message box,
           // where three controls wrapped onto a second line at the dock's width.
-          // Refused while a reply is being written: Fleet's own rule, read
-          // through the same helper the thread below reads it with.
+          // Held while a turn runs: Stop is the Session's own control for that.
           helmAction={
             <Button
               variant="ghost"
               size="sm"
               onClick={() => void startHelmFresh()}
-              disabled={helmReplying(state.helm) || helmHosted.hosted?.working === true}
+              disabled={helmHosted.hosted?.working === true}
             >
               Start fresh
             </Button>

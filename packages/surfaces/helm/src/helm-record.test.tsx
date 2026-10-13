@@ -43,7 +43,7 @@ function talking(): Scenario {
     says: "Helm pointed at a repository, with a session to report",
     state: {
       ...connected([], [workflow()], [repository()]),
-      helm: { state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items: [], facts: {} },
+      helm: { state: "pointed", manifestId: MANIFEST_ID },
     },
     reads: {},
     behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }),

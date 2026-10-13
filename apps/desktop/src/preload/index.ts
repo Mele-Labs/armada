@@ -40,7 +40,7 @@ import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { WriteClashesRead } from "../shared/api/clashes";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
-import type { HelmCarry, HelmTuned } from "../shared/api/helm";
+import type { HelmCarry } from "../shared/api/helm";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -987,10 +987,6 @@ const api: BridgeApi = {
 
   askHelm: (text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.askHelm, text, context, carry),
-  tuneHelm: (manifestId: string | undefined, model: string | null, effort: string | null): Promise<HelmTuned> =>
-    ipcRenderer.invoke(CHANNELS.tuneHelm, manifestId, model, effort),
-  readHelmFile: (manifestId: string, file: string): Promise<FrameRead> =>
-    ipcRenderer.invoke(CHANNELS.readHelmFile, manifestId, file),
   helmDebugInfo: (): Promise<HelmDebugRead> => ipcRenderer.invoke(CHANNELS.helmDebugInfo),
   readThought: (text: string): Promise<ThoughtRead> => ipcRenderer.invoke(CHANNELS.readThought, text),
   recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> =>

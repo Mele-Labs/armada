@@ -3,10 +3,10 @@
 //
 // **Two operations, both Bridge's.** `read_thought` answers whether the words a person typed into
 // Helm's box are a question for Helm or a thought for other running work, and which.
-// `record_thought_sent` is said after Bridge delivered the words, and Fleet keeps a row in Helm's
-// thread for them. Neither sends anything to a Session, a Job or Helm's own session.
+// `record_thought_sent` is said after Bridge delivered the words, and Fleet keeps a `sent` row in the
+// Helm Session's thread for them. Neither sends anything to a Session, a Job or Helm's own session.
 
-import type { SentFile, SessionTag, SessionUpload } from "./hosted-sessions";
+import type { SessionTag, SessionUpload } from "./hosted-sessions";
 import type { Outcome } from "./reads";
 
 /** `read_thought` (`POST /helm/read_thought`). */
@@ -47,22 +47,9 @@ export type ThoughtReading =
 export type ThoughtSent = {
   text: string;
   target: ThoughtTarget;
-  /** What the thought went with, kept by Fleet in Helm's own directory as an ask's are. Left out when empty. */
+  /** What the thought went with, kept with the Helm Session's own uploads as an ask's are. Left out when empty. */
   attachments?: SessionUpload[];
   mentions?: SessionTag[];
-};
-
-/**
- * **Retired with `GET /helm/observe`.** These words went to a Session or a Job and never to Helm's
- * session; the Helm Session's thread keeps them as a `sent` row, `SessionRow` in `hosted-sessions.ts`.
- */
-export type HelmSent = {
-  ts: string;
-  text: string;
-  target: ThoughtTarget;
-  /** Files and pictures it went with, readable with `get_helm_file` like an asked row's. */
-  files?: SentFile[];
-  tags?: SessionTag[];
 };
 
 /**

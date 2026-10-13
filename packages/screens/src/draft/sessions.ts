@@ -338,6 +338,12 @@ export type PageBounds = { x: number; y: number; width: number; height: number }
  */
 export type SessionsDraft = {
   get: () => readonly Session[];
+  /**
+   * The live Helm Session of the repository Helm's dock answers for, **whatever the rail picked**: the
+   * list holds the picked repository's Sessions, and Helm may be pointed at another. Absent where the
+   * list holds every Session, and the dock then finds it there.
+   */
+  helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
   /**
    * Takes a Job's worktree: starts a Session on it and returns the Session's id. **A promise on a real

@@ -21,9 +21,21 @@ import { threadRowsOf } from "./session-thread-rows";
 
 const NO_ROWS: ReturnType<typeof threadRowsOf> = [];
 
-/** Helm's Session for the repository the dock answers for, while the window serves one. */
+/** Helm's Session for the repository the dock answers for, among the Sessions the window lists. */
 export function helmSessionOf(sessions: readonly Session[], manifestId: string | undefined): Session | undefined {
   return manifestId === undefined ? undefined : sessions.find((one) => one.helm === true && one.dead === undefined && one.manifestId === manifestId);
+}
+
+/**
+ * Helm's Session for the repository the dock answers for. **Whatever the rail picked**: a real Fleet's list
+ * holds the picked repository's Sessions, and Helm may be pointed at another, so it is asked for by name;
+ * where the list holds every Session, it is found there.
+ */
+export function useHelmSession(manifestId: string | undefined): Session | undefined {
+  const draft = useSessionsDraft();
+  const sessions = useSessions();
+  if (manifestId === undefined) return undefined;
+  return draft?.helmOf?.(manifestId) ?? helmSessionOf(sessions, manifestId);
 }
 
 type Host = {
@@ -41,7 +53,7 @@ type Host = {
 export function useHelmHosted({ manifestId, goes, held, board, lines, settings, openSession, openJob }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
   const draft = useSessionsDraft();
   const sessions = useSessions();
-  const session = helmSessionOf(sessions, manifestId);
+  const session = useHelmSession(manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
