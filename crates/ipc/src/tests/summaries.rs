@@ -78,6 +78,22 @@ fn a_row_names_when_it_was_reclaimed_only_once_a_reclaim_happened() {
     );
 }
 
+/// **Absent, never present-and-null**, and carried once Fleet has told the Drone
+/// something: Bridge compares it against a failure's time, and a `null` would
+/// read as an instant that parsed to nothing.
+#[test]
+fn a_row_names_when_its_drone_was_last_told_only_once_it_was() {
+    let standing = encode(&JobSummary::from(&job())).expect("plain data");
+    assert!(!standing.contains("last_told_at"), "{standing}");
+
+    let mut told = JobSummary::from(&job());
+    told.last_told_at = Some(crate::Instant::carried("2026-10-13T13:05:00Z"));
+    let json = encode(&told).expect("plain data");
+    assert!(json.contains("\"last_told_at\":\"2026-10-13T13:05:00Z\""), "{json}");
+    let back: JobSummary = decode("JobSummary", json.as_bytes()).expect("what it wrote");
+    assert_eq!(back.last_told_at, told.last_told_at);
+}
+
 /// The list is where a title is read, so it is on the summary — and the
 /// redaction the summary exists for still holds around it.
 #[test]

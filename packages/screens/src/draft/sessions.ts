@@ -9,7 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
-import type { WaitingItem } from "@armada/protocol";
+import type { PullRequestPage, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -301,6 +301,9 @@ export type ArtifactRead =
   | { ok: true; bytes: Uint8Array; type: string }
   | { ok: false; why: "not_addressable" | "too_big" | "unreadable" | "binary"; limit?: number };
 
+/** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
+export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
+
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
 
@@ -375,6 +378,16 @@ export type SessionsDraft = {
   };
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;
+  /**
+   * What the pull request panel's tabs and facts draw, read when the panel opens. Absent where
+   * nothing serves it, and the panel then draws no tabs and no comment box.
+   */
+  pullRequestPage?: (id: string, number: number) => Promise<PullRequestPageRead>;
+  /**
+   * A comment, an approval or a request for changes on a pull request. **Answers the page read
+   * again after it**, or Fleet's words for a refusal. Absent with `pullRequestPage`.
+   */
+  writePullRequest?: (id: string, number: number, write: Pick<WritePullRequest, "kind" | "body">) => Promise<PullRequestPageRead>;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */
   said?: () => string | undefined;
   /** What `@` offers beyond other Sessions: Jobs, pull requests and branches. */

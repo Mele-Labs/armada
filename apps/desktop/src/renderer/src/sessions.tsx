@@ -480,6 +480,8 @@ function ReadingSheet({
   if (one?.kind === "pull_request") {
     return (
       <SessionPullRequest
+        sessionId={sessionId}
+        draft={draft}
         one={one}
         lines={lines}
         floor={floor}

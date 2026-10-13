@@ -454,6 +454,7 @@ where
             drones: std::sync::Mutex::new(Drones::default()),
             peers: fittings.peers,
             spared: Default::default(),
+            told: Default::default(),
             merge_end: Mutex::new(()),
             reflecting: crate::retro::Reflecting::default(),
             building: crate::building::Building::default(),

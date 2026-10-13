@@ -240,6 +240,8 @@ pub struct Fleet<H, V, W> {
     peers: Arc<dyn PeerOf>,
     /// Jobs `crate::releasing` leaves alone, and since when.
     spared: crate::releasing::Spared,
+    /// When each Job's Drone was last told something. See [`crate::resume::Told`].
+    told: crate::resume::Told,
     /// The rebase-and-push tail, held by one Job at a time.
     ///
     /// **Every worktree is cut from one `.git`**, and whether two of them can

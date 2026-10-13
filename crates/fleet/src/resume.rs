@@ -24,12 +24,13 @@
 //!
 //! [`restart_step`]: Fleet::restart_step
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
     Actor, Component, Envelope, Job, JobId, JobStatus, Level, StepId, StepState,
-    StepTarget, Stuck, Target, TransitionReason,
+    StepTarget, Stuck, Target, Timestamp, TransitionReason,
 };
 
 use crate::adrift::Adrift;
@@ -39,6 +40,12 @@ use crate::leasing::JobTree;
 use crate::reviewing::Said;
 use crate::session::{LiveSession, Occasion};
 use crate::working::Working;
+
+/// When each Job's Drone was last told something, or a step of it restarted, by
+/// somebody other than Fleet. Never written down, for `releasing::Spared`'s
+/// reason: it only answers "since when has anyone been on this", and a restart
+/// of Fleet leaves nobody less on it.
+pub(crate) type Told = std::sync::Mutex<BTreeMap<JobId, Timestamp>>;
 
 /// A Drone that took a turn after a person redirected it.
 ///
@@ -171,6 +178,7 @@ where
             None => job,
         };
         self.instruct(job_id, &speech, &working).await?;
+        self.told_now(job_id);
         if let Some(at_work) = working.as_mut() {
             // **The two paths differ on the step's clocks, and on nothing
             // else.** Both start the thrashing chain again — without that a
@@ -353,6 +361,33 @@ where
     /// **Fleet is the one other asker**: `crate::boot_restart` puts a step
     /// back after a Fleet restart, and the Job's log signs the move as Fleet's.
     pub(crate) async fn restart_step_by(
+        &self,
+        job_id: &JobId,
+        note: Option<&Redirection>,
+        ending: Ending,
+        by: Actor,
+    ) -> Result<Job, Adrift> {
+        let job = self.restarted(job_id, note, ending, by).await?;
+        // Fleet's own restart after a boot tells nobody anything.
+        if by != Actor::Fleet {
+            self.told_now(job_id);
+        }
+        Ok(job)
+    }
+
+    /// When this Job's Drone was last told something or had a step restarted by
+    /// somebody other than Fleet, as `JobSummary::last_told_at` serves it.
+    pub(crate) fn told_at(&self, job_id: &JobId) -> Option<Timestamp> {
+        self.last_told().lock().ok()?.get(job_id).cloned()
+    }
+
+    fn told_now(&self, job_id: &JobId) {
+        if let Ok(mut told) = self.last_told().lock() {
+            told.insert(job_id.clone(), self.now());
+        }
+    }
+
+    async fn restarted(
         &self,
         job_id: &JobId,
         note: Option<&Redirection>,

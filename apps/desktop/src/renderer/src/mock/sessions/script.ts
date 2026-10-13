@@ -524,6 +524,7 @@ export function sessionsStore(
               id: rid,
               at: stamp,
               kind: "message",
+              instant: new Date().toISOString(),
               from: { kind: "you" },
               text: sent.text,
               ...(sent.files.length === 0 ? {} : { files: sent.files }),
