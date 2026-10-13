@@ -22,7 +22,8 @@ pub const MOST_NOTE_CHARS: usize = 600;
 /// What a Drone leaves for another Job's Drone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LeaveNote {
-    /// The other Job's handle, as a peer turn prints it: `12-fix-the-writer`.
+    /// The other Job's handle, as a peer turn prints it: `12-fix-the-writer`. A Session's address
+    /// (`s-1a2b3c4d`) where Fleet found their changes conflict.
     pub to: String,
     /// What that Drone needs to know. Never blank, never over [`MOST_NOTE_CHARS`].
     pub note: String,
@@ -52,8 +53,9 @@ pub(super) fn note_tool() -> Value {
              repository that changes files this Job changes — for example \
              \"I am adding migration V64, take V65\". Address it by the Job's \
              handle, exactly as an OTHER JOBS WRITING WHERE YOU ARE turn prints \
-             it. The note reaches that Drone within a few minutes, marked as \
-             your words. Nothing waits for a reply and none comes back through \
+             it, or a Session by its address, `s-` and eight characters. The \
+             note reaches that Drone within a few minutes, marked as your \
+             words. Nothing waits for a reply and none comes back through \
              this tool. It is not a way to ask a person anything: use \
              ask_question for that.",
         "inputSchema": {

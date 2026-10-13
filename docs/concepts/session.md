@@ -305,6 +305,16 @@ Capture and Approve keep working while the card is open. The card folds into the
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
 
+**A Session is told when what it wrote would conflict.** When Fleet finds that the files a Session wrote conflict with another Job's or Session's, or with the base after it moved, it sends that Session one message: the files, who the other is and how to reach it. The Session is not paused and the message is sent once per set of files. `docs/concepts/fleet.md`, *Write clashes*.
+
+| The other is | The message names |
+|---|---|
+| A Job | Its handle and title, and says to send its Drone a message with `redirect_drone` and the Job's id |
+| A Session | Its address, `s-` and the first eight characters of its id, and its branch, and says to use `SendMessage` to that address |
+| The base | The commit on it that changed the first file, and says to merge it into the branch |
+
+A terminal Session reports the files it wrote through the mod's `touched` fact, as paths from its directory. A Job's Drone can answer a Session with `leave_note` on the Session's address, which arrives as a message naming that Job.
+
 ## Acts on a pull request
 
 A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number, and is nobody's Job.

@@ -108,26 +108,31 @@ where
         }
     }
 
-    /// Git would not say. **Not a clash and not a clear**: the last reading stands.
+    /// Git would not say. **Not a clash and not a clear**: the last reading stands. It is written to
+    /// the log of each Job in the pair; two Sessions have none to write it to, and the next write
+    /// asks again.
     async fn not_checked(&self, opposed: &Opposed, why: &NotChecked) {
-        let job = match (&opposed.0, &opposed.1) {
-            (Who::Job(job), _) | (_, Side::Holder(Who::Job(job))) => Some(job),
-            _ => None,
-        };
-        match job {
-            Some(job) => {
-                let envelope = Envelope::new(
-                    self.now(),
-                    Level::Warn,
-                    Component::Fleet,
-                    self.run().clone(),
-                    "git would not say whether this Job's changes conflict with another's, so none was reported",
-                )
-                .in_job(job.as_ulid().clone())
-                .with_field("cause", FieldValue::Str(why.to_string()));
-                self.noted_in_the_log(job, &envelope);
-            }
-            None => eprintln!("a write clash could not be checked: {why}"),
+        let jobs = [Some(&opposed.0), match &opposed.1 {
+            Side::Holder(other) => Some(other),
+            Side::Main => None,
+        }]
+        .into_iter()
+        .flatten()
+        .filter_map(|who| match who {
+            Who::Job(job) => Some(job),
+            Who::Session(_) => None,
+        });
+        for job in jobs {
+            let envelope = Envelope::new(
+                self.now(),
+                Level::Warn,
+                Component::Fleet,
+                self.run().clone(),
+                "git would not say whether this Job's changes conflict with another's, so none was reported",
+            )
+            .in_job(job.as_ulid().clone())
+            .with_field("cause", FieldValue::Str(why.to_string()));
+            self.noted_in_the_log(job, &envelope);
         }
     }
 

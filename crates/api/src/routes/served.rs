@@ -518,11 +518,6 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/needs",
     },
-    Route {
-        operation: "list_write_clashes",
-        method: "GET",
-        path: "/clashes",
-    },
     // A pull request by repository and number, and the acts a Session takes on
     // one. Beside `merge_pull_request`, which is a Job's and not this.
     Route {

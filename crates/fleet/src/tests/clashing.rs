@@ -379,7 +379,7 @@ fn a_drones_edit_call_is_a_write_in_its_worktree_and_a_path_elsewhere_is_not() {
         who: who.clone(),
         manifest: "m".into(),
         worktree: "/r/.armada/slots/slot-3".into(),
-        home: "/home/x".into(),
+        home: "/home/user".into(),
     };
     let edit = |path: &str| DroneEvent::Called {
         tool: testkit::EDITS.to_string(),
