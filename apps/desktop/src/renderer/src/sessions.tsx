@@ -58,6 +58,7 @@ import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
+import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
@@ -646,7 +647,14 @@ export function entriesOf(
       ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
-        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, { choice: at }) })) }),
+        : {
+            options: one.options.map((option, at) => ({
+              label: option.label,
+              ...(option.description === undefined ? {} : { description: option.description }),
+              onPick: () => answerWaiting(one.id, { choice: at }),
+            })),
+            onOther: (text: string) => answerWaiting(one.id, { text }),
+          }),
       ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
@@ -784,6 +792,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
+  // The lapsed question answered from here, hidden until Fleet's thread shows the message that settles it.
+  const [answeredLapse, setAnsweredLapse] = useState<string | undefined>();
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
   const threadRows = useThreadRows(session);
@@ -986,6 +996,18 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                   },
                 })}
             onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+            {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
+              ? {}
+              : {
+                  lapsed: {
+                    id: session.lapsed.id,
+                    questions: session.lapsed.questions,
+                    onAnswer: (answers) => {
+                      const lapse = session.lapsed!.id;
+                      void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
+                    },
+                  },
+                })}
             onOpenSession={onOpen}
           />
           {session.dead !== undefined ? null : (

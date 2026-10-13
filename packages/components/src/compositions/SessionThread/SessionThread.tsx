@@ -128,6 +128,12 @@ export type SessionThreadProps = {
   asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
   /**
+   * A question the agent asked that nobody answered in time, drawn as the deck under the thread until it is
+   * answered or the person says anything else. Not a call: the agent is not held on it, so it has no Skip,
+   * and a live `asked` takes its place.
+   */
+  lapsed?: { id: string; questions: readonly AskedQuestion[]; onAnswer: (answers: QuestionAnswer[]) => void };
+  /**
    * The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none.
    * `made` are ledger entries (pull requests, or artifacts), listed under the band as presses; none draws no body.
    * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
@@ -676,7 +682,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -760,6 +766,18 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, on
             )}
           </div>
           )}
+        </Card>
+      )}
+      {lapsed === undefined || asked !== undefined ? null : (
+        <Card flat className="armada-session-thread__ask" role="article" aria-label="Unanswered">
+          <QuestionDeck
+            key={lapsed.id}
+            questions={lapsed.questions}
+            onAnswer={(_, answers) => {
+              if (answers !== undefined) lapsed.onAnswer(answers);
+            }}
+            canSkip={false}
+          />
         </Card>
       )}
       {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}

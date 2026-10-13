@@ -55,7 +55,7 @@ const WAITING: LedgerEntry[] = [
   },
 ];
 
-/** Waiting on you leads the ledger, each item names its act by glyph, and a question's choices are numbered presses. */
+/** Waiting on you leads the ledger, each item names its act by glyph, and a question's choices are a deck. */
 export const WaitingOnYou: Story = {
   args: { entries: [...ENTRIES.slice(0, 2), ...WAITING] },
   play: async ({ canvas }) => {
@@ -64,10 +64,10 @@ export const WaitingOnYou: Story = {
     await expect(canvas.getByRole("img", { name: "Opens the walk" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Opens the pull request" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Copies the command" })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Goes to the question" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open Look at the findings page" }));
     await expect(shown).toHaveBeenCalled();
-    await userEvent.click(canvas.getByRole("button", { name: "Choice 2 Frozen" }));
+    await userEvent.click(canvas.getByRole("radio", { name: "Frozen" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Answer" }));
     await expect(picked).toHaveBeenCalledTimes(1);
   },
 };

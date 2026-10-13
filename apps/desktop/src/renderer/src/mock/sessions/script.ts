@@ -512,9 +512,10 @@ export function sessionsStore(
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
       edit(id, (one) => {
-        const { pendingTags, done, ...rest } = one;
+        const { pendingTags, done, lapsed, ...rest } = one;
         void pendingTags;
         void done;
+        void lapsed;
         const looking = taggedJobs
           .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
           .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));

@@ -227,6 +227,24 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
   };
 }
 
+/**
+ * The last ask whose time ran out with questions in it, while nothing the person said and no newer
+ * question came after it. Reading back from the end, the first of those stops the search.
+ */
+export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
+  for (let at = rows.length - 1; at >= 0; at -= 1) {
+    const row = rows[at]!;
+    if (row.kind === "message" && row.from.kind === "you") return undefined;
+    if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0) continue;
+    return row.state === "unanswered" ? { id: row.id, questions: row.ask.questions } : undefined;
+  }
+  return undefined;
+}
+
+/** What the person says to the agent in place of the answer it did not wait for, a line a question. */
+export const lapsedAnswerText = (answers: readonly { question: string; chosen: readonly string[] }[]): string =>
+  answers.map((one) => `Answering your earlier question "${one.question}": ${one.chosen.join(", ")}`).join("\n");
+
 const SETTLED: Record<string, string> = {
   ran_unasked: "ran without asking",
   allowed_once: "allowed once",
@@ -377,6 +395,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture, beside.repository);
+  const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -396,6 +415,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
         : { state: "idle" },
     ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, ""), lastTurnAt: record.last_turn_at }),
     ...(asked === undefined ? {} : { asked: askOf(asked) }),
+    ...(lapsed === undefined ? {} : { lapsed }),
     pendingTags: beside.pending,
     ...(model === undefined ? {} : { model }),
     ...(hosted?.resolved_model === undefined ? {} : { resolvedModel: hosted.resolved_model }),

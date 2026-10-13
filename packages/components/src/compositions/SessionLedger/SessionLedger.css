@@ -259,15 +259,6 @@ path.armada-session-ledger__picture-later {
   outline-offset: var(--focus-ring-offset);
 }
 
-/* A waiting question's choices, numbered, wrapped under its row. */
-.armada-session-ledger__options {
-  display: flex;
-  flex-basis: 100%;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-2);
-}
-
 /* The reply box under a waiting row with no act: the field, and Send at its end. */
 .armada-session-ledger__reply {
   display: flex;

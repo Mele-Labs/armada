@@ -16,10 +16,13 @@ export function QuestionDeck({
   questions,
   onAnswer,
   canSkip,
+  flat,
 }: {
   questions: readonly AskedQuestion[];
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
   canSkip: boolean;
+  /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
+  flat?: boolean;
 }) {
   const [front, setFront] = useState(0);
   const [open, setOpen] = useState(true);
@@ -62,7 +65,7 @@ export function QuestionDeck({
   };
 
   return (
-    <div className="armada-question-deck">
+    <div className="armada-question-deck" data-flat={flat || undefined}>
       {front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => (
@@ -97,7 +100,7 @@ export function QuestionDeck({
               {open ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
             </button>
           </header>
-          <div className="armada-question-deck__body" hidden={!open}>
+          <div className="armada-question-deck__body" hidden={flat ? false : !open}>
             <p className="armada-question-deck__ask">{one.question}</p>
             <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
               {one.options.map((option, index) => {
