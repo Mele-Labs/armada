@@ -64,7 +64,7 @@ const record: HelmDebugInfo = {
 /**
  * The record a person carries to an issue. The `play` is the whole claim of
  * `#1367`: what is read on screen is what the control copies, and it names the
- * note, the roster, the authority and the turns.
+ * note, the roster, the authority and what was refused.
  */
 export const Read: Story = {
   args: { open: true, record },
@@ -76,7 +76,7 @@ export const Read: Story = {
     // The four things the issue says decide an answer, in the one string.
     await expect(written).toContain("You are Helm, in Armada.");
     await expect(written).toContain("get_events_since");
-    await expect(written).toContain("$0.0243 · 3 turns · 1 refused");
+    await expect(written).toContain("refused Read · the person refused it");
     await expect(written).toContain("its last poll was told 17, from cursor 41");
     // A long session says what it cut rather than being quietly short.
     await expect(written).toContain("12 older cut");
