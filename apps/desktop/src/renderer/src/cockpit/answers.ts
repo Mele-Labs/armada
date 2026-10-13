@@ -327,7 +327,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     if (answers.length === 0) open?.();
     else if (chosen !== undefined) answers[chosen]?.run();
   };
-  const replies = waiting !== undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission";
+  // A first message is sent in the Session's own box, so the card has no reply and its one act opens the Session.
+  const replies = waiting !== undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
 
   return {
     ask: decision?.question ?? item.fact,

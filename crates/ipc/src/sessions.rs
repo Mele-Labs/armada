@@ -299,6 +299,8 @@ pub enum WaitingActKind {
     ApprovePr,
     /// Show a command; `target` is the command.
     Run,
+    /// Send the Session a message: go to its box. `target` is the Session's id. Since 23.80.
+    Message,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -363,13 +365,16 @@ pub enum WaitingSource {
     Permission,
     /// Fleet: a question the session asked in its walk window, `ask_in_window`, is unanswered.
     WindowAsk,
+    /// Fleet: another Session's agent started this one and its first message has not been sent.
+    /// The item has no reply, since sending that message is the answer. Since 23.80.
+    FirstMessage,
 }
 
 /// One thing a session is waiting on the person for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
     /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
-    /// `window_ask:<row>`.
+    /// `window_ask:<row>`, `unsent:<session>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.

@@ -708,6 +708,8 @@ where
         if from == SessionVoice::You {
             self.noted_on_the_ledger(&session, &sent.mentions, &text)
                 .await?;
+            // What the box held may be the first message another Session's agent wrote for him.
+            self.first_message_sent(&id).await;
         }
 
         let mut turn = String::new();

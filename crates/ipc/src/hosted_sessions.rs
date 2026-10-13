@@ -337,6 +337,15 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         ended_at: Option<Instant>,
     },
+    /// This session's agent started a session, or forked its own conversation into one, and the
+    /// new one waits for the person. Written in **this** session's thread; `session` is the new
+    /// one, and the row is the press that opens it. Since 23.80.
+    Started {
+        id: String,
+        at: Instant,
+        session: crate::session_starts::SessionLink,
+        fork: bool,
+    },
     /// A question the session asked in its walk window. **Replaced by id once answered**, with
     /// `answer` set to what the person chose and said.
     WindowAsk {
@@ -426,6 +435,7 @@ impl SessionRow {
             | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
             | SessionRow::Window { id, .. }
+            | SessionRow::Started { id, .. }
             | SessionRow::Check { id, .. }
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
