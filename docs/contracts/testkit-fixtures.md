@@ -63,6 +63,8 @@ both are still written.
 | 5 | evidence-gaming | Valid evidence, assertion weakened to pass | Judge gaming check | Trust |
 | 6 | silent-deny-no-commit | Exits 0, tool denied, empty diff | `requires_diff` · denial correlation | **Unassigned** — open question |
 
+| 7 | plan-limit | `rate_limit_event` `rejected` with a reset, then an error result | `fleet::limit_hold` | Held, not escalated |
+
 **Re-derived 23 Aug 2026, not remapped.** M1 carries a gate the old
 plan's first phase did not: a step advances only on an Evidence tool
 call. That refuses fixtures 2 and 3 at the gate itself, so both go green
@@ -371,6 +373,23 @@ of the seven currently describe. Capture at
 is a real happy-path capture from 2.1.241 — a fixed repo, a deterministic
 task, one edit and one command — and is usable as the first pinned
 `real-capture-<date>.ndjson` rather than needing a fresh one.
+
+---
+
+## 7. plan-limit
+
+**Stream:** a Drone reads a file, the plan's five-hour window moves to `allowed_warning` and then
+`rejected` with `resetsAt`, the assistant line carries `error: rate_limit`, and the result is an
+error. **The shape of the last two lines is from the harness's documentation and v1's record of a
+Job dead at `rejected`, not from a capture on this machine**; the `rate_limit_event` lines are the
+captured shape.
+
+**Assertion:** `Ending::of` reads it as `Limited`, the Job is parked until the reset and a
+minute more, and then resumed. It is never escalated, and nothing counts against a retry.
+`fleet::tests::limit_hold` holds it with scripted events; `adapters` decodes this file.
+
+**What it does not make detectable:** a window rejected for the weekly limit reads the same,
+and a rejection the run got past reads as an ordinary ending.
 
 ---
 

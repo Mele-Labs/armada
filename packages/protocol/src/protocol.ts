@@ -237,6 +237,11 @@ export type Paused = {
   at: string;
   /** A resume found every slot held, and the job waits for the first to free. */
   resuming: boolean;
+  /**
+   * The plan's limit stopped this job's Drone and it starts again at this instant, when the limit
+   * has reset. Absent on any other pause.
+   */
+  until?: string;
 };
 
 /** One Check a step declares. `crates/ipc/src/checks.rs`. */

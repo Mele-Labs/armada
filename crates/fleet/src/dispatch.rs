@@ -80,6 +80,7 @@ where
         if job.branch().is_some() {
             // A paused Job's branch is in no slot: lease one first, here and
             // not in `readmitted`, because only a dispatch can answer `NoSlot`.
+            let held_by_a_limit = job.pause().is_some_and(|pause| pause.until.is_some());
             let job = match job.is_parked() {
                 true => match self.reseat(&job).await {
                     Ok(Reseat::Seated(seated)) => seated,
@@ -96,7 +97,7 @@ where
                 false => job,
             };
             return self
-                .readmitted(job, working)
+                .readmitted(job, working, held_by_a_limit)
                 .await
                 .map(|()| Dispatched::Started);
         }
@@ -631,7 +632,16 @@ where
         // was working, and asking one that already stopped to stop again is the
         // move the machine refuses.
         let standing = self.load(&job_id).await?;
-        let after = aftermath(standing.status(), &Ending::of(&heard), self.left(&job_id));
+        let mut after = aftermath(standing.status(), &Ending::of(&heard), self.left(&job_id));
+        // The plan's limit stopped the run: park the Job until it resets. Where the pool will not
+        // take the slot back it escalates as any ending does. `crate::limit_hold`.
+        if let Aftermath::HeldUntil { until } = after {
+            if self.held_for_limit(&job_id, &spawned_on, until).await? {
+                working.take();
+                return Ok(Some(after));
+            }
+            after = aftermath(standing.status(), &Ending::folded(&heard), self.left(&job_id));
+        }
         // The one line that says why, where the escalation alone says
         // `interrupted` and nothing else.
         if matches!(Ending::of(&heard), Ending::Vanished) && !matches!(after, Aftermath::TheGateDecides)
@@ -678,7 +688,7 @@ where
                 let dropped = self.empty_the_inbox(&job_id).await;
                 self.dropped_with_the_job(&job_id, dropped);
             }
-            Aftermath::TheGateDecides => {}
+            Aftermath::TheGateDecides | Aftermath::HeldUntil { .. } => {}
         }
         Ok(Some(after))
     }

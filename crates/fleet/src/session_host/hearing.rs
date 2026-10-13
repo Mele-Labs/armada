@@ -150,6 +150,7 @@ where
             DroneEvent::Started { .. } => {
                 // A turn begun again is work the agent had said was over.
                 self.done_cleared(id).await;
+                self.limit_cleared(id).await;
                 let began = self.now().as_str().to_string();
                 {
                     let mut state = runtime.state();

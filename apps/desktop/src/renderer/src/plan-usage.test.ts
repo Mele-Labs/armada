@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+
+import type { PlanUsage } from "@armada/protocol";
+import type { BridgeState } from "../../shared/bridge";
+import { createFleetPlanUsage } from "./fleet-plan-usage";
+import { planUsageDrawn } from "./plan-usage";
+
+const USAGE: PlanUsage = {
+  windows: [
+    { kind: "five_hour", percent_used: 34, resets_at: "2026-10-12T22:40:00Z" },
+    { kind: "seven_day", percent_used: 61 },
+  ],
+  read_at: "2026-10-12T20:26:00Z",
+};
+
+describe("planUsageDrawn", () => {
+  it("draws each window's percent_used as percentUsed, leaving resetsAt out where there is none", () => {
+    expect(planUsageDrawn(USAGE)).toEqual([
+      { kind: "five_hour", percentUsed: 34, resetsAt: "2026-10-12T22:40:00Z" },
+      { kind: "seven_day", percentUsed: 61 },
+    ]);
+  });
+
+  it("draws nothing for a reading with no windows", () => {
+    expect(planUsageDrawn({ windows: [] })).toEqual([]);
+  });
+});
+
+describe("the plan's windows over Fleet", () => {
+  function fleet() {
+    let connection: (facts: Pick<BridgeState, "connection">) => void = () => {};
+    let changed: (usage: PlanUsage) => void = () => {};
+    let reads = 0;
+    return {
+      reads: () => reads,
+      connect: () => connection({ connection: { state: "connected" } as BridgeState["connection"] }),
+      changed: (usage: PlanUsage) => changed(usage),
+      api: {
+        state: async () => ({ connection: { state: "connecting" } as BridgeState["connection"] }),
+        subscribe: (on: typeof connection) => ((connection = on), () => {}),
+        getPlanUsage: async () => ((reads += 1), { ok: true as const, value: USAGE }),
+        onPlanUsageChanged: (on: typeof changed) => ((changed = on), () => {}),
+      },
+    };
+  }
+
+  it("reads once Fleet is connected, and holds each newer reading Fleet tells it", async () => {
+    const held = fleet();
+    const source = createFleetPlanUsage(held.api);
+    const heard: (PlanUsage | undefined)[] = [];
+    source.subscribe(() => heard.push(source.get()));
+    expect(source.get()).toBeUndefined();
+
+    held.connect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(held.reads()).toBe(1);
+    expect(source.get()).toEqual(USAGE);
+
+    const newer = { windows: [{ kind: "five_hour", percent_used: 86 }] };
+    held.changed(newer);
+    expect(source.get()).toEqual(newer);
+    expect(heard).toHaveLength(2);
+  });
+});

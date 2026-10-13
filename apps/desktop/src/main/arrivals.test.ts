@@ -95,6 +95,7 @@ function fakeHost(
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
     sleep: { changed: () => {} },
+    planUsage: { changed: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,

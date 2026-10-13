@@ -329,6 +329,10 @@ pub struct Paused {
     pub at: Instant,
     /// A resume found every slot held, and the Job waits for the first to free.
     pub resuming: bool,
+    /// The plan's limit stopped this Job's Drone, and it starts again at this
+    /// instant, when the limit has reset. Absent on any other pause.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 impl JobSummary {
@@ -406,6 +410,7 @@ impl JobSummary {
                 by: pause.by.as_str().to_string(),
                 at: Instant::from(&pause.at),
                 resuming: pause.resuming,
+                until: pause.until.as_ref().map(Instant::from),
             }),
             // Filled by the caller that holds a store, for `tasks`' reason.
             fixes_main: None,

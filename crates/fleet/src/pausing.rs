@@ -131,7 +131,42 @@ where
         if matches!(standing, JobStatus::Running | JobStatus::Escalated) {
             job = self.drones_ended_for_a_pause(&job).await?;
         }
-        let parked = match self.vcs().park_slot(&pool, slot, job_id.as_str()) {
+        let said = match needed_by {
+            Some(waiter) => format!(
+                "the Job was paused by Fleet and its slot given back so \"{}\" ({}) could start",
+                waiter.title().as_str(),
+                waiter.id().as_str()
+            ),
+            None => String::from("the Job was paused and its slot given back"),
+        };
+        let job = self
+            .parked_and_marked(job, standing, by, None, slot, &pool, &said)
+            .await?;
+        self.published_paused(&job, actor).await;
+        Ok(job)
+    }
+
+    /// Park the Job's work on its branch, give its slot back and write the
+    /// marker; a running Job then goes back in the queue. **Shared by a pause
+    /// and by a hold for the plan's limit** (`crate::limit_hold`), which pass
+    /// `until`. The Job's Drones are already gone. **Publishes nothing beyond the move**:
+    /// a hold calls it with the working slot locked, which `published_paused` asks for.
+    pub(crate) async fn parked_and_marked(
+        &self,
+        job: Job,
+        standing: JobStatus,
+        by: PausedBy,
+        until: Option<core_model::Timestamp>,
+        slot: u32,
+        pool: &adapter_traits::SlotPool,
+        said: &str,
+    ) -> Result<Job, Adrift> {
+        let job_id = job.id().clone();
+        let actor = match by {
+            PausedBy::Person => Actor::Human,
+            PausedBy::Fleet => Actor::Fleet,
+        };
+        let parked = match self.vcs().park_slot(pool, slot, job_id.as_str()) {
             Ok(parked) => parked,
             Err(why) => {
                 if standing == JobStatus::Running {
@@ -142,33 +177,29 @@ where
                     )
                     .await?;
                 }
-                return Err(cannot(why));
+                return Err(Adrift::CannotPark {
+                    job: job_id,
+                    refused: why,
+                });
             }
         };
-        let paused = job.paused(by, self.now());
+        let paused = match until {
+            Some(until) => job.held_until(self.now(), until),
+            None => job.paused(by, self.now()),
+        };
         self.store()
             .lock()
             .await
             .record_pause(&paused)
             .map_err(Adrift::Writing)?;
         self.job_gave_back_slot(&paused).await;
-        let said = match needed_by {
-            Some(waiter) => format!(
-                "the Job was paused by Fleet and its slot given back so \"{}\" ({}) could start",
-                waiter.title().as_str(),
-                waiter.id().as_str()
-            ),
-            None => String::from("the Job was paused and its slot given back"),
-        };
-        self.noted_pause(&paused, Some(slot), &said, parked.commit.as_deref());
+        self.noted_pause(&paused, Some(slot), said, parked.commit.as_deref());
         // **The marker first, then the move**: admission reads the marker, and a
         // `queued` Job without one is a Job it would start again at once.
         if standing == JobStatus::Running {
             self.move_job(&paused, Target::Queued, actor).await?;
         }
-        let job = self.load(job_id).await?;
-        self.published_paused(&job, actor).await;
-        Ok(job)
+        self.load(&job_id).await
     }
 
     /// Resume a paused Job. **A gate Job takes a slot now if there is one**,

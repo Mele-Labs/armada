@@ -123,6 +123,8 @@ export type ShellProps = {
   onSearch: () => void;
   /** Sleep mode's control, in the title row beside Helm's. Absent draws none. */
   sleep?: TheShellProps["sleep"];
+  /** The plan's limits, in the title row. Absent draws none. */
+  planUsage?: TheShellProps["planUsage"];
   /** Which surface is up, by its id in `surfaces.ts`. The rail marks it. */
   showing: string;
   /** Selecting a rail row goes to that surface, from wherever you are. The
@@ -172,6 +174,7 @@ export function Shell({
   onCompose,
   onSearch,
   sleep,
+  planUsage,
   showing,
   onSurface,
   hidden = [],
@@ -320,6 +323,7 @@ export function Shell({
       }
       onSearch={onSearch}
       {...(sleep === undefined ? {} : { sleep })}
+      {...(planUsage === undefined ? {} : { planUsage })}
       onDispatch={onCompose}
       dispatchDisabled={!live}
       fleet={fleet}

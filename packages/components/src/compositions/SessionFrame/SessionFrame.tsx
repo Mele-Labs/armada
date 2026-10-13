@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ContextFigure, type ContextFill } from "./ContextFigure";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -14,10 +15,10 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
  * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, failing is a
  * pull request's Checks red, and ended is nothing listening, whether it was ended
- * or its terminal stopped asking. `[conventions.session_state_borrowing]` and
+ * or its terminal stopped asking, and limited is held until the plan's limit resets. `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended";
+export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended" | "limited";
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
@@ -27,11 +28,13 @@ const MARK: Record<SessionState, LucideIcon> = {
   idle: Check,
   quiet: Unplug,
   ended: Unplug,
+  limited: BatteryLow,
 };
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */
 export function SessionMark({ state, said }: { state: SessionState; said: string }) {
   const Glyph = MARK[state];
+  if (state === "limited") return <LimitMark said={said} />;
   return (
     <Tooltip label={said}>
       <span className="armada-session-mark" role="img" aria-label={said} data-pulsing={state === "working" || undefined}>
@@ -39,6 +42,24 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
       </span>
     </Tooltip>
   );
+}
+
+/** Held for the plan's limit, until Fleet wakes it at the reset: an icon and its tooltip, nothing animated. */
+export function LimitMark({ said, size = 16 }: { said: string; size?: 12 | 16 }) {
+  return (
+    <Tooltip label={said}>
+      <span className="armada-session-mark armada-limit-mark" role="img" aria-label={said}>
+        <BatteryLow size={size} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** The mark's tooltip: "Limit reached · resumes 6:40 PM", in local time. */
+export function limitHeldSaid(until: string): string {
+  const at = new Date(until);
+  if (Number.isNaN(at.getTime())) return "Limit reached";
+  return `Limit reached · resumes ${at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
 }
 
 /** A terminal Session whose mod is older than the repository's. The act is the terminal's own. */
@@ -53,6 +74,9 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
     </Tooltip>
   );
 }
+
+export type { ContextFill } from "./ContextFigure";
+export type { ContextBreakdown } from "../../context-breakdown";
 
 export type SessionFrameProps = {
   state: SessionState;
@@ -70,6 +94,8 @@ export type SessionFrameProps = {
   onRename?: (title: string) => void;
   /** The Session's mod is older than the repository's: marked beside the state. */
   modOutOfDate?: boolean;
+  /** The context window's fill, drawn beside `actions`. Absent draws nothing. */
+  context?: ContextFill;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
   actions?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
@@ -126,7 +152,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, actions, aside, children }: SessionFrameProps) {
   return (
     <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
@@ -135,6 +161,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
+        {context === undefined ? null : <ContextFigure fill={context} />}
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
         {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
       </header>

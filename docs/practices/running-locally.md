@@ -713,10 +713,16 @@ works too, and a module's name (`tests::servers`) runs every test under it; for 
 apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
 
-**`armada check <name> --changed` runs it over what the paths on stdin reach**,
-the way CI does: `git diff --name-only main | armada check test
---changed`. It adds no dependents of its own, so name every crate you want
-measured.
+**`armada check <name> --changed` runs the tests the paths on stdin touch**:
+`git diff --name-only main | armada check test --changed`. A changed test file
+(`src/tests/x.rs`, a `tests/x.rs`) or a changed source file with an inline
+`mod tests` runs that module, in its crate only, and the line under the command
+names which (`touched tests::x in -p fleet`). A change that touches no test
+module runs nothing and says so: name a test with `armada check test <name>`,
+which compiles only the crate that declares it. Whole crates and the crates
+depending on them are CI's. **CI and the merge line read `--changed` the old
+way** (every crate the paths name), which `ARMADA_CHECK_PRIORITY=normal` asks
+for here too. `../concepts/manifest.md`, *How much of the tree a Check reads*.
 
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.

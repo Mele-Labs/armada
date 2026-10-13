@@ -72,6 +72,8 @@ where
                     eprintln!("sleep mode did not pass over the sessions: {why:?}");
                 }
             }
+            // Sessions the plan's limit stopped, woken once it has reset.
+            fleet.limits_lifted().await;
             let (merge, issue) = fleet.read_landings().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;

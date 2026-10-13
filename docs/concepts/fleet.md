@@ -130,7 +130,7 @@ Both turn one thing into several Jobs, and the difference between them is the ap
 
 **Disk earns its place from a measured failure**, not from symmetry with memory: a volume filled during a parallel agent run and agents died at zero bytes free holding uncommitted work, with no warning of any kind. It is also the one held against an absolute floor rather than a share, because what a Job costs in disk — a worktree plus a build — is a number of gigabytes rather than a fraction of whatever volume it landed on, which is why it is a settings row of its own rather than sharing the memory threshold.
 
-**Quota is not a third.** The agent's rate-limit event carries a window and a status and no quantity, so there is no number to hold a Job back against. See the spike on what a Job costs.
+**Quota is not a third.** The agent's rate-limit event carries a window and a status and no quantity, so there is no number to hold a Job back against. See the spike on what a Job costs. A run the limit already refused is held until the reset, which is not a gate: *Held for the plan's limit* in [Job](job.md).
 
 **A machine that cannot be read admits.** A failed reading holds nothing back: a Fleet that queues every Job for ever because a command did not answer is a Fleet that looks dead, and the concurrency cap is still the cap.
 

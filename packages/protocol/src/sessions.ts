@@ -6,6 +6,8 @@
 
 import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
+import type { ContextBreakdown } from "./context-breakdown";
+import type { PlanWindow } from "./plan-usage";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -82,6 +84,17 @@ export type SessionRecord = {
    * or has been given work since: the person's message, a non-empty `waiting_for`, a hosted turn starting.
    */
   done_since?: string;
+  /**
+   * The plan's limit stopped this session, and Fleet wakes it with `Continue` a minute after this
+   * instant, when the limit has reset. Absent when it is not held: a turn, a message from the person,
+   * the wake and the session ending all let it go.
+   */
+  held_until?: string;
+  /**
+   * What fills the context window, as `/context` shows it, from the latest report. Absent until a
+   * mod reports one.
+   */
+  context_breakdown?: ContextBreakdown;
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
@@ -263,8 +276,10 @@ export type SessionFact =
       attachment: { kind: string; target: string };
       state: AttachmentState;
     }
-  | { kind: "measured"; usage: SessionUsage }
+  | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
   | { kind: "turn_completed" }
+  /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
+  | { kind: "limited"; resets_at: string }
   /** Files written, relative to the session's `cwd`. Since 23.81. */
   | { kind: "touched"; paths: string[] }
   | { kind: "wrote" }

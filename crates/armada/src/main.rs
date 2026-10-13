@@ -64,7 +64,11 @@ async fn main() -> ExitCode {
             };
             let asked = match (&test, &paths) {
                 (Some(test), _) => Asked::OneTest(test),
-                (None, Some(paths)) => Asked::Changed(paths),
+                (None, Some(paths)) => armada::reaching::asked_changed(
+                    paths,
+                    checks_runner::Priority::from_env(),
+                    checks_runner::CheckWidth::is_sole_tenant(),
+                ),
                 (None, None) => Asked::Whole,
             };
             declared_by_the_manifest(Registry::Checks, &name, asked, "check").await

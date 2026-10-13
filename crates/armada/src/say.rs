@@ -32,6 +32,12 @@ pub fn ran(ran: &Ran, verb: &str) {
     match &ran.narrowed {
         Some(Reached::To(to)) => println!("{NARROWED_TO}{to}"),
         Some(Reached::Nothing) => println!("{NARROWED_TO}nothing it runs"),
+        Some(Reached::Touched(said)) => println!("  touched {said}"),
+        Some(Reached::NoTests) => println!(
+            "  no changed file is a test or holds one, so nothing ran. \
+             Name a test with `armada check {} <name>`",
+            ran.name
+        ),
         Some(Reached::Whole) | None => {}
     }
     // Before the output, because it happened before the output — and because

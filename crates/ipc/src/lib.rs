@@ -213,6 +213,10 @@ mod commander;
 mod commander_card;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
+/// How much of the plan's windows is used.
+mod plan_usage;
+/// What fills a session's context window.
+mod context_breakdown;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -485,6 +489,8 @@ pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
     AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
+pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile};
+pub use plan_usage::{PlanUsage, PlanWindow};
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

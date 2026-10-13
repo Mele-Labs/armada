@@ -468,3 +468,4 @@ export * from "./compositions/WalkPanel/WalkPanel";
 export * from "./compositions/AutopilotBar/AutopilotBar";
 // A thought typed into Helm, on its way to running work: the match, the choice to start new.
 export * from "./compositions/ThoughtCard/ThoughtCard";
+export * from "./compositions/StopCard/StopCard";

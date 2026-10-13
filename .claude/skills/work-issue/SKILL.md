@@ -113,7 +113,7 @@ until he killed them by hand. There is no other machine.
 
 | You changed | Run |
 |---|---|
-| A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |
+| A crate under `crates/` | `git diff --name-only main \| armada check test --changed` runs the test modules you touched, in their crates only; `armada check test <test>` compiles and runs the one crate declaring that test. The whole `armada check test` is CI's, not a thing to run while you work |
 | Any Rust | `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
 | What a milestone's claim reads | `armada check acceptance` |
 | `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `packages/screens:typecheck`, `packages/components:components_test`, `apps/desktop:app_smoke`. **A story is in `packages/components:components_test`**, a screen's test through `App` in `apps/desktop:app_smoke` (`src/renderer/src/mock/*.test.tsx`), and `apps/desktop/unit:desktop_test` is main and the renderer's own modules, and `packages/screens:screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `brand`, `protocol`, `shell`, `tokens` and `icons` have no manifest: `armada check typecheck` is theirs |

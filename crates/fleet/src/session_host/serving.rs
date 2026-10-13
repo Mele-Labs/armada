@@ -208,6 +208,10 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
+        Ok(self.hosts().plan_usage())
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         self.sleep_state().await
     }
@@ -856,7 +860,10 @@ where
             self.window_noted(&id).await;
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
-        if self.done_cleared(&id).await {
+        let done = self.done_cleared(&id).await;
+        // And the person has taken the session back from the limit: Fleet does not wake it as well.
+        let limited = self.limit_cleared(&id).await;
+        if done || limited {
             return self.published_hosted(&id).await;
         }
         Ok(record)

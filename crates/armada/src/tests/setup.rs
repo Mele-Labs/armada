@@ -156,14 +156,14 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
     assert_eq!(
         root,
         vec![
-            ("build", "cargo build --workspace --locked"),
+            ("build", "cargo build --workspace --locked --jobs ${width}"),
             (
                 "test",
-                "cargo nextest run --workspace --exclude acceptance --test-threads ${width}",
+                "cargo nextest run --workspace --exclude acceptance --build-jobs ${width} --test-threads ${width}",
             ),
             (
                 "acceptance",
-                "cargo nextest run -p acceptance --test-threads ${width}"
+                "cargo nextest run -p acceptance --build-jobs ${width} --test-threads ${width}"
             ),
             ("typecheck", "pnpm typecheck"),
         ]

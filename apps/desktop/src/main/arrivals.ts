@@ -33,6 +33,7 @@ import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
 import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
+import type { PlanUsageHost } from "./plan-usage";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -61,6 +62,8 @@ export interface ArrivalHost {
   readonly held: Pick<HeldReader, "warm">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
   readonly sleep: Pick<SleepHost, "changed">;
+  /** The plan's windows, told when a session reports a newer reading — `plan-usage.ts`. */
+  readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
   readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
@@ -534,6 +537,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...state } = event;
     host.sleep.changed(state);
+    return;
+  }
+  if (event.kind === "plan_usage.changed") {
+    // Above the tail for `sleep.changed`'s reason: no Job to find, and the reading travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...usage } = event;
+    host.planUsage.changed(usage);
     return;
   }
   if (event.kind === "autopilot.changed") {

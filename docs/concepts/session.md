@@ -41,8 +41,10 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `moved` | `cwd` | Re-resolves; a slot the session left is given back |
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
-| `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
+| `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?`; `plan?`: the plan's windows; `context_breakdown?`: what fills the window | Keeps what was reported. The breakdown is kept whole in `session_context`, one row a session, and replaced by the next; a report without one leaves it. The windows are the account's, so Fleet keeps the newest from any session as `get_plan_usage` (`machine.md`, *Quota*) and keeps nothing of them on the session |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
+| `turn_completed` | nothing | Stamps the last turn, and lets go a hold for the plan's limit. The mod does not tell a turn that died on an API error |
+| `limited` | `resets_at` | Holds the session until the plan's limit resets (*A session that hit the plan's limit*) |
 | `turn_completed` | nothing | Stamps the last turn, and marks every window the session showed ready |
 | `wrote` | nothing | The session itself wrote a file (the mod, never for a subagent): marks every window it showed as still changing |
 | `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal session*) |
@@ -301,6 +303,26 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 **A session says it has nothing left to work on with `all_done`** (`session_id` only; the hosted session holding the connection wins, as for `waiting_for`). Fleet stamps `SessionRecord.done_since`, keeps it in `session_done`, and publishes `SessionChanged`; a second call keeps the first instant, and an ended session is refused. It is a statement and ends nothing: Bridge draws a callout at the foot of the thread, **End session** (the ordinary close) or **Keep going** (local to Bridge, it hides that `done_since` only). `done_since` stops standing when the person sends the session a message (`send_session_message` or an `answer_waiting` that becomes one), when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again. A terminal session has no turn-start signal, so for one only the first two apply. The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 
+## What fills the context window
+
+**A Session's context figure opens onto what fills it, the way `/context` shows it.** The mod asks the engine for a `summary` breakdown, estimated locally and never `full`, which would call the token-count API for every tool and file. It asks when the throttle lets a measurement through and the context moved, and sends `SessionRecord.context_breakdown`: `categories` (`name`, `tokens`, and a `kind` of `used`, `free`, `buffer` or `deferred` that Bridge branches on, never the name), `memory_files` (`path`, `tokens`), the ten `mcp_tools` that weigh most (`name`, `server`, `tokens`), `total_tokens`, `max_tokens` and `autocompact_threshold?`. **Names, paths and counts only**: no message text, prompt or file contents leave the mod. The live token count is the `context_tokens` already on `usage`.
+
+## A session that hit the plan's limit
+
+**A session the plan's limit stopped is woken when the limit resets, and nobody has to poke it.** A turn that ends on `error: rate_limit` is reported by the mod as `limited`, with the instant the full window opens again: the latest reset among the windows at or near full, so a weekly window spent beside a five-hour one is waited out. A limit no window shows full leaves nothing to wait for, and is not reported. Fleet keeps the instant in `session_limit`, one row a session, and serves it as `SessionRecord.held_until` for Bridge to draw as `battery-low` reading "Limit reached · resumes 6:40 PM" (`hourglass` is banned; `packages/icons/icons/battery-low.toml`).
+
+A minute after `held_until`, a tick of the notice loop sends the session `Continue` through `told_by_fleet`, the word Fleet already has for its own messages, and lets the hold go. The row is persisted, so a Fleet that restarts meanwhile still wakes it.
+
+| Session | The wake |
+|---|---|
+| Hosted | A turn on its process, started again if it was ended for being quiet. The thread draws `Continue` as Fleet's |
+| Terminal | Held for its mod as `Fleet: Continue` and submitted when the mod next asks. A mod that is not asking is tried again each tick, and given up on 30 minutes past the wake |
+| Ended | Nothing is sent, and the hold goes |
+
+**A session that took a turn in the meantime is not woken.** The hold goes with a finished turn, with a message from the person, with a hosted turn starting and with the session ending. The turn the limit ended is not a finished one: the mod does not report a turn that died on an API error as `turn_completed`.
+
+**The mod keeps no timer of its own.** A terminal session is woken by Fleet through the path it already asks on; a mod timer would wake it again after a Fleet restart that had already done so.
+
 ## What Fleet tells a Session
 
 **A Session never has to be told to watch its pull request.** When a pull request a Session holds in the ledger fails its checks, conflicts with the base, leaves the merge queue, is marked unmergeable, or merges, Fleet sends that Session one message, once. It names the pull request, what happened and the branch. For failed checks it lists each failing check with its log address, and the last lines of the first two logs. A merge says the Session's slot and branch can be released. `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
@@ -432,6 +454,8 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `image`, `notebook-text`) and a tooltip naming it (Published page, File written, Looked at, Doc). A file opens through main, which opens only a path the session's own ledger names as a file it wrote or a picture it looked at |
 | The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
+| The context figure | The header reads `context_tokens` and `context_window` from `usage` as live tokens and the percent, `53.8k · 5%`, coloured normal below 80, warning from 80, danger from 95. Where `context_breakdown` is held it is a button: hover or focus opens a card, a press keeps it open, Esc or a press outside closes it. The card is the Bays view's stop card: a pill `5% used`, the tokens over the window, a slim bar of the categories in the window, one fact a category, then the three heaviest memory files and MCP servers (a server's tools summed). Where none is held it is a figure with a tooltip and no button |
+| A session held for the plan's limit | `held_until` draws `battery-low` in place of the live state mark, on its list row, its Cockpit tile and its header, with the tooltip `Limit reached · resumes 6:40 PM`. Nothing animates. A Job Fleet holds the same way carries it as `paused.until` and draws the same mark beside its status, in place of the pause mark |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
 
 ## A Session's Checks
