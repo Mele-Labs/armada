@@ -818,6 +818,7 @@ where
             turn: state.turn.clone(),
             asked: state.asked.clone(),
             model: hosting.model,
+            resolved_model: state.resolved_model.clone(),
             effort: hosting.effort,
             mode: mode_of(&hosting.mode),
             running: state.process.is_some(),
@@ -852,6 +853,7 @@ where
             process.end();
         }
         state.generation += 1;
+        state.resolved_model = None;
         state.queued = 0;
         state.unstarted.clear();
     }

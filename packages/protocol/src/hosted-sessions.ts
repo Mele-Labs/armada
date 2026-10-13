@@ -132,6 +132,11 @@ export type HostedFacts = {
   /** What the agent is held on, while it is. */
   asked?: HelmCallInFlight;
   model?: string;
+  /**
+   * The model the CLI resolved for the running process, as its `init` line names it: `vendor-opus-5-5` where
+   * `model` is `opus` or absent. Absent until the process has started, and again once it is replaced. Since 23.85.
+   */
+  resolved_model?: string;
   effort?: string;
   mode: SessionMode;
   /** False after a quiet timeout: the next message resumes the session. */
