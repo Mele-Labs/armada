@@ -33,6 +33,8 @@ const note = (id: string, text: string, selector: string, tag: string, label: st
 });
 
 const NOTES: Record<string, () => Annotation[]> = {
+  // The layer is mounted and off, as Bridge under `pnpm dev` runs it: ⇧⌘D is Debug Bridge.
+  "debug-bridge-draft": () => [],
   "annotate-to-session": () => [
     note("20261007-134802-aaaa", "The title is cut off in the row", ".armada-view__band", "header", "Cockpit", "apps/desktop/src/renderer/src/cockpit/Cockpit.tsx", { x: 300, y: 120, width: 900, height: 200 }),
     note("20261007-134905-bbbb", "The rail has no room for a third group", 'nav[aria-label="Work"]', "nav", "Rail", "packages/shell/src/Rail.tsx", { x: 0, y: 0, width: 220, height: 800 }),
@@ -71,6 +73,9 @@ function sinkOf(notes: Annotation[]): Sink {
   };
 }
 
+/** Scenarios whose layer stays off until a person turns it on. */
+const LAYER_OFF = new Set(["debug-bridge-draft"]);
+
 /** Whether the mock page draws this scenario's own layer, and so leaves the dev server's off. */
 export const annotatesWith = (scenario: string): boolean => scenario in NOTES;
 
@@ -79,7 +84,7 @@ export function mountAnnotating(scenario: string): () => void {
   const notes = NOTES[scenario];
   if (notes === undefined) return () => undefined;
   try {
-    sessionStorage.setItem(ON_KEY, "1");
+    if (!LAYER_OFF.has(scenario)) sessionStorage.setItem(ON_KEY, "1");
   } catch {
     // The layer then opens off, and a walk looking for its bar says so.
   }

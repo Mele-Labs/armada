@@ -23,6 +23,7 @@ import { askToTell, NOT_REACHABLE } from "./tell";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
+  PullRequestPageRead,
   Session,
   SessionAnswer,
   SessionAttachment,
@@ -39,6 +40,10 @@ import { SessionsFrom } from "./sessions-draft";
 import { markViewed } from "./cockpit/viewed";
 
 const NONE: readonly never[] = [];
+
+/** A page Fleet answered, or the words of its refusal. */
+const pageRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestPage"]>>): PullRequestPageRead =>
+  answer.ok ? { ok: true, page: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
 const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
@@ -333,8 +338,11 @@ export class WiredStore {
       return { rows: rowsOfThread(id, rows, () => undefined), finished, ...(report === undefined ? {} : { report }) };
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
+    stop: (id) => void this.plain(this.api.stopSession(id)),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
+    pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
+    writePullRequest: async (id, number, write) => pageRead(await this.api.writePullRequest(id, number, write)),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
     openWindow: (id, url) => void this.api.openSessionWindow(id, url),
     readArtifact: (id, path) => this.api.readSessionArtifact(id, path),

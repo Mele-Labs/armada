@@ -7,7 +7,7 @@ import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { PilotExit, PullRequestPress } from "../shared/api/sessions";
+import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 import type { SessionPages } from "./session-page";
 
@@ -19,6 +19,7 @@ type Hosts = {
 };
 
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge", "review"];
+const WRITES: readonly PullRequestWrite["kind"][] = ["comment", "approve", "request_changes"];
 const ANSWERS = ["allow_once", "allow_and_remember", "refuse"];
 const MODES = ["ask", "auto", "accept_edits", "plan"];
 const OUTCOMES = ["take_over", "restart_step"];
@@ -82,6 +83,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.closeSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.end(sessionId) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.retroSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unsent.outcome,
   );
@@ -118,5 +122,13 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.readPullRequestPage, (_event, sessionId: string, number: number) =>
+    text(sessionId) && Number.isInteger(number) ? (connection()?.sessions.pullRequestPage(sessionId, number) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.writePullRequest, (_event, sessionId: string, number: number, write: PullRequestWrite) =>
+    text(sessionId) && Number.isInteger(number) && WRITES.includes(write?.kind) && (write.body === undefined || typeof write.body === "string")
+      ? (connection()?.sessions.writePullRequest(sessionId, number, write) ?? unsent)
+      : unsent,
   );
 }

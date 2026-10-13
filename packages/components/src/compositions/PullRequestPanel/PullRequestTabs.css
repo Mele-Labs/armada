@@ -1,0 +1,165 @@
+/* A pull request's tabs and its comment box. The panel's own rules are PullRequestPanel.css; these
+   are the lists the four tabs draw and the box pinned under them, written here because nothing
+   else draws them. */
+
+.armada-pr-panel__who {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-panel__said,
+.armada-pr-composer__said {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--status-completed-failed);
+}
+
+/* The lines added in the hue a diff takes them, and removed in the failed one. */
+.armada-pr-diff {
+  display: inline-flex;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+
+.armada-pr-diff__added {
+  color: var(--status-completed-success);
+}
+
+.armada-pr-diff__removed {
+  color: var(--status-completed-failed);
+}
+
+.armada-pr-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-pr-tabs__panel {
+  min-width: 0;
+}
+
+.armada-pr-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-pr-card {
+  min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-pr-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-card__head:not(:last-child) {
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-pr-card__who {
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-pr-card__body {
+  min-width: 0;
+  padding: var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+/* A bare glyph, named on hover, in the hue of what it says. */
+.armada-pr-mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-pr-mark[data-tone="success"] {
+  color: var(--status-completed-success);
+}
+
+.armada-pr-mark[data-tone="failed"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-pr-mark[data-tone="running"] {
+  color: var(--status-running);
+}
+
+.armada-pr-rows {
+  gap: 0;
+}
+
+.armada-pr-row {
+  display: grid;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-row:last-child {
+  border-bottom: none;
+}
+
+.armada-pr-row[data-columns="check"] {
+  grid-template-columns: auto minmax(0, 1fr) auto var(--space-8);
+}
+
+.armada-pr-row[data-columns="file"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.armada-pr-row[data-columns="commit"] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.armada-pr-row__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg-default);
+}
+
+.armada-pr-row__figure,
+.armada-pr-row__author {
+  white-space: nowrap;
+}
+
+/* The box fills the sheet's footer, which lays its children out at the trailing end. */
+.armada-pr-composer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-pr-composer__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}

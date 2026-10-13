@@ -12,3 +12,10 @@
     size = "16px"
     status = "Specified"
     notes = "Tooltip `Stop`. Shown in place of Run while the command runs. Approved 11 Oct 2026."
+
+  [[icons.square.usage]]
+    means = "Stop the turn a Session's agent is running"
+    group = "Run"
+    size = "16px"
+    status = "Proposed"
+    notes = "Tooltip `Stop`, no label. Sits beside the working mark at the end of a Session's thread, on the owner's word of 12 Oct 2026. The same glyph and tooltip as stopping a command run from a code block, since both end what the person started in that Session. Awaiting the walk `debug-bridge-draft`."

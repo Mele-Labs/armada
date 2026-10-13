@@ -492,6 +492,9 @@ where
     pub(crate) fn spared(&self) -> &crate::releasing::Spared {
         &self.spared
     }
+    pub(crate) fn last_told(&self) -> &crate::resume::Told {
+        &self.told
+    }
     /// The roster, for `dispatch` and for a turn.
     pub(crate) fn slots(&self) -> &Mutex<Slots> {
         &self.slots

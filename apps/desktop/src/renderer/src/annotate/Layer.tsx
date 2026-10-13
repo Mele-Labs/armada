@@ -23,6 +23,7 @@ import { askToOpenSession } from "../open-session";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
 import { contextOf, type ContextState } from "./context";
+import { startWithDraft } from "./debug-draft";
 import { componentsOf, fiberOf } from "./fiber";
 import {
   metricsOf,
@@ -322,8 +323,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
   /**
    * Debug Bridge, from the palette or ⇧⌘D, with the layer on or off: shoot the window once the
-   * palette has gone from it, keep it as a whole-window note, and start a Session with the note as
-   * its first message. The note is written before the send, so a Fleet that refuses leaves it a file.
+   * palette has gone from it, keep it as a whole-window note, and start a Session holding the note and
+   * the picture as a draft. No turn runs until the owner sends it. The note is written first, so a
+   * Fleet that refuses leaves it a file.
    */
   async function debugBridge(): Promise<void> {
     if (debuggingRef.current || fleet === undefined) return;
@@ -350,15 +352,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
       };
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
-      const answer = await sendToSession([{ note, box }], null, sink, fleet, new Date());
+      const answer = await startWithDraft(note, box, sink, fleet);
       if (!answer.ok) {
         tell(answer.saying);
         return;
       }
-      const sent = { ...note, sent: answer.sent, updatedAt: answer.sent.at };
-      await sink.save(sent);
-      setNotes((was) => was.map((n) => (n.id === sent.id ? sent : n)));
-      if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
+      openSession(answer.sessionId);
     } catch (cause) {
       fail("Debug Bridge", cause);
     } finally {

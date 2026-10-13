@@ -293,6 +293,12 @@ export function Cockpit({
         }),
   });
 
+  /** What a call's Job runs now: its own Job, or the Job that holds the pull request or red main it is about. */
+  const nowOf = (one: Item) => {
+    const id = one.job?.id ?? (one.ownedBy?.kind === "job" ? one.ownedBy.id : undefined);
+    return id === undefined ? undefined : nowPanelOf(nows?.[id], nowHost(id));
+  };
+
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
   const [put, setPut] = useState<readonly string[]>([]);
   const [forward, setForward] = useState<string>();
@@ -530,7 +536,7 @@ export function Cockpit({
           {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
-                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], nowHost(front.job.id))} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={nowOf(front)} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (
