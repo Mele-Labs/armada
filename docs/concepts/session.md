@@ -413,7 +413,7 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 > Why: a merge pressed while the checks run must reach nobody, and a count of what the forge was asked to write is the only proof it did not.
 
 > **Rule.** The ledger follows the forge through its own attach.
-> Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`) is Fleet's reading of the same pull request, so one writer is not two.
+> Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
 **The three writes are a person's ask, `pushes to shared`.** Helm asks first, as for `merge_pull_request`, and the operations are `Helm only`. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
 
