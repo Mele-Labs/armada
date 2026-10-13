@@ -413,6 +413,11 @@ it, presses the button rather than running a shell. A shell run is Fleet's
 child, so it died with the Fleet it stopped and never reopened Bridge, which was
 left on the old protocol. Seen 13 Oct 2026. `apps/desktop/src/renderer/src/build-change.ts`.
 
+**Fleet then tells the other sessions.** Once `restart-commit` names a new build,
+each live session that holds a branch or waits on one of these restarts is told
+which build runs and whether its branch is in it, once, and a restart it waited on
+is settled. `docs/concepts/fleet.md`, *Telling sessions the build they now run*.
+
 **A restart past a working Drone asks first.** Bridge lists the Jobs at `running`
 in a confirm and passes `--adopt` only after the person says so; with no Drone
 working there is no confirm. The costs are `scripts/restart --adopt`'s.

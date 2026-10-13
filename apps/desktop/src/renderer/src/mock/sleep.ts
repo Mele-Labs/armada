@@ -1,28 +1,37 @@
 // Mock-only: sleep mode with no Fleet behind it. Turning it on starts a night — the grace here is a
 // second or so, where the proposal is two minutes — and each decision lands in turn as a call in the
 // Cockpit. Turning it off lets the rest of the night pass at once, so a walk reads the same deck every
-// time. Keeping or changing a decision takes its row off, which takes its call off the Cockpit.
+// time. Marking a decision done or changing it takes its row off, which takes its call off the Cockpit.
+// `overnight` is a night already over and Sleep still on, the state the owner comes back to.
 
-import type { SleepSource, SleepState } from "../sleep";
+import type { MorningDecided, SleepSource, SleepState } from "../sleep";
 
 const GRACE_MS = 700;
 
 type Night = (state: SleepState) => SleepState;
 
-const decide = (id: string, who: string, asked: string, chose: string): Night => (state) => ({
-  ...state,
-  decided: [...state.decided, { id, who, asked, chose }],
-});
+/** The Sessions two of the decisions were made in; the scenario `sleep-cockpit` opens them. A Job's decision has none. */
+export const LUNCH_SESSION = "s21";
+export const BRANCH_SESSION = "s22";
 
-const NIGHT: readonly Night[] = [
-  decide("d1", "Order the lunch", "Which size?", "Large"),
-  decide("d2", "Name the branch", "fix or feat?", "fix"),
-  decide("d3", "Job 44", "The check timed out twice", "Retried with the larger timeout"),
-];
+const LUNCH: MorningDecided = { id: "d1", who: "Order the lunch", asked: "Which size?", chose: "Large", sessionId: LUNCH_SESSION };
+const BRANCH: MorningDecided = { id: "d2", who: "Name the branch", asked: "fix or feat?", chose: "fix", sessionId: BRANCH_SESSION };
+const JOB: MorningDecided = { id: "d3", who: "Shorten the reconnect wait", asked: "The check timed out twice", chose: "Retried with the larger timeout" };
+
+const decide = (one: MorningDecided): Night => (state) => ({ ...state, decided: [...state.decided, one] });
+
+const NIGHT: readonly Night[] = [decide(LUNCH), decide(BRANCH), decide(JOB)];
 
 const EMPTY: SleepState = { on: false, decided: [], blocked: [], landed: [], walks: [] };
 
-export function createMockSleep(): SleepSource & { reset(): void } {
+/** Sleep still on after the night: every decision made, none looked at. The Job's is `jobId`'s. */
+export const overnight = (jobId: string | undefined): SleepState => ({
+  ...EMPTY,
+  on: true,
+  decided: [LUNCH, BRANCH, jobId === undefined ? JOB : { ...JOB, jobId }],
+});
+
+export function createMockSleep(): SleepSource & { reset(to?: SleepState): void } {
   let state = EMPTY;
   let next = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -41,10 +50,11 @@ export function createMockSleep(): SleepSource & { reset(): void } {
   return {
     get: () => state,
     subscribe: (on) => (listeners.add(on), () => void listeners.delete(on)),
-    reset: () => {
+    // A night handed in is already over: the rest of it has nothing left to pass.
+    reset: (to) => {
       stop();
-      next = 0;
-      set(EMPTY);
+      next = to === undefined ? 0 : NIGHT.length;
+      set(to ?? EMPTY);
     },
     toggle: () => {
       if (!state.on) {

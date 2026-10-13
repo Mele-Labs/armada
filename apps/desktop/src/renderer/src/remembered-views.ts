@@ -10,10 +10,12 @@
 // `CHECK` constraint names every legal key, so a new one is a wire change in
 // five crates. These are ways of reading, not facts about the Job.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { dashboardTabNamed, type DashboardTab } from "@armada/overview";
 import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
 
+/** What a press tells the window, so two readers of one key stay in step. */
+const HEARD = "armada:remembered";
 const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
 const LESSONS_SOURCE_KEY = "armada.bridge.lessons-source";
@@ -37,6 +39,14 @@ function remembered<T extends string>(key: string, named: (value: string | null)
     }
   };
   const [view, setView] = useState(read);
+  // Another reader of the same key, in this window, hears a press and reads it again.
+  useEffect(() => {
+    const heard = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === key) setView(read());
+    };
+    window.addEventListener(HEARD, heard);
+    return () => window.removeEventListener(HEARD, heard);
+  }, []);
 
   function press(next: T): void {
     setView(next);
@@ -45,6 +55,7 @@ function remembered<T extends string>(key: string, named: (value: string | null)
     } catch {
       // A failed write leaves the choice unremembered, the honest answer for a preference.
     }
+    window.dispatchEvent(new CustomEvent(HEARD, { detail: key }));
   }
 
   return [view, press];

@@ -561,6 +561,14 @@ A skip is refused with a 409 where no gate is running, and the refusal is said i
 
 **Every active Job has one, not only the open one.** Bridge's main process holds a detail and a Drone list for each Job that has begun and not ended, re-read on the `job.*` and `drone.*` events that name it, and dropped when the Job ends. The Cockpit, the Dashboard and the call cards draw from those; a mock draft still wins for a Job it names, which is how the design mocks keep working. Plan decisions are not in a Job's Now and stay on the mock until Fleet publishes a plan interview.
 
+## The bays a Job held
+
+**A Job's row says which bay it was in and when.** `bays` on a Job's summary (and the row nested in its detail) is one `{slot, since, until?}` for each stretch the Job held a pool slot, oldest first. `since` is the instant Fleet leased it and `until` the instant the slot went back, absent while the Job still holds it, which a completed Job does until a person clears it. A paused Job that comes back gets a second entry, even to the same slot, so a trail can say "bay 3, 09:10 to 10:00, then bay 3 from 11:00". Empty is a Job that never held one, and the key is left out of the row.
+
+**It is its own table, `job_bays`, not the session ledger's slot row.** The ledger keeps one row a slot, so returning to the slot a Job left overwrote the first stint. The table is written where the ledger is (`crates/fleet/src/ledgering.rs`), and its migration seeds it from the ledger's slot rows for Jobs that already held one. Forgetting a Job removes its rows.
+
+**When its pull request was opened** rides on the Job's delivery as `pull_request_opened_at`: the instant Fleet opened it, kept after it merges as the title is. Absent is one opened before Fleet kept it, or by a person. An open pull request's own `opened_at` comes from the hub (`capabilities/merge-line.md`, *The hub*).
+
 ## Pausing a Job
 
 **A pause is a marker on the Job, not a status.** A person pauses a Job to kill

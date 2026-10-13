@@ -3,11 +3,11 @@
 // with no source draws neither. The real one is `fleet-sleep.ts`, over Fleet's `/sleep` routes; the
 // mock's is `mock/sleep.ts`.
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { TheShellProps } from "@armada/components";
 
-/** A question Sleep answered for the owner. */
-export type MorningDecided = { id: string; who: string; asked: string; chose: string; corrected?: string };
+/** A question Sleep answered for the owner. `sessionId` is the Session it was decided in, `jobId` the Job, where it was one. */
+export type MorningDecided = { id: string; who: string; asked: string; chose: string; corrected?: string; sessionId?: string; jobId?: string };
 
 /** Something only the owner can settle. */
 export type MorningBlocked = { id: string; who: string; text: string };
@@ -28,7 +28,7 @@ export type SleepSource = {
   subscribe(on: () => void): () => void;
   toggle(): void;
   override(id: string, text: string): void;
-  /** The owner kept a decision: its call leaves the Cockpit. Renderer-side for now; not on the wire. */
+  /** The owner is done with a decision: its call leaves the Cockpit. Renderer-side for now; not on the wire. */
   review(id: string): void;
 };
 
@@ -54,10 +54,31 @@ export function useSleepDecided(): readonly MorningDecided[] {
   return useSyncExternalStore(here.subscribe, here.get).decided;
 }
 
-/** The title row's control. */
+/**
+ * The title row's control. **Sleep turns itself off at the first use of Bridge** after it was turned
+ * on: the first key or press anywhere in the window. The press on the moon itself is the owner's own
+ * toggle, so it is left to do what it says.
+ */
 export function useSleepMode(): { sleep: TheShellProps["sleep"] } {
   const source = useSleepSource();
   const state = useSyncExternalStore((source ?? NONE).subscribe, (source ?? NONE).get);
+  const on = state.on;
+  const toggle = source?.toggle;
+  useEffect(() => {
+    if (!on || toggle === undefined) return;
+    const used = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest('[aria-label="Sleep mode"]') !== null) return;
+      stop();
+      toggle();
+    };
+    const stop = () => {
+      window.removeEventListener("keydown", used, true);
+      window.removeEventListener("pointerdown", used, true);
+    };
+    window.addEventListener("keydown", used, true);
+    window.addEventListener("pointerdown", used, true);
+    return stop;
+  }, [on, toggle]);
   if (source === null) return { sleep: undefined };
-  return { sleep: { on: state.on, onToggle: source.toggle } };
+  return { sleep: { on, onToggle: source.toggle } };
 }

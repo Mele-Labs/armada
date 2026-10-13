@@ -10,6 +10,7 @@ import type { CallView } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { useItems, type Hosts } from "../Dashboard";
+import { useDashboardTab } from "../remembered-views";
 import { alertOf, arrived, type Alert, type Held } from "./arrivals";
 
 /** How long an alert stands unpressed. A call is still there on the glass when it goes. */
@@ -41,7 +42,7 @@ export function CallAlerts({
   state: BridgeState;
   picked: RepositorySummary | null;
   nowViews: Readonly<Record<string, CallView>> | undefined;
-  /** The cockpit is what is on screen, and its card is already in front: nothing to point at. */
+  /** The cockpit is what is on screen. Its card is in front only where it is on Your move: the deck is drawn nowhere else. */
   onCockpit: boolean;
   /** Bring this call forward on the cockpit. */
   onShow: (key: string) => void;
@@ -50,8 +51,11 @@ export function CallAlerts({
   const [standing, setStanding] = useState<readonly Standing[]>([]);
   const held = useRef<Held>(null);
   const first = useRef<number | null>(null);
-  const here = useRef(onCockpit);
-  here.current = onCockpit;
+  // **Wherever he is, a new call speaks**: only the deck on Your move already shows it.
+  const [tab] = useDashboardTab();
+  const deckShown = onCockpit && tab === "command-central";
+  const here = useRef(deckShown);
+  here.current = deckShown;
 
   // **Not before Fleet has answered once**: Bridge publishes state before it is connected to anything, and
   // seeding off an empty one would make the first real reading look like every call arriving at once.
@@ -73,8 +77,8 @@ export function CallAlerts({
 
   // The cockpit coming up puts the card in front, which is what an alert was pointing at.
   useEffect(() => {
-    if (onCockpit) setStanding([]);
-  }, [onCockpit]);
+    if (deckShown) setStanding([]);
+  }, [deckShown]);
 
   useEffect(() => {
     if (standing.length === 0) return;

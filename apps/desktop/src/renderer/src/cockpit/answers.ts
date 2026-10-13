@@ -10,26 +10,38 @@
 // of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
-import { actionOf, isPressed, keyFor, type Press } from "@armada/components";
+import { actionOf, isPressed, keyFor, useCodeRun, type CodeRun, type Press } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
 import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
+import { buildChangeOf } from "../build-change";
 import { viewsOf } from "../merge-line";
+import { runnerOf } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
+import { fixJob, type JobFix } from "./fix-job";
 import { mainOwner, pullOwner, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
 import type { Hosts, Item } from "../Dashboard";
 
-/** `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent. */
-export type Answer = { id: string; label: string; run: () => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean };
+/**
+ * `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent.
+ * `once` marks an act, which runs on one press, its click or its number: an option is picked and then sent,
+ * because a reply can go with it, which `run` takes as `words`.
+ */
+export type Answer = { id: string; label: string; run: (words?: string) => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean; once?: boolean };
+
+/** How long a command that passed stays on its card, with its output and exit, before the card goes. */
+const PASSED_FOR = 1400;
+/** After the card begins to leave, how long before the item is settled and the agent told, so the card's exit is not cut short. */
+const LEAVES = 300;
 
 /** The picker an Attach opens: who a pull request can be attached to. */
 export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
@@ -37,6 +49,8 @@ export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) =
 export type Answering = {
   /** The question asked now: a Plan decision's, or the call's own fact. */
   ask: string;
+  /** What an errand's act names, a command or a page: drawn whole on the card, not on the key. */
+  target?: string;
   answers: readonly Answer[];
   /** Which answer is picked, where one is. A lone answer starts picked. */
   picked: number | undefined;
@@ -62,6 +76,8 @@ export type Answering = {
   reply?: (text: string, accepted?: () => void) => void;
   /** The picker, while an Attach has it open. */
   attaching?: Attaching;
+  /** The run of a command the card runs from its own key, where it can: its output and how it ended, drawn under the command. */
+  run?: CodeRun;
   /** The control pressed and waiting on Fleet: an answer's id, `reply` or `dismiss`. Nothing else on the card acts meanwhile. */
   pending: string | undefined;
   /** Dismisses the call for good: on Fleet where a Session holds it, here where Fleet raised it. */
@@ -90,6 +106,10 @@ function pullOf(item: Item, state: BridgeState): { number: number; branch: strin
 /** Where `o` goes: the Job, the Session, or the pull request the call is about. */
 function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | undefined {
   if (item.job !== undefined) return () => hosts.onOpen(item.job!.id);
+  const slept = item.sleep?.sessionId;
+  if (slept !== undefined) return () => hosts.onOpenSession(slept);
+  const sleptJob = item.sleep?.jobId;
+  if (sleptJob !== undefined) return () => hosts.onOpen(sleptJob);
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
@@ -169,6 +189,24 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const sessions = useSessions();
   const draft = useSessionsDraft();
   const views = viewsOf(state);
+
+  // A command a Session waits on is run here, where the Session works, by the path its ledger runs it by.
+  // A clean exit stays on the card for a beat, then the card goes and the item is settled and the agent told.
+  const home = sessions.find((one) => one.id === item.waiting?.sessionId);
+  const runner =
+    draft === undefined || home === undefined
+      ? undefined
+      : runnerOf(draft, home, (settle) => {
+          window.setTimeout(() => {
+            finish();
+            window.setTimeout(settle, LEAVES);
+          }, PASSED_FOR);
+        });
+  const ran = useCodeRun(runner);
+  // Nothing starts it again while it runs or has passed and the card is about to go, from the block's play control or the key.
+  const guarded: CodeRun = { ...ran, start: (command) => (ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0) ? undefined : ran.start(command)) };
+  // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.
+  const running = ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
   const pull = pullOf(item, state);
   const owner = item.key.startsWith("pull:")
     ? pullOwner(views, sessions, pull?.number ?? 0)
@@ -178,6 +216,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   // A Session's call answers through Fleet.
   const waiting = item.waiting;
+  const restart = waiting?.item.act?.kind === "run" ? buildChangeOf(waiting.item.act.target) : undefined;
   const sendWaiting = (id: string, body: Omit<AnswerWaiting, "session_id" | "item_id">, accepted?: () => void) => {
     if (waiting === undefined) return;
     wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
@@ -225,7 +264,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
   ];
 
-  // A Sleep decision is kept, or changed in words; either way it is reviewed and the call leaves.
+  // A Sleep decision is agreed with, or changed in words; either way it is reviewed and the call leaves.
   const slept = useSleepSource();
   const sleep = item.sleep;
   const reviewed = (id: string) => slept?.review(id);
@@ -245,16 +284,50 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
   };
 
-  const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
+  // What went wrong on a Job is fixed from its card: each fix is one press, out to Fleet until it answers.
+  const issue = item.issue;
+  const jobId = item.job?.id;
+  const fix = (request: JobFix): Promise<Told> =>
+    fixJob(request).then((done): Told => (done.ok ? { kind: "answered" } : { kind: "refused", said: done.said }));
+  /** The words go to the Drone that is live, or start the step again with them where none is. */
+  const redirect = (words: string): JobFix | undefined =>
+    jobId === undefined
+      ? undefined
+      : issue?.of === "drone"
+        ? { kind: "redirect_one_drone", jobId, words, ...(issue.target === undefined ? {} : { droneId: issue.target }) }
+        : { kind: "restart_step", jobId, words };
+
+  const answer = (label: string, run: (words?: string) => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
+  const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
+  const fixesOf = (one: NonNullable<typeof issue>, id: string): Answer[] => {
+    const tap = (label: string, request: JobFix, says?: string): Answer =>
+      answer(label, () => wait(label, () => fix(request), finish), { once: true, ...(says === undefined ? {} : { says }) });
+    // A call Fleet serves draws only the acts its issue names. Retry step is one; the other is the box.
+    if (item.served === true) return (one.acts ?? []).filter((act) => act.glyph === "retry_step").map(() => tap("Retry step", { kind: "restart_step", jobId: id }));
+    if (one.of === "check") {
+      const check = one.target ?? one.name;
+      return [
+        tap("Retry", { kind: "retry_check", jobId: id, check }),
+        tap("Skip", { kind: "skip_check", jobId: id, check }, "Ends it as skipped, not passed"),
+        ...((one.unfinished ?? 0) > 1 ? [tap("Skip all", { kind: "skip_checks", jobId: id }, "Ends every unfinished Check as skipped, not passed")] : []),
+      ];
+    }
+    if (one.of === "clash") {
+      const other = one.clash?.other;
+      return other === undefined ? [] : [oneTap("Open the other Job", () => hosts.onOpen(other.jobId))];
+    }
+    return [tap("Retry step", { kind: "restart_step", jobId: id })];
+  };
   const actsOf = (): Answer[] => {
-    if (sleep !== undefined) return [answer("Keep", () => (reviewed(sleep.id), finish()))];
+    // Agreeing is the whole answer; where it was decided opens from the card's own Open.
+    if (sleep !== undefined) return [oneTap("Agree", () => (reviewed(sleep.id), finish()))];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
-      if (given.source === "walk") return [answer("Approve", () => sendWaiting("Approve", {}))];
+      if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
       if (given.options !== undefined && given.options.length > 0) {
         return given.options.map((option, at) =>
-          answer(plainLabel(option.label), () => sendWaiting(plainLabel(option.label), { choice: at }), {
+          answer(plainLabel(option.label), (words) => sendWaiting(plainLabel(option.label), { choice: at, ...(words === undefined || words === "" ? {} : { text: words }) }), {
             ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
             ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
           }),
@@ -264,15 +337,22 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const act = given.act;
       if (act?.kind === "run") {
         // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
-        if (act.target.startsWith("/")) return [answer(`Run ${act.target}`, () => sendWaiting(`Run ${act.target}`, { text: act.target }))];
-        return [answer(`Copy ${act.target}`, () => copy(act.target))];
+        // The key says the verb; the command itself is on the card, whole and in its own case.
+        if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
+        // A restart is the Fleet panel's build switch: one key, nothing to copy or say. The runner switches it.
+        if (restart !== undefined) return runner === undefined ? [] : [answer(restart.label, () => guarded.start(act.target), { once: true })];
+        const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
+        return [
+          ...(runner === undefined ? [] : [answer("Run", () => guarded.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
+          oneTap("Copy", () => copy(act.target)),
+        ];
       }
       if (act?.kind === "approve_pr") {
         const number = act.target.replace(/^#/, "");
         const address = pullAddress(Number(number));
-        return [answer(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : hosts.onOpenLink(address)))];
+        return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : hosts.onOpenLink(address)))];
       }
-      if (act?.kind === "walk") return [answer("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
+      if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
       return [];
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
@@ -280,19 +360,16 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       if (owner !== undefined) {
         const noun = owner.kind === "session" ? "Session" : "Job";
         return [
-          answer(`Open the ${noun}`, () => (owner.kind === "session" ? hosts.onOpenSession(owner.id) : hosts.onOpen(owner.id))),
-          answer("Poke", () => poke(owner)),
+          oneTap(`Open the ${noun}`, () => (owner.kind === "session" ? hosts.onOpenSession(owner.id) : hosts.onOpen(owner.id))),
+          oneTap("Poke", () => poke(owner)),
         ];
       }
       const drone = item.key.startsWith("main:")
-        ? answer("Hand to a Job", () => (hosts.onFix?.({ root: item.key.slice("main:".length) }), finish()))
-        : answer("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
-      return [drone, answer("Attach", () => setAttaching(true))];
+        ? oneTap("Hand to a Job", () => (hosts.onFix?.({ root: item.key.slice("main:".length) }), finish()))
+        : oneTap("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
+      return [drone, oneTap("Attach", () => setAttaching(true))];
     }
-    // A Fleet-served issue has no answer here: the card opens the Job, where its acts are.
-    if (item.served) return [];
-    if (item.kind === "Check failed") return [answer("Retry", finish)];
-    if (item.kind === "Drone stuck") return [answer("Restart the step", finish), answer("Fresh Drone", finish)];
+    if (issue !== undefined && jobId !== undefined) return fixesOf(issue, jobId);
     return [];
   };
 
@@ -313,11 +390,18 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? sendToJob : (mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
-  // One answer is the answer: Enter sends it without a number first.
-  const chosen = picked ?? (answers.length === 1 ? 0 : undefined);
-  const held = pending !== undefined;
+  // One answer is the answer: Enter sends it without a number first. Where every answer is an act, Enter runs the first.
+  const chosen = picked ?? (answers.length === 1 || (answers.length > 0 && answers.every((one) => one.once === true)) ? 0 : undefined);
+  const shown = pending ?? (running ? "Run" : undefined);
+  const held = shown !== undefined;
   const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
-  const pickNumber = (digit: number) => digit <= numbered.length && pick(digit - 1);
+  // An act runs on its number; an option is picked, and sent after.
+  const pickNumber = (digit: number) => {
+    if (digit > numbered.length || held) return;
+    const one = answers[digit - 1];
+    if (one?.once === true) one.run();
+    else pick(digit - 1);
+  };
   const pickKey = (press: Press) => {
     const index = answers.findIndex((one) => one.act !== undefined && isPressed(one.act, press));
     if (index < 0) return false;
@@ -333,10 +417,11 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     else if (chosen !== undefined) answers[chosen]?.run();
   };
   // A first message is sent in the Session's own box, so the card has no reply and its one act opens the Session.
-  const replies = waiting !== undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
+  const replies = waiting !== undefined && restart === undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
 
   return {
     ask: decision?.question ?? item.fact,
+    ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk" ? { target: waiting.item.act.target } : {}),
     answers,
     picked: chosen,
     pick,
@@ -352,9 +437,19 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(sleep !== undefined
       ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
       : {}),
+    ...(issue !== undefined && jobId !== undefined && (item.served !== true || (issue.acts?.length ?? 0) > 0)
+      ? {
+          reply: (text: string, accepted?: () => void) => {
+            const request = redirect(text);
+            if (request !== undefined) wait("reply", () => fix(request), () => (accepted?.(), finish()));
+          },
+        }
+      : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
-    pending,
-    dismiss: () => wait("dismiss", () => dismissItem(item), dismissed),
+    ...(waiting?.item.act?.kind === "run" && runner !== undefined && restart === undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
+    pending: shown,
+    // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
+    dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),
   };
 }

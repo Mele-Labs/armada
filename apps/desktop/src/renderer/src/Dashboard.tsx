@@ -32,9 +32,9 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea, limitHeldSaid } from "@armada/components";
+import { Button, Radio, RadioGroup, limitHeldSaid } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
-import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
+import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
 import type { NowActed } from "@armada/jobs";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -48,8 +48,10 @@ import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
+import { useOpenWalks } from "./cockpit/open-walks";
 import type { JobAnswered } from "./cockpit/answer-job";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
+import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
 type Hue = "ask" | "issue" | "running" | "queued" | "ok" | "bad";
@@ -100,6 +102,8 @@ export type Item = {
   settling?: true;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
+  /** What went wrong on the Job, where the call is that: the card shows it and offers the fixes. */
+  issue?: CallIssueView;
   /** The decision Sleep made, where the item is one: the call keeps it or changes it. */
   sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
@@ -218,25 +222,6 @@ function PullFix({ number, onOpen, onDone, onSend }: { number: number; onOpen: (
       <div className="armada-call__acts">
         <Button variant="primary" onClick={onDone}>Push to #{number}</Button>
         <Button variant="secondary" onClick={() => setStage("idle")}>Not now</Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * A Drone gone quiet: tell it something and it picks up from there, start the step again on a
- * fresh Drone, or open the Job. Mock only: each press clears the call.
- */
-function StuckDrone({ onDone, onOpen }: { onDone: () => void; onOpen: () => void }) {
-  const [words, setWords] = useState("");
-  return (
-    <div className="armada-stuck">
-      <Textarea label="Tell the Drone" rows={2} value={words} onChange={(event) => setWords(event.target.value)} />
-      <div className="armada-call__acts">
-        <Button variant="primary" disabled={words.trim() === ""} onClick={onDone}>Send</Button>
-        <Button variant="secondary" onClick={onDone}>Restart the step</Button>
-        <Button variant="secondary" onClick={onDone}>Fresh Drone</Button>
-        <Button variant="ghost" onClick={onOpen}>Open Job</Button>
       </div>
     </div>
   );
@@ -379,10 +364,11 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
       key: `${job.id}:${issue.key}`,
       owner: job.id,
       job,
+      issue,
       ...(view?.request === undefined ? {} : { request: view.request }),
-        ...(view?.about === undefined ? {} : { about: view.about }),
+      ...(view?.about === undefined ? {} : { about: view.about }),
       ...(issue.context === undefined ? {} : { context: issue.context, contextHead: issue.of === "check" ? "Check output" : "The Drone's last steps" }),
-      icon: issue.of === "check" ? ShieldX : Bot,
+      icon: issue.of === "check" ? ShieldX : issue.of === "judge" ? Scale : issue.of === "clash" ? GitMerge : Bot,
       kind: issue.said,
       title: titleOf(job),
       fact: issue.text,
@@ -392,17 +378,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
       body: [["On", issue.name]],
       said: [issue.text],
       ...(view?.served === true ? { served: true as const } : {}),
-      acts: (done) =>
-        view?.served === true ? (
-          <Button variant="primary" onClick={open}>Open Job</Button>
-        ) : issue.of === "drone" ? (
-          <StuckDrone onDone={done} onOpen={open} />
-        ) : (
-          <>
-            <Button variant="primary" onClick={done}>Retry</Button>
-            <Button variant="secondary" onClick={open}>Open Job</Button>
-          </>
-        ),
+      acts: () => null,
     });
   }
   return items;
@@ -475,18 +451,18 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
   };
 }
 
-/** One thing Sleep decided for the owner, as a call: he keeps it or changes it. */
+/** One thing Sleep decided for the owner, as a call: he agrees, changes it, or opens where it was decided. */
 function sleepItem(one: MorningDecided): Item {
   return {
     key: `sleep:${one.id}`,
     icon: Moon,
-    kind: "Sleep",
+    kind: "Decided while you slept",
     title: one.who,
     fact: one.asked,
     hue: "ask",
     where: "",
     body: [],
-    context: [one.chose, ...(one.corrected === undefined ? [] : [`Changed to ${one.corrected}`])],
+    context: [one.corrected ?? one.chose],
     contextHead: "Chose",
     sleep: one,
     acts: () => null,
@@ -586,6 +562,8 @@ export function useItems(
   const nows = useContext(Nows);
   const dismissed = useDismissed();
   const slept = useSleepDecided();
+  const walking = useOpenWalks();
+  const viewed = useViewedVersion();
   const calls = tab === "command-central";
   const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
@@ -613,7 +591,9 @@ export function useItems(
             acts: () => <JobActs job={job} stale={false} onOpen={hosts.onOpen} onKill={hosts.onKill ?? noop} onRedispatch={hosts.onRedispatch ?? noop} onClear={hosts.onClear ?? noop} {...(hosts.onPausing === undefined ? {} : { onPausing: hosts.onPausing })} />,
           });
       }
-      items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
+      // A walk whose window is open is being looked at, so it is not a call yet.
+      const unseen = (one: WaitingCall) => !(one.item.source === "walk" && one.item.act !== undefined && walking.has(one.item.act.target));
+      items.push(...callsFromWaiting(sessions, viewedAt).filter(unseen).map((one) => waitingItem(one, hosts)));
       items.push(...slept.map(sleepItem));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
@@ -664,7 +644,7 @@ export function useItems(
       return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }), ...(limited === undefined ? {} : { mark: BatteryLow, state: limitHeldSaid(limited), live: false }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, nows, sessions, slept, answered, dismissed]);
+  }, [tab, state, picked, nowViews, nows, sessions, slept, walking, answered, dismissed, viewed]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
   const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
   const board = state.jobs.length > 0 || viewsOf(state).length > 0;

@@ -14,7 +14,7 @@ export function callViewOf(now: NowView | undefined): CallView | undefined {
         : [{ key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, ...(ask.target === undefined ? {} : { target: ask.target }), ...(ask.asked === undefined ? {} : { asked: ask.asked }) }],
   );
   const issues = (now.issues ?? []).map(
-    (one): CallIssueView => ({ key: one.key, of: one.of, name: one.name, text: one.text, said: one.said, ...(one.target === undefined ? {} : { target: one.target }) }),
+    (one): CallIssueView => ({ key: one.key, of: one.of, name: one.name, text: one.text, said: one.said, ...(one.target === undefined ? {} : { target: one.target }), ...(one.acts === undefined ? {} : { acts: one.acts.map(({ glyph, said }) => ({ glyph, said })) }) }),
   );
   const running = now.running;
   return { served: true, ...(asks.length === 0 ? {} : { asks }), ...(issues.length === 0 ? {} : { issues }), ...(running === undefined ? {} : { running }) };
