@@ -51,6 +51,7 @@ mod model_override;
 mod model_per_task;
 mod named_migrations;
 mod pausing;
+mod slot_strandings;
 mod plan;
 mod ports;
 mod preferences;

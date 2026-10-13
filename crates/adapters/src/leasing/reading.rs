@@ -7,6 +7,7 @@ use adapter_traits::{SlotHeld, SlotReading};
 
 use crate::concurrently::concurrently;
 
+use super::record::Record;
 use super::{git, Holder, Pool, Slot, SlotState};
 
 impl Pool {
@@ -70,6 +71,12 @@ impl Pool {
             }
         };
         let branch = branch.filter(|name| !name.is_empty());
+        let last_session = match &held {
+            SlotHeld::Stranded(_) => {
+                Record::read(&self.record_path(slot.number)).and_then(|record| record.session)
+            }
+            _ => None,
+        };
         SlotReading {
             closed: slot.closed,
             slot: slot.number as u32,
@@ -81,6 +88,7 @@ impl Pool {
             since: (since > 0).then_some(since),
             kept,
             completed,
+            last_session,
             work: None,
         }
         // What the slot holds, from the state and the `git status` already read.

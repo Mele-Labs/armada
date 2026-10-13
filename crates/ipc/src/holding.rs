@@ -79,6 +79,38 @@ pub struct SlotStranded {
     pub commits: Vec<SlotCommit>,
     /// Of those, how many are on neither the remote nor the base.
     pub unpushed: u32,
+    /// Who held the slot last, where Fleet can say: a Session or a Job.
+    /// Absent where the record names none, as for a terminal Fleet does not
+    /// host.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_holder: Option<SlotLastHolder>,
+    /// When Fleet told that holder to commit, push and release. Fleet tells
+    /// once a stranding, and only a holder that is `open`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub told: Option<Instant>,
+}
+
+/// The Session or Job a stranded slot was last held for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotLastHolder {
+    pub kind: SlotHolderKind,
+    /// The Session's id, or the Job's.
+    pub id: String,
+    /// Its title, where the ledger or the store still has it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// A Session still live, or a Job not yet ended. Fleet tells only an open
+    /// Session; a holder that is not open is gone, and a rescue Scout reads
+    /// the slot without a press.
+    pub open: bool,
+}
+
+/// What a slot's last holder was.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotHolderKind {
+    Session,
+    Job,
 }
 
 /// One commit on a stranded slot's branch.

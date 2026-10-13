@@ -65,6 +65,14 @@ export type WorktreeSlot = {
   rescue?: SlotFinding;
 };
 
+/** The session or Job that held a slot before it stranded. `open` is false once it is closed or ended. */
+export type SlotLastHolder = {
+  kind: "session" | "job";
+  id: string;
+  title?: string;
+  open: boolean;
+};
+
 /** The work a stranded slot holds. */
 export type SlotStranded = {
   /** Every path `git status` reports, untracked included. */
@@ -73,6 +81,13 @@ export type SlotStranded = {
   commits: SlotCommit[];
   /** Of those, how many are on neither the remote nor the base. */
   unpushed: number;
+  /** Who held the slot last. Absent where Fleet did not record one. */
+  last_holder?: SlotLastHolder;
+  /**
+   * When Fleet told the last holder to commit, push and release, once. Absent
+   * until it has, and where there was nobody to tell.
+   */
+  told?: string;
 };
 
 /** One commit on a stranded slot's branch. */

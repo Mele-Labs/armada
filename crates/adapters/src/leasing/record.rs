@@ -159,6 +159,10 @@ pub(super) struct Record {
     /// was. Only a Job's lease carries one: it is how a slot a finished Job
     /// could not give back says so.
     pub(super) kept: Option<String>,
+    /// The Session whose process tree held the slot, for a holder that is a
+    /// process: the holder alone cannot say, once it is gone. Fleet writes it
+    /// (`Pool::note_session`); absent from every record written before it.
+    pub(super) session: Option<String>,
     /// The Job completed and holds the slot until a person clears it.
     pub(super) completed: bool,
 }
@@ -177,6 +181,7 @@ impl Record {
             holder: Holder::read(field("holder")?)?,
             since: field("since")?.parse().ok()?,
             kept: field("kept").map(str::to_string),
+            session: field("session").map(str::to_string),
             completed: text.lines().any(|line| line == "completed"),
         })
     }
@@ -190,6 +195,9 @@ impl Record {
         );
         if let Some(why) = &self.kept {
             text.push_str(&format!("kept {}\n", why.replace('\n', " ")));
+        }
+        if let Some(session) = &self.session {
+            text.push_str(&format!("session {}\n", session.replace('\n', " ")));
         }
         if self.completed {
             text.push_str("completed\n");

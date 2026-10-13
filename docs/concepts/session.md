@@ -387,6 +387,8 @@ A minute after `held_until`, a tick of the notice loop sends the session `Contin
 
 A terminal Session reports the files it wrote through the mod's `touched` fact, as paths from its directory. A Job's Drone can answer a Session with `leave_note` on the Session's address, which arrives as a message naming that Job.
 
+**A Session that held a slot is told when the slot is stranded.** When a slot a Session held last has work in it and nothing holds it now, Fleet sends that Session one message, once. It names the slot and its branch, what the slot holds, and asks the Session to commit, push and release it. `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
+
 ## Acts on a pull request
 
 A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number, and is nobody's Job.
