@@ -1,4 +1,4 @@
-//! How much of the Claude plan's windows this machine has used. `docs/concepts/machine.md`, *Quota*.
+//! How much of the account's plan windows this machine has used. `docs/concepts/machine.md`, *Quota*.
 
 use serde::{Deserialize, Serialize};
 

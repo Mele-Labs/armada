@@ -167,6 +167,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The plan's windows after a session read them moving, whole.
+    Route {
+        operation: "plan_usage.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A repository's Autopilot after any change to it, whole. #2092.
     Route {
         operation: "autopilot.changed",

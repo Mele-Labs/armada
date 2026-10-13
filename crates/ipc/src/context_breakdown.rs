@@ -26,7 +26,7 @@ pub struct ContextCategory {
     pub kind: ContextKind,
 }
 
-/// A memory file in the context: a CLAUDE.md, a rules file, an auto-memory entry.
+/// A memory file in the context: a project's instructions, a rules file, an auto-memory entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContextMemoryFile {
     pub path: String,

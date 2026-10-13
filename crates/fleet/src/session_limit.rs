@@ -41,12 +41,9 @@ where
     /// it.** A session that ended is let go; one that could not be told yet is tried again on the
     /// next tick, until it is long overdue.
     pub(crate) async fn limits_lifted(self: &std::sync::Arc<Self>) {
-        let held = match self.store().lock().await.sessions_limited() {
-            Ok(held) => held,
-            Err(why) => {
-                eprintln!("the sessions held for a limit could not be read: {why:?}");
-                return;
-            }
+        // A store that will not answer is asked again on the next tick.
+        let Ok(held) = self.store().lock().await.sessions_limited() else {
+            return;
         };
         let Some(now) = self.now().epoch_millis() else {
             return;

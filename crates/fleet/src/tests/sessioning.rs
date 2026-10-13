@@ -692,7 +692,7 @@ fn a_breakdown(total: u64) -> ipc::ContextBreakdown {
             ipc::ContextCategory { name: "System prompt".into(), tokens: 3_000, kind: ipc::ContextKind::Used },
             ipc::ContextCategory { name: "Free space".into(), tokens: 150_000, kind: ipc::ContextKind::Free },
         ],
-        memory_files: vec![ipc::ContextMemoryFile { path: "/repo/CLAUDE.md".into(), tokens: 800 }],
+        memory_files: vec![ipc::ContextMemoryFile { path: "/repo/NOTES.md".into(), tokens: 800 }],
         mcp_tools: vec![ipc::ContextMcpTool { name: "mcp__srv__a".into(), server: "srv".into(), tokens: 400 }],
         total_tokens: total,
         max_tokens: 200_000,

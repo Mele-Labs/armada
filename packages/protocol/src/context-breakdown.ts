@@ -7,7 +7,7 @@ export type ContextKind = "used" | "free" | "buffer" | "deferred";
 /** One row, as `/context` lists it beside the grid. */
 export type ContextCategory = { name: string; tokens: number; kind: ContextKind };
 
-/** A memory file in the context: a CLAUDE.md, a rules file, an auto-memory entry. */
+/** A memory file in the context: a project's instructions, a rules file, an auto-memory entry. */
 export type ContextMemoryFile = { path: string; tokens: number };
 
 /** One MCP tool's schema in the context. */
