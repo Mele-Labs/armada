@@ -33,7 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button, Radio, RadioGroup, limitHeldSaid } from "@armada/components";
-import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
+import type { FixMain, JobSummary, Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
 import type { NowActed } from "@armada/jobs";
@@ -49,6 +49,7 @@ import { useSessions } from "./sessions-draft";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
+import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
@@ -112,6 +113,8 @@ export type Item = {
   asked?: AskedOf;
   /** Drawn from what Fleet serves, so its acts are real ones: Open Job, and no mock stub. */
   served?: true;
+  /** Who holds the pull request or red main the call is about, where somebody does: the card draws what they are doing. */
+  ownedBy?: Owner;
 };
 
 /** What the Dashboard knows of each Job's Now, by Job id: the draft's, else what Fleet serves for the active Jobs. */
@@ -179,6 +182,8 @@ export type Hosts = {
   onNowAct?: ((jobId: string, acted: NowActed) => void) | undefined;
   /** A pick on a Job's Commander card, by the card's id and the option's. `commander-acts.ts`. */
   onAnswerCard?: ((jobId: string, card: string, option: string) => Promise<JobAnswered>) | undefined;
+  /** Releases a slot an agent session holds, for the holder the confirm showed: a terminal's process, or a hosted Session's id. */
+  onReleaseSlot?: ((manifestId: string, slot: number, holder: string) => Promise<Outcome>) | undefined;
   /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
@@ -630,7 +635,17 @@ export function useItems(
           .map((one) => sessionItem(one, hosts)),
       );
     }
-    items.push(...lineItems(state, tab, hosts, nowViews !== undefined && !Object.values(nowViews).some((view) => view.served === true)));
+    // A failing pull request or red main whose owner is already on it is not a call; one that is, shows its owner.
+    const views = viewsOf(state);
+    const working = new Set((read.sections.find((one) => one.id === "running")?.jobs ?? []).map((job) => job.id));
+    const told = new Map(state.jobs.flatMap((job) => (job.last_told_at === undefined ? [] : [[job.id, job.last_told_at] as const])));
+    items.push(
+      ...lineItems(state, tab, hosts, nowViews !== undefined && !Object.values(nowViews).some((view) => view.served === true)).flatMap((item): Item[] => {
+        const owner = ownerOfCall(views, sessions, item.key);
+        if (owner === undefined) return [item];
+        return isOnIt(owner, sessions, working, told, failedAt(views, item.key)) ? [] : [{ ...item, ownedBy: owner }];
+      }),
+    );
     // A Job's pips come from its workflow and its icon from the first thing active on it.
     const drawn = items.map((item): Item => {
       if (item.job === undefined || tab === "command-central") return item;

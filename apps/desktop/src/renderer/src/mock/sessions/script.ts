@@ -526,6 +526,7 @@ export function sessionsStore(
               id: rid,
               at: stamp,
               kind: "message",
+              instant: new Date().toISOString(),
               from: { kind: "you" },
               text: sent.text,
               ...(sent.files.length === 0 ? {} : { files: sent.files }),
@@ -638,6 +639,7 @@ export function sessionsStore(
         ? { ok: true, bytes: new TextEncoder().encode(PICTURE), type: "image/svg+xml" }
         : { ok: true, bytes: new TextEncoder().encode(NOTE), type: path.endsWith(".md") ? "text/markdown" : "text/plain" },
     models: MODELS,
+    defaultModel: "sonnet",
     efforts: EFFORTS,
     commands: COMMANDS,
     answerWaiting: (id, itemId, given) => {

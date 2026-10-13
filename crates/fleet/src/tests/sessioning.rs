@@ -14,6 +14,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use crate::daemon::Fleet;
 use crate::sessioning::{placed, Placed};
 use crate::tests::daemon::a_fleet;
+use crate::tests::slot_leases::{leased, released, By};
 use crate::tests::tmp::TempDir;
 
 fn roots() -> Vec<(String, String)> {
@@ -121,7 +122,7 @@ async fn a_session_that_starts_in_a_slot_holds_it_and_giving_it_up_is_recorded()
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (manifest, root) = served(&fleet);
-    let slot = adapter_traits::slot_path(&root, 2);
+    let slot = leased(&root, 2, "fleet/ledger", By::Session("s1"));
 
     let record = fleet
         .report_session(report("s1", started(&slot)))
@@ -187,7 +188,7 @@ async fn ending_a_session_gives_back_what_it_held_and_a_spent_attachment_stays_s
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (_, root) = served(&fleet);
-    let slot = adapter_traits::slot_path(&root, 1);
+    let slot = leased(&root, 1, "fleet/a", By::Session("s1"));
     fleet
         .report_session(report("s1", started(&slot)))
         .await
@@ -727,4 +728,99 @@ async fn a_sessions_context_breakdown_is_kept_and_a_report_without_one_leaves_it
     assert_eq!(later.context_breakdown.map(|one| one.total_tokens), Some(60_000));
     let listed = fleet.list_sessions(None, None, None).await.unwrap();
     assert_eq!(listed.sessions[0].context_breakdown.as_ref().map(|one| one.total_tokens), Some(60_000));
+}
+
+/// #2239. A directory reads as a slot, but the lease there is another Session's: the move and what
+/// is read from it credit the Session nothing, while a fact that is no branch or pull request
+/// still lands.
+#[tokio::test]
+async fn a_directory_in_a_slot_another_session_leased_credits_this_one_with_nothing() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    let slot = leased(&root, 13, "fleet/theirs", By::Session("s2"));
+
+    fleet.report_session(report("s2", started(&slot))).await.unwrap();
+    fleet.report_session(report("s1", started(&slot))).await.unwrap();
+    fleet
+        .report_session(report("s1", SessionFact::Moved { cwd: format!("{slot}/crates") }))
+        .await
+        .unwrap();
+    fleet.report_session(report("s1", attached("branch", "fleet/theirs"))).await.unwrap();
+    fleet.report_session(report("s1", attached("pr", "2234"))).await.unwrap();
+    let said = fleet.report_session(report("s1", attached("job", "7"))).await.unwrap();
+
+    assert!(held(&said, "slot").is_empty() && held(&said, "branch").is_empty() && held(&said, "pr").is_empty());
+    assert_eq!(held(&said, "job").len(), 1);
+    let theirs = fleet.report_session(report("s2", SessionFact::TurnCompleted)).await.unwrap();
+    assert_eq!(held(&theirs, "slot"), [("13".into(), AttachmentState::Standing)]);
+    assert_eq!(held(&theirs, "branch"), [("fleet/theirs".into(), AttachmentState::Standing)]);
+}
+
+/// A lease taken for a Session that has since ended (`/clear` starts a new id in the same
+/// terminal) names nobody live, so the Session that carries on in the slot holds it.
+#[tokio::test]
+async fn a_lease_taken_for_a_session_that_ended_is_held_by_the_one_that_carries_on() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    let slot = leased(&root, 4, "fleet/topic", By::Session("before-clear"));
+    fleet.report_session(report("before-clear", started(&slot))).await.unwrap();
+    fleet
+        .report_session(report("before-clear", SessionFact::Ended { reason: "clear".into() }))
+        .await
+        .unwrap();
+
+    let after = fleet.report_session(report("after-clear", started(&slot))).await.unwrap();
+
+    assert_eq!(held(&after, "slot"), [("4".into(), AttachmentState::Standing)]);
+}
+
+/// The release is the pool's, so the ledger follows it on the sweep: the slot and the branch read
+/// through it are given back, and the pull request, which its Session still owns, is not.
+#[tokio::test]
+async fn a_slot_released_in_the_pool_is_given_back_on_the_sweep_and_its_pull_request_is_kept() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    let slot = leased(&root, 2, "fleet/a", By::Session("s1"));
+    fleet.report_session(report("s1", started(&slot))).await.unwrap();
+    fleet.report_session(report("s1", attached("pr", "12"))).await.unwrap();
+    let mut watching = fleet.events().subscribe();
+
+    released(&root, 2);
+    let served = fleet.repositories().first().unwrap();
+    fleet.slot_rows_followed(&served).await;
+
+    let record = next_session(&mut watching).await;
+    assert_eq!(held(&record, "slot"), [("2".into(), AttachmentState::GivenBack)]);
+    assert_eq!(held(&record, "branch"), [("fleet/a".into(), AttachmentState::GivenBack)]);
+    assert_eq!(held(&record, "pr"), [("12".into(), AttachmentState::Standing)]);
+}
+
+/// The record keeps the Session of a holder that has gone, so the stranded slot's last holder is
+/// found; but that is who held it, and nobody holds it now: the sweep gives the row back.
+#[tokio::test]
+async fn a_stranded_slot_names_its_last_holder_and_is_held_by_no_one() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    let slot = leased(&root, 3, "fleet/a", By::Session("s1"));
+    fleet.report_session(report("s1", started(&slot))).await.unwrap();
+    let mut watching = fleet.events().subscribe();
+
+    let record = format!("{slot}.lease");
+    let Some(adapters::leasing::Holder::Process { started: begun, .. }) =
+        adapters::leasing::Holder::of(std::process::id())
+    else {
+        panic!("this process is running");
+    };
+    let text = std::fs::read_to_string(&record).unwrap();
+    std::fs::write(&record, text.replace(&begun, "a start no process has")).unwrap();
+    let served = fleet.repositories().first().unwrap();
+    fleet.slot_rows_followed(&served).await;
+
+    assert_eq!(adapters::leasing::session_of(std::path::Path::new(&slot)).as_deref(), Some("s1"));
+    let said = next_session(&mut watching).await;
+    assert_eq!(held(&said, "slot"), [("3".into(), AttachmentState::GivenBack)]);
 }

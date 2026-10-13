@@ -20,9 +20,11 @@ import type { SessionRunMessage } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
+import { sessionsOfPicked } from "@armada/screens/src/board";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
+  PullRequestPageRead,
   Session,
   SessionAnswer,
   SessionAttachment,
@@ -39,11 +41,15 @@ import { SessionsFrom } from "./sessions-draft";
 import { markViewed } from "./cockpit/viewed";
 
 const NONE: readonly never[] = [];
+
+/** A page Fleet answered, or the words of its refusal. */
+const pageRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestPage"]>>): PullRequestPageRead =>
+  answer.ok ? { ok: true, page: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
 const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds">;
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository">;
 
 /** The store behind one window's Sessions. Exported for a test that holds it without a window. */
 export class WiredStore {
@@ -74,14 +80,16 @@ export class WiredStore {
 
   private take(state: BridgeState): void {
     const was = this.inputs;
-    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds) return;
-    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds };
+    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository) return;
+    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository };
     this.recompute();
   }
 
   private recompute(): void {
     const read = this.inputs?.sessions;
-    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside);
+    // The window holds the picked repository's Sessions, as the Board holds its Jobs: every list here reads this one.
+    const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
+    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside);
     this.listeners.forEach((listener) => listener());
   }
 
@@ -144,9 +152,9 @@ export class WiredStore {
     });
   }
 
-  private async starting(tag: SessionTag | undefined): Promise<string | undefined> {
+  private async starting(tag: SessionTag | undefined, root: string | undefined): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession();
+    const done = await this.api.startSession(undefined, root);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -319,7 +327,7 @@ export class WiredStore {
     return {
     get: () => this.mapped,
     subscribe: this.subscribe,
-    start: (tag) => this.starting(tag),
+    start: (tag, root) => this.starting(tag, root),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     forkAt: (id, at) => this.forkingAt(id, at),
@@ -333,8 +341,11 @@ export class WiredStore {
       return { rows: rowsOfThread(id, rows, () => undefined), finished, ...(report === undefined ? {} : { report }) };
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
+    stop: (id) => void this.plain(this.api.stopSession(id)),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
+    pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
+    writePullRequest: async (id, number, write) => pageRead(await this.api.writePullRequest(id, number, write)),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
     openWindow: (id, url) => void this.api.openSessionWindow(id, url),
     readArtifact: (id, path) => this.api.readSessionArtifact(id, path),
@@ -380,6 +391,9 @@ export class WiredStore {
     reviews: "fleet",
     get models() {
       return store.inputs?.holds.models?.models ?? NONE;
+    },
+    get defaultModel() {
+      return store.inputs?.holds.models?.default;
     },
     efforts: EFFORTS,
     get commands() {

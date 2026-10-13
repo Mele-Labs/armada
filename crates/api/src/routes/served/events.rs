@@ -173,6 +173,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The default model's step down after any change to it, whole.
+    Route {
+        operation: "model_downshift.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A repository's Autopilot after any change to it, whole. #2092.
     Route {
         operation: "autopilot.changed",

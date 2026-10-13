@@ -35,6 +35,9 @@ import type { FleetHandle } from "./moment";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
+/** A picture that decodes. A sent message draws what it carried, and a broken one raises an error the walks hear. */
+const ONE_PIXEL = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+
 /** An attachment as Fleet writes it. */
 export function held(kind: string, target: string, detail: Record<string, string> = {}, state: AttachmentState = "standing"): Attachment {
   return { kind, manifest_id: "armada", target, state, detail, since: AT, changed_at: AT };
@@ -105,6 +108,8 @@ export type Calls = {
   tuned: TuneSession[];
   renamed: RenameSession[];
   closed: string[];
+  /** The Sessions whose running turn was stopped. */
+  stopped: string[];
   forked: string[];
   /** The Sessions forked from one message, and the message. */
   forkedAt: { sessionId: string; at: string }[];
@@ -124,7 +129,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -160,12 +165,20 @@ export class FakeSessionsFleet {
   subagents: Record<string, SessionSubagent> = {};
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
+  /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
+  startsNow = false;
+  /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
+  keepsRows = false;
   private minted = 0;
   private rowed = 0;
 
   constructor(records: SessionRecord[] = [], threads: Record<string, SessionRow[]> = {}) {
     this.records = records;
     this.threads = threads;
+  }
+
+  private began(): Partial<SessionRecord> {
+    return this.startsNow ? { started_at: new Date().toISOString() } : {};
   }
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
@@ -182,7 +195,7 @@ export class FakeSessionsFleet {
         return {
           startSession: async () => {
             this.calls.started += 1;
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`);
+            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, this.began());
             this.set([record, ...this.records]);
             return { ok: true, value: record };
           },
@@ -248,7 +261,16 @@ export class FakeSessionsFleet {
           sendSessionMessage: async (send) => {
             if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
             this.calls.sent.push(send);
-            this.row(send.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: send.text });
+            this.row(send.session_id, {
+              kind: "message",
+              id: this.rowId(),
+              at: AT,
+              from: { kind: "you" },
+              text: send.text,
+              ...(send.attachments === undefined || send.attachments.length === 0
+                ? {}
+                : { files: send.attachments.map((one, at) => ({ id: `${this.rowed}-${at}`, name: one.name, media_type: one.media_type })) }),
+            });
             // The first message of a Session an agent started: sent, it is no longer unsent and nothing waits on it.
             const sent = this.change(send.session_id, (one) => ({
               ...one,
@@ -304,7 +326,7 @@ export class FakeSessionsFleet {
               return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_fork_live", message: `session ${sessionId} is still running, and only an ended one is forked` } } as never };
             }
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
+            const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
@@ -314,7 +336,7 @@ export class FakeSessionsFleet {
             if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
             // **Live or not**: the Session it came from is left as it was, and keeps taking messages.
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
+            const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
@@ -344,6 +366,10 @@ export class FakeSessionsFleet {
             if (this.records.find((one) => one.id === sessionId)?.origin === "terminal") return this.change(sessionId, (one) => one);
             return this.change(sessionId, (one) => ({ ...one, state: "ended" }));
           },
+          stopSession: async (sessionId) => {
+            this.calls.stopped.push(sessionId);
+            return this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
+          },
           watchSession: async (sessionId) => {
             this.calls.watched.push(sessionId);
             this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? this.keptRetro[sessionId] ?? [] };
@@ -353,7 +379,7 @@ export class FakeSessionsFleet {
             const thread = this.subagents[subagentId];
             return thread === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: thread };
           },
-          readSessionFile: async () => ({ ok: true, bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png" }),
+          readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),
           readSessionArtifact: async () => ({ ok: true, bytes: new TextEncoder().encode("# Store clock"), type: "text/markdown" }),
           showSessionPage: async (_sessionId, address) => {
@@ -518,7 +544,7 @@ export class FakeSessionsFleet {
     const held = this.threads[sessionId];
     // Not opened: main holds no thread for it and drops the row. Fleet keeps a retro's, so opening the thread later brings it.
     if (held === undefined) {
-      if (row.kind === "retro") this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
+      if (row.kind === "retro" || this.keepsRows) this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
       return;
     }
     this.threads = { ...this.threads, [sessionId]: withThreadRow(held, row) };

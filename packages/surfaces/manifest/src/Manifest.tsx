@@ -104,6 +104,10 @@ export type ManifestProps = ManifestSlice & RepositoryAllowsSlice & {
   onSettingUp?: (on: boolean) => void;
   /** `false` where the picked repository has no `armada.yml` yet: Setup is the only view with anything to show. */
   setUp?: boolean;
+  /** Start a Session that writes `armada.yml` with the owner from Setup's reading. Absent leaves the act out. */
+  onSetUpWithSession?: () => void;
+  /** That Session is being started, and Fleet has not answered. */
+  startingSession?: boolean;
 };
 
 /**
@@ -228,6 +232,15 @@ export function Manifest(props: ManifestProps) {
             if (id !== "setup") editing.onView(id === "file" || id === "form" ? id : "run");
           }}
         />
+        {/* Sixty workspaces corrected one sheet at a time is the daunting part; a Session
+            asks about them in conversation instead, from the reading this tab already holds. */}
+        {selected !== "setup" || props.onSetUpWithSession === undefined ? null : (
+          <div className="armada-screen__tabs-acts">
+            <Button variant="ghost" size="sm" pending={props.startingSession === true} onClick={props.onSetUpWithSession}>
+              {props.startingSession === true ? "Starting a session" : "Set up with a session"}
+            </Button>
+          </div>
+        )}
         {!reads ? null : (
           <div className="armada-screen__tabs-acts">
             <Button variant="ghost" size="sm" onClick={() => setReading("drift")}>

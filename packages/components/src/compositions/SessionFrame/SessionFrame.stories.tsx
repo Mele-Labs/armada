@@ -136,3 +136,84 @@ export const ContextWithoutBreakdown: Story = {
     await expect(canvas.queryByRole("button", { name: /^Context/ })).not.toBeInTheDocument();
   },
 };
+
+/** The model the Session runs on, named from the id its process resolved. */
+export const ModelResolved: Story = {
+  args: { state: "idle", said: "Idle", title: "Release notes script", model: "vendor-opus-5-5" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Model Opus 5.5" })).toHaveTextContent("Opus 5.5");
+  },
+};
+
+/** Before the process has said, the alias that was picked, and with neither no chip. */
+export const ModelPickedOnly: Story = {
+  args: { state: "idle", said: "Idle", title: "Release notes script", model: "sonnet" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Model Sonnet" })).toBeVisible();
+  },
+};
+
+export const ModelUnknown: Story = {
+  args: { state: "idle", said: "Idle", title: "Release notes script" },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
+  },
+};
+
+/** Big or old: a quiet mark beside the context figure. Hover opens its card, a press keeps it open, and each act is its own button. */
+export const FreshStart: Story = {
+  args: {
+    state: "idle",
+    said: "Idle",
+    title: "Cart totals rounding",
+    context: { tokens: 612_000, window: 1_000_000 },
+    fresh: { tokens: 612_000, hours: 52, onFresh: fn(), onFork: fn() },
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    const mark = canvas.getByRole("button", { name: "Fresh start" });
+    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.hover(mark);
+    const card = canvas.getByRole("dialog", { name: "Fresh start" });
+    await expect(card).toHaveTextContent("612k context");
+    await expect(card).toHaveTextContent("Started 2d ago");
+
+    await userEvent.click(mark);
+    await userEvent.unhover(mark);
+    await expect(canvas.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
+
+    await userEvent.click(within(card).getByRole("button", { name: "New Session" }));
+    await expect(args.fresh?.onFresh).toHaveBeenCalledOnce();
+    await userEvent.click(within(card).getByRole("button", { name: "Fork" }));
+    await expect(args.fresh?.onFork).toHaveBeenCalledOnce();
+
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+  },
+};
+
+/** While the old Session writes its handoff New Session waits, and Fork is left offered. A Fleet with no fork of a live Session offers none. */
+export const FreshStartWaiting: Story = {
+  args: {
+    state: "idle",
+    said: "Idle",
+    title: "Cart totals rounding",
+    fresh: { tokens: 612_000, hours: 3, busy: true, onFresh: fn(), onFork: fn() },
+  },
+  play: async ({ canvas, userEvent }) => {
+    const mark = canvas.getByRole("button", { name: "Fresh start" });
+    await expect(mark).toHaveAttribute("aria-busy", "true");
+    await userEvent.click(mark);
+    await expect(within(canvas.getByRole("dialog", { name: "Fresh start" })).getByRole("button", { name: "New Session" })).toBeDisabled();
+  },
+};
+
+export const FreshStartWithoutFork: Story = {
+  args: { state: "idle", said: "Idle", title: "Cart totals rounding", fresh: { tokens: 612_000, hours: 3, onFresh: fn() } },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Fresh start" }));
+    const card = canvas.getByRole("dialog", { name: "Fresh start" });
+    await expect(within(card).getByRole("button", { name: "New Session" })).toBeEnabled();
+    await expect(within(card).queryByRole("button", { name: "Fork" })).not.toBeInTheDocument();
+  },
+};

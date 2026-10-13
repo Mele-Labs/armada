@@ -50,6 +50,9 @@ import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
+import { handleModelDownshift } from "./model-downshift-channels";
+import { DownshiftNotice } from "./downshift-notice";
+import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
@@ -431,6 +434,18 @@ function summon(to: Summons): void {
   hand(window);
 }
 
+/** Bring Bridge forward, opening a window if none is up. A press that names nothing to land on. */
+function focusBridge(): void {
+  const [window] = BrowserWindow.getAllWindows();
+  if (window === undefined || window.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
 /** Bridge's own window, where one is open. A walk window is a `BaseWindow`, never listed here. */
 function bridgeWindow(): Electron.WebContents | null {
   const [window] = BrowserWindow.getAllWindows();
@@ -464,6 +479,19 @@ const attention = new Attention({
   // `dock` is macOS's; nothing else in this workspace has a tile to badge.
   count: (waiting) => app.dock?.setBadge(waiting === 0 ? "" : String(waiting)),
   now: () => Date.now(),
+});
+
+/**
+ * What the OS says when the weekly limit makes the default model's step down due. The rule, the words and
+ * the tone are `downshift-notice.ts`'s; this is the effect, and `attention`'s permission rules apply.
+ */
+const downshiftNotice = new DownshiftNotice({
+  show: (told) => {
+    if (!Notification.isSupported()) return;
+    const banner = new Notification({ title: told.title, body: told.body, sound: told.sound });
+    banner.on("click", focusBridge);
+    banner.show();
+  },
 });
 
 void app.whenReady().then(() => {
@@ -514,6 +542,12 @@ void app.whenReady().then(() => {
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
+  connection.modelDownshift.onChanged((state) => {
+    downshiftNotice.read(state);
+    everyWindow(CHANNELS.modelDownshiftChanged, state);
+  });
+  connection.modelDownshift.onSeeded((state) => downshiftNotice.seed(state));
+  connection.timeline.onAppended((event) => everyWindow(CHANNELS.timelineAppended, event));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
@@ -1020,6 +1054,8 @@ void app.whenReady().then(() => {
   handleSleep({ ipc: ipcMain, connection: () => connection });
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
+  handleModelDownshift({ ipc: ipcMain, connection: () => connection });
+  handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });

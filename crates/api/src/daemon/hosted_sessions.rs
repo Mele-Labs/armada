@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
-    SessionRecord, SessionSubagent, SessionThread, StartSession, TuneSession,
+    SessionRecord, SessionSubagent, SessionThread, StartSession, StopSession, TuneSession,
 };
 
 use crate::daemon::Refusal;
@@ -62,6 +62,22 @@ pub trait HostedSessions: Send + Sync + 'static {
     /// `get_plan_usage`: the newest reading of the plan's windows. Empty where none has come.
     fn get_plan_usage(&self) -> impl Future<Output = Result<ipc::PlanUsage, Refusal>> + Send;
 
+    /// `get_model_downshift`: where the default model's step down stands. Empty where there is none.
+    fn get_model_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
+
+    /// `accept_downshift`: the lower model becomes the default until the window resets.
+    /// [`Refusal::IllegalMove`] where nothing is offered, and whatever a refused settings write says.
+    fn accept_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
+
+    /// `restore_downshift`: the default goes back. [`Refusal::IllegalMove`] unless shifted or reset.
+    fn restore_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
+
+    /// `keep_downshift`: the lower model stays the default. [`Refusal::IllegalMove`] unless reset.
+    fn keep_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
+
+    /// `settle_downshift`: the owner sets the default by hand. [`Refusal::IllegalMove`] unless offered.
+    fn settle_downshift(&self) -> impl Future<Output = Result<ipc::ModelDownshiftState, Refusal>> + Send;
+
     /// `get_sleep`: the switch and the night's rows.
     fn get_sleep(&self) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
 
@@ -100,6 +116,12 @@ pub trait HostedSessions: Send + Sync + 'static {
     fn close_session(
         &self,
         closed: CloseSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `stop_session`: ends the turn that is running and leaves the session live.
+    fn stop_session(
+        &self,
+        stopped: StopSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `get_session`: the row and its thread.

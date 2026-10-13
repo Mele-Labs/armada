@@ -182,7 +182,6 @@ span.armada-view__dot { cursor: default; }
 /* The panel's body: what is picked, and the pane of the one under the cursor beside it. */
 .armada-view__body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; }
 .armada-view__body[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
-.armada-view__body[data-pane][data-view="map"] { grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 8); }
 .armada-view__pane { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
 
 .armada-view__stage { position: relative; display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
@@ -292,75 +291,6 @@ span.armada-view__dot { cursor: default; }
 .armada-keys__row dt { display: inline-flex; gap: var(--space-1); }
 .armada-keys__row dd { margin: 0; }
 
-
-/* ---- The map ---------------------------------------------------------------------------------- */
-
-.armada-view__map { position: relative; display: flex; min-width: 0; min-height: 0; padding: var(--space-2); }
-.armada-view__map[data-recessed] { opacity: 0.4; }
-
-.armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.armada-map__field { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
-.armada-map__field:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-
-.armada-map__dust { fill: var(--fg-subtle); opacity: 0.35; }
-
-/* A repository: a faint ring round its stars, named at its top. */
-.armada-map__cluster circle { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
-.armada-map__cluster text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
-
-/* What joins what: a parent to its child, a Job to what it waits on, a Session to its Job, a branch to main. */
-.armada-map__link { stroke: var(--fg-subtle); stroke-width: 1; opacity: 0.55; }
-.armada-map__link[data-kind="dispatched"] { stroke: var(--fg-muted); stroke-width: 1.5; opacity: 0.85; }
-.armada-map__link[data-kind="waits"] { stroke-dasharray: 5 4; }
-.armada-map__link[data-kind="works"] { stroke: var(--status-running); opacity: 0.55; }
-.armada-map__link[data-kind="line"] { stroke: var(--status-completed-success); stroke-dasharray: 1 5; stroke-linecap: round; opacity: 0.7; }
-
-/* A star: its colour is its state, its glow is how much it wants him. Nothing pulses. */
-.armada-star { cursor: pointer; }
-.armada-star__core { fill: var(--hue); }
-.armada-star__halo { fill: var(--hue); opacity: 0.14; }
-.armada-star__halo[data-inner] { opacity: 0.24; }
-.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 1.5; }
-.armada-star__clash { color: var(--status-awaiting-review); }
-.armada-star__clash circle { fill: var(--bg-raised); stroke: currentColor; stroke-width: 1; }
-.armada-star__clash[data-opens] { cursor: pointer; }
-.armada-star__clash[data-opens]:hover { color: var(--fg-default); }
-.armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); pointer-events: none; }
-.armada-star[data-lit] .armada-star__label,
-.armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
-.armada-star:hover .armada-star__core { stroke: var(--fg-default); stroke-width: 1; }
-
-.armada-map__landmark text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
-.armada-map__main { fill: var(--status-completed-success); }
-.armada-map__landmark[data-red] .armada-map__main { fill: var(--status-completed-failed); }
-.armada-map__branch { fill: var(--status-not-started); }
-
-.armada-map__tip {
-  position: absolute;
-  z-index: 2;
-  transform: translate(-50%, calc(-100% - var(--space-2)));
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
-  pointer-events: none;
-  white-space: nowrap;
-}
-.armada-map__tip span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
-
-.armada-map__key { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
-.armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
-
-/* The acts of the star under the cursor, as the tile carries them. */
-.armada-view__picked { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); font-size: var(--text-sm); color: var(--fg-default); white-space: nowrap; }
-.armada-view__picked > span:first-child { min-width: 0; max-width: calc(var(--space-12) * 5); overflow: hidden; text-overflow: ellipsis; }
-
 /* Bays: the work in every bay, and what waits for one, as metro lines through the same stations. The
    line is the work's status colour; a stop it reached is the state at that station; the stop it is at
    now is large, says what to know inside it, and fills its ring with the Job's steps. */
@@ -389,6 +319,12 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__who[data-opens] { cursor: pointer; }
 .armada-metro__who[data-opens]:hover .armada-metro__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }
 .armada-metro__who:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-metro__release { display: inline-flex; padding: 0; border: 0; background: none; color: var(--fg-subtle); cursor: pointer; }
+.armada-metro__release:hover { color: var(--fg-default); }
+.armada-metro__release:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+/* A release asked for under its line: the confirm, or what Fleet refused. */
+.armada-metro__confirm { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); max-width: calc(var(--space-12) * 8); padding: var(--space-2) var(--space-4) var(--space-3); }
+.armada-metro__refused { margin: 0; padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--slot-stranded); border-radius: var(--radius-sm); font-size: var(--text-sm); }
 .armada-metro__bay { flex: none; width: 2.5ch; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
 /* A pull request outside a bay: its number where a bay's sits, under whoever owns it. */
 .armada-metro__bay[data-pull] { width: 6ch; }

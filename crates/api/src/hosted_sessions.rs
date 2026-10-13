@@ -96,6 +96,46 @@ pub(crate) async fn get_plan_usage<D: HostedSessions>(State(served): State<Serve
     }
 }
 
+/// Where the default model's step down stands.
+pub(crate) async fn get_model_downshift<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_model_downshift().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner takes the lower default. 200 with the state; 409 where nothing is offered.
+pub(crate) async fn accept_downshift<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().accept_downshift().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner puts the default back. 200 with the state; 409 unless shifted or reset.
+pub(crate) async fn restore_downshift<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().restore_downshift().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner keeps the lower default after the reset. 200 with the state; 409 unless reset.
+pub(crate) async fn keep_downshift<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().keep_downshift().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner sets the default by hand. 200 with the state; 409 unless offered.
+pub(crate) async fn settle_downshift<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().settle_downshift().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Whether sleep mode is on and what the night holds.
 pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_sleep().await {
@@ -176,6 +216,20 @@ pub(crate) async fn close_session<D: HostedSessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().close_session(closed).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn stop_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let stopped: ipc::StopSession = match ipc::decode("a session to stop", &body) {
+        Ok(stopped) => stopped,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().stop_session(stopped).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }

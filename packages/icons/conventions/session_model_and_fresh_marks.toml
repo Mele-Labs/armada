@@ -1,0 +1,7 @@
+[conventions.session_model_and_fresh_marks]
+  glyphs = ["cpu", "move-right"]
+  means = "The model a Session runs on, and the mark that offers a fresh start on a Session that is big or old"
+  group = "Session"
+  size = "12 and 16px"
+  status = "Proposed"
+  notes = "Proposed 13 Oct 2026 for the walk `session-fresh`. `cpu` at 12px names the model in a Session's head, the default included, as it names it in the narrow message box; its tooltip says whether it was picked. `move-right` at 16px sits beside the context figure once a Session passes 300k tokens or a day, and opens a card of two acts, a new Session on a short handoff and a fork. Borrowed and not minted: a handoff goes from one Session to another, which is what `move-right` already draws between the Sessions in the ledger's Forks section. The owner may rule otherwise."

@@ -119,7 +119,7 @@ where
         let fault = |why| self.refusal(Adrift::Writing(why));
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
-        let holder = ledger::holder_of_branch(&store, &manifest, branch).map_err(fault)?;
+        let holder = ledger::holder_of_branch(&store, &manifest, served.root(), branch).map_err(fault)?;
         let answer = match call.act {
             NeedAct::Declare => {
                 let what = call.what.as_deref().map(str::trim).unwrap_or_default();

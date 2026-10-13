@@ -39,7 +39,7 @@ pub fn pool_of(within: &Path) -> Result<Pool, String> {
 /// held, and says so once.
 pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
     let pool = match pool_of(within) {
-        Ok(pool) => pool,
+        Ok(pool) => pool.leased_for(std::env::var(Holder::AGENT_SESSION_ENV).ok()),
         Err(why) => return refused(&why),
     };
     let hosted = std::env::var(Holder::SESSION_ENV).ok();

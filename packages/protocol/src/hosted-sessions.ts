@@ -119,6 +119,9 @@ export type RunSessionCommand = { session_id: string; command: string };
 /** `POST /sessions/close`. A terminal session is ended by its mod, and the row ends when the terminal says so. */
 export type CloseSession = { session_id: string };
 
+/** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
+export type StopSession = { session_id: string };
+
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */
 export type SessionTurn =
   | { state: "idle" }
@@ -130,6 +133,11 @@ export type HostedFacts = {
   /** What the agent is held on, while it is. */
   asked?: HelmCallInFlight;
   model?: string;
+  /**
+   * The model the CLI resolved for the running process, as its `init` line names it: `vendor-opus-5-5` where
+   * `model` is `opus` or absent. Absent until the process has started, and again once it is replaced. Since 23.85.
+   */
+  resolved_model?: string;
   effort?: string;
   mode: SessionMode;
   /** False after a quiet timeout: the next message resumes the session. */

@@ -829,6 +829,15 @@ pub(crate) fn worktree_held(holding: &Holding) -> WorktreeHeld {
     }
 }
 
+/// A lease's `since`, seconds on the record, as the wire spells the instant.
+pub(crate) fn since_of(secs: Option<u64>) -> Option<ipc::Instant> {
+    secs.map(|secs| {
+        ipc::Instant::carried(crate::clock::rfc3339_utc(
+            i64::try_from(secs.saturating_mul(1000)).unwrap_or(i64::MAX),
+        ))
+    })
+}
+
 /// One pool slot. `since` is seconds on the wire's clock, read off the lease
 /// record.
 pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot {
@@ -865,11 +874,7 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
         },
         base: one.base.clone(),
         branch: reading.branch.clone(),
-        since: reading.since.map(|secs| {
-            ipc::Instant::carried(crate::clock::rfc3339_utc(
-                i64::try_from(secs.saturating_mul(1000)).unwrap_or(i64::MAX),
-            ))
-        }),
+        since: since_of(reading.since),
         warm: reading.warm,
         behind: reading.behind,
         closed: reading.closed,
@@ -889,6 +894,8 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
                 })
                 .collect(),
             unpushed: work.unpushed,
+            last_holder: one.last_holder.clone(),
+            told: one.told.clone().map(ipc::Instant::carried),
         }),
         rescue: one.rescue.as_ref().map(|kept| ipc::SlotFinding {
             state: match kept.state {

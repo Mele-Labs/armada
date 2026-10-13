@@ -1696,7 +1696,7 @@ a Session. It needs to be told what makes it Helm.
 | Block | Action it names | Why it is in the note |
 | --- | --- | --- |
 | **Opening** | Name the repository and its folder; make a tool call rather than say a thing was done | A session does not know it is docked, or over which repository. The second sentence is the Drone's reporting clause, for the same failure: a model holding tools narrates acts it did not take |
-| **Sessions** | Pass words to a running Session with `tell_session`, found by `list_sessions` and matched by title | `tell_session` reads `Helm only`, so the door grants it, but "send this to the Walk Variations session" had nothing saying Helm could deliver it. It is not an unasked call |
+| **Sessions** | Find a Session with `list_sessions`, matching the person's words on its titles, and ask which only when two fit; pass words to a running one with `tell_session` | A person says "the session I went to poke" and Helm has the live ones in front of it as a line each (`state=ended` for a finished one). `tell_session` reads `Helm only`, so the door grants it, but "send this to the Walk Variations session" had nothing saying Helm could deliver it. It is not an unasked call |
 | **Where they are** | Read the one line before the message, and call `get_job` for what a named Job holds | `#1075`: Bridge sends the screen, the pick, a chipped Job and the cursor row with every ask, so the person never has to say which Job they mean |
 | **On a Studio** | Add a proposed node, propose an edge and name an untitled Studio unasked; every other act on a Studio waits for the ask | `#1288`, from [Studio](../concepts/studio.md)'s *Helm on a Studio*. The door cannot tell an ask from its absence, so this line is drawn here and nowhere else |
 | **Voice** | None. It tunes length and formality | Rendered only where the setting is set. It comes last, so it adjusts what is above it |
@@ -1751,12 +1751,16 @@ refused when it is read, as every prompt is.
 │ something does not do it. Only a tool call does.
 └────────────────────────────────────────────────
 ┌─ SESSIONS ─────────────────────────────────────
+│ To find a Session, call list_sessions and match
+│ what the person said against its titles. It
+│ lists the live ones, a line each, and takes
+│ state=ended for one that has finished. Ask the
+│ person which only when two of them fit.
+│
 │ To pass words to a running Session, call
-│ tell_session with its id and the words. Find the
-│ Session by calling list_sessions and matching
-│ titles to what the person called it. It sends
-│ the words as the person's own message would, and
-│ the thread shows where they went.
+│ tell_session with its id and the words. It sends
+│ them as the person's own message would, and the
+│ thread shows where they went.
 └────────────────────────────────────────────────
 ┌─ WHERE THEY ARE ───────────────────────────────
 │ Before what the person typed, one line says where

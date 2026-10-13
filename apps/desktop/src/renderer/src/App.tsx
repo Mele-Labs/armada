@@ -17,7 +17,7 @@
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
+import { heldOfPicked, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, helmReplying, NO_CHIP, opened, screenOf } from "@armada/helm";
@@ -45,6 +45,7 @@ import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
+import { optionsFor } from "./dispatch-panel/reading";
 import { useHelmBox } from "./helm-box";
 import { useHelmRefs } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
@@ -58,8 +59,9 @@ import { nodeNamed, studioName } from "@armada/screens";
 import type { OpenStudio } from "@armada/studios";
 import { Worktrees } from "@armada/cleanup";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/manifest";
-import { Setup, useSetup } from "@armada/setup";
+import { Setup, startSetupSession, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
+import { said } from "@armada/screens/src/copy";
 import { JobDetail, LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
@@ -113,7 +115,7 @@ import {
   readBrief,
   readRetro,
   agreeLesson,
-  disagreeLesson, startLessonSession,
+  disagreeLesson, startLessonSession, setupSessionFleet,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -147,8 +149,9 @@ import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./com
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
+import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
-import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
+import { JobsSurface } from "./jobs-surface"; import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
@@ -236,7 +239,7 @@ export function App({ draft }: AppProps = {}) {
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
-  const [sessioning, setSessioning] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
+  const [sessioning, setSessioning] = useState(false); const [jobbing, setJobbing] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
   const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined)]; // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
@@ -257,6 +260,8 @@ export function App({ draft }: AppProps = {}) {
   const [picked, setPicked] = useState<string | null>(null);
   // Whether Setup is the Manifest surface's view. Its own flag: the Manifest surface's own views are three.
   const [settingUp, setSettingUp] = useState(false);
+  // Set up with a session is out to Fleet: its press is pending until the Session opens or is refused.
+  const [startingSession, setStartingSession] = useState(false);
   // The row the cursor goes back to when the detail closes. A keyboard that
   // opened a row and came back to the top of the document has lost its place.
   const [returning, setReturning] = useState<string | null>(null);
@@ -276,7 +281,8 @@ export function App({ draft }: AppProps = {}) {
   // reports it up (#1075), so the palette can title its context block with the
   // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
-  const titleRow = useTitleRow();
+  const openModelSetting = () => openSettingsAt("settings:model", () => goTo(SURFACE.settings));
+  const titleRow = useTitleRow(openModelSetting);
   const [cursor, setCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
@@ -492,6 +498,16 @@ export function App({ draft }: AppProps = {}) {
     goTo(SURFACE.sessions);
     setSessionOpen(id);
   }
+  /** Setup's reading handed to a new Session in the repository being set up, and that Session opened. */
+  function setUpWithSession(held: typeof setting.held, root: string): void {
+    if (held.state !== "open") return;
+    setStartingSession(true);
+    void startSetupSession(held, root, setupSessionFleet, said).then((answer) => {
+      setStartingSession(false);
+      if (!answer.ok) setTelling(answer.saying);
+      if (answer.id !== undefined) openSession(answer.id);
+    });
+  }
   useOpenSessionAsked(openSession); useOpenHolderAsked({ job: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
   function goTo(surfaceId: string): void {
@@ -507,7 +523,7 @@ export function App({ draft }: AppProps = {}) {
     asked.setMergeFocus(undefined); asked.setCheckFocus(undefined);
     setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
     setStudying(surfaceId === SURFACE.studios);
-    setSessioning(surfaceId === SURFACE.sessions);
+    setSessioning(surfaceId === SURFACE.sessions); setJobbing(surfaceId === SURFACE.jobs);
     setSessionOpen(null);
     setOpenStudio(null);
     setStudioNode(null);
@@ -550,6 +566,16 @@ export function App({ draft }: AppProps = {}) {
   const all = pickedRepository === null && repositories.length > 0;
   // The Board's Jobs follow the pick. The status bar, the palette and held worktrees read every Job.
   const boardJobs = useMemo(() => ofPicked(state.jobs, pickedRepository), [state.jobs, pickedRepository]);
+  // On All, New Session asks which repository: a session starts in one, and guessing would put it somewhere unseen.
+  const startIn = useMemo(
+    () => (pickedRepository === null ? optionsFor(repositories, []).map(({ root, name }) => ({ root, name })) : undefined),
+    [pickedRepository, repositories],
+  );
+  // Worktree Slots follow the pick too. A pause's confirm still reads every worktree it could hold.
+  const pickedHeld = useMemo(
+    () => (state.held.state === "read" ? { ...state.held, held: heldOfPicked(state.held.held, pickedRepository, state.jobs) } : state.held),
+    [state.held, pickedRepository, state.jobs],
+  );
   // Where the person is, for Helm — #1075. `cursorRowFor` picks the Board's
   // or Overview's row by which screen is showing, so neither's stale row
   // reaches an ask made on the other.
@@ -582,11 +608,11 @@ export function App({ draft }: AppProps = {}) {
   }
   // Helm's dock lists every repository's questions, whatever the pick. `questions` is the dock's own block; `asks` is Helm's.
   const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, now, commands);
-  const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring }) === SURFACE.overview; // Its call is already in front.
+  const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }) === SURFACE.overview; // Its call is already in front.
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
@@ -691,7 +717,7 @@ export function App({ draft }: AppProps = {}) {
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring,
+            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring,
           })}
           onSurface={goTo}
         >
@@ -911,7 +937,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => void commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : sessioning ? (<><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} />{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
+            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => void commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : jobbing ? (<JobsSurface state={state} now={now} repositories={repositories} disconnected={live ? null : statement.headline} nows={draft?.now} onOpen={setOpenJob} onKill={(jobId) => setConfirming({ act: "kill_job", jobId })} onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })} onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })} onPausing={(act, jobId) => setConfirming({ act, jobId })} onCompose={() => setComposing(true)} onCopied={setCopied} onCursor={setCursor} />) : sessioning ? (<><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} {...(startIn === undefined ? {} : { startIn })} />{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -920,7 +946,7 @@ export function App({ draft }: AppProps = {}) {
                  this is where the rest is given back, one tile at a time. */
               <Boundary region="Cleanup" {...guarded}>
                 <Worktrees
-                  held={state.held}
+                  held={pickedHeld}
                   // Read for the handle that names a worktree outside the
                   // pool, and a `depended_on` reason's blocker.
                   jobs={state.jobs}
@@ -980,6 +1006,10 @@ export function App({ draft }: AppProps = {}) {
                   settingUp={settingUp}
                   onSettingUp={setSettingUp}
                   setUp={repository === undefined || scoped !== undefined}
+                  startingSession={startingSession}
+                  {...(setting.held.state !== "open" || repository === undefined
+                    ? {}
+                    : { onSetUpWithSession: () => setUpWithSession(setting.held, repository) })}
                   setup={
                     <Setup
                       setting={setting}
@@ -1112,6 +1142,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
+                  onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />
 
@@ -1212,6 +1243,7 @@ export function App({ draft }: AppProps = {}) {
           said={telling}
           onCopied={setCopied}
         >
+          <DownshiftAlert choose={openModelSetting} />
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>

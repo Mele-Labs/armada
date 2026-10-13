@@ -369,6 +369,17 @@ describe("a session", () => {
     expect(session.lastTurn).toMatch(/^\d\d:\d\d$/);
   });
 
+  it("carries the model its process resolved apart from the one picked, and neither where none was said", () => {
+    const hosted = (change: object) => ({ turn: { state: "idle" as const }, mode: "auto" as const, running: true, ...change });
+    const of = (change: object) => sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02", { hosted: hosted(change) }), undefined, beside());
+
+    expect(of({ model: "opus", resolved_model: "vendor-opus-5-5" })).toMatchObject({ model: "opus", resolvedModel: "vendor-opus-5-5" });
+    expect(of({ resolved_model: "vendor-opus-5-5" }).model).toBeUndefined();
+    const unsaid = of({});
+    expect(unsaid.model).toBeUndefined();
+    expect(unsaid.resolvedModel).toBeUndefined();
+  });
+
   it("carries the agent's questions on its ask", () => {
     const questions = [{ question: "Which size?", header: "Size", multi_select: false, options: [{ label: "S", description: "Small" }] }];
     const session = sessionOfRecord(

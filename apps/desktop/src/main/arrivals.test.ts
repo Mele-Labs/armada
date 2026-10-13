@@ -96,6 +96,8 @@ function fakeHost(
     rehearsal: {} as unknown as RehearsalConnection,
     sleep: { changed: () => {} },
     planUsage: { changed: () => {} },
+    modelDownshift: { changed: () => {}, seed: async () => {} },
+    timeline: { appended: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,
@@ -403,5 +405,45 @@ describe("a card the Job's Commander put to the owner", () => {
     const { host, state } = fakeHost([job({ asking: true })], [{ kind: "drone", job_id: JOB_ID, asking: ASKING }]);
     applyArrival(host, event(), FLEET);
     expect(state().jobs[0]?.asking).toBe(true);
+  });
+});
+
+describe("the default model's step down, carried whole by its event", () => {
+  it("is passed on as the state and nothing of the event's kind", () => {
+    const { host } = fakeHost([job()]);
+    const changed = vi.fn();
+    const state = { downshift: { phase: "offered", percent: 83, was: "opus", to: "sonnet" } };
+    applyArrival(
+      { ...host, modelDownshift: { changed, seed: async () => {} } },
+      JSON.stringify({ message: "event", cursor: 4, event: { kind: "model_downshift.changed", ...state } }),
+      FLEET,
+    );
+    expect(changed).toHaveBeenCalledWith(state);
+  });
+
+  it("passes on none when the event carries none", () => {
+    const { host } = fakeHost([job()]);
+    const changed = vi.fn();
+    applyArrival(
+      { ...host, modelDownshift: { changed, seed: async () => {} } },
+      JSON.stringify({ message: "event", cursor: 4, event: { kind: "model_downshift.changed" } }),
+      FLEET,
+    );
+    expect(changed).toHaveBeenCalledWith({});
+  });
+});
+
+describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
+  it("is told to the windows whole, and moves nothing on the Board", () => {
+    const { host, state } = fakeHost([job()]);
+    const appended = vi.fn();
+    const entry = { id: 7, at: "2026-10-13T10:00:00Z", kind: "job.started", subject: { kind: "job", id: JOB_ID }, tone: "run", says: "Started", live: true };
+    applyArrival(
+      { ...host, timeline: { appended } },
+      JSON.stringify({ message: "event", cursor: 9, event: { kind: "timeline.appended", event: entry } }),
+      FLEET,
+    );
+    expect(appended).toHaveBeenCalledWith(entry);
+    expect(state().jobs).toEqual([job()]);
   });
 });

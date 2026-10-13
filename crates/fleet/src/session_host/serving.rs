@@ -12,7 +12,7 @@ use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
     RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
-    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession,
+    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, StopSession, TuneSession,
     WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
@@ -167,6 +167,26 @@ where
         Ok(self.hosts().plan_usage())
     }
 
+    async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.model_downshift_state().await
+    }
+
+    async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_accepted().await
+    }
+
+    async fn restore_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_restored().await
+    }
+
+    async fn keep_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_kept().await
+    }
+
+    async fn settle_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_settled().await
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         self.sleep_state().await
     }
@@ -286,6 +306,36 @@ where
         }
         self.session_wound_up(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
+        self.published_hosted(&id).await
+    }
+
+    /// Ends the turn that is running: the process goes, as it does after a quiet spell, and the
+    /// next message resumes the session where it stood. The row stays live and the slot is kept.
+    async fn stop_session(&self, stopped: StopSession) -> Result<SessionRecord, Refusal> {
+        let id = stopped.session_id.as_str().to_string();
+        if self.terminal_session(&id).await?.is_some() {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                &format!("session {id} runs in a terminal, and only a hosted session's turn is stopped from here"),
+            ));
+        }
+        let (session, _) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return self.published_hosted(&id).await;
+        }
+        {
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            if let Some(asked) = state.asked.take() {
+                self.hosts().asks().withdraw(&asked.call);
+            }
+            Self::let_go(&mut state);
+            state.turn = SessionTurn::Idle;
+            state.moving = None;
+            state.restart_after_turn = false;
+            state.reattached_busy = false;
+            state.woken_by.clear();
+        }
         self.published_hosted(&id).await
     }
 
@@ -839,6 +889,7 @@ where
             turn: state.turn.clone(),
             asked: state.asked.clone(),
             model: hosting.model,
+            resolved_model: state.resolved_model.clone(),
             effort: hosting.effort,
             mode: mode_of(&hosting.mode),
             running: state.process.is_some(),
@@ -873,6 +924,7 @@ where
             process.end();
         }
         state.generation += 1;
+        state.resolved_model = None;
         state.queued = 0;
         state.unstarted.clear();
     }
@@ -961,7 +1013,8 @@ where
                         false => None,
                     },
                     name: address_of(id),
-                    model: hosting.model.clone(),
+                    // None chosen is the default at the time the process starts, not when it was made.
+                    model: hosting.model.clone().or_else(|| Some(self.default_model())),
                     effort: hosting.effort.clone(),
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],

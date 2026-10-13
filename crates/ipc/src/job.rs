@@ -324,6 +324,13 @@ pub struct JobSummary {
     /// one from before Fleet kept them**, and is left out of the row.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bays: Vec<JobBay>,
+    /// When a person, Helm or a Commander last told this Job's Drone something
+    /// (`redirect_drone`) or restarted a step (`restart_step`). Filled by Fleet
+    /// from memory, so it is **lost on a Fleet restart**: a surface reads it as
+    /// "told since X" and never as a history. Absent is a Job nobody has told
+    /// since Fleet started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_told_at: Option<Instant>,
 }
 
 /// One stretch of a Job in one bay of its repository's pool.
@@ -436,6 +443,8 @@ impl JobSummary {
             piloted: None,
             alert: None,
             bays: Vec::new(),
+            // Filled by Fleet, which holds when it last told the Drone.
+            last_told_at: None,
         }
     }
 }

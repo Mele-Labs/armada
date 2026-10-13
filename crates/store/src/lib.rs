@@ -114,6 +114,7 @@ mod migration_files;
 /// What a migration is, and the table recording which names a file has had.
 mod migrations;
 /// The model a person chose for a Job's later steps.
+mod model_downshift;
 mod model_override;
 /// A Job's tier map, and the model each Drone ran. Spike 022, slice 3.
 mod model_per_task;
@@ -188,6 +189,8 @@ mod slot;
 /// The Finding a rescue Scout brought back from a stranded slot. Since V106;
 /// its verdict and items since V107.
 mod slot_rescues;
+/// What Fleet did about a stranded slot on its own: told its holder, started a Scout.
+mod slot_strandings;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
 /// What a step's worktree held when it began, kept so a restart measures the
@@ -243,6 +246,7 @@ pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use issue_writeback::{WriteBackOwed, WrittenBack};
 pub use job_bays::KeptBay;
+pub use model_downshift::KeptDownshift;
 pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use limits::SavedLimits;
@@ -274,6 +278,7 @@ pub use session_ledger::{
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
 pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
+pub use slot_strandings::KeptStranding;
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
 pub use task_drones::{TaskDrone, TaskHandIn};

@@ -9,6 +9,10 @@
 //! [`budgeted`](crate::budget::budgeted). **The race itself moved to
 //! `crate::budget` at the 900-line refusal, `#897`** — a method added here is
 //! a delegating line into whichever module already holds its Job's logic.
+//!
+//! **A trait impl is one block, so the 1200-line rule was met by moving bodies out**:
+//! `answering`, `job_settings`, `proposing` and `steering` hold the long ones as inherent
+//! methods, and each is one line here.
 
 use std::sync::Arc;
 
@@ -21,17 +25,16 @@ use ipc::{
     TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
 };
 
-use crate::adrift::Adrift;
 use crate::budget::{budgeted, budgeted_for};
 use crate::daemon::Fleet;
-// The wire's `Redirection` is a struct with a public field; Fleet's is a
-// newtype that cannot hold an empty instruction. Both names are in scope here,
-// which is the one place they meet.
 use crate::overruling::Overruling;
 use crate::reporting::Filed;
-use crate::timeline::{command_answer_says, judge_answer_says, question_answer_says};
-use crate::resume::Redirection as Instruction;
 use crate::wire::reported;
+
+mod answering;
+mod job_settings;
+mod proposing;
+mod steering;
 
 impl<H, V, W> Commands for Fleet<H, V, W>
 where
@@ -62,53 +65,14 @@ where
         self.summarised(&job).await
     }
 
-    /// Read a request and draft the Job it proposes. **The same gate, and the
-    /// same `job.created`** — the workflow is the only thing filled in
-    /// differently.
-    ///
-    /// **On a task of its own**, because the Job exists from the press: a
-    /// caller that stops waiting drops this future, and the call, the answer
-    /// and the move it makes on the Job have to go on without it.
+    /// `proposing` has it.
     async fn propose_from_request(
         self: Arc<Self>,
         request: ipc::JobRequest,
         manifest_id: Option<ipc::ManifestId>,
         by: api::Redirector,
     ) -> Result<ipc::ProposedPlan, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
-        // Refused before any Job exists, so a setting nothing could keep never
-        // leaves a proposal half set. `approving` has both halves.
-        if let Some(settings) = &request.settings {
-            self.settable(&served, settings)
-                .map_err(|why| self.refusal(why))?;
-        }
-        let fleet = Arc::clone(&self);
-        let proposing = tokio::spawn(async move {
-            let made = fleet
-                .propose_from_with_attachments(
-                    &request.request,
-                    request.client_ref,
-                    request.attachments,
-                    &served,
-                    by,
-                    // A composer dispatch is *Dispatched by you*, not Fleet's find.
-                    crate::proposal::requested(by),
-                )
-                .await?;
-            if let Some(settings) = &request.settings {
-                fleet.dispatched_as_set(&made, settings).await?;
-            }
-            Ok(made)
-        });
-        let made = proposing
-            .await
-            .unwrap_or(Err(Adrift::ProposalAbandoned))
-            .map_err(|why| self.refusal(why))?;
-        let mut jobs = Vec::with_capacity(made.len());
-        for job in &made {
-            jobs.push(self.summarised(job).await?);
-        }
-        Ok(ipc::ProposedPlan { jobs })
+        self.proposed_from_request(request, manifest_id, by).await
     }
 
     async fn fix_main(self: Arc<Self>, fix: ipc::FixMain) -> Result<JobSummary, Refusal> {
@@ -232,34 +196,13 @@ where
         self.summarised(&job).await
     }
 
-    /// The work goes back with a note, to the Drone that is standing at the
-    /// gate.
-    ///
-    /// **An empty note is refused here rather than sent**, for the reason
-    /// `redirect_drone` refuses one: a Drone told nothing at all resumes with
-    /// exactly the information that was not enough, which is the review
-    /// appearing to work and changing nothing.
+    /// `steering` has it.
     async fn request_changes(
         self: Arc<Self>,
         job_id: JobId,
         note: ChangesRequested,
     ) -> Result<JobSummary, Refusal> {
-        // Walk notes are read before the blank check, so a blank note carrying
-        // them is taken and one carrying none is refused as it always was.
-        let id = job_id.to_domain();
-        let walked = self.with_walk_notes(&id, &note).await;
-        let (text, carried) = walked.map_err(|why| self.refusal(why))?;
-        let said = Instruction::saying(&text).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move { Fleet::request_changes(&fleet, &job_id.to_domain(), &said).await }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        // Only once the note has landed, so a refused send leaves them unsent.
-        let sent = self.walk_notes_sent(&id, &carried).await;
-        sent.map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.changes_requested(job_id, note).await
     }
 
     /// **Nothing is decoded into a note here**, unlike `request_changes`: the
@@ -681,7 +624,7 @@ where
         self.summarised(&job).await
     }
 
-    /// Words to one Drone of the Job, by id: `crate::one_drone`.
+    /// `steering` has it.
     async fn redirect_one_drone(
         self: Arc<Self>,
         job_id: JobId,
@@ -689,18 +632,7 @@ where
         instruction: Redirection,
         by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
-        let said = Instruction::saying(&instruction.instruction)
-            .ok_or_else(|| self.refusal(Adrift::Unnameable))?;
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            let drone = drone_id.to_domain();
-            async move {
-                Fleet::redirect_one_drone(&fleet, &job_id.to_domain(), &drone, &said, by).await
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.one_drone_redirected(job_id, drone_id, instruction, by).await
     }
 
     /// One process and what it started; the Drone's own pid is `kill_drone`.
@@ -773,7 +705,7 @@ where
         change: ipc::ChangeSlotPool,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::SlotPoolChanged, Refusal> {
-        let changed = Fleet::change_slot_pool(self, change, manifest_id.as_ref())?;
+        let changed = self.slot_pool_changed(change, manifest_id.as_ref()).await?;
         self.worktrees_changed().await;
         Ok(changed)
     }
@@ -813,73 +745,24 @@ where
         })
     }
 
-    /// A structured instruction to a Drone that is escalated and idle.
-    ///
-    /// **An empty instruction is refused here rather than sent.** A Drone told
-    /// nothing at all resumes the step it stopped on with exactly the
-    /// information that failed, which is the redirect appearing to work and
-    /// changing nothing. `Redirection::saying` is where the emptiness is
-    /// caught; this only carries the refusal out.
+    /// `steering` has it.
     async fn redirect_drone(
         self: Arc<Self>,
         job_id: JobId,
         instruction: Redirection,
         by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
-        let said = Instruction::saying(&instruction.instruction)
-            .ok_or_else(|| self.refusal(Adrift::Unnameable))?;
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move { fleet.redirect(&job_id.to_domain(), &said, by).await }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.drone_redirected(job_id, instruction, by).await
     }
 
-    /// A fresh Drone on the worktree the last one left, and what to do
-    /// differently where a person had something to say.
-    ///
-    /// The Job resumes at the step that stopped; every earlier step's work is
-    /// on the branch and is not redone. That is what separates this from a
-    /// redispatch, which starts a replacement Job at the approval gate.
-    ///
-    /// **No note and a blank note are different requests.** Absent is the plain
-    /// restart, which is what this act has always been and stays. Present and
-    /// empty is refused here rather than written down, for the reason
-    /// `redirect_drone` refuses one: a Drone opened with a heading and nothing
-    /// under it has been given exactly the information that was not enough.
+    /// `steering` has it.
     async fn restart_step(
         self: Arc<Self>,
         job_id: JobId,
         note: Option<ipc::RestartRequested>,
         by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
-        let said = match &note {
-            Some(note) => Some(
-                Instruction::saying(&note.note).ok_or_else(|| self.refusal(Adrift::Unnameable))?,
-            ),
-            None => None,
-        };
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                // Signed as the caller the transport placed, `restart_task`'s
-                // mapping: a person's, Helm's or a Commander's.
-                let (signed, _) = crate::work_plan::signed(by);
-                Fleet::restart_step_by(
-                    &fleet,
-                    &job_id.to_domain(),
-                    said.as_ref(),
-                    crate::resume::Ending::Unheard,
-                    signed,
-                )
-                .await
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.step_restarted(job_id, note, by).await
     }
 
     /// A person says this Job failed in error, and the record is filed with
@@ -910,205 +793,67 @@ where
         reported(&filed).map_err(|why| self.refusal(why))
     }
 
-    /// A person's answer to the question a Drone asked before it stood down.
-    /// **Nothing moves** — the Job is `queued` before and after, and admission
-    /// takes it in its turn. The summary comes back because a caller folds the
-    /// row rather than re-reading the board. The refusals are
-    /// `crate::questioning::NotAnswered`'s.
+    /// `answering` has it.
     async fn answer_question(
         self: Arc<Self>,
         job_id: JobId,
         answer: ipc::ChosenAnswer,
     ) -> Result<JobSummary, Refusal> {
-        let (asked_of, says) = (job_id.clone(), question_answer_says(&answer));
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                let question = answer.question_id.as_str();
-                // A label or a mode answers a single question and picks answer
-                // an interview. Anything else goes the interview's way, where
-                // the missing picks are refused by name.
-                if answer.decisions.is_empty() && (answer.chose.is_some() || answer.mode.is_some())
-                {
-                    Fleet::answer_question(
-                        &fleet,
-                        &id,
-                        question,
-                        answer.chose.as_deref(),
-                        answer.mode,
-                    )
-                    .await
-                } else {
-                    Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await
-                }
-                .map_err(|why| why.about(&id))?;
-                fleet.load(&id).await
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.job_answered(&asked_of, says);
-        self.summarised(&job).await
+        self.question_answered(job_id, answer).await
     }
 
-    /// A person's answer to a command a Drone was refused or is waiting on.
-    /// The refusals are `crate::permitting::NotPermitted`'s.
-    ///
-    /// **The note and the rule are both read here and nowhere below**, by the
-    /// one constructor that decides which of the three answers this is:
-    /// `crate::permitting::Answered` has no field for a note on an allow or a
-    /// rule on anything but Always allow, so either sent where it does not
-    /// belong is dropped at this line rather than carried down and ignored
-    /// later. An empty or blank note is the same request as none —
-    /// `Note::saying`.
+    /// `answering` has it.
     async fn answer_command(
         self: Arc<Self>,
         job_id: JobId,
         answer: ipc::AnswerCommand,
     ) -> Result<JobSummary, Refusal> {
-        let answered = crate::permitting::Answered::naming(
-            answer.answer,
-            answer.note.as_deref(),
-            answer.rule.as_deref(),
-        )
-        .kept_in(answer.scope);
-        let (asked_of, says) = (job_id.clone(), command_answer_says(answer.answer));
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                Fleet::answer_command(&fleet, &id, &answer.call, answered, answer.mode)
-                    .await
-                    .map_err(|why| why.about(&id))?;
-                fleet.load(&id).await
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.job_answered(&asked_of, says);
-        self.summarised(&job).await
+        self.command_answered(job_id, answer).await
     }
 
-    /// How this Job meets a blocked command, changed. Loaded first, so an id
-    /// naming nothing is a 404 rather than a setting written against nothing.
+    /// `job_settings` has it.
     async fn set_when_blocked(
         self: Arc<Self>,
         job_id: JobId,
         setting: ipc::SetWhenBlocked,
     ) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                let job = fleet.load(&id).await?;
-                let when = crate::permitting::domain_setting(setting.when_blocked);
-                Fleet::set_when_blocked(&fleet, &id, when)
-                    .await
-                    .map_err(|why| why.about(&id))?;
-                Ok(job)
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.when_blocked_set(job_id, setting).await
     }
 
-    /// A person's answer to the question a Judge refusal opened.
-    /// `crate::asking::answer_judge`'s refusals.
+    /// `answering` has it.
     async fn answer_judge(
         self: Arc<Self>,
         job_id: JobId,
         answered: ipc::JudgeAnswered,
     ) -> Result<JobSummary, Refusal> {
-        let (asked_of, says) = (job_id.clone(), judge_answer_says(answered.answer));
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                Fleet::answer_judge(
-                    &fleet,
-                    &id,
-                    answered.answer,
-                    answered.asked_at,
-                    answered.note,
-                    answered.mode,
-                )
-                .await
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.job_answered(&asked_of, says);
-        self.summarised(&job).await
+        self.judge_answered(job_id, answered).await
     }
 
-    /// How this Job meets a Judge criterion that refuses, changed. Loaded
-    /// first, for `set_when_blocked`'s reason.
+    /// `job_settings` has it.
     async fn set_when_refused(
         self: Arc<Self>,
         job_id: JobId,
         setting: ipc::SetWhenRefused,
     ) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                let job = fleet.load(&id).await?;
-                let when = crate::asking::domain_when_refused(setting.when_refused);
-                Fleet::set_when_refused(&fleet, &id, when).await?;
-                Ok(job)
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.when_refused_set(job_id, setting).await
     }
 
-    /// The model this Job's later steps spawn on, chosen or cleared. Loaded
-    /// first for `set_when_blocked`'s reason; the refusals are
-    /// `crate::permitting::NotPermitted`'s.
+    /// `job_settings` has it.
     async fn set_model(
         self: Arc<Self>,
         job_id: JobId,
         choice: ipc::SetModel,
     ) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                let job = fleet.load(&id).await?;
-                Fleet::set_model(&fleet, &id, choice.model.as_deref())
-                    .await
-                    .map_err(|why| why.about(&id))?;
-                Ok(job)
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.model_set(job_id, choice).await
     }
 
-    /// The model this Job's review step spawns on, chosen or cleared, on `set_model`'s terms.
+    /// `job_settings` has it.
     async fn set_review_model(
         self: Arc<Self>,
         job_id: JobId,
         choice: ipc::SetModel,
     ) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                let job = fleet.load(&id).await?;
-                Fleet::set_review_model(&fleet, &id, choice.model.as_deref())
-                    .await
-                    .map_err(|why| why.about(&id))?;
-                Ok(job)
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.review_model_set(job_id, choice).await
     }
 
     /// The model and effort this Job's Commander runs on. `job_settings` has it. #2166.
@@ -1147,26 +892,13 @@ where
         Fleet::set_landing_target_by_person(self, job, body).await
     }
 
-    /// A command a person allowed for this Job, taken back.
+    /// `job_settings` has it.
     async fn remove_allowed_command(
         self: Arc<Self>,
         job_id: JobId,
         removing: ipc::RemoveAllowedCommand,
     ) -> Result<JobSummary, Refusal> {
-        let job = budgeted_for(self.command_budget(), job_id.clone(), {
-            let fleet = Arc::clone(&self);
-            async move {
-                let id = job_id.to_domain();
-                let job = fleet.load(&id).await?;
-                Fleet::remove_allowed_command(&fleet, &id, &removing.run)
-                    .await
-                    .map_err(|why| why.about(&id))?;
-                Ok(job)
-            }
-        })
-        .await
-        .map_err(|why| self.refusal(why))?;
-        self.summarised(&job).await
+        self.allowed_command_removed(job_id, removing).await
     }
 
     /// A task added to the Job's plan, signed as `by`. `#897`; `work_plan` has it.

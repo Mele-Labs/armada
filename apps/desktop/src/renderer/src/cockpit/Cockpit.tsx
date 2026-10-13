@@ -1,11 +1,11 @@
 // The Dashboard's panel as a cockpit: a top bar with three filters (Your move, Active, Done) and the
-// way to read them, a grid of tiles or a map of stars, and a pane for the one picked. A call that
+// way to read them, a grid of tiles or a timeline of what Fleet did, and a pane for the one picked. A call that
 // needs the owner comes forward over the panel whatever the filter, centred and answerable from the
 // keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back and `d`
 // dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
+import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, SquareTerminal } from "lucide-react";
 import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -28,7 +28,7 @@ import { Queue } from "./consoles";
 import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
-import { FleetMap } from "./FleetMap";
+import { Timeline } from "./Timeline";
 import { useLayout } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
@@ -262,7 +262,7 @@ export function Cockpit({
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
   }, [filter, state, picked, calls, running, over, bays, now, autopilot.asides]);
   const [view, setView] = useCockpitView();
-  const [field, setField] = useState({ width: 900, height: 560 });
+  const [field] = useState({ width: 900, height: 560 });
   const sky = useMemo(
     () =>
       skyOf(
@@ -292,6 +292,12 @@ export function Cockpit({
           },
         }),
   });
+
+  /** What a call's Job runs now: its own Job, or the Job that holds the pull request or red main it is about. */
+  const nowOf = (one: Item) => {
+    const id = one.job?.id ?? (one.ownedBy?.kind === "job" ? one.ownedBy.id : undefined);
+    return id === undefined ? undefined : nowPanelOf(nows?.[id], nowHost(id));
+  };
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
   const [put, setPut] = useState<readonly string[]>([]);
@@ -451,7 +457,7 @@ export function Cockpit({
         ? undefined
         : nowPanelOf(nowsHeld?.[current.job.id], nowHost(current.job.id));
   // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
-  const pane = filter !== "command-central" && filter !== "bays" && current !== undefined;
+  const pane = filter !== "command-central" && filter !== "bays" && view !== "map" && current !== undefined;
   // Your move carries a dot while anything needs him: no figure, since a count is not what it says.
   const filters = useFilters(filter).map((one) => (one.id === "command-central" && calls.length > 0 ? { ...one, alert: "Needs you" } : one));
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
@@ -477,9 +483,9 @@ export function Cockpit({
                     <LayoutGrid size={16} aria-hidden="true" />
                   </Button>
                 </Tooltip>
-                <Tooltip label="Map">
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
-                    <Orbit size={16} aria-hidden="true" />
+                <Tooltip label="Timeline">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Timeline" aria-pressed={view === "map"} onClick={() => setView("map")}>
+                    <ChartNoAxesGantt size={16} aria-hidden="true" />
                   </Button>
                 </Tooltip>
                 <Tooltip label={actionOf("dashboard_view").verb}>
@@ -502,18 +508,10 @@ export function Cockpit({
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
             {filter === "bays" ? (
               <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-                <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+                <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} onReleaseSlot={hosts.onReleaseSlot} />
               </div>
             ) : view === "map" ? (
-              <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-                <FleetMap sky={sky} field={field} onField={setField} selected={current?.key} onSelect={setSelected} />
-                {current === undefined ? null : (
-                  <div className="armada-view__picked">
-                    <span>{current.title}</span>
-                    <TileActs item={current} hosts={hosts} />
-                  </div>
-                )}
-              </div>
+              <Timeline now={now} jobs={state.jobs} filter={filter} recessed={front !== undefined && leaving === undefined} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
             ) : (
               <ul ref={grid} className="armada-tiles armada-view__grid" role="listbox" aria-label="Tiles" tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 {instruments.map((one) => (
@@ -530,7 +528,7 @@ export function Cockpit({
           {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
-                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], nowHost(front.job.id))} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={nowOf(front)} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

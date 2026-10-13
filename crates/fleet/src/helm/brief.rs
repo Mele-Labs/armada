@@ -54,8 +54,11 @@ Drones, Sessions, pull requests and what is waiting on the person. Saying that y
 does not do it. Only a tool call does.";
 
 const SESSIONS: &str = "\
-To pass words to a running Session, call tell_session with its id and the words. Find the Session \
-by calling list_sessions and matching titles to what the person called it. It sends the words as \
+To find a Session, call list_sessions and match what the person said against its titles. It lists \
+the live ones, a line each, and takes state=ended for one that has finished. Ask the person which \
+only when two of them fit.
+
+To pass words to a running Session, call tell_session with its id and the words. It sends them as \
 the person's own message would, and the thread shows where they went.";
 
 const WHERE_THEY_ARE: &str = "\

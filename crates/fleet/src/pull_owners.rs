@@ -1,4 +1,4 @@
-//! Who owns a pull request: the Sessions the ledger says hold it, and the Jobs whose it is.
+//! Who owns a pull request: the Sessions the pool says work it, and the Jobs whose it is.
 //! `docs/concepts/fleet.md`, *Telling the owner of a pull request*.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -8,6 +8,7 @@ use store::{AttachmentState, HolderKind};
 use crate::daemon::Fleet;
 use crate::pull_requesting::PR;
 use crate::repositories::Served;
+use crate::slot_holders;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Owner {
@@ -34,9 +35,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Who holds a pull request: the Sessions the ledger says hold it (else its branch), and the
-    /// Jobs whose pull request or branch it is. `spent` also takes a Session whose hold was used
-    /// up by the merge.
+    /// Who holds a pull request: the Sessions the pool confirms work its branch, else the one whose
+    /// `pr` row is oldest (`crate::slot_holders`), and the Jobs whose pull request or branch it
+    /// is. `spent` also takes a Session whose hold was used up by the merge.
     pub(crate) async fn owners_of(
         &self,
         served: &Served,
@@ -68,19 +69,12 @@ where
                 owners.push(owner);
             }
         };
+        for id in slot_holders::sessions_on_pull(&store, &manifest, served.root(), number, branch, spent) {
+            add(Owner::Session(id));
+        }
         for (kind, id) in holders {
-            match kind {
-                HolderKind::Session => {
-                    if store
-                        .session(&id)
-                        .ok()
-                        .flatten()
-                        .is_some_and(|it| it.state != store::SessionState::Ended)
-                    {
-                        add(Owner::Session(id));
-                    }
-                }
-                HolderKind::Job => add(Owner::Job(JobId::carried(Ulid::carried(id)))),
+            if kind == HolderKind::Job {
+                add(Owner::Job(JobId::carried(Ulid::carried(id))));
             }
         }
         let mine = |job: &JobId| {

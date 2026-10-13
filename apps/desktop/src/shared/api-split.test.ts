@@ -184,16 +184,18 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
-import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { PlanUsageRead } from "./api/plan-usage";
+import type { ModelDownshiftRead } from "./api/model-downshift";
+import type { FleetTimelineRead } from "./api/timeline";
 import type { WriteClashesRead } from "./api/clashes";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmCarry, HelmTuned } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { PlanUsage, SleepState } from "@armada/protocol";
+import type { ModelDownshiftState, PlanUsage, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -494,7 +496,15 @@ type OldBridgeApi = {
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
+    getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
+    onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
+    getModelDownshift: () => Promise<ModelDownshiftRead>;
+    acceptDownshift: () => Promise<ModelDownshiftRead>;
+    restoreDownshift: () => Promise<ModelDownshiftRead>;
+    keepDownshift: () => Promise<ModelDownshiftRead>;
+    settleDownshift: () => Promise<ModelDownshiftRead>;
+    onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     getIssue: (manifestId: string, number: number) => Promise<IssueNumberRead>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
@@ -509,6 +519,7 @@ type OldBridgeApi = {
     forkSessionAt: (sessionId: string, at: string) => Promise<SessionActed>;
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
+    stopSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
@@ -522,6 +533,8 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
+    writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
@@ -815,7 +828,15 @@ const OLD_CHANNELS = {
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
+    getFleetTimeline: "bridge:get-fleet-timeline",
+    timelineAppended: "bridge:timeline-appended",
     planUsageChanged: "bridge:plan-usage-changed",
+    getModelDownshift: "bridge:get-model-downshift",
+    acceptDownshift: "bridge:accept-downshift",
+    restoreDownshift: "bridge:restore-downshift",
+    keepDownshift: "bridge:keep-downshift",
+    settleDownshift: "bridge:settle-downshift",
+    modelDownshiftChanged: "bridge:model-downshift-changed",
     listIssues: "bridge:list-issues",
     getIssue: "bridge:get-issue",
     getPullRequest: "bridge:get-pull-request",
@@ -828,6 +849,7 @@ const OLD_CHANNELS = {
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
+    stopSession: "bridge:stop-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",
@@ -841,6 +863,8 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    readPullRequestPage: "bridge:read-pull-request-page",
+    writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
     stopSessionRun: "bridge:stop-session-run",
     sessionRunMessage: "bridge:session-run-message",

@@ -1139,7 +1139,7 @@ seam spoken differently.** `/agent/mcp` is the agent's door: an MCP client
 reaches it, and every tool on it is one row of `operations/` served at the
 route `SERVED` already names, so there is no second implementation to drift.
 What it adds over the HTTP surface is a cap — a tool answer over 64 KiB is cut,
-says so, and names the route that serves it whole — and a scope: every answer
+says so, and names the route that serves it whole and the parameters that ask for less — and a scope: every answer
 is inside one Manifest, and the handshake says which. It answers 405 to `GET`
 and `DELETE` for `/mcp`'s reason, so it adds nothing to the risk above.
 
@@ -3091,8 +3091,11 @@ what was committed.
 | `released` | `SlotPoolChanged` | `{ "branch", "saved"? }`, `saved` as above | Every act but `release` |
 | `fleet.slot_holder_changed`, `fleet.slot_not_parkable` | 409 | The slot has another holder now, or git would not commit to a branch | |
 | `fleet.slot_holder_unnamed` | 422 | A release naming no holder | |
+| `fleet.slot_session_working` | 409 | A release of a bay a hosted Session holds, while its turn runs. `holder` is the Session's id, as `HostedSession` shows it. Not a new field or act | |
 
 A release hands a slot an agent session holds back by the same park, and only for the holder named, so a slot re-leased since is refused. The session's process is not touched.
+
+A bay a hosted Session holds is released the same way with the Session's id as `holder`, and is refused with `fleet.slot_session_working` while its turn runs, since the park ends every process in the slot.
 
 `reclaim_worktree` no longer refuses a slot for uncommitted files. It commits them to the Job's
 branch, never pushes, and frees the slot; a Job's own worktree outside the pool is committed the same
@@ -3238,6 +3241,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `answer_session_ask` (`POST /sessions/ask/answer`) | `AnswerSessionAsk`: `session_id`, the ask's `call`, an `answer` it offered, a `note` | 409 where nothing is waiting under that call |
 | `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
 | `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
+| `stop_session` (`POST /sessions/stop`) | `StopSession` | Ends the turn that is running, keeps the row live and the slot held. Since 23.84 |
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
@@ -3513,6 +3517,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
 
+## Protocol 23.85: the model a hosted Session resolved
+
+`docs/concepts/session.md`, *Which model, and a fresh start*. **Additive only**: one optional field on `HostedFacts`. No operation, event or error is new.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `HostedFacts.resolved_model?` (`session.changed`, `list_sessions`, `get_session`) | The model the CLI resolved for the running process, as its stream's `init` line names it: `claude-opus-5-5` | Absent until the first `init` of a process, and again once the process is let go (a stop, a tune, a quiet spell). **Not `model`**, which is the alias a person picked and is absent when none was: a session with no pick still runs on something. Left out when empty, never sent as `null` |
+
+**Skew.** A Fleet before 23.85 sends none, so a Bridge names the picked alias and draws no chip where none was picked. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest, and `resolvedModel` on the Session the window draws (`packages/screens/src/sessions-wire.ts`).
+
 ## Protocol 23.83: a pull request's page and the writes on it
 
 `docs/concepts/session.md`, *Acts on a pull request*. **Additive only**: two operations and the DTOs of `ipc::pull_requests` that go with them. The type is `PullRequestPage` and not `PullRequestDetail`, which a Job's live pull request snapshot already is.
@@ -3554,6 +3568,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 **`send_session_message` is the one call that sends it.** What the box holds is sent, so an edit before the send changes nothing on the wire. It starts the first turn and settles the attachment and the item together.
 
 **Skew.** A Fleet before 23.80 has neither route, so the tools are not offered to an agent, and sends no `started` row, `first_message` item or `unsent` attachment. A Bridge before it meets `first_message` and `message` as values it does not know. Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest. **The event stream is unchanged**: one more `session.row` and `session.changed` per call, on the same sink.
+
+## Protocol 23.84: a Session's running turn stopped
+
+`docs/concepts/session.md`, *Stopping a turn*. **Additive only**: one operation and one type, `StopSession`, which carries a `session_id`.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `stop_session` (`POST /sessions/stop`) | `StopSession`: `session_id` | Answers the `SessionRecord` with `hosted.turn` `idle`. The process is ended as after a quiet spell and the next message resumes it; a question it was held on is withdrawn; the slot is kept as it stands, nothing parked or committed. An ended session answers its row. 422 `fleet.session_command_refused` for a terminal session, whose process Fleet does not host |
+
+**Skew.** A Fleet before 23.84 has no route and answers 404, so a Bridge that draws Stop shows the refusal. A Bridge before it never calls it. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.
 
 ## Protocol 23.79: a Session forked at a message
 
@@ -3789,6 +3813,25 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, f
 
 **The event stream.** `plan_usage.changed` is one small message per moved whole percent, through the shared drop-oldest backlog, and a mod reports at most every ten seconds a session. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_plan_usage` on the resync that follows a `Missed`. It leaves the unmeasured sink risk where it was. Held sessions and Jobs add no event of their own; they ride `session.changed` and `job.paused`.
 
+## The default model steps down
+
+**Additive only**: five operations, one event kind, two types. Bridge's half is `packages/protocol/src/model-downshift.ts` and `events.ts`, written by hand.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `get_model_downshift` (`GET /model_downshift`) | `ModelDownshiftState`: `downshift?`, tagged by `phase` | `offered` (`percent`, `was`, `to`), `shifted` (`was`, `to`, `until`) or `reset` (`was`, `to`). Absent is none |
+| `model_downshift.changed` (event) | `ModelDownshiftState`, whole | Published when the state moves, the offer's percent included. Served and published, so a Bridge opened later asks |
+| `accept_downshift` (`POST /model_downshift/accept`) | no body | Valid while `offered`. Writes `models.default` through `save_settings`' path; a refused write keeps the state |
+| `restore_downshift` (`POST /model_downshift/restore`) | no body | Valid while `shifted` or `reset`. Puts the saved word back, or removes the key |
+| `keep_downshift` (`POST /model_downshift/keep`) | no body | Valid while `reset`. Leaves the lower model as the default |
+| `settle_downshift` (`POST /model_downshift/settle`) | no body | Valid while `offered`. Makes no second offer in this window |
+
+**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left. All four are `agent_access` `No`, `save_settings`' reason. Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` is now `live`.
+
+**The event stream.** `model_downshift.changed` is rare: an offer, an accept, a reset, a restore, and the percent moving a whole point while an offer stands. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
+
+**Bridge's side.** Main passes the event to every window and to `downshift-notice.ts`, which tells the OS when the state enters `offered` or `reset`, once for each entry; the state read on a connection is remembered and told to nobody. A window's source (`fleet-downshift.ts`) reads once Fleet is connected, and a 409 from an act makes it read again rather than show an error.
+
 ## The Fleet's timeline: kept as it happens, read as a window
 
 `get_fleet_timeline` (`GET /timeline?since=&until=&limit=`) and `timeline.appended` serve the Cockpit's
@@ -3827,6 +3870,51 @@ its row changes.
 
 **The event wraps the entry under `event`.** The stream tags its events with `kind`, and an entry has a
 `kind` of its own; spread into one message they produced a duplicate key, which a test caught.
+
+## When a Job's Drone was last told
+
+`JobSummary.last_told_at`, optional and additive: when a person, Helm or a Commander last sent the Job's Drone
+words (`redirect_drone`, or the answer to a command it was refused) or restarted a step (`restart_step`).
+Bridge reads it to decide that a failing pull request or red main the Job owns has somebody on it again, so
+the Cockpit raises no call for it.
+
+**Held in memory and lost on a Fleet restart**, as `releasing::Spared` is: a redirect into a healthy Drone
+writes nothing to the log, so there was no record to read it from, and a surface treats the field as "told
+since X", never as a history. A restart Fleet makes of its own after a boot does not set it. It rides the
+rows Fleet already serves and adds no event, so it reaches a Board with the next summary of the Job.
+
+## A stranded slot's last holder, and whether Fleet told it
+
+Since 13 Oct 2026. `docs/concepts/fleet.md`, *Rescuing a stranded slot*. **Additive only**: two optional fields on `SlotStranded`, one new type and one new plain enum. Bridge's half is `packages/protocol/src/holding.ts`, written by hand. There is no number to take: the protocol ID moves with `crates/ipc/src/holding.rs`.
+
+| Where | Carries | Absent |
+| --- | --- | --- |
+| `SlotStranded.last_holder` | `SlotLastHolder`: `kind` (`session` or `job`), `id`, `title?`, `open` | A holder the lease cannot name: a process outside any Session Fleet hosts, or a record written before Fleet noted it |
+| `SlotStranded.told` | An instant: when Fleet told `last_holder` to commit, push and release | Not told: the holder is not an open Session, or Fleet has not yet read the slot since it was stranded |
+| `SlotHolderKind` | `session`, `job` | |
+
+**`open` is what decides.** A Session is open while the ledger holds it live, a Job until it ends. Fleet tells only an open Session, and a slot whose last holder is not open, or is absent, is read by a Scout without a press, so `rescue` appears on a slot nobody pressed.
+
+**`SlotHolderKind` is a plain enum Bridge matches on**, as `CommitHome` is, because no registry declares the set; a third kind is an act Bridge has to learn.
+
+**`stranded` is where these ride**, so they are present on a slot a Job's kept release holds as well as a stranded one, and absent on the slot a live process holds with only uncommitted files. Nothing about `rescue_slot` changes: `start` is still accepted from a person, and refused with `fleet.rescue_reading` while Fleet's own Scout reads.
+
+**Skew.** A Bridge that predates this reads no `last_holder` or `told` and draws a stranded bay as before. A Fleet that predates it sends neither, and Bridge treats both as absent.
+
+## An agent lists Sessions in a line each
+
+`list_sessions` through the agent's door answered 696 KB: every Session ever, each with its whole ledger, and the pull request bodies in it. The door cuts at 64 KiB, and a Helm session that read the cut file saw two of nine live Sessions and said only two were live. **Additive only**: one query parameter, three types and one field on the door's answer. No operation is added, so nothing is tagged in `commander_reach.rs`. There is no number to take: the protocol ID moves with the wire files. Bridge's half is unchanged, because Bridge and Pocket send no `view` and are answered the row they were.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `list_sessions` (`GET /sessions?manifest_id=&q=&state=&view=`) | `view` is `full` (absent) or `summary` | `full` is `SessionList`, as before. `summary` is `SessionSummaries` |
+| `SessionSummary` | `id`, `title?` (160 characters at most), `manifest_id?`, `origin`, `state`, `turn?` (`idle` or `working`), `last_turn_at?`, `last_seen_at`, `slot?`, `branch?`, `pull_requests` (`number`, `title`, `state?`), `jobs` | What is **standing** only: a merged pull request or a slot given back is history, and `get_session` has it. `turn` is absent on a terminal Session, which reports where a turn ended and not where one began. `jobs` are the Jobs it holds that have not finished, by id |
+| The agent's door, `list_sessions` | Asks for `view=summary`, and for `state=live` where the call names no `state` | `view` is not among the tool's parameters, so an agent cannot ask for the wide row. `state=ended` is its way to a finished Session |
+| `door::Answer.narrowed_by` | The tool's query parameters | Said in a cut answer: *To be answered less, call this tool again with `q` or `state` set*, after the route that serves it whole. A tool with no query parameter says *Ask a narrower question if you can* |
+
+**A narrow row beside the wide one, and not a cut of it.** The summary has no field that grows with a Session's history, so how many Sessions fit is a count of lines and not a hope. `crates/api/src/tests/door_sessions.rs` holds the bound against a Fleet whose Sessions each have a long ledger of pull requests with their bodies. A truncation would still have been a guess about which half to keep. The default belongs to the door and not the route, because a route that answered a summary unasked would change Bridge's list.
+
+**Who reads the route.** Bridge's main process (`apps/desktop/src/main/sessions.ts`) and Pocket send no `view` and are unchanged. Fleet's own readers (`read_thought`, the routing of a thought) call the daemon's `list_sessions` directly and never this route.
 
 ## Helm is a Session
 

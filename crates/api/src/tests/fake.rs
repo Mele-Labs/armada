@@ -50,6 +50,8 @@ use crate::{Broadcaster, Feed, Refusal, Turns};
 pub struct FakeDaemon {
     /// Every Job held, which the fake's own acts move.
     pub jobs: Mutex<Vec<JobSummary>>,
+    /// The row every Session act answers with where a test sets one, in place of a thin echo.
+    pub session_row: Mutex<Option<ipc::SessionRecord>>,
     unreadable: Mutex<Vec<UnreadableJob>>,
     events: Broadcaster,
     /// The per-Job transcript channels, so a test can watch one Job while a
@@ -153,12 +155,17 @@ pub struct FakeDaemon {
     pub checkout_runs_named: Mutex<Vec<Option<ipc::ManifestId>>>,
     /// The door each retro read came through, as `api::via` named it.
     pub read_via: Mutex<Vec<Option<ipc::Via>>>,
+    /// What `list_sessions` answers with, narrowed by the state asked. Set by a test.
+    pub sessions_held: Mutex<Vec<ipc::SessionRecord>>,
+    /// The state each `list_sessions` was asked for, in order.
+    pub sessions_asked: Mutex<Vec<Option<ipc::SessionState>>>,
 }
 
 impl FakeDaemon {
     pub fn new(events: Broadcaster) -> FakeDaemon {
         FakeDaemon {
             jobs: Mutex::new(Vec::new()),
+            session_row: Mutex::new(None),
             unreadable: Mutex::new(Vec::new()),
             events,
             turns: Turns::new(),
@@ -203,6 +210,8 @@ impl FakeDaemon {
             added_by: Mutex::new(Vec::new()),
             checkout_runs_named: Mutex::new(Vec::new()),
             read_via: Mutex::new(Vec::new()),
+            sessions_held: Mutex::new(Vec::new()),
+            sessions_asked: Mutex::new(Vec::new()),
         }
     }
 

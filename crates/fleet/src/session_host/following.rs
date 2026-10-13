@@ -160,6 +160,8 @@ where
         for slot in 1..=crate::leasing::pool_of(served).slots() {
             let at = adapter_traits::slot_path(&root, slot);
             if hosting.lease_slot != Some(slot) && self.held_by_the_tree(id, &at) == Standing::Ours {
+                // A process holder cannot say whose it was once it is gone.
+                let _ = adapters::leasing::note_session(std::path::Path::new(&at), id);
                 held.push(at);
             }
         }
@@ -267,7 +269,7 @@ where
     /// longer shows as the session's is given back; with none recorded, a slot
     /// held by the session's own tree is attached with its branch. Returns the
     /// hosting as it now stands.
-    pub(super) async fn follow_the_pool(
+    pub(crate) async fn follow_the_pool(
         &self,
         id: &str,
         served: &Served,

@@ -634,13 +634,13 @@ notes = "Steps the Dashboard panel's filter (Your move, Active, Done) back and f
 [actions.dashboard_view]
 kind = "Action"
 tier = "Contextual"
-verb = "Switch between grid and map"
-icon = "orbit"
+verb = "Switch between grid and timeline"
+icon = "chart-no-axes-gantt"
 shortcut = "m"
 scope = "dashboard"
 destructive = false
 confirms = false
-notes = "Flips the Dashboard panel between its tiles and its map. The choice is remembered. The toggle beside the filter draws `layout-grid` and `orbit`."
+notes = "Flips the Dashboard panel between its tiles and its timeline. The choice is remembered. The toggle beside the filter draws `layout-grid` and `chart-no-axes-gantt`."
 
 [actions.key_sheet]
 kind = "Action"

@@ -57,7 +57,9 @@ import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
 import { PlanUsageHost } from "./plan-usage";
+import { ModelDownshiftHost } from "./model-downshift";
 import { ClashesHost } from "./clashes";
+import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
@@ -206,6 +208,10 @@ export class FleetConnection {
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
   /** The plan's windows — `plan-usage.ts`. */
   readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
+  /** The default model's step down — `model-downshift.ts`. */
+  readonly modelDownshift: ModelDownshiftHost = new ModelDownshiftHost(() => this.connected()?.port ?? null);
+  /** What happened across the Fleet — `timeline.ts`. */
+  readonly timeline: TimelineHost = new TimelineHost(() => this.connected()?.port ?? null);
   /** Where two agents' changes would conflict, per served repository — `clashes.ts`. */
   readonly clashes: ClashesHost = new ClashesHost(
     () => this.connected()?.port ?? null,
@@ -349,6 +355,8 @@ export class FleetConnection {
       held: this.held,
       sleep: this.sleep,
       planUsage: this.planUsage,
+      modelDownshift: this.modelDownshift,
+      timeline: this.timeline,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,

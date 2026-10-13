@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
-    SessionRecord, SessionSubagent, SessionThread, StartSession, TuneSession,
+    SessionRecord, SessionSubagent, SessionThread, StartSession, StopSession, TuneSession,
 };
 
 use super::FakeDaemon;
@@ -55,6 +55,26 @@ impl HostedSessions for FakeDaemon {
         Ok(ipc::PlanUsage::default())
     }
 
+    async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Ok(ipc::ModelDownshiftState::default())
+    }
+
+    async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn restore_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn keep_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn settle_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         Ok(ipc::SleepState::default())
     }
@@ -80,6 +100,10 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn close_session(&self, _closed: CloseSession) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn stop_session(&self, _stopped: StopSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
 

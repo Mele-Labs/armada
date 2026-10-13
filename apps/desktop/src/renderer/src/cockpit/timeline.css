@@ -1,0 +1,129 @@
+/* The Cockpit's timeline: what Fleet did, a row for each event. It borrows the Bays' weight: a header band,
+   mono rows on the sunken glass, a divider eyebrow between blocks, the state carried by the row's edge and
+   tint and never in a phrase. Tokens only. */
+
+.armada-view__timeline { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
+.armada-view__timeline[data-recessed] { opacity: 0.4; }
+
+.armada-tl {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-default);
+}
+
+.armada-tl__head { display: flex; align-items: center; gap: var(--space-4); min-height: calc(var(--space-12) - var(--space-1)); padding: var(--space-1) var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-tl__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-left: auto; color: var(--fg-muted); font-size: var(--text-2xs); }
+.armada-tl__legend > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.armada-tl__legend i { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--tone); }
+
+.armada-tl__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.armada-tl__block { margin: 0; padding: 0; list-style: none; }
+.armada-tl__part { display: flex; align-items: center; min-height: var(--space-6); padding: 0 var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-subtle); font-size: var(--text-2xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.armada-tl__block:first-child > .armada-tl__part { border-top: 0; }
+
+/* ---- A subject's name ------------------------------------------------------------------------ */
+
+.armada-tl__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; text-align: left; cursor: default; }
+button.armada-tl__who { cursor: pointer; }
+button.armada-tl__who:hover .armada-tl__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }
+button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-tl__pip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-tl__glyph { display: inline-flex; flex: none; color: var(--fg-muted); }
+.armada-tl__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* How a subject stands: the one live mark. Only a subject that is working turns. */
+.armada-tl__standing { display: inline-flex; flex: none; color: var(--tone); }
+.armada-tl__standing[data-standing="stuck"] { color: var(--status-escalated); }
+.armada-tl__standing[data-standing="run"] svg { animation: armada-tl-turn var(--duration-pulse) linear infinite; }
+
+@keyframes armada-tl-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-tl__standing[data-standing="run"] svg { animation: none; }
+}
+
+.armada-tl__age { flex: none; width: 5ch; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; }
+
+/* ---- The feed: a row for each event, on a spine ---------------------------------------------- */
+
+.armada-tl__event {
+  display: grid;
+  grid-template-columns: 5ch var(--space-6) minmax(0, calc(var(--space-12) * 6)) minmax(0, 1fr);
+  align-items: center;
+  gap: 0 var(--space-2);
+  min-height: calc(var(--space-6) + var(--space-2));
+  padding: 0 var(--space-4);
+}
+
+/* The newest event of each subject carries how it stands: the row's edge and tint, not a word. */
+.armada-tl__event[data-current="ask"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-awaiting-review) 14%, transparent), transparent 70%); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--status-awaiting-review); }
+.armada-tl__event[data-current="bad"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-completed-failed) 12%, transparent), transparent 70%); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--status-completed-failed); }
+.armada-tl__event[data-current="stuck"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-escalated) 10%, transparent), transparent 70%); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--status-escalated); }
+
+.armada-tl__spine { position: relative; align-self: stretch; display: grid; place-items: center; }
+.armada-tl__spine::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: calc(var(--border-width) * 2) solid var(--border-subtle); transform: translateX(-50%); }
+.armada-tl__part + .armada-tl__event > .armada-tl__spine::before { top: 50%; }
+.armada-tl__event:last-child > .armada-tl__spine::before { bottom: 50%; }
+
+.armada-tl__mark { position: relative; z-index: 1; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 calc(var(--space-1) * 0.75) color-mix(in srgb, var(--tone) 20%, transparent); }
+.armada-tl__mark[data-shape="session"] { border-radius: var(--radius-sm); transform: rotate(45deg); }
+.armada-tl__mark[data-shape="pull_request"], .armada-tl__mark[data-shape="main"] { border-radius: var(--radius-sm); }
+
+.armada-tl__says { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; overflow: hidden; white-space: nowrap; }
+.armada-tl__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--fg-subtle); font-size: var(--text-2xs); }
+
+/* ---- Lanes: a row for each subject, its events along the last hour and a half ------------------ */
+
+.armada-tl__axis, .armada-tl__lane { --label: calc(var(--space-12) * 6); display: grid; grid-template-columns: var(--label) minmax(0, 1fr); align-items: center; gap: var(--space-4); padding: 0 var(--space-4); }
+.armada-tl__axis { position: sticky; top: 0; z-index: 2; min-height: var(--space-6); border-bottom: var(--border-width) solid var(--border-subtle); background: var(--bg-sunken); }
+.armada-tl__scale { position: relative; align-self: stretch; color: var(--fg-subtle); font-size: var(--text-2xs); }
+.armada-tl__scale > span { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.armada-tl__scale > span:first-child { transform: translate(0, -50%); }
+.armada-tl__scale > span:last-child { transform: translate(-100%, -50%); color: var(--fg-muted); }
+
+.armada-tl__lane { min-height: calc(var(--space-8) + var(--space-1)); }
+.armada-tl__lane[data-standing="ask"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-awaiting-review) 12%, transparent), transparent 70%); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--status-awaiting-review); }
+.armada-tl__lane[data-standing="bad"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-completed-failed) 11%, transparent), transparent 70%); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--status-completed-failed); }
+.armada-tl__lane[data-standing="stuck"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-escalated) 10%, transparent), transparent 70%); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--status-escalated); }
+.armada-tl__lane[data-standing="done"] { opacity: 0.7; }
+
+.armada-tl__label { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+
+.armada-tl__track { position: relative; align-self: stretch; min-height: var(--space-8); }
+.armada-tl__track::before { content: ""; position: absolute; top: 50%; right: 0; left: 0; border-top: calc(var(--border-width) * 2) dashed var(--border-subtle); transform: translateY(-50%); }
+.armada-tl__run { position: absolute; top: 50%; height: 0; border-top: calc(var(--border-width) * 2) dashed var(--tone); opacity: 0.7; transform: translateY(-50%); }
+.armada-tl__run[data-solid] { border-top: calc(var(--border-width) * 3) solid var(--tone); opacity: 0.85; }
+.armada-tl__run[data-stuck] { border-top-color: var(--status-escalated); opacity: 1; }
+
+.armada-tl__pip { position: absolute; top: 50%; z-index: 1; width: var(--space-2); height: var(--space-2); padding: 0; border: 0; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 calc(var(--border-width) * 2) var(--bg-sunken); transform: translate(-50%, -50%); cursor: pointer; }
+.armada-tl__pip[data-shape="session"] { border-radius: var(--radius-sm); transform: translate(-50%, -50%) rotate(45deg); }
+.armada-tl__pip[data-shape="pull_request"], .armada-tl__pip[data-shape="main"] { border-radius: var(--radius-sm); }
+.armada-tl__pip:hover { outline: calc(var(--border-width) * 2) solid var(--fg-default); outline-offset: calc(var(--border-width) * 2); }
+
+/* ---- Split: the subjects beside their events --------------------------------------------------- */
+
+.armada-tl__split { display: grid; grid-template-columns: calc(var(--space-12) * 6) minmax(0, 1fr); min-height: 0; height: 100%; }
+.armada-tl__subjects { min-height: 0; overflow-y: auto; border-right: var(--border-width) solid var(--border-subtle); }
+.armada-tl__subjects .armada-tl__lane { display: block; padding: 0; min-height: 0; background: none; box-shadow: none; }
+.armada-tl__subjects .armada-tl__lane[data-standing="done"] { opacity: 0.7; }
+.armada-tl__subject { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: calc(var(--space-6) + var(--space-2)); padding: 0 var(--space-4); border: 0; background: none; color: var(--fg-default); font: inherit; text-align: left; cursor: pointer; }
+.armada-tl__subject:hover { background: var(--bg-hover); }
+.armada-tl__subject[aria-pressed="true"] { background: var(--bg-hover); box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--accent); }
+.armada-tl__subject .armada-tl__title { flex: 1 1 auto; }
+.armada-tl__subject .armada-tl__age { width: auto; }
+
+.armada-tl__events { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.armada-tl__picked { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: calc(var(--space-8) + var(--space-1)); padding: 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); background: var(--bg-raised); }
+.armada-tl__split .armada-tl__event { grid-template-columns: 5ch var(--space-6) minmax(0, calc(var(--space-12) * 4)) minmax(0, 1fr); }
+
+.armada-tl[data-take="split"] .armada-tl__body { overflow: hidden; }
+
+/* What a mark says on hover, on the tooltip's own bubble: one row a fact. */
+.armada-tl__tip { display: flex; width: max-content; flex-direction: column; gap: var(--space-1); min-width: calc(var(--space-12) * 3); max-width: calc(var(--space-12) * 7); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-tl__tip .armada-tl__detail { overflow-wrap: anywhere; white-space: normal; }

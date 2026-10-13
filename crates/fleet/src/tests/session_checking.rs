@@ -9,6 +9,7 @@ use ipc::{
 use testkit::FakeWorkProduct;
 
 use crate::tests::daemon::a_fleet;
+use crate::tests::slot_leases::{leased, By};
 use crate::tests::tmp::TempDir;
 
 fn call(act: SessionCheckAct, cwd: &str) -> SessionCheckCall {
@@ -29,7 +30,7 @@ async fn a_session_check_in_a_held_slot_is_a_run_that_ends_with_its_log() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let root = fleet.repositories().first().expect("served").root().to_string();
-    let slot = adapter_traits::slot_path(&root, 2);
+    let slot = leased(&root, 2, "fleet/topic", By::Job("s1"));
     fleet
         .report_session(SessionReport {
             harness: "a_harness".into(),
@@ -99,7 +100,7 @@ async fn a_session_check_still_out_when_the_session_ends_fails_with_that_said() 
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let root = fleet.repositories().first().expect("served").root().to_string();
-    let slot = adapter_traits::slot_path(&root, 2);
+    let slot = leased(&root, 2, "fleet/topic", By::Job("s1"));
     let report = |fact| SessionReport {
         harness: "a_harness".into(),
         session_id: SessionId::carried("s1"),
@@ -142,7 +143,7 @@ async fn a_session_check_row_carries_what_the_run_was_narrowed_to() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let root = fleet.repositories().first().expect("served").root().to_string();
-    let slot = adapter_traits::slot_path(&root, 2);
+    let slot = leased(&root, 2, "fleet/topic", By::Job("s1"));
     fleet
         .report_session(SessionReport {
             harness: "a_harness".into(),

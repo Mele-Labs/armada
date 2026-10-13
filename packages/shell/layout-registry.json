@@ -22,6 +22,7 @@
     ] },
     "rail": { "ordered": false, "firstable": false, "entries": [
       { "id": "overview", "hideable": false },
+      { "id": "jobs", "hideable": true },
       { "id": "studios", "hideable": true },
       { "id": "worktrees", "hideable": true },
       { "id": "merge-line", "hideable": true },
