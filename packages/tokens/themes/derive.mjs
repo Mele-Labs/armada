@@ -173,6 +173,24 @@ export function derive(id, title, scheme) {
   const helm = reach(mix(accent, p[5], 0.5), grounds, toward, true).color;
   const tool = (c) => reach(c, [ground.sunken, ground.hover], toward).color;
 
+  // You: a band the person's own messages sit under, with --fg-inverse as its text, so it is moved
+  // until that reads, away from the inverse. Yellow with a little green is the shipped gold's
+  // neighbour in every scheme, and brighter and yellower than the warning the palette gives.
+  const youBase = mix(p[3], p[2], 0.3);
+  let you = youBase;
+  if (contrast(you, inverse) < TEXT) {
+    const away = luminance(inverse) > 0.18 ? BLACK : WHITE;
+    adjusted.push("you");
+    you = away;
+    for (let t = 0.02; t <= 1.0001; t += 0.02) {
+      const next = lighten(youBase, away, t);
+      if (contrast(next, inverse) >= TEXT) {
+        you = next;
+        break;
+      }
+    }
+  }
+
   // Diff text sits on its own tinted ground.
   const diffGround = (c) => over(c, bg, dark ? 0.16 : 0.14);
   const diff = (c) => {
@@ -206,8 +224,8 @@ export function derive(id, title, scheme) {
       const key = { "awaiting-review": "review", "completed-success": "success", "completed-failed": "failed" }[k] ?? k;
       return v(`status-${k}`, status[key]);
     }),
-    "  /* Helm, tools, diff */",
-    v("helm", helm),
+    "  /* Helm, you, tools, diff */",
+    v("helm", helm), v("you", you),
     v("tool-look", tool(p[6])), v("tool-change", tool(p[5])), v("tool-run", tool(p[3])),
     v("diff-add-bg", add.bg), v("diff-add-fg", add.fg), v("diff-del-bg", del.bg), v("diff-del-fg", del.fg), v("diff-context", fgMuted),
   ];

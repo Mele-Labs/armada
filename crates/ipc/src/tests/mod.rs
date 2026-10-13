@@ -37,6 +37,8 @@ mod fixtures;
 mod gates;
 mod helm;
 mod helm_box;
+/// A Job's Now: a Drone's activity, issues, waiting, answer modes, Check acts.
+mod issues;
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod history;

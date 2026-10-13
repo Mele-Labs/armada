@@ -20,7 +20,7 @@ use crate::tests::fake::{running, FakeDaemon};
 use crate::tests::shapes::{
     run_id, A_PROPOSAL, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST, THE_OUTPUT,
 };
-use crate::{offerable, offered, router, Broadcaster, Redirector, Served, DOOR_PATH, SERVED};
+use crate::{offerable, offered, router, Broadcaster, Redirector, Served, Steerer, DOOR_PATH, SERVED};
 
 fn wired(daemon: FakeDaemon) -> Router {
     let events = Broadcaster::new();
@@ -357,7 +357,7 @@ async fn a_redirect_from_helm_is_recorded_as_helm_and_anyone_elses_as_a_person()
     from(&app, ANYONE, &redirect).await;
     assert_eq!(
         *daemon.redirected_by.lock().expect("not poisoned"),
-        vec![Redirector::Helm, Redirector::Person]
+        vec![Steerer::Helm, Steerer::Person]
     );
 }
 

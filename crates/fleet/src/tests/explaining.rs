@@ -58,7 +58,7 @@ async fn a_reading_comes_back_naming_the_model_that_gave_it() {
             .expect("asking is not answering: the command is still waiting");
         assert_eq!(still.offers.len(), 3, "and the offers are the whole set");
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None), None)
             .await
             .unwrap();
         read
@@ -107,7 +107,7 @@ async fn a_model_that_will_not_answer_leaves_the_command_waiting() {
             .expect("a failed reading is not an answer to the command");
         assert_eq!(still.offers.len(), 3, "and nothing about it is narrowed");
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await
             .unwrap();
         read

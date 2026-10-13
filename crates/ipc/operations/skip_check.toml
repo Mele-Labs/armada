@@ -1,0 +1,12 @@
+[operations.skip_check]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Ends one running or waiting Check of a step's gate, recorded as skipped"
+notes = """
+A quick act on a Check row of a Job's Now. The body is `check`, as `retry_check` takes it. The Check ends and records `skipped`, which advances the step like any finished Check and is **not a pass**: a ruling that skipped a Check says so, and nothing reads the skip as green.
+
+Refused with a 409 where no gate is running Checks for the Job, where the gate has no Check of that name, and where that Check has already finished.
+
+`agent_access` is `Helm only`. A skip removes a Check from a ruling, which is the person's decision and not a delegation of it.
+"""

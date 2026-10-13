@@ -54,6 +54,7 @@ const waiting: Session = {
     { id: "a1", text: "Look at the findings page", since: minutesAgo(3), source: "agent", act: { kind: "walk", target: mockPage() } },
     { id: "a2", text: "Approve #1843", since: minutesAgo(3), source: "agent", act: { kind: "approve_pr", target: "1843" } },
     { id: "a3", text: "Run the store tests on your machine", since: minutesAgo(2), source: "agent", act: { kind: "run", target: "cargo test -p store" } },
+    { id: "a4", text: "Keep the old fixture or drop it?", since: minutesAgo(2), source: "agent" },
     {
       id: "q1",
       text: "Which clock?",

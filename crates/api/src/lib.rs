@@ -72,7 +72,10 @@ mod needs;
 mod observing;
 /// A message or a stop addressed to one Drone of a Job. #1666.
 mod one_drone;
+/// A person's skip or retry on the Checks a gate is running.
+mod check_acts;
 mod piloting;
+mod placed;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
 mod preferring;
@@ -118,8 +121,9 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    Autopilots, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
-    Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, StoredFile, Studios, Tools,
+    Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
+    PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
+    StoredFile, Studios, Tools, COMMANDER_ALLOWED,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

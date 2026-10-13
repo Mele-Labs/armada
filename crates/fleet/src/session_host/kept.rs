@@ -140,7 +140,13 @@ pub(crate) fn attached(
             if let Some(names) = adapters::init_commands(text) {
                 let _ = sink.send(Heard::Commands(names));
             }
-            let _ = sink.send(Heard::Events(agent.read(text)));
+            // A subagent's words are not the agent's. The line still counts as
+            // activity, so a session whose subagent is working is not idle.
+            let events = match adapters::inside_a_subagent(text) {
+                true => Vec::new(),
+                false => agent.read(text),
+            };
+            let _ = sink.send(Heard::Events(events));
             let _ = ack.send(format!("ACK {offset}"));
         }
         let _ = sink.send(Heard::Gone);

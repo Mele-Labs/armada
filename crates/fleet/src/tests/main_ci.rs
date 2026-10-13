@@ -41,7 +41,7 @@ fn a_fleet_reading_main(home: &TempDir) -> Fixture {
     a_fleet_over(home, MANIFEST)
 }
 
-fn a_fleet_over(home: &TempDir, manifest: &str) -> Fixture {
+pub(super) fn a_fleet_over(home: &TempDir, manifest: &str) -> Fixture {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.noticing = Noticing::every(Duration::ZERO);
     fittings.starting().manifest =

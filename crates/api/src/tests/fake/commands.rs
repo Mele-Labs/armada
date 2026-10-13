@@ -512,9 +512,29 @@ impl Commands for FakeDaemon {
         job_id: JobId,
         drone_id: ipc::DroneId,
         _instruction: ipc::Redirection,
-        _by: crate::Redirector,
+        _by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
         self.fake_one_drone(job_id, drone_id, false).await
+    }
+    async fn retry_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
+    async fn skip_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
+    async fn skip_checks(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
     }
     async fn kill_processes(
         self: std::sync::Arc<Self>,
@@ -567,7 +587,7 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _instruction: ipc::Redirection,
-        by: crate::Redirector,
+        by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
         self.fake_redirect_drone(job_id, _instruction, by).await
     }
@@ -575,38 +595,44 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _add: ipc::AddTask,
+        by: crate::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id).await
+        self.fake_plan_change(job_id, by).await
     }
     async fn drop_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _drop: ipc::DropTask,
+        by: crate::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id).await
+        self.fake_plan_change(job_id, by).await
     }
     async fn restart_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _task: String,
         _restart: ipc::RestartTask,
+        by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
+        self.plan_changed_by.lock().expect("not poisoned").push(by);
         self.fake_restart_step(job_id, None).await
     }
     async fn move_plan(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _move_plan: ipc::MovePlan,
+        by: crate::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id).await
+        self.fake_plan_change(job_id, by).await
     }
     async fn edit_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _task: String,
         _edit: ipc::EditTask,
+        by: crate::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
-        self.fake_plan_change(job_id).await
+        self.fake_plan_change(job_id, by).await
     }
     async fn answer_question(
         self: std::sync::Arc<Self>,

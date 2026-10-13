@@ -37,6 +37,11 @@ impl crate::Admitting for FakeDaemon {
         let (port, may) = planted?;
         (caller.port() == Some(port)).then(|| crate::HelmReach::deciding(may, "a test withheld it"))
     }
+
+    fn commander_at(&self, caller: crate::Caller) -> Option<crate::CommanderReach> {
+        let port = (*self.commander_on.lock().expect("not poisoned"))?;
+        (caller.port() == Some(port)).then(crate::CommanderReach::of_the_allowlist)
+    }
 }
 
 impl Conversations for FakeDaemon {

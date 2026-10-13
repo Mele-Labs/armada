@@ -33,7 +33,7 @@ import type {
 } from "@armada/protocol";
 import { helmArrived, NO_HELM_ITEMS } from "@armada/protocol";
 import type { HelmCarry, HelmTuned } from "../shared/api/helm";
-import { ask, helmFileOf } from "./request";
+import { ask, helmFileOf, MODEL_CALL_MS } from "./request";
 import { HOST } from "./runtime-file";
 
 type Held = HeldHelmThread;
@@ -232,7 +232,8 @@ export class HelmSocket {
   async readThought(text: string): Promise<ThoughtRead> {
     if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     const body: ReadThought = { text };
-    const answer = await ask(this.port, "POST", "/helm/read_thought", body);
+    // A model call is inside the request, and Fleet answers `question` at its own 20 s budget.
+    const answer = await ask(this.port, "POST", "/helm/read_thought", body, MODEL_CALL_MS);
     return answer.ok === true
       ? { ok: true, reading: answer.body as ThoughtReading }
       : { ok: false, outcome: answer.outcome };

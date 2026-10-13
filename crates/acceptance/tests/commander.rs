@@ -13,28 +13,32 @@
 //!
 //! | Step of the claim | Carried by |
 //! |---|---|
-//! | It reaches a Job, and is offered nothing it may not do (a Check, the Manifest, a gate, attest, merge, push) | #2164 |
 //! | The owner writes to it and gets an answer, a message queues, and one card goes to him | #2166 |
 //! | A Drone with nothing handed in, or a red group, wakes it; three wakes on one problem stop it | #2167 |
-//! | Every change to a plan is signed by whoever made it | #2168 |
 //! | The owner sees in the thread and on each task's mark that it acted, and answers a card | #2169 |
 //! | A repair Drone goes onto the Job's own branch | #2170 |
 
-//! What is asserted today is the fourth signer, and the ceiling on a cap it raises: the record a Commander's act
+//! What is asserted today is the fourth signer, the signer of a plan act, and the ceiling on a cap it raises: the record a Commander's act
 //! would leave, made by moving the machines as `Actor::Commander`, through
-//! `ipc::encode` and back. The fake hosting that scripts its tool calls comes
-//! with #2164, the first issue with a tool to call.
+//! `ipc::encode` and back, and the reach: what the door grants a Commander,
+//! read off the list the door itself enforces. That a call from a placed
+//! connection is refused, answered and recorded as the Commander's is `api`'s
+//! `tests::commander_reach`, through the real router, and that a plan act is
+//! placed as a person's, Helm's or the Commander's is `api`'s
+//! `tests::plan_signing` and `fleet`'s `tests::plan_signed`; the process that hosts a
+//! Commander, and so the first real connection to place, comes with #2166.
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
 mod bench;
 
+use api::{offerable, CommanderReach, COMMANDER_ALLOWED};
 use core_model::{Actor, Attempt, JobStatus, PlanAuthor, StepId, Via};
 use testkit::FakeWorkProduct;
 
 use bench::commander::{
-    a_plan_recorded_by, a_step_the_commander_stopped, status_moves_received,
-    stopped_by_fleet_and_resumed_by_the_commander,
+    a_plan_four_acts_were_made_on, a_plan_recorded_by, a_step_the_commander_stopped,
+    status_moves_received, stopped_by_fleet_and_resumed_by_the_commander,
 };
 use bench::plan::PLAN;
 use bench::Bench;
@@ -120,6 +124,66 @@ fn the_commander_is_one_more_signer_and_one_more_door_and_not_a_person() {
     assert_ne!(Via::Commander, Via::Helm, "Helm's door is not the Commander's");
 }
 
+/// Every act the claim says a Commander never takes. All are offered by the
+/// door to Helm, so a refusal here is the allowlist's and not an absence.
+const NEVER_THE_COMMANDERS: &[&str] = &[
+    // Pass a gate.
+    "override_verdict",
+    "rerun_gate",
+    "rerun_failed_checks",
+    "set_when_blocked",
+    "submit_for_verification",
+    "approve_dispatch",
+    // Attest, merge, push.
+    "attest_complete",
+    "merge_pull_request",
+    "merge_pull_request_by_number",
+    "enable_auto_merge",
+    "enable_job_auto_merge",
+    "delete_branch",
+    // A Check, the Manifest.
+    "edit_manifest",
+    "write_manifest_proposal",
+    "save_manifest_file",
+];
+
+#[test]
+fn a_commander_is_offered_every_read_and_ten_acts_and_nothing_that_passes_a_gate() {
+    let reach = CommanderReach::of_the_allowlist();
+
+    let mut granted: Vec<&str> = offerable()
+        .filter(|row| row.kind == "command" && reach.may(row.operation))
+        .map(|row| row.operation)
+        .collect();
+    granted.sort_unstable();
+    let mut settled = vec![
+        "raise_turn_cap",
+        "raise_cost_cap",
+        "redirect_drone",
+        "redirect_one_drone",
+        "restart_step",
+        "restart_task",
+        "edit_task",
+        "add_task",
+        "drop_task",
+        "move_plan",
+    ];
+    settled.sort_unstable();
+    assert_eq!(granted, settled, "the acts a Commander may take, and no more");
+    assert_eq!(COMMANDER_ALLOWED.len(), settled.len());
+
+    for row in offerable().filter(|row| row.kind == "query") {
+        assert!(reach.may(row.operation), "every read is its: {}", row.operation);
+    }
+    for operation in NEVER_THE_COMMANDERS {
+        assert!(
+            offerable().any(|row| row.operation == *operation),
+            "`{operation}` is offered to someone, so refusing it is the allowlist's doing"
+        );
+        assert!(!reach.may(operation), "`{operation}` is not a Commander's");
+    }
+}
+
 /// #2165. The ceiling is a multiple of what the workflow would inherit, one
 /// for each raiser, and a raise has no field to say which it is.
 #[test]
@@ -138,4 +202,42 @@ fn a_cap_a_commander_raises_stops_at_three_times_the_workflows_and_names_no_rais
     let raise: ipc::TurnRaise = ipc::decode("a turn cap", claimed).expect("decodes");
     let carried = ipc::encode(&raise).expect("encodes");
     assert!(!carried.contains("raised_by"), "{carried}");
+}
+
+/// #2168. The same four acts, made by each of the three callers a plan has: a
+/// task each one touched wears its hand on the wire and every event names it,
+/// and the task none of them touched wears nobody's.
+#[test]
+fn a_plan_act_is_signed_by_whoever_made_it_and_the_owners_is_not_the_commanders() {
+    let callers = [
+        (PlanAuthor::Person, Actor::Human, "person"),
+        (PlanAuthor::Helm, Actor::Helm, "helm"),
+        (PlanAuthor::Commander, Actor::Commander, "commander"),
+    ];
+    for (author, actor, spelled) in callers {
+        let (plan, bytes, told) = a_plan_four_acts_were_made_on(author, actor);
+
+        let mark = |id: &str| {
+            plan.tasks
+                .iter()
+                .find(|task| task.id == id)
+                .map(|task| task.by)
+                .unwrap_or_else(|| panic!("the plan holds {id}"))
+        };
+        let theirs = Some(match spelled {
+            "person" => ipc::TaskBy::Person,
+            "helm" => ipc::TaskBy::Helm,
+            _ => ipc::TaskBy::Commander,
+        });
+        assert_eq!(mark("T4"), theirs, "{spelled}: the task it added and moved");
+        assert_eq!(mark("T1"), theirs, "{spelled}: the task it edited");
+        assert_eq!(mark("T2"), theirs, "{spelled}: the task it dropped");
+        assert_eq!(mark("T3"), None, "{spelled}: nobody touched it, a step wrote it");
+        assert!(
+            bytes.contains(&format!(r#""by":{{"who":"{spelled}"}}"#)),
+            "the spelling a client dispatches on is on the wire: {bytes}"
+        );
+        let signers: Vec<&str> = told.iter().map(|moved| moved.actor.as_wire()).collect();
+        assert_eq!(signers, vec![actor.as_wire(); 4], "{spelled}: four acts, four events");
+    }
 }

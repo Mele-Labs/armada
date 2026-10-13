@@ -28,6 +28,7 @@ while IFS= read -r line; do
   case "$line" in *die*) echo 'boom: no such session' >&2; exit 3;; esac
   echo '{"type":"system","subtype":"init","session_id":"s","model":"m","mcp_servers":[]}'
   echo '{"type":"assistant","message":{"content":[{"type":"text","text":"pid '$$' before '$n'"}]}}'
+  case "$line" in *subagent*) echo '{"type":"assistant","message":{"content":[{"type":"text","text":"inside"}]},"parent_tool_use_id":"toolu_x"}';; esac
   case "$line" in *hold*) while [ ! -f "$1" ]; do sleep 0.05; done;; esac
   echo '{"type":"assistant","message":{"content":[{"type":"text","text":"pid '$$' after '$n'"}]}}'
   echo '{"type":"result","num_turns":1,"total_cost_usd":0.01,"permission_denials":[]}'
@@ -393,6 +394,45 @@ fn a_message_after_the_process_was_let_go_starts_a_new_one() {
         let rows = said(&fleet, &id).await;
         assert_ne!(pid_in(&rows[2]), first, "a new process answered: {rows:?}");
         assert_eq!(keepers.starts.load(Ordering::SeqCst), 2);
+    });
+}
+
+/// A background subagent's lines arrive on the agent's own stream, marked by the
+/// call that started them. They are not the session's to say.
+#[test]
+fn a_subagents_words_are_not_in_the_sessions_thread() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let fleet_side = Runtime::new().unwrap();
+    fleet_side.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "subagent".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        // The subagent's line sits between the two the agent said itself.
+        eventually(|| async { said(&fleet, &id).await.len() == 2 }).await;
+        let rows = said(&fleet, &id).await;
+        assert!(rows.iter().all(|row| !row.contains("inside")), "{rows:?}");
     });
 }
 

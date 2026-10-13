@@ -1,7 +1,7 @@
 // Approve on the walk window's bar: the person walked the page and it is right. A Session is
 // told in a message from the person, which wakes it; a Job gets the press JobDetail's Approve makes.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const sessionWindow = dialog("Bridge's window on Store clock findings");
@@ -14,7 +14,7 @@ const aSession = walk("session-walk-window", [
   { look: sessionWindow, say: "The window on what it showed" },
   { press: inside(sessionWindow, button("Approve")), say: "Walked, and it is right" },
   { look: inside(sessionWindow, button("Approved")), say: "The bar keeps it" },
-  { look: inside(region("Thread"), text(/^Approved: http/)), say: "The Session is told, with the address, and wakes" },
+  { look: inside(region("Thread"), region("You approved")), say: "The Session is told, with the address, and wakes" },
 ]);
 
 const aJob = walk("prototype-walked", [

@@ -568,6 +568,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/drones/:drone_id/redirect",
             post(crate::one_drone::redirect_one_drone::<D>),
         )
+        .route(
+            "/jobs/:job_id/retry_check",
+            post(crate::check_acts::retry_check::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_check",
+            post(crate::check_acts::skip_check::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_checks",
+            post(crate::check_acts::skip_checks::<D>),
+        )
         .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
         .route(
             "/jobs/:job_id/reclaim_worktree",

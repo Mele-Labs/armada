@@ -12,6 +12,7 @@
 /// Who the listener answers at all: a page in a browser, and everything that
 /// is not one.
 mod callers;
+mod commander_reach;
 mod conversing;
 mod door;
 mod door_scope;
@@ -28,6 +29,7 @@ mod limits;
 mod settings;
 mod mcp;
 mod observing;
+mod plan_signing;
 mod preferences;
 mod processes;
 mod reconciling;

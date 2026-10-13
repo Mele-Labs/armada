@@ -41,6 +41,7 @@ export * from "./retro";
 export * from "./retro-review";
 export * from "./retro-session";
 export * from "./holding";
+export * from "./job-issues";
 export * from "./journal";
 export * from "./judged";
 export * from "./kit";

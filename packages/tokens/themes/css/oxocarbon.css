@@ -35,8 +35,9 @@
   --status-rejected: #C693FF;
   --status-killed: #A0A1A4;
   --status-handed-in: #00BEB4;
-  /* Helm, tools, diff */
+  /* Helm, you, tools, diff */
   --helm: #89B0B4;
+  --you: #D876B6;
   --tool-look: #FF74B8;
   --tool-change: #C693FF;
   --tool-run: #FF4599;
