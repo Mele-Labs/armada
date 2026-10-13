@@ -638,6 +638,28 @@ two messages per card: the card going out, and none coming back.
 is called with the question and the label he picked as its reason, and the
 answer says `woke: false` where the Commander could not start.
 
+### The Commander's repair
+
+`POST /jobs/:job_id/commander/repair` (`send_repair_drone`) puts a repair Drone on
+the Job's own branch and worktree. The body is `broke`, one of `merge_conflict`,
+`dependencies`, `missing_binary` and `worktree`, and nothing else: there is no
+field for a branch, a path or a command. It answers 202 with `RepairSent`
+(`job_id`, `step_id`, `drone_id`, `broke`), because the Drone has not finished;
+Fleet restarts the step it names when the Drone hands in.
+`crates/ipc/src/commander_repair.rs` has the types and
+`packages/protocol/src/commander.ts` is Bridge's half.
+
+| Rule | How it is held |
+| --- | --- |
+| Only a Commander sends one | `agent_access = "Commander only"`, and the route refuses a call the door did not place as a Commander's, so the move that puts the step back is always signed Commander |
+| Offered where `restart_step` is | The same reading (`Stuck::of`) decides both. A 409 where the Job is not held for a person, a Drone is on it, its worktree is gone (a redispatch) or no step stopped |
+| One at a time per Job | A second repair, or a person's `restart_step`, is a 409 while one is out |
+| Not `add_job_step` | The repair is gated as the step it unblocks; a step the Commander wrote would be gated as its own |
+
+**Nothing new crosses to Bridge.** The thread shows the Commander's call as a
+row, with `broke` in its argument, and the Job's log carries Fleet's line naming
+the step, the branch and the Drone.
+
 **`set_commander_model`** takes `model` and `effort`, both sent and either
 `null`, and answers with the Job's summary. `JobDetail.commander_model_override`
 and `commander_effort_override` read the choice back. `agent_access` is `Helm

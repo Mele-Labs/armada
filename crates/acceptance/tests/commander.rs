@@ -8,12 +8,11 @@
 //! edit the Manifest, pass a gate, attest, merge, push), it puts one card to
 //! him. The Job never advances on anything the Commander said.** #2163.
 
-//! Merged green. Each step below cannot be asserted yet; the issue that builds
-//! it adds its assertion beside the code and deletes its row.
-//!
-//! | Step of the claim | Carried by |
-//! |---|---|
-//! | A repair Drone goes onto the Job's own branch | #2170 |
+//! The repair, `#2170`, is asserted in part here and in part in `fleet`'s
+//! `tests::job_repair`. Here: where a repair is aimed, what it is granted and
+//! what it is held off, and that the step it puts back is gated on its work.
+//! There, against a Fleet: the Drone runs in the Job's worktree, nothing is
+//! cut, the move is the Commander's, and the loop bound is its only count.
 
 //! What is asserted here is what a Commander is given and shown, without a Fleet:
 //! the signers and the plan marks, the ceiling on a cap, the reach, a launch that
@@ -46,18 +45,21 @@
 mod bench;
 
 use adapter_traits::{Environment, McpConfig, Model};
+use adapter_traits::{Grant, Repair, Toolbelt};
 use adapters::{denied_to_a_commander, door_tools, Commanding, HeadlessAgent};
 use api::{offerable, offerable_to_a_commander, CommanderReach, COMMANDER_ALLOWED};
 use core_model::{Actor, Attempt, JobStatus, PlanAuthor, StepId, Via};
+use fleet::job_repair::JobRepair;
+use ipc::Breakage;
 use testkit::FakeWorkProduct;
 
 use bench::commander::{
     a_plan_four_acts_were_made_on, a_plan_recorded_by, a_step_the_commander_stopped,
-    status_moves_received, stopped_by_fleet_and_resumed_by_the_commander,
+    status_moves_received, stopped_by_fleet_and_resumed_by_the_commander, stopped_on_the_fix,
 };
 use bench::overview::{detail_of, round_trip_detail, section_of};
 use bench::plan::PLAN;
-use bench::Bench;
+use bench::{a_fix_diff, Bench};
 
 fn a_bench() -> Bench {
     Bench::with(FakeWorkProduct::untouched())
@@ -164,7 +166,7 @@ const NEVER_THE_COMMANDERS: &[&str] = &[
 ];
 
 #[test]
-fn a_commander_is_offered_every_read_and_eleven_acts_and_nothing_that_passes_a_gate() {
+fn a_commander_is_offered_every_read_and_its_own_acts_and_nothing_that_passes_a_gate() {
     let reach = CommanderReach::of_the_allowlist(ipc::JobId::carried("01JOB14"));
 
     let mut granted: Vec<&str> = offerable_to_a_commander()
@@ -185,6 +187,8 @@ fn a_commander_is_offered_every_read_and_eleven_acts_and_nothing_that_passes_a_g
         "move_plan",
         // The one way it reaches the owner: a card that outlives its turn.
         "ask_the_owner",
+        // #2170. A repair of its own, and never `add_job_step`.
+        "send_repair_drone",
     ];
     settled.sort_unstable();
     assert_eq!(granted, settled, "the acts a Commander may take, and no more");
@@ -498,4 +502,88 @@ fn a_job_with_a_card_out_reaches_a_bridge_waiting_on_the_owner_with_the_card_bes
         "an answer names the card and one of these"
     );
     assert_eq!(received.job.status, detail.job.status, "no status moved");
+}
+
+/// #2170. A repair has no branch to name, so it is aimed at the Job's own
+/// worktree and branch and at the step that stopped, and at nothing beside them.
+#[tokio::test]
+async fn a_repair_drone_is_aimed_at_the_jobs_own_branch_and_the_step_that_stopped() {
+    let bench = a_bench();
+    let run = stopped_on_the_fix(&bench).await;
+
+    let repair = JobRepair::onto(&run.job, run.worktree.clone(), Breakage::MergeConflict)
+        .expect("a Job with a stopped step has one to put back");
+
+    assert_eq!(repair.worktree(), &run.worktree, "the Job's own worktree");
+    assert_eq!(repair.worktree().branch(), run.worktree.branch());
+    assert_eq!(repair.restarts(), &bench.step(1), "the step it stopped, not another");
+    assert!(
+        bench.vcs.created().len() == 1,
+        "the Job's worktree is the only one made: nothing is cut for a repair"
+    );
+}
+
+/// #2170. Its work is the step's: the step it puts back is gated on a diff that
+/// holds nothing but the repair's file, and with no file written it fails.
+#[tokio::test]
+async fn a_repairs_work_reaches_the_gate_of_the_step_it_puts_back() {
+    for (written, advances) in [(true, true), (false, false)] {
+        let work = match written {
+            true => FakeWorkProduct::changed(&["src/parse.rs"]),
+            false => FakeWorkProduct::untouched(),
+        };
+        let bench = Bench::with(work);
+        let run = stopped_on_the_fix(&bench).await;
+        let repair = JobRepair::onto(&run.job, run.worktree.clone(), Breakage::Dependencies)
+            .expect("a step to put back");
+
+        let ruling = bench.gate(&run, repair.restarts(), &a_fix_diff()).await;
+
+        assert_eq!(
+            ruling.advanced(),
+            advances,
+            "the Job's own Check ruled on the step with the repair's file written: {written}"
+        );
+    }
+}
+
+/// #2170. What a repair is granted is the fault's, and a Check or the Manifest
+/// is never among it, wherever the repository declares one.
+#[tokio::test]
+async fn a_repair_is_granted_what_the_fault_needs_and_held_off_every_manifest() {
+    let bench = a_bench();
+    let run = stopped_on_the_fix(&bench).await;
+    let bootstrap = vec![String::from("pnpm install")];
+    let manifests = vec![String::from("packages/a/armada.yml")];
+    let belt = |broke| {
+        JobRepair::onto(&run.job, run.worktree.clone(), broke)
+            .expect("a step to put back")
+            .belted(Toolbelt::evidence_only(), &bootstrap, &manifests)
+    };
+
+    let conflict = belt(Breakage::MergeConflict);
+    assert_eq!(
+        conflict.granted(),
+        [Grant::RepairTheWorktree(Repair::TheIndex)],
+        "a conflict is staged, and nothing is run"
+    );
+    let missing = belt(Breakage::MissingBinary);
+    assert_eq!(
+        missing.granted(),
+        [Grant::RepairTheWorktree(Repair::TheInstall(String::from("pnpm install")))]
+    );
+    for belt in [&conflict, &missing] {
+        assert_eq!(
+            belt.held_off(),
+            ["armada.yml", ".armada", "packages/a/armada.yml"],
+            "every place a Check is declared"
+        );
+        assert!(
+            !belt.granted().iter().any(|grant| matches!(
+                grant,
+                Grant::DispatchAJob | Grant::RecordThePlan | Grant::WorkThePlan
+            )),
+            "no dispatch and no plan"
+        );
+    }
 }

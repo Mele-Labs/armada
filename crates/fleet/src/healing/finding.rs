@@ -121,7 +121,7 @@ impl Finding {
 
 /// Whether a file still holds a conflict marker. **Unreadable counts as none**:
 /// a deleted file and a binary one have no marker to be mid-resolution on.
-fn holds_a_marker(file: &Path) -> bool {
+pub(crate) fn holds_a_marker(file: &Path) -> bool {
     std::fs::read_to_string(file)
         .map(|text| text.lines().any(|line| line.starts_with("<<<<<<< ")))
         .unwrap_or(false)

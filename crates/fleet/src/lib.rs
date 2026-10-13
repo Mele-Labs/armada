@@ -154,6 +154,8 @@ pub mod holding;
 /// answer 5.
 mod issue_noticing;
 mod job_issues;
+/// A Commander's repair Drone on a Job's own branch. `#2170`.
+pub mod job_repair;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;

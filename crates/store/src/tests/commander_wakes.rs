@@ -143,3 +143,35 @@ fn a_job_that_is_forgotten_takes_its_wakes_with_it() {
         Err(WriteError::NoSuchJob { .. })
     ));
 }
+
+/// A trouble that does not move the step's attempt is counted by what has been
+/// noted of it, so each of its facts is new and none reads as one already seen.
+#[test]
+fn the_wakes_noted_for_a_trigger_on_a_step_are_counted_whatever_their_attempt() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    a_job(&mut store);
+    let repair = |attempt| CommanderProblem {
+        trigger: String::from("repair_handed_nothing_in"),
+        step: String::from("build"),
+        attempt,
+    };
+    let count = |store: &Store| {
+        store
+            .commander_wakes_noted(&job_id(JOB), "repair_handed_nothing_in", "build")
+            .expect("counted")
+    };
+
+    assert_eq!(count(&store), 0);
+    store
+        .note_commander_wake(&job_id(JOB), &repair(count(&store) + 1), "escalated")
+        .expect("noted");
+    store
+        .note_commander_wake(&job_id(JOB), &repair(count(&store) + 1), "escalated")
+        .expect("noted");
+    store
+        .note_commander_wake(&job_id(JOB), &stalled(1), "escalated")
+        .expect("another trigger's");
+
+    assert_eq!(count(&store), 2, "two repairs, and the other trigger not among them");
+}

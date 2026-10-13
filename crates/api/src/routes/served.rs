@@ -146,6 +146,12 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/commander/card",
     },
+    // A repair Drone onto the Job's own branch, the Commander's alone. #2170.
+    Route {
+        operation: "send_repair_drone",
+        method: "POST",
+        path: "/jobs/:job_id/commander/repair",
+    },
     Route {
         operation: "answer_commander_card",
         method: "POST",

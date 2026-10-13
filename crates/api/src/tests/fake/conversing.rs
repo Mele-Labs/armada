@@ -95,6 +95,23 @@ impl Conversations for FakeDaemon {
         })
     }
 
+    async fn send_repair_drone(
+        self: Arc<Self>,
+        job: crate::reference::Resolved,
+        sending: ipc::SendRepairDrone,
+    ) -> Result<ipc::RepairSent, Refusal> {
+        self.repairs_sent
+            .lock()
+            .expect("not poisoned")
+            .push((job.id(), sending.broke));
+        Ok(ipc::RepairSent {
+            job_id: job.id(),
+            step_id: ipc::StepId::carried("implement"),
+            drone_id: ipc::DroneId::carried("01DRONE"),
+            broke: sending.broke,
+        })
+    }
+
     async fn answer_commander_card(
         self: Arc<Self>,
         job: crate::reference::Resolved,

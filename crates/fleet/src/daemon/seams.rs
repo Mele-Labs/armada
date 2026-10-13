@@ -221,6 +221,9 @@ where
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
     }
+    pub(crate) fn repairing(&self) -> &crate::job_repair::Underway {
+        &self.repairing
+    }
     pub(crate) fn stirrings(&self) -> &std::sync::Mutex<crate::commanding_wakes::Stirred> {
         &self.stirred
     }

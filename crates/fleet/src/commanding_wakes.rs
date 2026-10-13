@@ -1,11 +1,12 @@
 //! Waking a Job's Commander when the Job is in trouble, once per fact. `#2167`;
-//! `docs/concepts/commander.md`, *When it wakes*, has the six troubles, where
+//! `docs/concepts/commander.md`, *When it wakes*, has the troubles, where
 //! each is read, and the loop bound.
 //!
 //! **Typed values only, never a log string.** Four troubles are fields of the
 //! turn that found them. An environment failure happens while a Job is
 //! admitted and spend is written when a Drone ends, so neither has a turn to sit
-//! on: each leaves a note ([`Stirred`]) for the next turn to carry.
+//! on: each leaves a note ([`Stirred`]) for the next turn to carry. A repair
+//! Drone's end is made where it ends, by `crate::job_repair`.
 //!
 //! A wake is recorded first and made after, so neither a 250 ms tick nor a
 //! restart wakes twice. The same trouble on the same step three times with the
@@ -80,6 +81,8 @@ pub(crate) enum Trouble {
     Broken { found: EscalationTrigger },
     /// A cap is `NEARLY_PERCENT` spent.
     CapNearlySpent(Nearly),
+    /// A repair Drone it sent ended with nothing handed in. `#2170`.
+    RepairHandedNothingIn { step: StepId },
 }
 
 impl Trouble {
@@ -92,6 +95,7 @@ impl Trouble {
             Trouble::Drifted { .. } => "drifted",
             Trouble::Churning { .. } => "churning",
             Trouble::Broken { .. } => "broken",
+            Trouble::RepairHandedNothingIn { .. } => "repair_handed_nothing_in",
             Trouble::CapNearlySpent(Nearly {
                 cap: Overspent::Cost,
                 ..
@@ -110,7 +114,9 @@ impl Trouble {
             Trouble::NothingHandedIn { step, .. }
             | Trouble::GroupRed { step }
             | Trouble::Refused { step, .. } => Some(step.as_ref()),
-            Trouble::Drifted { step } | Trouble::Churning { step } => Some(Some(step)),
+            Trouble::Drifted { step }
+            | Trouble::Churning { step }
+            | Trouble::RepairHandedNothingIn { step } => Some(Some(step)),
             Trouble::Broken { .. } | Trouble::CapNearlySpent(_) => None,
         }
     }
@@ -143,6 +149,9 @@ impl Trouble {
                 format!("The Drone on step {step} went quiet when told to report")
             }
             Trouble::Broken { found } => format!("No Drone could run: {}", verb(found)),
+            Trouble::RepairHandedNothingIn { .. } => {
+                format!("The repair Drone on step {step} ended with nothing handed in")
+            }
             Trouble::CapNearlySpent(Nearly {
                 cap: Overspent::Cost,
                 used,
@@ -326,7 +335,7 @@ where
     }
 
     /// Claim the wake and make it, or say why it was not made.
-    async fn woken_for(self: &Arc<Self>, job: &JobId, trouble: Trouble) {
+    pub(crate) async fn woken_for(self: &Arc<Self>, job: &JobId, trouble: Trouble) {
         let Ok(record) = self.load(job).await else {
             return;
         };
@@ -371,6 +380,14 @@ where
         let mut store = self.store().lock().await;
         let attempt = match (trouble, step) {
             (Trouble::CapNearlySpent(near), _) => near.of,
+            // A repair does not enter the step, so its attempt does not move:
+            // each repair that hands nothing in is the next of its own.
+            (Trouble::RepairHandedNothingIn { .. }, Some(step)) => {
+                store
+                    .commander_wakes_noted(job, trouble.key(), step.as_str())
+                    .map_err(|why| why.to_string())?
+                    + 1
+            }
             (_, Some(step)) => u64::from(
                 store
                     .step_attempt(job, step)

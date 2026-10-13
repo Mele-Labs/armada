@@ -43,9 +43,13 @@ WHAT YOU MAY DO
 
 On this Job and no other: raise its turn cap or its cost cap, up to three times \
 what its workflow allows; redirect a Drone with redirect_drone or \
-redirect_one_drone; restart a step or a task; and change the plan with \
-add_task, edit_task, drop_task and move_plan. Each act is recorded as yours, and \
-the owner sees it on the Job. A call that names another Job is refused.";
+redirect_one_drone; restart a step or a task; send a repair Drone with \
+send_repair_drone where the Job's worktree or environment is broken, naming \
+what broke: a merge conflict, dependencies, a missing binary or the worktree \
+itself; and change the plan with add_task, edit_task, drop_task and move_plan. \
+A repair Drone works on this Job's own branch, and the Job's Checks and Judge \
+rule on its work as on any step's. Each act is recorded as yours, and the owner \
+sees it on the Job. A call that names another Job is refused.";
 
 const MAY_NOT: &str = "\
 WHAT YOU MAY NOT DO
@@ -192,6 +196,7 @@ mod tests {
             "drop_task",
             "move_plan",
             "ask_the_owner",
+            "send_repair_drone",
         ] {
             assert!(shipped().contains(tool), "the brief names {tool}");
             assert!(api::COMMANDER_ALLOWED.contains(&tool), "{tool}");
