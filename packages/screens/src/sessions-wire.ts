@@ -6,8 +6,9 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
+import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import type {
@@ -165,6 +166,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
             : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
         );
         break;
+      case "started_to":
+      case "started_by":
+        out.push({ kind: one.kind, id: one.target });
+        break;
       case "subagent":
         out.push({
           kind: "subagent",
@@ -256,10 +261,13 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
       case "check":
-        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state });
+        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
+        break;
+      case "started":
+        out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });
         break;
       case "retro":
         out.push(retroRowOf(row, at));
@@ -327,8 +335,12 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const mode = hosted?.mode ?? terminal?.mode;
   const asked = hosted?.asked ?? terminal?.asked;
   const ended = record.state === "ended";
-  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and what it made, to be read.
-  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "pull_request" || one.kind === "artifact");
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and starts, and what it made, to be read.
+  const attachments = attachmentsOfRecord(record, beside).filter(
+    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
+  );
+  // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
+  const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
@@ -354,8 +366,26 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
+    ...(record.held_until === undefined || ended ? {} : { limitedUntil: record.held_until }),
+    ...(record.context_breakdown === undefined ? {} : { contextBreakdown: contextBreakdownOf(record.context_breakdown) }),
+    ...(record.usage.context_tokens === undefined || record.usage.context_window === undefined
+      ? {}
+      : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
+    ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
+  };
+}
+
+/** What fills a window, in the camelCase the view-model draws. */
+function contextBreakdownOf(wire: WireContextBreakdown): ContextBreakdown {
+  return {
+    categories: wire.categories,
+    memoryFiles: wire.memory_files,
+    mcpTools: wire.mcp_tools,
+    totalTokens: wire.total_tokens,
+    maxTokens: wire.max_tokens,
+    ...(wire.autocompact_threshold === undefined ? {} : { autocompactThreshold: wire.autocompact_threshold }),
   };
 }
 

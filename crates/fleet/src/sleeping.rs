@@ -28,7 +28,7 @@ use store::{SessionState, SleepRow};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::resume::{Ending, Redirection, Steer};
-use crate::session_host::waiting::mode_line;
+use crate::answer_mode::mode_line;
 
 /// How long an item waits before the night answers it.
 pub const GRACE: Duration = Duration::from_secs(120);
@@ -269,6 +269,29 @@ where
         }
     }
 
+    /// A card a Commander put out to the owner: blocked, as an escalated Job
+    /// the night will not answer is. **The night never answers it**: the pick is
+    /// his, and the card stays out until he makes it.
+    pub(crate) async fn sleep_carded(&self, job: &core_model::Job, card: &store::StoredCard) {
+        if !self.sleeping().await {
+            return;
+        }
+        let text = format!("Commander asks, waiting on you: {}", card.question);
+        let _ = self.leave(row("blocked", format!("card:{}", card.card_id), job.handle(), text)).await;
+    }
+
+    /// Cards that went out before the night began, each once.
+    async fn sleep_cards(&self) -> Result<(), Refusal> {
+        let cards = self.store().lock().await.open_commander_cards().map_err(|why| self.ledger_fault(why))?;
+        for card in cards {
+            let Ok(job) = self.load(&card.job_id).await else { continue };
+            if !job.status().is_terminal() {
+                self.sleep_carded(&job, &card).await;
+            }
+        }
+        Ok(())
+    }
+
     /// Escalated Jobs, each once: told to decide for itself, or held.
     async fn sleep_jobs(&self) -> Result<(), Refusal> {
         let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
@@ -304,7 +327,7 @@ where
                 self.leave(done).await?;
                 continue;
             }
-            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(WaitingMode::Best))) else {
+            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(ipc::AnswerMode::Best))) else {
                 continue;
             };
             let by = Actor::Fleet;
@@ -395,6 +418,8 @@ where
                     WaitingSource::Walk | WaitingSource::WindowAsk => {
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
+                    // Nothing to decide: sending it is his, and it stays on the list for the morning.
+                    WaitingSource::FirstMessage => continue,
                     WaitingSource::Permission => {
                         self.leave(row("blocked", id, who.clone(), item.text.clone())).await?;
                     }
@@ -430,13 +455,14 @@ where
             }
         }
         self.sleep_jobs().await?;
+        self.sleep_cards().await?;
         self.sleep_chose().await
     }
 }
 
 /// The first non-empty line of the agent's message after the last "decide this yourself" the night sent.
 pub(crate) fn next_words(rows: &[ipc::SessionRow]) -> Option<String> {
-    let line = mode_line(WaitingMode::Best);
+    let line = mode_line(ipc::AnswerMode::Best);
     let from = rows.iter().rposition(|row| {
         matches!(row, ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } if text.contains(line))
     })?;

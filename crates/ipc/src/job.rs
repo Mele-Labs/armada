@@ -223,7 +223,9 @@ pub struct JobSummary {
     /// one fact written twice.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waits_on: Vec<JobId>,
-    /// Whether this Job's Drone is waiting on an answer from a person.
+    /// Whether this Job's Drone is waiting on an answer from a person, **or its
+    /// Commander has a card out to the owner** (`JobDetail::commander_card`,
+    /// `#2166`). Either way it is the Job waiting on him.
     ///
     /// # A flag, and deliberately not the question
     ///
@@ -327,6 +329,10 @@ pub struct Paused {
     pub at: Instant,
     /// A resume found every slot held, and the Job waits for the first to free.
     pub resuming: bool,
+    /// The plan's limit stopped this Job's Drone, and it starts again at this
+    /// instant, when the limit has reset. Absent on any other pause.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 impl JobSummary {
@@ -404,6 +410,7 @@ impl JobSummary {
                 by: pause.by.as_str().to_string(),
                 at: Instant::from(&pause.at),
                 resuming: pause.resuming,
+                until: pause.until.as_ref().map(Instant::from),
             }),
             // Filled by the caller that holds a store, for `tasks`' reason.
             fixes_main: None,

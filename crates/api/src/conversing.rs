@@ -17,8 +17,8 @@ use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::{
-    AskHelm, AskingToRun, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId, ReadThought,
-    ThoughtSent,
+    AnswerCommanderCard, AskCommander, AskHelm, AskTheOwner, AskingToRun, CommanderMessage, CommanderOpened, HelmMessage,
+    HelmOpened, ManifestId, Missed, ProtocolId, ReadThought, SendRepairDrone, TellSession, ThoughtSent,
 };
 use tokio::sync::broadcast;
 
@@ -31,60 +31,104 @@ use crate::served::Served;
 /// up — `crate::observing::WATCHING`'s number, for the same producer.
 pub const HELM_BACKLOG: usize = 1024;
 
-/// One conversation's messages going out. Cheap to clone; every clone offers
-/// into the same channel.
-#[derive(Clone)]
-pub struct HelmFeed {
-    messages: broadcast::Sender<HelmMessage>,
+/// What a conversation's socket carries: a message that can say a viewer fell
+/// behind, and which one is the last on a connection.
+pub trait Spoken: Clone + serde::Serialize + Send + 'static {
+    /// The message a viewer is sent where the bound dropped `dropped` before it
+    /// read them.
+    fn missed(dropped: u64) -> Self;
+
+    /// Whether the connection ends after this one.
+    fn ends_it(&self) -> bool;
 }
 
-impl HelmFeed {
-    pub fn new() -> HelmFeed {
-        HelmFeed {
+impl Spoken for HelmMessage {
+    fn missed(dropped: u64) -> HelmMessage {
+        HelmMessage::Missed(Missed { dropped })
+    }
+
+    fn ends_it(&self) -> bool {
+        matches!(self, HelmMessage::Closed(_))
+    }
+}
+
+impl Spoken for CommanderMessage {
+    fn missed(dropped: u64) -> CommanderMessage {
+        CommanderMessage::Missed(Missed { dropped })
+    }
+
+    fn ends_it(&self) -> bool {
+        false
+    }
+}
+
+/// One conversation's messages going out. Cheap to clone; every clone offers
+/// into the same channel. **Generic over the message** so a Job's Commander,
+/// which is a conversation on Helm's host, is carried by the same channel and
+/// the same relay and not a copy of them.
+#[derive(Clone)]
+pub struct ConversationFeed<M> {
+    messages: broadcast::Sender<M>,
+}
+
+/// A repository's Helm conversation's feed.
+pub type HelmFeed = ConversationFeed<HelmMessage>;
+
+/// A Job's Commander's feed.
+pub type CommanderFeed = ConversationFeed<CommanderMessage>;
+
+impl<M: Clone> ConversationFeed<M> {
+    pub fn new() -> ConversationFeed<M> {
+        ConversationFeed {
             messages: broadcast::channel(HELM_BACKLOG).0,
         }
     }
 
     /// Offer a message. **Never blocks and never fails**: with nobody watching
     /// it is dropped, and the thread's record still holds it.
-    pub fn offer(&self, message: HelmMessage) {
+    pub fn offer(&self, message: M) {
         let _ = self.messages.send(message);
     }
 
     /// Listen. **Open this before reading the thread**, for `observing`'s
     /// reason.
-    pub fn watch(&self) -> HelmWatch {
-        HelmWatch {
+    pub fn watch(&self) -> ConversationWatch<M> {
+        ConversationWatch {
             inbound: self.messages.subscribe(),
         }
     }
 }
 
-impl Default for HelmFeed {
-    fn default() -> HelmFeed {
-        HelmFeed::new()
+impl<M: Clone> Default for ConversationFeed<M> {
+    fn default() -> ConversationFeed<M> {
+        ConversationFeed::new()
     }
 }
 
 /// One viewer's end of a conversation's channel.
-pub struct HelmWatch {
-    inbound: broadcast::Receiver<HelmMessage>,
+pub struct ConversationWatch<M> {
+    inbound: broadcast::Receiver<M>,
 }
+
+pub type HelmWatch = ConversationWatch<HelmMessage>;
+pub type CommanderWatch = ConversationWatch<CommanderMessage>;
 
 /// What the channel has for the socket next.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum HelmSeen {
-    Message(HelmMessage),
+pub enum ConversationSeen<M> {
+    Message(M),
     /// The bound dropped this many messages before this viewer read them.
     Missed(u64),
 }
 
-impl HelmWatch {
+pub type HelmSeen = ConversationSeen<HelmMessage>;
+
+impl<M: Clone> ConversationWatch<M> {
     /// The next message, or `None` once every feed is gone.
-    pub async fn next(&mut self) -> Option<HelmSeen> {
+    pub async fn next(&mut self) -> Option<ConversationSeen<M>> {
         match self.inbound.recv().await {
-            Ok(message) => Some(HelmSeen::Message(message)),
-            Err(broadcast::error::RecvError::Lagged(dropped)) => Some(HelmSeen::Missed(dropped)),
+            Ok(message) => Some(ConversationSeen::Message(message)),
+            Err(broadcast::error::RecvError::Lagged(dropped)) => Some(ConversationSeen::Missed(dropped)),
             Err(broadcast::error::RecvError::Closed) => None,
         }
     }
@@ -102,13 +146,23 @@ pub struct ObservedHelm {
     pub skipped: u64,
 }
 
+/// What one viewer of a Job's Commander is answered with, assembled as
+/// [`ObservedHelm`] is.
+pub struct ObservedCommander {
+    pub job_id: ipc::JobId,
+    pub replying: bool,
+    pub live: CommanderWatch,
+    pub history: Vec<CommanderMessage>,
+    pub skipped: u64,
+}
+
 /// The thread, then everything said after, until the viewer goes, the thread is
 /// started fresh, or the channel is gone.
-pub(crate) async fn relay(mut socket: WebSocket, observed: ObservedHelm) {
+pub(crate) async fn relay(socket: WebSocket, observed: ObservedHelm) {
     let ObservedHelm {
         manifest_id,
         replying,
-        mut live,
+        live,
         history,
         skipped,
     } = observed;
@@ -118,6 +172,36 @@ pub(crate) async fn relay(mut socket: WebSocket, observed: ObservedHelm) {
         replying,
         skipped,
     });
+    relay_thread(socket, opened, history, live).await;
+}
+
+/// A Job's Commander's thread, on the relay Helm's is.
+pub(crate) async fn relay_commander(socket: WebSocket, observed: ObservedCommander) {
+    let ObservedCommander {
+        job_id,
+        replying,
+        live,
+        history,
+        skipped,
+    } = observed;
+    let opened = CommanderMessage::Opened(CommanderOpened {
+        protocol_id: ProtocolId::current(),
+        job_id,
+        replying,
+        skipped,
+    });
+    relay_thread(socket, opened, history, live).await;
+}
+
+/// `opened`, the thread, then every message after it. **One relay for every
+/// conversation**, so what a viewer is owed (the order, a `missed` for what it
+/// lost, noticing it left while nothing is said) is decided once.
+async fn relay_thread<M: Spoken>(
+    mut socket: WebSocket,
+    opened: M,
+    history: Vec<M>,
+    mut live: ConversationWatch<M>,
+) {
     if !send(&mut socket, &opened).await {
         return;
     }
@@ -140,11 +224,11 @@ pub(crate) async fn relay(mut socket: WebSocket, observed: ObservedHelm) {
             return;
         };
         let (message, last) = match seen {
-            HelmSeen::Message(message) => {
-                let last = matches!(message, HelmMessage::Closed(_));
+            ConversationSeen::Message(message) => {
+                let last = message.ends_it();
                 (message, last)
             }
-            HelmSeen::Missed(dropped) => (HelmMessage::Missed(Missed { dropped }), false),
+            ConversationSeen::Missed(dropped) => (M::missed(dropped), false),
         };
         if !send(&mut socket, &message).await || last {
             return;
@@ -152,7 +236,7 @@ pub(crate) async fn relay(mut socket: WebSocket, observed: ObservedHelm) {
     }
 }
 
-async fn send(socket: &mut WebSocket, message: &HelmMessage) -> bool {
+async fn send<M: serde::Serialize>(socket: &mut WebSocket, message: &M) -> bool {
     let Ok(text) = ipc::encode(message) else {
         return false;
     };
@@ -229,6 +313,22 @@ pub(crate) async fn record_thought_sent<D: Conversations>(
     }
 }
 
+/// Helm passes words to a live Session. 200 with where they went; the send's own refusal otherwise.
+pub(crate) async fn tell_session<D: Conversations>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let tell: TellSession = match ipc::decode("words for a session", &body) {
+        Ok(tell) => tell,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().tell_session(tell, scope.manifest()).await {
+        Ok(target) => answer(StatusCode::OK, &target, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Put one call to the person, and **hold the response open until they answer**.
 ///
 /// The one route on this surface that waits on a person. It is reached from the
@@ -286,6 +386,106 @@ pub(crate) async fn start_helm_fresh<D: Conversations>(
 ) -> Response {
     match served.daemon().start_helm_fresh(scope.manifest()).await {
         Ok(conversation) => answer(StatusCode::OK, &conversation, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One Job's Commander. **Asked before the upgrade**, so a Job that is not
+/// Fleet's is refused at the moment it was asked.
+pub(crate) async fn observe_commander<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    upgrade: WebSocketUpgrade,
+) -> Response {
+    match served.daemon().observe_commander(job).await {
+        Ok(observed) => upgrade.on_upgrade(move |socket| relay_commander(socket, observed)),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Commander puts a card to the owner. **Only a Commander can**: the door
+/// places one by its connection, and a call that is not from one is refused,
+/// so the card is never a person's or Helm's to write. 200 with the card as it
+/// stands; he answers it at his own pace.
+pub(crate) async fn ask_the_owner<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    commander: Option<axum::Extension<crate::placed::CommanderCalled>>,
+    body: Bytes,
+) -> Response {
+    if commander.is_none() {
+        return refused(crate::Refusal::IllegalMove(ipc::WireError::raised(
+            "api.only_a_commander_asks_the_owner",
+            "only a Job's Commander puts a card to the owner",
+            served.run_id().clone(),
+        )));
+    }
+    let asked: AskTheOwner = match ipc::decode("a card to the owner", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().ask_the_owner(job, asked).await {
+        Ok(card) => answer(StatusCode::OK, &card, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Commander sends a repair Drone onto its Job's own branch. **Only a
+/// Commander can**, for `ask_the_owner`'s reason: the move it ends in is signed
+/// by the connection and never by the body. 202, because the Drone has not
+/// finished; the step it unblocks restarts when it hands in.
+pub(crate) async fn send_repair_drone<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    commander: Option<axum::Extension<crate::placed::CommanderCalled>>,
+    body: Bytes,
+) -> Response {
+    if commander.is_none() {
+        return refused(crate::Refusal::IllegalMove(ipc::WireError::raised(
+            "api.only_a_commander_sends_a_repair",
+            "only a Job's Commander sends a repair Drone onto its branch",
+            served.run_id().clone(),
+        )));
+    }
+    let sending: SendRepairDrone = match ipc::decode("a repair to send", &body) {
+        Ok(sending) => sending,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_repair_drone(job, sending).await {
+        Ok(sent) => answer(StatusCode::ACCEPTED, &sent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's pick on a Job's Commander's card, which wakes the Commander.
+pub(crate) async fn answer_commander_card<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    body: Bytes,
+) -> Response {
+    let picked: AnswerCommanderCard = match ipc::decode("an answer to a card", &body) {
+        Ok(picked) => picked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_commander_card(job, picked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Take the owner's words for a Job's Commander. **202**: they are accepted and
+/// the turn is not written yet.
+pub(crate) async fn ask_commander<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    body: Bytes,
+) -> Response {
+    let asked: AskCommander = match ipc::decode("a message to a Commander", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().ask_commander(job, asked).await {
+        Ok(conversation) => answer(StatusCode::ACCEPTED, &conversation, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

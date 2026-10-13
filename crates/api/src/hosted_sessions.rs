@@ -88,6 +88,14 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// The newest reading of the plan's windows.
+pub(crate) async fn get_plan_usage<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_plan_usage().await {
+        Ok(usage) => answer(StatusCode::OK, &usage, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Whether sleep mode is on and what the night holds.
 pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_sleep().await {

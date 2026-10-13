@@ -406,6 +406,13 @@ network and the counts are as fresh as the last fetch. Bridge reads it on every
 connection and every minute, and every two seconds while a restart is under way.
 A `running` status older than twenty minutes is a wrapper that died and is ignored.
 
+**A Session's restart is the same button.** Bridge reads a command a Session
+hands the person, `scripts/preview --restart` or `scripts/restart --main` with
+`--adopt` at most, as this switch: ▶ on its waiting item, or on a shell block of
+it, presses the button rather than running a shell. A shell run is Fleet's
+child, so it died with the Fleet it stopped and never reopened Bridge, which was
+left on the old protocol. Seen 13 Oct 2026. `apps/desktop/src/renderer/src/build-change.ts`.
+
 **A restart past a working Drone asks first.** Bridge lists the Jobs at `running`
 in a confirm and passes `--adopt` only after the person says so; with no Drone
 working there is no confirm. The costs are `scripts/restart --adopt`'s.
@@ -713,10 +720,16 @@ works too, and a module's name (`tests::servers`) runs every test under it; for 
 apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
 
-**`armada check <name> --changed` runs it over what the paths on stdin reach**,
-the way CI does: `git diff --name-only main | armada check test
---changed`. It adds no dependents of its own, so name every crate you want
-measured.
+**`armada check <name> --changed` runs the tests the paths on stdin touch**:
+`git diff --name-only main | armada check test --changed`. A changed test file
+(`src/tests/x.rs`, a `tests/x.rs`) or a changed source file with an inline
+`mod tests` runs that module, in its crate only, and the line under the command
+names which (`touched tests::x in -p fleet`). A change that touches no test
+module runs nothing and says so: name a test with `armada check test <name>`,
+which compiles only the crate that declares it. Whole crates and the crates
+depending on them are CI's. **CI and the merge line read `--changed` the old
+way** (every crate the paths name), which `ARMADA_CHECK_PRIORITY=normal` asks
+for here too. `../concepts/manifest.md`, *How much of the tree a Check reads*.
 
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.
@@ -865,8 +878,8 @@ already a file read away.
 ## Leasing a worktree
 
 ```sh
-armada worktree lease <branch>      # a warm slot on a new branch; prints its path
-armada worktree lease --existing <branch>   # a warm slot on a branch that exists, at its tip
+armada worktree lease <branch>      # a warm slot on the branch at its tip, or on a new one cut from the base; prints its path
+armada worktree lease --existing <branch>   # the same, refusing a name nothing has rather than cutting it
 armada worktree release [<path>]    # give it back once everything is committed on its branch; the slot you stand in by default
 armada worktree --status            # every slot, who holds it, and for how long
 armada worktree add                 # one more slot on this machine; the next lease makes it
@@ -898,10 +911,10 @@ and cuts from what was last fetched.
 | `waiting for a worktree slot: 8 of 8 held` | Every slot is held. It waits, looking every 200 ms, and takes the first released |
 | `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with every commit on its branch, the remote or the base |
 | `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path. Bridge's Cleanup also offers Rescue in the panel of its tile: a Scout reads it, then Scrap or Stash |
-| `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
+| `slot-N is on <branch>, at its tip` / `cut from the base` | The branch existed here or on `origin` and is checked out as it stands, or nothing had the name and it is new. A lease never moves a branch that exists |
 | A release refused as uncommitted | Nothing was given back. Commit the files onto the branch, and release again. A push is not needed |
 | A release refused for commits the branch lacks | HEAD was off its branch, so a detach would leave them on none. Put them on the branch, and release again |
-| `<branch> is already checked out at <path>` | `lease --existing` found another checkout on it. Give that one back first |
+| `<branch> is already checked out at <path>` | A lease found another checkout on the branch: a held slot, a slot whose holder is gone but which holds uncommitted files, or a checkout outside the pool. Commit what is there and release it, or give that one back, first |
 | `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
 | `done` in `--status` | A Job completed and holds its slot until it is cleared. Clear it on the Board, release it by path, or `armada clean --force` |
 | `slot-3 closed` in `--status` | A person closed it. No lease takes it until `armada worktree open 3`, or Reopen in its panel in Cleanup |

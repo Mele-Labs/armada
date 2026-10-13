@@ -419,6 +419,16 @@ Claude Bash call and names `armada check test --changed`, or `armada check test
 of it system time, and the owner's Mac was unusable. `--no-run` is allowed, as
 it builds and runs nothing.
 
+**Compiling is capped at the same width, and one test compiles one crate.**
+Every Check that builds Rust spells `--build-jobs ${width}` (cargo's `--jobs`),
+because the width alone bounded the tests and left cargo at one job per core in
+each of fourteen slots: three sessions were 54 rustc jobs on 18 cores
+(12 Oct 2026). `armada check test <name>` compiles the crate that declares
+`fn <name>` and no other, and an agent's `--changed` runs the test modules the
+change touched in their crates, where `--workspace` was a build of every test
+binary for one test. CI sets `ARMADA_SOLE_TENANT=1` and keeps every core.
+`../concepts/manifest.md`, *How wide a Check runs*.
+
 **A test that hangs is ended at three minutes**, by `.config/nextest.toml`,
 which every `nextest` run in the workspace reads — `test`, `acceptance` and one
 test by name alike. It prints `SLOW` at each minute and then fails as `TIMEOUT`,

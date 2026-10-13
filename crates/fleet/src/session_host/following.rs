@@ -4,7 +4,9 @@
 //! at every gate call**, the one place every tool call of a hosted session
 //! already passes, and makes the ledger agree with it.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use std::sync::Arc;
+
+use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 use ipc::SessionRow;
 use store::{AttachmentState, Holder as Keeper, KeptAttachment, KeptHosting};
@@ -89,6 +91,31 @@ where
         })
     }
 
+    /// Park every slot an ending session holds: the one the ledger records,
+    /// and any other `armada worktree lease` took for it (a subagent's), which
+    /// the pool holds under the session's id and would otherwise hold for
+    /// good. Committed to its own branch, pushed nowhere; one the pool
+    /// refuses stays held and says why, as a Job's does.
+    pub(super) async fn park_every_slot_of(&self, id: &str, served: &Served, own: Option<u32>) {
+        let pool = crate::leasing::pool_of(served);
+        let vcs = Arc::clone(self.vcs());
+        let session = id.to_string();
+        let _ = tokio::task::spawn_blocking(move || {
+            let mut slots: Vec<u32> = own.into_iter().collect();
+            for reading in vcs.slot_pool(&pool) {
+                if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
+                    && !slots.contains(&reading.slot)
+                {
+                    slots.push(reading.slot);
+                }
+            }
+            for slot in slots {
+                let _ = vcs.park_hosted_slot(&pool, slot, &session);
+            }
+        })
+        .await;
+    }
+
     /// Make the ledger's slot for `id` agree with the pool. A slot the pool no
     /// longer shows as the session's is given back; with none recorded, a slot
     /// held by the session's own tree is attached with its branch. Returns the
@@ -123,6 +150,7 @@ where
             let _ = store.give_back(&Keeper::session(id), Some("slot"), &now);
             let _ = store.give_back(&Keeper::session(id), Some("branch"), &now);
             drop(store);
+            self.session_slot(id, None, Some(hosting.manifest_id.clone()), slot, false);
             let _ = self.published_hosted(id).await;
         }
         if hosting.lease_slot.is_some() || self.tree_roots(id).is_empty() {
@@ -159,6 +187,7 @@ where
                 );
             }
         }
+        self.session_slot(id, None, Some(hosting.manifest_id.clone()), slot, true);
         self.row_put(
             id,
             SessionRow::Lease {

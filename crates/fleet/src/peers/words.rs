@@ -55,3 +55,14 @@ pub(crate) const NOTE: &str =
 
 /// Needs ahead on a path, as it ships.
 pub(crate) const AHEAD_ON: &str = "Ahead of you on `{path}`: {ahead}.";
+
+/// Where git says this Job's changes and another's would conflict, as it ships.
+pub(crate) const CLASHING: &str =
+    "Merging the changes below would conflict. Nothing is stopped, and nobody waits on you.";
+
+/// Files that conflict with another Job's or a Session's, as it ships.
+pub(crate) const CLASH: &str = "{paths} conflict with {who}, which changed them too. To agree who changes what, call `leave_note` with `{to}`.";
+
+/// Files that conflict with the base, as it ships.
+pub(crate) const CLASH_MAIN: &str =
+    "{paths} now conflict with {base}, which {landed}. Merge it into your branch and resolve the conflict.";

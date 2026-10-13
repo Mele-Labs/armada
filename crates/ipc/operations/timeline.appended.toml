@@ -1,0 +1,10 @@
+[operations."timeline.appended"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "Fleet kept one entry for the timeline, and this is it"
+notes = """
+Carries a `TimelineEvent` whole under `event`, the same shape `get_fleet_timeline` lists, so a client holding a window appends it. **Under `event` and not spread into the message**, because the stream tags its events with `kind` and an entry has a `kind` of its own. Published once the entry is written, so its `id` is the number the store gave it and a client that read the window after the entry was written drops it as already held.
+
+A resync does not carry it; a client that reconnects asks `get_fleet_timeline` again for the span it missed.
+"""

@@ -7,6 +7,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useTileGrid } from "../../tile-grid";
+import { ClashMark } from "../ClashMark/ClashMark";
 import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
@@ -270,6 +271,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
                           </Tooltip>
                         )}
                       </button>
+                      <ClashMark kind="session" id={row.id} />
                       {row.lastTurn === undefined ? null : (
                         <Tooltip label={`Last turn ${row.lastTurn}`}>
                           <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>

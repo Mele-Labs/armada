@@ -16,8 +16,6 @@ import { WHEN_BLOCKED_LABEL, WHEN_REFUSED_LABEL } from "@armada/screens/src/copy
 import { onlyCurrentAttempt } from "@armada/screens/src/facts";
 import { REFUSED_STARTS_AT, STARTS_AT } from "./settings";
 import { taskGroupsOf } from "./draft/group";
-import type { TaskBy } from "./draft/task";
-import { markedBy } from "./tab-plan-read";
 import type { GroupState } from "./draft/group";
 import type { WaveView } from "./draft/wave";
 
@@ -199,8 +197,6 @@ export function lifeOf(
   /** Each step's line as the Workflow card draws it, by step id. */
   lines?: Readonly<Record<string, string>>,
   now: number = Date.now(),
-  /** The tasks the Commander touched, by id. */
-  marks?: Readonly<Record<string, TaskBy>>,
 ): LifeRead {
   const nodes: Record<string, NodeLife> = { studio: PAST, brief: PAST, base: PAST };
   for (const step of whole.steps) {
@@ -209,7 +205,7 @@ export function lifeOf(
     // Each stage of a step's gate, where it has got to.
     Object.assign(nodes, gatesOf(step, now));
   }
-  const served = whole.work_plan === undefined ? [] : markedBy(taskGroupsOf(whole), marks);
+  const served = whole.work_plan === undefined ? [] : taskGroupsOf(whole);
   const groups: PlanGroupRead[] = served.map((group) => {
     const row = GROUP_STATE[group.state];
     const activity = GROUP_ACTIVITY[group.state];

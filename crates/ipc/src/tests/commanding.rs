@@ -150,6 +150,7 @@ fn the_two_bodies_read_as_sent_and_ignore_what_they_do_not_know() {
             note: None,
             rule: None,
             scope: None,
+            mode: None,
         }
     );
 

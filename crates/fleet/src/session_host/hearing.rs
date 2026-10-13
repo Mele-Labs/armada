@@ -150,8 +150,11 @@ where
             DroneEvent::Started { .. } => {
                 // A turn begun again is work the agent had said was over.
                 self.done_cleared(id).await;
+                self.limit_cleared(id).await;
+                let began = self.now().as_str().to_string();
                 {
                     let mut state = runtime.state();
+                    state.turn_began = Some(began);
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
                         state.queued -= 1;
@@ -225,26 +228,33 @@ where
 
     async fn turn_ended(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, cost_micros: u64) {
         let now = self.now().as_str().to_string();
+        let mut named = (None, None);
         {
             let mut store = self.store().lock().await;
             if let Ok(Some(mut session)) = store.session(id) {
+                named = (session.title.clone(), session.manifest_id.clone());
                 session.last_turn_at = Some(now.clone());
-                session.last_seen_at = now;
+                session.last_seen_at = now.clone();
                 let before = session.figures.cost_micros.unwrap_or(0);
                 session.figures.cost_micros = Some(before.max(cost_micros));
                 let _ = store.keep_session(&session);
             }
         }
-        let (moving, restart) = {
+        let (moving, restart, began) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
-            (state.moving.take(), state.restart_after_turn)
+            (state.moving.take(), state.restart_after_turn, state.turn_began.take())
         };
+        // **Once, where the turn ends**, never on the rows between. A turn held for a slot and
+        // resumed in it is one turn to the person, so that move's end is not entered.
+        if moving.is_none() {
+            self.session_turn(id, named, began.as_deref(), &now);
+        }
         if let Some(moving) = moving {
             self.moved_into(id, moving).await;
             return;
         }
-        {
+        let late = {
             let mut state = runtime.state();
             state.restart_after_turn = false;
             state.reattached_busy = false;
@@ -256,13 +266,22 @@ where
             } else {
                 SessionTurn::Idle
             };
+            // A slot granted to a queued session while this turn was ending.
+            match state.turn {
+                SessionTurn::Idle => state.moving.take(),
+                _ => None,
+            }
+        };
+        if let Some(late) = late {
+            self.moved_into(id, late).await;
+            return;
         }
         let _ = self.published_hosted(id).await;
     }
 
     /// The turn that held a write is over: end the process and resume the
     /// session with the slot as its directory, then tell it where it is.
-    async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
+    pub(super) async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
         let runtime = self.hosts().of(id);
         Self::let_go(&mut runtime.state());
         let Ok((_, hosting)) = self.session_and_hosting(id).await else {

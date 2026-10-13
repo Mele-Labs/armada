@@ -29,7 +29,9 @@ pub const PROMPT_CROSSING_DECIDED: Words = Words("prompts.crossingDecided");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
+pub const PROMPT_COMMANDER: Words = Words("prompts.commander");
 pub const PROMPT_TRIGGER_REPAIR: Words = Words("prompts.triggerRepair");
+pub const PROMPT_JOB_REPAIR: Words = Words("prompts.jobRepair");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
 
@@ -318,6 +320,13 @@ pub(super) const PROMPTS: &[Entry] = &[
     ),
     prompt(
         PromptSection::Helm,
+        PROMPT_COMMANDER,
+        "A Job's Commander",
+        "What a Job's Commander is told when its session starts. {job} names the Job it steers. Each turn after it is worded by Fleet.",
+        &["job"],
+    ),
+    prompt(
+        PromptSection::Helm,
         PROMPT_HELM_ROUTE,
         "Routing a thought",
         "What the model is asked when a person types into Helm's message box, to decide whether it is a question for Helm or a thought for running work. {candidates} is the live Sessions and running Jobs as a list and {message} the person's words. Its answer is read by field name, so keep the field names.",
@@ -329,5 +338,12 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Repairing a Trigger",
         "What a Drone is told under the heading naming a failed Trigger. {command} is what it runs, {exited} says how it ended and {printed} is what it printed. {trigger}, its name, may be used too.",
         &["command", "exited", "printed"],
+    ),
+    prompt(
+        PromptSection::WorktreeRepair,
+        PROMPT_JOB_REPAIR,
+        "Repairing a Job's branch",
+        "What a repair Drone is told under REPAIR THE JOB, when a Job's Commander sends one onto the Job's own branch. {job} is the Job's title, {branch} its branch, {step} the step that stopped and {broke} what is wrong and the one thing to do about it.",
+        &["job", "branch", "step", "broke"],
     ),
 ];

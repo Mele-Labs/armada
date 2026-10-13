@@ -23,6 +23,7 @@ use core_model::{
     Actor, EscalationTrigger, JobId, JobStatus, StepId, StepState, Target, Timestamp,
 };
 use ipc::mcp::{AskQuestion, AskedOption};
+use ipc::AnswerMode;
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Sketch};
 
 use crate::clock::Clock;
@@ -317,7 +318,7 @@ async fn the_question_survives_a_restart_and_the_answer_opens_the_next_drones_br
     );
 
     second
-        .answer_question(&job, asked.id.as_str(), "Fold it in")
+        .answer_question(&job, asked.id.as_str(), Some("Fold it in"), None)
         .await
         .expect("a label the Drone offered");
     started(&second, &job).await.unwrap();
@@ -395,7 +396,7 @@ async fn a_label_that_was_not_offered_is_refused() {
     let asked = fleet.ask_question(&job, a_question()).await.unwrap();
 
     let refused = fleet
-        .answer_question(&job, asked.id.as_str(), "do whatever you think best")
+        .answer_question(&job, asked.id.as_str(), Some("do whatever you think best"), None)
         .await
         .expect_err("that is not one of the answers");
     assert!(matches!(refused, NotAnswered::NotOffered { .. }));
@@ -420,7 +421,7 @@ async fn an_answer_to_a_question_that_is_not_the_one_outstanding_is_refused() {
     fleet.ask_question(&job, a_question()).await.unwrap();
 
     let refused = fleet
-        .answer_question(&job, "01SOMEOTHERQUESTION", "Fold it in")
+        .answer_question(&job, "01SOMEOTHERQUESTION", Some("Fold it in"), None)
         .await
         .expect_err("that is not the question on the Job");
     assert!(matches!(refused, NotAnswered::Superseded { .. }));
@@ -436,12 +437,12 @@ async fn a_question_is_answered_once() {
     let job = started_one(&fleet, &home, "make the parser take it").await;
     let asked = fleet.ask_question(&job, a_question()).await.unwrap();
     fleet
-        .answer_question(&job, asked.id.as_str(), "Fold it in")
+        .answer_question(&job, asked.id.as_str(), Some("Fold it in"), None)
         .await
         .unwrap();
 
     let refused = fleet
-        .answer_question(&job, asked.id.as_str(), "Its own Job")
+        .answer_question(&job, asked.id.as_str(), Some("Its own Job"), None)
         .await
         .expect_err("already answered");
     assert!(matches!(refused, NotAnswered::NothingIsAsking { .. }));
@@ -460,7 +461,7 @@ async fn a_job_with_nothing_outstanding_takes_no_answer() {
     let job = started_one(&fleet, &home, "make the parser take it").await;
 
     let refused = fleet
-        .answer_question(&job, "01WHATEVER", "Fold it in")
+        .answer_question(&job, "01WHATEVER", Some("Fold it in"), None)
         .await
         .expect_err("nothing asked");
     assert!(matches!(refused, NotAnswered::NothingIsAsking { .. }));
@@ -486,5 +487,104 @@ async fn a_job_waiting_on_an_answer_is_left_waiting_by_every_turn() {
     assert_eq!(
         queued_reason(&fleet, &job).await.as_deref(),
         Some("awaiting_answer")
+    );
+}
+
+/// A Job whose Drone asked, answered, and the words its fresh Drone was opened with.
+async fn briefed_after(chose: Option<&str>, mode: Option<AnswerMode>) -> (crate::questioning::Told, String) {
+    let home = TempDir::new();
+    let first = a_fleet(&home);
+    let job = started_one(&first, &home, "make the parser take it").await;
+    let asked = first.ask_question(&job, a_question()).await.unwrap();
+    drop(first);
+
+    let second = watching(
+        &home,
+        FakeHarness::that_echoes_its_first_turn(),
+        Arc::new(Held::started()),
+        2,
+    );
+    second.reconcile().await.expect("the boot read");
+    let told = second
+        .answer_question(&job, asked.id.as_str(), chose, mode)
+        .await
+        .expect("an answer");
+    started(&second, &job).await.unwrap();
+    let said = until_spoken(
+        &home,
+        &the_handle(&second, &job).await,
+        &on_it(&second, &job).await,
+    )
+    .await;
+    assert!(
+        second.load(&job).await.unwrap().question().is_none(),
+        "delivered once, and gone from the record"
+    );
+    (told, said)
+}
+
+/// **A mode alone is an answer.** `best` and `quick` name no option: the next
+/// Drone is told to settle it itself, in Fleet's words, and the question clears.
+#[tokio::test]
+async fn a_mode_alone_tells_the_next_drone_to_decide_and_clears_the_question() {
+    let (told, said) = briefed_after(None, Some(AnswerMode::Quick)).await;
+
+    assert_eq!(told.chose, None);
+    assert!(
+        said.contains("Should the store schema change be its own Job?"),
+        "the question was not restated: {said}"
+    );
+    assert!(
+        said.contains("Decide this yourself. Take the reasonable path and keep moving."),
+        "{said}"
+    );
+    assert!(
+        !said.contains("Think it through"),
+        "only the line for the mode sent: {said}"
+    );
+}
+
+/// **With both, the label is the answer and the line rides with it.**
+#[tokio::test]
+async fn a_label_and_a_mode_together_send_the_label_with_the_line() {
+    let (told, said) = briefed_after(Some("Fold it in"), Some(AnswerMode::Best)).await;
+
+    assert_eq!(told.chose.as_deref(), Some("Fold it in"));
+    assert!(said.contains("They answered: Fold it in"), "{said}");
+    assert!(
+        said.contains("Decide this yourself. Think it through and go with the best option."),
+        "{said}"
+    );
+}
+
+/// A stale id is refused whatever else the answer carries, and so is an answer
+/// that names neither a label nor a mode. The question stands in both.
+#[tokio::test]
+async fn a_stale_id_or_an_empty_answer_is_refused_and_the_question_stands() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
+    let first = fleet.ask_question(&job, a_question()).await.unwrap();
+    fleet
+        .answer_question(&job, first.id.as_str(), None, Some(AnswerMode::Quick))
+        .await
+        .unwrap();
+    started(&fleet, &job).await.unwrap();
+    let second = fleet.ask_question(&job, a_question()).await.unwrap();
+
+    let stale = fleet
+        .answer_question(&job, first.id.as_str(), None, Some(AnswerMode::Best))
+        .await
+        .expect_err("that question has been answered");
+    assert!(matches!(stale, NotAnswered::Superseded { .. }));
+
+    let empty = fleet
+        .answer_question(&job, second.id.as_str(), None, None)
+        .await
+        .expect_err("there is nothing to tell the Drone");
+    assert!(matches!(empty, NotAnswered::NothingChosen { .. }));
+    assert!(
+        fleet.load(&job).await.unwrap().waiting_on_an_answer(),
+        "and the one outstanding is untouched"
     );
 }

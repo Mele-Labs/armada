@@ -79,8 +79,8 @@ export type RunNodeProps = {
   links?: boolean;
   /** Its id, right-aligned in the band: a step's id, a group's. */
   id?: string;
-  /** Who put it in the plan, where it was the Commander: a mark in the band, its act on hover. */
-  by?: { who: "commander"; said: string };
+  /** Whose hand is on it, where that is the Commander's: a mark in the band. */
+  by?: { who: "commander"; said?: string };
   /** The body's second line, in words. Absent draws `traits` there. */
   line?: string;
   traits?: readonly RunNodeTrait[];
@@ -328,7 +328,7 @@ export function RunNode({
           {KIND[kind]}
         </span>
         {id === undefined ? null : <span className="armada-run-node__id">{id}</span>}
-        {by === undefined ? null : <WhoMark who={by.who} said={by.said} />}
+        {by === undefined ? null : <WhoMark who={by.who} {...(by.said === undefined ? {} : { said: by.said })} />}
       </span>
       <span className="armada-run-node__body">
         {/* A node with items is its items: the band already names it. */}

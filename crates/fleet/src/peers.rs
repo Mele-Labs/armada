@@ -24,7 +24,9 @@ use crate::fixing::FixStands;
 use crate::prompts::Prompts;
 use crate::session::{LiveSession, Occasion};
 
+mod clashes;
 mod words;
+pub(crate) use clashes::ClashWith;
 pub(crate) use words::*;
 
 /// The least time between two peer turns to one Drone, and between two notes
@@ -63,6 +65,12 @@ pub(crate) enum News {
         /// Each need ahead, as `adapters::needs::Need::describe` says it.
         ahead: Vec<String>,
     },
+    /// Git says this Job's changes would conflict with another agent's, or with the base, in
+    /// these files. Found from what was written, not from what was declared.
+    Clash {
+        paths: Vec<String>,
+        with: ClashWith,
+    },
     /// Where a fix for a test this Job's Checks failed on stands. #1001.
     Fix {
         title: String,
@@ -84,6 +92,8 @@ pub(crate) struct Peering {
     announced: BTreeSet<(JobId, JobId, String)>,
     /// When each Job last left each other Job a note, sender first.
     noted: BTreeMap<(JobId, JobId), Timestamp>,
+    /// The same, for notes left to a Session, which is named by its id.
+    noted_sessions: BTreeMap<(JobId, String), Timestamp>,
 }
 
 /// What a Drone is told about other Jobs writing where it writes. **Fleet's own
@@ -104,12 +114,16 @@ impl PeersChanged {
     }
 
     fn rendered(prompts: &Prompts, news: &[News], landed_reaches: &str) -> PeersChanged {
-        let about_paths = news
-            .iter()
-            .any(|item| !matches!(item, News::Fix { .. } | News::Ahead { .. }));
+        let about_paths = news.iter().any(|item| {
+            !matches!(item, News::Fix { .. } | News::Ahead { .. } | News::Clash { .. })
+        });
         let mut text = format!("{}\n\n", prompts.get(keys::PROMPT_PEERS));
         if about_paths {
             text.push_str(prompts.get(keys::PROMPT_PEERS_SHARING));
+            text.push('\n');
+        }
+        if news.iter().any(|item| matches!(item, News::Clash { .. })) {
+            text.push_str(prompts.get(keys::PROMPT_PEERS_CLASHING));
             text.push('\n');
         }
         if news.iter().any(|item| matches!(item, News::Ahead { .. })) {
@@ -203,6 +217,7 @@ fn line(prompts: &Prompts, item: &News) -> String {
             ),
             crate::remarks::fenced(said).trim_end()
         ),
+        News::Clash { paths, with } => clashes::line(prompts, paths, with),
         News::Ahead { path, ahead } => prompts.fill(
             keys::PROMPT_PEERS_AHEAD_ON,
             &[("path", path), ("ahead", &ahead.join("; "))],
@@ -219,7 +234,7 @@ fn line(prompts: &Prompts, item: &News) -> String {
 }
 
 /// The first three paths, and a count for the rest.
-fn listed(paths: &[String]) -> String {
+pub(crate) fn listed(paths: &[String]) -> String {
     const NAMED: usize = 3;
     let named = paths
         .iter()
@@ -404,6 +419,9 @@ where
             .load(from)
             .await
             .map_err(|why| refused(why.to_string()))?;
+        if note.to.starts_with("s-") {
+            return self.leave_note_for_session(&this, note).await;
+        }
         let (loaded, _) = self
             .every_job()
             .await

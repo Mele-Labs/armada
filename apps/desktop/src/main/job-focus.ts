@@ -17,6 +17,8 @@ import type {
   Recorded,
   WorkPlan,
 } from "@armada/protocol";
+import type { ActiveJobs } from "./active-jobs";
+import type { CommanderSocket } from "./commander";
 import type { JournalSocket } from "./journal";
 import type { ObserveSocket } from "./observe";
 import { JobReader } from "./reader";
@@ -31,7 +33,10 @@ export type JobFocusWiring = {
   publish: (change: Partial<BridgeState>) => void;
   turns: ObserveSocket;
   notes: JournalSocket;
+  commander: CommanderSocket;
   review: ReviewMaterial;
+  /** Every active Job's own pair of reads, taken again on the occasions this Job's are. */
+  active: ActiveJobs;
   observing: () => string | null;
   reading: () => string | null;
 };
@@ -235,7 +240,13 @@ export class JobFocus {
    * each occasion takes and why**, and it holds none of them — every region is
    * handed in from here, so the list cannot drift from what is actually open.
    */
-  takeAgain(port: number, again: Again): Promise<void> {
+  async takeAgain(port: number, again: Again): Promise<void> {
+    // Only `job_moved` names a Job; every other occasion means all of them.
+    const only = again.because === "job_moved" ? again.jobId : null;
+    await Promise.all([this.takeOpenAgain(port, again), this.wiring.active.again(port, only)]);
+  }
+
+  private takeOpenAgain(port: number, again: Again): Promise<void> {
     return takeAgain(port, again, {
       detail: this.watched,
       resources: this.resources,
@@ -243,6 +254,7 @@ export class JobFocus {
       history: this.history,
       turns: this.wiring.turns,
       notes: this.wiring.notes,
+      commander: this.wiring.commander,
       observing: this.wiring.observing(),
       reading: this.wiring.reading(),
       review: this.wiring.review,

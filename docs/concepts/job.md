@@ -526,6 +526,41 @@ cleared there. The asking Drone's own context is the cost. `awaiting_answer`
 reads after `paused` and before every other queued reason. The owner's decision
 of 11 Oct 2026, #2094.
 
+**The answer may leave the deciding to the Drone.** `answer_question`, `answer_command` and `answer_judge` take a `mode` of `best` or `quick`, alone or beside a label. Fleet tells the Drone in its own words: *decide for yourself: think it through*, or *take the reasonable path and keep moving*. A mode names no option and carries no prose, and a stale question is refused as it is for a label. The Cockpit's `b` and `g` send them.
+
+## A Job's Now
+
+**What it is for:** the one place that says what a Job is doing at this moment. The workflow, with where the Job is in it, comes second.
+
+| Part | Says | Read from |
+|---|---|---|
+| Drones | Which Drone works, on what step, its latest action and the three before it | `list_job_drones`: `JobDrone.activity`, else the transcript |
+| Checks | Each Check of the gate that runs, with its state | `job.checking`, `ChecksUnderway` |
+| Judge | That a Judge is deciding, and on what | `job.judging`, `JudgeInFlight` |
+| Asks | A question, a command or a judge question waiting on him | `job.asking`, `job.command_waiting`, `JobDetail.judge_question` |
+| Issues | What is wrong right now | `JobDetail.issues` |
+| Waiting | What a Job with nothing running waits on | `JobDetail.waiting` |
+
+**Issues are four kinds, each once.** A breakage this Job reported or is fixing, another Job claiming to write where it does, the latest ruling when it was `failed`, and a stuck Drone. Each names the fact and the row finds the rest where it already lives, so the list repeats nothing `get_job` holds.
+
+**A Drone is stuck when it is working and has written nothing for longer than `quiet_after`.** A Drone at rest, or waiting on an answer, is quiet by design and is never stuck. The rule is silence's own threshold, read against the Drone's last transcript time.
+
+**Waiting is one of three.** A named resource, from the queued reason, a budget hold or the capacity cap; another Job it depends on that has not ended; or a step between two states with no Drone on it yet. A Job that works shows none, and a Job waiting on a person shows its ask and no waiting.
+
+**The quick acts on a row are existing acts or small new ones.**
+
+| Row | Act | Does |
+|---|---|---|
+| Check | Retry | `retry_check`: runs that Check again and nothing else |
+| Check | Skip | `skip_check`: ends it as `skipped`, which advances the step and is not a pass |
+| Checks | Skip all | `skip_checks`: skips every Check not yet finished |
+| Stuck Drone | Redirect | `redirect_one_drone` |
+| Stuck Drone, failed ruling | Retry step | `restart_step` |
+
+A skip is refused with a 409 where no gate is running, and the refusal is said in the host's toast. A skipped Check stays in the ruling as skipped, so nothing reads it as green.
+
+**Every active Job has one, not only the open one.** Bridge's main process holds a detail and a Drone list for each Job that has begun and not ended, re-read on the `job.*` and `drone.*` events that name it, and dropped when the Job ends. The Cockpit, the Dashboard and the call cards draw from those; a mock draft still wins for a Job it names, which is how the design mocks keep working. Plan decisions are not in a Job's Now and stay on the mock until Fleet publishes a plan interview.
+
 ## Pausing a Job
 
 **A pause is a marker on the Job, not a status.** A person pauses a Job to kill
@@ -584,6 +619,26 @@ act writes one line in the Job's log.
 **A paused Job reads its real status with a mark beside the badge**, on the Board row, the wave's Job card, the Job's header and its Cleanup tile. The mark is an icon, `circle-pause`, and its tooltip says who paused it (`person` or `fleet`), when, and the branch the work is on; a resume waiting for a slot says so instead.
 
 **An act on a paused Job opens the Resume confirm.** Approve, request changes, restart and override come back `fleet.paused`, and Bridge shows Resume and Cancel instead of a refusal. Resume only resumes: the act is pressed again after. Where the pool is full the Job reads waiting for a slot, and the confirm says nothing about it. Each refusal of Pause or Resume is said inside the confirm or panel that sent it, in git's words.
+
+## Held for the plan's limit
+
+**A Drone the plan's limit stopped does not fail its Job.** Its stream's last window event is `rejected`
+with a reset time, and it reached for nothing after it. The Job is parked as Fleet's own pause, `by: fleet`
+with `until`: the reset and a minute more. It goes `queued` reading `paused`, its branch is kept, its slot is
+given back, and the row carries `paused.until` for Bridge to draw. Admission leaves it alone until then, and
+a person's Resume lifts the hold early.
+
+| | A limit | Any other ending with nothing submitted |
+|---|---|---|
+| The Job | `queued`, held | `escalated` as `stalled`, `silent`, `blocked_by_policy` or `interrupted` |
+| The step | stays `running` | stops under `run_ended` |
+| A retry | none spent | one, on a restart |
+| What starts it again | admission, after `until` | a person's restart |
+
+**Holding is not gating.** Armada still starts Drones whatever the plan has left; this only keeps a run the
+API already refused from being counted as the work failing (`docs/concepts/machine.md`, *Quota*). Where the
+pool will not take the slot back, the Job escalates as it did before. A window `rejected` with no reset time
+leaves nothing to hold the Job until, and reads as an ordinary ending.
 
 ## Taking a Job over
 

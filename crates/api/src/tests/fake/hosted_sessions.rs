@@ -51,6 +51,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
+        Ok(ipc::PlanUsage::default())
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         Ok(ipc::SleepState::default())
     }

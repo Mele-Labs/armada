@@ -858,6 +858,13 @@ pub trait Queries: Send + Sync + 'static {
         words: String,
     ) -> impl Future<Output = Result<ipc::RequestRepository, Refusal>> + Send;
 
+    /// `get_fleet_timeline` — the entries Fleet kept for a window of time,
+    /// oldest first. It never refuses.
+    fn get_fleet_timeline(
+        &self,
+        ask: ipc::TimelineAsk,
+    ) -> impl Future<Output = Result<ipc::FleetTimeline, Refusal>> + Send;
+
     /// `get_merge_lines` — each served repository's merge line: the hub
     /// Fleet read off the forge, with the queue lists empty. It never refuses.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;

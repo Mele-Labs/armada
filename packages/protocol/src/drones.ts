@@ -64,6 +64,16 @@ export type JobDrone = {
    * it trails whatever it has done since.
    */
   cost_micros?: number;
+  /** What it is doing now and the last few things it did. **Absent on a Drone that has said nothing yet.** */
+  activity?: DroneActivity;
+};
+
+/** A Drone's latest action and the few before it. A window, not the transcript: `get_drone` serves the rows. */
+export type DroneActivity = {
+  /** The latest action, in the words a transcript row is shown in. Never blank. */
+  line: string;
+  /** The last few actions, oldest first, the latest among them. Absent is a Drone with only the one. */
+  tail?: string[];
 };
 
 /** Every Drone a Job has had, in the order they were spawned. */

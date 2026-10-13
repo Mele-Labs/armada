@@ -1067,9 +1067,11 @@ The colour is the Fleet panel's, from the one map — the dot and the panel
 cannot disagree, because neither holds a table of its own. Status colour is
 mapped, never chosen; see [Iconography](iconography.md).
 
+**The Session header carries the context figure.** Live tokens and the percent of the window, `53.8k · 5%`, in mono beside the header's acts and before the state mark, coloured by the same levels as the plan meters: normal below 80, warning from 80, danger from 95. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No gauge, no dial, and no text where nothing is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
+
 **pid, port, protocol and uptime do not follow it.** They stay in the panel,
 and at the rail they are behind the column's own expansion. A dot cannot carry
-a figure, and the title row is not where a person reads one.
+a figure; Fleet's own figures are read in the panel.
 
 **The cost, taken knowingly.** A surface that resizes on its own is
 disorienting the first time, and at the rail Fleet is a dot
@@ -1529,7 +1531,8 @@ and `call`, because their keys act on neither a list nor a Job. A call in front
 takes the digits, `Enter`, `l`, `d`, `e`, `b` and `g` while it is up and gives them
 back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
-never on a call Fleet raises about a state. The panel's `[ ]` and `⌥1–3`
+never on a call Fleet raises about a state. On a Job's question they answer with
+`mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told. The panel's `[ ]` and `⌥1–3`
 move between its filters, `m` flips grid and map, `w` brings a waiting call
 back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
 
@@ -3040,7 +3043,7 @@ first-class.
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — the left
 column's Fleet panel carries neither, and nothing in the shell
-states a running total any more.
+states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is two fill meters (`5h`, `wk`) in the title bar, each opening a hover card.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
 time", and the detail view surfaces the prior attempt. Presentation
@@ -3137,7 +3140,7 @@ value and no merge, so no Manifest is party to it.
 **Fleet**, present in the left column on every surface, reads "Fleet running"
 when idle, and pid, port, protocol and up as rows under it; it carries neither
 spend nor quota, which left the shell chrome entirely with the status bar
-Bridge/1088 replaced.
+Bridge/1088 replaced. The title bar draws the plan's limits as two fill meters, beside Sleep and not in Fleet.
 
 **Two separate fields, not one.** These do different jobs and a reader
 should not have to guess which.

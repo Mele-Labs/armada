@@ -94,6 +94,17 @@ export function cardOf(one: SessionAttachment, session: Session, sessions: reado
       return { title: one.title, facts: [{ label: "Kind", value: "Studio" }] };
     case "sketch":
       return { title: one.title, facts: [{ label: "Kind", value: "Sketch" }, { label: "Drawn by", value: one.by === "agent" ? "The agent" : "You" }] };
+    case "started_to":
+    case "started_by": {
+      const other = sessions.find((s) => s.id === one.id);
+      return {
+        title: other?.title ?? one.id,
+        facts: [
+          { label: "Kind", value: one.kind === "started_to" ? "Session this one's agent started" : "Session whose agent started this one" },
+          ...(other?.address === undefined ? [] : [{ label: "Address", value: other.address, mono: true }]),
+        ],
+      };
+    }
     case "forked_to":
     case "forked_from": {
       const other = sessions.find((s) => s.id === one.id);

@@ -8,6 +8,8 @@
 use std::process::Command;
 use std::sync::Arc;
 
+use api::HostedSessions;
+
 use super::session_host::{denied, eventually, reason, rig_placing, Rig};
 use crate::tests::peer::Placing;
 
@@ -165,6 +167,48 @@ async fn a_shell_line_that_names_the_main_checkout_is_held_like_a_write() {
     }
 }
 
+/// A `cd` moves every relative write after it, so a line that works in a slot another session
+/// holds, or in the main checkout, is held though no path in it is written to by name.
+#[tokio::test]
+async fn a_cd_into_a_slot_somebody_else_holds_holds_what_runs_after_it() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let main = rig.root.clone();
+    let own = adapter_traits::slot_path(&main, 1);
+    let parent = std::os::unix::process::parent_id();
+    let theirs = lease(&rig, 5, parent, &started(parent));
+    let line = |command: String| {
+        let rig = &rig;
+        let id = &id;
+        async move {
+            let encoded = ipc::encode(&Quoted { command: &command }).expect("a line");
+            rig.gate(id, "Bash", &encoded).await
+        }
+    };
+    for held in [
+        format!("cd {theirs} && git add -A"),
+        format!("cd {theirs} && cargo build"),
+        format!("(cd {theirs}; touch f)"),
+        String::from("cd .armada/slots/slot-5 && touch f"),
+        format!("cd {theirs}; cd {theirs}/src && git commit -m x"),
+        format!("cd {main} && git checkout main"),
+    ] {
+        let answer = line(held.clone()).await;
+        assert!(denied(&answer), "{held} should be held");
+    }
+    assert!(reason(&line(format!("cd {theirs} && touch f")).await).contains("not leased by this session"));
+    for fine in [
+        format!("cd {theirs} && git status"),
+        format!("cd {theirs} && ls src | wc -l"),
+        format!("cd {own} && cargo build"),
+        format!("cd {main} && armada worktree lease x"),
+        format!("cd {theirs}; cd {own} && touch f"),
+        String::from("cd /tmp && touch f"),
+    ] {
+        assert!(!denied(&line(fine.clone()).await), "{fine} should run");
+    }
+}
+
 #[derive(serde::Serialize)]
 struct Quoted<'a> {
     command: &'a str,
@@ -250,4 +294,120 @@ async fn a_slot_is_read_through_the_keeper_when_fleet_holds_no_pid_for_the_agent
     let allowed = !denied(&rig.gate(&id, "Edit", &file).await);
     let _ = keeper.kill();
     assert!(allowed);
+}
+
+/// What the pool holds for a session, written as `armada worktree lease` writes it from a hosted
+/// session's process: under the session's id, and not under any process.
+fn leased_for(rig: &Rig, slot: u32, id: &ipc::SessionId) -> String {
+    let at = adapter_traits::slot_path(&rig.root, slot);
+    let _ = std::fs::create_dir_all(&at);
+    std::fs::write(
+        format!("{at}.lease"),
+        format!("branch sessions/next\nholder job {}\nsince 1\n", id.as_str()),
+    )
+    .expect("a lease record");
+    at
+}
+
+#[tokio::test]
+async fn a_slot_leased_for_the_session_stays_its_own_when_its_process_is_restarted() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    std::fs::remove_file(format!("{own}.lease")).expect("released");
+    let theirs = leased_for(&rig, 5, &id);
+    let file = format!(r#"{{"file_path":"{theirs}/src/lib.rs"}}"#);
+
+    // No process of the session's is in the lease, and none is in the tree it asks about.
+    assert!(!denied(&rig.gate(&id, "Edit", &file).await));
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["5"]);
+
+    // Fleet ends the process and resumes the session under another: the lease read the same.
+    rig.fleet.hosts().of(id.as_str()).state().process = None;
+    peers.started(2002, 1);
+    assert!(!denied(&rig.gate(&id, "Edit", &file).await));
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["5"]);
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, Some(5));
+}
+
+#[tokio::test]
+async fn closing_a_session_parks_every_slot_the_pool_holds_for_it() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    // A subagent's slot, which `armada worktree lease` took under the session's id.
+    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
+
+    Arc::clone(&rig.fleet)
+        .close_session(ipc::CloseSession { session_id: id.clone() })
+        .await
+        .expect("closed");
+
+    let mut parked = rig.fleet.vcs().parked_slots();
+    parked.sort();
+    assert_eq!(
+        parked,
+        vec![(1, id.as_str().to_string()), (2, id.as_str().to_string())]
+    );
+}
+
+#[tokio::test]
+async fn releasing_a_slot_the_session_does_not_hold_is_held_and_its_own_is_let_through() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    let me = std::process::id();
+    let theirs = lease(&rig, 5, me, &started(me));
+    let line = |command: String| {
+        let rig = &rig;
+        let id = &id;
+        async move {
+            let encoded = ipc::encode(&Quoted { command: &command }).expect("a line");
+            rig.gate(id, "Bash", &encoded).await
+        }
+    };
+
+    let refused = line(format!("armada worktree release {theirs}")).await;
+    assert!(denied(&refused));
+    assert!(reason(&refused).contains("not leased by this session"));
+    assert!(denied(&line(format!("armada worktree release {theirs}/")).await));
+    assert!(denied(&line(format!("cd {theirs} && armada worktree release")).await));
+    assert!(denied(&line(format!("armada worktree release {own}/../slot-5")).await));
+    // The one it is refused is still held: nothing was let through to give it back.
+    assert!(std::fs::read_to_string(format!("{theirs}.lease")).unwrap().contains("holder"));
+
+    assert!(!denied(&line(format!("armada worktree release {own}")).await));
+    // Run from the main checkout, which is where these calls start, a bare one gives that back.
+    assert!(denied(&line(String::from("armada worktree release")).await));
+    assert!(!denied(&line(format!("cd {own} && armada worktree release")).await));
+    assert!(!denied(&line(String::from("armada worktree --status")).await));
+}
+
+#[tokio::test]
+async fn a_write_in_the_slot_the_session_gave_back_is_not_its_own_though_its_directory_is_there() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    let file = format!(r#"{{"file_path":"{own}/src/lib.rs"}}"#);
+    assert!(!denied(&rig.gate(&id, "Edit", &file).await));
+
+    // It releases its own slot, and the process still stands in it. Another session takes it.
+    std::fs::remove_file(format!("{own}.lease")).expect("released");
+    std::fs::write(
+        format!("{own}.lease"),
+        "branch settings/links\nholder job 0b0b0b0b-0000-0000-0000-000000000000\nsince 1\n",
+    )
+    .expect("another session's lease");
+    rig.fleet.vcs().hold_slot(&rig.root, 1, "0b0b0b0b-0000-0000-0000-000000000000");
+    let theirs = rig.gate(&id, "Edit", &file).await;
+    assert!(denied(&theirs));
+    assert!(reason(&theirs).contains("not leased by this session"));
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, None, "the ledger lets go of it");
+
+    // Its next write goes to lease it a slot, rather than being let into the old one.
+    let relative = rig.gate(&id, "Edit", r#"{"file_path":"src/lib.rs"}"#).await;
+    assert!(denied(&relative));
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_ne!(hosting.lease_slot, Some(1));
 }

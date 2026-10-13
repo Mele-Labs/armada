@@ -35,6 +35,7 @@ import type {
   ToProposer,
   ApproveDispatch,
   Branches,
+  CommanderThread,
   EditTask,
   MovePlan,
   Examination,
@@ -258,6 +259,13 @@ export type JobDetailProps = {
    */
   onRerunChecks: (jobId: string) => void;
   /**
+   * The Now panel's quick acts on the gate that is running: run one Check again, end it as
+   * skipped, or skip every one not finished. **Absent says what it would do**, as the mock does.
+   */
+  onRetryCheck?: (jobId: string, check: string) => void;
+  onSkipCheck?: (jobId: string, check: string) => void;
+  onSkipChecks?: (jobId: string) => void;
+  /**
    * Ask the Job to show its work again. **Nothing on the screen reads it**:
    * the step's Shown chapter drew its control, and went with the story.
    */
@@ -454,6 +462,15 @@ export type JobDetailProps = {
    * opens this screen to find out what is going on.
    */
   journalled: Journalled;
+  /**
+   * The open Job's Commander, its thread, as main published it. **Absent draws no Commander**, which
+   * is a caller with no socket behind it; a Job that has one but no thread yet draws it empty.
+   */
+  commander?: CommanderThread;
+  /** Write to the Job's Commander. The words queue for the next turn and never interrupt one. `false` is Fleet refusing them. */
+  onAskCommander?: (jobId: string, text: string) => Promise<boolean>;
+  /** Pick on the card the Commander put out, by the card's id and the option's. `false` is Fleet refusing it. */
+  onAnswerCommander?: (jobId: string, card: string, option: string) => Promise<boolean>;
   /**
    * The running Check's log main is following, as it is written. Optional,
    * because a surface drawing a Job with no gate running has nothing to follow.

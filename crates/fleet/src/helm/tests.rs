@@ -93,6 +93,12 @@ on, unless they tell you to press it for them.
 How far you may raise a cap is bounded, and a raise past the bound is \
 refused, naming the most you may ask for.
 
+When a person asks you to pass words to a running Session, call tell_session \
+with its id, which list_sessions gives, and the words. It sends them as the \
+person's own message would and the thread shows where they went. A refusal, \
+such as a terminal Session that is not listening, comes back in its result: \
+say so.
+
 ON A STUDIO
 
 A Studio is this repository's graph of what a stretch of work produced: notes, \
@@ -544,4 +550,32 @@ fn helm_kills_one_process_or_every_one_with_kill_drones_reach() {
             "`{act}` reaches an agent that is not Helm"
         );
     }
+}
+
+/// **Helm passes words to a live Session on the person's ask.** `tell_session` is offered to a Helm
+/// session alone, an acting Helm may call it and a read-only one may not, and the acting brief
+/// says so where the read-only one does not. It is not destructive, pushes nothing and writes
+/// nothing off this machine, so it is in none of `What Helm asks about`'s classes and needs no card.
+#[test]
+fn telling_a_session_is_an_acting_helms_alone_and_the_brief_says_so() {
+    let row = HELM_ONLY
+        .iter()
+        .find(|row| row.operation == "tell_session")
+        .expect("`tell_session` reads `Helm only`");
+    assert_eq!(row.kind, "command");
+    assert!(may(Authority::Acting, row));
+    assert!(!may(Authority::ReadOnly, row));
+    assert!(
+        !REACHABLE
+            .iter()
+            .chain(DRAFTING)
+            .any(|row| row.operation == "tell_session"),
+        "it reaches an agent that is not Helm"
+    );
+    assert!(brief(&a_manifest(), Authority::Acting, None)
+        .as_str()
+        .contains("call tell_session"));
+    assert!(!brief(&a_manifest(), Authority::ReadOnly, None)
+        .as_str()
+        .contains("tell_session"));
 }

@@ -404,7 +404,9 @@ impl fmt::Display for Adrift {
             ),
             // `questioning::NotAnswered`'s sentence, whole: a second wording
             // here would be a second authority for one refusal.
-            Adrift::NotAnswerable { because, .. } => out.write_str(because),
+            Adrift::NotAnswerable { because, .. } | Adrift::NoCheckToAct { because, .. } => {
+                out.write_str(because)
+            }
             Adrift::NotUnderReview { job, status } => write!(
                 out,
                 "{} is {} and is not standing at a human gate. Approve, request changes and \
@@ -494,6 +496,11 @@ impl fmt::Display for Adrift {
                 out,
                 "{}'s Drone is alive and idle, holding its session. Redirect it rather than \
                  restarting the step, which would throw that session away",
+                job.as_str()
+            ),
+            Adrift::RepairUnderway { job } => write!(
+                out,
+                "a repair Drone is on {}'s branch. Wait for it to hand in or to end",
                 job.as_str()
             ),
             Adrift::WorktreeGone { job, path } => write!(
@@ -860,6 +867,7 @@ impl Adrift {
             | Adrift::DroneNotLive { job, .. }
             | Adrift::NotTheJobsProcess { job, .. }
             | Adrift::NotAnswerable { job, .. }
+            | Adrift::NoCheckToAct { job, .. }
             | Adrift::NotUnderReview { job, .. }
             | Adrift::NoDroneToTell { job }
             | Adrift::NoteAlreadyWaiting { job, .. }
@@ -877,6 +885,7 @@ impl Adrift {
             | Adrift::Unreasoned { job }
             | Adrift::NotFileable { job, .. }
             | Adrift::DroneStillThere { job }
+            | Adrift::RepairUnderway { job }
             | Adrift::WorktreeGone { job, .. }
             | Adrift::SlotLost { job, .. }
             | Adrift::AttachmentUnreadable { job, .. }
@@ -1014,6 +1023,7 @@ impl Error for Adrift {
             | Adrift::NotTheJobsProcess { .. }
             // And an answer that does not apply, which is the same shape.
             | Adrift::NotAnswerable { .. }
+            | Adrift::NoCheckToAct { .. }
             // The two review refusals join them: a Job that is not at a gate
             // has nothing underneath saying why, only the state it is in.
             | Adrift::NotUnderReview { .. }
@@ -1041,6 +1051,7 @@ impl Error for Adrift {
             // what failed underneath it.
             | Adrift::NotFileable { .. }
             | Adrift::DroneStillThere { .. }
+            | Adrift::RepairUnderway { .. }
             | Adrift::WorktreeGone { .. }
             | Adrift::SlotLost { .. }
             // A pause says what the Job's record holds or what the pool said,

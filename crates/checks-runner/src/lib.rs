@@ -26,6 +26,11 @@
 //! [`narrowed_over`]. The one Cargo fact either holds, kept apart from
 //! [`narrow`], which knows none.
 //!
+//! [`one_test_in`] and [`touched_run`] are what an agent runs when it asks for
+//! less than a crate: one test by name, or the tests a change touched, each
+//! compiling only the members that hold them. Read off source, not out of
+//! cargo, which would build every test binary to answer.
+//!
 //! [`CheckSlots`] bounds how many Checks run at once across every process, and
 //! [`Priority`] lowers agent work's beneath the merge line's.
 //!
@@ -46,13 +51,16 @@
 //! runner's own printed words, which only this crate captures at all.
 
 mod failing;
+mod holding;
 mod matched;
+mod named;
 mod narrow;
 mod priority;
 mod reach;
 mod run;
 mod serving;
 mod slots;
+mod touched;
 mod width;
 
 #[cfg(test)]
@@ -60,6 +68,7 @@ mod tests;
 
 pub use failing::{failing_tests, failing_tests_in};
 pub use matched::{one_test_count, one_test_ran, OneTestRan};
+pub use named::{one_test_in, touched_run, OneTestRefused, TouchedRun};
 pub use narrow::{
     narrowed, narrowed_at_the_gate, narrowed_over, one_test, relative_to_dir, run_changed, Narrowed,
 };

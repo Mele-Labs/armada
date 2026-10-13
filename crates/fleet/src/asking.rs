@@ -21,10 +21,11 @@ use core_model::{
     Actor, Component, Envelope, EscalationTrigger, FieldValue, Job, JobId, JobStatus, Level,
     StepId, StepLevelTrigger, StepTarget, Target,
 };
-use ipc::{JudgeAnswer, JudgeQuestion};
+use ipc::{AnswerMode, JudgeAnswer, JudgeQuestion};
 use verification::OutcomeTurn;
 
 use crate::adrift::Adrift;
+use crate::answer_mode::mode_line;
 use crate::daemon::Fleet;
 use crate::resume::{Ending, Redirection};
 use crate::ruling::Ruling;
@@ -165,6 +166,7 @@ where
         answer: JudgeAnswer,
         asked_at: Option<ipc::Instant>,
         note: Option<String>,
+        mode: Option<AnswerMode>,
     ) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
         if job.status() != JobStatus::AwaitingReview {
@@ -208,7 +210,7 @@ where
                     Actor::Human,
                 )
                 .await?;
-                let finding = Redirection::saying(&finding(&open, note.as_deref()))
+                let finding = Redirection::saying(&finding(&open, note.as_deref(), mode))
                     .expect("a finding always names its criterion");
                 match self
                     .restart_step_ending(job_id, Some(&finding), Ending::Any)
@@ -258,6 +260,15 @@ where
             .clear_judge_question(job_id)
             .map_err(Adrift::Writing)?;
         self.noted_asking(job_id, &step, answered(answer), open.criterion_id.as_str());
+        if let Some(mode) = mode {
+            self.noted_about(
+                job_id,
+                &step,
+                "a person left a judge question to the drone",
+                "mode",
+                crate::questioning::mode_name(mode),
+            );
+        }
         if let Some(note) = note.as_deref().filter(|note| !note.trim().is_empty()) {
             self.noted_answer_note(job_id, &step, note);
         }
@@ -348,7 +359,7 @@ where
 /// What the next Drone is told where a person agreed with a refusal: the
 /// Judge's own three fields, and the person's note where they wrote one.
 /// `crossing::Redirected` frames it.
-fn finding(open: &store::OpenJudgeQuestion, note: Option<&str>) -> String {
+fn finding(open: &store::OpenJudgeQuestion, note: Option<&str>, mode: Option<AnswerMode>) -> String {
     let mut said = format!(
         "The Judge refused this step on `{}` and a person agreed: {}\nExpected: {}\nFound: \
          {}\nWhat that does: {}",
@@ -360,6 +371,9 @@ fn finding(open: &store::OpenJudgeQuestion, note: Option<&str>) -> String {
     );
     if let Some(note) = note.map(str::trim).filter(|note| !note.is_empty()) {
         said.push_str(&format!("\nTheir note: {note}"));
+    }
+    if let Some(mode) = mode {
+        said.push_str(&format!("\n\n{}", mode_line(mode)));
     }
     said
 }

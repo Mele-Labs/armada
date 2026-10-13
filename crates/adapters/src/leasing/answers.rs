@@ -28,6 +28,7 @@ pub struct Lease {
     pub(super) seeded_from: Option<String>,
     pub(super) unfetched: Option<String>,
     pub(super) made: bool,
+    pub(super) cut: bool,
 }
 
 impl Lease {
@@ -49,6 +50,12 @@ impl Lease {
     /// with the last lease's build in it.
     pub fn made(&self) -> bool {
         self.made
+    }
+
+    /// Whether the branch is new, cut from the base. False where it existed
+    /// and was leased at its own tip.
+    pub fn cut_from_base(&self) -> bool {
+        self.cut
     }
 
     /// The base commit whose warm build a new slot was cloned from.
@@ -112,10 +119,7 @@ pub enum SlotState {
 /// Why a lease took nothing, other than every slot being held.
 #[derive(Debug)]
 pub enum LeaseRefused {
-    /// The branch exists and carries commits on neither the remote nor the
-    /// base. Resetting it to the base would orphan them.
-    BranchHoldsWork { branch: String, commits: usize },
-    /// Leasing an existing branch: there is no such local branch.
+    /// Leasing an existing branch: there is no such branch here or on `origin`.
     NoSuchBranch(String),
     /// Leasing an existing branch: another checkout has it, and git lets one
     /// checkout have a branch.
@@ -128,10 +132,6 @@ impl LeaseRefused {
     /// One sentence, for a person.
     pub fn said(&self) -> String {
         match self {
-            LeaseRefused::BranchHoldsWork { branch, commits } => format!(
-                "{branch} already exists with {commits} commits on neither the remote nor the \
-                 base, and a lease would reset it"
-            ),
             LeaseRefused::NoSuchBranch(branch) => {
                 format!("there is no branch {branch} here to lease")
             }

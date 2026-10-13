@@ -58,23 +58,7 @@
   padding: var(--space-3);
 }
 
-.armada-commander__composer {
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  border-top: var(--border-width) solid var(--border-subtle);
-}
-
-/* The field with Send inside it, at its trailing foot: the room Send takes is the field's own bottom padding. */
-.armada-commander__field {
-  position: relative;
-  min-width: 0;
-}
-
-.armada-commander__field .armada-textarea {
-  padding-block-end: calc(var(--h-control-sm) + var(--space-4));
-}
-
-.armada-commander__field > .armada-button {
-  position: absolute;
-  inset-block-end: var(--space-2);
-  inset-inline-end: var(--space-2);
+/* The Sessions box sits straight in the panel, so it takes the most of half the panel's height. */
+.armada-commander > .armada-session-composer {
+  margin: var(--space-2) var(--space-3) var(--space-3);
 }

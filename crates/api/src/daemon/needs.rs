@@ -6,7 +6,7 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, NeedAnswer, NeedCall, NeedList};
+use ipc::{ManifestId, NeedAnswer, NeedCall, NeedList, WriteClashes};
 
 use crate::daemon::Refusal;
 
@@ -26,4 +26,13 @@ pub trait Needs: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<NeedList, Refusal>> + Send;
+
+    /// `list_write_clashes` — the clashes standing in one repository, or those
+    /// `holder` (a Job's or a Session's id) is in. `manifest_id` absent is the
+    /// first served. Read from what Fleet last checked; asks git for nothing.
+    fn list_write_clashes(
+        &self,
+        manifest_id: Option<ManifestId>,
+        holder: Option<String>,
+    ) -> impl Future<Output = Result<WriteClashes, Refusal>> + Send;
 }

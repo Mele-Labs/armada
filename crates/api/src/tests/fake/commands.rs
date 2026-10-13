@@ -40,6 +40,7 @@ impl FakeDaemon {
             by: String::from("person"),
             at: ipc::Instant::carried("2026-10-06T09:00:00.000Z"),
             resuming: false,
+            until: None,
         });
         Ok(job.clone())
     }
@@ -516,6 +517,26 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.fake_one_drone(job_id, drone_id, false).await
     }
+    async fn retry_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
+    async fn skip_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
+    async fn skip_checks(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
     async fn kill_processes(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -665,6 +686,13 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }
+    async fn set_commander_model(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _choice: ipc::SetCommanderModel,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
+    }
     async fn set_tiers(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -699,7 +727,9 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         note: Option<ipc::RestartRequested>,
+        by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
+        self.restarted_by.lock().expect("not poisoned").push(by);
         self.fake_restart_step(job_id, note).await
     }
     async fn redispatch_job(

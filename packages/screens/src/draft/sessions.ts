@@ -8,6 +8,7 @@
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
+import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -61,7 +62,10 @@ export type SessionAttachment =
   /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
   | { kind: "forked_to"; id: string }
   /** `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it. */
-  | { kind: "forked_from"; id: string; at?: string };
+  | { kind: "forked_from"; id: string; at?: string }
+  /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
+  | { kind: "started_to"; id: string }
+  | { kind: "started_by"; id: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -150,9 +154,11 @@ export type SessionRow =
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
-  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
+  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 
@@ -178,6 +184,12 @@ export type Session = {
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
   blank?: boolean;
+  /** Held until the plan's limit resets, as ISO: Fleet wakes it then. Absent unless it is held. */
+  limitedUntil?: string;
+  /** How full its context window is, as last reported. Absent until it has reported one. */
+  context?: { tokens: number; window: number };
+  /** What fills that window, as the harness reports it. Absent where it has not. */
+  contextBreakdown?: ContextBreakdown;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];
@@ -193,6 +205,11 @@ export type Session = {
   waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
+  /**
+   * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
+   * Absent once it is sent, or on a Session nobody's agent started.
+   */
+  unsent?: string;
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */

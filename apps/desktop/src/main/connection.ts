@@ -28,8 +28,10 @@ import { PilotExits } from "./pilot-exits";
 import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
+import { askCommander, CommanderSocket } from "./commander";
 import { HelmConnection } from "./helm";
 import { JournalSocket } from "./journal";
+import { ActiveJobs } from "./active-jobs";
 import { JobFocus } from "./job-focus";
 import { JobReads } from "./job-reads";
 import { ObserveSocket } from "./observe";
@@ -53,6 +55,8 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { PlanUsageHost } from "./plan-usage";
+import { ClashesHost } from "./clashes";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
@@ -93,6 +97,8 @@ export class FleetConnection {
   private greeted = false;
   /** The open Job, its examination and its history — see `job-focus.ts`. */
   private readonly jobFocus: JobFocus;
+  /** The Job and its Drones for every active Job — `active-jobs.ts`. */
+  private readonly activeJobs: ActiveJobs;
   /** Journey 9's run sheet and the servers it starts — see `rehearsal.ts`.
    * One field for both, `commands`' reason: they are one feature. */
   readonly rehearsal: RehearsalConnection;
@@ -153,6 +159,8 @@ export class FleetConnection {
   private readonly turns: ObserveSocket;
   /** What Fleet did to the open Job — a third socket. See `journal.ts`. */
   private readonly notes: JournalSocket;
+  /** The open Job's Commander, its thread — another socket, and one that is written to by a request. `commander.ts`. */
+  private readonly commander: CommanderSocket;
   /** One running Check's log, as it is written — a fourth socket. `following.ts`. */
   private readonly follow: FollowSocket;
   /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
@@ -195,6 +203,16 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** The plan's windows — `plan-usage.ts`. */
+  readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
+  /** Where two agents' changes would conflict, per served repository — `clashes.ts`. */
+  readonly clashes: ClashesHost = new ClashesHost(
+    () => this.connected()?.port ?? null,
+    () => {
+      const listed = this.current.holds.repositories;
+      return listed === undefined || listed.length === 0 ? null : listed.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
+    },
+  );
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
@@ -227,18 +245,22 @@ export class FleetConnection {
     });
     this.turns = new ObserveSocket((observed) => this.publish({ observed }));
     this.notes = new JournalSocket((journalled) => this.publish({ journalled }));
+    this.commander = new CommanderSocket((commander) => this.publish({ commander }));
     this.follow = new FollowSocket((followed) => this.publish({ followed }));
     this.landFollow = new LandFollowSocket((landFollowed) => this.publish({ landFollowed }));
     this.material = new ReviewMaterial((change) => this.publish(change));
     const port = (): number | null => this.connected()?.port ?? null;
     this.helm = new HelmConnection({ publish: (change) => this.publish(change), port });
+    this.activeJobs = new ActiveJobs({ publish: (change) => this.publish(change) });
     this.jobFocus = new JobFocus({
       port,
+      active: this.activeJobs,
       current: () => this.current,
       now: wiring.now,
       publish: (change) => this.publish(change),
       turns: this.turns,
       notes: this.notes,
+      commander: this.commander,
       review: this.material,
       observing: () => this.observing,
       reading: () => this.reading,
@@ -325,6 +347,7 @@ export class FleetConnection {
       sessions: this.sessions,
       held: this.held,
       sleep: this.sleep,
+      planUsage: this.planUsage,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,
@@ -457,9 +480,11 @@ export class FleetConnection {
     this.observing = null;
     this.reading = null;
     this.jobFocus.close();
+    this.activeJobs.close();
     this.rehearsal.close();
     this.turns.close();
     this.notes.close();
+    this.commander.close();
     this.follow.close();
     this.landFollow.close();
     this.material.close();
@@ -518,6 +543,11 @@ export class FleetConnection {
     await this.jobFocus.watchJob(jobId);
   }
 
+  /** The Job and Drones of every active Job, while a Cockpit or Dashboard draws them. */
+  followActive(want: boolean): void {
+    this.activeJobs.follow(want, this.connected()?.port ?? null, this.current.jobs);
+  }
+
   async readResources(jobId: string | null): Promise<void> {
     await this.jobFocus.readResources(jobId);
   }
@@ -552,6 +582,13 @@ export class FleetConnection {
     // which is the empty panel this exists to fix, arriving by another route.
     this.reading = jobId;
     this.notes.open(port, jobId);
+    // And its Commander's thread, on the same act for the same reason.
+    this.commander.open(port, jobId);
+  }
+
+  /** The owner's words to a Job's Commander. They queue for the next turn and never interrupt one. */
+  askCommander(jobId: string, text: string): Promise<Outcome> {
+    return askCommander(this.connected()?.port ?? null, jobId, text);
   }
 
   /** One running Check's log, as it is written, or `null` to stop. Opened by a press. */
@@ -695,6 +732,9 @@ export class FleetConnection {
     // wired at `RepositoryReads`'s own `onPicked`, the one place a pick
     // actually changes.
     if (change.holds !== undefined) this.helm.onRepositoriesChanged(this.current.holds.repositories ?? []);
+    // A Job began or ended where the Board says so. After the publish: the
+    // readers speak only when an answer lands, and that is never in here.
+    if (change.jobs !== undefined) this.activeJobs.sync(this.connected()?.port ?? null, this.current.jobs);
     this.wiring.publish(this.current);
   }
 }

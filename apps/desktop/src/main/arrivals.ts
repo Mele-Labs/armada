@@ -17,6 +17,7 @@
 import { connectedTo, PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
+import { questionsJob } from "@armada/screens/src/outstanding";
 import type { BridgeState } from "../shared/bridge";
 import type { FleetBuilds } from "./fleet-build";
 import type { HeldReader } from "./holding";
@@ -32,6 +33,7 @@ import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
 import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
+import type { PlanUsageHost } from "./plan-usage";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -60,6 +62,8 @@ export interface ArrivalHost {
   readonly held: Pick<HeldReader, "warm">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
   readonly sleep: Pick<SleepHost, "changed">;
+  /** The plan's windows, told when a session reports a newer reading — `plan-usage.ts`. */
+  readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
   readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
@@ -347,6 +351,23 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.refresh(fleet.port, event.job_id);
     return;
   }
+  if (event.kind === "commander.card") {
+    // **The row's `asking` moves with the card, and the event does not say it.** A card out
+    // counts as the Job waiting on the owner, as a Drone's question does, but `asking` on a row
+    // that travels with an event is built off the working slot and is absent. Going out is
+    // `true` outright. Coming back leaves `true` only where a Drone's own question or command is
+    // still out, which the dock's copy of them says. The detail is re-read for the card itself.
+    const drone = host.current().questions.some(
+      (question) => questionsJob(question) === event.job_id && (question.kind === "drone" || question.kind === "command"),
+    );
+    const waiting = event.card !== undefined || drone;
+    host.publish({
+      connection,
+      jobs: host.current().jobs.map((job) => (job.id === event.job_id ? { ...job, asking: waiting } : job)),
+    });
+    host.refresh(fleet.port, event.job_id);
+    return;
+  }
   if (event.kind === "job.plan_changed") {
     // **The row's own terms, `job.asking`'s shape.** The counts ride on the
     // event and patch the row directly; the plan itself does not, so the open
@@ -516,6 +537,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...state } = event;
     host.sleep.changed(state);
+    return;
+  }
+  if (event.kind === "plan_usage.changed") {
+    // Above the tail for `sleep.changed`'s reason: no Job to find, and the reading travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...usage } = event;
+    host.planUsage.changed(usage);
     return;
   }
   if (event.kind === "autopilot.changed") {

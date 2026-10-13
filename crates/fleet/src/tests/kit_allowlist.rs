@@ -172,6 +172,7 @@ async fn always_allow_in_kit_appends_once_and_the_next_reach_asks_nobody() {
                 "c1",
                 Answered::naming(CommandAnswer::AlwaysAllow, None, Some("gh issue view"))
                     .kept_in(Some(AlwaysAllowScope::Kit)),
+                None,
             )
             .await
     });

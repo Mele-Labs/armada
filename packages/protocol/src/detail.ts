@@ -22,6 +22,8 @@
 // a field moves, and every closed set is left as `string`.
 
 import type { AddedStep } from "./added-steps";
+import type { CommanderCard } from "./commander";
+import type { JobIssue, JobWaiting } from "./job-issues";
 import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
@@ -72,6 +74,13 @@ export type JobDetail = {
   triggers?: JobTrigger[];
   /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.68. */
   additions?: AddedStep[];
+  /**
+   * What is wrong with this Job now, each kind once. Pointers: the breakage, overlap and verdict
+   * are read where they already live. Absent is none.
+   */
+  issues?: JobIssue[];
+  /** What it waits on while nothing of it runs. Absent is a Job that is working, or waits on a person. */
+  waiting?: JobWaiting[];
   /** The door the request that created this Job came through, kept only for `phone`. Absent is Bridge or an agent. */
   created_via?: string;
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
@@ -262,6 +271,12 @@ export type JobDetail = {
   model_override?: string;
   /** The model a person chose for this Job's review step. Since 13.33, #903. Absent is no choice. */
   review_model_override?: string;
+  /** The model a person chose for this Job's Commander, over `models.commander`. Absent is no choice. #2166. */
+  commander_model_override?: string;
+  /** The effort a person chose for this Job's Commander, as the setting spells it. Absent is no choice. #2166. */
+  commander_effort_override?: string;
+  /** The card this Job's Commander has out to the owner. While it is out `job.asking` is true. Absent is none out. #2166. */
+  commander_card?: CommanderCard;
   /**
    * Which model each tier of this Job's tasks runs on. Since 23.6. **Absent
    * where the map names no tier**, which is Armada picking for every tier.
@@ -647,6 +662,12 @@ export type JobSpend = {
    * nought: nobody was counting, so nothing is claimed.
    */
   unpriced?: number;
+  /**
+   * What the job's Commander has cost, beside `cost_micros` and never in it. It is the job's cost,
+   * and a surface that draws the total adds the two; it is not counted against `cost_cap_micros`.
+   * Absent on a Fleet built before a Commander existed, which reads as nought.
+   */
+  commander_cost_micros?: number;
 };
 
 /**

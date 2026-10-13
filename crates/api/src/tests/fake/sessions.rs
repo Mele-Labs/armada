@@ -33,6 +33,8 @@ impl Sessions for FakeDaemon {
             mod_out_of_date: false,
             waiting_for: Vec::new(),
             done_since: None,
+            held_until: None,
+            context_breakdown: None,
         })
     }
 
@@ -87,6 +89,30 @@ impl Sessions for FakeDaemon {
             total_lines: 1,
             bytes: 3,
             whole: true,
+        })
+    }
+
+    async fn start_another_session(
+        &self,
+        _caller: Option<crate::Caller>,
+        start: ipc::StartAnotherSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        Ok(ipc::SessionHeld {
+            session_id: ipc::SessionId::carried("session"),
+            title: start.title,
+            fork: false,
+        })
+    }
+
+    async fn fork_this_session(
+        &self,
+        _caller: Option<crate::Caller>,
+        fork: ipc::ForkThisSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        Ok(ipc::SessionHeld {
+            session_id: ipc::SessionId::carried("session"),
+            title: fork.title,
+            fork: true,
         })
     }
 

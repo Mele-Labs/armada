@@ -256,6 +256,12 @@ where
             turn_cap: allowance.turns(),
             ran_ms: spent.ran_ms,
             drones: spent.drones,
+            commander_cost_micros: self
+                .store()
+                .lock()
+                .await
+                .commander_cost_for(job.id())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?,
         });
         // Before `step_facts`, which consumes the Check runs: the
         // classification reads them to answer whether an override is available,
@@ -328,6 +334,13 @@ where
             .collect();
         detail.model_override = self.model_override_of(job.id()).await;
         detail.review_model_override = self.review_model_override_of(job.id()).await;
+        let chosen = self.commander_choice_of(job.id()).await;
+        detail.commander_model_override = chosen.model;
+        detail.commander_effort_override = chosen.effort;
+        // `asking` on the row is the Drone's question, and a card the Commander
+        // put out counts too: `summarised` says the same.
+        detail.commander_card = self.card_out_of(&job).await;
+        detail.job.asking |= detail.commander_card.is_some();
         detail.tiers = ipc::TierModels::from(&self.tiers_of(job.id()).await);
         self.approval_served(&job, &mut detail).await;
         self.sent_back_served(&job, &mut detail).await;
@@ -476,6 +489,21 @@ where
                 .await
                 .map_err(|why| self.refusal(why))?,
         );
+        // Last, because it reads what is above: the breakages, the overlaps and
+        // the steps' rulings, with the asks that excuse a quiet Drone.
+        let stuck_drone = self
+            .stuck_drone_of(
+                &job,
+                detail.asking.is_some() || detail.command_waiting.is_some(),
+            )
+            .await
+            .map_err(|why| self.refusal(why))?;
+        detail.issues = crate::job_issues::issues_of(&detail, stuck_drone);
+        let awaited = self
+            .jobs_waited_on(&job, &detail)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        detail.waiting = crate::job_waiting::waiting_of(&detail, awaited);
         Ok(detail)
     }
 }

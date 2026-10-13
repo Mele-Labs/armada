@@ -31,6 +31,7 @@ import {
   TileSheet,
   pressedSlot,
   useKept,
+  limitHeldSaid,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -53,8 +54,10 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
+import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
@@ -90,6 +93,7 @@ export function sessionsHidden(served: boolean): readonly string[] {
 function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
   if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
+  if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
   if (session.turn.state === "working") {
     const by = session.turn.wokenBy;
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
@@ -238,7 +242,7 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
-  { label: "Running", has: (state) => state === "working" },
+  { label: "Running", has: (state) => state === "working" || state === "limited" },
   { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },
@@ -593,6 +597,21 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
+type Runner = NonNullable<LedgerEntry["run"]>["runner"];
+
+/** Runs a command where the Session works. A clean exit settles the item that asked for that command, and the agent is told. */
+function runnerOf(draft: SessionsDraft, session: Session): Runner | undefined {
+  const run = draft.run;
+  if (run === undefined) return undefined;
+  return (command, on) =>
+    run(session.id, command, (event) => {
+      on(event);
+      if (event.kind !== "end" || event.code !== 0) return;
+      const asked = (session.waitingFor ?? []).find((one) => one.act?.kind === "run" && one.act.target.trim() === command.trim());
+      if (asked !== undefined) draft.answerWaiting?.(session.id, asked.id, { text: "Ran: exit 0" });
+    });
+}
+
 function entriesOf(
   session: Session,
   goes: LedgerGoes,
@@ -604,9 +623,11 @@ function entriesOf(
   answerWaiting: ((itemId: string, answer: { choice: number } | { text: string }) => void) | undefined,
   scrollToAsk: () => void,
   known: Known,
+  runner: Runner | undefined,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
+    if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -619,6 +640,7 @@ function entriesOf(
         facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
       },
       ...(act === undefined ? {} : { act: act.kind }),
+      ...(act?.kind === "run" && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
         : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, { choice: at }) })) }),
@@ -644,11 +666,10 @@ function entriesOf(
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
       case "forked_to":
-      case "forked_from": {
-        const title = sessions.find((other) => other.id === one.id)?.title ?? one.id;
-        const way = one.kind === "forked_to" ? "Forked to" : "Forked from";
-        return { key: `${one.kind}${one.id}`, kind: "fork", name: `${way} ${title}`, text: `${way} ${title}`, onOpen: () => open(one.id) };
-      }
+      case "forked_from":
+      case "started_to":
+      case "started_by":
+        return linkEntry(one, sessions, open);
       case "slot":
         return {
           key: `slot${one.slot}`,
@@ -737,28 +758,6 @@ function entriesOf(
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
-/** Whether the ledger is hidden beside the thread, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
-function useMinimized(): [boolean, (minimized: boolean) => void] {
-  const [minimized, set] = useState(() => {
-    try {
-      return localStorage.getItem("armada.session-ledger.minimized") === "1";
-    } catch {
-      return false;
-    }
-  });
-  return [
-    minimized,
-    (next) => {
-      set(next);
-      try {
-        localStorage.setItem("armada.session-ledger.minimized", next ? "1" : "0");
-      } catch {
-        // Not kept: the ledger is as it was left until the window closes.
-      }
-    },
-  ];
-}
-
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
@@ -810,6 +809,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
   // **Up to and including the message it was forked at**, and not what was said after it.
+  const startedBy = useStartedBy(session, sessions, onOpen);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
@@ -819,6 +819,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
     setLedgerOpen(false);
     open(...args);
   };
+  const runner = runnerOf(draft, session);
   const entries = entriesOf(
     session,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
@@ -835,6 +836,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         }
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
+    runner,
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -854,6 +856,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         {...{
               actions: (
                 <>
@@ -912,6 +915,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
           )}
+          {startedBy}
           <SessionThread
             sessionId={session.id}
             rows={thread}
@@ -935,7 +939,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
                     },
                   },
                 })}
-            {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+            {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             {...(session.asked === undefined
               ? {}
@@ -1046,13 +1050,14 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
   if (draft === undefined || session === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  const runner = runnerOf(draft, session);
   return (
     <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
       <div className="armada-session-mini__thread">
         <SessionThread
           sessionId={session.id}
           rows={thread}
-          {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+          {...(runner === undefined ? {} : { runner })}
           {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
           {...(session.asked === undefined
             ? {}

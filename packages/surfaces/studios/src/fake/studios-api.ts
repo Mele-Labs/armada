@@ -29,8 +29,13 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       scroll: () => {},
       showAsk: async () => {},
       answerAsk: async () => ({ ok: true }) as Outcome,
+      pick: async () => {},
       panel: async () => {},
       openOwner: async () => {},
+      walkNext: async () => {},
+      walkBack: async () => {},
+      walkAutoplay: async () => {},
+      walkReplay: async () => {},
     },
     // The panel beside a walk window's page, which the mock has no window for either.
     walkPanel: {

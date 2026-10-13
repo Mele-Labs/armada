@@ -133,8 +133,8 @@ export type WorkflowStepCardProps = {
   returns?: boolean;
   /** A step added to this Job alone: a dashed accent edge, so it reads apart from the workflow's own. */
   added?: boolean;
-  /** Who put a task in the plan, where it was the Commander: a mark after the name, its act on hover. */
-  by?: { who: "commander"; said: string };
+  /** Whose hand is on a task, where that is the Commander's: a mark after the name. */
+  by?: { who: "commander"; said?: string };
 };
 
 export function WorkflowStepCard({
@@ -228,7 +228,7 @@ export function WorkflowStepCard({
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
           {name}
         </span>
-        {by === undefined ? null : <WhoMark who={by.who} said={by.said} />}
+        {by === undefined ? null : <WhoMark who={by.who} {...(by.said === undefined ? {} : { said: by.said })} />}
       </span>}
       {band === undefined || details.length === 0 ? null : (
         <span className="armada-wf-card__details">

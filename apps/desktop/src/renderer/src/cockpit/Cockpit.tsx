@@ -11,7 +11,7 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
-import { nowPanelOf } from "@armada/jobs";
+import { nowPanelOf, type NowActed } from "@armada/jobs";
 import { isTerminal, titleOf } from "@armada/screens";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
 import { holdsText } from "@armada/screens/src/keys";
@@ -275,6 +275,22 @@ export function Cockpit({
     [instruments, sessions, state, field],
   );
   const nowsHeld = useContext(Nows);
+  // A quick act on a Now panel goes to the host, which holds the commands and says a refusal in its toast.
+  const nowHost = (jobId: string) => ({
+    onOpenJob: hosts.onOpen,
+    onSaid: () => {},
+    ...(hosts.onNowAct === undefined ? {} : { onAct: (acted: NowActed) => hosts.onNowAct!(jobId, acted) }),
+    // The Commander's card, answered where it is drawn; a refusal is said and the card takes another pick.
+    ...(hosts.onAnswerCard === undefined
+      ? {}
+      : {
+          onAnswerCommander: async (card: string, option: string) => {
+            const told = await hosts.onAnswerCard!(jobId, card, option);
+            if (told.kind === "refused") hosts.onTell?.(told.said);
+            return told.kind === "answered";
+          },
+        }),
+  });
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
   const [put, setPut] = useState<readonly string[]>([]);
@@ -427,7 +443,7 @@ export function Cockpit({
       ? undefined
       : current.job === undefined
         ? undefined
-        : nowPanelOf(nowsHeld?.[current.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} });
+        : nowPanelOf(nowsHeld?.[current.job.id], nowHost(current.job.id));
   // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
   const pane = filter !== "command-central" && filter !== "bays" && current !== undefined;
   const filters = useFilters(filter);
@@ -508,7 +524,7 @@ export function Cockpit({
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
                 <Behind edge={edge} put={waiting} recall={recall} />
-                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], nowHost(front.job.id))} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

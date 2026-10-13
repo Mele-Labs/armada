@@ -416,6 +416,10 @@ pub enum Adrift {
     /// three** — the recourse is identical in all three, and
     /// `crate::questioning::NotAnswered` says which this is.
     NotAnswerable { job: JobId, because: String },
+    /// A skip or a retry on a Check the gate is not running: no gate, no Check of
+    /// that name, one already finished, or the ruling already being written.
+    /// **One sentence rather than five**, for `NotAnswerable`'s reason.
+    NoCheckToAct { job: JobId, because: String },
     /// A review act was asked for on a Job that is not at a human gate.
     ///
     /// **Not an illegal transition.** Two of the three moves a review makes are
@@ -543,6 +547,9 @@ pub enum Adrift {
     /// the same worktree throws away the context that makes a redirect cost
     /// nothing.
     DroneStillThere { job: JobId },
+    /// A repair Drone is already on the Job's branch, sent by its Commander. A
+    /// second, or a restart over it, would put two writers in one worktree.
+    RepairUnderway { job: JobId },
     /// A restart was asked for on a Job whose worktree is no longer on disk.
     ///
     /// **Nothing is spawned.** The earlier steps' work lived in that directory,

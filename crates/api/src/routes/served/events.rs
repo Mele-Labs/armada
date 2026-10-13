@@ -167,9 +167,33 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The plan's windows after a session read them moving, whole.
+    Route {
+        operation: "plan_usage.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A repository's Autopilot after any change to it, whole. #2092.
     Route {
         operation: "autopilot.changed",
+        method: "GET",
+        path: "/events",
+    },
+    // A Job's Commander started or finished a turn. #2166.
+    Route {
+        operation: "commander.changed",
+        method: "GET",
+        path: "/events",
+    },
+    // A Job's card to the owner went out, or was answered. #2166.
+    Route {
+        operation: "commander.card",
+        method: "GET",
+        path: "/events",
+    },
+    // One entry Fleet just kept for the timeline, for a client holding a window to append.
+    Route {
+        operation: "timeline.appended",
         method: "GET",
         path: "/events",
     },

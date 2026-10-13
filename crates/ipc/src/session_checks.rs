@@ -42,6 +42,11 @@ pub struct SessionCheckCall {
     pub cwd: String,
     /// The Check's key, as `armada check` took it.
     pub name: String,
+    /// What the run was narrowed to: the test filter verbatim, or `--changed ` and the packages
+    /// the change reached. Absent where it ran whole. **`end` may tell it when `start` could not**,
+    /// since a `--changed` run only knows what it reached once it has resolved it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
     /// The run `start` answered. Required on `end`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub run: Option<u64>,

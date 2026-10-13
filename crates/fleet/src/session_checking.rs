@@ -94,6 +94,7 @@ where
         call: SessionCheckCall,
     ) -> Result<SessionCheckAnswer, Refusal> {
         let name = call.name.trim();
+        let target = call.target.as_deref().map(str::trim).filter(|target| !target.is_empty());
         if name.is_empty() {
             return Err(self.session_check_refusal(UNNAMED, "a Check run needs the Check's name"));
         }
@@ -114,10 +115,10 @@ where
             return Ok(SessionCheckAnswer { run: None });
         };
         let run = store
-            .start_session_check(&session, &manifest, slot, name, &at)
+            .start_session_check(&session, &manifest, slot, name, target, &at)
             .map_err(|why| self.ledger_fault(why))?;
         drop(store);
-        self.session_check_row(&session, name, run, &at, SessionCheckState::Running)
+        self.session_check_row(&session, name, target, run, &at, SessionCheckState::Running)
             .await?;
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
@@ -135,6 +136,7 @@ where
         if outcome == SessionCheckState::Running {
             return Err(self.session_check_refusal(UNNAMED, "a Check run ends as passed or failed"));
         }
+        let target = call.target.as_deref().map(str::trim).filter(|target| !target.is_empty());
         let at = self.clock().now().as_str().to_string();
         let mut store = self.store().lock().await;
         let Some(kept) = store.session_check(run).map_err(|why| self.ledger_fault(why))? else {
@@ -147,11 +149,13 @@ where
                 &at,
                 call.took_ms.unwrap_or_default(),
                 tail(call.log.as_deref().unwrap_or_default()),
+                target,
             )
             .map_err(|why| self.ledger_fault(why))?;
         drop(store);
         if ended {
-            self.session_check_row(&kept.session_id, &kept.name, run, &kept.started_at, outcome)
+            let target = target.or(kept.target.as_deref());
+            self.session_check_row(&kept.session_id, &kept.name, target, run, &kept.started_at, outcome)
                 .await?;
         }
         Ok(SessionCheckAnswer {
@@ -165,6 +169,7 @@ where
         &self,
         session: &str,
         name: &str,
+        target: Option<&str>,
         run: i64,
         at: &str,
         state: SessionCheckState,
@@ -177,6 +182,7 @@ where
                 name: name.to_string(),
                 run: u64::try_from(run).unwrap_or_default(),
                 state,
+                target: target.map(str::to_string),
             },
         )
         .await;
@@ -206,7 +212,14 @@ where
         };
         for run in runs {
             let _ = self
-                .session_check_row(session, &run.name, run.id, &run.started_at, SessionCheckState::Failed)
+                .session_check_row(
+                    session,
+                    &run.name,
+                    run.target.as_deref(),
+                    run.id,
+                    &run.started_at,
+                    SessionCheckState::Failed,
+                )
                 .await;
         }
     }

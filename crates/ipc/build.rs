@@ -84,17 +84,20 @@ fn read_operations(dir: &Path) -> String {
 }
 
 /// Every row whose `agent_access` is `Yes`, as a table, every row reading
-/// `Drafts only` as a second, and every row reading `Helm only` as a third.
+/// `Drafts only` as a second, every row reading `Helm only` as a third, and
+/// every row reading `Commander only` as a fourth.
 ///
-/// **Three tables, never one with a flag.** `REACHABLE` is what the door offers
+/// **Four tables, never one with a flag.** `REACHABLE` is what the door offers
 /// any agent; `DRAFTING` is offered to a Helm session alone for drafting a Job
 /// (`#941`); `HELM_ONLY` is offered to a Helm session alone for everything else
-/// a person may ask it to do (`#1150`) — so a reader that forgot a flag could
-/// not hand any of the three to a caller it was not written for.
+/// a person may ask it to do (`#1150`); `COMMANDER_ONLY` is offered to a Job's
+/// Commander alone (`#2166`) — so a reader that forgot a flag could not hand
+/// any of the four to a caller it was not written for.
 fn reachable(inventory: &str, source: &Path) -> String {
     let mut rows = String::new();
     let mut drafting = String::new();
     let mut helm_only = String::new();
+    let mut commander_only = String::new();
     let mut found = 0usize;
     for block in inventory.split("\n[operations.") {
         let Some((header, body)) = block.split_once(']') else {
@@ -113,6 +116,7 @@ fn reachable(inventory: &str, source: &Path) -> String {
             }
             Some("Drafts only") => &mut drafting,
             Some("Helm only") => &mut helm_only,
+            Some("Commander only") => &mut commander_only,
             _ => continue,
         };
         let kind = field(body, "kind").unwrap_or_default();
@@ -135,7 +139,8 @@ fn reachable(inventory: &str, source: &Path) -> String {
     format!(
         "pub const REACHABLE: &[Reachable] = &[\n{rows}];\n\
          pub const DRAFTING: &[Reachable] = &[\n{drafting}];\n\
-         pub const HELM_ONLY: &[Reachable] = &[\n{helm_only}];\n"
+         pub const HELM_ONLY: &[Reachable] = &[\n{helm_only}];\n\
+         pub const COMMANDER_ONLY: &[Reachable] = &[\n{commander_only}];\n"
     )
 }
 

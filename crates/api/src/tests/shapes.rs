@@ -364,6 +364,9 @@ pub fn detail(job: JobSummary) -> JobDetail {
         repository_allowed_commands: Vec::new(),
         model_override: None,
         review_model_override: None,
+        commander_model_override: None,
+        commander_effort_override: None,
+        commander_card: None,
         tiers: ipc::TierModels::default(),
         drone_cap: None,
         landing: None,
@@ -403,6 +406,10 @@ pub fn detail(job: JobSummary) -> JobDetail {
         walk_notes: Vec::new(),
         triggers: Vec::new(),
         additions: Vec::new(),
+        // The fake reads no transcript and no board, so it finds nothing wrong
+        // and nothing waited on.
+        issues: Vec::new(),
+        waiting: Vec::new(),
         created_via: None,
     }
 }
@@ -823,6 +830,49 @@ pub fn request_repository(words: &str) -> ipc::RequestRepository {
     }
 }
 
+/// Two entries a quarter hour apart, cut to what the ask's bounds and limit leave. Enough for a
+/// route test to prove the three bounds reach the daemon as the ask Bridge wrote.
+pub fn fleet_timeline(ask: &ipc::TimelineAsk) -> ipc::FleetTimeline {
+    let entry = |id: u64, at: &str, kind: ipc::TimelineKind, subject: ipc::TimelineSubject| {
+        ipc::TimelineEvent {
+            id,
+            at: ipc::Instant::carried(at),
+            kind,
+            subject,
+            title: None,
+            tone: ipc::TimelineTone::Idle,
+            says: "Started".to_string(),
+            detail: None,
+            manifest_id: None,
+            live: false,
+            over: false,
+        }
+    };
+    let all = [
+        entry(
+            1,
+            "2026-10-12T10:00:00.000Z",
+            ipc::TimelineKind::JobStarted,
+            ipc::TimelineSubject::Job { id: ipc::JobId::carried("01JOB") },
+        ),
+        entry(
+            2,
+            "2026-10-12T10:15:00.000Z",
+            ipc::TimelineKind::MainRed,
+            ipc::TimelineSubject::Main,
+        ),
+    ];
+    let mut events: Vec<_> = all
+        .into_iter()
+        .filter(|one| ask.since.as_ref().is_none_or(|since| one.at >= *since))
+        .filter(|one| ask.until.as_ref().is_none_or(|until| one.at < *until))
+        .collect();
+    let limit = ask.limit.unwrap_or(ipc::DEFAULT_TIMELINE_LIMIT) as usize;
+    let cut = events.len() > limit;
+    events.drain(..events.len().saturating_sub(limit));
+    ipc::FleetTimeline { events, cut }
+}
+
 /// Two models and a default, which is the shape a picker draws from.
 pub fn models() -> ModelChoices {
     ModelChoices {
@@ -885,6 +935,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 at_rest_since: None,
                 turns: Some(7),
                 cost_micros: Some(146_473),
+                activity: None,
             },
             JobDrone {
                 drone_id: DroneId::carried("01DRONEDONE"),
@@ -897,6 +948,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 at_rest_since: None,
                 turns: Some(12),
                 cost_micros: Some(388_120),
+                activity: None,
             },
             JobDrone {
                 drone_id: DroneId::carried(THE_DRONE),
@@ -909,6 +961,7 @@ pub fn job_drones(job_id: JobId) -> JobDrones {
                 at_rest_since: None,
                 turns: Some(3),
                 cost_micros: Some(41_002),
+                activity: None,
             },
         ],
     }

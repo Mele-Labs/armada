@@ -36,6 +36,8 @@ pub mod allowance;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
 /// `editing::save`.
 mod amending;
+/// The two lines that tell a Drone to settle a question itself.
+mod answer_mode;
 /// What Fleet does with a proposal a person left: keeps, releases, lands and
 /// serves it. Spike 022, slice 4.
 mod approved;
@@ -66,18 +68,23 @@ mod building;
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
 mod carrying_on;
+/// A person's skip or retry on the Checks a gate is running.
+mod check_acts;
 mod check_history;
 mod check_output;
 mod checking;
 mod checkouts;
 /// One Manifest as Fleet resolved it, for the caller asking what a Job here
 /// will be held to.
+mod clashing;
 mod clearing;
 pub mod clock;
 /// `api::Commands`, implemented over a real Fleet — the write half of the seam
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
+/// When a Job's Commander is woken: six troubles, each once, and the loop bound.
+mod commanding_wakes;
 mod configured;
 /// Whether a gate's red is the work's or the machine's, before it is ruled on.
 mod confirming;
@@ -146,9 +153,14 @@ pub mod holding;
 /// The issue a Job came from, asked about again on its own cursor. Spike 022,
 /// answer 5.
 mod issue_noticing;
+mod job_issues;
+/// A Commander's repair Drone on a Job's own branch. `#2170`.
+pub mod job_repair;
+mod repair_hold;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
+mod job_waiting;
 /// A press to merge under `merge_by: push`, joining the merge line.
 mod joining_the_line;
 /// A Job's own log, read back and served. **The other side of the file every
@@ -197,6 +209,8 @@ pub mod mint;
 /// under `.armada/` is named by the handle**, and half the places that write a
 /// Job's log line hold only its id.
 mod naming;
+/// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
+pub mod timeline;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
 pub mod notice_loop;
@@ -213,6 +227,8 @@ pub mod overlap;
 pub mod overruling;
 /// Evidence a restart found still waiting for the gate, ruled on after boot. #796.
 mod pausing;
+mod limit_hold;
+mod session_limit;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;

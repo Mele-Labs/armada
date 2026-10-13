@@ -10,7 +10,7 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Needs, Refusal};
-use ipc::{ManifestId, NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList, WireError};
+use ipc::{ManifestId, NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList, WireError, WriteClashes};
 
 use super::ledger::{self, Need};
 use crate::adrift::Adrift;
@@ -191,5 +191,13 @@ where
         Ok(NeedList {
             needs: needs.iter().map(line).collect(),
         })
+    }
+
+    async fn list_write_clashes(
+        &self,
+        manifest_id: Option<ManifestId>,
+        holder: Option<String>,
+    ) -> Result<WriteClashes, Refusal> {
+        self.write_clashes(manifest_id, holder).await
     }
 }
