@@ -35,8 +35,28 @@ export type Bay = {
   dot: Dot | undefined;
 };
 
+/**
+ * What happened to the work before its pull request, each as an ISO instant: it asked for a bay, held one
+ * (`slot` where the record names it), and its pull request was opened. A Job's record names no bay and no
+ * release, so those are absent there.
+ */
+export type WorkTrail = { began?: string; bay?: { slot?: number; from: string; until?: string }; opened?: string };
+
 /** Whose work a pull request is, and the tile that owner already has on the glass, for its live state. */
-export type PullHolder = Owner & { item: Item | undefined };
+export type PullHolder = Owner & { item: Item | undefined; trail: WorkTrail | undefined };
+
+/** The journey a Session's ledger or a Job's record keeps of the work behind pull request `number`. */
+function trailOf(owner: Owner, jobs: readonly JobSummary[], sessions: readonly Session[], number: number): WorkTrail | undefined {
+  if (owner.kind === "job") {
+    const job = jobs.find((one) => one.id === owner.id);
+    return job === undefined ? undefined : { began: job.created_at, ...(job.started_at === undefined ? {} : { bay: { from: job.started_at } }) };
+  }
+  const trail = sessions.find((one) => one.id === owner.id)?.trail;
+  if (trail === undefined) return undefined;
+  const bay = trail.bays?.at(-1);
+  const opened = trail.opened?.[number];
+  return { began: trail.started, ...(bay === undefined ? {} : { bay }), ...(opened === undefined ? {} : { opened }) };
+}
 
 /** One repository's bays and its line, top of the line farthest from main. */
 export type Harbour = {
@@ -108,7 +128,8 @@ export function baysOf({
       if (!dot.key.startsWith("pull:")) return dot;
       const owner = workOwner(views, jobs, sessions, Number(dot.key.slice(5)), dot.card.branch);
       if (owner === undefined) return dot;
-      holders.set(dot.key, { ...owner, item: tileOf(items, owner.kind === "job" ? owner.id : `session:${owner.id}`) });
+      const number = Number(dot.key.slice(5));
+      holders.set(dot.key, { ...owner, item: tileOf(items, owner.kind === "job" ? owner.id : `session:${owner.id}`), trail: trailOf(owner, jobs, sessions, number) });
       return { ...dot, card: { ...dot.card, owner } };
     });
     const bays = slots

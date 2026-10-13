@@ -12,6 +12,16 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
+/** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
+export type SessionTrail = {
+  /** `SessionRecord.started_at`. */
+  started: string;
+  /** The slots it held, oldest first: a `slot` attachment's `since` and, once given back, `changed_at`. */
+  bays?: readonly { slot: number; from: string; until?: string }[];
+  /** When each pull request was recorded, by number: a `pr` attachment's `since`. */
+  opened?: Readonly<Record<number, string>>;
+};
+
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
@@ -195,6 +205,11 @@ export type Session = {
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];
+  /**
+   * Where its work has been, from its ledger's given-back rows: `attachmentsOfRecord` drops those today, and
+   * the wire's `started_at` and each attachment's `since` and `changed_at` say all of it. Mock only until folded.
+   */
+  trail?: SessionTrail;
   rows: readonly SessionRow[];
   turn: SessionTurn;
   /** When the last turn ended, already worded. Absent on a Session that has not had one. */

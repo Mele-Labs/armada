@@ -55,7 +55,7 @@ function Holder({ holder, onOpen }: { holder: LineHolder; onOpen: (act: Act) => 
   const alive = holder.item?.live === true && holder.item.settling !== true;
   const spins = holder.item?.mark === undefined && alive;
   const State = holder.item === undefined ? undefined : (holder.item.mark ?? (spins ? LoaderCircle : holder.item.icon));
-  const said = holder.item === undefined ? undefined : (holder.item.state ?? holder.item.kind);
+  const said = holder.item === undefined ? undefined : (holder.item.state ?? (holder.item.hue === "ask" ? "Waiting on you" : holder.item.kind));
   return (
     <li className="armada-metro__row" data-holder data-wants={holder.tone === "ask" ? "you" : undefined} style={{ ["--line" as string]: TONE[holder.tone] } as CSSProperties}>
       <button type="button" className="armada-metro__who" aria-label={`${holder.kind === "job" ? "Job" : "Session"}: ${holder.title}`} data-opens="" onClick={() => onOpen(holder.open)}>

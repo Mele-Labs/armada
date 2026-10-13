@@ -5,7 +5,7 @@
 // piece of work stands and what its stops say are checked without drawing a line.
 
 import type { Item } from "../Dashboard";
-import type { Bay, BaysRead, PullHolder } from "./bays";
+import type { Bay, BaysRead, PullHolder, WorkTrail } from "./bays";
 import type { Dot } from "./horizon";
 
 export const STATIONS = ["Waiting", "In a bay", "Building", "Pull request", "Merge queue", "main"] as const;
@@ -85,6 +85,12 @@ export function heldFor(since: string | undefined, now: number): string | undefi
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
+/** `heldFor`, said of an instant: 41m ago. */
+const agoOf = (at: string | undefined, now: number) => {
+  const held = heldFor(at, now);
+  return held === undefined ? undefined : `${held} ago`;
+};
+
 const sessionOf = (item: Item | undefined) => (item?.key.startsWith("session:") === true ? item.key.split(":")[1] : undefined);
 
 /** The acts on the work itself: its Job, or its Session. */
@@ -131,9 +137,38 @@ function pullStops(dot: Dot): [Stop, Stop | undefined] {
   ];
 }
 
+/**
+ * The stations the work went through before its pull request, passed and each with its card: it waited for
+ * a bay, held one (which, and for how long, where the record says), and built. What no record says is left
+ * a plain dot, and the line starts where its first record does.
+ */
+function journey(trail: WorkTrail, branch: string, own: Act[], now: number): { stops: (Stop | undefined)[]; from: number } | undefined {
+  const { began, bay, opened } = trail;
+  if (began === undefined && bay === undefined) return undefined;
+  const where = bay?.slot === undefined ? "a bay" : `bay ${two(bay.slot)}`;
+  const rows = (...all: (readonly [string, string, boolean?] | undefined)[]) => all.flatMap((one) => (one === undefined ? [] : [one]));
+  const took = agoOf(bay?.from, now);
+  const gave = agoOf(bay?.until, now);
+  const waited = began === undefined || bay === undefined ? undefined : heldFor(began, Date.parse(bay.from));
+  const held = bay?.until === undefined || bay === undefined ? undefined : heldFor(bay.from, Date.parse(bay.until));
+  const card = (pill: string, title: string, shown: readonly (readonly [string, string, boolean?])[]): Stop => ({ tone: "ok", card: { tone: "ok", pill, title, rows: shown, acts: own } });
+  return {
+    from: began === undefined ? 1 : 0,
+    stops: [
+      began === undefined ? undefined : card("waited", "Waited for a bay", rows(["Started", agoOf(began, now) ?? "—"], waited === undefined ? undefined : ["Waited", waited])),
+      bay === undefined ? undefined : card(bay.slot === undefined ? "in" : where, `Was in ${where}`, rows(took === undefined ? undefined : ["Took it", took], gave === undefined ? undefined : ["Gave it back", gave], held === undefined ? undefined : ["Held", held])),
+      bay === undefined ? undefined : card("built", "Built", rows(["Branch", branch, true], opened === undefined ? undefined : ["Pull request opened", agoOf(opened, now) ?? "—"])),
+    ],
+  };
+}
+
 /** A pull request no bay holds: it joins the lines at Pull request, and its title opens it on the forge. */
-function lineOfPull(dot: Dot, owner: PullHolder | undefined): Line {
-  const [pull, queue] = pullStops(dot);
+function lineOfPull(dot: Dot, owner: PullHolder | undefined, now: number): Line {
+  const [made, queue] = pullStops(dot);
+  const opened = agoOf(owner?.trail?.opened, now);
+  const pull: Stop = opened === undefined ? made : { ...made, card: { ...made.card, rows: [...made.card.rows, ["Opened", opened] as const] } };
+  const own: Act[] = owner === undefined ? [] : [{ kind: owner.kind, id: owner.id, label: owner.kind === "job" ? "Open Job" : "Open Session" }];
+  const past = owner?.trail === undefined ? undefined : journey(owner.trail, dot.card.branch, own, now);
   const tone = PULL[dot.state];
   const number = Number(dot.key.slice(5));
   return {
@@ -142,11 +177,11 @@ function lineOfPull(dot: Dot, owner: PullHolder | undefined): Line {
     bay: undefined,
     // Its branch, as the Merge line page names it; the forge's title is on its card.
     title: dot.card.branch,
-    session: false,
+    session: owner?.kind === "session",
     tone,
     reach: queue === undefined ? 3 : 4,
-    from: 3,
-    stops: [undefined, undefined, undefined, pull, queue, undefined],
+    from: past?.from ?? 3,
+    stops: [...(past?.stops ?? [undefined, undefined, undefined]), pull, queue, undefined],
     open: linkOf(dot)[0],
     wants: dot.state === "failing" ? "fixing" : undefined,
     pull: { number, said: dot.card.title === undefined ? `#${number}` : `#${number} ${dot.card.title}`, ci: dot.card.says },
@@ -275,7 +310,7 @@ export function metroOf(read: BaysRead, now: number): Metro {
       })
       .sort((a, b) => b.reach - a.reach || (a.bay ?? 0) - (b.bay ?? 0)),
     outside: sortedOutside(
-      harbour.line.filter((dot) => dot.key.startsWith("pull:") && !harbour.bays.some((bay) => bay.dot?.key === dot.key)).map((dot) => lineOfPull(dot, harbour.holders?.get(dot.key))),
+      harbour.line.filter((dot) => dot.key.startsWith("pull:") && !harbour.bays.some((bay) => bay.dot?.key === dot.key)).map((dot) => lineOfPull(dot, harbour.holders?.get(dot.key), now)),
     ),
   }));
   const free = (manifest: string | undefined) => read.harbours.find((one) => one.manifest === manifest)?.bays.find((bay) => bay.holder.kind === "free");
