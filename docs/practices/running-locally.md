@@ -406,6 +406,13 @@ network and the counts are as fresh as the last fetch. Bridge reads it on every
 connection and every minute, and every two seconds while a restart is under way.
 A `running` status older than twenty minutes is a wrapper that died and is ignored.
 
+**A Session's restart is the same button.** Bridge reads a command a Session
+hands the person, `scripts/preview --restart` or `scripts/restart --main` with
+`--adopt` at most, as this switch: ▶ on its waiting item, or on a shell block of
+it, presses the button rather than running a shell. A shell run is Fleet's
+child, so it died with the Fleet it stopped and never reopened Bridge, which was
+left on the old protocol. Seen 13 Oct 2026. `apps/desktop/src/renderer/src/build-change.ts`.
+
 **A restart past a working Drone asks first.** Bridge lists the Jobs at `running`
 in a confirm and passes `--adopt` only after the person says so; with no Drone
 working there is no confirm. The costs are `scripts/restart --adopt`'s.
