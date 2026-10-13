@@ -921,6 +921,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
+            {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             waiting={needs}
             {...(!doneShown
               ? {}

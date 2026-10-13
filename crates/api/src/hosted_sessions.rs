@@ -173,6 +173,20 @@ pub(crate) async fn close_session<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn stop_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let stopped: ipc::StopSession = match ipc::decode("a session to stop", &body) {
+        Ok(stopped) => stopped,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().stop_session(stopped).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` on `get_session`.
 #[derive(Deserialize)]
 pub(crate) struct Which {

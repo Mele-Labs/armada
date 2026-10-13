@@ -326,6 +326,7 @@ export class WiredStore {
       return { rows: rowsOfThread(id, rows, () => undefined), finished, ...(report === undefined ? {} : { report }) };
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
+    stop: (id) => void this.plain(this.api.stopSession(id)),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     openFile: (id, path) => void this.api.openSessionFile(id, path),

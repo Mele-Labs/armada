@@ -483,6 +483,7 @@ type OldBridgeApi = {
     forkSessionAt: (sessionId: string, at: string) => Promise<SessionActed>;
     retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
+    stopSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
@@ -780,6 +781,7 @@ const OLD_CHANNELS = {
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
+    stopSession: "bridge:stop-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     readSessionSubagent: "bridge:read-session-subagent",

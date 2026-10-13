@@ -319,6 +319,10 @@ export class SessionsHost {
     return await this.start({ manifest_id: manifestId, fork: at === undefined ? { session_id: sessionId } : { session_id: sessionId, at } });
   }
 
+  async stop(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/stop", { session_id: sessionId });
+  }
+
   async end(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/close", { session_id: sessionId });
   }

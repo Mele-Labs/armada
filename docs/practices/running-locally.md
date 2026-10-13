@@ -663,8 +663,8 @@ draws no pin; the panel lists it under the screen it was left on.
 
 **Debug Bridge does all of that in one press**, with the layer off: ⌘K
 `debug` ↵, or ⇧⌘D. It shoots the window once the palette has gone, keeps it as a
-whole-window note, starts a Session on Bridge's repository with the note and the
-picture as its first message, and opens it. A Fleet that refuses the Session is
+whole-window note, starts a Session on Bridge's repository and opens it with the
+note and the picture as a draft in its message box. No turn runs until you add what you know and press Enter. A Fleet that refuses the Session is
 told in a toast, and the note stays a file for `/annotations`. Like the layer it
 is dev only: a packaged app draws the row dormant.
 
