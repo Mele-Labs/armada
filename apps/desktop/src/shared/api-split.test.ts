@@ -184,8 +184,8 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
-import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { WriteClashesRead } from "./api/clashes";
@@ -517,6 +517,8 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
+    writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
@@ -832,6 +834,8 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    readPullRequestPage: "bridge:read-pull-request-page",
+    writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
     stopSessionRun: "bridge:stop-session-run",
     sessionRunMessage: "bridge:session-run-message",
