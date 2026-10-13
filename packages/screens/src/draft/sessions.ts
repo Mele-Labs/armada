@@ -354,6 +354,8 @@ export type SessionsDraft = {
   retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
   close?: (id: string) => void;
+  /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
+  stop?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**

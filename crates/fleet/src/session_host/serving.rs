@@ -12,7 +12,7 @@ use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
     RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
-    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession,
+    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, StopSession, TuneSession,
     WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
@@ -348,6 +348,36 @@ where
         }
         self.session_wound_up(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
+        self.published_hosted(&id).await
+    }
+
+    /// Ends the turn that is running: the process goes, as it does after a quiet spell, and the
+    /// next message resumes the session where it stood. The row stays live and the slot is kept.
+    async fn stop_session(&self, stopped: StopSession) -> Result<SessionRecord, Refusal> {
+        let id = stopped.session_id.as_str().to_string();
+        if self.terminal_session(&id).await?.is_some() {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                &format!("session {id} runs in a terminal, and only a hosted session's turn is stopped from here"),
+            ));
+        }
+        let (session, _) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return self.published_hosted(&id).await;
+        }
+        {
+            let runtime = self.hosts().of(&id);
+            let mut state = runtime.state();
+            if let Some(asked) = state.asked.take() {
+                self.hosts().asks().withdraw(&asked.call);
+            }
+            Self::let_go(&mut state);
+            state.turn = SessionTurn::Idle;
+            state.moving = None;
+            state.restart_after_turn = false;
+            state.reattached_busy = false;
+            state.woken_by.clear();
+        }
         self.published_hosted(&id).await
     }
 

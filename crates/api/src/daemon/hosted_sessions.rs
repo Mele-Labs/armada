@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
-    SessionRecord, SessionSubagent, SessionThread, StartSession, TuneSession,
+    SessionRecord, SessionSubagent, SessionThread, StartSession, StopSession, TuneSession,
 };
 
 use crate::daemon::Refusal;
@@ -116,6 +116,12 @@ pub trait HostedSessions: Send + Sync + 'static {
     fn close_session(
         &self,
         closed: CloseSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `stop_session`: ends the turn that is running and leaves the session live.
+    fn stop_session(
+        &self,
+        stopped: StopSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `get_session`: the row and its thread.

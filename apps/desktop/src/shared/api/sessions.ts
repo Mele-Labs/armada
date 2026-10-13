@@ -88,6 +88,8 @@ export type SessionsApi = {
   retroSession: (sessionId: string) => Promise<Outcome>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
+  /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
+  stopSession: (sessionId: string) => Promise<SessionActed>;
   /**
    * Hold a session's thread: read once, then followed by `session.row`. Held threads are kept for the
    * window's life, so reopening one draws at once.
@@ -167,6 +169,7 @@ export const SESSIONS_CHANNELS = {
   renameSession: "bridge:rename-session",
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
+  stopSession: "bridge:stop-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",

@@ -355,7 +355,7 @@ pub use hosted_sessions::{
     HeldCommand, HostedFacts, MessagesHeld, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
+    StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
