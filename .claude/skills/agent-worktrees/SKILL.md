@@ -51,6 +51,12 @@ landing on its branch. The holder is now the first process above the command
 that is not a shell, so the agent's session holds it. A lease taken by an
 older binary still has the old holder: commit before a call ends, because a
 branch with its commits is safe whoever has the slot.
+**A session Bridge hosts holds its leases by its session id, not a process**
+(`ARMADA_SESSION`, 13 Oct 2026): Fleet ends and resumes its process when it moves
+the session into a slot, and a lease held for that process read `holder is gone`,
+so another session was given a slot the first was standing in. Such a lease
+shows as `job <session id>` in `--status`, is never taken back, and is parked
+when the session closes.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A

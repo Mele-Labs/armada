@@ -117,7 +117,7 @@ where
                 if own.is_none() {
                     return self.leased(&id, &served).await;
                 }
-                let hit = written_by(&command)
+                let hit = written_by(&command, &gate.cwd)
                     .into_iter()
                     .find_map(|path| match lands(&path) {
                         Place::Main => Some(format!(

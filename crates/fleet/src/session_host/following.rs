@@ -4,7 +4,9 @@
 //! at every gate call**, the one place every tool call of a hosted session
 //! already passes, and makes the ledger agree with it.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use std::sync::Arc;
+
+use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 use ipc::SessionRow;
 use store::{AttachmentState, Holder as Keeper, KeptAttachment, KeptHosting};
@@ -87,6 +89,31 @@ where
         standing(holder.as_ref(), id, |pid| {
             started_within(&roots, pid, self.peers().as_ref())
         })
+    }
+
+    /// Park every slot an ending session holds: the one the ledger records,
+    /// and any other `armada worktree lease` took for it (a subagent's), which
+    /// the pool holds under the session's id and would otherwise hold for
+    /// good. Committed to its own branch, pushed nowhere; one the pool
+    /// refuses stays held and says why, as a Job's does.
+    pub(super) async fn park_every_slot_of(&self, id: &str, served: &Served, own: Option<u32>) {
+        let pool = crate::leasing::pool_of(served);
+        let vcs = Arc::clone(self.vcs());
+        let session = id.to_string();
+        let _ = tokio::task::spawn_blocking(move || {
+            let mut slots: Vec<u32> = own.into_iter().collect();
+            for reading in vcs.slot_pool(&pool) {
+                if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
+                    && !slots.contains(&reading.slot)
+                {
+                    slots.push(reading.slot);
+                }
+            }
+            for slot in slots {
+                let _ = vcs.park_hosted_slot(&pool, slot, &session);
+            }
+        })
+        .await;
     }
 
     /// Make the ledger's slot for `id` agree with the pool. A slot the pool no
