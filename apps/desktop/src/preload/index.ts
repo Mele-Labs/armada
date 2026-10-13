@@ -786,9 +786,17 @@ const api: BridgeApi = {
   // one — and the page below the bar holds no preload and reaches none of it.
   captureWindow: {
     read: (onChanged: (state: CaptureWindowState) => void): (() => void) => {
-      const handler = (_event: unknown, state: CaptureWindowState): void => onChanged(state);
+      // Main pushes on `did-finish-load`, which can land before this listener does, so the state is
+      // also asked for and drawn unless a push has already said something newer.
+      let pushed = false;
+      const handler = (_event: unknown, state: CaptureWindowState): void => {
+        pushed = true;
+        onChanged(state);
+      };
       ipcRenderer.on(CHANNELS.captureWindowChanged, handler);
-      void ipcRenderer.invoke(CHANNELS.captureWindowRead);
+      void ipcRenderer.invoke(CHANNELS.captureWindowRead).then((state: CaptureWindowState | null) => {
+        if (state !== null && !pushed) onChanged(state);
+      });
       return () => ipcRenderer.removeListener(CHANNELS.captureWindowChanged, handler);
     },
     arm: (on: boolean): Promise<CaptureWindowState | null> => ipcRenderer.invoke(CHANNELS.captureWindowArm, on),
@@ -802,8 +810,13 @@ const api: BridgeApi = {
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
     showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
     answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
+    pick: (at: number): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPick, at),
     panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
     openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
+    walkNext: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkNext),
+    walkBack: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkBack),
+    walkAutoplay: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkAutoplay, on),
+    walkReplay: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkReplay),
   },
   // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
   // names nothing: main answers for the panel the call came from, and refuses any other document.

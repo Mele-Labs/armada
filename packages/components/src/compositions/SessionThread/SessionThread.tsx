@@ -17,6 +17,7 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { StartedRow } from "./StartedRow";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
@@ -60,6 +61,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData
   | {
@@ -517,6 +520,7 @@ function Row({
     );
   }
   if (row.kind === "handoff") return <Handoff row={row} />;
+  if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">

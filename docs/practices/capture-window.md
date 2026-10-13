@@ -49,6 +49,16 @@ around `nodeIntegration: false`.
 > Why: the Session chose the page to show the person, and there is no Run's
 > link to resolve it against.
 
+> **Rule.** A Session may show several takes of one change in its window
+> (`variations`). The window is pinned to the origin of the take on screen, and
+> that moves only on a press of a take on the bar, which names an index: main
+> reads the address off the list the Session sent, so no address the page or the
+> bar composed is loaded. A refusal, and the count of refused frames, belong to
+> the page left and are cleared with it.
+> Why: the takes are pages the Session chose to show, as its first address is,
+> and swapping among them is no wider than showing them. Navigation by the page
+> itself stays held to the origin on screen.
+
 > **Rule.** One window per Run. Opening again raises the one that is open.
 
 > **Rule.** The Studio is the Run's own, decided when the window opens. Capture
@@ -262,7 +272,7 @@ this window, and that is another security review. `#1294`.
 > over.
 
 > **Rule.** There is no address field, no Back, no Forward and no history.
-> Reload reloads the pinned origin.
+> Reload reloads the pinned origin. A walk's Back is the walk's own, below, and not history.
 
 > **Rule.** A refusal is said on the bar, naming the address that was refused.
 
@@ -276,9 +286,19 @@ this window, and that is another security review. `#1294`.
 > its place, since the full address holds the origin the window is pinned to. The OS title
 > follows the same rule.
 
+> **Rule.** The bar says whether the page is ready: the Session mark at its
+> start and the bar's hue, and Approve reads Not ready, disabled, while the page
+> is still changing. Main reads it off the Session's record or the Job's status
+> and pushes it; nothing is asked of the page.
+> Why: the owner approving a page its Session is still editing approves a page
+> that is about to change under him.
+
 > **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
 > the act JobDetail's Approve sends; on a Session it is a message from the
-> person, `Approved: <address>`, which wakes it. Nothing closes.
+> person, `Approved: <address>`, which wakes it. Nothing closes. **Of several
+> takes** the bar draws a row of them under its own, and Approve and every note
+> name the one on screen (`Approved B, Needs you first: <address>`); approving
+> one approves it alone, and another on screen offers Approve again.
 > Why: the person walked the page and it is right, and the one who opened the
 > window is the one waiting to hear it. A Studio's window has nobody to tell.
 
@@ -343,6 +363,52 @@ review above.
 main, no address off the origin, and no Armada record named to the page. The
 selector comes from the Session, not the page, and a selector that matches
 nothing draws the card without an outline.
+
+## A walk in the page
+
+A page may be a walk: a mock played by `WalkPlayer`, with steps, a ringed target and a card. When the
+page offers a handle on `window.__armadaWalk` (`WalkHandle`, `packages/surfaces/jobs/src/fake/walk-window.tsx`),
+the bar draws the walk's controls in a row of its own, and Back, Next, Autoplay and Replay act on the
+page from there. The owner approved the mock, walk `walk-in-the-window`. This is what that adds to the
+review above, and it is a capability added to this window.
+
+| Step | Held by | What happens |
+|---|---|---|
+| The walk is found | Main, `apps/desktop/src/main/capture/walk.ts`, after `dom-ready` and `did-finish-load` | One script asks whether the handle exists, every 100 ms for five seconds, and every 250 ms while it answers |
+| The page leaves its card | Main | One call, `hostCard(true)`, once per document |
+| It moves | Main's next read | The page answers a string; main parses it, bounds it and tells the bar only of a change |
+| A press | The bar names one of five acts | `next`, `back`, `replay`, `autoplay` on, `autoplay` off, each fixed text with nothing spliced in |
+| Back | The page | It loads itself again on `?step=`, on the pinned origin, so `will-navigate` allows it. The row stays through the load |
+
+> **Rule.** Main asks and the page never tells. The channel from the page is the promise
+> `executeJavaScript` answers on, as a capture's and a question's are: no listener of Bridge's is left
+> in the page, no `subscribe`, no `console` line read, no global added, and nothing to remove after a
+> navigation.
+> Why: a callback registered on the page's handle would be a thing the page holds and can fire at any
+> time. A read main made is a thing main holds the promise of. The cost is up to 250 ms before the bar
+> moves, and main reads once more 50 ms after an act so a press is not felt as lag.
+
+> **Rule.** What the page says of its walk is bounded in main before the bar sees it. One string,
+> at most 4096 characters, of a JSON object with seven fields: a name and a caption (strings, cut to 80
+> and 240 characters and put on one line), `at` and `of` (whole numbers, `of` from 1 to 500, `at` from 1
+> to `of`) and `autoplay`, `ready` and `done` (booleans). Anything else is no walk, and a field the page
+> adds is dropped. The bar draws it as text.
+> Why: the page can answer with anything, and the bar is Bridge's own document.
+
+> **Rule.** Main may call five things on the page's walk handle, and `hostCard(true)`. The bar sends
+> an act's name, never a script, and main refuses an act where the page has no walk.
+> Why: the handle is the page's own code, so what an act does is what the page already could do to
+> itself. Nothing is run in the page that the page did not provide, and the act list is closed.
+
+> **Rule.** A page that never answers is let go of after a second, and a read that is still out is not
+> asked again.
+> Why: a page stuck in a loop must not stack a script a beat behind it, or hold the bar's row.
+
+**What it adds.** The page can tell main one bounded string about its own walk, and nothing else. Main
+can call five acts and one card toggle on the page's own handle. **What it does not add:** no
+preload on the page, no channel from the page that main did not open, no address the page can make main
+load, and no Armada record named to the page. A page that forges a walk can draw a row of controls on
+the bar and press its own Next, and can do nothing else.
 
 ## The panel beside the page
 
