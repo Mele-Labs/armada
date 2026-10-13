@@ -195,6 +195,13 @@ export type SheetProps = SheetWidth & {
   floor?: boolean;
   /** The one action a sheet's footer carries, where it carries one. */
   footer?: ReactNode;
+  /**
+   * Plates floating off the sheet's leading edge, `--space-4` from it (the gap the resize handle
+   * holds), each its own surface rather than part of the sheet. **Not drawn at `floor`**, where the
+   * sheet is flush to both edges and the caller draws them in its body. Both stay reachable, so the
+   * dialog is not modal while there are plates, as a sheet `beside` another is not. Right side only.
+   */
+  aside?: ReactNode;
   onClose?: () => void;
 };
 
@@ -223,6 +230,7 @@ export function Sheet({
   closeBinding,
   floor = false,
   footer,
+  aside,
   onClose,
 }: SheetProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -339,6 +347,7 @@ export function Sheet({
       data-beside={(floating && beside !== undefined) || undefined}
       data-through={through || undefined}
     >
+      {aside === undefined || floor || side !== "right" ? null : <div className="armada-sheet__aside">{aside}</div>}
       {resizes && side === "right" ? handle : null}
       <div
         ref={sheetRef}
@@ -351,7 +360,7 @@ export function Sheet({
         role="dialog"
         // Beside another sheet, the pair is the one modal layer: marking both
         // modal would hide each from the other.
-        aria-modal={(floating && beside !== undefined) || through ? undefined : "true"}
+        aria-modal={(floating && beside !== undefined) || through || aside !== undefined ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">
