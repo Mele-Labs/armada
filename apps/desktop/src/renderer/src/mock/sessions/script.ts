@@ -16,6 +16,8 @@ export type SessionsStore = SessionsDraft & {
   dispose: () => void;
   attach: (id: string, attachment: SessionAttachment) => void;
   drop: (id: string, itemId: string) => void;
+  /** Changes a Session as it stands, for a scenario that scripts one Session of its own. */
+  edit: (id: string, change: (one: Session) => Session) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
   pace?: Pace;
 };
@@ -737,6 +739,7 @@ export function sessionsStore(
       closeWalkWindow();
     },
     attach: (id, attachment) => addTo(id, [], [attachment]),
+    edit,
     // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
     drop: (id, itemId) =>
       edit(id, (one) => {

@@ -1,8 +1,8 @@
-//! One repository's Helm session as one quotable record. `#1367`.
+//! One repository's Helm Session as one quotable record. `#1367`.
 //!
 //! **The error treatment's debug payload, one subject over** —
 //! `docs/contracts/design-system.md`, *The debug payload*. A bad answer could
-//! only be reported by retyping the conversation, without the brief, the
+//! only be reported by retyping the conversation, without the note, the
 //! tools, the authority or the events that decided it.
 //!
 //! **Fields, not text**, for `errors/ErrorNotice/payload.ts`'s reason: one
@@ -10,8 +10,8 @@
 //! string. A Fleet that formatted the record and a Bridge that framed it would
 //! be two producers of one artifact.
 //!
-//! **Read once, never polled.** `observe_helm` streams a live conversation to
-//! the dock; this is one artifact taken at a moment.
+//! **Read once, never polled.** The Session's thread streams to the dock as `session.row`; this
+//! is one artifact taken at a moment.
 
 use serde::{Deserialize, Serialize};
 
@@ -31,10 +31,11 @@ pub struct HelmDebugInfo {
     /// The Machine setting, resolved — what this session may do, as
     /// `get_health` already answers it.
     pub authority: HelmActionAuthority,
-    /// The model each message's process is started with.
+    /// What the Session runs on: the model it was tuned to, else `default`, the agent CLI's own.
     pub model: String,
-    /// The brief as it was sent, whole. What bounds the answers.
-    pub brief: String,
+    /// The note appended to the Session's system prompt, whole, as the next process is started
+    /// with it. What a Session of Helm's is told it is. Was `brief`.
+    pub note: String,
     /// The MCP server Armada's own door is registered under, which prefixes
     /// every name in [`tools`](HelmDebugInfo::tools) inside the session.
     pub door: String,
@@ -42,14 +43,8 @@ pub struct HelmDebugInfo {
     /// orders them. **The roster is the answer to "no tool here reads X"**,
     /// which is the commonest complaint about an answer.
     pub tools: Vec<String>,
-    /// How many MCP servers the session came up with, as its own `init` line
-    /// last said. **Not Armada's count**: a conversation resolves the person's
-    /// own agent configuration (`#1373`), and this is what that resolved.
-    /// Absent where nothing has run in this conversation yet.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub servers: Option<usize>,
-    /// The agent CLI's own session id, where one is stored to resume. Absent
-    /// on a conversation that has not answered yet, or one started fresh.
+    /// The Helm Session's id, which is the agent CLI's own. Absent where the repository has none
+    /// live: before the first message, and after a person starts fresh.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
     /// The thread, oldest first, bounded — see [`cut`](HelmDebugInfo::cut).
@@ -58,8 +53,7 @@ pub struct HelmDebugInfo {
     /// the way a log tail says what it dropped: a record that is quietly short
     /// reads exactly like a session that was quiet.
     pub cut: u64,
-    /// What this session's last `get_events_since` was answered, verbatim —
-    /// a turn reads the events before it answers, so this is what it read.
+    /// What this session's last `get_events_since` was answered, verbatim.
     ///
     /// **Kept in memory as the door answers it**, so it is absent on a session
     /// that has not polled since this Fleet started rather than on one that
@@ -88,9 +82,9 @@ pub struct HelmDebugLine {
 /// What one line was.
 ///
 /// **A narrowing of the thread's own vocabulary and not a second copy of it.**
-/// `HelmMessage` carries what a live viewer draws; this carries what somebody
+/// `SessionRow` carries what a live viewer draws; this carries what somebody
 /// reading a bad answer needs — what was asked, what came back, what was
-/// called, what was refused, and what the turn cost.
+/// called, what was refused, and where words were sent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "line", rename_all = "snake_case")]
 pub enum HelmDebugSaid {
@@ -99,24 +93,12 @@ pub enum HelmDebugSaid {
     Asked { text: HelmDebugText },
     /// What Helm wrote back.
     Said { text: HelmDebugText },
-    /// A tool it called, and what it called it on. `detail` is bounded where
-    /// it is built, in `adapter_traits::CallDetail`.
+    /// A tool it called, and what it called it on, as the thread's `tool` row has it.
     Called { tool: String, detail: String },
-    /// A call the harness refused, in the harness's own wording. **What
-    /// `#1389` made visible**: a call the person's settings deny, or an ask
-    /// nobody answered, is why an answer stops where it does.
+    /// A call the Auto gate refused, or nobody answered: why an answer stops where it does.
     Refused { tool: String, because: String },
-    /// A turn's end: what it cost, how many turns it took, and how many calls
-    /// were refused across it.
-    Ended {
-        turns: u32,
-        cost_micros: u64,
-        refusals: usize,
-    },
-    /// The stored session could not be resumed, so the reply started a new one.
-    Fresh,
-    /// No reply came, and why.
-    Unanswered { why: String },
+    /// Words Helm's dock sent to a Session or a Job, and which. Never told to Helm's process.
+    Sent { text: HelmDebugText, to: String },
 }
 
 /// A piece of prose, bounded.

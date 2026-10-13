@@ -593,12 +593,12 @@ where
         }
     }
 
-    /// This repository's Helm thread, as what was said in it.
+    /// This repository's Helm thread, as what was said in it: the live Helm Session's rows.
     ///
-    /// **Fleet's own read and not a tool.** `observe_helm` refuses every agent
+    /// **Fleet's own read and not a tool.** `get_helm_session` refuses every agent
     /// — `crates/ipc/operations/` — so a scout reaching a thread through a
-    /// tool would be that door opened; the file is read here instead and its
-    /// prose handed over.
+    /// tool would be that door opened; the rows are read here instead and their
+    /// prose handed over. A repository with no live Helm Session has no thread to open.
     async fn helm_thread(
         &self,
         studio: &StudioId,
@@ -612,15 +612,13 @@ where
                 .clone()
         };
         let served = self.served_named(Some(&ManifestId::from(&manifest)))?;
-        let file =
-            crate::helm::ConversationKey::of_repository(&manifest).thread_in(served.records_root());
-        let read = tokio::fs::read_to_string(&file).await.map_err(|why| {
+        let rows = self.helm_thread_rows(served.manifest().id().as_str()).await.map_err(|why| {
             self.studio_unacceptable(
                 UNREADABLE,
                 format!("this repository's Helm thread would not open: {why}"),
             )
         })?;
-        Ok(crate::helm::what_was_said(&read))
+        Ok(crate::helm::what_was_said(&rows))
     }
 }
 

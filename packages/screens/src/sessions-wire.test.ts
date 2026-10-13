@@ -182,6 +182,24 @@ describe("the thread", () => {
     expect(JSON.stringify(drawn[0]).match(/"src"/g)).toHaveLength(1);
   });
 
+  it("draws words Helm sent on as a row of their own, with where they went and the repository's name", () => {
+    const sent: SessionRow = {
+      kind: "sent",
+      id: "7",
+      at: AT,
+      text: "wait for the merge",
+      target: { kind: "session", id: "s-9", title: "Sessions list views", manifest_id: "storefront" },
+      files: [{ id: "f9", name: "shot.png", media_type: "image/png" }],
+    };
+    const [drawn] = rowsOfThread("a", [sent], () => "blob:nine", (manifest) => (manifest === "storefront" ? "Storefront" : (manifest ?? "")));
+    expect(drawn).toMatchObject({
+      kind: "sent",
+      text: "wait for the merge",
+      target: { kind: "session", id: "s-9", repository: "Storefront" },
+      files: [{ id: "f9", name: "shot.png", src: "blob:nine" }],
+    });
+  });
+
   it("keeps a command and a compaction as the rows they are, never a message", () => {
     const drawn = rowsOfThread(
       "a",
@@ -340,6 +358,11 @@ describe("a session's trail", () => {
 });
 
 describe("a session", () => {
+  it("carries Helm's mark from the record", () => {
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { helm: true }), undefined, beside())).toMatchObject({ helm: true });
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm).toBeUndefined();
+  });
+
   it("carries its turn, ask, tuning and address", () => {
     const session = sessionOfRecord(
       record("01ABCDEFGHJKMNPQRSTVWXYZ00", {

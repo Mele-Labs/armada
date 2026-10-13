@@ -37,7 +37,6 @@ export * from "./commander-thread";
 export * from "./helm";
 export * from "./helm-calls";
 export * from "./helm-debug";
-export * from "./helm-thread";
 export * from "./thought";
 export * from "./history";
 export * from "./retro";

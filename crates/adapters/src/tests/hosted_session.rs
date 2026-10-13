@@ -111,6 +111,34 @@ fn a_session_that_is_not_a_fork_is_told_nothing() {
     assert!(!args.iter().any(|arg| arg == "--append-system-prompt"));
 }
 
+/// Helm's note is appended to every process of its Session, and a blank one is none at all.
+#[test]
+fn helms_note_is_appended_to_every_process_of_its_session() {
+    let note = "You are Helm, docked in Armada over repository armada.";
+    for resuming in [false, true] {
+        let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
+        assert_eq!(value_after(&args, "--append-system-prompt").as_deref(), Some(note), "resuming: {resuming}");
+    }
+    let blank = rendered(&launching(false, SessionMode::Auto).noting("  \n "));
+    assert!(!blank.iter().any(|arg| arg == "--append-system-prompt"));
+}
+
+/// A fork of a Session that has a note is told both, in one argument and not two, which the CLI
+/// would read as the last of them.
+#[test]
+fn a_note_and_a_forks_note_are_one_appended_prompt() {
+    let launch = launching(false, SessionMode::Auto)
+        .forking(OLD, NOTE)
+        .expect("portable")
+        .noting("You are Helm.");
+    let args = rendered(&launch);
+    assert_eq!(args.iter().filter(|arg| *arg == "--append-system-prompt").count(), 1);
+    assert_eq!(
+        value_after(&args, "--append-system-prompt").as_deref(),
+        Some(format!("You are Helm.\n\n{NOTE}").as_str())
+    );
+}
+
 #[test]
 fn a_fork_with_no_note_is_refused_before_it_starts() {
     for note in ["", "  \n"] {

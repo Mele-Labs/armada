@@ -1,10 +1,9 @@
-//! What rides with a message to Helm and what the message box runs on: attachments, tags, files,
-//! the facts `opened` carries, `facts` itself, `TuneHelm`, and the issue read. An absent field is
+//! What rides with a message to Helm: attachments and tags, and the issue read. An absent field is
 //! left out of the JSON, never written as `null`.
 
 use crate::{
-    decode, encode, AskHelm, HelmAsked, HelmBoxFacts, HelmMessage, HelmOpened, Instant, IssueRead,
-    IssueState, ManifestId, ProtocolId, SentFile, SessionTag, SessionUpload, TagKind, TuneHelm,
+    decode, encode, AskHelm, HelmAsked, Instant, IssueRead, IssueState, SentFile, SessionTag,
+    SessionUpload, TagKind,
 };
 
 fn issue_tag() -> SessionTag {
@@ -27,6 +26,8 @@ fn an_ask_with_attachments_and_mentions_round_trips() {
             data: "aGk=".to_string(),
         }],
         mentions: vec![issue_tag()],
+        model: None,
+        effort: None,
         context: None,
     };
     let json = encode(&asked).expect("plain data");
@@ -51,6 +52,8 @@ fn a_blank_text_with_an_attachment_decodes_and_a_words_only_ask_carries_neither_
         text: "hi".to_string(),
         attachments: Vec::new(),
         mentions: Vec::new(),
+        model: None,
+        effort: None,
         context: None,
     };
     assert_eq!(encode(&words).expect("plain data"), r#"{"text":"hi"}"#);
@@ -68,74 +71,18 @@ fn an_asked_row_keeps_what_it_carried_and_leaves_out_what_it_did_not() {
         }],
         tags: vec![issue_tag()],
     };
-    let json = encode(&HelmMessage::Asked(asked.clone())).expect("plain data");
+    let json = encode(&asked).expect("plain data");
     assert!(json.contains(r#""files":[{"id":"f1""#), "{json}");
-    assert_eq!(
-        decode::<HelmMessage>("a Helm message", json.as_bytes()).expect("round-trips"),
-        HelmMessage::Asked(asked)
-    );
+    assert_eq!(decode::<HelmAsked>("an asked row", json.as_bytes()).expect("round-trips"), asked);
 
-    let plain = encode(&HelmMessage::Asked(HelmAsked {
+    let plain = encode(&HelmAsked {
         ts: Instant::carried("2026-09-13T09:00:00.000Z"),
         text: "this".to_string(),
         files: Vec::new(),
         tags: Vec::new(),
-    }))
+    })
     .expect("plain data");
     assert!(!plain.contains("files") && !plain.contains("tags"), "{plain}");
-}
-
-#[test]
-fn opened_always_carries_facts_and_facts_is_its_own_message() {
-    let opened = HelmMessage::Opened(HelmOpened {
-        protocol_id: ProtocolId::current(),
-        manifest_id: ManifestId::carried("armada"),
-        replying: false,
-        skipped: 0,
-        facts: HelmBoxFacts::default(),
-    });
-    let json = encode(&opened).expect("plain data");
-    assert!(json.contains(r#""facts":{}"#), "{json}");
-    assert_eq!(
-        decode::<HelmMessage>("a Helm message", json.as_bytes()).expect("round-trips"),
-        opened
-    );
-
-    let facts = HelmMessage::Facts(HelmBoxFacts {
-        model: Some("opus".to_string()),
-        effort: None,
-        commands: vec!["/help".to_string()],
-    });
-    let json = encode(&facts).expect("plain data");
-    assert_eq!(
-        json,
-        r#"{"message":"facts","model":"opus","commands":["/help"]}"#
-    );
-    assert_eq!(
-        decode::<HelmMessage>("a Helm message", json.as_bytes()).expect("round-trips"),
-        facts
-    );
-}
-
-#[test]
-fn a_tune_leaves_out_what_it_does_not_set() {
-    let tuned = TuneHelm {
-        model: None,
-        effort: Some("high".to_string()),
-    };
-    let json = encode(&tuned).expect("plain data");
-    assert_eq!(json, r#"{"effort":"high"}"#);
-    assert_eq!(
-        decode::<TuneHelm>("a tune", br#"{}"#).expect("empty"),
-        TuneHelm {
-            model: None,
-            effort: None
-        }
-    );
-    assert_eq!(
-        decode::<TuneHelm>("a tune", json.as_bytes()).expect("round-trips"),
-        tuned
-    );
 }
 
 #[test]

@@ -315,17 +315,24 @@ fn a_commanders_launch_is_in_the_jobs_worktree_with_every_write_tool_cut() {
     }
 }
 
-/// #2166. One conversation per Job, and its key is prefixed so it can never be a
-/// repository's, whatever the repository is called.
+/// #2166. One conversation per Job, and its key is prefixed so it can never be another's, whatever
+/// the other is called. A repository's Helm used to be a conversation here too; it is a hosted
+/// Session now (`docs/concepts/helm.md`) and keeps no key in this table.
 #[test]
 fn a_jobs_conversation_can_never_be_a_repositorys() {
     let job = core_model::JobId::carried(core_model::Ulid::carried("01JOB14"));
     let of_job = fleet::helm::ConversationKey::of_job(&job);
-    for manifest in ["01JOB14", "commander:01JOB14", "commander_01JOB14"] {
-        let of_repository = fleet::helm::ConversationKey::of_repository(
-            &core_model::ManifestId::carried(core_model::Ulid::carried(manifest)),
+    assert!(of_job.as_str().starts_with("commander:"), "{}", of_job.as_str());
+    for other in ["01JOB14", "01JOB15", "commander:01JOB14"] {
+        let other = fleet::helm::ConversationKey::of_job(&core_model::JobId::carried(
+            core_model::Ulid::carried(other),
+        ));
+        assert_eq!(
+            of_job == other,
+            other.as_str() == of_job.as_str(),
+            "one key per Job: {}",
+            other.as_str()
         );
-        assert_ne!(of_job.as_str(), of_repository.as_str(), "{manifest}");
     }
 }
 

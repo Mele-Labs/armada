@@ -1,14 +1,11 @@
 // Helm's message box on a Fleet that serves it, through `App` on the `helm-rich-composer` moment: what an ask
-// carries to Fleet, what the thread's row keeps of it from the wire, and the box's model, effort and `/` list,
-// which are the conversation's facts. The look is the walk's; this holds what the walk cannot see, which is
-// what was sent and where each part of the box came from.
+// carries to Fleet, what the Helm Session's thread keeps of it from the wire, and the box's model, effort and `/`
+// list, which are a Session's. The look is the walk's; this holds what the walk cannot see, which is what was
+// sent and where each part of the box came from.
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { HelmThread } from "@armada/protocol";
-import { s211HelmRichComposer } from "./scenarios/helm-rich-composer";
-import type { Scenario } from "./scenario";
 import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -16,13 +13,6 @@ unmountAfterEach();
 const helm = () => page.getByRole("complementary", { name: "Helm" });
 const box = () => helm().getByRole("textbox", { name: "Ask Helm" });
 const picture = () => new File(["png"], "shot.png", { type: "image/png" });
-
-/** The moment with Helm's facts named: the commands its `/` lists, and the model and effort picked. */
-function withFacts(facts: Extract<HelmThread, { state: "open" }>["facts"]): Scenario {
-  const held = s211HelmRichComposer.state.helm;
-  if (held.state !== "open") throw new Error("the moment holds an open conversation");
-  return { ...s211HelmRichComposer, state: { ...s211HelmRichComposer.state, helm: { ...held, facts } } };
-}
 
 test("words, a picture, a sketch and an issue go to Helm as one ask, and the row keeps them from the wire", async () => {
   const app = mount("helm-rich-composer");
@@ -54,13 +44,12 @@ test("words, a picture, a sketch and an issue go to Helm as one ask, and the row
   // An issue goes with its kind, its number and the forge's address.
   expect(carry?.mentions).toEqual([{ kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session on reload", url: "https://forge.invalid/issues/2214" }]);
 
-  // The row is Fleet's: the picture is read back from it, the sketch is drawn as the sketch this window drew, and the tag is a link.
+  // The row is the Session's: each picture is read back from Fleet as a Session's is, and the tag is a chip in the row.
   const thumbnail = helm().getByRole("img", { name: /shot\.png/ });
   await expect.element(thumbnail).toBeVisible();
   expect((thumbnail.element() as HTMLImageElement).src.startsWith("blob:")).toBe(true);
-  await expect.element(helm().getByText("pin the clock")).toBeVisible();
-  expect(helm().getByText("pin the clock.png").query()).toBeNull();
-  await expect.element(helm().getByRole("link", { name: /#2214 Sessions list drops a quiet Session/ })).toBeVisible();
+  await expect.element(helm().getByRole("img", { name: /pin the clock\.png/ })).toBeVisible();
+  await expect.element(helm().getByText(/#2214 Sessions list drops a quiet Session/).first()).toBeVisible();
   // The box was given back empty and nothing waits in it.
   await expect.element(box()).toHaveTextContent("");
   expect(helm().getByRole("group", { name: "Attached" }).query()?.children.length ?? 0).toBe(0);
@@ -83,9 +72,17 @@ test("a picture alone goes straight to Helm, without being read as a thought", a
   await expect.element(helm().getByRole("img", { name: /shot\.png/ })).toBeVisible();
 });
 
-test("the model and effort are the conversation's: a pick is tuned there, shown from its facts, and another conversation keeps its own", async () => {
+/** Send a message to Helm so the repository has its Session, and wait for the reply to be in the thread. */
+async function startTheSession(): Promise<void> {
+  await userEvent.click(box());
+  await userEvent.keyboard("why did Job 12 fail?{Enter}");
+  await expect.element(helm().getByText(/Neither touches the Sessions page/)).toBeVisible();
+}
+
+test("before the Session exists the pick is held and goes with the first message, and afterwards it is tuned as a Session's is", async () => {
   const app = mount("helm-rich-composer");
-  const tuned = vi.spyOn(app.api, "tuneHelm");
+  const asked = vi.spyOn(app.api, "askHelm");
+  const tuned = vi.spyOn(app.api, "tuneSession");
   await openHelm();
 
   const model = () => helm().getByRole("combobox", { name: "Model" });
@@ -93,46 +90,48 @@ test("the model and effort are the conversation's: a pick is tuned there, shown 
   await expect.element(model()).toHaveValue("");
   await expect.element(effort()).toHaveValue("");
 
+  // No Session to tune yet: the pick is the box's and nothing is sent.
   await userEvent.selectOptions(model(), "opus");
-  await vi.waitFor(() => expect(tuned).toHaveBeenCalledWith("armada", "opus", null));
-  await expect.element(model()).toHaveValue("opus");
-
   await userEvent.selectOptions(effort(), "high");
-  await vi.waitFor(() => expect(tuned).toHaveBeenLastCalledWith("armada", "opus", "high"));
-  await expect.element(effort()).toHaveValue("high");
   await expect.element(model()).toHaveValue("opus");
+  await expect.element(effort()).toHaveValue("high");
+  expect(tuned).not.toHaveBeenCalled();
 
-  // Another repository's conversation holds none of it.
+  // The message that starts the Session carries it.
+  await startTheSession();
+  expect(asked.mock.calls[0]![2]).toEqual({ model: "opus", effort: "high" });
+  await expect.element(model()).toHaveValue("opus");
+  await expect.element(effort()).toHaveValue("high");
+
+  // A live Session is tuned through `tune_session`, keeping the mode it runs in.
+  await userEvent.selectOptions(effort(), "low");
+  await vi.waitFor(() => expect(tuned).toHaveBeenCalledTimes(1));
+  expect(tuned.mock.calls[0]![0]).toMatchObject({ model: "opus", effort: "low", mode: "auto" });
+  await expect.element(effort()).toHaveValue("low");
+
+  // Another repository's Helm holds none of it.
   await userEvent.click(helm().getByRole("button", { name: /^Point Helm at a different repository/ }));
   await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
   await expect.element(model()).toHaveValue("");
   await expect.element(effort()).toHaveValue("");
-  expect(tuned).toHaveBeenCalledTimes(2);
-});
-
-test("what the facts hold is what the box shows, with Auto where they name nothing", async () => {
-  mount(withFacts({ model: "sonnet", effort: "low" }));
-  await openHelm();
-
-  await expect.element(helm().getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
-  await expect.element(helm().getByRole("combobox", { name: "Effort" })).toHaveValue("low");
 });
 
 test("a pick Fleet refused is taken back, and Fleet's words are said", async () => {
   const app = mount("helm-rich-composer");
-  app.api.tuneHelm = async () => ({
+  await openHelm();
+  await startTheSession();
+  app.api.tuneSession = async () => ({
     ok: false,
     outcome: { ok: false, why: "refused", error: { code: "fleet.unacceptable_effort", message: "Effort is low, medium or high", run_id: "mock", fields: {}, chain: [] } },
   });
-  await openHelm();
 
   await userEvent.selectOptions(helm().getByRole("combobox", { name: "Effort" }), "high");
   await expect.element(page.getByText("Effort is low, medium or high").first()).toBeVisible();
   await expect.element(helm().getByRole("combobox", { name: "Effort" })).toHaveValue("");
 });
 
-test("`/` lists the names the facts hold, and not the Sessions' own", async () => {
-  mount(withFacts({ commands: ["only-helm", "also-helm"] }));
+test("`/` lists the names a Session lists, as the Sessions box does", async () => {
+  mount("helm-rich-composer");
   await openHelm();
 
   await userEvent.click(box());
@@ -140,16 +139,23 @@ test("`/` lists the names the facts hold, and not the Sessions' own", async () =
   const list = helm().getByRole("listbox", { name: "Skills and commands" });
   await expect.element(list).toBeVisible();
   const names = [...list.element().querySelectorAll('[role="option"]')].map((one) => one.textContent);
-  expect(names).toEqual(["/only-helm", "/also-helm"]);
+  expect(names).toEqual(["/review", "/simplify", "/security-review", "/init", "/compact", "/clear", "/model"]);
 });
 
-test("a conversation whose facts name no commands offers none", async () => {
-  mount(withFacts({}));
+test("Start fresh ends the Helm Session, and the next message starts a new one", async () => {
+  const app = mount("helm-rich-composer");
+  const asked = vi.spyOn(app.api, "askHelm");
+  app.api.readThought = async () => ({ ok: true, reading: { kind: "question" } });
   await openHelm();
+  await startTheSession();
+
+  await userEvent.click(helm().getByRole("button", { name: "Start fresh" }));
+  await expect.element(helm().getByText(/Neither touches the Sessions page/)).not.toBeInTheDocument();
 
   await userEvent.click(box());
-  await userEvent.keyboard("/");
-  expect(helm().getByRole("listbox", { name: "Skills and commands" }).query()).toBeNull();
+  await userEvent.keyboard("and now?{Enter}");
+  await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(2));
+  await expect.element(helm().getByText("and now?")).toBeVisible();
 });
 
 test("a thought sent on to a Session records what it went with, and the row Fleet kept draws it", async () => {

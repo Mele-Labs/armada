@@ -1,10 +1,11 @@
 //! What the wire keeps true about a thought routed: the reading is told apart by `kind`, an absent
-//! field is left out and never `null`, the thread's row is told apart by `message`, and the audit
-//! event is spelled as `operations/` declares it. `docs/concepts/helm.md`, *Routing a thought*.
+//! field is left out and never `null`, and the audit event is spelled as `operations/` declares it.
+//! The thread's row is `SessionRow::Sent`, held in `helm.rs`. `docs/concepts/helm.md`, *Routing a
+//! thought*.
 
 use crate::{
-    decode, encode, Event, HelmMessage, HelmSent, HelmThoughtRouted, Instant, ManifestId,
-    ReadThought, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
+    decode, encode, Event, HelmThoughtRouted, Instant, ManifestId, ReadThought, ThoughtKind,
+    ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
 fn a_session() -> ThoughtTarget {
@@ -70,20 +71,6 @@ fn the_words_and_where_they_went_round_trip() {
     assert_eq!(decode::<ThoughtSent>("sent", json.as_bytes()).expect("round-trips"), sent);
 }
 
-#[test]
-fn the_thread_row_is_a_sent_message_and_round_trips() {
-    let row = HelmMessage::Sent(HelmSent {
-        ts: Instant::carried("2026-10-12T09:00:00.000Z"),
-        text: "retries should back off".into(),
-        target: a_session(),
-        files: Vec::new(),
-        tags: Vec::new(),
-    });
-    let json = encode(&row).expect("plain data");
-    assert!(json.starts_with(r#"{"message":"sent","ts":"2026-10-12T09:00:00.000Z","text":"retries should back off","target":{"#), "{json}");
-    assert_eq!(decode::<HelmMessage>("a message", json.as_bytes()).expect("round-trips"), row);
-}
-
 /// The audit event carries where and never the words.
 #[test]
 fn the_audit_event_is_spelled_as_declared_and_names_no_words() {
@@ -98,27 +85,4 @@ fn the_audit_event_is_spelled_as_declared_and_names_no_words() {
     assert!(json.contains(r#""kind":"helm.thought_routed""#), "{json}");
     assert!(json.contains(r#""to":"job""#), "{json}");
     assert!(!json.contains("text"), "{json}");
-}
-
-#[test]
-fn a_sent_row_with_files_and_tags_round_trips_and_leaves_empty_ones_out() {
-    let row = HelmMessage::Sent(HelmSent {
-        ts: Instant::carried("2026-10-12T09:00:00.000Z"),
-        text: "see this".into(),
-        target: a_session(),
-        files: vec![crate::SentFile { id: "f1".into(), name: "shot.png".into(), media_type: "image/png".into() }],
-        tags: vec![crate::SessionTag { kind: crate::TagKind::Issue, id: "214".into(), title: "#214 The title".into(), job: None, url: None }],
-    });
-    let json = encode(&row).expect("plain data");
-    assert!(json.contains(r#""files":[{"id":"f1""#) && json.contains(r#""tags":[{"kind":"issue""#), "{json}");
-    assert_eq!(decode::<HelmMessage>("a message", json.as_bytes()).expect("round-trips"), row);
-    let bare = encode(&HelmMessage::Sent(HelmSent {
-        ts: Instant::carried("2026-10-12T09:00:00.000Z"),
-        text: "x".into(),
-        target: a_session(),
-        files: Vec::new(),
-        tags: Vec::new(),
-    }))
-    .expect("plain data");
-    assert!(!bare.contains("files") && !bare.contains("tags") && !bare.contains("null"), "{bare}");
 }

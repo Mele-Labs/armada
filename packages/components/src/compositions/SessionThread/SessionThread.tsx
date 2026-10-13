@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
 import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -6,9 +6,13 @@ import type { LucideIcon } from "lucide-react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProseRefs, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ApprovalCard } from "../HelmThread/ApprovalCard";
+import type { HelmApprovalCard } from "../HelmThread/ApprovalCard";
+import { SentTo } from "../HelmThread/SentTo";
+import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
@@ -47,6 +51,19 @@ export type SessionThreadRow =
       tags?: readonly ComposerTag[];
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
+  /** Words typed in Helm's box that went to a Session or a Job and never to Helm: Helm's own thread has these, a Session's does not. */
+  | {
+      id: string;
+      at: string;
+      kind: "sent";
+      text: string;
+      target: ThoughtTarget & { id: string };
+      files?: readonly { id: string; name: string; src?: string }[];
+      sketches?: readonly { id: string; title: string }[];
+      tags?: readonly ComposerTag[];
+    }
+  /** Helm's `ask_person_to_approve` call, drawn as the card that asks for the press on that Job's gate. */
+  | { id: string; at: string; kind: "approval"; card: HelmApprovalCard }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
@@ -133,6 +150,8 @@ export type SessionThreadProps = {
   onOpenSession: (sessionId: string) => void;
   /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
   onOpenWindow?: (url: string) => void;
+  /** Opens the Session or Job a row of Helm's sent words went to. Absent, that row's chip is not a press. */
+  onOpenSent?: (target: { kind: "session" | "job"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
   onOpenCheck?: (run: number) => void;
   /** Opens a retro this Session wrote, by its number, on the Retros page. Absent, the card has no link. Keep it stable: the card is memoised. */
@@ -485,6 +504,7 @@ function Row({
   onOpenWindow,
   agentName = "Agent",
   onOpenRetro,
+  onOpenSent,
   forkable,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
@@ -493,7 +513,11 @@ function Row({
   onOpenWindow?: (url: string) => void;
   agentName?: string;
   onOpenRetro?: (retro: number) => void;
+  onOpenSent?: (target: { kind: "session" | "job"; id: string }) => void;
 }) {
+  // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
+  const refs = useContext(ProseRefs);
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: tag.title.replace(/^#\d+\s*/, "") }));
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (
@@ -529,6 +553,13 @@ function Row({
           <AppWindow size={12} strokeWidth={2} aria-hidden />
           {row.title}
         </button>
+      </li>
+    );
+  }
+  if (row.kind === "approval") {
+    return (
+      <li role="region" aria-label="Approval asked for">
+        <ApprovalCard {...row.card} />
       </li>
     );
   }
@@ -575,6 +606,22 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "sent") {
+    const placed = placeTags(row.text, row.tags ?? [], openTag);
+    return (
+      <li className="armada-session-you" role="region" aria-label="Your message">
+        <div className="armada-session-you__band">
+          <span className="armada-session-you__who">You</span>
+          <span className="armada-session-you__at">{row.at}</span>
+        </div>
+        <div className="armada-session-you__body">
+          {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
+          <Sent row={row} tags={placed.loose} />
+          <SentTo target={row.target} onOpen={() => onOpenSent?.({ kind: row.target.kind, id: row.target.id })} />
+        </div>
+      </li>
+    );
+  }
   if (row.from === "session") {
     const { sender } = row;
     return (
@@ -594,7 +641,7 @@ function Row({
   if (row.from === "you") {
     const act = actOf(row.text);
     if (act !== null) return <Did act={act} at={row.at} />;
-    const placed = placeTags(row.text, row.tags ?? []);
+    const placed = placeTags(row.text, row.tags ?? [], openTag);
     return (
       <li className="armada-session-you" role="region" aria-label="Your message">
         <div className="armada-session-you__band">
@@ -617,7 +664,7 @@ function Row({
       </li>
     );
   }
-  const placed = placeTags(row.text, row.tags ?? []);
+  const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (
     <li className="armada-helm-thread__row" data-actor="helm" data-from={row.from}>
       <div className="armada-helm-thread__head">
@@ -635,7 +682,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -673,7 +720,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenRetro={onOpenRetro} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

@@ -1,7 +1,7 @@
 // Helm's members as a mock Fleet answers them: asking, reading a thought, debugging and pointing the dock.
 
 import type { FleetHandle } from "@armada/bridge-api";
-import type { HelmBoxFacts, Outcome } from "@armada/protocol";
+import type { Outcome } from "@armada/protocol";
 
 import type { HelmApi, HelmState } from "../api";
 
@@ -12,27 +12,10 @@ export type HelmFleet = FleetHandle<HelmState> & {
   refused: (route: string) => { ok: false; outcome: Outcome };
 };
 
-export function helmApi({ publish, refused, state }: HelmFleet): HelmApi {
+export function helmApi({ publish, refused }: HelmFleet): HelmApi {
   return {
     answerHelmCall: async () => OK,
     askHelm: async () => OK,
-    /**
-     * Keeps the model and effort in the conversation's facts, as Fleet's `facts` message would
-     * replace them, and leaves the command names as they were. A mock with no conversation open has
-     * nothing to keep them in.
-     */
-    tuneHelm: async (_manifestId, model, effort) => {
-      const held = state().helm;
-      const facts: HelmBoxFacts = {
-        ...(model === null ? {} : { model }),
-        ...(effort === null ? {} : { effort }),
-        ...((held.state === "open" || held.state === "failed") && held.facts.commands !== undefined ? { commands: held.facts.commands } : {}),
-      };
-      if (held.state === "open" || held.state === "failed") publish({ helm: { ...held, facts } });
-      return { ok: true, facts };
-    },
-    // No file behind a mock Fleet unless a scenario keeps one: the refusal a window with nothing connected draws.
-    readHelmFile: async () => refused("/helm/file"),
     // No session behind a mock Fleet, so the record is the refusal a window
     // with nothing connected already draws — never an invented record.
     helmDebugInfo: async () => refused("/helm/debug"),
@@ -44,17 +27,11 @@ export function helmApi({ publish, refused, state }: HelmFleet): HelmApi {
     /**
      * The dock's own switch, and *Discuss with Helm* on a card. **Which
      * repository Helm answers for is main's decision and not Fleet's**
-     * (`main/helm.ts`), so the fake takes it rather than dropping it: this was
-     * a no-op, and a mock where the one control that points Helm does nothing
-     * is a mock where nothing pointed can be reached at all.
-     *
-     * What it publishes is a conversation with nothing in it, which is what
-     * main's own socket publishes on a fresh connection whose backfill found
-     * none — never an invented exchange. A scenario that holds one answers
-     * this itself; `helm-talking` is pointed from the start and draws no
-     * switch, so nothing there passes through here.
+     * (`main/helm.ts`), so the fake takes it rather than dropping it: a mock
+     * where the one control that points Helm does nothing is a mock where
+     * nothing pointed can be reached at all. A scenario that holds a Helm
+     * Session answers this itself.
      */
-    pointHelm: async (manifestId) =>
-      publish({ helm: { state: "open", manifestId, replying: false, skipped: 0, missed: 0, items: [], facts: {} } }),
+    pointHelm: async (manifestId) => publish({ helm: { state: "pointed", manifestId } }),
   };
 }

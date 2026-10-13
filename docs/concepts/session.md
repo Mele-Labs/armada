@@ -19,7 +19,7 @@ You have five terminal sessions open across three repositories. One is in slot 3
 > **Rule.** Fleet never waits on a session and a terminal session never waits on Fleet.
 > Why: a terminal session is the person's own, and Fleet being down, slow or gone must cost it nothing. A session Fleet hosts is Fleet's to run, so its write waits on Fleet's hook, and what the CLI does with a hook Fleet does not answer was not measured.
 
-A session is not [Helm](helm.md), which is Armada's own conversation with Fleet, and not a [Drone](drone.md), which Fleet starts, places in a worktree and gates. A session started by a person was none of those, and until the ledger Fleet could not see it.
+A session is not a [Drone](drone.md), which Fleet starts, places in a worktree and gates. A session started by a person was none of those, and until the ledger Fleet could not see it. [Helm](helm.md) is one of these now: Armada's own conversation with Fleet is a hosted session per repository, marked `helm`.
 
 ## How a session gets in
 
@@ -122,9 +122,9 @@ Both reads are on the agent's door, so a session can ask who else holds the bran
 ## A session Fleet hosts
 
 A person can start a session from Bridge. Fleet runs it, keeps its thread, and
-puts it on the same ledger with `origin` `bridge`. It is not [Helm](helm.md),
-which is unchanged, and it is not a [Drone](drone.md): it is the person at work,
-in their own configuration.
+puts it on the same ledger with `origin` `bridge`. It is not a [Drone](drone.md):
+it is the person at work, in their own configuration. [Helm](helm.md) is the same
+engine with a note and a few more tools, one per repository.
 
 > **Rule.** A hosted session holds what the person's terminal holds: their
 > servers, plugins, skills and settings, with no `--strict-mcp-config` and no
@@ -152,7 +152,7 @@ in their own configuration.
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
-**One live process while it is open**, unlike Helm's one per message, because
+**One live process while it is open**, as Helm's now is (it was one per message), because
 another session's message wakes an idle one: `SendMessage` to a hosted session's
 address, `s-` and the first eight characters of its id, starts a turn in it. A
 turn that opens with no message of the person's outstanding is a wake, and the
@@ -262,7 +262,7 @@ repository is added, for any slot the pool holds under the id of a session that
 has ended.
 
 **The person sets the mode, the model and the effort** for each session. `auto`
-is the default and means what it means for Helm: everything runs except what is
+is the default and means what it meant for Helm: everything runs except what is
 destructive, pushes code to a shared space or writes off this machine, which
 Fleet puts to the person on the session's own thread. The CLI's own auto mode is
 not reachable for a spawned session, so `auto` is `default` with that door.
@@ -298,8 +298,11 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 **What a message names is one line Fleet adds for the agent** and the thread
 keeps the person's words. A thread's rows are the person's messages, the agent's,
 another session's, one line for each tool call, the lease, and each ask with
-where it stands. **An ask is the session's own**: it never appears in Helm's
-dock and `answer_helm_call` does not find it.
+where it stands. A Helm Session's thread also has the `sent` row, the person's
+words routed on to another Session or a Job, with where they went. **An ask is
+the session's own**: it never appears in the old Helm dock's holds and
+`answer_helm_call` does not find it. Helm's own questions are asks of its
+Session, answered in its thread.
 
 ### What a restart does to a session
 
@@ -454,7 +457,7 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 > **Rule.** The ledger follows the forge through its own attach.
 > Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
-**The three writes are a person's ask, `pushes to shared`.** Helm asks first, as for `merge_pull_request`, and the operations are `Helm only`. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
+**The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
 
 **A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
 

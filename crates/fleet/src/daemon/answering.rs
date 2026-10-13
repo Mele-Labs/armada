@@ -545,18 +545,6 @@ where
             .ok_or(NotACaller)
     }
 
-    /// Whether a Helm session this Fleet is hosting holds this call's
-    /// connection: [`caller_of`](Fleet::caller_of)'s port pair, matched across
-    /// every process a Helm host is running and what each started. `#941`.
-    pub(crate) fn helm_holds(&self, caller: &api::Caller) -> bool {
-        held_within(
-            caller,
-            self.host.port,
-            &self.helm.host().running(),
-            self.peers.as_ref(),
-        )
-    }
-
     /// Whether this process, one a Commander host is running, holds this call's
     /// connection. **`helm_holds`' question about one pid**, because a
     /// Commander's reach is the Job of the process that holds it. `#2166`.

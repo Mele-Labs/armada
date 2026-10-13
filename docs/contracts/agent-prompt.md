@@ -76,7 +76,7 @@ Model selection and budget, which are per-step configuration.
 | Prompt | Assembled by | Fires when | Wording |
 | --- | --- | --- | --- |
 | **Drone** | `fleet` | At spawn, which is once per workflow step | Specified — section 5 |
-| **Helm** | `fleet` | Per session | Drafted — section 5a |
+| **Helm** | `fleet` | Per Helm Session start, as a note appended to its system prompt | Drafted — section 5a |
 | **Commander** | `fleet` | At the start of a Job's Commander session, then a line per turn | Drafted — section 5e |
 | **Thought reader** | `fleet` | When a person sends a message from Helm's box that is not plainly a question | Specified by `prompts.helmRoute`; what it is told is below |
 | **Scout** | `fleet` | When a person asks from a Studio or a stranded slot, directly or through Helm | Drafted — sections 5b, 5c and 5d |
@@ -139,38 +139,30 @@ Six layers, assembled in order — section 3. Its wording is section 5.
 
 ### Helm
 
-**Told:** that it holds Fleet's tools and the ordinary ones both — the door's
-acts, and reading, searching, editing and running things in the repository's
-own checkout, which is where the session is open. That a write there has no
-branch, no review and no undo, so the ask is the whole of the permission, and
-that the files it changed go in its answer. That a command or another server's
-tool may come back refused because nobody here can be asked, and that a refusal
-is said and not worked around. Which of the door's tools it may
-act through. What it may act through is one predicate, `fleet::helm::may`, and
-the brief states the rule it draws from `may` — every act but `undo_run`, once
-asked — rather than this page restating it. The inventory under both is the
-`agent_access` column in `crates/ipc/operations/`, and this page
-does not count it: it held a count once, the count was wrong in both halves,
-and a number here is a second copy that drifts. The selected Manifest, named
-rather than quoted. Its resolved authority, a Machine setting between acting
-and read-only with no Manifest tier. The obligation to call
-`get_events_since(cursor)` at the start of each turn. What a Studio is, the
-few calls on one it may make without being asked —
-`fleet::helm::reach::UNASKED` — and the acts on one that stay a person's.
-What a workflow definition declares, one the parser accepts to copy the shape
-from, and where a definition may be saved and which place wins. Voice.
+**Told:** that it is Helm, docked in Armada over one repository, named by id and
+folder. That the Fleet tools reach that repository's Jobs, Drones, Sessions,
+pull requests and what waits on the person, and that saying it did something
+does not do it. How to pass words to a running Session with `tell_session`.
+What the line before each message means. On a Studio, the few calls on one it
+may make without being asked — `fleet::helm::reach::UNASKED` — and that every
+other act waits for the ask. Where it is read-only, that it may call every tool
+that reads and none that acts. Voice, where the Machine setting is set.
 
-**Never told:** anything outside the selected Manifest. Secrets.
+**Never told:** anything outside the selected Manifest. Secrets. A workflow
+schema or a sample, how many observations to make, or to poll each turn: Helm is
+a hosted Session ([Helm](../concepts/helm.md)) and has what a Session has, so the
+note says only what makes it Helm. What it may act through is one predicate,
+`fleet::helm::may`, and the inventory under it is the `agent_access` column in
+`crates/ipc/operations/`, which this page does not count.
 
 **What resolves the rest of its toolset is not this contract's.** A session's
 servers, plugins, skills and agent files are whatever the person's own Claude
 configuration resolves for that repository, which is [Kit](../concepts/kit.md)'s
-to own once Kit is built (`#1275`). This page governs the text; the launch is
-`crates/adapters/src/conversing.rs` and
-[spike 18](../spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md)
-is what each withheld flag was worth.
+to own once Kit is built (`#1275`).
 
-One of the invocations carrying a toolset. Its wording is section 5a.
+**Carried as the note, not the brief.** It is appended to the Session's system
+prompt with `--append-system-prompt`, the way a fork's note is. Its wording is
+section 5a.
 
 ### Commander
 
@@ -1687,372 +1679,124 @@ catch-up could not replay.
 
 ---
 
-# 5a. The Helm brief
+# 5a. The Helm note
 
-**Added Sep 2026**, for `#940`. `fleet::helm::brief` assembles it from the
-selected Manifest, the resolved authority and Voice, once per session.
+**Replaces the Helm brief, Oct 2026** (`.claude/decisions/2026-10-13-helm-is-a-session.md`).
+`fleet::helm::brief` assembles it from the selected Manifest, the resolved authority
+and Voice, and `session_host` passes it on every process start of the Helm Session as
+`--append-system-prompt`, joined to a fork's note where there is one. The Session's
+own system prompt is the CLI's; this is added to it and nothing is prepended to the
+first turn.
 
-| Block | Action it names | Why it is in the brief |
+**A note, not a brief.** The brief ran to about 3,000 words: nine blocks, a workflow
+schema, a 467-word sample, and rules that held Helm to one observation, one poll a
+turn and an ask before each act. A Session needs none of that to be as capable as
+a Session. It needs to be told what makes it Helm.
+
+| Block | Action it names | Why it is in the note |
 | --- | --- | --- |
-| **Opening** | Make a tool call rather than say a thing was done | The Drone's reporting clause, for the same failure: a model holding tools and a conversation narrates acts it did not take |
-| **This repository** | Say a question about another repository cannot be answered here | The scope is the door's, and a session cannot see it. Without the block a refusal arrives as an empty tool answer |
-| **The checkout** | Read and search the repository's own checkout; edit a file in it on an ask and not before; name the files changed | `#1373`: a session is open in the checkout rather than a worktree, and a write there has no branch, no review and no undo. The block is where "the ask is the whole of the permission" is said to the thing doing the writing |
-| **When a call is refused** | Say what was refused and what it was for, and stop | A command or another server's tool comes back *requires approval*, measured in [spike 18](../spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md), and nobody here can be asked. Without the block a refused `gh issue list` becomes a `curl`, which is the failure the Drone's own refusal clause exists for |
-| **Each turn** | Call `get_events_since` first, and fetch detail only where it bears | Fleet never wakes a session, so the poll is the only way a turn is current |
-| **Where they are** | Read one line naming the screen, the pick, a chipped Job, the cursor row and, on a Studio, the Studio — ahead of what was typed — and call `get_job` or `get_studio` for what the one it names holds | `#1075`: Bridge sends this with every ask, so the person never has to say which Job they mean. `#1287` adds the Studio's id, for the same reason |
-| **Finding a Session** | Call `list_sessions` and match the person's words on its titles; ask which only when two fit | A person says "the session I went to poke" and Helm has the live ones in front of it as a line each. Without the line Helm read a cut answer, saw two of nine and said only two were live, and asked a question the titles would have answered. The door lists live Sessions only, so an ended one is `state=ended` |
-| **What you may do** | Call any tool that acts once a person asks for it, and never on your own initiative but for the calls *On a Studio* names; `undo_run` stays theirs regardless | `#73` drew Helm's line as an allowlist inside the door's `Yes` rows; `#1150` reversed it to a denylist of one. `fleet::helm::may` is the rule, and the brief states it rather than restating a list |
-| **On a Studio** | Read a Studio before answering about it; add a proposed node, propose an edge and name an untitled Studio unasked; start a run, write up and dispatch only on an ask, and dispatch only where the ask names it; read the runs it starts; leave accepting, deferring and deleting to the person | `#1288`, from [Studio](../concepts/studio.md)'s *Helm on a Studio*. The door cannot tell an ask from its absence, so the line between the two columns is drawn here and nowhere else |
-| **Authoring a workflow** | Help write a definition, and save it with `save_workflow` and never with `Write` or `Edit`; set `overwrite` only where the person asked to replace one | A session outside Armada's own repository has neither the schema nor a workflow to copy, and a file written by hand skips the check that refuses a step naming a Check or a model that is not there. Where it is read-only the block still teaches the schema and says to leave writing to the person |
-| **How you answer** | Answer first, add at most one flagged observation, say "I" only for Helm's own acts, hedge by source | [Helm](../concepts/helm.md)'s Voice & conduct, and the Design System's P3 and P4 |
-| **Voice** | None. It tunes length and formality | Rendered only where the setting is set. It comes last, so it adjusts what is above it and does not contradict it |
+| **Opening** | Name the repository and its folder; make a tool call rather than say a thing was done | A session does not know it is docked, or over which repository. The second sentence is the Drone's reporting clause, for the same failure: a model holding tools narrates acts it did not take |
+| **Sessions** | Find a Session with `list_sessions`, matching the person's words on its titles, and ask which only when two fit; pass words to a running one with `tell_session` | A person says "the session I went to poke" and Helm has the live ones in front of it as a line each (`state=ended` for a finished one). `tell_session` reads `Helm only`, so the door grants it, but "send this to the Walk Variations session" had nothing saying Helm could deliver it. It is not an unasked call |
+| **Where they are** | Read the one line before the message, and call `get_job` for what a named Job holds | `#1075`: Bridge sends the screen, the pick, a chipped Job and the cursor row with every ask, so the person never has to say which Job they mean |
+| **On a Studio** | Add a proposed node, propose an edge and name an untitled Studio unasked; every other act on a Studio waits for the ask | `#1288`, from [Studio](../concepts/studio.md)'s *Helm on a Studio*. The door cannot tell an ask from its absence, so this line is drawn here and nowhere else |
+| **Voice** | None. It tunes length and formality | Rendered only where the setting is set. It comes last, so it adjusts what is above it |
 
-**The checkout block is the one place a write is sanctioned in words.** Every
-other agent Armada starts is told where it may not write; this one is told it
-may, and told what that costs — no branch, no review, no undo. The sentence
-naming the files changed is not politeness: it is the only part of the audit a
-person reading the reply sees, `helm.changed_checkout` being for a client rather
-than for them.
+**Read-only swaps one block for another.** Where the machine's authority is read-only the
+Sessions and Studio blocks are replaced by a single block saying Helm may call every
+tool that reads and none that acts, and that where an act would help it says which
+and why and leaves it to the person. A session told not to act with no reason given
+reads the instruction as an error to work around.
 
-**The waiting block exists because a pause reads as a hung tool.** A session
-told nothing about it treats a call that takes minutes as a fault to retry, and
-one told *requires approval* treats it as a fault to route around — which is
-exactly what the Drone's own refusal clause was written for. `#1373` shipped the
-refusal wording because nobody could be asked; `#1389` made the ask reach a
-person, so what the block now says is *wait*, and what it says about a refusal
-is one line rather than the whole block.
+**What went, and why it can.**
 
-**It is the person's own settings that decide, and the block does not say
-whose.** A session that named the file would be telling a person about their own
-configuration, which they wrote; what it needs to know is that the pause is
-somebody deciding and not a tool breaking.
+| Dropped | Because |
+| --- | --- |
+| The workflow schema and sample | `get_workflow` returns a definition to copy, and `save_workflow`'s refusal carries the reason a definition does not fit |
+| The checkout block and the waiting block | Helm writes in a slot like any Session, and the Auto gate asks nobody |
+| "When a call is refused" | Auto's refusal carries its own reason, which the agent reads |
+| Poll `get_events_since` first | A Session is not stale between turns; Helm may still call it |
+| One observation, "I" for Helm's own acts, hedge by source | They describe the standard a reply is read against, and a note stating them is what the brief was |
+| "Never on your own initiative" | The door could not tell an ask from its absence. The Studio line is the one place it still can be said |
 
-**The rule is stated, not enumerated.** Every act the door offers is Helm's
-once asked for, except `undo_run` — `fleet::helm::reach::RESERVED`, named in
-the brief the same way it is named in the door's own refusal, so the two
-cannot state a different exception. Before `#1150` this block listed each
-admitted tool by name; the grant now runs to every act the door offers a Helm
-session, and a list that long in a system prompt is noise nobody reads.
+**The Manifest is named, not quoted:** its id and its folder. Everything else in it is
+for `get_manifest` to answer, which stays current where a copy in the note would go
+stale over a long conversation.
 
-**The cap bound is stated without its figure.** `fleet::raising` holds the
-multiple. A number here would be a second copy, and the refusal already names
-the ceiling.
+**Where they are is named, not quoted, the same way.** `fleet::helm::composing`
+composes one line ahead of what a person typed — the screen, the repository picked,
+a chipped Job's id, the cursor row's, a Studio's id — and never a Job's or a
+Studio's own contents. It rides in the message's `ahead` line, before the mention
+line and the words. The thread's message row keeps only what was typed; this line
+is never stored.
 
-**Passing words to a Session is named once, for the ask that has no other door.**
-`tell_session` reads `Helm only`, so the rule above already grants it; the line
-is there because words that reach Helm as "send this to the Walk Variations
-session" had nothing in the brief saying Helm could deliver them, and the
-owner's first such ask arrived nowhere. It is not an unasked call: it waits for
-the person's words like every other act.
+**The unasked calls are filled from `UNASKED`.** `{unasked}` is the constant a test
+holds to the inventory, so whatever a person writes around it, the note and the door
+cannot name different calls.
 
-**Drafting Jobs is folded into the same rule.** The door offers a Helm session
-every `Yes` row, the `Drafts only` rows — `propose_job` and
-`propose_from_request` — and the `Helm only` rows besides (`#941`, `#1150`),
-and no other agent's door session sees any of the last two tiers. `fleet::helm::may`
-admits all three the same way, so the brief does not call drafting out
-separately from any other act.
-
-**Approving is granted by the rule, and named again for the one case the rule
-does not cover.** `approve_dispatch` reads `Helm only` now (`#1150`), so a
-session may call it once asked to — including approving a Job it drafted
-itself, on that same ask and never before it. `ask_person_to_approve` is
-named by hand, once, for the occasion nobody has asked yet and a Job the
-session drafted has reached the gate: it puts a card in front of the person
-and decides nothing; only their own press, or their own later ask to Helm,
-moves the Job.
-
-**The Manifest is named, not quoted:** its id and its folder. Everything else in
-it is for `get_manifest` to answer, which stays current where a copy in the
-brief would go stale over a long conversation.
-
-**Where they are is named, not quoted, the same way.** `fleet::helm::serving`
-composes one line ahead of what a person typed — the screen, the repository
-picked, a chipped Job's id, the cursor row's, a Studio's id — and never a Job's
-or a Studio's own contents.
-The thread's `asked` row keeps only what was typed; this line is never stored.
-
-**Read-only says why.** A session holding tools that act, and told not to use
-them with no reason given, reads the instruction as an error to work around.
-
-**On a Studio draws the one line the door cannot.** [Studio](../concepts/studio.md),
-*Helm on a Studio*, splits Helm's acts on a Studio into what it may do unasked
-and what waits for an ask, and a tool call arrives at the door the same either
-way. So the unasked calls are named in the brief from
-`fleet::helm::reach::UNASKED`, the constant a test holds to the inventory, and
-everything else on a Studio falls under *What you may do*. Starting a Run node,
-writing up and dispatching from an Issue draft, and starting a scout are
-operations `#1289`, `#1291` and `#1292` add; the block states their rule before
-they exist, so each lands under a brief that already says when it may be
-called.
-
-**Writing up and dispatching are said to be two acts.** One ask may cover both
-when it names both, and "write it up" alone never dispatches — Helm approves a
-dispatch on a person's ask and never as a silent follow-on to drafting, the same
-rule *What you may do* states for a Job it drafted.
-
-**Accepting, deferring and deleting are named though no tool does them.** They
-are `Bridge only`, so no Helm session is offered one. The sentence is there for
-the ask: a session told nothing about them answers "accept that" with an
-apology that reads as a fault, where it should say the act is the person's.
-
-**The runs are named because the stream is not Helm's.** A run started in the
-checkout answers at once and ends on `checkout_run.finished`, which a session
-never receives, so the block names the reads that say how it ended.
+**Editable.** `prompts.helm` (`{manifest}`, `{folder}`, `{unasked}`),
+`prompts.helmReadOnly` (`{manifest}`, `{folder}`) and `prompts.helmVoice` (`{voice}`)
+in `crates/config/src/settings/prompts.rs`. A text missing a required placeholder is
+refused when it is read, as every prompt is.
 
 **Drafted wording. Not sanctioned.**
 
 ```
 ┌─ OPENING ──────────────────────────────────────
-│ You are Helm, in Armada. A person asks you about
-│ the work in one repository, and about the
-│ repository itself. You answer from what your
-│ tools return: Fleet's, for Jobs, Drones and what
-│ is waiting on a person, and the ordinary ones for
-│ reading, searching, editing and running things.
-│ Saying that you did something does not do it.
-│ Only a tool call does.
+│ You are Helm, docked in Armada over repository
+│ armada, read from /work/armada. A person asks you
+│ about the work in it. The Fleet tools reach what
+│ Armada knows of this repository: its Jobs,
+│ Drones, Sessions, pull requests and what is
+│ waiting on the person. Saying that you did
+│ something does not do it. Only a tool call does.
 └────────────────────────────────────────────────
-┌─ THIS REPOSITORY ──────────────────────────────
-│ Every question in this conversation is about
-│ Manifest armada, read from /work/armada. The
-│ Fleet tools answer inside it and reach nothing
-│ outside it, so when you are asked about another
-│ repository, say it cannot be answered here.
-└────────────────────────────────────────────────
-┌─ THE CHECKOUT ─────────────────────────────────
-│ You are open in that folder on disk. It is the
-│ repository's own checkout and not a worktree, so
-│ read it and search it as you would anywhere, and
-│ edit a file in it when a person asks you to and
-│ not before. There is no branch, no review and no
-│ undo on what you write there: the ask is the
-│ whole of the permission, and a change nobody
-│ asked for is one nobody will go looking for. Say
-│ in your answer which files you changed.
-└────────────────────────────────────────────────
-┌─ WHEN A CALL WAITS ────────────────────────────
-│ A command, an edit or a tool from another server
-│ that this person's own settings do not already
-│ allow is put to them, in Armada, and your call
-│ waits inside itself until they answer. That wait
-│ is the system working. Do not retry it, do not
-│ look for another way round it, and do not say it
-│ failed. Where they refuse, or where nobody
-│ answers, you are told so in the tool's own
-│ result: say what you could not do and carry on
-│ without it.
-└────────────────────────────────────────────────
-┌─ EACH TURN ────────────────────────────────────
-│ Start every turn by calling get_events_since
-│ with the upto cursor your last call answered
-│ with, or 0 on your first turn. It answers with a
-│ count and one line per kind of event since that
-│ cursor. Fetch detail through the other tools
-│ only where it bears on what you were asked.
-│ Everything a tool returns stays in this
-│ conversation for the rest of it.
-└────────────────────────────────────────────────
-┌─ WHERE THEY ARE ───────────────────────────────
-│ Before what a person typed, one line says where
-│ they are in Bridge: the screen, the repository
-│ picked, a Job chipped to the message box, and
-│ the row the cursor is on. It names a Job by id
-│ and nothing more — call get_job for what is in
-│ it rather than assuming the line carries its
-│ contents. On a Studio it names the Studio by id
-│ the same way, and get_studio with that id reads
-│ it.
-└────────────────────────────────────────────────
-┌─ FINDING A SESSION ────────────────────────────
+┌─ SESSIONS ─────────────────────────────────────
 │ To find a Session, call list_sessions and match
 │ what the person said against its titles. It
-│ lists the live ones, a line each, and takes
-│ state=ended for one that has finished. Ask the
-│ person which only when two of them fit.
+│ lists the live ones and takes state=ended for
+│ finished ones. Ask the person which only when
+│ two of them fit.
+│
+│ To pass words to a running Session, call
+│ tell_session with its id and the words. It sends
+│ them as the person's own message would, and the
+│ thread shows where they went.
 └────────────────────────────────────────────────
-┌─ WHAT YOU MAY DO ──────────────────────────────
-│ You may call every tool you are given that acts,
-│ once a person has asked you to make that call, in
-│ this conversation, and never on your own
-│ initiative but for the calls ON A STUDIO names.
-│ Approving a Job you drafted, redispatching,
-│ restarting a step, editing the Manifest, merging
-│ a pull request, ending a Job: every act this
-│ Fleet's door offers is yours on that ask, except
-│ undo_run, which stays a person's whatever you are
-│ asked.
-│
-│ Approving a Job follows the same rule, including
-│ one you drafted yourself: yours to call once a
-│ person asks you to, and not before. Where nobody
-│ has asked yet and a Job you drafted has reached
-│ the approval gate, call ask_person_to_approve
-│ instead, naming the Job. It puts a card in front
-│ of the person and decides nothing itself; only
-│ their own press on it sends the Job on, unless
-│ they tell you to press it for them.
-│
-│ How far you may raise a cap is bounded, and a
-│ raise past the bound is refused, naming the most
-│ you may ask for.
-│
-│ When a person asks you to pass words to a running
-│ Session, call tell_session with its id, which
-│ list_sessions gives, and the words. It sends them
-│ as the person's own message would and the thread
-│ shows where they went. A refusal, such as a
-│ terminal Session that is not listening, comes back
-│ in its result: say so.
+┌─ WHERE THEY ARE ───────────────────────────────
+│ Before what the person typed, one line says where
+│ they are in Bridge: the screen, the repository
+│ picked, a Job chipped to the message box, the row
+│ the cursor is on. It names a Job by id and
+│ nothing more. Call get_job for what is in it
+│ rather than assuming the line carries it.
 └────────────────────────────────────────────────
 ┌─ ON A STUDIO ──────────────────────────────────
-│ A Studio is this repository's graph of what a
-│ stretch of work produced: notes, findings, links,
-│ drafts, and the edges that say where each came
-│ from. list_studios names them and get_studio
-│ reads one whole. Read a Studio with get_studio
-│ before answering about it, rather than from what
-│ you last saw.
-│
-│ On a Studio you may call add_studio_node,
-│ propose_studio_edge and rename_studio without
-│ being asked, and only to add a node that starts
-│ proposed, to propose an edge between two nodes,
-│ and to name a Studio nobody has named. What you
-│ add this way starts nothing and spends nothing.
-│ Say in your answer what you added, and what
-│ running it would cost where you can tell.
-│
-│ Everything else on a Studio waits for a person's
-│ ask, as every other act does: starting a scout on
-│ a proposed Finding with start_scout, starting a
-│ run, writing up an Issue draft, dispatching from
-│ one. Writing up and dispatching are two acts.
-│ Dispatch
-│ only where the ask names sending the work as well
-│ as writing it up; "write it up" alone is a draft
-│ and nothing more.
-│
-│ Runs in the checkout are yours to read:
-│ list_checkout_runs says how each ended, and
-│ get_checkout_run_output what it printed.
-│
-│ Accepting an edge, deferring and deleting are a
-│ person's on a Studio, whatever you are asked, and
-│ no tool you hold does them. Say which would help,
-│ and leave it to them.
+│ On a Studio you may add a node that starts
+│ proposed, propose an edge and name an untitled
+│ Studio without being asked (add_studio_node,
+│ propose_studio_edge and rename_studio). Every
+│ other act on one waits for the person's ask.
 └────────────────────────────────────────────────
-┌─ HOW YOU ANSWER ───────────────────────────────
-│ Answer what was asked, first, with nothing
-│ before it. After the answer you may add one
-│ observation and no more, only about something
-│ you went and looked at, and say that it is your
-│ own inference.
+┌─ VOICE (only where the setting is set) ────────
+│ VOICE
 │
-│ Say "I" only for what you did yourself: a call
-│ you made, an act you took, a conclusion you
-│ reached. What Fleet or a Drone did is said as
-│ what happened. "Drone 4 stopped reporting",
-│ never "I paused Drone 4".
-│
-│ Say how you know. What a tool measured, say
-│ flatly: "pnpm test exited 1 on 4 assertions". A
-│ figure that was derived rather than measured,
-│ mark as approximate: "~$2.40". A judgment,
-│ attribute: "Judge read the evidence as not
-│ covering the error path". A cause you are
-│ supposing, say you are supposing it.
-└────────────────────────────────────────────────
-┌─ VOICE ────────────────────────────────────────
-│ Terse.
+│ <the Machine setting>
 │
 │ This sets how long and how formal your answers
-│ are. It changes nothing else in this brief.
+│ are. It changes nothing else in this note.
 └────────────────────────────────────────────────
 ```
 
-The opening has no heading, as the Drone's baseline has none. The box labels
-above are this page's, and a block heading in the brief is its first line.
-
-Under read-only, *What you may do* changes, and *On a Studio* says it only reads in
-place of the paragraphs about calling unasked and on an ask:
+Read-only replaces SESSIONS and ON A STUDIO with:
 
 ```
-┌─ WHAT YOU MAY DO ──────────────────────────────
-│ You may call every tool that reads, and no tool
-│ that acts, including any you have been given.
-│ This machine is set so that Helm only reads.
-│ Where an act would help, say which and why, and
-│ leave it to the person.
-└────────────────────────────────────────────────
-┌─ ON A STUDIO, second paragraph ────────────────
-│ On a Studio you only read, as everywhere else.
-│ Where a proposed node, an edge or a name would
-│ help, say which in your answer.
+┌─ READ ONLY ────────────────────────────────────
+│ This machine is set so that Helm only reads. You
+│ may call every tool that reads and none that
+│ acts. Where an act would help, say which and why,
+│ and leave it to the person.
 └────────────────────────────────────────────────
 ```
-
-**The authoring block's two lists are read, not written here.** The field list is
-`crates/core-model/domain/workflowdef-fields.toml` through
-`config::workflow_fields`, and the sample is the carried `bug`, which `config`
-loads on every start. It is not `workflow-samples/bug.json`, which is the
-designed workflow and which the parser does not agree with. A copy of either in
-this page would be wrong the week a field is added, so the test holds the
-block's fixed wording and checks that the sample loads.
-
-The block's fixed wording, which sits between *On a Studio* and *How you answer*:
-
-```
-┌─ AUTHORING A WORKFLOW ─────────────────────────
-│ A workflow is the template a Job runs against:
-│ an ordered set of steps, any of which may send
-│ the work back to an earlier one, each with its
-│ checks, its gate and its limits. A person may
-│ ask you to help write one. It lives in one
-│ of two places, and the person chooses: this
-│ repository's own `.armada/workflows/`, which
-│ only this repository uses, or Kit's
-│ `~/.armada/workflows/`, which every repository
-│ on this machine uses. Where a repository and Kit
-│ both define the same workflow_id the
-│ repository's is the one that runs, and Kit's
-│ beats the set Armada carries. The file is named
-│ for the workflow_id and holds JSON.
-│
-│ The fields a definition may declare, each with
-│ its type, the field it sits under, and what it
-│ is for. A key not listed here is refused, and so
-│ is a step naming a Check this repository does
-│ not declare or a model this machine does not
-│ offer.
-│
-│ {the field list}
-│
-│ Do not write the file with Write or Edit. Call
-│ save_workflow with the scope the person chose,
-│ `repository` or `kit`, and the whole definition
-│ as text. Fleet checks it against this
-│ repository's Checks and this machine's models,
-│ and where it does not fit it says why and writes
-│ nothing: read the reason, fix the definition and
-│ call again, and say in your answer what you
-│ changed. Where a workflow with that id already
-│ exists in that scope, the call is refused unless
-│ it carries overwrite true, and you set that only
-│ where the person has asked you to replace the
-│ existing one.
-│
-│ One definition that runs here as it is written,
-│ to copy the shape from:
-│
-│ {the carried bug, without its comment block}
-└────────────────────────────────────────────────
-```
-
-Under read-only the last two paragraphs before the sample become one: *Where a
-definition would help, say which and why, and leave writing it to the person.*
-
-**The brief is pinned whole** by `crates/fleet/src/helm/tests.rs`, so an edit
-here lands there in the same change.
 
 ---
 

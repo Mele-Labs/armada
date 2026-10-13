@@ -8,8 +8,6 @@
 //! and was kept as the owner's.
 
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::future::Future;
 use std::sync::Arc;
 
 use axum::body::Body;
@@ -23,7 +21,7 @@ use testkit::FakeWorkProduct;
 use tower::ServiceExt;
 
 use crate::daemon::Fleet;
-use crate::helm::{Carry, Carrying, Heard, Hosting};
+use crate::tests::helm_session::with_helm_running;
 use crate::tests::daemon::{a_proposal, fittings};
 use crate::tests::peer::Placing;
 use crate::tests::tmp::TempDir;
@@ -31,31 +29,15 @@ use crate::tests::tmp::TempDir;
 const SESSION: u32 = 4242;
 const RELAY: u16 = 52000;
 
-struct Running;
-
-impl Hosting for Running {
-    fn carry<'a>(&'a self, _carry: Carry, _heard: &'a dyn Heard) -> Carrying<'a> {
-        Box::pin(std::future::pending()) as Pin<Box<dyn Future<Output = _> + Send>>
-    }
-
-    fn model(&self) -> String {
-        String::from("a-model")
-    }
-
-    fn running(&self) -> Vec<u32> {
-        vec![SESSION]
-    }
-}
-
 type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
-fn served(home: &TempDir) -> (Arc<Fixture>, Router) {
+async fn served(home: &TempDir) -> (Arc<Fixture>, Router) {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     let peers = Placing::nothing();
     peers.holding(SESSION + 1, RELAY, fittings.host.port);
     peers.started(SESSION, SESSION + 1);
     fittings.peers = peers;
-    let fleet = Arc::new(Fleet::assembled(fittings).hosting_helm_on(Arc::new(Running)));
+    let fleet = with_helm_running(Fleet::assembled(fittings), SESSION).await;
     let events = fleet.events();
     let app = api::router(api::Served::sharing(
         Arc::clone(&fleet),
@@ -110,7 +92,7 @@ async fn from_helm(app: &Router, tool: &str, arguments: &str) -> String {
 #[tokio::test]
 async fn a_task_a_helm_session_adds_is_signed_as_helms() {
     let home = TempDir::new();
-    let (fleet, app) = served(&home);
+    let (fleet, app) = served(&home).await;
     let job = a_plan_of_two(&fleet).await;
     let mut watching = fleet.events().subscribe();
 
@@ -158,7 +140,7 @@ async fn a_task_a_helm_session_adds_is_signed_as_helms() {
 #[tokio::test]
 async fn a_task_a_helm_session_drops_is_signed_as_helms() {
     let home = TempDir::new();
-    let (fleet, app) = served(&home);
+    let (fleet, app) = served(&home).await;
     let job = a_plan_of_two(&fleet).await;
 
     let answered = from_helm(

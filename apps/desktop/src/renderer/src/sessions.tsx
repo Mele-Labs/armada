@@ -429,6 +429,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
       ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
       ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
+      ...(session.helm === true ? { helm: true } : {}),
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
@@ -450,9 +451,9 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
-type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
+export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
 
-const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
+export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
   open === undefined
     ? undefined
     : session.attachments.find((one) =>
@@ -461,7 +462,7 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
 
-function ReadingSheet({
+export function ReadingSheet({
   sessionId,
   readSubagent,
   one,
@@ -608,7 +609,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
 
-function entriesOf(
+export function entriesOf(
   session: Session,
   goes: LedgerGoes,
   read: (one: Reading) => void,
@@ -1174,7 +1175,8 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
 /** The rail surface: the list, or the Session open on it. */
 /** Sessions in the order the list draws them: under each heading in turn. */
 export function listed(sessions: readonly Session[]): string[] {
-  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true).map((one) => one.id));
+  // Helm's Session opens the dock and no page, so j and k pass it by.
+  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true && one.helm !== true).map((one) => one.id));
 }
 
 /** Whether a key press belongs to a field, which j and k must leave alone. */

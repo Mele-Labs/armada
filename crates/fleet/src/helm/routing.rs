@@ -7,9 +7,9 @@
 //! answer that is not the JSON asked for is a question. **Whatever goes wrong the words go to
 //! Helm**, the one place they cannot be lost.
 //!
-//! Bridge delivers with the acts that already exist and then says so (`thought_sent`), which is
-//! when the thread gets its row. Helm delivers to a Session itself (`session_told`), when the
-//! words reach it as a request, and keeps the same row.
+//! Bridge delivers with the acts that already exist and then says so (`thought_sent`, in
+//! `session.rs`), which is when the Helm Session's thread gets its row. Helm delivers to a Session
+//! itself (`session_told`), when the words reach it as a request, and keeps the same row.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,13 +18,11 @@ use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal, Sessions};
 use config::settings::PROMPT_HELM_ROUTE;
 use ipc::{
-    HelmConversation, HelmMessage, HelmSent, HelmThoughtRouted, Instant, ManifestId, ReadThought,
-    SendSessionMessage, SessionRecord, SessionState, TellSession, ThoughtKind, ThoughtReading,
-    ThoughtSent, ThoughtTarget,
+    ManifestId, ReadThought, SendSessionMessage, SessionRecord, SessionState, TellSession,
+    ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 use serde::{Deserialize, Serialize};
 
-use super::serving::on_the_wire;
 use crate::autopilot::Asking;
 use crate::daemon::Fleet;
 use crate::judging::{said, JudgeBudget};
@@ -141,7 +139,8 @@ impl Candidate {
     /// anything, and one with no title cannot be named to a person.
     pub(crate) fn session(record: &SessionRecord) -> Option<Candidate> {
         let title = record.title.as_deref().filter(|title| !title.trim().is_empty())?;
-        if record.state != SessionState::Live {
+        // Helm's own Session is where a question goes, never a thought for running work.
+        if record.state != SessionState::Live || record.helm {
             return None;
         }
         let mut ledger = Vec::new();
@@ -349,9 +348,9 @@ where
         tell: TellSession,
         manifest_id: Option<ManifestId>,
     ) -> Result<ThoughtTarget, Refusal> {
-        // The thread that keeps the row is looked up first, so words are not delivered to a
-        // Session and then left unrecorded for want of a conversation to keep them in.
-        self.helm_of(manifest_id.as_ref())?;
+        // The repository whose Helm Session keeps the row is looked up first, so words are not
+        // delivered to a Session and then left unrecorded for want of one to keep them in.
+        self.served_named(manifest_id.as_ref())?;
         let text = tell.text.clone();
         let record = Arc::clone(&self)
             .send_session_message(SendSessionMessage {
@@ -373,50 +372,5 @@ where
         )
         .await?;
         Ok(target)
-    }
-
-    /// `record_thought_sent`: the row in the thread, and the audit event. **Never told to Helm's
-    /// session**: the thread is Fleet's record, and the session hears only what is asked of it.
-    pub(crate) async fn thought_sent(
-        &self,
-        sent: ThoughtSent,
-        manifest_id: Option<ManifestId>,
-    ) -> Result<HelmConversation, Refusal> {
-        let (served, key) = self.helm_of(manifest_id.as_ref())?;
-        let conversation = self.helm().open(&key, served.records_root());
-        // Kept as an ask's are, so a refused upload leaves no row.
-        let kept = self.keep_uploads(
-            &key.uploads_in(&self.host().attachments_dir),
-            key.as_str(),
-            &sent.attachments,
-        )?;
-        let at = Instant::from(&self.now());
-        let (to, id) = (sent.target.kind, sent.target.id.clone());
-        conversation.thread.say(HelmMessage::Sent(HelmSent {
-            ts: at.clone(),
-            text: sent.text,
-            target: sent.target,
-            files: kept.files,
-            tags: sent.mentions,
-        }));
-        self.events()
-            .publish(ipc::Event::HelmThoughtRouted(HelmThoughtRouted {
-                manifest_id: on_the_wire(&served),
-                to,
-                id,
-                at,
-            }));
-        let resumes = self
-            .store()
-            .lock()
-            .await
-            .helm_session(key.as_str())
-            .map_err(|why| self.helm_fault(why))?
-            .is_some();
-        Ok(HelmConversation {
-            manifest_id: on_the_wire(&served),
-            replying: conversation.replying(),
-            resumes,
-        })
     }
 }

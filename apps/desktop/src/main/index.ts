@@ -942,23 +942,11 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.watchOverview, (event, want: unknown) =>
     connection?.overviewFor(windowIdOf(event)).watch(want === true),
   );
-  // Helm's conversation: say something, forget it, and point it without moving the rail's own
-  // pick. Fleet-wide, unlike the window's own reads above: one conversation per repository,
+  // Helm's conversation: say something, end its Session, and point it without moving the rail's own
+  // pick. Fleet-wide, unlike the window's own reads above: one Helm Session per repository,
   // whichever window's dock is open on it.
   ipcMain.handle(CHANNELS.askHelm, (_event, text: string, context?: HelmContext, carry?: HelmCarry) =>
     connection?.askHelm(text, context, carry),
-  );
-  ipcMain.handle(CHANNELS.tuneHelm, (_event, manifestId: unknown, model: unknown, effort: unknown) =>
-    connection?.tuneHelm(
-      typeof manifestId === "string" && manifestId !== "" ? manifestId : undefined,
-      typeof model === "string" ? model : null,
-      typeof effort === "string" ? effort : null,
-    ),
-  );
-  ipcMain.handle(CHANNELS.readHelmFile, (_event, manifestId: unknown, file: unknown) =>
-    typeof manifestId === "string" && manifestId !== "" && typeof file === "string" && file !== ""
-      ? connection?.readHelmFile(manifestId, file)
-      : { ok: false, outcome: { ok: false, why: "not_connected" } },
   );
   ipcMain.handle(CHANNELS.helmDebugInfo, () => connection?.helmDebugInfo());
   ipcMain.handle(CHANNELS.readThought, (_event, text: string) => connection?.readThought(text));
