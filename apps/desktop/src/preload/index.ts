@@ -709,6 +709,15 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.openSessionWindow, sessionId, url),
+  getSessionWindows: (): Promise<readonly string[]> => ipcRenderer.invoke(CHANNELS.getSessionWindows),
+  onSessionWindows: (onChanged: (addresses: readonly string[]) => void): (() => void) => {
+    const handler = (_event: unknown, addresses: unknown): void =>
+      onChanged(Array.isArray(addresses) ? addresses.filter((one): one is string => typeof one === "string") : []);
+    ipcRenderer.on(CHANNELS.sessionWindowsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionWindowsChanged, handler);
+    };
+  },
   readSessionArtifact: (sessionId: string, path: string): Promise<ArtifactRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionArtifact, sessionId, path),
   showSessionPage: (sessionId: string, address: string, bounds: PageBounds): Promise<Followed> =>

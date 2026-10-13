@@ -288,3 +288,24 @@ async fn a_machine_that_will_not_answer_holds_nothing_back() {
 
     assert_eq!(capacity(&fleet).await, (2, 0, None));
 }
+
+/// Doctor's grid parses "<n> KiB free on the volume", so the figure has to be
+/// kibibytes: it once printed the byte count under that unit.
+#[tokio::test]
+async fn system_stats_print_the_free_disk_in_kibibytes() {
+    let home = TempDir::new();
+    let fleet = a_fleet_of(1, &home, plenty());
+
+    let health = fleet.get_health().await.expect("Fleet reads its own health");
+    let stats = health
+        .probes
+        .iter()
+        .find(|one| one.module == "System stats")
+        .expect("a machine that answers has a row");
+
+    assert!(
+        stats.detail.contains("524288000 KiB free on the volume"),
+        "500 GiB is 524288000 KiB: {}",
+        stats.detail
+    );
+}

@@ -728,6 +728,8 @@ export type JobDelivery = {
   pull_request_comments?: number;
   /** When the pull request merged, as the forge said. Since 23.13. */
   merged_at?: string;
+  /** When Fleet opened the pull request, kept after it settles. Absent for one opened before it was kept, or by a person. */
+  pull_request_opened_at?: string;
 };
 
 /**

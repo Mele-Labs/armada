@@ -161,6 +161,19 @@ export type HubPullRequest = {
   job?: HubJob;
   /** Where the merge queue holds it, and `waiting_for_ci` where auto-merge waits on its checks. Absent otherwise. Since 23.70. */
   queue?: HubQueue;
+  /** When the forge says it was opened, RFC 3339. Absent from an older Fleet. */
+  opened_at?: string;
+  /** When anything last happened on it, RFC 3339. Absent as `opened_at` is. */
+  updated_at?: string;
+  /** Still a draft. Absent is ready. */
+  draft?: boolean;
+  /** `clean`, `conflicting` or `unknown`: the forge still computing, not a conflict. Absent where the listing named none. */
+  mergeable?: string;
+  /** The forge's review decision: `approved`, `changes_requested`, `review_required`, or `none` for a pull request no rule applies to. Absent where the listing carried none. */
+  review?: string;
+  /** Lines added and removed, as the forge counts them. */
+  additions?: number;
+  deletions?: number;
 };
 
 /** `state` is `waiting_for_ci`, `in_queue` (a state this build does not know), `queued`, `awaiting_checks`, `mergeable` or `unmergeable`. Since 23.70. */

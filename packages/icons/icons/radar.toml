@@ -1,0 +1,7 @@
+[icons.radar]
+  means = "A sweeping radar - what waits behind the call in front"
+  group = "Chrome"
+  size = "12px"
+  status = "Specified"
+  reserved = "Not a Check, a Judge or a live Drone, and not a search."
+  notes = "Added 12 Oct 2026 on the band of the strip beside the Cockpit's call, which lists the calls waiting behind the one in front. Named Waiting on hover, with no count."

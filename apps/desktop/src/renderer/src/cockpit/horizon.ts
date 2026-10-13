@@ -7,7 +7,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "@armada/components";
-import type { MergeLines } from "@armada/protocol";
+import type { HubPullRequest, MergeLines } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -42,7 +42,39 @@ const CI: Record<string, { state: PullState; says: string }> = {
   waiting_on_main: { state: "blocked", says: "ci red because main is" },
 };
 
-export type PullBlock = {
+/** Where a pull request's review stands, as the station says it. */
+export type Review = "approved" | "changes" | "required";
+
+/**
+ * What the forge says of a pull request beyond its checks: when it was opened, its review, whether it is a
+ * draft, whether it conflicts with main (`opened_at`, `review`, `draft` and `mergeable` on the hub row).
+ */
+export type PullFacts = { opened?: string; review?: Review; draft?: true; conflicts?: true };
+
+/** The review decision in the forge's word. `none` is a pull request no rule applies to: no station. */
+const REVIEWS: Record<string, Review> = { approved: "approved", changes_requested: "changes", review_required: "required" };
+
+/** What the wire's hub row says beyond its checks. `mergeable: unknown` is the forge still computing, not a conflict. */
+export function factsOf(row: HubPullRequest | undefined): PullFacts {
+  if (row === undefined) return {};
+  const review = row.review === undefined ? undefined : REVIEWS[row.review];
+  return {
+    ...(row.opened_at === undefined ? {} : { opened: row.opened_at }),
+    ...(review === undefined ? {} : { review }),
+    ...(row.draft === true ? { draft: true as const } : {}),
+    ...(row.mergeable === "conflicting" ? { conflicts: true as const } : {}),
+  };
+}
+
+/** Just the facts, so a card carries a key only where the forge said something. */
+const keep = (one: PullFacts): PullFacts => ({
+  ...(one.opened === undefined ? {} : { opened: one.opened }),
+  ...(one.review === undefined ? {} : { review: one.review }),
+  ...(one.draft === undefined ? {} : { draft: one.draft }),
+  ...(one.conflicts === undefined ? {} : { conflicts: one.conflicts }),
+});
+
+export type PullBlock = PullFacts & {
   number: number;
   url: string;
   branch: string;
@@ -75,7 +107,8 @@ export function pullBlocks(
     const reading = pull.queue === undefined ? (pull.ci === undefined ? undefined : CI[pull.ci]) : QUEUE[pull.queue.state];
     const state = reading?.state ?? "open";
     const owner = pullOwner(views, sessions, pull.number, pull.branch);
-    const title = wire.find((one) => one.number === pull.number)?.title;
+    const row = wire.find((one) => one.number === pull.number);
+    const title = row?.title;
     const position = pull.queue?.position;
     const tip = [
       `#${pull.number}${title === undefined || title === "" ? "" : ` ${title}`}`,
@@ -96,6 +129,7 @@ export function pullBlocks(
       check: pull.queue !== undefined && pull.ci !== undefined ? CI[pull.ci]?.says : undefined,
       says: reading?.says ?? "Open",
       tip,
+      ...factsOf(row),
     };
   });
 }
@@ -104,7 +138,7 @@ export function pullBlocks(
 export type DotAct = { kind: "link"; url: string } | { kind: "job"; id: string };
 
 /** What the dot's card says, row by row. A row is drawn only where its fact is. */
-export type DotCard = {
+export type DotCard = PullFacts & {
   /** `#1890` for a pull request, the full branch for a landing. */
   heading: string;
   /** A pull request's title as the forge holds it. */
@@ -188,7 +222,7 @@ export function dotsOf(
         queued: pull.queued,
         icon: pull.mark?.icon ?? null,
         tip: pull.tip,
-        card: { heading: `#${pull.number}`, title: pull.title, branch: pull.branch, says: pull.says, check: pull.check, place: pull.place, owner: pull.owner },
+        card: { heading: `#${pull.number}`, title: pull.title, branch: pull.branch, says: pull.says, check: pull.check, place: pull.place, owner: pull.owner, ...keep(pull) },
         act: { kind: "link", url: pull.url },
       }),
     ),

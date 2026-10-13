@@ -370,6 +370,7 @@ fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
             .map(|name| FromOutside::verbatim(*name))
             .collect(),
         auto_merge: false,
+        facts: Default::default(),
     }
 }
 
@@ -418,6 +419,44 @@ async fn open_pull_requests_are_listed_once_a_visit_with_their_ci() {
     );
     assert_eq!(hub.pull_requests[0].author.as_deref(), Some("nick"));
     assert!(hub.fixing.is_none());
+}
+
+#[tokio::test]
+async fn an_open_pull_requests_dates_review_and_size_ride_the_same_listing() {
+    use adapter_traits::{PullFacts, PullMergeable, PullReview};
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    let read = OpenPull {
+        facts: PullFacts {
+            opened_at: Some(FromOutside::verbatim("2026-10-13T09:10:00Z")),
+            updated_at: Some(FromOutside::verbatim("2026-10-13T11:40:00Z")),
+            draft: true,
+            mergeable: Some(PullMergeable::Conflicting),
+            review: Some(PullReview::ChangesRequested),
+            additions: Some(120),
+            deletions: Some(4),
+        },
+        ..pull(7, Some(CiState::Passed), &[])
+    };
+    forge.pulls_are(Some(vec![read, pull(8, None, &[])]));
+
+    fleet.turn().await.unwrap();
+    assert_eq!(forge.times_asked_for_the_pulls(), 1, "no second ask a pull request");
+
+    let hub = the_hub(&fleet).await;
+    let one = &hub.pull_requests[0];
+    assert_eq!(one.opened_at.as_ref().map(|it| it.as_str()), Some("2026-10-13T09:10:00Z"));
+    assert_eq!(one.updated_at.as_ref().map(|it| it.as_str()), Some("2026-10-13T11:40:00Z"));
+    assert!(one.draft);
+    assert_eq!(one.mergeable, Some(ipc::HubMergeable::Conflicting));
+    assert_eq!(one.review, Some(ipc::HubReview::ChangesRequested));
+    assert_eq!((one.additions, one.deletions), (Some(120), Some(4)));
+    let bare = &hub.pull_requests[1];
+    assert!(bare.opened_at.is_none() && !bare.draft && bare.mergeable.is_none());
+    assert!(bare.review.is_none() && bare.additions.is_none());
 }
 
 #[tokio::test]

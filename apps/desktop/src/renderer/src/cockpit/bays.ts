@@ -9,6 +9,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Item } from "../Dashboard";
 import { dotsOf, type Dot } from "./horizon";
+import { workOwner, type Owner } from "./owner";
 
 /** Who is in a bay, or why nobody is. */
 export type Holder =
@@ -34,6 +35,42 @@ export type Bay = {
   dot: Dot | undefined;
 };
 
+/**
+ * What happened to the work before its pull request, each as an ISO instant: it asked for a bay, held one or
+ * more (`slot` where the record names it), and its pull request was opened. A Job that was in no bay the
+ * record names has none but its start.
+ */
+export type WorkTrail = { began?: string; bays?: readonly BayStay[]; opened?: string };
+
+/** One stay in a bay: when it was taken and, once given back, when. */
+export type BayStay = { slot?: number; from: string; until?: string };
+
+/** Whose work a pull request is, and the tile that owner already has on the glass, for its live state. */
+export type PullHolder = Owner & { item: Item | undefined; trail: WorkTrail | undefined };
+
+/**
+ * A Job's bay stays, `bays: [{slot, since, until}]` on its row where the wire carries them; none read is
+ * `undefined`, so a Fleet without the field falls back to when the Job started.
+ */
+function staysOf(job: JobSummary): BayStay[] | undefined {
+  const stays = (job.bays ?? []).map((stay): BayStay => ({ slot: stay.slot, from: stay.since, ...(stay.until === undefined ? {} : { until: stay.until }) }));
+  return stays.length === 0 ? undefined : stays;
+}
+
+/** The journey a Session's ledger or a Job's record keeps of the work behind pull request `number`. */
+function trailOf(owner: Owner, jobs: readonly JobSummary[], sessions: readonly Session[], number: number): WorkTrail | undefined {
+  if (owner.kind === "job") {
+    const job = jobs.find((one) => one.id === owner.id);
+    if (job === undefined) return undefined;
+    const stays = staysOf(job) ?? (job.started_at === undefined ? undefined : [{ from: job.started_at }]);
+    return { began: job.created_at, ...(stays === undefined ? {} : { bays: stays }) };
+  }
+  const trail = sessions.find((one) => one.id === owner.id)?.trail;
+  if (trail === undefined) return undefined;
+  const opened = trail.opened?.[number];
+  return { began: trail.started, ...(trail.bays === undefined || trail.bays.length === 0 ? {} : { bays: trail.bays }), ...(opened === undefined ? {} : { opened }) };
+}
+
 /** One repository's bays and its line, top of the line farthest from main. */
 export type Harbour = {
   manifest: string;
@@ -41,6 +78,8 @@ export type Harbour = {
   name: string;
   bays: readonly Bay[];
   line: readonly Dot[];
+  /** Whose each pull request is, by the dot's key; absent for a person's. */
+  holders?: ReadonlyMap<string, PullHolder>;
   main: "green" | "red" | undefined;
 };
 
@@ -97,7 +136,15 @@ export function baysOf({
   const seen = new Set<string>();
   const harbours = manifests.map((manifest): Harbour => {
     const view = views.find((one) => manifestOf(one.root) === manifest);
-    const line = view === undefined ? [] : [...dotsOf(view, lines, views, live)].reverse();
+    const holders = new Map<string, PullHolder>();
+    const line = (view === undefined ? [] : [...dotsOf(view, lines, views, live)].reverse()).map((dot): Dot => {
+      if (!dot.key.startsWith("pull:")) return dot;
+      const owner = workOwner(views, jobs, sessions, Number(dot.key.slice(5)), dot.card.branch);
+      if (owner === undefined) return dot;
+      const number = Number(dot.key.slice(5));
+      holders.set(dot.key, { ...owner, item: tileOf(items, owner.kind === "job" ? owner.id : `session:${owner.id}`), trail: trailOf(owner, jobs, sessions, number) });
+      return { ...dot, card: { ...dot.card, owner } };
+    });
     const bays = slots
       .filter((one) => one.manifest_id === manifest)
       .sort((a, b) => a.slot - b.slot)
@@ -122,7 +169,7 @@ export function baysOf({
           dot: slot.branch === undefined ? undefined : line.find((one) => one.card.branch === slot.branch),
         };
       });
-    return { manifest, name: nameOf(manifest), bays, line, main: view?.hub?.main?.state };
+    return { manifest, name: nameOf(manifest), bays, line, holders, main: view?.hub?.main?.state };
   });
   const over = new Set(ended.map(ownerOf));
   const unbayed = items.filter(
@@ -133,6 +180,15 @@ export function baysOf({
   const since = (one: Item) => Date.parse(one.at ?? "") || 0;
   const waiting = unbayed.filter(queued).sort((a, b) => since(a) - since(b));
   return { harbours, waiting };
+}
+
+/**
+ * A Session not yet named, or a terminal Armada does not know, is called by the branch it is on:
+ * a process path or a Session id says nothing of the work.
+ */
+function sessionHolder(slot: WorktreeSlot, items: readonly Item[], session: Session | undefined, served: string | undefined, last: string | undefined, by: string | undefined): Holder {
+  const title = session?.title ?? served ?? slot.branch ?? session?.address ?? last ?? "A Session";
+  return { kind: "session", title, session, item: session === undefined ? undefined : tileOf(items, `session:${session.id}`), by };
 }
 
 function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: readonly Session[], items: readonly Item[]): Holder {
@@ -146,13 +202,17 @@ function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: rea
       return { kind: "job", id, title, item: tileOf(items, id) };
     }
     case "session": {
-      // A Session not yet named, or a terminal Armada does not know, is called by the branch it is on:
-      // a process path or a Session id says nothing of the work.
-      const session = sessionIn(slot, sessions);
+      // The pool names a process: Fleet names the Session it began from where a hosted one started it, and
+      // otherwise a Session is found by its own slot or branch.
+      const named = slot.held.session_id;
+      const session = named !== undefined ? sessions.find((one) => one.id === named) : sessionIn(slot, sessions);
       const pid = /\(pid (\d+)\)/.exec(slot.held.holder)?.[1];
-      const by = session !== undefined ? undefined : pid === undefined ? slot.held.holder : `A terminal, pid ${pid}`;
-      const title = session?.title ?? slot.branch ?? session?.address ?? by ?? slot.held.holder;
-      return { kind: "session", title, session, item: session === undefined ? undefined : tileOf(items, `session:${session.id}`), by };
+      const by = session !== undefined || named !== undefined ? undefined : pid === undefined ? slot.held.holder : `A terminal, pid ${pid}`;
+      return sessionHolder(slot, items, session, slot.held.session_title, by ?? slot.held.holder, by);
+    }
+    case "hosted_session": {
+      const named = slot.held.session_id;
+      return sessionHolder(slot, items, sessions.find((one) => one.id === named), slot.held.session_title, undefined, undefined);
     }
     case "stranded":
       return { kind: "other", said: `Stranded: ${slot.held.why}` };

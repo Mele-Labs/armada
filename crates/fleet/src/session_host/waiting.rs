@@ -9,6 +9,11 @@
 //! ones, and a window stops waiting once it is approved or the person has sent the session a
 //! message after it opened. A window closed without either still waits: that is his call.
 //!
+//! **An agent item that points at a page the session showed is dropped.** The window is the one
+//! record of that page, whether it still waits or not, so the agent's `walk` item for the same
+//! address (compared without a trailing slash) is never a second call, and does not return once
+//! the window is approved.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
@@ -143,12 +148,19 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
     }
 }
 
+/// Two addresses of one page: equal once a trailing slash is let go.
+fn same_page(a: &str, b: &str) -> bool {
+    a.trim_end_matches('/') == b.trim_end_matches('/')
+}
+
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
-/// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off.
+/// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
+/// and so is a `walk` item for any address in `shown`, the pages this session has shown in a window.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&HelmCallInFlight>,
     windows: &[Window],
+    shown: &[&str],
     dismissed: &[String],
     ended: bool,
 ) -> Vec<WaitingItem> {
@@ -176,6 +188,8 @@ pub(crate) fn merged(
         .into_iter()
         .filter(|one| {
             !dismissed.contains(&one.item_id)
+                && !matches!(&one.act, Some((kind, target))
+                    if kind == "walk" && shown.iter().any(|url| same_page(url, target)))
                 && !derived
                     .iter()
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
@@ -283,8 +297,15 @@ where
             })
             .into_iter()
             .collect();
+        let shown: Vec<&str> = attachments
+            .iter()
+            .filter(|one| {
+                one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("window")
+            })
+            .map(|one| one.target.as_str())
+            .collect();
         let ended = session.state == store::SessionState::Ended;
-        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
         if !ended {
             // The first message another Session's agent wrote for the person, until he sends it.
             let id = format!("{UNSENT_ITEM}{}", session.id);
@@ -500,6 +521,12 @@ where
             None => None,
         };
         let line = said.mode.map(|mode| mode_line(of_waiting(mode)));
+        // A pick with words says both: the words go with the pick, never in place of it.
+        let both = match (picked.as_deref(), words) {
+            (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
+            (Some(one), None) | (None, Some(one)) => Some(one.to_string()),
+            (None, None) => None,
+        };
         let message = |body: String| SendSessionMessage {
             session_id: said.session_id.clone(),
             text: body,
@@ -526,7 +553,7 @@ where
                             session_id: said.session_id.clone(),
                             call: asked.call.clone(),
                             answer: HelmCallAnswer::AllowOnce,
-                            note: None,
+                            note: picked.as_ref().and(words).map(str::to_string),
                             answers: vec![QuestionAnswer {
                                 question: first.question.clone(),
                                 chosen: vec![chosen.to_string()],
@@ -553,16 +580,12 @@ where
                 let body = if words.is_none() && line.is_none() {
                     format!("Approved: {target}")
                 } else {
-                    reply(&item.text, picked.as_deref().or(words), line)
+                    reply(&item.text, both.as_deref(), line)
                 };
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::WindowAsk => {
-                let answer = [picked.as_deref(), words, line]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let answer = [both.as_deref(), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
                 if let Some(row) = item.id.strip_prefix(WINDOW_ASK_PREFIX) {
                     self.window_ask_answered(&id, row, answer.clone()).await;
                 }
@@ -570,7 +593,7 @@ where
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::Agent => {
-                let mut body = reply(&item.text, picked.as_deref().or(words), line);
+                let mut body = reply(&item.text, both.as_deref(), line);
                 body.push('\n');
                 body.push_str(TAKEN_OFF);
                 Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;

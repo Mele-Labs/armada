@@ -151,10 +151,14 @@ pub(super) fn rig_placing(peers: Option<Arc<crate::tests::peer::Placing>>) -> Ri
 
 impl Rig {
     pub(super) async fn start(&self) -> SessionId {
+        self.start_titled(None).await
+    }
+
+    pub(super) async fn start_titled(&self, title: Option<&str>) -> SessionId {
         self.fleet
             .start_session(StartSession {
                 manifest_id: self.manifest.clone(),
-                title: None,
+                title: title.map(String::from),
                 model: None,
                 effort: None,
                 mode: None,

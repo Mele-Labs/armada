@@ -28,6 +28,8 @@ pub struct KeptPullRequest {
     pub title: Option<String>,
     /// How many comments the sweep last counted on it while it was open.
     pub comments: Option<u32>,
+    /// When Fleet opened it, RFC3339. Absent for one opened before it was kept.
+    pub opened_at: Option<String>,
 }
 
 impl Store {
@@ -38,12 +40,13 @@ impl Store {
         &mut self,
         job_id: &JobId,
         title: &str,
+        at: &str,
     ) -> Result<(), WriteError> {
         self.pull_request_updated(
             job_id,
-            "UPDATE jobs SET delivery_pr_title = ?2, delivery_pr_comments = NULL \
-             WHERE job_id = ?1",
-            (job_id.as_str(), title),
+            "UPDATE jobs SET delivery_pr_title = ?2, delivery_pr_comments = NULL, \
+             delivery_pr_opened_at = ?3 WHERE job_id = ?1",
+            (job_id.as_str(), title, at),
         )
     }
 
@@ -72,13 +75,15 @@ impl Store {
     ) -> Result<KeptPullRequest, crate::error::LoadJobError> {
         self.conn
             .query_row(
-                "SELECT delivery_pr_title, delivery_pr_comments FROM jobs WHERE job_id = ?1",
+                "SELECT delivery_pr_title, delivery_pr_comments, delivery_pr_opened_at \
+                 FROM jobs WHERE job_id = ?1",
                 (job_id.as_str(),),
                 |row| {
                     let comments: Option<i64> = row.get(1)?;
                     Ok(KeptPullRequest {
                         title: row.get(0)?,
                         comments: comments.and_then(|count| u32::try_from(count).ok()),
+                        opened_at: row.get(2)?,
                     })
                 },
             )
