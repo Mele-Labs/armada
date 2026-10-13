@@ -213,10 +213,16 @@ impl Sessions for FakeDaemon {
         &self,
         _manifest_id: Option<ManifestId>,
         _text: Option<String>,
-        _state: Option<SessionState>,
+        state: Option<SessionState>,
     ) -> Result<SessionList, Refusal> {
+        self.sessions_asked.lock().expect("sessions asked").push(state);
+        let held = self.sessions_held.lock().expect("sessions held");
         Ok(SessionList {
-            sessions: Vec::new(),
+            sessions: held
+                .iter()
+                .filter(|one| state.is_none_or(|state| one.state == state))
+                .cloned()
+                .collect(),
         })
     }
 

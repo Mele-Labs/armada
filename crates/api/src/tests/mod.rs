@@ -19,6 +19,7 @@ mod commander_scope;
 mod conversing;
 mod door;
 mod door_scope;
+mod door_sessions;
 mod fake;
 mod following;
 mod helm_kills;

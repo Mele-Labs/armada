@@ -1700,6 +1700,7 @@ selected Manifest, the resolved authority and Voice, once per session.
 | **When a call is refused** | Say what was refused and what it was for, and stop | A command or another server's tool comes back *requires approval*, measured in [spike 18](../spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md), and nobody here can be asked. Without the block a refused `gh issue list` becomes a `curl`, which is the failure the Drone's own refusal clause exists for |
 | **Each turn** | Call `get_events_since` first, and fetch detail only where it bears | Fleet never wakes a session, so the poll is the only way a turn is current |
 | **Where they are** | Read one line naming the screen, the pick, a chipped Job, the cursor row and, on a Studio, the Studio — ahead of what was typed — and call `get_job` or `get_studio` for what the one it names holds | `#1075`: Bridge sends this with every ask, so the person never has to say which Job they mean. `#1287` adds the Studio's id, for the same reason |
+| **Finding a Session** | Call `list_sessions` and match the person's words on its titles; ask which only when two fit | A person says "the session I went to poke" and Helm has the live ones in front of it as a line each. Without the line Helm read a cut answer, saw two of nine and said only two were live, and asked a question the titles would have answered. The door lists live Sessions only, so an ended one is `state=ended` |
 | **What you may do** | Call any tool that acts once a person asks for it, and never on your own initiative but for the calls *On a Studio* names; `undo_run` stays theirs regardless | `#73` drew Helm's line as an allowlist inside the door's `Yes` rows; `#1150` reversed it to a denylist of one. `fleet::helm::may` is the rule, and the brief states it rather than restating a list |
 | **On a Studio** | Read a Studio before answering about it; add a proposed node, propose an edge and name an untitled Studio unasked; start a run, write up and dispatch only on an ask, and dispatch only where the ask names it; read the runs it starts; leave accepting, deferring and deleting to the person | `#1288`, from [Studio](../concepts/studio.md)'s *Helm on a Studio*. The door cannot tell an ask from its absence, so the line between the two columns is drawn here and nowhere else |
 | **Authoring a workflow** | Help write a definition, and save it with `save_workflow` and never with `Write` or `Edit`; set `overwrite` only where the person asked to replace one | A session outside Armada's own repository has neither the schema nor a workflow to copy, and a file written by hand skips the check that refuses a step naming a Check or a model that is not there. Where it is read-only the block still teaches the schema and says to leave writing to the person |
@@ -1861,6 +1862,13 @@ never receives, so the block names the reads that say how it ended.
 │ contents. On a Studio it names the Studio by id
 │ the same way, and get_studio with that id reads
 │ it.
+└────────────────────────────────────────────────
+┌─ FINDING A SESSION ────────────────────────────
+│ To find a Session, call list_sessions and match
+│ what the person said against its titles. It
+│ lists the live ones, a line each, and takes
+│ state=ended for one that has finished. Ask the
+│ person which only when two of them fit.
 └────────────────────────────────────────────────
 ┌─ WHAT YOU MAY DO ──────────────────────────────
 │ You may call every tool you are given that acts,
