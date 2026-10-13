@@ -84,7 +84,8 @@ export type NowCommanderAsk = {
   reach: string;
   question: string;
   options: readonly { id: string; label: string }[];
-  onAnswer: (optionId: string) => void;
+  /** Sent once. A host that has Fleet's word answers `false` where it refused, and the card takes another pick. */
+  onAnswer: (optionId: string) => void | Promise<boolean>;
 };
 
 /**
@@ -172,8 +173,8 @@ export type NowRunning = {
   line?: string;
   /** The canvas step this belongs to. Pressing it asks the host to highlight that step. */
   step?: { id: string; name: string };
-  /** Who put it to work, where it was the Commander: a mark beside the name, its act on hover. */
-  by?: { who: "commander"; said: string };
+  /** Whose hand is on the task it works, where that is the Commander's: a mark beside the name. */
+  by?: { who: "commander"; said?: string };
   /** The last few lines of its output, oldest first. Folded until pressed. Absent draws no toggle. */
   tail?: readonly string[];
   /** A Check lands as `passed` or `failed`; the rest are `running` until they leave the list. */
@@ -527,7 +528,7 @@ function RunningRow({ one, onStep, focused, open }: { one: NowRunning; onStep?: 
         {one.name}
         {one.line === undefined ? null : <span className="armada-now__line">{one.line}</span>}
       </span>
-      {one.by === undefined ? null : <WhoMark who={one.by.who} said={one.by.said} />}
+      {one.by === undefined ? null : <WhoMark who={one.by.who} {...(one.by.said === undefined ? {} : { said: one.by.said })} />}
       <Tooltip label={state.said}>
         <span className="armada-now__mark" data-state={one.state} data-pulsing={one.state === "running" || undefined} role="img" aria-label={state.said}>
           <state.Glyph size={12} strokeWidth={2} aria-hidden />
@@ -570,7 +571,7 @@ function CommanderAsk({ ask }: { ask: NowCommanderAsk }) {
             const one = picked === undefined ? undefined : ask.options[picked];
             if (one === undefined) return;
             setSent(true);
-            ask.onAnswer(one.id);
+            void Promise.resolve(ask.onAnswer(one.id)).then((accepted) => accepted === false && setSent(false));
           }}
         >
           Answer

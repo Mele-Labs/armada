@@ -140,7 +140,7 @@ import {
 } from "./commands";
 import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
-import { useNowActs } from "./now-acts";
+import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./commander-acts";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
@@ -432,7 +432,7 @@ export function App({ draft }: AppProps = {}) {
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
-  useTellAsked(tell); // The annotation layer's send that failed.
+  useTellAsked(tell); const commandering = useCommanderActs(tell); // The annotation layer's send that failed; the owner's words to a Commander and his pick on its card.
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
@@ -753,7 +753,7 @@ export function App({ draft }: AppProps = {}) {
                   }
                   answered={commands.answeredOn(reading.id)}
                   observed={state.observed}
-                  journalled={state.journalled}
+                  journalled={state.journalled} commander={state.commander}
                   followed={state.followed}
                   onFollowCheckOutput={followCheckOutput}
                   resources={state.resources}
@@ -812,7 +812,7 @@ export function App({ draft }: AppProps = {}) {
                   onRaiseTurnCap={(jobId, turns) => void commands.raiseTurns(jobId, turns)}
                   onRerun={(jobId) => void commands.rerun(jobId)}
                   onRerunChecks={(jobId) => void commands.rerunChecks(jobId)}
-                  {...nowing.checkActs}
+                  {...nowing.checkActs} {...commandering.job}
                   onReport={commands.report}
                   onAddTask={commands.addTask}
                   onDropTask={commands.dropTask}
@@ -1081,7 +1081,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
-                  nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct}
+                  nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that

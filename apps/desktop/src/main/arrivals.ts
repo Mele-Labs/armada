@@ -17,6 +17,7 @@
 import { connectedTo, PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
+import { questionsJob } from "@armada/screens/src/outstanding";
 import type { BridgeState } from "../shared/bridge";
 import type { FleetBuilds } from "./fleet-build";
 import type { HeldReader } from "./holding";
@@ -347,6 +348,23 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // The dock's copy, whole off the event, for every repository's Job.
     if (event.kind === "job.asking") host.questions.asking(event.job_id, event.asking);
     else host.questions.commandWaiting(event.job_id, event.waiting);
+    host.refresh(fleet.port, event.job_id);
+    return;
+  }
+  if (event.kind === "commander.card") {
+    // **The row's `asking` moves with the card, and the event does not say it.** A card out
+    // counts as the Job waiting on the owner, as a Drone's question does, but `asking` on a row
+    // that travels with an event is built off the working slot and is absent. Going out is
+    // `true` outright. Coming back leaves `true` only where a Drone's own question or command is
+    // still out, which the dock's copy of them says. The detail is re-read for the card itself.
+    const drone = host.current().questions.some(
+      (question) => questionsJob(question) === event.job_id && (question.kind === "drone" || question.kind === "command"),
+    );
+    const waiting = event.card !== undefined || drone;
+    host.publish({
+      connection,
+      jobs: host.current().jobs.map((job) => (job.id === event.job_id ? { ...job, asking: waiting } : job)),
+    });
     host.refresh(fleet.port, event.job_id);
     return;
   }

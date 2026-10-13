@@ -69,3 +69,7 @@ Where the Commander cannot start at all, nothing here applies: the Job escalates
 ## On the wire
 
 `observe_commander` is a socket per Job, `helm.md`'s shape: `opened`, the thread so far, then every message, with `missed` for what a slow viewer lost. Its rows are the transcript's `Saw`, and `woke` is the message only this socket has. `ask_commander` takes the owner's words and answers 202. `commander.changed` says whether the Commander is at work, and `commander.card` says a card went out or was answered. `agent_access` is `No` on those and on `answer_commander_card`: an agent must not write the owner's words to a Commander, nor pick for him. `../practices/protocol.md`, *The Commander socket*.
+
+## On the page
+
+Bridge opens the Commander's socket with the Job, by the same act as its transcript and its log, and `screen.ts` reopens it where it is down. The Job's Overview draws the thread across the top; each task the Commander last changed wears its mark (`PlanTask.by`), and so does the Drone working it in Now. The card is `JobDetail.commander_card`, drawn in Now and in the Cockpit's Your move as the same call card, and `commander.card` moves the Board row's `asking`. The owner's words go to `ask_commander` and queue for the next turn; his pick goes to `answer_commander_card` by card id and option id. A row names what the session did and no figure the wire does not carry: an act is its tool, and a task's mark says whose hand and not which act.

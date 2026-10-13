@@ -301,7 +301,12 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       ? decision.options.map((option) => ({
           id: option.id,
           label: option.label,
-          run: () => (at + 1 < decisions!.length ? (setAt(at + 1), setPicked(undefined)) : (item.onDecision?.(option.id), finish())),
+          run: () =>
+            at + 1 < decisions!.length
+              ? (setAt(at + 1), setPicked(undefined))
+              : item.answerCard === undefined
+                ? finish()
+                : wait(option.id, () => item.answerCard!(option.id)),
         }))
       : actsOf();
   const permission = waiting?.item.source === "permission";

@@ -311,6 +311,9 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       showAgain: async () => OK,
       raiseCostCap: async () => OK,
       raiseTurnCap: async () => OK,
+      // A scenario with a Commander (`commandedBy`) answers these itself.
+      askCommander: async () => OK,
+      answerCommanderCard: async () => OK,
       addTask: async (jobId, add) => {
         let id = "";
         return editPlan(
