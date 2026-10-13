@@ -178,7 +178,7 @@ for a first write and moves the session into it, whether or not its refused turn
 has ended: an idle session is resumed at once, one still finishing the turn is
 moved as that turn ends. A slot is given back by a session closing or its
 terminal ending, a Job ending, being paused or cleared, a release or rescue from
-Cleanup, and the pool growing or a slot reopening; a slot freed where Fleet is
+Cleanup (a release of a bay a hosted Session holds is refused while its turn runs, and otherwise gives back its slot and branch rows), and the pool growing or a slot reopening; a slot freed where Fleet is
 not told, as `armada worktree release` frees one, is found by a look every 15
 seconds while anyone waits. A session that ends, or is leased a slot another way,
 leaves the line, and a Fleet that restarts forgets it: the session's next write
@@ -378,6 +378,8 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 **A session says it has nothing left to work on with `all_done`** (`session_id` only; the hosted session holding the connection wins, as for `waiting_for`). Fleet stamps `SessionRecord.done_since`, keeps it in `session_done`, and publishes `SessionChanged`; a second call keeps the first instant, and an ended session is refused. It is a statement and ends nothing: Bridge draws a callout at the foot of the thread, **End session** (the ordinary close) or **Keep going** (local to Bridge, it hides that `done_since` only). `done_since` stops standing when the person sends the session a message (`send_session_message` or an `answer_waiting` that becomes one), when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again. A terminal session has no turn-start signal, so for one only the first two apply. The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 
+**An agent that calls `show_window`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long session, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good. The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`), or `done` and `done_since`. It weighs the same on the first call and the thousandth. Bridge's routes and the mod's hook, which are not the door, are answered the row. Nothing reads these four answers today.
+
 ## What fills the context window
 
 **A Session's context figure opens onto what fills it, the way `/context` shows it.** The mod asks the engine for a `summary` breakdown, estimated locally and never `full`, which would call the token-count API for every tool and file. It asks when the throttle lets a measurement through and the context moved, and sends `SessionRecord.context_breakdown`: `categories` (`name`, `tokens`, and a `kind` of `used`, `free`, `buffer` or `deferred` that Bridge branches on, never the name), `memory_files` (`path`, `tokens`), the ten `mcp_tools` that weigh most (`name`, `server`, `tokens`), `total_tokens`, `max_tokens` and `autocompact_threshold?`. **Names, paths and counts only**: no message text, prompt or file contents leave the mod. The live token count is the `context_tokens` already on `usage`.
@@ -417,6 +419,8 @@ A minute after `held_until`, a tick of the notice loop sends the session `Contin
 | The base | The commit on it that changed the first file, and says to merge it into the branch |
 
 A terminal Session reports the files it wrote through the mod's `touched` fact, as paths from its directory. A Job's Drone can answer a Session with `leave_note` on the Session's address, which arrives as a message naming that Job.
+
+**A Session that held a slot is told when the slot is stranded.** When a slot a Session held last has work in it and nothing holds it now, Fleet sends that Session one message, once. It names the slot and its branch, what the slot holds, and asks the Session to commit, push and release it. `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
 ## Acts on a pull request
 

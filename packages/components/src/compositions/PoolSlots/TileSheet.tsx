@@ -1,9 +1,11 @@
 import { Folder, GitBranch } from "lucide-react";
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { releasable, releaseHolder } from "@armada/protocol";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { ChipOwnership } from "../OwnerChip/OwnerChip";
 import { PausedMark } from "../PausedMark/PausedMark";
 import { JobLink, jobOf, stateOf } from "./PoolTile";
 import { ScrapConfirm, SlotFinding } from "./SlotFinding";
@@ -81,6 +83,8 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
   const { slot, held } = row;
   /** The confirm open on this tile, if one is. */
   const [confirming, setConfirming] = useState<Confirming | null>(null);
+  /** Where a Session is opened from, when the window serves any. */
+  const ownership = useContext(ChipOwnership);
   /** The Scrap's confirm is open. */
   const [scrapping, setScrapping] = useState(false);
   const state = stateOf(row);
@@ -99,7 +103,8 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
     const which = confirming;
     setConfirming(null);
     if (which === "release") {
-      if (slot !== undefined && slot.held.state === "session") onRelease?.(slot.slot, slot.held.holder);
+      const holder = slot === undefined ? undefined : releaseHolder(slot);
+      if (slot !== undefined && holder !== undefined) onRelease?.(slot.slot, holder);
       return;
     }
     if (held === undefined) return;
@@ -162,12 +167,19 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
           onAct={onAct}
           onRescue={onRescue}
           onResume={held === undefined || onResume === undefined ? undefined : () => onResume(held.job_id)}
-          onConfirm={held === undefined && !(slot?.held.state === "session" && onRelease !== undefined) ? undefined : (which) => setConfirming(which)}
+          onConfirm={held === undefined && !(slot !== undefined && releasable(slot) && onRelease !== undefined) ? undefined : (which) => setConfirming(which)}
         />
         {row.refused === undefined ? null : (
-          <p className="armada-tile-sheet__refused" role="alert">
-            {row.refused}
-          </p>
+          <>
+            <p className="armada-tile-sheet__refused" role="alert">
+              {row.refused}
+            </p>
+            {row.openSession === undefined || ownership === null ? null : (
+              <Button variant="secondary" size="sm" onClick={() => ownership.open(row.openSession!)}>
+                Open Session
+              </Button>
+            )}
+          </>
         )}
         {row.said === undefined && row.receipt === undefined ? null : (
           <ul className="armada-tile-sheet__said" role="status">

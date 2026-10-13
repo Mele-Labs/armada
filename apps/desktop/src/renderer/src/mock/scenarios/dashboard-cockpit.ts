@@ -218,7 +218,8 @@ function pool(): WorktreesHeld {
     slots: [
       at(1, job(debounce, "fleet/gate-policy-every-run", 41)),
       at(2, job(cache, "fleet/read-in-cluster-membership", 17)),
-      bay(OWNER, 3, { state: "session", holder: "agent (pid 5120)" }, { branch: "fix/flaky-store", since: ago(6), behind: 2 }),
+      // Hosted Sessions: this one is mid-turn, which Fleet will not release the bay of.
+      bay(OWNER, 3, { state: "hosted_session", session_id: "s9", session_title: "Flaky store test" }, { branch: "fix/flaky-store", since: ago(6), behind: 2 }),
       at(4, job(migrate, "armada/83-migrate", 3)),
       at(5, job(check, "fleet/reconnect-wait", 33)),
       at(6, job(pin, "fix/pin-store-clock", 2)),
@@ -229,6 +230,8 @@ function pool(): WorktreesHeld {
       bay(OWNER, 11, { state: "free" }, { closed: true, warm: false, behind: 12 }),
       bay(OWNER, 12, { state: "free" }, { closed: true, warm: false, behind: 12 }),
       bay(OWNER, 13, { state: "unmade" }, { closed: true, warm: false }),
+      // Between turns, so Release frees the bay.
+      bay(OWNER, 14, { state: "hosted_session", session_id: "s12", session_title: "Theme token audit" }, { branch: "fix/theme-token-audit", since: ago(14), behind: 1 }),
       at(1, job(pwa, "pocket/pairing-code", 22, POCKET)),
       at(2, job(shell, "pocket/offline-shell", 11, POCKET)),
     ],

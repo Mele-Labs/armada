@@ -797,3 +797,30 @@ async fn a_slot_released_in_the_pool_is_given_back_on_the_sweep_and_its_pull_req
     assert_eq!(held(&record, "branch"), [("fleet/a".into(), AttachmentState::GivenBack)]);
     assert_eq!(held(&record, "pr"), [("12".into(), AttachmentState::Standing)]);
 }
+
+/// The record keeps the Session of a holder that has gone, so the stranded slot's last holder is
+/// found; but that is who held it, and nobody holds it now: the sweep gives the row back.
+#[tokio::test]
+async fn a_stranded_slot_names_its_last_holder_and_is_held_by_no_one() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    let slot = leased(&root, 3, "fleet/a", By::Session("s1"));
+    fleet.report_session(report("s1", started(&slot))).await.unwrap();
+    let mut watching = fleet.events().subscribe();
+
+    let record = format!("{slot}.lease");
+    let Some(adapters::leasing::Holder::Process { started: begun, .. }) =
+        adapters::leasing::Holder::of(std::process::id())
+    else {
+        panic!("this process is running");
+    };
+    let text = std::fs::read_to_string(&record).unwrap();
+    std::fs::write(&record, text.replace(&begun, "a start no process has")).unwrap();
+    let served = fleet.repositories().first().unwrap();
+    fleet.slot_rows_followed(&served).await;
+
+    assert_eq!(adapters::leasing::session_of(std::path::Path::new(&slot)).as_deref(), Some("s1"));
+    let said = next_session(&mut watching).await;
+    assert_eq!(held(&said, "slot"), [("3".into(), AttachmentState::GivenBack)]);
+}

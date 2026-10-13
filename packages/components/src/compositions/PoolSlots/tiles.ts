@@ -42,6 +42,8 @@ export type TileRow = {
   cost?: ClearCost;
   /** Why the last act on this tile was refused, said in its panel. */
   refused?: string;
+  /** The Session whose work made the last act refuse: Open Session sits beside the refusal. */
+  openSession?: string;
   /** What the last rescue act did, as a bare fact: the branch a Scrap kept, the commit a Stash made. */
   said?: string;
   /** What the last Clear or Delete branch did, a fact to a line. */

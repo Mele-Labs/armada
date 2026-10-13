@@ -4,6 +4,8 @@
 // in the merge queue, ? when it asks, ! when its checks fail. Every stop opens a card. Pure, so where a
 // piece of work stands and what its stops say are checked without drawing a line.
 
+import type { WorktreeSlot } from "@armada/protocol";
+
 import type { Item } from "../Dashboard";
 import type { Bay, BaysRead, PullHolder, WorkTrail } from "./bays";
 import type { Dot, Review } from "./horizon";
@@ -59,6 +61,8 @@ export type Line = {
   autopilot?: boolean;
   /** Its stop at Next up, where Autopilot picked it and its Job has not started. */
   nextUp?: Stop;
+  /** The pool's reading of the bay, where an agent session holds it and can be made to give it up. */
+  release?: WorktreeSlot;
   /** A pull request outside a bay: set on its line. */
   pull?: LinePull;
   /** Whose work that pull request is. Absent for one nobody in Armada owns. */
@@ -336,6 +340,7 @@ function lineOfBay(bay: Bay, now: number): Line | undefined {
     stops,
     open: own[0],
     wants: dot?.state === "failing" ? "fixing" : tone === "ask" ? "you" : undefined,
+    ...(bay.release === undefined ? {} : { release: bay.release }),
   };
 }
 

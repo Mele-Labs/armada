@@ -1,5 +1,6 @@
 import { CirclePause, DoorClosedLocked, DoorOpen, Eraser, GitBranchMinus, LifeBuoy, PackageX, Play, Power, Trash2, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { releasable } from "@armada/protocol";
 import type { RescueAct, SlotAct, WorktreeSlot } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -125,7 +126,7 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }:
     onRescue !== undefined && slot !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
       <Act key="stop" label="Stop" said={`Stops the Scout reading ${name}.`} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
     ) : null,
-    onConfirm !== undefined && slot?.held.state === "session" ? (
+    onConfirm !== undefined && slot !== undefined && releasable(slot) ? (
       <Act
         key="release"
         label="Release"

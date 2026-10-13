@@ -12,6 +12,9 @@ use crate::{Refusal, Sessions};
 
 impl Sessions for FakeDaemon {
     async fn report_session(&self, report: SessionReport) -> Result<SessionRecord, Refusal> {
+        if let Some(row) = self.session_row.lock().expect("session row").clone() {
+            return Ok(row);
+        }
         let at = ipc::Instant::carried("2026-10-06T09:00:00.000Z");
         Ok(SessionRecord {
             id: report.session_id,

@@ -542,7 +542,7 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, and also refuses commits on neither the remote nor the base, since it then deletes the branch; a Job that has not ended keeps its slot |
 | Add | One more slot, numbered lowest-unused and not made until a lease makes it |
 | Remove | The slot named, and only a free or unmade one, never the last. A made one's checkout goes by `git worktree remove`, which refuses one holding anything uncommitted; held, stranded and busy slots are refused by name. The other slots keep their numbers |
-| Rescue | On a stranded slot only, and only on a person's press: starts a Scout that reads the slot's checkout, and keeps its Finding against the slot. Then the person chooses Scrap or Stash below |
+| Rescue | On a stranded slot only, on a person's press or on Fleet's own where the last holder is gone: starts a Scout that reads the slot's checkout, and keeps its Finding against the slot. Then the person chooses Scrap or Stash below |
 | Scrap | Discards the uncommitted files, puts the checkout back at the base and frees the slot. Bridge's confirm names the uncommitted files and the commits that exist only in the slot. The branch is deleted only where the base holds every commit on it; otherwise it is kept, and the answer says so |
 | Stash | Commits the uncommitted files to the slot's branch, pushes the branch to `origin` under its own name, and frees the slot. Refused on a checkout on no branch or on the base, and where there is no `origin` |
 | Close, open | A closed slot is never leased until it is opened. A holder keeps one closed under it until its lease ends, and it stays closed after |
@@ -643,7 +643,7 @@ one bulk act, and nothing on a screen reaches for it.
 | Clear | The reclaim, where the worktree is on disk and the Job has ended. **Uncommitted files are committed first**, untracked in and ignored out, to the Job's branch as a WIP commit naming the Job, and never pushed. **On a bay it then releases the slot**: HEAD is detached and the directory stays. **Outside the pool it then runs `git worktree remove`**, which is safe because the files are on the branch. A branch holding that commit is kept; one with nothing uncommitted is deleted only where the base has all its commits. The confirm lists the commit, the files, the release or removal and the kept branch, with no counts, and the receipt reads *Committed to X, slot released*. A detached HEAD, the base branch, another branch than the lease names or a busy slot keeps the refusal, said in git words; a locked worktree and a Job that has not ended are refused as before. The Job's own Clear says the same | A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
 | Delete branch | Only once the worktree is gone, because Fleet refuses it with a 409 while the directory stands. The confirm names the branch, its tip and the commits not on the base, which stay reachable only from that tip, and the tip is what is sent |
 | Forget Job | Only once the worktree and the branch are gone, and with a confirm: the record has no undo, and the worktree and branch are not touched |
-| Release | On a slot an agent session holds, which offered only Close slot before. The confirm names the holder, with its pid on a tooltip, and the branch, then does what Clear does for a Job's: commit the uncommitted files to the branch as a WIP commit, release the slot, keep the branch. The holder shown is sent, and a slot re-leased since is refused with `fleet.slot_holder_changed`. The session's process is not touched |
+| Release | On a slot an agent session holds, which offered only Close slot before. The confirm names the holder, with its pid on a tooltip, and the branch, then does what Clear does for a Job's: commit the uncommitted files to the branch as a WIP commit, release the slot, keep the branch. The holder shown is sent, and a slot re-leased since is refused with `fleet.slot_holder_changed`. The session's process is not touched. **A bay a Session Fleet hosts holds is released the same way, with the Session's id as the holder** (`HostedSession` in the bay's reading): Fleet parks it as a close does, which ends everything still running in the slot, so a Session whose turn is running is refused with `fleet.slot_session_working` (*Pull Request Panel Design is working*) and nothing is ended. An idle Session's process is let go as a tune lets it go, its slot and branch rows on the ledger are given back, and its next message resumes it without a bay. A Commander, or a Session Fleet does not host, is not this path |
 | Close, Reopen, Remove, Rescue | A bay's own, as above. Its Finding, and Scrap, Stash and Pick up, are in the same panel |
 
 **What an act did, and what Fleet refused, is said in the panel and never on the tile.**
@@ -657,10 +657,39 @@ found, which opens in Bridge's trailing sheet. Scrap, Stash and Pick up are in t
 sheet, and are Fleet's acts, run on the press that asks. The Scout has no tool
 that writes, so it never does any of them.
 
-> **Rule.** A Scout reads a stranded slot only on a person's press, and its
+> **Rule.** A Scout reads a stranded slot on a person's press, and on Fleet's own
+> once a stranding where the last holder is gone and none could be told. Its
 > Finding is kept against the slot, not a Studio.
 > Why: a stranded slot's holder is gone, so nothing else owns the Finding, and
-> it has to survive a Bridge reload to be there when the person decides.
+> it has to survive a Bridge reload to be there when the person decides. The
+> owner decided on 13 Oct 2026 that a gone holder is not waited on for a press.
+
+> **Rule.** A stranded slot's last holder is told once, when it is a Session
+> that is still open, and no Scout reads the slot over it.
+> Why: that Session knows the work and can commit, push and release it, which
+> a Scout's reading cannot.
+
+**The last holder is the Job or Session the slot was held for.** A Job's
+slot names the Job, and a Session's lease names the Session by id. A slot a
+process held names the Session whose process tree that process was in, which
+Fleet wrote on the lease record while the process lived. A holder the record
+cannot name, as a terminal Fleet does not host, leaves none.
+
+**Gone is every holder that is not an open Session.** That is a Session that
+ended, a Job that ended, a Session Fleet no longer holds and a slot with no
+last holder. An open Job is neither told nor read over. A Commander is in no Session ledger,
+so it is never told, and a Session Fleet cannot reach counts as gone.
+
+> **Rule.** Fleet acts on a stranding once, and a Fleet restart does not repeat
+> it.
+> Why: a second message to a Session that is already finishing, or a second
+> Scout for the same work, spends a turn and decides nothing.
+
+**One Scout reads at a time.** Fleet starts the next stranded slot's Scout when
+the one reading ends, so a Fleet that comes up on several does not start a model call
+for each at once. What Fleet did is kept in `slot_strandings`, one row a slot for the
+stranding it names (its branch and when its lease began), and the bay shows when its
+holder was told.
 
 > **Rule.** No act runs while a Scout is reading the slot, and a Finding
 > is of the commit the slot was at. A slot that has moved off it shows none.

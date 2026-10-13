@@ -164,8 +164,12 @@ pub(super) struct Record {
     /// was. Only a Job's lease carries one: it is how a slot a finished Job
     /// could not give back says so.
     pub(super) kept: Option<String>,
-    /// The agent session that took the lease, where a session did: what a pool reader needs to
-    /// tell whose slot a process holds. A lease taken by hand, or before this was written, names none.
+    /// The agent Session that holds this lease, or held it last, for a holder that is a process:
+    /// the holder alone cannot say whose it was, once it is gone. Written two ways. `armada
+    /// worktree lease` writes the Session whose command took the lease, from the agent's own
+    /// environment. Fleet writes it with `Pool::note_session` for a live process holder whose
+    /// tree it finds in a Session, which also fills leases taken before either existed. A Job's
+    /// record never carries one: it already names its Session. A record with none was taken by hand.
     pub(super) session: Option<String>,
     /// The Job completed and holds the slot until a person clears it.
     pub(super) completed: bool,
