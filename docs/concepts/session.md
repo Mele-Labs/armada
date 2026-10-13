@@ -292,7 +292,7 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 | What the call does | Keeps a `window_ask` row on the thread and answers at once. **It does not wait**: the session ends its turn, and the answer arrives as a message from the person |
 | What Bridge does | Brings the session's walk window forward, opening it if it is closed, moves the page to the address, scrolls the place into view, outlines it, and draws the question on a card of the window's own bar. `docs/practices/capture-window.md` |
 | How it waits | `window_ask:<row>` under Waiting on you, with its options and its `place`. Its act is a walk of the window it was asked in, so a press there opens the window with the card |
-| How it is answered | An option, words of the person's own, or both, through `answer_waiting`. The session gets `Re: <question>` with the option and the words beneath it and a last line saying Fleet took the item off its waiting list, and the row keeps the answer. Being a message, it also settles the walk it was asked in. `dismiss_waiting` drops it with nothing sent |
+| How it is answered | An option, words of the person's own, or both, through `answer_waiting`. The session gets `Re: <question>` with the option and the words beneath it, and the row keeps the answer. Being a message, it also settles the walk it was asked in. `dismiss_waiting` drops it with nothing sent |
 | While sleep is on | Recorded as a walk is and never decided for him: it is about what is on the page |
 
 Capture and Approve keep working while the card is open. The card folds into the bar so the page takes presses again, and the window keeps showing it until it is answered or dismissed.
