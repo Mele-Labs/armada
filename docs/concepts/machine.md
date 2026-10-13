@@ -126,6 +126,11 @@ cost alike. The multiple is of the cap the Job would inherit and not of the one
 in force, so repeated raises land on the same figure. The request body names
 no raiser, and one that tried to would be ignored.
 
+**A Commander's spend is the Job's cost and never its cap's.** What a Commander
+turn costs is recorded against the Job and shown beside the Drones' figure; the
+cap is compared with the Drones' alone, so the agent that raises a cap cannot
+spend it. [Commander](commander.md).
+
 **It is per Job, and two numbers rather than one.** A Drone belongs to a
 workflow step, so a four-step Job is four Drones; a per-Drone ceiling on that
 Job is four times the number anybody thought they set, and the Job is what a

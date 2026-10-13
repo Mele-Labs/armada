@@ -436,10 +436,17 @@ pub(crate) async fn show_again<D: Commands>(
 /// Who a raise is placed as, from the marks the door left on the request.
 /// **The body is never asked** (`#2165`): `raised_by` used to ride in it, and a
 /// Helm call that sent `person` met no ceiling.
-fn raised_by(helm: Option<Extension<HelmCalled>>) -> RaisedBy {
-    match helm {
-        Some(_) => RaisedBy::Helm,
-        None => RaisedBy::Person,
+///
+/// **A Commander outranks Helm**, as [`steered_by`] has it: the door never sets
+/// both, and if it ever did the narrower ceiling would be the wrong one to give.
+fn raised_by(
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
+) -> RaisedBy {
+    match (commander, helm) {
+        (Some(_), _) => RaisedBy::Commander,
+        (None, Some(_)) => RaisedBy::Helm,
+        (None, None) => RaisedBy::Person,
     }
 }
 
@@ -455,6 +462,7 @@ pub(crate) async fn raise_cost_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: CapRaise = match ipc::decode("a cost cap", &body) {
@@ -463,7 +471,7 @@ pub(crate) async fn raise_cost_cap<D: Commands>(
     };
     match served
         .shared()
-        .raise_cost_cap(job.id(), raise, raised_by(helm))
+        .raise_cost_cap(job.id(), raise, raised_by(helm, commander))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -482,6 +490,7 @@ pub(crate) async fn raise_turn_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: TurnRaise = match ipc::decode("a turn cap", &body) {
@@ -490,7 +499,7 @@ pub(crate) async fn raise_turn_cap<D: Commands>(
     };
     match served
         .shared()
-        .raise_turn_cap(job.id(), raise, raised_by(helm))
+        .raise_turn_cap(job.id(), raise, raised_by(helm, commander))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -1078,6 +1087,8 @@ pub(crate) async fn remove_allowed_command<D: Commands>(
 pub(crate) async fn restart_step<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     // Emptiness is read here rather than through an `Option<Json<_>>`
@@ -1092,7 +1103,11 @@ pub(crate) async fn restart_step<D: Commands>(
             Err(why) => return undecodable(&why.to_string(), served.run_id()),
         }
     };
-    match served.shared().restart_step(job.id(), note).await {
+    match served
+        .shared()
+        .restart_step(job.id(), note, steered_by(helm, commander))
+        .await
+    {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -655,6 +655,12 @@ export type JobSpend = {
    * nought: nobody was counting, so nothing is claimed.
    */
   unpriced?: number;
+  /**
+   * What the job's Commander has cost, beside `cost_micros` and never in it. It is the job's cost,
+   * and a surface that draws the total adds the two; it is not counted against `cost_cap_micros`.
+   * Absent on a Fleet built before a Commander existed, which reads as nought.
+   */
+  commander_cost_micros?: number;
 };
 
 /**

@@ -216,6 +216,9 @@ pub enum Event {
     SleepChanged(SleepState),
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),
+    // A Job's Commander started or finished a turn. `#2166`.
+    #[serde(rename = "commander.changed")]
+    CommanderChanged(crate::commander::CommanderChanged),
 }
 
 impl Event {

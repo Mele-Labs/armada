@@ -221,7 +221,7 @@ fn the_allowlist_and_the_ledger_name_only_what_the_door_offers_and_never_the_sam
 
 #[test]
 fn a_commander_may_call_every_query_and_every_allowed_act_and_nothing_else() {
-    let reach = CommanderReach::of_the_allowlist();
+    let reach = CommanderReach::of_the_allowlist(ipc::JobId::carried("01JOB"));
     for row in offerable() {
         let allowed = row.kind == "query" || COMMANDER_ALLOWED.contains(&row.operation);
         assert_eq!(reach.may(row.operation), allowed, "{}", row.operation);
@@ -266,17 +266,17 @@ fn every_query_the_commander_may_call_is_a_read() {
     }
 }
 
-const COMMANDER: u16 = 52010;
-const ANYONE: u16 = 52011;
+pub(super) const COMMANDER: u16 = 52010;
+pub(super) const ANYONE: u16 = 52011;
 
-fn commander_holding_one() -> Arc<FakeDaemon> {
+pub(super) fn commander_holding_one() -> Arc<FakeDaemon> {
     let daemon = FakeDaemon::new(Broadcaster::new());
     running(&daemon, "01JOB");
-    *daemon.commander_on.lock().expect("not poisoned") = Some(COMMANDER);
+    *daemon.commander_on.lock().expect("not poisoned") = Some((COMMANDER, ipc::JobId::carried("01JOB")));
     Arc::new(daemon)
 }
 
-fn shared(daemon: &Arc<FakeDaemon>) -> Router {
+pub(super) fn shared(daemon: &Arc<FakeDaemon>) -> Router {
     router(Served::sharing(
         Arc::clone(daemon),
         run_id(),
@@ -284,7 +284,7 @@ fn shared(daemon: &Arc<FakeDaemon>) -> Router {
     ))
 }
 
-async fn from(app: &Router, port: u16, headers: &[(&str, &str)], body: &str) -> String {
+pub(super) async fn from(app: &Router, port: u16, headers: &[(&str, &str)], body: &str) -> String {
     let peer: SocketAddr = format!("127.0.0.1:{port}").parse().expect("an address");
     let mut request = Request::builder()
         .method("POST")
@@ -312,14 +312,14 @@ async fn from(app: &Router, port: u16, headers: &[(&str, &str)], body: &str) -> 
     String::from_utf8_lossy(&bytes).to_string()
 }
 
-fn calling(tool: &str, arguments: &str) -> String {
+pub(super) fn calling(tool: &str, arguments: &str) -> String {
     format!(
         r#"{{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{{"name":"{tool}","arguments":{arguments}}}}}"#
     )
 }
 
 const LISTING: &str = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#;
-const REDIRECT: &str = r#"{"job_id":"1","body":{"instruction":"read the failing test first"}}"#;
+pub(super) const REDIRECT: &str = r#"{"job_id":"1","body":{"instruction":"read the failing test first"}}"#;
 
 /// The names in a `tools/list` answer, read as the text it is.
 fn listed(body: &str) -> Vec<String> {

@@ -46,6 +46,7 @@ mod cloning;
 mod commit;
 mod concurrently;
 /// A Helm conversation's process: one message, resumed by id.
+mod commanding;
 mod conversing;
 mod delivery;
 mod error;
@@ -106,6 +107,7 @@ mod tests;
 pub use build_standing::{fetch_main, position_against_main};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
+pub use commanding::{denied_to_a_commander, Commanding};
 pub use conversing::{
     door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,
     CHANGES_THE_CHECKOUT,

@@ -234,7 +234,7 @@ where
 
     /// Into the Job's own log, at the step it is on where it is on one, as
     /// `noted_permission` writes a person's answer.
-    async fn noted_setting(
+    pub(crate) async fn noted_setting(
         &self,
         job: &JobId,
         message: &'static str,

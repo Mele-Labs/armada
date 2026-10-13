@@ -221,6 +221,7 @@ pub fn fitted_over<V>(
         second_opinion_model: Model::named("the-second-model").expect("a model name"),
         proposer_model: Model::named("the-cheap-model").expect("a model name"),
         retro_model: Model::named("the-retro-model").expect("a model name"),
+        commander_model: Model::named("the-commander-model").expect("a model name"),
         // Resolves nothing, so every fixture but `proposing`'s own behaves
         // exactly as it did before this seam existed. The cases about it
         // plant their own.

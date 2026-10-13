@@ -852,6 +852,7 @@ where
         self: Arc<Self>,
         job_id: JobId,
         note: Option<ipc::RestartRequested>,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = match &note {
             Some(note) => Some(
@@ -861,7 +862,19 @@ where
         };
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
-            async move { Fleet::restart_step(&fleet, &job_id.to_domain(), said.as_ref()).await }
+            async move {
+                // Signed as the caller the transport placed, `restart_task`'s
+                // mapping: a person's, Helm's or a Commander's.
+                let (signed, _) = crate::work_plan::signed(by);
+                Fleet::restart_step_by(
+                    &fleet,
+                    &job_id.to_domain(),
+                    said.as_ref(),
+                    crate::resume::Ending::Unheard,
+                    signed,
+                )
+                .await
+            }
         })
         .await
         .map_err(|why| self.refusal(why))?;
