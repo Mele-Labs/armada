@@ -534,6 +534,8 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   expect(out.blocks[0].text).toContain('S1')
   expect(out.blocks[0].text).toContain('waiting_for')
   expect(out.blocks[0].text).toContain('do not ask with AskUserQuestion')
+  expect(out.blocks[0].text).toContain('already waits on him by itself, so never put it in waiting_for')
+  expect(out.blocks[0].text).not.toContain('a page to look at')
   expect(out.blocks[0].text).toContain('call all_done')
 })
 

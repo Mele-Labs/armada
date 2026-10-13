@@ -50,6 +50,8 @@ export type CaptureBoard = {
   sessionApproved: (sessionId: string, address: string, take?: Take) => Promise<Outcome>;
   /** The Session's question, answered from the bar: `answer_waiting` on its item, which wakes it. */
   answerAsk: (sessionId: string, itemId: string, answer: CaptureAnswer) => Promise<Outcome>;
+  /** The Session windows open changed: one opened, or one closed. Optional, for a board that draws none. */
+  windowsChanged?: () => void;
   /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
   sessionClosed: (sessionId: string, address: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
@@ -182,7 +184,10 @@ export class CaptureWindow {
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => {
       this.board.focused(pin.run, false);
-      if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, this.opened);
+      if ("session" in landsOn) {
+        this.board.sessionClosed(landsOn.session.id, this.opened);
+        this.board.windowsChanged?.();
+      }
       this.stopWatchingWalk();
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
       for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
