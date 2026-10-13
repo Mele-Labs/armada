@@ -5,11 +5,13 @@
 import { WalkPanel } from "@armada/components";
 
 import { SessionMini } from "../sessions";
+import { useViewing } from "../cockpit/viewed";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 
 export function WalkSession({ sessionId }: { sessionId: string }) {
   const session = useSessions().find((one) => one.id === sessionId);
   const served = useSessionsDraft() !== undefined;
+  useViewing(session === undefined ? undefined : sessionId);
   const openInBridge = () => void window.armada.walkPanel.openInBridge();
   return (
     <WalkPanel kind="session" title={session?.title ?? sessionId} onOpenInBridge={openInBridge}>

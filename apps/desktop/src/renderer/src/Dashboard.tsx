@@ -49,6 +49,7 @@ import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
+import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
 type Hue = "ask" | "issue" | "running" | "queued" | "ok" | "bad";
@@ -545,6 +546,7 @@ export function useItems(
   const dismissed = useDismissed();
   const slept = useSleepDecided();
   const walking = useOpenWalks();
+  const viewed = useViewedVersion();
   const calls = tab === "command-central";
   const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
@@ -574,7 +576,7 @@ export function useItems(
       }
       // A walk whose window is open is being looked at, so it is not a call yet.
       const unseen = (one: WaitingCall) => !(one.item.source === "walk" && one.item.act !== undefined && walking.has(one.item.act.target));
-      items.push(...callsFromWaiting(sessions).filter(unseen).map((one) => waitingItem(one, hosts)));
+      items.push(...callsFromWaiting(sessions, viewedAt).filter(unseen).map((one) => waitingItem(one, hosts)));
       items.push(...slept.map(sleepItem));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
@@ -624,7 +626,7 @@ export function useItems(
       return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, nows, sessions, slept, walking, answered, dismissed]);
+  }, [tab, state, picked, nowViews, nows, sessions, slept, walking, answered, dismissed, viewed]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
   const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
   const board = state.jobs.length > 0 || viewsOf(state).length > 0;

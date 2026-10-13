@@ -119,6 +119,8 @@ export type SessionRow =
       id: string;
       at: string;
       kind: "message";
+      /** The instant `at` is the clock of, where the wire gave one. A mock's carries none. */
+      instant?: string;
       from: SessionVoice;
       text: string;
       /** What the person sent with it. */

@@ -233,6 +233,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({
           id: row.id,
           at,
+          instant: row.at,
           kind: "message",
           from: row.from,
           text: row.text,
