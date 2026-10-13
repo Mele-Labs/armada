@@ -316,6 +316,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         self.session_checks_ended(&id).await;
+        self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.published_hosted(&id).await
     }
 

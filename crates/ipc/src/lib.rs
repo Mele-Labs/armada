@@ -134,6 +134,8 @@ pub mod layout;
 pub mod key_bindings;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
+/// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.
+mod clashes;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -374,6 +376,7 @@ pub use mods::{
     ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
     SetModEnabled,
 };
+pub use clashes::{ClashHolder, ClashSide, WriteClash, WriteClashes};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use piloting::{

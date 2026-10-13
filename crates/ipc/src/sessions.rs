@@ -162,6 +162,11 @@ pub enum SessionFact {
         mod_version: Option<String>,
     },
     TurnCompleted,
+    /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
+    /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.80.
+    Touched {
+        paths: Vec<String>,
+    },
     Ended {
         reason: String,
     },

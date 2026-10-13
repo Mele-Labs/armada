@@ -454,10 +454,11 @@ where
         drone: &DroneId,
         step: &StepId,
     ) -> Result<Taps, std::io::Error> {
-        Taps::opening(
-            self.served_by(job)
-                .map_err(|why| std::io::Error::other(why.to_string()))?
-                .records_root(),
+        let served = self
+            .served_by(job)
+            .map_err(|why| std::io::Error::other(why.to_string()))?;
+        let taps = Taps::opening(
+            served.records_root(),
             Spine {
                 job: job.id().clone(),
                 handle: job.handle(),
@@ -467,7 +468,20 @@ where
             },
             Arc::clone(self.clock()),
             self.turns().feeding(&ipc::JobId::from(job.id())),
-        )
+        )?;
+        // The files its edit calls name, for the check of who else writes them.
+        Ok(match self.tree_spec(&served, job) {
+            Some(spec) => taps.also(Arc::new(crate::clashing::WritesSeen {
+                harness: Arc::clone(self.harness()),
+                writes: Arc::clone(self.writes()),
+                clock: Arc::clone(self.clock()),
+                who: crate::clashing::Who::Job(job.id().clone()),
+                manifest: served.manifest().id().as_str().to_string(),
+                worktree: spec.worktree_path(),
+                home: self.host().home.clone(),
+            })),
+            None => taps,
+        })
     }
 
     /// Everything one Drone is started with, from the Job and the machine.

@@ -238,6 +238,8 @@ export type SessionFact =
     }
   | { kind: "measured"; usage: SessionUsage }
   | { kind: "turn_completed" }
+  /** Files written, relative to the session's `cwd`. Since 23.80. */
+  | { kind: "touched"; paths: string[] }
   | { kind: "ended"; reason: string };
 
 export type SessionReport = {

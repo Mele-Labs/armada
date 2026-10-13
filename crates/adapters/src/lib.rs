@@ -104,7 +104,7 @@ mod worktree;
 #[cfg(test)]
 mod tests;
 
-pub use build_standing::{fetch_main, position_against_main};
+pub use build_standing::{fetch_branch, fetch_main, position_against_main};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use conversing::{

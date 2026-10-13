@@ -87,7 +87,11 @@ where
         if let (Some(slot), true) = (own, self.hosts().of(&id).state().moving.is_some()) {
             return GateAnswer::deny(waiting_to_move(slot, &directory));
         }
-        match touching {
+        let written = match &touching {
+            Touch::File(path) => Some(path.clone()),
+            _ => None,
+        };
+        let answer = match touching {
             Touch::Nothing => GateAnswer::pass(),
             Touch::File(path) => match (lands(&path), own) {
                 (Place::Elsewhere, _) => GateAnswer::pass(),
@@ -120,7 +124,17 @@ where
                     None => GateAnswer::pass(),
                 }
             }
+        };
+        // A write let through inside the session's own slot is a file it has written, for the
+        // check of who else writes it. `docs/concepts/fleet.md`, *Write clashes*.
+        if let (Some(path), Some(_), GateAnswer::Pass {}) = (written, own, &answer) {
+            let inside = crate::edit_calls::repository_relative(&path, &directory, &self.host().home);
+            if !inside.starts_with('/') {
+                let who = crate::clashing::Who::Session(id.clone());
+                self.writes().wrote(&who, served.manifest().id().as_str(), [inside], &self.now());
+            }
         }
+        answer
     }
 
     /// Lease a slot for the session and cut its branch. **One at a time**, so
