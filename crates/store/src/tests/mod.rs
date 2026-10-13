@@ -30,6 +30,7 @@ mod forget;
 mod gaming;
 mod gate_manifests;
 mod commander_spend;
+mod commander_wakes;
 mod helm_sessions;
 mod iteration;
 mod kit;
