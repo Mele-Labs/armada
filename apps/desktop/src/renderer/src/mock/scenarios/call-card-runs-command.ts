@@ -30,6 +30,7 @@ const SESSION: Session = {
   waitingFor: [
     { id: "c-stop", text: "Stop the mock server on 5788", since: ago(4), source: "agent", act: { kind: "run", target: "kill $(lsof -ti tcp:5788)" } },
     { id: "c-tests", text: "Run the components tests", since: ago(3), source: "agent", act: { kind: "run", target: "pnpm vitest run packages/components" } },
+    { id: "c-preview", text: "Restart onto the preview", since: ago(2), source: "agent", act: { kind: "run", target: "scripts/preview --restart" } },
   ],
 };
 

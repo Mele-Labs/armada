@@ -16,6 +16,7 @@ import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
+import { buildChangeOf } from "../build-change";
 import { viewsOf } from "../merge-line";
 import { runnerOf } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -215,6 +216,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   // A Session's call answers through Fleet.
   const waiting = item.waiting;
+  const restart = waiting?.item.act?.kind === "run" ? buildChangeOf(waiting.item.act.target) : undefined;
   const sendWaiting = (id: string, body: Omit<AnswerWaiting, "session_id" | "item_id">, accepted?: () => void) => {
     if (waiting === undefined) return;
     wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
@@ -337,6 +339,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
         // The key says the verb; the command itself is on the card, whole and in its own case.
         if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
+        // A restart is the Fleet panel's build switch: one key, nothing to copy or say. The runner switches it.
+        if (restart !== undefined) return runner === undefined ? [] : [answer(restart.label, () => guarded.start(act.target), { once: true })];
         const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
         return [
           ...(runner === undefined ? [] : [answer("Run", () => guarded.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
@@ -413,7 +417,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     else if (chosen !== undefined) answers[chosen]?.run();
   };
   // A first message is sent in the Session's own box, so the card has no reply and its one act opens the Session.
-  const replies = waiting !== undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
+  const replies = waiting !== undefined && restart === undefined && waiting.item.source !== "walk" && waiting.item.source !== "permission" && waiting.item.source !== "first_message";
 
   return {
     ask: decision?.question ?? item.fact,
@@ -443,7 +447,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
-    ...(waiting?.item.act?.kind === "run" && runner !== undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
+    ...(waiting?.item.act?.kind === "run" && runner !== undefined && restart === undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
     pending: shown,
     // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
     dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),

@@ -15,6 +15,7 @@ beforeEach(forgetDismissals);
 
 const PASSES = "kill $(lsof -ti tcp:5788)";
 const FAILS = "pnpm vitest run packages/components";
+const RESTART = "scripts/preview --restart";
 const SLOW = 12000;
 
 const key = (name: RegExp) => page.getByRole("complementary").getByRole("button", { name });
@@ -96,6 +97,17 @@ test("a failing command keeps its card, the key reads Run again, and the agent i
   await expect.poll(() => run.mock.calls.length).toBe(2);
   expect(run.mock.calls[1]?.[1]).toBe(FAILS);
 }, 40000);
+
+test("a restart's card is one key that switches the build, with nothing to copy, run by hand or say", async () => {
+  const { run } = await show(RESTART);
+  await expect.element(key(/Refresh preview/)).toBeVisible();
+  expect(page.getByRole("complementary").getByRole("button", { name: /Copy/ }).elements()).toHaveLength(0);
+  expect(block(RESTART).getByRole("button", { name: "Run" }).elements()).toHaveLength(0);
+  expect(card().getByRole("textbox").elements()).toHaveLength(0);
+  await key(/Refresh preview/).click();
+  await expect.poll(() => run.mock.calls.length).toBe(1);
+  expect(run.mock.calls[0]?.[1]).toBe(RESTART);
+}, 30000);
 
 test("the play control on the command and the key on the rail drive one run", async () => {
   const { run } = await show(PASSES);
