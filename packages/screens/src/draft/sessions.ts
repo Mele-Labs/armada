@@ -375,6 +375,8 @@ export type SessionsDraft = {
   reviews?: "fleet";
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
   models: readonly string[];
+  /** The model a Session follows while it names none, as Fleet's model list holds it. */
+  defaultModel?: string;
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];

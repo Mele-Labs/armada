@@ -964,6 +964,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               model={session.model ?? null}
               effort={session.effort ?? null}
               models={draft.models}
+              {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
               efforts={draft.efforts}
               onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
@@ -1083,6 +1084,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           model={session.model ?? null}
           effort={session.effort ?? null}
           models={draft.models}
+          {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
           efforts={draft.efforts}
           onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
           commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
