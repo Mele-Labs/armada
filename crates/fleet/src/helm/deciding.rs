@@ -696,10 +696,13 @@ fn forge(arguments: &[&str]) -> Option<Because> {
         "pr" | "release" if matches!(verb, "merge" | "create" | "ready" | "upload") => {
             Some(Because::PushesToShared)
         }
-        "pr" | "issue" if matches!(verb, "close" | "delete" | "reopen" | "edit") => {
+        "pr" | "issue" if matches!(verb, "close" | "delete" | "reopen") => {
             Some(Because::Destructive)
         }
-        "issue" if matches!(verb, "create" | "comment") => Some(Because::WritesOffMachine),
+        // An edit keeps what it replaced in the forge's history, so it is a write and
+        // not a removal (the owner, 13 Oct 2026, after a rewrite of #2248 was refused).
+        "issue" if matches!(verb, "create" | "comment" | "edit") => Some(Because::WritesOffMachine),
+        "pr" if verb == "edit" => Some(Because::WritesOffMachine),
         "api"
             if arguments
                 .iter()
