@@ -223,6 +223,8 @@ export function CallCard({
 
   const sessionId = sessionIdOf(item.key);
   const session = sessions.find((one) => one.id === sessionId);
+  // A pull request or red main a Session holds draws that Session's thread under the facts, so he sees what it is doing.
+  const holder = item.ownedBy?.kind === "session" ? sessions.find((one) => one.id === item.ownedBy!.id) : undefined;
   // A Job's call that asks a person, where a risky refusal is what brought it: the Judges' reason.
   const risk = useJudgesRisk(item.job, item.hue === "ask" && item.decisions === undefined);
   const Icon = item.icon;
@@ -403,6 +405,11 @@ export function CallCard({
               <section aria-label={item.contextHead ?? "Why it asks"}>
                 <pre className="armada-callcard__why">{item.context.slice(0, 3).join("\n")}</pre>
               </section>
+            )}
+            {holder === undefined ? null : (
+              <div className="armada-callcard__thread" role="group" aria-label={`Session ${holder.title ?? holder.id}`}>
+                <SessionThread sessionId={holder.id} rows={threadRowsOf(holder)} working={holder.turn.state === "working"} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
+              </div>
             )}
           </>
         )}

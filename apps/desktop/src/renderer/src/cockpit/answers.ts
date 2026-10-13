@@ -26,7 +26,7 @@ import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
 import { fixJob, type JobFix } from "./fix-job";
-import { mainOwner, pullOwner, type Owner } from "./owner";
+import { ownerOfCall, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
 import type { Hosts, Item } from "../Dashboard";
@@ -208,11 +208,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.
   const running = ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
   const pull = pullOf(item, state);
-  const owner = item.key.startsWith("pull:")
-    ? pullOwner(views, sessions, pull?.number ?? 0)
-    : item.key.startsWith("main:")
-      ? mainOwner(views, sessions, item.key.slice("main:".length))
-      : undefined;
+  const owner = ownerOfCall(views, sessions, item.key);
 
   // A Session's call answers through Fleet.
   const waiting = item.waiting;
