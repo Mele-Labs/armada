@@ -316,7 +316,7 @@ async fn a_pick_with_words_tells_the_agent_both() {
         })
         .last()
         .unwrap();
-    assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones");
+    assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones\nFleet took this off your waiting list.");
 }
 
 #[tokio::test]
