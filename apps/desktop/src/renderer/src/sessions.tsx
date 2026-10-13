@@ -32,6 +32,7 @@ import {
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
+  FreshStart,
   OpenInSessionValue,
   PilotValue,
   LedgerEntry,
@@ -131,6 +132,19 @@ function summaryOf(session: Session): OwnerSummary {
 function opening(started: string | Promise<string | undefined>, onOpen: (id: string) => void): void {
   if (typeof started === "string") onOpen(started);
   else void started.then((id) => id !== undefined && onOpen(id));
+}
+
+/** A Session this large, or this old, is offered a fresh start. */
+const FRESH_TOKENS = 300_000;
+const FRESH_HOURS = 24;
+
+/** A new Session that opens on a short handoff from this one, under the same title. */
+async function startFreshFrom(draft: SessionsDraft, session: Session): Promise<string | undefined> {
+  const fresh = await draft.start();
+  if (fresh === undefined) return undefined;
+  if (session.title !== undefined) draft.rename?.(fresh, session.title);
+  void draft.send(fresh, { text: `Handoff from ${session.title ?? session.address ?? session.id}`, files: [], sketches: [], tags: [] });
+  return fresh;
 }
 
 /** Who owns each chip, for every chip in the window, and where a Job that went wrong can be talked through. */
@@ -800,6 +814,18 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
     open(...args);
   };
   const runner = runnerOf(draft, session);
+  const hours = session.trail === undefined ? 0 : Math.floor((Date.now() - Date.parse(session.trail.started)) / 3_600_000);
+  const tokens = session.context?.tokens ?? 0;
+  const lastRow = thread[thread.length - 1];
+  const fresh: FreshStart | undefined =
+    session.dead === undefined && (tokens > FRESH_TOKENS || hours >= FRESH_HOURS)
+      ? {
+          tokens,
+          hours,
+          onFresh: () => opening(startFreshFrom(draft, session), onOpen),
+          ...(draft.forkAt === undefined || lastRow === undefined ? {} : { onFork: () => opening(draft.forkAt!(session.id, lastRow.id), onOpen) }),
+        }
+      : undefined;
   // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
   const read = (one: Reading) => {
     const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
@@ -842,6 +868,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        {...(session.terminal === true && session.model === undefined ? {} : { model: { picked: session.model } })}
+        {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         {...{
               actions: (

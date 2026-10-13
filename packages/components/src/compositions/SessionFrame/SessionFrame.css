@@ -104,6 +104,56 @@ button.armada-session-frame__context:focus-visible {
   inset-inline-end: 0;
 }
 
+/* The model a Session runs on: a mono name after its glyph, in the head's muted ink. */
+.armada-session-frame__model {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+/* A Session that is big or old: a quiet mark, and a card of two acts hung under it as the context card is. */
+.armada-session-frame__fresh-host {
+  --tone: var(--fg-muted);
+  position: relative;
+  display: flex;
+}
+
+button.armada-session-frame__fresh {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+button.armada-session-frame__fresh:hover {
+  color: var(--fg-default);
+}
+
+button.armada-session-frame__fresh:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-frame__fresh-card {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  top: 100%;
+  inset-inline-end: 0;
+}
+
+.armada-session-frame__fresh-acts {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 /* One term column for the categories and both lists, so the figures stand in a line. */
 .armada-session-frame__context-card .armada-stop-card__facts {
   grid-template-columns: calc(var(--space-12) * 3) minmax(0, 1fr);

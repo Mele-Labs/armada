@@ -259,8 +259,9 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
     // **A press on the card is not a click outside the app's layer.** The
     // palette closes on a mousedown anywhere outside it, so Next closed the
     // palette the step before had opened. Stopped at this root, it never
-    // reaches the window the palette listens on.
-    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk" onMouseDown={(event) => {
+    // reaches the window the palette listens on. A card that closes on a press outside (`useCardOpen`)
+    // listens for `pointerdown`, which Next would close the same way, so that one stops here too.
+    <div {...{ [WALK_UI]: "" }} className="armada-mock-walk" onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => {
         event.stopPropagation();
         // Nor does it take focus: a field the step before opened is still the one the next step types into.
         event.preventDefault();

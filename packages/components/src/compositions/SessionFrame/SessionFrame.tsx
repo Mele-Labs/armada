@@ -9,6 +9,8 @@ import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ClashMark, ClashNotice } from "../ClashMark/ClashMark";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
+import { FreshNudge, type FreshStart } from "./FreshNudge";
+import { ModelChip } from "./ModelChip";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -77,6 +79,8 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 }
 
 export type { ContextFill } from "./ContextFigure";
+export type { FreshStart } from "./FreshNudge";
+export { modelSaid } from "./ModelChip";
 export type { ContextBreakdown } from "../../context-breakdown";
 
 export type SessionFrameProps = {
@@ -97,6 +101,13 @@ export type SessionFrameProps = {
   modOutOfDate?: boolean;
   /** The context window's fill, drawn beside `actions`. Absent draws nothing. */
   context?: ContextFill;
+  /**
+   * Draws the model the Session runs on, always named. The value is the model picked; `undefined` draws the default.
+   * Omit the key to draw none.
+   */
+  model?: { picked: string | undefined };
+  /** Big or old: a quiet mark beside the context figure, offering a fresh Session or a fork. Absent draws nothing. */
+  fresh?: FreshStart;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
   actions?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
@@ -153,7 +164,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, model, fresh, actions, aside, children }: SessionFrameProps) {
   return (
     <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
@@ -162,7 +173,9 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
+        {model === undefined ? null : <ModelChip model={model.picked} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
+        {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
         <ClashMark kind="session" id={id} size={16} />
         {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
