@@ -8,8 +8,8 @@ import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 import type { NowView } from "@armada/jobs/draft/now";
 import { featureRunning } from "@armada/jobs/fake";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+import type { WriteClash } from "@armada/protocol";
 
-import type { WriteClash } from "../../clashes";
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";

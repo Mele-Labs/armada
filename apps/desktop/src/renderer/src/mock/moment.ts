@@ -10,7 +10,7 @@ import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { WriteClash } from "../clashes";
+import type { WriteClash } from "@armada/protocol";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";

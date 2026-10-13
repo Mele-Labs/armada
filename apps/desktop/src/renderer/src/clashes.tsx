@@ -1,24 +1,16 @@
 // Write clashes, as the window holds them. Fleet detects two live agents in one repository (a Job's
-// Drone, a Session) whose changes really conflict, or one agent against a main that moved, and
-// tells both. The shapes below mirror what `GET /clashes?manifest_id=&holder=` returns. Mock only
-// for now: a scenario carries the list, nothing reads the wire, and the app's own mount provides none.
+// Drone, a Session) whose changes really conflict, or one agent against a main that moved, and tells
+// both; `GET /clashes` lists what stands (`@armada/protocol`, `WriteClash`). `fleet-clashes.ts` reads
+// it in the app and a mock scenario carries its own list; both hand the list to `ClashesFrom`.
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { ClashesProvider } from "@armada/components";
-import type { ClashHolderRef, Clashing } from "@armada/components";
+import type { Clashing } from "@armada/components";
+import type { WriteClash } from "@armada/protocol";
 
+import type { ClashesSource } from "./fleet-clashes";
 import { askToOpenHolder } from "./open-holder";
-
-export type ClashHolder = ClashHolderRef;
-
-export type WriteClash = {
-  one: ClashHolder;
-  other: ClashHolder;
-  paths: string[];
-  /** When Fleet first saw the conflict. */
-  since: string;
-};
 
 /** What each holder sees: the clashes it is in, each as the other holder and the paths. */
 export function clashingOf(clashes: readonly WriteClash[]): Clashing["of"] {
@@ -36,4 +28,10 @@ export function clashingOf(clashes: readonly WriteClash[]): Clashing["of"] {
 export function ClashesFrom({ clashes, children }: { clashes: readonly WriteClash[] | undefined; children: ReactNode }) {
   const value = useMemo<Clashing>(() => ({ of: clashingOf(clashes ?? []), open: askToOpenHolder }), [clashes]);
   return clashes === undefined ? <>{children}</> : <ClashesProvider value={value}>{children}</ClashesProvider>;
+}
+
+/** The clashes Fleet reports, kept current by `source`. The provider is always there, so a read landing does not remount the app. */
+export function ClashesFromFleet({ source, children }: { source: ClashesSource; children: ReactNode }) {
+  const clashes = useSyncExternalStore(source.subscribe, source.get);
+  return <ClashesFrom clashes={clashes}>{children}</ClashesFrom>;
 }

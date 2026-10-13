@@ -2,6 +2,6 @@
   means = "Two blades crossed: two writers cutting across one another"
   group = "Write clash"
   size = "12 and 16px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A write clash: two live agents in one repository, or one agent and main, whose changes git merge-tree says conflict. Drawn on both rows of the pair and nowhere else. Never a Job state, never a merge conflict on a pull request, which GitHub reports in its own words, and never an escalation."
-  notes = "Proposed 13 Oct 2026 for the walk `write-clash-mark`. The set had no conflict glyph: `git-merge` is a pull request that merged, `merge` is the Merge line, `diff` is an issue that moved, `split` and `git-fork` are one line becoming two. Crossed blades say two things working against each other and share no outline with any of those at 12px. Tooltip `Conflicts with <the other holder>`, then the paths. Refused: `git-compare-arrows`, which reads as comparing two branches and sits next to `diff`; `triangle-alert`, Doctor's."
+  notes = "Proposed 13 Oct 2026 for the walk `write-clash-mark`, which the owner approved the same day with this glyph. The set had no conflict glyph: `git-merge` is a pull request that merged, `merge` is the Merge line, `diff` is an issue that moved, `split` and `git-fork` are one line becoming two. Crossed blades say two things working against each other and share no outline with any of those at 12px. Tooltip `Conflicts with <the other holder>`, then the paths. Refused: `git-compare-arrows`, which reads as comparing two branches and sits next to `diff`; `triangle-alert`, Doctor's."
