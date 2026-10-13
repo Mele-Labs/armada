@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import type { Item } from "../Dashboard";
-import type { Bay, BaysRead } from "./bays";
+import type { Bay, BaysRead, PullHolder, WorkTrail } from "./bays";
 import type { Dot } from "./horizon";
-import { MAIN, metroOf, orderOf } from "./metro";
+import { MAIN, REVIEW, metroOf, orderOf } from "./metro";
 
 const NOW = Date.parse("2026-10-11T12:00:00Z");
 const tile = (key: string, more: Partial<Item> = {}) => ({ key, title: key, hue: "running", fact: "Editing a file", ...more }) as unknown as Item;
@@ -29,7 +29,7 @@ describe("the metro lines", () => {
       NOW,
     );
     expect(metro.harbours[0]!.lines.map((line) => [line.title, line.reach])).toEqual([
-      ["Job c", 4],
+      ["Job c", 5],
       ["Job b", 3],
       ["Job a", 2],
     ]);
@@ -96,7 +96,7 @@ describe("the metro lines", () => {
     const harbour = { manifest: "armada", name: "armada", bays: [bay(1, job("a"), { dot: inBay })], line: [inBay, open, loose], main: "green" as const };
     const outside = metroOf({ harbours: [harbour], waiting: [] }, NOW).harbours[0]!.outside;
     expect(outside.map((line) => [line.title, line.from, line.reach, line.stops[line.reach]?.glyph])).toEqual([
-      ["feat/by-hand", 3, 4, "1"],
+      ["feat/by-hand", 3, 5, "1"],
       ["check/other", 3, 3, "!"],
     ]);
     expect(outside[0]!.stops.slice(0, 3)).toEqual([undefined, undefined, undefined]);
@@ -106,7 +106,108 @@ describe("the metro lines", () => {
 
   test("main is the last station, and the keys step down the lines in the order they are drawn", () => {
     const metro = metroOf(read([bay(1, job("a")), bay(2, job("b"), { dot: dot({}) })], [tile("w", { hue: "queued", job: { id: "w" } as Item["job"] })]), NOW);
-    expect(MAIN).toBe(5);
+    expect(MAIN).toBe(6);
     expect(orderOf(metro).map((one) => one.key)).toEqual(["b", "a", "w"]);
+  });
+});
+
+/** One pull request outside every bay, with the facts the forge names and the owner's trail where it has one. */
+const outsidePull = (facts: Partial<Dot["card"]> & { state?: Dot["state"]; queued?: boolean; place?: number }, trail?: WorkTrail) => {
+  const { state, queued, place, ...card } = facts;
+  const pull = { ...dot({ key: "pull:9", state: state ?? "open", queued: queued ?? false, place }), card: { ...dot({}).card, heading: "#9", branch: "feat/nine", title: "Nine", place, ...card } } as Dot;
+  const holders = new Map<string, PullHolder>(trail === undefined ? [] : [["pull:9", { kind: "session", id: "s1", title: "Nine", item: undefined, trail }]]);
+  const metro = metroOf({ harbours: [{ manifest: "armada", name: "armada", bays: [], line: [pull], holders, main: "green" }], waiting: [] }, NOW);
+  return { metro, line: metro.harbours[0]!.outside[0]! };
+};
+
+describe("the trail behind a pull request", () => {
+  const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+
+  test("a Session's trail draws waited, the bay it was in and built as passed stations, the line starting at the first", () => {
+    const { line } = outsidePull({}, { began: ago(75), bays: [{ slot: 10, from: ago(70), until: ago(20) }], opened: ago(30) });
+    expect(line.from).toBe(0);
+    expect(line.session).toBe(true);
+    expect(line.stops.slice(0, 3).map((stop) => [stop?.tone, stop?.card.pill, stop?.card.title])).toEqual([
+      ["ok", "waited", "Waited for a bay"],
+      ["ok", "bay 10", "Was in bay 10"],
+      ["ok", "built", "Built"],
+    ]);
+    expect(line.stops[0]?.card.rows).toEqual([["Started", "1h 15m ago"], ["Waited", "5m"]]);
+    expect(line.stops[1]?.card.rows).toEqual([["Took it", "1h 10m ago"], ["Gave it back", "20m ago"], ["Held", "50m"]]);
+    expect(line.stops[2]?.card.rows).toContainEqual(["Pull request opened", "30m ago"]);
+    expect(line.stops[3]?.card.rows).toContainEqual(["Opened", "30m ago"]);
+  });
+
+  test("a Job's bay history tells each stay, the last one in the pill", () => {
+    const { line } = outsidePull({}, { began: ago(200), bays: [{ slot: 2, from: ago(190), until: ago(120) }, { slot: 5, from: ago(100) }] });
+    expect(line.stops[1]?.card).toMatchObject({ pill: "bay 05", title: "Was in bays 02, 05" });
+    expect(line.stops[1]?.card.rows).toEqual([["Bay 02", "3h 10m ago, held 1h 10m"], ["Bay 05", "1h 40m ago"]]);
+    expect(line.stops[0]?.card.rows).toContainEqual(["Waited", "10m"]);
+  });
+
+  test("a trail that names no bay is a Job that started, so only the first stations are told", () => {
+    const { line } = outsidePull({}, { began: ago(60), bays: [{ from: ago(50) }] });
+    expect(line.stops[1]?.card).toMatchObject({ pill: "in", title: "Was in a bay" });
+  });
+
+  test("a pull request nobody owns takes its opened time from the forge, and starts at Pull request", () => {
+    const { line } = outsidePull({ opened: ago(12) });
+    expect(line.from).toBe(3);
+    expect(line.stops[3]?.card.rows).toContainEqual(["Opened", "12m ago"]);
+  });
+});
+
+describe("the review station", () => {
+  test("approved is passed and not yet in the queue, so the line is at Review", () => {
+    const { line, metro } = outsidePull({ review: "approved" });
+    expect(line.stops[REVIEW]).toMatchObject({ tone: "ok", card: { pill: "approved", title: "Review approved" } });
+    expect(line.reach).toBe(REVIEW);
+    expect(metro.review).toBe(true);
+  });
+
+  test("changes requested takes the failed hue and a !, review required waits", () => {
+    expect(outsidePull({ review: "changes" }).line.stops[REVIEW]).toMatchObject({ tone: "bad", glyph: "!", card: { title: "Changes requested" } });
+    expect(outsidePull({ review: "required" }).line.stops[REVIEW]).toMatchObject({ tone: "idle", card: { pill: "required", title: "Review required" } });
+  });
+
+  test("it sits between the pull request and the merge queue, which stays the line's reach once the pull request is in it", () => {
+    const { line } = outsidePull({ review: "approved", state: "queued", queued: true, place: 2 });
+    expect(line.reach).toBe(5);
+    expect(line.stops.map((stop) => stop?.card.title)).toEqual([undefined, undefined, undefined, "Pull request #9", "Review approved", "2nd in the merge queue", undefined]);
+  });
+
+  test("with no review known anywhere there is no station to draw, and the line is where it was", () => {
+    const { line, metro } = outsidePull({});
+    expect(line.stops[REVIEW]).toBeUndefined();
+    expect(line.reach).toBe(3);
+    expect(metro.review).toBe(false);
+  });
+
+  test("a pull request in a bay has one too", () => {
+    const reviewed = { ...dot({}), card: { ...dot({}).card, review: "approved" as const } };
+    const line = metroOf(read([bay(1, job("a"), { dot: reviewed })]), NOW).harbours[0]!.lines[0]!;
+    expect(line.stops[REVIEW]?.card.title).toBe("Review approved");
+    expect(line.reach).toBe(REVIEW);
+  });
+});
+
+describe("a draft or conflicting pull request", () => {
+  test("a draft is a dashed station that says Draft", () => {
+    const stop = outsidePull({ draft: true }).line.stops[3]!;
+    expect(stop.dashed).toBe(true);
+    expect(stop.card).toMatchObject({ pill: "Draft", title: "Draft pull request #9" });
+    expect(stop.card.rows).toContainEqual(["Status", "ci running"]);
+  });
+
+  test("a conflict takes the failed hue and says it conflicts with main, whatever else it is", () => {
+    const stop = outsidePull({ conflicts: true, draft: true }).line.stops[3]!;
+    expect(stop).toMatchObject({ tone: "bad", glyph: "!", dashed: true, card: { tone: "bad", pill: "Conflicts with main" } });
+  });
+
+  test("an ordinary one is neither dashed nor renamed", () => {
+    const stop = outsidePull({}).line.stops[3]!;
+    expect(stop.dashed).toBeUndefined();
+    expect(stop.card.pill).toBe("ci running");
+    expect(stop.card.rows.some(([label]) => label === "Status")).toBe(false);
   });
 });

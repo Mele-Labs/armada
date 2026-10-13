@@ -24,6 +24,7 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
+import { Queue } from "./consoles";
 import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
@@ -299,8 +300,11 @@ export function Cockpit({
   const held = new Set(calls.map((one) => one.key));
   const waiting = put.filter((key) => key !== forward && held.has(key));
   const ahead = calls.filter((one) => !waiting.includes(one.key));
-  const front = ahead.find((one) => one.key === forward) ?? ahead[0];
-  const edge: Item[] = [...ahead.filter((one) => one !== front), ...waiting.map((key) => calls.find((one) => one.key === key)!)];
+  // **The deck is drawn on Your move and nowhere else**: the other filters show tiles and lines only,
+  // a Job or Session with a call being its ordinary tile there.
+  const deck = filter === "command-central";
+  const front = deck ? (ahead.find((one) => one.key === forward) ?? ahead[0]) : undefined;
+  const edge: Item[] = deck ? [...ahead.filter((one) => one !== front), ...waiting.map((key) => calls.find((one) => one.key === key)!)] : [];
 
   /** Keys pressed while a card is leaving, said again once it has gone. */
   const typed = useRef<KeyboardEventInit[]>([]);
@@ -337,6 +341,7 @@ export function Cockpit({
   // An alert's press: the call it spoke of comes to the front, out of the back if it was put off.
   useEffect(() => {
     if (bring === undefined || bring === null) return;
+    onFilter("command-central");
     recall(bring.key);
     onBrought?.();
     // `at` alone: the same call pressed twice is two landings.
@@ -388,6 +393,7 @@ export function Cockpit({
       const digit = pressedDigit("call_pick", event);
       if (digit !== null) return claim(), card.pickNumber(digit);
       if (card.pickKey(event)) return claim();
+      if (isPressed("call_reply", event) && card.change !== undefined) return claim(), card.change();
       if (isPressed("call_reply", event)) {
         const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
         return field === null ? undefined : (claim(), field.focus());
@@ -446,7 +452,8 @@ export function Cockpit({
         : nowPanelOf(nowsHeld?.[current.job.id], nowHost(current.job.id));
   // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
   const pane = filter !== "command-central" && filter !== "bays" && current !== undefined;
-  const filters = useFilters(filter);
+  // Your move carries a dot while anything needs him: no figure, since a count is not what it says.
+  const filters = useFilters(filter).map((one) => (one.id === "command-central" && calls.length > 0 ? { ...one, alert: "Needs you" } : one));
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
   return (
@@ -522,9 +529,8 @@ export function Cockpit({
           </div>
           {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
-              <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
-                <Behind edge={edge} put={waiting} recall={recall} />
-                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], nowHost(front.job.id))} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+              <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
+                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], nowHost(front.job.id))} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

@@ -43,18 +43,33 @@ export function waitingOf(session: Session): WaitingItem[] {
 /** What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. */
 const BLOCKING = new Set(["ask_card", "permission", "window_ask"]);
 
+/** The latest message from the owner on the Session's thread, as an instant; 0 where he has sent none. */
+export function lastOwnerMessageAt(session: Session): number {
+  let latest = 0;
+  for (const row of session.rows) if (row.kind === "message" && row.from.kind === "you") latest = Math.max(latest, Date.parse(row.instant ?? row.at) || 0);
+  return latest;
+}
+
+/** The last instant he was in the Session: viewing it, or sending it a message, whichever is later. */
+export const touchedAt = (session: Session, viewedAt: (sessionId: string) => number): number => Math.max(viewedAt(session.id), lastOwnerMessageAt(session));
+
 /**
  * Every item every live Session waits on, the one that began first leading. A Session at work shows
  * only what its turn is stopped on: its question or permission reads `working` until it is answered.
+ * **An item raises a call only if he has not been in its Session since it began waiting**: if he was,
+ * he saw it there, and it stays on the Session's own list alone. An item re-posted under the same id
+ * keeps its `since`, so it does not call again; a new one does. `viewedAt` is when he last viewed a Session.
  */
-export function callsFromWaiting(sessions: readonly Session[]): WaitingCall[] {
+export function callsFromWaiting(sessions: readonly Session[], viewedAt: (sessionId: string) => number = () => 0): WaitingCall[] {
   return sessions
     .filter((session) => session.dead === undefined)
-    .flatMap((session) =>
-      waitingOf(session)
+    .flatMap((session) => {
+      const touched = touchedAt(session, viewedAt);
+      return waitingOf(session)
         .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
-        .map((item) => ({ session, item })),
-    )
+        .filter((item) => touched === 0 || Date.parse(item.since) > touched)
+        .map((item) => ({ session, item }));
+    })
     .sort((a, b) => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id));
 }
 

@@ -5,6 +5,7 @@
 // Mock only for Sessions: Bridge reads `who_owns` through no accessor, and does not need it where
 // the Sessions' own attachments are held. Pure, so the rule is checked without drawing a card.
 
+import type { JobSummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { MergeLineView } from "@armada/screens";
 
@@ -20,6 +21,21 @@ export function pullOwner(views: readonly Seen[], sessions: readonly Session[], 
   const held = sessions.find((one) =>
     one.attachments.some((attachment) => attachment.kind === "pull_request" && (attachment.number === number || (branch !== undefined && attachment.branch === branch))),
   );
+  return held === undefined ? undefined : { kind: "session", id: held.id, title: held.title ?? held.id };
+}
+
+/**
+ * Whose work a pull request is, where it sits in no bay: the Job the wire names, a Job on its branch, a Session
+ * that holds the number or the branch. A Session that has ended still made it, so it is found after a live one.
+ */
+export function workOwner(views: readonly Seen[], jobs: readonly Pick<JobSummary, "id" | "title" | "branch">[], sessions: readonly Session[], number: number, branch: string): Owner | undefined {
+  const named = pullOwner(views, [], number);
+  if (named !== undefined) return named;
+  const job = jobs.find((one) => one.branch === branch);
+  if (job !== undefined) return { kind: "job", id: job.id, title: job.title };
+  const holds = (one: Session) =>
+    one.attachments.some((attachment) => (attachment.kind === "pull_request" && (attachment.number === number || attachment.branch === branch)) || (attachment.kind === "branch" && attachment.name === branch));
+  const held = sessions.find((one) => one.dead === undefined && holds(one)) ?? sessions.find(holds);
   return held === undefined ? undefined : { kind: "session", id: held.id, title: held.title ?? held.id };
 }
 

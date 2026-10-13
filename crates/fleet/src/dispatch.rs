@@ -963,6 +963,7 @@ where
             let store = self.store().lock().await;
             summary.piloted = self.piloted_on_row(&store, job);
             summary.alert = self.alert_on_row(&store, job);
+            summary.bays = crate::summarising::bays_on_row(&store, job);
         }
         Ok(summary)
     }

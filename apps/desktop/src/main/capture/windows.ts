@@ -109,6 +109,7 @@ export class CaptureWindows {
     const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes);
     this.open.set(key, window);
     window.setReadiness(sessionReadiness(record, url));
+    this.board.windowsChanged?.();
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.
     if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), window.origins));
     return { ok: true };
@@ -125,6 +126,11 @@ export class CaptureWindows {
     const opened = here ? ({ ok: true } as const) : this.openForSession(sessionId, title, window);
     this.ask();
     return opened;
+  }
+
+  /** The addresses of the Session windows open now. */
+  sessionAddresses(): string[] {
+    return [...this.open].filter(([key, window]) => key.startsWith(SESSION_KEY) && window.open).map(([, window]) => window.address);
   }
 
   /** Every Session window shows its Session's oldest open question on its own origin, or none. */

@@ -9,6 +9,7 @@
 use std::path::PathBuf;
 
 use adapter_traits::{SlotStanding, Vcs, WorktreeSpec};
+use api::Queries;
 use adapters::leasing::{Holder, Pool, SlotState};
 use adapters::GitVcs;
 use core_model::{
@@ -566,4 +567,60 @@ async fn clearing_a_clean_slot_commits_nothing() {
 
     assert!(saved.is_none());
     assert!(fleet.vcs().parked_slots().is_empty());
+}
+
+async fn bays_of(fleet: &Fixture, job: &JobId) -> Vec<ipc::JobBay> {
+    fleet
+        .get_job(ipc::JobId::from(job))
+        .await
+        .expect("the Job is served")
+        .job
+        .bays
+}
+
+/// The lease records the bay with the instant it was taken, the release closes it,
+/// and the row Bridge reads carries both. A completed Job's stays open until a
+/// person clears it.
+#[tokio::test]
+async fn a_jobs_bay_is_recorded_when_leased_and_closed_when_given_back_and_served_on_its_row() {
+    let home = TempDir::new();
+    let fleet = four_at_once(&home);
+    let killed = approved(&fleet, &home, "one killed").await;
+
+    let held = bays_of(&fleet, &killed).await;
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(held[0].slot, 1);
+    assert!(held[0].until.is_none(), "still in the bay");
+    let board = fleet.list_jobs(None).await.expect("listed").jobs;
+    let row = board.iter().find(|one| one.id.as_str() == killed.as_str());
+    assert_eq!(
+        row.map(|one| one.bays.clone()),
+        Some(held.clone()),
+        "the Board's row carries the same history as the Job's"
+    );
+
+    let loaded = fleet.load(&killed).await.expect("the Job");
+    fleet
+        .move_job(&loaded, Target::Killed, Actor::Human)
+        .await
+        .expect("a legal move");
+
+    let given = bays_of(&fleet, &killed).await;
+    assert_eq!(given.len(), 1, "{given:?}");
+    assert_eq!(given[0].since, held[0].since);
+    let until = given[0].until.as_ref().expect("the bay was given back");
+    assert!(until >= &given[0].since, "{until:?} before {:?}", given[0].since);
+}
+
+/// A Job that completes keeps its bay, so its stint stays open until it is cleared.
+#[tokio::test]
+async fn a_completed_jobs_bay_stays_open_until_a_person_clears_it() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+    assert!(bays_of(&fleet, &job).await[0].until.is_none());
+
+    let _ = Fleet::reclaim_worktree(&fleet, &job).await;
+
+    assert!(bays_of(&fleet, &job).await[0].until.is_some());
 }

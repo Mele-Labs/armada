@@ -431,8 +431,10 @@
   }
 }
 
-/* Sleep mode, beside Helm. Pressed is the state, so the moon takes the
-   running hue while it is on and rests quiet when it is not. */
+/* Sleep mode, beside Helm. Pressed is the state: on, the button is a filled
+   --accent chip around a filled moon, the loudest thing on the row; off, it
+   rests as a quiet outline moon. Specificity matches the toggle rule in
+   Button.css so this fill wins over its --accent-muted. */
 .armada-title-bar__sleep {
   display: flex;
   flex: none;
@@ -440,6 +442,13 @@
   gap: var(--space-1);
 }
 
-.armada-title-bar__sleep [aria-pressed="true"] {
-  color: var(--status-running);
+.armada-title-bar__sleep .armada-button[aria-pressed="true"]:not(:disabled):not([data-pending]) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--fg-inverse);
+}
+
+.armada-title-bar__sleep .armada-button[aria-pressed="true"]:hover:not(:disabled):not([data-pending]) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }

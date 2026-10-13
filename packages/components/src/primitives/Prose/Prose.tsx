@@ -7,8 +7,8 @@ import { unified } from "unified";
 
 import { commandOf, ProseRunner, RunnableBlock } from "./RunnableBlock";
 import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
-export type { CodeRunEvent, CodeRunner } from "./RunnableBlock";
-export { ProseRunner } from "./RunnableBlock";
+export type { CodePhase, CodeRun, CodeRunEvent, CodeRunner } from "./RunnableBlock";
+export { ProseRunner, RunnableBlock, RunOutput, useCodeRun } from "./RunnableBlock";
 export { isSlashCommand, ProseCommand } from "./SlashCommand";
 export type { SlashCommands } from "./SlashCommand";
 

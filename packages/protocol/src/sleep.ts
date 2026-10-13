@@ -1,7 +1,17 @@
 // Sleep mode on the wire, mirrored by hand from `crates/ipc/src/sleep.rs`.
 
-/** A question answered for the owner. `chose` is empty where the agent was told to decide for itself. */
-export type SleepDecided = { id: string; who: string; asked: string; chose: string; corrected?: string };
+/**
+ * A question answered for the owner: `chose` is the option labelled "(Recommended)". A Job told to decide
+ * for itself leaves it empty. `session_id` is the session the question came from, absent on a Job's row.
+ */
+export type SleepDecided = {
+  id: string;
+  who: string;
+  asked: string;
+  chose: string;
+  corrected?: string;
+  session_id?: string;
+};
 
 /** Something only the owner can settle. */
 export type SleepBlocked = { id: string; who: string; text: string };

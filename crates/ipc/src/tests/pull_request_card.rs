@@ -16,6 +16,7 @@ fn fleets_answer_for_a_merged_job() -> JobDelivery {
         pull_request_title: Some("Retire guides 8 and 20".to_string()),
         pull_request_comments: Some(5),
         merged_at: None,
+        pull_request_opened_at: None,
     }
 }
 
@@ -52,4 +53,21 @@ fn an_unread_count_carries_no_key_and_a_23_4_answer_still_reads() {
     .expect("it reads");
     assert_eq!(older.pull_request_title, None);
     assert_eq!(older.pull_request_comments, None);
+}
+
+/// When Fleet opened the pull request crosses with it, and is no key where unkept.
+#[test]
+fn the_instant_fleet_opened_it_crosses_and_is_no_key_where_unkept() {
+    let sent = JobDelivery {
+        pull_request_opened_at: Some(crate::Instant::carried("2026-10-13T09:10:00.000Z")),
+        ..fleets_answer_for_a_merged_job()
+    };
+    let written = encode(&sent).expect("a delivery encodes");
+    assert!(
+        written.contains(r#""pull_request_opened_at":"2026-10-13T09:10:00.000Z""#),
+        "{written}"
+    );
+    assert_eq!(decode::<JobDelivery>("a delivery", written.as_bytes()).unwrap(), sent);
+    let unkept = encode(&fleets_answer_for_a_merged_job()).expect("a delivery encodes");
+    assert!(!unkept.contains("opened_at"), "{unkept}");
 }

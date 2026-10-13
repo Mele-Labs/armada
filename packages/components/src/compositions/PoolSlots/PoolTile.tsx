@@ -25,6 +25,7 @@ function slotState(slot: WorktreeSlot): State {
       }
       return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
     case "session":
+    case "hosted_session":
       return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
     case "busy":
       return { bay: "busy", Glyph: LoaderCircle, word: "Busy", said: "Being taken or given back" };
@@ -108,7 +109,8 @@ function Holder({ row, onOpenJob }: { row: TileRow; onOpenJob: (jobId: string) =
       </>
     );
   }
-  if (held?.state === "session") return <span className="armada-bay__session">{held.holder}</span>;
+  if (held?.state === "session") return <span className="armada-bay__session">{held.session_title ?? held.holder}</span>;
+  if (held?.state === "hosted_session" && held.session_title !== undefined) return <span className="armada-bay__session">{held.session_title}</span>;
   if (held?.state === "stranded") return <span className="armada-bay__why">{held.why}</span>;
   return null;
 }
