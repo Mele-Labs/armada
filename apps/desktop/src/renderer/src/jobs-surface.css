@@ -1,5 +1,6 @@
-/* The Jobs page in the Sessions page's frame: a sunken glass under a header band, the tabs under the
-   band, the Jobs' sections standing on a faint ruled grid. Tokens only. */
+/* The Jobs page in the Sessions page's own layout: a sunken glass under a header band, the tabs under the
+   band, every heading a column of tiles on a faint ruled grid. A tile's frame is its state's hue, and a
+   Job that needs him or has failed is lit. Tokens only. */
 
 .armada-jobs-page {
   display: flex;
@@ -24,7 +25,7 @@
   background: var(--bg-raised);
 }
 
-.armada-jobs-page__title {
+.armada-jobs-page__title-bar {
   margin: 0;
   color: var(--fg-muted);
   font-family: var(--font-mono);
@@ -37,13 +38,21 @@
 
 .armada-jobs-page__controls {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-bottom: var(--border-width) solid var(--border-default);
   background: var(--bg-raised);
 }
 
+/* Each heading a column, side by side where the width holds them and stacked where it does not. */
 .armada-jobs-page__glass {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 6), 1fr));
+  align-items: start;
+  align-content: start;
   flex: 1 1 auto;
+  gap: var(--space-4);
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
@@ -56,3 +65,148 @@
 }
 
 .armada-jobs-page__glass:empty { display: none; }
+
+.armada-jobs-page__group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+.armada-jobs-page__eyebrow {
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-jobs-page__rows { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+
+/* ---- A Job as a tile ------------------------------------------------------------------------- */
+
+.armada-jobs-page__row {
+  --hue: var(--fg-subtle);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+
+.armada-jobs-page__row:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
+
+/* Waiting on the owner, or failed: lit, as a Session's tile is. */
+.armada-jobs-page__row[data-lit] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
+  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);
+}
+
+/* Over: still on the glass, receded. */
+.armada-jobs-page__row[data-ended] { border-style: dashed; background: var(--bg-raised); }
+.armada-jobs-page__row[data-ended][data-lit] { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
+
+.armada-jobs-page__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+
+.armada-jobs-page__open {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* The whole tile is the press: the button's hit area is stretched over it, under what else is pressable. */
+.armada-jobs-page__open::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-md); }
+.armada-jobs-page__top > :not(.armada-jobs-page__open),
+.armada-jobs-page__open > :not(.armada-jobs-page__title),
+.armada-jobs-page__open .armada-tooltip,
+.armada-jobs-page__now,
+.armada-jobs-page__facts { position: relative; z-index: 1; }
+.armada-jobs-page__open:focus-visible { outline: none; }
+.armada-jobs-page__open:focus-visible::after { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+.armada-jobs-page__mark { display: inline-flex; align-items: center; color: var(--hue); }
+
+/* The running mark breathes as Badge's does: only the inner dot moves. */
+.armada-jobs-page__mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+/* Two lines, then clamped. */
+.armada-jobs-page__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-jobs-page__row[data-ended] .armada-jobs-page__title { color: var(--fg-muted); }
+
+.armada-jobs-page__last { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
+
+/* The less used acts, at the top right: out of sight until the tile is pointed at or reached. */
+.armada-jobs-page__more { display: inline-flex; flex: none; margin: calc(var(--space-1) * -1) calc(var(--space-1) * -1) calc(var(--space-1) * -1) 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease); }
+.armada-jobs-page__row:hover .armada-jobs-page__more,
+.armada-jobs-page__row:focus-within .armada-jobs-page__more,
+.armada-jobs-page__more:has([aria-expanded="true"]) { opacity: 1; }
+
+/* A running Job's Now: what its Drone is doing and how long ago, one line, truncated, with a mark that turns. */
+.armada-jobs-page__now {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+.armada-jobs-page__now > svg { flex: none; color: var(--status-running); animation: armada-jobs-page-turn var(--duration-pulse) linear infinite; }
+.armada-jobs-page__now-doing { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.armada-jobs-page__now-age { flex: none; color: var(--fg-subtle); }
+
+@keyframes armada-jobs-page-turn {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-jobs-page__mark[data-pulsing] > svg > circle + circle,
+  .armada-jobs-page__now > svg { animation: none; }
+}
+
+/* The facts are one line that never wraps, ruled off at the tile's foot: what matters most first. */
+.armada-jobs-page__facts {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+.armada-jobs-page__facts > * { flex: none; }

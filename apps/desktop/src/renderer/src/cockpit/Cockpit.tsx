@@ -1,5 +1,5 @@
 // The Dashboard's panel as a cockpit: a top bar with three filters (Your move, Active, Done) and the
-// way to read them, a grid of tiles or a map of stars, and a pane for the one picked. A call that
+// way to read them, a grid of tiles or a timeline of what Fleet did, and a pane for the one picked. A call that
 // needs the owner comes forward over the panel whatever the filter, centred and answerable from the
 // keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back and `d`
 // dismisses it for good.

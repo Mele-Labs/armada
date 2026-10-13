@@ -5,6 +5,8 @@
 // plays the Jobs rail row over it.
 
 import type { FleetEvent, Subject } from "../../cockpit/fleet-events";
+import type { NowView } from "@armada/jobs/draft/now";
+
 import type { Scenario } from "../moment";
 import { s206DashboardCockpit as base } from "./dashboard-cockpit";
 
@@ -144,10 +146,36 @@ const EVENTS: FleetEvent[] = [
   event(4, code, "job.queued", "idle", "Queued, waits on Job 88", POCKET),
 ];
 
+/** What each running Job's Drone did last, and how many seconds ago: the Jobs page's Now line. */
+const DOING: Record<number, readonly [string, number]> = {
+  80: ["Edit apps/desktop/src/renderer/src/resize-handler.ts", 12],
+  81: ["cargo test -p manifest read_again", 40],
+  82: ["Read crates/store/tests/snapshots/store.snap", 4],
+  83: ["Grep migrations/ -e CREATE", 9],
+  87: ["Read crates/store/tests/store_test.rs", 2],
+  88: ["Write apps/pocket/src/pairing.tsx", 21],
+  90: ["Write apps/pocket/src/service-worker.ts", 11 * 60],
+};
+
+/** The scenario's `now` reads, each running Drone given the line it last wrote. */
+function nowing(): Record<string, NowView> {
+  const held = base.draft?.now ?? {};
+  return Object.fromEntries(
+    Object.entries(held).map(([id, view]) => {
+      const number = Number(jobs.find((row) => row.id === id)?.handle.split("-")[0]);
+      const said = DOING[number];
+      if (said === undefined) return [id, view];
+      const [line, seconds] = said;
+      const running = (view.running ?? []).map((one) => (one.of === "drone" ? { ...one, tail: [line], since: ago(seconds / 60) } : one));
+      return [id, { ...view, running }];
+    }),
+  );
+}
+
 export const s207FleetTimeline: Scenario = {
   ...base,
   name: "fleet-timeline",
   says: "The Cockpit's timeline: two hours of what Fleet did to Jobs, Sessions and pull requests in two repositories",
   later: [],
-  draft: { ...base.draft, events: EVENTS },
+  draft: { ...base.draft, events: EVENTS, now: nowing() },
 };

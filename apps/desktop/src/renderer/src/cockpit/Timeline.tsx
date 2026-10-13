@@ -1,5 +1,5 @@
 // The Cockpit's other face: what Fleet did, newest first, one row per event, each naming what it happened
-// to. Three takes of it share one set of marks while the owner chooses between them: a feed of every
+// to. Three takes of it share one set of marks, Lanes first and his last pick kept: a feed of every
 // event, a lane for each Job, Session and pull request with its events along the last hour,
 // and the lanes beside the feed. The filter above narrows it as it narrows the grid. Mock only
 // (`fleet-events.tsx` says why). Nothing here moves but a subject that is working.
@@ -13,6 +13,31 @@ import { STANDINGS, ageOf, lanesFor, lanesOf, titleOf, useFleetEvents, type Even
 import "./timeline.css";
 
 type Take = "feed" | "lanes" | "split";
+
+const TAKE_KEY = "armada.bridge.cockpit-timeline-take";
+
+/** Lanes until he picks another, and the pick kept in the window's own storage as the grid or timeline choice is. */
+function useTake(): [Take, (take: Take) => void] {
+  const [take, set] = useState<Take>(() => {
+    try {
+      const kept = window.localStorage.getItem(TAKE_KEY);
+      return kept === "feed" || kept === "split" ? kept : "lanes";
+    } catch {
+      return "lanes";
+    }
+  });
+  return [
+    take,
+    (next) => {
+      set(next);
+      try {
+        window.localStorage.setItem(TAKE_KEY, next);
+      } catch {
+        // Unremembered, which is the honest answer for a preference.
+      }
+    },
+  ];
+}
 
 const TAKES = [
   { id: "feed", label: "Feed", hint: "One row for each event, newest first" },
@@ -293,7 +318,7 @@ export function Timeline({
   onOpenLink: (address: string) => void;
 }) {
   const events = useFleetEvents();
-  const [take, setTake] = useState<Take>("feed");
+  const [take, setTake] = useTake();
   const lanes = useMemo(() => lanesFor(lanesOf(events, now), filter), [events, now, filter]);
   const open: Open = (subject) => {
     if (subject.kind === "job") onOpenJob(subject.id);

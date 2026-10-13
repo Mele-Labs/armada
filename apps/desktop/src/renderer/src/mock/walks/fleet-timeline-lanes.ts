@@ -8,7 +8,7 @@ const timeline = region("Timeline");
 export const fleetTimelineLanes = walk("fleet-timeline", [
   { press: tab("Active"), say: "Active, the filter that reads everything live" },
   { press: button("Timeline"), say: "Timeline, in place of the map" },
-  { press: tab("Lanes"), say: "Lanes: a row for each subject instead of a row for each event" },
+  { look: tab("Lanes"), say: "Lanes, the take the timeline opens on, and the one he picked last when he has picked: a row for each subject instead of a row for each event" },
   { look: timeline, say: "Grouped by how each stands: needs him, failing, stuck, moving, waiting, finished. Time runs left to right, now at the right edge" },
   { look: inside(timeline, role("list", "Stuck")), say: "A solid line is a subject working, dashed is a subject that was not. Stuck ends in a dashed orange line that runs on to now" },
   { hover: inside(timeline, button(/Implement sent back/)), say: "A mark is one event, and names it with how long ago" },

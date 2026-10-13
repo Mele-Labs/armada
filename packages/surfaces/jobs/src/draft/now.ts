@@ -78,6 +78,8 @@ export type NowRunningView = {
   by?: { who: "commander"; said: string };
   /** The last few lines of its output, oldest first. */
   tail?: readonly string[];
+  /** When its latest line was written, as an instant: the Jobs page counts how long ago from it. */
+  since?: string;
   state: "running" | "passed" | "failed";
   acts?: readonly NowActView[];
   /** A Drone's id, or a Check's file. */
