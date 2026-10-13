@@ -843,15 +843,23 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
             SlotHeld::NotACheckout => ipc::SlotHolding::NotACheckout,
             SlotHeld::Busy => ipc::SlotHolding::Busy,
             SlotHeld::Free => ipc::SlotHolding::Free,
-            SlotHeld::Job(id) => ipc::SlotHolding::Job {
-                job_id: ipc::JobId::carried(id.clone()),
-                job_title: one.job_title.clone(),
-                job_status: one.job_status.map(Into::into),
-                kept: reading.kept.clone(),
-                completed: reading.completed,
+            SlotHeld::Job(id) => match &one.session {
+                Some(session) => ipc::SlotHolding::HostedSession {
+                    session_id: session.id.clone(),
+                    session_title: session.title.clone(),
+                },
+                None => ipc::SlotHolding::Job {
+                    job_id: ipc::JobId::carried(id.clone()),
+                    job_title: one.job_title.clone(),
+                    job_status: one.job_status.map(Into::into),
+                    kept: reading.kept.clone(),
+                    completed: reading.completed,
+                },
             },
             SlotHeld::Session(holder) => ipc::SlotHolding::Session {
                 holder: holder.clone(),
+                session_id: one.session.as_ref().map(|session| session.id.clone()),
+                session_title: one.session.as_ref().and_then(|session| session.title.clone()),
             },
             SlotHeld::Stranded(why) => ipc::SlotHolding::Stranded { why: why.clone() },
         },

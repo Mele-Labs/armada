@@ -37,6 +37,7 @@ mod commander_wakes;
 mod helm_sessions;
 mod helm_tuning;
 mod iteration;
+mod job_bays;
 mod kit;
 mod lessons;
 mod limits;

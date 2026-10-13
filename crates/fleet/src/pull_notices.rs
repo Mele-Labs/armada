@@ -94,7 +94,7 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
     out
 }
 
-fn short(commit: &str) -> &str {
+pub(crate) fn short(commit: &str) -> &str {
     &commit[..commit.len().min(7)]
 }
 

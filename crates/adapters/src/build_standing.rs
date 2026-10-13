@@ -1,5 +1,6 @@
 //! Where a built commit stands against `origin/main`, and the fetch that keeps
-//! `origin/main` current. Read by Fleet's `get_fleet_build`.
+//! `origin/main` current, and whether a session's branch is in a build. Read by Fleet's
+//! `get_fleet_build` and its build notices.
 //!
 //! **Counts, not a verdict.** `origin/main...commit` gives both sides of the
 //! symmetric difference at once: what the build holds that `origin/main` lacks
@@ -31,6 +32,50 @@ pub fn position_against_main(root: &str, commit: &str) -> Option<(u32, u32)> {
     let said = String::from_utf8_lossy(&counted.stdout);
     let (behind, ahead) = said.trim().split_once('\t')?;
     Some((ahead.trim().parse().ok()?, behind.trim().parse().ok()?))
+}
+
+/// Where a session's branch stands against a build.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BranchInBuild {
+    /// Every commit on the branch is in the build.
+    In,
+    /// None of the branch's own commits are.
+    NotIn,
+    /// Some are: `newest` is the newest of the branch's own commits the build holds, and
+    /// `since` is how many commits on the branch it lacks.
+    Partly { newest: String, since: u32 },
+}
+
+/// Whether `branch` is in the build at `build`, counted from the branch's own commits past
+/// `origin/main`. **`None` says nothing**: `main`, a branch with no commits of its own, or a
+/// branch, build or `origin/main` this repository does not hold.
+pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchInBuild> {
+    if branch == "main" {
+        return None;
+    }
+    let tip = [format!("refs/heads/{branch}"), format!("refs/remotes/origin/{branch}")]
+        .iter()
+        .find_map(|name| commits(root, &["rev-parse", "--verify", "--quiet", &format!("{name}^{{commit}}")]))?
+        .pop()?;
+    let own = commits(root, &["rev-list", &format!("origin/main..{tip}")])?;
+    if own.is_empty() {
+        return None;
+    }
+    // Past `origin/main` too, so a newer main merged into the branch is not counted as its own.
+    let lacking = commits(root, &["rev-list", &tip, &format!("^{build}"), "^origin/main"])?;
+    if lacking.is_empty() {
+        return Some(BranchInBuild::In);
+    }
+    Some(match own.iter().find(|one| !lacking.contains(one)) {
+        None => BranchInBuild::NotIn,
+        Some(newest) => BranchInBuild::Partly { newest: newest.clone(), since: lacking.len() as u32 },
+    })
+}
+
+/// The lines git printed for these arguments in `root`, or `None` where it failed.
+fn commits(root: &str, args: &[&str]) -> Option<Vec<String>> {
+    let run = run_in(root, "git", args).ok().filter(|run| run.status.success())?;
+    Some(String::from_utf8_lossy(&run.stdout).lines().map(str::to_string).collect())
 }
 
 /// `git fetch origin main` in `root`, stopped if it is still running after

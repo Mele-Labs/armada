@@ -64,6 +64,22 @@
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
+/* Bare: the field and its Send on one row, for words that go to something other than a turn. */
+.armada-session-composer[data-bare] {
+  flex-direction: row;
+  align-items: flex-end;
+}
+
+.armada-session-composer[data-bare] .armada-session-composer__field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.armada-session-composer[data-bare] .armada-session-composer__bar {
+  border-top: none;
+  padding: var(--space-2);
+}
+
 .armada-session-composer__bar .armada-select-field {
   flex: none;
 }

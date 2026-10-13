@@ -131,6 +131,8 @@ export type SessionComposerProps = {
   modeLocked?: boolean;
   /** A terminal's mode is not drawn until its mod has reported one. */
   modeHidden?: boolean;
+  /** The box and its Send alone on one row: `textOnly`, with no mode and no chips, for words that go to something other than a turn. */
+  bare?: boolean;
   /**
    * What the message is about, the Session's id. Its text, its tags and its files are kept under it, so leaving
    * the Session and coming back, or reloading Bridge, finds them (the text; a file's bytes do not
@@ -232,7 +234,8 @@ export function SessionComposer({
   onSend,
   modeLocked = false,
   modeHidden = false,
-  textOnly = false,
+  bare = false,
+  textOnly: textOnlyAsked = false,
   draftKey,
   focusFor,
 }: SessionComposerProps) {
@@ -244,6 +247,8 @@ export function SessionComposer({
     },
   });
   const { text, files } = draft;
+  // A bare box is a text-only one, drawn on a single row.
+  const textOnly = textOnlyAsked || bare;
   const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
   const editor = useRef<HTMLDivElement>(null);
   const [head, setHead] = useState("");
@@ -483,7 +488,7 @@ export function SessionComposer({
   );
   const said = MODES.find((one) => one.id === mode)!.says;
   return (
-    <form ref={form} className="armada-session-composer" onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+    <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
         <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session, Job, pull request or branch"} data-numbered={token?.trigger === "#" ? "" : undefined}>
           {token?.trigger === "/" || token?.trigger === "#"
@@ -522,7 +527,7 @@ export function SessionComposer({
       </div>
       {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
       <div className="armada-session-composer__bar">
-        {modeHidden || onMode === undefined ? null : (
+        {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
             <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
               {MODES.map((one) => (
@@ -578,7 +583,7 @@ export function SessionComposer({
             </Tooltip>
           </>
         )}
-        {compact && held ? null : chips}
+        {bare || (compact && held) ? null : chips}
         {slim ? <Tooltip label="Send">{sendButton}</Tooltip> : sendButton}
       </div>
     </form>

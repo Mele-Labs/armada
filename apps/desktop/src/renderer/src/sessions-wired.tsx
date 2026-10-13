@@ -36,6 +36,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { buildChangeOf, type BuildChange } from "./build-change";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
+import { markViewed } from "./cockpit/viewed";
 
 const NONE: readonly never[] = [];
 const HELD_WITHIN_MS = 3000;
@@ -172,6 +173,7 @@ export class WiredStore {
       this.tell(done.outcome);
       return false;
     }
+    markViewed(id);
     // The wire holds a sketch only as the picture it went as, so the ledger keeps what was drawn here.
     if (sent.sketches.length > 0) {
       this.sketches.set(id, [...(this.sketches.get(id) ?? NONE), ...sent.sketches.map((one): Sketch => ({ kind: "sketch", id: one.id, title: one.title, by: "you", drawing: one.drawing }))]);

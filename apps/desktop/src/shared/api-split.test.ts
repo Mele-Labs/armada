@@ -514,6 +514,8 @@ type OldBridgeApi = {
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
+    getSessionWindows: () => Promise<readonly string[]>;
+    onSessionWindows: (onChanged: (addresses: readonly string[]) => void) => () => void;
     readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
     showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
@@ -831,6 +833,8 @@ const OLD_CHANNELS = {
     readSessionSubagent: "bridge:read-session-subagent",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
+    getSessionWindows: "bridge:get-session-windows",
+    sessionWindowsChanged: "bridge:session-windows-changed",
     readSessionArtifact: "bridge:read-session-artifact",
     showSessionPage: "bridge:show-session-page",
     moveSessionPage: "bridge:move-session-page",

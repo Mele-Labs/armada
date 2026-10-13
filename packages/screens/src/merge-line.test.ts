@@ -248,6 +248,44 @@ describe("the hub Fleet serves beside the line", () => {
     expect(hub?.pulls.map((one) => one.number)).toEqual([5, 3, 2, 1, 4]);
   });
 
+  test("an open pull request carries its author, dates, draft, mergeable, review and size, and a bare one carries no key", () => {
+    const hub = hubOf({
+      pull_requests: [
+        {
+          number: 7,
+          title: "t",
+          branch: "nick/docs",
+          url: `${PULL}7`,
+          author: "nick",
+          opened_at: "2026-10-13T09:10:00Z",
+          updated_at: "2026-10-13T11:40:00Z",
+          draft: true,
+          mergeable: "conflicting",
+          review: "changes_requested",
+          additions: 120,
+          deletions: 0,
+        },
+        { number: 8, title: "t", branch: "nick/new", url: `${PULL}8` },
+      ],
+    });
+    expect(hub?.pulls).toEqual([
+      {
+        number: 7,
+        url: `${PULL}7`,
+        branch: "nick/docs",
+        author: "nick",
+        openedAt: "2026-10-13T09:10:00Z",
+        updatedAt: "2026-10-13T11:40:00Z",
+        draft: true,
+        mergeable: "conflicting",
+        review: "changes_requested",
+        additions: 120,
+        deletions: 0,
+      },
+      { number: 8, url: `${PULL}8`, branch: "nick/new" },
+    ]);
+  });
+
   test("a green main is a mark, and each open pull request keeps its ci, its Job and nothing it was not told", () => {
     const hub = hubOf({
       main: { state: "green", commit: COMMIT, read_at: "2026-10-06T10:00:00Z" },

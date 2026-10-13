@@ -83,6 +83,8 @@ import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
+import { runnerOf } from "./session-runner";
+import { useViewing } from "./cockpit/viewed";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -587,19 +589,6 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
 
-/** Runs a command where the Session works. A clean exit settles the item that asked for that command, and the agent is told. */
-function runnerOf(draft: SessionsDraft, session: Session): Runner | undefined {
-  const run = draft.run;
-  if (run === undefined) return undefined;
-  return (command, on) =>
-    run(session.id, command, (event) => {
-      on(event);
-      if (event.kind !== "end" || event.code !== 0) return;
-      const asked = (session.waitingFor ?? []).find((one) => one.act?.kind === "run" && one.act.target.trim() === command.trim());
-      if (asked !== undefined) draft.answerWaiting?.(session.id, asked.id, { text: "Ran: exit 0" });
-    });
-}
-
 function entriesOf(
   session: Session,
   goes: LedgerGoes,
@@ -1032,6 +1021,42 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
 }
 
 /**
+ * A Session's own message box, as `SessionMini` draws it. `onSend` takes the words where the host sends
+ * them itself (a call card answers its waiting item with them); with none, the message goes to the Session.
+ */
+export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
+  const draft = useSessionsDraft();
+  const numbered = useNumbered(session.manifestId);
+  if (draft === undefined || session.dead !== undefined) return null;
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  return (
+    <SessionComposer
+      modeLocked={session.terminal === true}
+      modeHidden={session.terminal === true && session.mode === undefined}
+      working={session.turn.state === "working"}
+      mode={mode}
+      onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+      model={session.model ?? null}
+      effort={session.effort ?? null}
+      models={draft.models}
+      efforts={draft.efforts}
+      onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+      commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+      compact
+      taggable={[]}
+      {...(numbered === undefined ? {} : { numbered })}
+      tags={session.pendingTags ?? []}
+      draftKey={session.id}
+      onTags={(tags) => draft.setTags(session.id, tags)}
+      drawn={[]}
+      onDraw={() => onOpen(session.id)}
+      onRemoveDrawn={() => undefined}
+      onSend={(sent) => (onSend === undefined ? draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] }) : onSend(sent.text))}
+    />
+  );
+}
+
+/**
  * A Session in miniature, for the Dashboard's pane and a walk window's panel: its thread, what it is
  * held on, and the box to answer it, as its own page draws them. No ledger, no frame; Open goes to the
  * whole Session. `fill`: the thread takes the height it is given rather than the pane's cap.
@@ -1040,12 +1065,10 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === sessionId);
-  const numbered = useNumbered(session?.manifestId);
   const watch = draft?.watch;
   const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
   if (draft === undefined || session === undefined) return null;
-  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   const runner = runnerOf(draft, session);
   return (
     <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
@@ -1070,30 +1093,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           onOpenSession={onOpen}
         />
       </div>
-      {session.dead !== undefined ? null : (
-        <SessionComposer
-          modeLocked={session.terminal === true}
-          modeHidden={session.terminal === true && session.mode === undefined}
-          working={session.turn.state === "working"}
-          mode={mode}
-          onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
-          model={session.model ?? null}
-          effort={session.effort ?? null}
-          models={draft.models}
-          efforts={draft.efforts}
-          onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-          commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
-          compact
-          taggable={[]}
-          {...(numbered === undefined ? {} : { numbered })}
-          tags={session.pendingTags ?? []}
-          onTags={(tags) => draft.setTags(session.id, tags)}
-          drawn={[]}
-          onDraw={() => onOpen(session.id)}
-          onRemoveDrawn={() => undefined}
-          onSend={(sent) => draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] })}
-        />
-      )}
+      <SessionBox session={session} onOpen={onOpen} />
     </div>
   );
 }
@@ -1128,6 +1128,7 @@ export function SessionsSurface({
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
+  useViewing(open?.id);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
   useEffect(() => {
     const press = (event: KeyboardEvent) => {

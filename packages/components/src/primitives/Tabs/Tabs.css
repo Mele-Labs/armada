@@ -125,3 +125,14 @@
     opacity: 0;
   }
 }
+
+/* The dot on a tab where something in it needs the person. The needs-you hue, never a figure. */
+.armada-tabs__alert {
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-left: var(--space-2);
+  border-radius: 50%;
+  background: var(--status-escalated);
+  vertical-align: middle;
+}

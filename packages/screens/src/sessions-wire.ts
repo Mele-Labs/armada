@@ -20,6 +20,7 @@ import type {
   SessionPullRequestState,
   SessionRow,
   SessionTag,
+  SessionTrail,
 } from "./draft/sessions";
 
 /** What the window holds beside a record, which Fleet does not carry. */
@@ -193,6 +194,20 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
   return [...out, ...beside.sketches];
 }
 
+/**
+ * Where the work has been, off the same rows the ledger reads but keeping the ones it drops: a slot no longer
+ * standing is a stay that ended (`changed_at`), and a pull request let go was still opened at its `since`. Nothing here
+ * changes what `attachmentsOfRecord` draws.
+ */
+export function trailOfRecord(record: SessionRecord): SessionTrail {
+  const bays = record.attachments
+    .filter((one) => one.kind === "slot")
+    .map((one) => ({ slot: Number(one.target), from: one.since, ...(one.state === "standing" ? {} : { until: one.changed_at }) }))
+    .sort((a, b) => Date.parse(a.from) - Date.parse(b.from));
+  const opened = Object.fromEntries(record.attachments.filter((one) => one.kind === "pr" && !Number.isNaN(Number(one.target))).map((one) => [Number(one.target), one.since]));
+  return { started: record.started_at, ...(bays.length === 0 ? {} : { bays }), ...(Object.keys(opened).length === 0 ? {} : { opened }) };
+}
+
 const tagOf = (tag: WireTag): SessionTag => ({
   kind: tag.kind,
   id: tag.id,
@@ -236,6 +251,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({
           id: row.id,
           at,
+          instant: row.at,
           kind: "message",
           from: row.from,
           text: row.text,
@@ -356,6 +372,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
+    trail: trailOfRecord(record),
     rows: thread,
     turn:
       hosted?.turn.state === "working"

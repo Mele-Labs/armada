@@ -8,7 +8,7 @@ const LEAF = role("group", /wipe_qa, PR opened/);
 
 export const anAddedStepAsks = walk("real/job-2-added-step-asks", [
   { look: region(/^Job:/), say: "A call comes forward over the Dashboard: a step added to this Job waits on him" },
-  { press: button(/^Open Job/), say: "The Job" },
+  { press: button(/Open Job/), say: "The Job" },
   { press: tab("Workflow"), say: "Its workflow, on the canvas" },
   { look: LEAF, say: "The added step, as a leaf off the step it fired at" },
   { hover: inside(LEAF, role("img", "Waiting on you")), say: "A destructive Command is not run until he says so" },

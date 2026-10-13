@@ -1,0 +1,7 @@
+[icons.lock-open]
+  means = "An open padlock - the cover over an act is lifted, and the next press does it"
+  group = "Chrome"
+  size = "12px"
+  status = "Specified"
+  reserved = "Never a permission, never a security or auth state. It is `lock`'s other half on a covered key, and means nothing alone."
+  notes = "Added 12 Oct 2026 with the Cockpit's Dismiss key, which sits under a cover: `lock` while it is down, this once the first press lifts it. Drawn at the key's trailing edge; the cover lets go on its own after a few seconds."

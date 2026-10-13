@@ -14,8 +14,8 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 
 use adapter_traits::{
-    CiRun, CiRuns, CiState, CommitStatus, FromOutside, MergedPull, OpenPull, OpenPulls,
-    RecentlyMerged, RecentlyMergedPulls, StatusState,
+    CiRun, CiRuns, CiState, CommitStatus, FromOutside, MergedPull, OpenPull, OpenPulls, PullFacts,
+    PullMergeable, PullReview, RecentlyMerged, RecentlyMergedPulls, StatusState,
 };
 
 use crate::delivery::{run_in, FORGE};
@@ -221,7 +221,10 @@ const OPEN_PULLS: &str = "\
     (.author.login // \"\"), \
     ([.statusCheckRollup[]? | [(.name // .context // \"\"), (.status // \"\"), \
     (.conclusion // .state // \"\")] | join(\"\\u001f\")] | join(\"\\u001e\")), \
-    (.headRefOid // \"\"), (if .autoMergeRequest then \"1\" else \"0\" end)] | @tsv";
+    (.headRefOid // \"\"), (if .autoMergeRequest then \"1\" else \"0\" end), \
+    (.createdAt // \"\"), (.updatedAt // \"\"), (if .isDraft then \"1\" else \"0\" end), \
+    (.mergeable // \"\"), (.reviewDecision // \"\"), (.additions // \"\" | tostring), \
+    (.deletions // \"\" | tostring)] | @tsv";
 
 /// The check whose result is a pull request's `ci`, where it has one.
 const GATE: &str = "ci";
@@ -238,7 +241,8 @@ pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
             "--limit",
             "100",
             "--json",
-            "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest",
+            "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest,\
+             createdAt,updatedAt,isDraft,mergeable,reviewDecision,additions,deletions",
             "--jq",
             OPEN_PULLS,
         ],
@@ -352,6 +356,7 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
     let rollup = field.next().unwrap_or_default();
     let head = field.next().unwrap_or_default();
     let auto_merge = field.next() == Some("1");
+    let facts = pull_facts_of(field);
     let checks: Vec<(String, CiState)> = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
@@ -379,12 +384,47 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
         ci,
         head: is_a_commit(head).then(|| head.to_string()),
         auto_merge,
+        facts,
         failing: checks
             .iter()
             .filter(|(_, state)| *state == CiState::Failed)
             .map(|(name, _)| FromOutside::verbatim(name.as_str()))
             .collect(),
     })
+}
+
+/// The listing's last seven fields, each absent where the line stops short or
+/// the forge left it empty. **A word with no name here is `Unknown`**, never a
+/// conflict or a refusal nobody found.
+fn pull_facts_of<'a>(mut field: impl Iterator<Item = &'a str>) -> PullFacts {
+    let named = |text: Option<&'a str>| {
+        text.filter(|one| !one.is_empty())
+            .map(|one| FromOutside::verbatim(as_written(one)))
+    };
+    let opened_at = named(field.next());
+    let updated_at = named(field.next());
+    let draft = field.next() == Some("1");
+    let mergeable = field.next().filter(|one| !one.is_empty()).map(|one| match one {
+        "MERGEABLE" => PullMergeable::Clean,
+        "CONFLICTING" => PullMergeable::Conflicting,
+        _ => PullMergeable::Unknown,
+    });
+    let review = field.next().map(|one| match one {
+        "APPROVED" => PullReview::Approved,
+        "CHANGES_REQUESTED" => PullReview::ChangesRequested,
+        "REVIEW_REQUIRED" => PullReview::ReviewRequired,
+        _ => PullReview::None,
+    });
+    let count = |text: Option<&str>| text.and_then(|one| one.parse().ok());
+    PullFacts {
+        opened_at,
+        updated_at,
+        draft,
+        mergeable,
+        review,
+        additions: count(field.next()),
+        deletions: count(field.next()),
+    }
 }
 
 /// How one check on a pull request came out, in the words `gh` lists: a
@@ -584,6 +624,36 @@ mod tests {
         );
         let failed = "14\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}COMPLETED\u{1f}TIMED_OUT";
         assert_eq!(open_pull_of_line(failed).unwrap().ci, Some(CiState::Failed));
+    }
+
+    #[test]
+    fn a_listing_names_when_it_opened_whether_it_merges_and_what_the_review_says() {
+        let line = "12\tt\tb\tu\tnick\t\t\t0\t2026-10-13T09:10:00Z\t2026-10-13T11:40:00Z\t1\t\
+                    CONFLICTING\tCHANGES_REQUESTED\t120\t4";
+        let facts = open_pull_of_line(line).unwrap().facts;
+        assert_eq!(facts.opened_at.unwrap().as_written(), "2026-10-13T09:10:00Z");
+        assert_eq!(facts.updated_at.unwrap().as_written(), "2026-10-13T11:40:00Z");
+        assert!(facts.draft);
+        assert_eq!(facts.mergeable, Some(PullMergeable::Conflicting));
+        assert_eq!(facts.review, Some(PullReview::ChangesRequested));
+        assert_eq!((facts.additions, facts.deletions), (Some(120), Some(4)));
+    }
+
+    #[test]
+    fn a_word_with_no_name_is_unknown_and_an_empty_decision_is_none_not_absent() {
+        let clean = "12\tt\tb\tu\tn\t\t\t0\ta\tb\t0\tMERGEABLE\tAPPROVED\t0\t0";
+        let facts = open_pull_of_line(clean).unwrap().facts;
+        assert_eq!(facts.mergeable, Some(PullMergeable::Clean));
+        assert_eq!(facts.review, Some(PullReview::Approved));
+        assert!(!facts.draft);
+        assert_eq!((facts.additions, facts.deletions), (Some(0), Some(0)));
+        let odd = "12\tt\tb\tu\tn\t\t\t0\t\t\t0\tSOMETHING_NEW\t\t\t";
+        let facts = open_pull_of_line(odd).unwrap().facts;
+        assert_eq!(facts.mergeable, Some(PullMergeable::Unknown));
+        assert_eq!(facts.review, Some(PullReview::None));
+        assert!(facts.opened_at.is_none() && facts.additions.is_none());
+        let short = open_pull_of_line("12\tt\tb\tu\tn\t\t\t0").unwrap().facts;
+        assert_eq!(short, PullFacts::default());
     }
 
     #[test]

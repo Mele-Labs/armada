@@ -30,7 +30,7 @@ import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
 import { SleepSourceProvider } from "../sleep";
-import { mockSleep } from "./sleep";
+import { mockSleep, overnight } from "./sleep";
 import { PlanUsageSourceProvider } from "../plan-usage";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
@@ -105,7 +105,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  mockSleep.reset();
+  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight(chosen.state.jobs[0]?.id) : undefined);
   if (shared === undefined) mockLayout.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
