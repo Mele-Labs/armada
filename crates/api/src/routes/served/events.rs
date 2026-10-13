@@ -173,6 +173,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // One entry Fleet just kept for the timeline, for a client holding a window to append.
+    Route {
+        operation: "timeline.appended",
+        method: "GET",
+        path: "/events",
+    },
     // One row of a hosted session's thread, appended or replaced.
     Route {
         operation: "session.row",

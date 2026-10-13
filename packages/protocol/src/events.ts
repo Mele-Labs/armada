@@ -21,6 +21,7 @@ import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { SleepState } from "./sleep";
+import type { TimelineAppended } from "./timeline";
 import type { Autopilot } from "./autopilot";
 import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
@@ -112,7 +113,9 @@ export type Event =
   /** Sleep mode after any change to it, whole. */
   | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */
-  | ({ kind: "autopilot.changed" } & Autopilot);
+  | ({ kind: "autopilot.changed" } & Autopilot)
+  /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */
+  | ({ kind: "timeline.appended" } & TimelineAppended);
 
 /**
  * A Job exists that did not before, carrying the row whole.

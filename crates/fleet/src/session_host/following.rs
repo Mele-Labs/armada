@@ -123,6 +123,7 @@ where
             let _ = store.give_back(&Keeper::session(id), Some("slot"), &now);
             let _ = store.give_back(&Keeper::session(id), Some("branch"), &now);
             drop(store);
+            self.session_slot(id, None, Some(hosting.manifest_id.clone()), slot, false);
             let _ = self.published_hosted(id).await;
         }
         if hosting.lease_slot.is_some() || self.tree_roots(id).is_empty() {
@@ -159,6 +160,7 @@ where
                 );
             }
         }
+        self.session_slot(id, None, Some(hosting.manifest_id.clone()), slot, true);
         self.row_put(
             id,
             SessionRow::Lease {

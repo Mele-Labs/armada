@@ -1,0 +1,462 @@
+//! What Fleet saw happen, written as it happens and read back as a window —
+//! `get_fleet_timeline` and `timeline.appended` in `crates/ipc/operations/`.
+//! `docs/practices/protocol.md`, *The Fleet's timeline*, has the reasoning.
+//!
+//! ```text
+//!  Broadcaster.tap ── events::Hearing ──┐   a Job's moves, a Session row
+//!  merge_lines::keep_reading ───────────┼─▶ Timeline::note ─▶ queue ─▶ writer ─▶ store
+//!  the answering commands, the slot ────┘                                   └▶ timeline.appended
+//! ```
+//!
+//! **A tap and not a subscription**, which drops its oldest when it falls behind. The tap runs
+//! inside `publish`, so it only turns the event into a [`Fact`] and queues it; one writer takes
+//! the store lock, so entries are numbered in the order they were queued. `at` is stamped by
+//! whoever saw the thing happen, and the window is cut by it and never by the number.
+
+mod events;
+mod merge;
+
+use std::sync::{Arc, Mutex};
+
+use ipc::{TimelineAsk, TimelineKind, TimelineSubject, TimelineTone};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
+
+use crate::clock::Clock;
+
+pub(crate) use merge::Between;
+
+/// What it happened to, before the wire spells it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Subject {
+    Job(String),
+    Session(String),
+    Pull(u64, Option<String>),
+    Main,
+}
+
+/// One thing that happened, as the code that saw it states it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Fact {
+    at: String,
+    kind: TimelineKind,
+    subject: Subject,
+    title: Option<String>,
+    tone: TimelineTone,
+    says: String,
+    detail: Option<String>,
+    manifest: Option<String>,
+    live: bool,
+    over: bool,
+}
+
+impl Fact {
+    pub(crate) fn new(
+        at: impl Into<String>,
+        kind: TimelineKind,
+        subject: Subject,
+        tone: TimelineTone,
+        says: impl Into<String>,
+    ) -> Fact {
+        Fact {
+            at: at.into(),
+            kind,
+            subject,
+            title: None,
+            tone,
+            says: says.into(),
+            detail: None,
+            manifest: None,
+            live: false,
+            over: false,
+        }
+    }
+
+    pub(crate) fn titled(mut self, title: Option<String>) -> Fact {
+        self.title = title.filter(|title| !title.trim().is_empty());
+        self
+    }
+
+    pub(crate) fn detail(mut self, detail: Option<String>) -> Fact {
+        self.detail = detail.map(|detail| bare(&detail, DETAIL)).filter(|detail| !detail.is_empty());
+        self
+    }
+
+    pub(crate) fn in_repository(mut self, manifest: Option<String>) -> Fact {
+        self.manifest = manifest;
+        self
+    }
+
+    /// The subject is still working after this.
+    pub(crate) fn live(mut self) -> Fact {
+        self.live = true;
+        self
+    }
+
+    /// The subject is over after this.
+    pub(crate) fn over(mut self) -> Fact {
+        self.over = true;
+        self
+    }
+
+    #[cfg(test)]
+    pub(crate) fn kind_name(&self) -> String {
+        self.kind.as_wire()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn says(&self) -> &str {
+        &self.says
+    }
+
+    #[cfg(test)]
+    pub(crate) fn at(&self) -> &str {
+        &self.at
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_over(&self) -> bool {
+        self.over
+    }
+
+    #[cfg(test)]
+    pub(crate) fn detail_text(&self) -> Option<&str> {
+        self.detail.as_deref()
+    }
+
+    fn entry(self) -> store::TimelineEntry {
+        let (subject_kind, subject_id, subject_url) = match self.subject {
+            Subject::Job(id) => ("job", id, None),
+            Subject::Session(id) => ("session", id, None),
+            Subject::Pull(number, url) => ("pull_request", number.to_string(), url),
+            Subject::Main => ("main", String::new(), None),
+        };
+        store::TimelineEntry {
+            at: self.at,
+            kind: self.kind.as_wire(),
+            subject_kind: subject_kind.to_string(),
+            subject_id,
+            subject_url,
+            title: self.title,
+            repo: self.manifest,
+            tone: self.tone.as_wire(),
+            says: bare(&self.says, SAYS),
+            detail: self.detail,
+            live: self.live,
+            over: self.over,
+        }
+    }
+}
+
+/// How long a fact reads, in characters. A question or a command is cut here.
+const SAYS: usize = 90;
+const DETAIL: usize = 120;
+
+/// One line: whitespace collapsed, cut at `most` characters with an ellipsis.
+pub(crate) fn bare(text: &str, most: usize) -> String {
+    let one: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if one.chars().count() <= most {
+        return one;
+    }
+    let cut: String = one.chars().take(most.saturating_sub(1)).collect();
+    format!("{}…", cut.trim_end())
+}
+
+enum Msg {
+    Kept(Box<store::TimelineEntry>),
+    /// Answered once everything queued before it has been written.
+    Settled(oneshot::Sender<()>),
+}
+
+/// The queue entries wait in, and the clock the ones with no instant of their own are stamped by.
+///
+/// **Minted with the Fleet**: nothing outside it holds one before the Fleet
+/// does. Cheap to clone; every clone queues into the same writer.
+#[derive(Clone)]
+pub struct Timeline {
+    queue: UnboundedSender<Msg>,
+    /// Taken once, by [`keep_timeline`]. Until then entries wait, unwritten.
+    unwritten: Arc<Mutex<Option<UnboundedReceiver<Msg>>>>,
+    clock: Arc<dyn Clock>,
+}
+
+impl Timeline {
+    pub(crate) fn new(clock: Arc<dyn Clock>) -> Timeline {
+        let (queue, unwritten) = unbounded_channel();
+        Timeline {
+            queue,
+            unwritten: Arc::new(Mutex::new(Some(unwritten))),
+            clock,
+        }
+    }
+
+    /// Queue one fact. Never blocks and never fails: a timeline that cannot be
+    /// written is not a reason for the act it describes to fail.
+    pub(crate) fn note(&self, fact: Fact) {
+        let _ = self.queue.send(Msg::Kept(Box::new(fact.entry())));
+    }
+
+    /// Fleet's clock now, for a fact nothing else dated.
+    pub(crate) fn now(&self) -> String {
+        self.clock.now().as_str().to_string()
+    }
+
+    /// Wait until everything queued so far is written. **For a test or a
+    /// shutdown**; nothing on the way to a client waits on it.
+    pub async fn settled(&self) {
+        let (done, wait) = oneshot::channel();
+        if self.queue.send(Msg::Settled(done)).is_ok() {
+            let _ = wait.await;
+        }
+    }
+}
+
+/// Start entering what happens: tap the event stream, and write what is queued.
+///
+/// **Started before commands are let through**, so the first Job to start is
+/// in it. Answers `None` where it was started already.
+pub fn keep_timeline<H, V, W>(fleet: Arc<crate::Fleet<H, V, W>>) -> Option<JoinHandle<()>>
+where
+    H: adapter_traits::AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: adapter_traits::WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    let timeline = fleet.timeline().clone();
+    let mut unwritten = timeline.unwritten.lock().ok()?.take()?;
+    let hearing = events::Hearing::new(Arc::clone(fleet.names()), timeline);
+    fleet.events().tap(move |event| hearing.hear(event));
+    Some(tokio::spawn(async move {
+        while let Some(msg) = unwritten.recv().await {
+            match msg {
+                Msg::Kept(entry) => fleet.timeline_written(*entry).await,
+                Msg::Settled(done) => {
+                    let _ = done.send(());
+                }
+            }
+        }
+    }))
+}
+
+impl<H, V, W> crate::Fleet<H, V, W>
+where
+    H: adapter_traits::AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: adapter_traits::WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// Keep one entry, then tell the clients it exists. **A store that will not
+    /// take it loses the entry**, which is the whole of what a failed write to
+    /// a record of what happened can honestly be; a Job's is said in the Job's
+    /// own log, and the rest have no log to be said in.
+    async fn timeline_written(&self, entry: store::TimelineEntry) {
+        let kept = self.store().lock().await.append_timeline(&entry);
+        match kept {
+            Ok(seq) => {
+                if let Some(event) = wire(&store::KeptTimeline { seq, entry }) {
+                    self.publish(ipc::Event::TimelineAppended(ipc::TimelineAppended { event }));
+                }
+            }
+            Err(why) if entry.subject_kind == "job" => self.said_about_the_ledger(
+                &core_model::JobId::carried(core_model::Ulid::carried(entry.subject_id)),
+                core_model::Level::Warn,
+                "the timeline could not keep an entry about the Job",
+                Some(&why.to_string()),
+            ),
+            Err(_) => {}
+        }
+    }
+
+    /// `get_fleet_timeline`: the newest entries inside the window, oldest first.
+    pub(crate) async fn fleet_timeline(
+        &self,
+        ask: TimelineAsk,
+    ) -> Result<ipc::FleetTimeline, api::Refusal> {
+        let limit = ask
+            .limit
+            .unwrap_or(ipc::DEFAULT_TIMELINE_LIMIT)
+            .clamp(1, ipc::MOST_TIMELINE_LIMIT);
+        let window = self
+            .store()
+            .lock()
+            .await
+            .timeline_between(
+                ask.since.as_ref().map(ipc::Instant::as_str),
+                ask.until.as_ref().map(ipc::Instant::as_str),
+                limit,
+            )
+            .map_err(|why| self.ledger_fault(why))?;
+        Ok(ipc::FleetTimeline {
+            events: window.events.iter().filter_map(wire).collect(),
+            cut: window.cut,
+        })
+    }
+
+    /// A person's answer to a Job, entered under the Job it settled.
+    pub(crate) fn job_answered(&self, job: &ipc::JobId, says: String) {
+        let id = job.to_domain();
+        let handle = self.names().of(&id);
+        let manifest = self.names().owner_of(&id);
+        self.timeline().note(
+            Fact::new(
+                self.timeline().now(),
+                TimelineKind::JobAnswered,
+                Subject::Job(job.as_str().to_string()),
+                TimelineTone::Run,
+                says,
+            )
+            .titled(handle)
+            .in_repository(manifest)
+            .live(),
+        );
+    }
+
+    /// A person's answer to a Session, entered under the Session it settled.
+    pub(crate) fn session_answered(&self, record: &ipc::SessionRecord, says: String) {
+        self.timeline().note(
+            Fact::new(
+                self.timeline().now(),
+                TimelineKind::SessionAnswered,
+                Subject::Session(record.id.as_str().to_string()),
+                TimelineTone::Run,
+                says,
+            )
+            .titled(record.title.clone())
+            .in_repository(record.manifest_id.as_ref().map(|id| id.as_str().to_string()))
+            .live(),
+        );
+    }
+
+    /// A Job was given a pool slot, or gave it back.
+    pub(crate) fn job_slot(&self, job: &core_model::Job, slot: u32, leased: bool) {
+        self.timeline().note(slot_fact(
+            self.timeline().now(),
+            Subject::Job(job.id().as_str().to_string()),
+            Some(job.handle()),
+            Some(job.owner_manifest_id().as_str().to_string()),
+            slot,
+            leased,
+        ));
+    }
+
+    /// A Session was given a pool slot, or gave it back.
+    pub(crate) fn session_slot(
+        &self,
+        id: &str,
+        title: Option<String>,
+        manifest: Option<String>,
+        slot: u32,
+        leased: bool,
+    ) {
+        self.timeline().note(slot_fact(
+            self.timeline().now(),
+            Subject::Session(id.to_string()),
+            title,
+            manifest,
+            slot,
+            leased,
+        ));
+    }
+}
+
+fn slot_fact(
+    at: String,
+    subject: Subject,
+    title: Option<String>,
+    manifest: Option<String>,
+    slot: u32,
+    leased: bool,
+) -> Fact {
+    let (kind, says) = if leased {
+        (TimelineKind::SlotLeased, format!("Slot {slot} leased"))
+    } else {
+        (TimelineKind::SlotReleased, format!("Slot {slot} given back"))
+    };
+    Fact::new(at, kind, subject, TimelineTone::Idle, says)
+        .titled(title)
+        .detail(Some(format!("slot-{slot}")))
+        .in_repository(manifest)
+}
+
+/// What a person's answer to a Drone's question reads as.
+pub(crate) fn question_answer_says(answer: &ipc::ChosenAnswer) -> String {
+    match (&answer.chose, answer.decisions.len(), answer.mode) {
+        (Some(label), ..) => format!("Answered: {label}"),
+        (None, 0, Some(mode)) => format!("Answered: {}", mode_says(mode)),
+        (None, n, _) => format!("Answered {n} decisions"),
+    }
+}
+
+/// What a person's answer to a command reads as.
+pub(crate) fn command_answer_says(answer: ipc::CommandAnswer) -> String {
+    match answer {
+        ipc::CommandAnswer::AllowForJob => "Answered: allow",
+        ipc::CommandAnswer::AlwaysAllow => "Answered: always allow",
+        ipc::CommandAnswer::Reject => "Answered: reject",
+    }
+    .to_string()
+}
+
+/// What a person's answer to a Judge reads as.
+pub(crate) fn judge_answer_says(answer: ipc::JudgeAnswer) -> String {
+    match answer {
+        ipc::JudgeAnswer::Agree => "Answered: agree",
+        ipc::JudgeAnswer::DisagreeOnce => "Answered: disagree",
+        ipc::JudgeAnswer::DisagreeAlways => "Answered: disagree always",
+    }
+    .to_string()
+}
+
+/// What a person's answer to a Session's permission card reads as.
+pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
+    match answer {
+        ipc::HelmCallAnswer::AllowOnce => "Answered: allow",
+        ipc::HelmCallAnswer::AllowAndRemember => "Answered: always allow",
+        ipc::HelmCallAnswer::Refuse => "Answered: refuse",
+    }
+    .to_string()
+}
+
+/// The mode a person left an answer to, as a word.
+pub(crate) fn mode_says(mode: ipc::AnswerMode) -> &'static str {
+    match mode {
+        ipc::AnswerMode::Best => "think it through",
+        ipc::AnswerMode::Quick => "keep moving",
+    }
+}
+
+/// A kept entry as the wire spells it. `None` for a row this build cannot spell
+/// — a kind a newer Fleet wrote — which is left out rather than guessed at.
+pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
+    let entry = &kept.entry;
+    let subject = match entry.subject_kind.as_str() {
+        "job" => TimelineSubject::Job { id: ipc::JobId::carried(&entry.subject_id) },
+        "session" => TimelineSubject::Session { id: ipc::SessionId::carried(&entry.subject_id) },
+        "pull_request" => TimelineSubject::PullRequest {
+            number: entry.subject_id.parse().ok()?,
+            url: entry.subject_url.clone(),
+        },
+        "main" => TimelineSubject::Main,
+        _ => return None,
+    };
+    Some(ipc::TimelineEvent {
+        id: u64::try_from(kept.seq).ok()?,
+        at: ipc::Instant::carried(&entry.at),
+        kind: TimelineKind::from_wire(&entry.kind)?,
+        subject,
+        title: entry.title.clone(),
+        tone: TimelineTone::from_wire(&entry.tone)?,
+        says: entry.says.clone(),
+        detail: entry.detail.clone(),
+        manifest_id: entry.repo.as_deref().map(ipc::ManifestId::carried),
+        live: entry.live,
+        over: entry.over,
+    })
+}

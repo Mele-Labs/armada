@@ -203,6 +203,8 @@ pub mod mint;
 /// under `.armada/` is named by the handle**, and half the places that write a
 /// Job's log line hold only its id.
 mod naming;
+/// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
+pub mod timeline;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
 pub mod notice_loop;

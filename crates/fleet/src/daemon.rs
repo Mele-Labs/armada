@@ -136,6 +136,9 @@ pub struct Fleet<H, V, W> {
     /// filled from the boot read and from every insert, so nothing outside this
     /// crate could hand one over already true. See [`mod@crate::naming`].
     names: Arc<Names>,
+    /// Everything that happened, entered as it did, for the Cockpit's timeline. Minted here: it
+    /// holds the queue the writer reads. See [`mod@crate::timeline`].
+    timeline: crate::timeline::Timeline,
     machine: Arc<dyn Machine>,
     /// The headroom in force: shipped, or what a person saved. A `std` lock
     /// for `drones`' reason — never held across an `.await`. See

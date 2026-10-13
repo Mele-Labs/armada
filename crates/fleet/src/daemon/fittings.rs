@@ -357,6 +357,7 @@ where
         let shipped_tuning = fittings.shipped_tuning();
         let tuning = shipped_tuning.overlaid_by(&settings_now);
         let turns = api::Turns::new();
+        let timeline = crate::timeline::Timeline::new(Arc::clone(&fittings.clock));
         Fleet {
             store: crate::store_lock::StoreLock::new(fittings.store),
             harness: Arc::new(fittings.harness),
@@ -412,6 +413,7 @@ where
             delivered: Mutex::new(BTreeMap::new()),
             slots: Mutex::new(Slots::bounded_by(in_force.concurrency, turns)),
             names: Arc::new(crate::naming::Names::new()),
+            timeline,
             machine: fittings.machine,
             copy_on_write: fittings.copy_on_write,
             seeds: Arc::new(std::sync::Mutex::new(crate::seeding::Seeds::default())),

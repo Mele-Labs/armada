@@ -108,6 +108,8 @@ mod sockets;
 mod stream;
 /// A Studio's routes: the list, one Studio, and every act on one. `#1285`.
 mod studios;
+/// What happened across the Fleet in a window of time. Since 23.82.
+mod timeline;
 /// A Job's walk notes, captured and taken back. Since 23.18.
 mod walking;
 /// A person's run's output, on a socket of its own per run — never `/events`.

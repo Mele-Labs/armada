@@ -78,6 +78,7 @@ export * from "./resources";
 export * from "./setup";
 export * from "./showing";
 export * from "./studio";
+export * from "./timeline";
 export * from "./added-steps";
 export * from "./alerts";
 export * from "./trigger-holds";

@@ -1067,6 +1067,32 @@ async fn repositories_of_request_names_a_repository_or_leaves_the_field_out() {
     assert_eq!(status, StatusCode::OK, "no `q` reads as no words");
 }
 
+/// The Cockpit's timeline. **Each bound is a query-string field and any may be left off**, and a
+/// window that was cut says so while one that was not leaves the field out, as Bridge types it
+/// `cut?: boolean`.
+#[tokio::test]
+async fn timeline_is_windowed_by_since_until_and_limit() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let read = |body: &[u8]| -> ipc::FleetTimeline { ipc::decode("a timeline", body).expect("a timeline") };
+
+    let (status, body) = call(&app, "GET", "/timeline", "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(read(&body).events.len(), 2, "no bounds is everything");
+    assert!(!String::from_utf8_lossy(&body).contains("cut"), "{}", String::from_utf8_lossy(&body));
+
+    let (_, body) = call(&app, "GET", "/timeline?since=2026-10-12T10:05:00.000Z", "").await;
+    assert_eq!(read(&body).events.iter().map(|one| one.id).collect::<Vec<_>>(), [2]);
+
+    let (_, body) = call(&app, "GET", "/timeline?until=2026-10-12T10:15:00.000Z", "").await;
+    assert_eq!(read(&body).events.iter().map(|one| one.id).collect::<Vec<_>>(), [1], "until is not inclusive");
+
+    let (_, body) = call(&app, "GET", "/timeline?limit=1", "").await;
+    let cut = read(&body);
+    assert_eq!(cut.events.iter().map(|one| one.id).collect::<Vec<_>>(), [2], "the newest are kept");
+    assert!(cut.cut);
+}
+
 fn a_transition() -> ipc::Event {
     let message: StreamMessage = ipc::decode(
         "stream message",

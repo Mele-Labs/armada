@@ -36,6 +36,7 @@ use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::sleep::SleepState;
+use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
@@ -216,6 +217,9 @@ pub enum Event {
     SleepChanged(SleepState),
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),
+    // One entry Fleet just kept for the timeline. Since 23.82.
+    #[serde(rename = "timeline.appended")]
+    TimelineAppended(TimelineAppended),
 }
 
 impl Event {

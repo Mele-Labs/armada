@@ -133,6 +133,24 @@ fn a_transition(from: &str, to: &str) -> ipc::Event {
     }
 }
 
+/// A tap is told every event, from any clone of the stream, in the order they were published — and
+/// unlike a subscription it does not lose the oldest when more than the backlog arrive at once.
+#[test]
+fn a_tap_hears_every_event_from_every_clone_even_past_the_backlog() {
+    let events = Broadcaster::with_backlog(2);
+    let heard = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let into = std::sync::Arc::clone(&heard);
+    events.tap(move |event| into.lock().expect("not poisoned").push(event.kind()));
+
+    let other = events.clone();
+    for _ in 0..5 {
+        other.publish(a_transition("queued", "running"));
+    }
+    events.publish(a_transition("running", "killed"));
+
+    assert_eq!(heard.lock().expect("not poisoned").len(), 6, "a backlog of two lost none");
+}
+
 /// A minute that published more than the window holds says how many it could
 /// not count, rather than reading as a quieter minute than it was. #1759.
 #[test]

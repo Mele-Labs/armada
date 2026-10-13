@@ -76,6 +76,7 @@ mod studio_sketch;
 mod studio_zones;
 /// The Board row, and the redaction it exists for.
 mod summaries;
+mod timeline;
 /// Triggers: a firing as Bridge reads it, absent where empty.
 mod added_steps;
 mod triggers;

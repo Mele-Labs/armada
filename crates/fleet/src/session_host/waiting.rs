@@ -471,7 +471,16 @@ where
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        match item.source {
+        // The card routes answer through `answer_session_ask`, which enters its own; the rest are
+        // a message to the agent, entered here once it is sent.
+        let (source, fleet) = (item.source, Arc::clone(&self));
+        let says = match (picked.as_deref().or(words), said.mode) {
+            (Some(chosen), _) => format!("Answered: {chosen}"),
+            (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
+            (None, Some(ipc::WaitingMode::Quick)) => "Answered: keep moving".to_string(),
+            (None, None) => "Approved".to_string(),
+        };
+        let settled = match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
                 let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
                     self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open")
@@ -529,7 +538,14 @@ where
                 let body = reply(&item.text, picked.as_deref().or(words), line);
                 self.send_known(terminal.then_some(session), message(body)).await
             }
+        };
+        if let (Ok(record), false) = (
+            &settled,
+            matches!(source, WaitingSource::AskCard | WaitingSource::Permission),
+        ) {
+            fleet.session_answered(record, says);
         }
+        settled
     }
 
     /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
