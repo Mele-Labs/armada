@@ -21,6 +21,7 @@
   --armada-sheet-wide: 62%;
   --armada-sheet-widest: 76%;
   --armada-sheet-reading: 88%;
+  --armada-sheet-panel: var(--w-dialog-wide);
 }
 
 /* The scrim fades in over the same --duration-sheet the panel travels in, so
@@ -101,6 +102,10 @@
 
 .armada-sheet[data-size="reading"] {
   max-width: var(--armada-sheet-reading);
+}
+
+.armada-sheet[data-size="panel"] {
+  max-width: var(--armada-sheet-panel);
 }
 
 /* The entrance: the panel travels in from the edge it is flush to, at

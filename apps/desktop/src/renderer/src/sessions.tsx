@@ -388,7 +388,7 @@ function useOpenRetro(session: Session): (retro: number) => void {
 }
 
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
-export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
+export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
@@ -419,7 +419,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }
@@ -480,6 +480,8 @@ function ReadingSheet({
   if (one?.kind === "pull_request") {
     return (
       <SessionPullRequest
+        sessionId={sessionId}
+        draft={draft}
         one={one}
         lines={lines}
         floor={floor}
@@ -909,6 +911,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
+            {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             waiting={needs}
             {...(!doneShown
               ? {}
@@ -1116,6 +1119,7 @@ export function SessionsSurface({
   board = NO_JOBS,
   lines = null,
   settings = null,
+  startIn,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1125,6 +1129,8 @@ export function SessionsSurface({
   board?: readonly JobSummary[];
   lines?: MergeLines | null;
   settings?: SettingsList | null;
+  /** Where New Session may start, on All: it asks which. */
+  startIn?: readonly { root: string; name: string }[];
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1147,7 +1153,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }

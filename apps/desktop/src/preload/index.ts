@@ -31,9 +31,9 @@ import type {
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { PlanUsage, SleepState } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
-import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
+import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { WriteClashesRead } from "../shared/api/clashes";
@@ -703,6 +703,7 @@ const api: BridgeApi = {
   forkSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSession, sessionId),
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
+  stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
@@ -741,6 +742,10 @@ const api: BridgeApi = {
     press: PullRequestPress,
   ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
     ipcRenderer.invoke(CHANNELS.pressPullRequest, sessionId, number, press),
+  readPullRequestPage: (sessionId: string, number: number): Promise<SessionActed<PullRequestPage>> =>
+    ipcRenderer.invoke(CHANNELS.readPullRequestPage, sessionId, number),
+  writePullRequest: (sessionId: string, number: number, write: PullRequestWrite): Promise<SessionActed<PullRequestPage>> =>
+    ipcRenderer.invoke(CHANNELS.writePullRequest, sessionId, number, write),
   // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
   startSessionRun: (sessionId: string, command: string): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command),

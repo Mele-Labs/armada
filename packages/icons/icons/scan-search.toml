@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "A rescue Scout reading a stranded worktree slot, drawn pulsing while it reads. Never a search box or a filter, which is `search` and `filter`, and never a machine reading a request, which is `scan-line`."
   notes = "Proposed 4 Oct 2026 for the live state of a rescue, on the walk `rescuingAStrandedSlot`. The frame says something is being read and the lens says by something looking for it, which is what a Scout does and `scan-line` (the Job proposer's read of a request) does not. It pulses at `--duration-pulse`, and holds still under reduced motion. Tooltip `Reading`."
+
+  [[icons.scan-search.usage]]
+    means = "A rescue Scout's Finding is ready, on a stranded bay"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 13 Oct 2026 with the last holder on a stranded bay. When the holder is gone Fleet runs the Scout itself, so the Finding is waiting before the owner looks. The same frame as the live read, still, with the tooltip Finding ready."

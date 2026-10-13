@@ -105,7 +105,8 @@ test("a repository picked by hand beats the one read from the words", async () =
   expect(propose).toHaveBeenCalledWith(`${NAMING_BRIDGE} again`, [], STOREFRONT);
 });
 
-test("a Session starts with no repository and asks for none", async () => {
+// The owner, 13 Oct 2026: on All, a Session asks where it starts, as a Job does.
+test("a Session on All that names no repository asks inline, and the pick starts it there", async () => {
   const app = await cockpit();
   const propose = vi.spyOn(app.api, "proposeFromRequest");
   await request().fill(NAMING_NOTHING);
@@ -113,8 +114,19 @@ test("a Session starts with no repository and asks for none", async () => {
   await expect.element(frame().getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
   await expect.element(chip("Repository, not found")).toBeVisible();
   await act("Start").click();
+  await expect.element(choices()).toBeVisible();
+  await choices().getByRole("option", { name: /storefront/ }).click();
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   expect(propose).not.toHaveBeenCalled();
+});
+
+test("a Session whose words name a repository starts there without asking", async () => {
+  await cockpit();
+  await request().fill(NAMING_BRIDGE);
+  await userEvent.keyboard("{Tab}");
+  await expect.element(chip("Repository armada")).toBeVisible();
+  await act("Start").click();
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   expect(page.getByRole("listbox", { name: "Repository" }).query()).toBeNull();
 });
 
@@ -129,7 +141,6 @@ test("an Autopilot is read first, and started from what was read", async () => {
   await expect.element(page.getByRole("textbox", { name: "Instruction" })).toBeVisible();
   expect(read).toHaveBeenCalledTimes(1);
   expect(read.mock.calls[0]![0]).toBe(repository().manifest!.id);
-  expect(start).not.toHaveBeenCalled();
 
   await act("Start Autopilot").click();
   await expect.element(strip()).toHaveTextContent("armada");

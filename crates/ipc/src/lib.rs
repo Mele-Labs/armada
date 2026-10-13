@@ -346,15 +346,15 @@ pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText}
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
 pub use holding::{
     ChangeSlotPool, CommitHome, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit,
-    SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotReleased, SlotRescued,
-    SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
+    SlotFinding, SlotFindingState, SlotHolderKind, SlotHolding, SlotLastHolder, SlotPoolChanged,
+    SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
     HeldCommand, HostedFacts, MessagesHeld, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
+    StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,

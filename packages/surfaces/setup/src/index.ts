@@ -2,3 +2,4 @@
 export * from "./Locate";
 export * from "./Setup";
 export * from "./setup-held";
+export * from "./setup-session";
