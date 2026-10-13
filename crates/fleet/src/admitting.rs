@@ -345,6 +345,11 @@ where
             {
                 continue;
             }
+            // Its Drone was stopped by the plan's limit, which has not reset.
+            // `crate::limit_hold`.
+            if self.held_by_a_limit(&job) {
+                continue;
+            }
             // Its Drone asked a person and stood down; only the answer starts
             // it. `crate::questioning`.
             if job.waiting_on_an_answer() {

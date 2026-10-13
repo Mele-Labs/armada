@@ -33,7 +33,7 @@ use core_model::{
 };
 
 use crate::adrift::Adrift;
-use crate::briefing::Opening;
+use crate::briefing::{Opening, Stopped};
 use crate::crossing::{Cleared, Crossed, Produced};
 use crate::daemon::Fleet;
 use crate::working::Working;
@@ -49,6 +49,7 @@ use crate::working::Working;
 /// | `running` | an approval, or changes asked for | the next step, or the same one again |
 /// | `running`, a question on the Job | its Drone asked, and a person answered | the same step, told the answer |
 /// | `stopped` | a restart | the same step, told what stopped it |
+/// | `running`, parked by the plan's limit | Fleet, once the limit reset | the same step, with no reason in the record |
 /// | `advanced`, no dispatch | an override | the step after it, told a person cleared this one |
 /// | `advanced`, it dispatched | Fleet, once the children finished | the step after it, told what they came to |
 /// | `advanced` and `passed`, no dispatch | Fleet, once a freeze lifted | the step after it, told the gate cleared this one |
@@ -93,6 +94,11 @@ pub(crate) enum Owed {
     /// person and stood down. The step is already entered, and the run it
     /// began goes on: `crate::spawning` folds the answer into the brief.
     Answered { step: StepId },
+    /// The step is `running` and the Job was parked by the plan's limit, which
+    /// has reset. **The step never stopped**, so taking it again spends no
+    /// retry; `crate::limit_hold`. The Drone opens as one taking over a part
+    /// whose record says no reason.
+    Held { step: StepId },
 }
 
 impl Owed {
@@ -126,7 +132,10 @@ impl Owed {
             Owed::Standing { .. } => Some(Resumption::Reviewed),
             Owed::Restarted { .. } => Some(Resumption::Restarted),
             Owed::Overruled { .. } => Some(Resumption::Overruled),
-            Owed::AfterADispatch { .. } | Owed::AfterAFreeze { .. } | Owed::Answered { .. } => None,
+            Owed::AfterADispatch { .. }
+            | Owed::AfterAFreeze { .. }
+            | Owed::Answered { .. }
+            | Owed::Held { .. } => None,
         }
     }
 }
@@ -189,9 +198,19 @@ where
         &self,
         job: Job,
         working: &mut Option<Working>,
+        held_by_a_limit: bool,
     ) -> Result<(), Adrift> {
         let job_id = job.id().clone();
-        let owed = self.owed(&job)?;
+        // The marker that says so was lifted when the slot was leased again.
+        let owed = match held_by_a_limit {
+            true => Owed::Held {
+                step: job.current_step_id().cloned().ok_or_else(|| Adrift::NoSuchStep {
+                    job: job_id.clone(),
+                    step: None,
+                })?,
+            },
+            false => self.owed(&job)?,
+        };
         // Read before the Job moves. A worktree that has been reclaimed is a
         // Job whose earlier steps' work is not on disk, and there is nothing to
         // put a Drone back onto — the same refusal `restart_step` makes, asked
@@ -238,6 +257,7 @@ where
         // mints the next one.
         let stopped = match &owed {
             Owed::Restarted { step } => Some(self.what_stopped(&job, step).await?),
+            Owed::Held { .. } => Some(Stopped::default()),
             _ => None,
         };
 
@@ -295,6 +315,9 @@ where
             // Asked before the note, because a Job holding a question was put
             // here by its own Drone and not by a person at a gate.
             StepState::Running if job.question().is_some() => Ok(Owed::Answered { step }),
+            StepState::Running if job.pause().is_some_and(|pause| pause.until.is_some()) => {
+                Ok(Owed::Held { step })
+            }
             StepState::Running => Ok(Owed::Standing {
                 cleared: job.redirect_waiting().is_none(),
                 step,
@@ -355,7 +378,9 @@ where
     /// arrive with a step still to move: see the module header.
     async fn entered(&self, job: Job, owed: &Owed) -> Result<(Job, StepId), Adrift> {
         match owed {
-            Owed::Standing { step, .. } | Owed::Answered { step } => Ok((job, step.clone())),
+            Owed::Standing { step, .. } | Owed::Answered { step } | Owed::Held { step } => {
+                Ok((job, step.clone()))
+            }
             Owed::Restarted { step } => {
                 let job = self.move_step(&job, step, StepTarget::Running).await?;
                 Ok((job, step.clone()))
@@ -411,7 +436,8 @@ fn carried_across(
         | Owed::Restarted { .. }
         | Owed::AfterADispatch { .. }
         | Owed::AfterAFreeze { .. }
-        | Owed::Answered { .. } => None,
+        | Owed::Answered { .. }
+        | Owed::Held { .. } => None,
     };
     if let Owed::AfterADispatch { dispatched, .. }
     | Owed::AfterAFreeze {

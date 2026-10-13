@@ -147,6 +147,7 @@ mod out_of_bounds;
 mod overlap;
 mod overruling;
 mod parked_at_the_end;
+mod limit_hold;
 mod pausing;
 mod paying;
 mod peer;

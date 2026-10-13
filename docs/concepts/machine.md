@@ -176,6 +176,16 @@ billed per token. So the fleet meets its real limit as a hard failure with no
 approach warning: Jobs running normally, then work dying mid-flight. That shape
 is expected rather than designed against.
 
+**Two things reach Armada now, and neither is a gate.** The `armada` mod in a
+session reports the plan's windows (`five_hour`, `seven_day`) with the percent used
+and when each resets, and Fleet serves the newest reading as `get_plan_usage` for
+Bridge to draw. And a run the API already refused is held rather than failed: a
+Drone stopped by a `rejected` window parks its Job until the reset
+(`job.md`, *Held for the plan's limit*), and a session that hit the limit is woken
+with `Continue` then (`session.md`, *A session that hit the plan's limit*). Dispatch
+still does not wait on any percentage: no floor is held against the figure, and a
+Drone started into a spent window is held when it is refused.
+
 ## Init
 
 The installation half of first-run setup: resources, budget mode, notification routing, interface defaults. The tool half belongs to [Kit](kit.md). Both chain together in the broader First-Run Onboarding journey.
