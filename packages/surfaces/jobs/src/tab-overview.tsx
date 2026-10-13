@@ -807,7 +807,17 @@ export function OverviewTab(props: OverviewTabProps) {
     <OverviewBoard
       {...(nowHeld === undefined ? {} : { now: nowHeld })}
       {...(wideAsk === undefined ? {} : { wide: wideAsk })}
-      {...(commander === undefined ? {} : { commander: { jobId: job.id, ...commander, onSend: (text: string) => void props.onAskCommander?.(job.id, text) } })}
+      {...(commander === undefined
+        ? {}
+        : {
+            commander: {
+              jobId: job.id,
+              ...commander,
+              // `@` offers the Board's other Jobs, written into the message by their handle.
+              taggable: (props.board ?? []).filter((one) => one.id !== job.id).map((one) => ({ kind: "job" as const, id: one.id, title: one.handle })),
+              onSend: (text: string) => void props.onAskCommander?.(job.id, text),
+            },
+          })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

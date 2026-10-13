@@ -878,8 +878,8 @@ already a file read away.
 ## Leasing a worktree
 
 ```sh
-armada worktree lease <branch>      # a warm slot on a new branch; prints its path
-armada worktree lease --existing <branch>   # a warm slot on a branch that exists, at its tip
+armada worktree lease <branch>      # a warm slot on the branch at its tip, or on a new one cut from the base; prints its path
+armada worktree lease --existing <branch>   # the same, refusing a name nothing has rather than cutting it
 armada worktree release [<path>]    # give it back once everything is committed on its branch; the slot you stand in by default
 armada worktree --status            # every slot, who holds it, and for how long
 armada worktree add                 # one more slot on this machine; the next lease makes it
@@ -911,10 +911,10 @@ and cuts from what was last fetched.
 | `waiting for a worktree slot: 8 of 8 held` | Every slot is held. It waits, looking every 200 ms, and takes the first released |
 | `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with every commit on its branch, the remote or the base |
 | `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path. Bridge's Cleanup also offers Rescue in the panel of its tile: a Scout reads it, then Scrap or Stash |
-| `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
+| `slot-N is on <branch>, at its tip` / `cut from the base` | The branch existed here or on `origin` and is checked out as it stands, or nothing had the name and it is new. A lease never moves a branch that exists |
 | A release refused as uncommitted | Nothing was given back. Commit the files onto the branch, and release again. A push is not needed |
 | A release refused for commits the branch lacks | HEAD was off its branch, so a detach would leave them on none. Put them on the branch, and release again |
-| `<branch> is already checked out at <path>` | `lease --existing` found another checkout on it. Give that one back first |
+| `<branch> is already checked out at <path>` | A lease found another checkout on the branch: a held slot, a slot whose holder is gone but which holds uncommitted files, or a checkout outside the pool. Commit what is there and release it, or give that one back, first |
 | `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
 | `done` in `--status` | A Job completed and holds its slot until it is cleared. Clear it on the Board, release it by path, or `armada clean --force` |
 | `slot-3 closed` in `--status` | A person closed it. No lease takes it until `armada worktree open 3`, or Reopen in its panel in Cleanup |

@@ -26,6 +26,7 @@ pub(crate) use pilot_words::{
 };
 mod places;
 mod process;
+pub mod queueing;
 mod rows;
 mod serving;
 mod thread_cache;
@@ -69,6 +70,8 @@ pub struct Hosts {
     /// The newest reading of the account's plan windows, from whichever session reported last.
     /// Memory only: it is stale in minutes, and a Fleet that restarted would serve an old one as new.
     plan: Mutex<ipc::PlanUsage>,
+    /// Sessions refused a slot because the pool was full, and waiting for one.
+    slot_queue: Arc<queueing::SlotQueue>,
 }
 
 impl Hosts {
@@ -83,7 +86,17 @@ impl Hosts {
             commands: Mutex::new(Vec::new()),
             terminals: Terminals::default(),
             plan: Mutex::new(ipc::PlanUsage::default()),
+            slot_queue: Arc::default(),
         }
+    }
+
+    pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
+        &self.slot_queue
+    }
+
+    /// A slot was given back, or the pool grew: the sessions waiting for one are served.
+    pub(crate) fn slot_freed(&self) {
+        self.slot_queue.freed();
     }
 
     /// The reading held.

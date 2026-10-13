@@ -34,7 +34,12 @@ another branch. Confirmed 6 Oct 2026: after a cmux crash a session ran
 session had been given, and put a merge commit on that session's branch (undone
 with `git reset --keep`). After any restart run `git -C <slot> branch
 --show-current` before another git command there, and re-attach a branch with
-`armada worktree lease --existing <branch>`. A lease started from a subshell
+`armada worktree lease <branch>`: a branch that exists, here or on `origin`, is
+checked out at its own tip and never reset to the base (it was, until 13 Oct
+2026, when a pushed branch in a slot whose holder was gone came back as main's
+tip; only the push saved its commits). `--existing` is the same but refuses a
+name nothing has instead of cutting it. A slot whose holder is gone and which
+holds uncommitted files is refused rather than taken back, so commit there first. A lease started from a subshell
 (`( ... &)`) fails with "the process this was run from could not be read"; run
 it in the foreground or as the shell tool's own background task.
 **A lease taken in one tool call could read free when the call ended**, because

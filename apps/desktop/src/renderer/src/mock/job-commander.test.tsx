@@ -30,8 +30,11 @@ describe("job commander", () => {
     timePasses();
     await expect.element(commander().getByText("Drone on T7 ended with nothing handed in")).toBeVisible();
     timePasses();
-    await expect.element(commander().getByText("Turn cap", { exact: true })).toBeVisible();
-    await expect.element(commander().getByText("Task restarted")).toBeVisible();
+    await expect.element(commander().getByText("Turn cap 600", { exact: true })).toBeVisible();
+    await expect.element(commander().getByText("T7 restarted", { exact: true })).toBeVisible();
+    // A split is the two acts it is, each naming its task.
+    await expect.element(commander().getByText("T7 edited", { exact: true })).toBeVisible();
+    await expect.element(commander().getByText("Added Draw a Drone's permission ask on the call card", { exact: true })).toBeVisible();
     // Its hand on the tasks it touched: T7 on the Drone working it, and the new task on the canvas.
     await expect.element(now().getByRole("img", { name: "Commander" })).toBeVisible();
   });
