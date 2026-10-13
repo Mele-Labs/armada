@@ -331,7 +331,7 @@ where
                 return Ok(model);
             }
         }
-        ModelName::new(&self.models().default).map_err(|_| Adrift::Modelless)
+        ModelName::new(&self.default_model()).map_err(|_| Adrift::Modelless)
     }
 }
 

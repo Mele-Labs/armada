@@ -407,6 +407,7 @@ where
             tracking: crate::tracking::Tracking::with(fittings.tracker),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
+            downshift: Default::default(),
             events: fittings.events,
             turns: turns.clone(),
             helm,

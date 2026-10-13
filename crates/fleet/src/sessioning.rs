@@ -549,7 +549,8 @@ where
             self.publish(ipc::Event::SessionChanged(record.clone()));
         }
         if let Some(usage) = plan_moved {
-            self.publish(ipc::Event::PlanUsageChanged(usage));
+            self.publish(ipc::Event::PlanUsageChanged(usage.clone()));
+            self.downshift_read(&usage).await;
         }
         Ok(record)
     }

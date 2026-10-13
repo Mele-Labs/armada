@@ -493,7 +493,9 @@ read_by = "adapters, fleet"
 notes = """
 Feeds spike #3 (model-selection resolution). The one Manifest-only row still related to a Kit value: it selects from Kit-level allowed/default models list, so its polarity is membership. Previously that membership was checked at config load rather than assumed, on the strength of the config direction rule; the rule was withdrawn Aug 22 2026 and nothing enforces the membership now. Filed as an open finding.
 
-**The value lives in settings.json under `models.default`** (read at start; `ARMADA_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+**The value lives in settings.json under `models.default`** (live; `ARMADA_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+
+**Live, so the plan's step down can move it** (`plan-downshift-line`): a Job proposed and a Session process started after a change take the new value, `list_models` serves it, and a Job already proposed keeps the model it was given. A Session already running keeps the process it has until that ends and the next message starts another.
 """
 
 [settings.model-selection-heuristic-parameters]
@@ -1005,6 +1007,36 @@ DECIDED 12 Oct 2026 (owner): opus. A Job's Commander reads a whole Job and acts 
 Overridden by ARMADA_COMMANDER_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and to its strongest end.
 
 **The value lives in settings.json under `models.commander`** (live; `ARMADA_COMMANDER_MODEL` still wins).
+"""
+
+[settings.plan-downshift-line]
+name = "Plan downshift line"
+scope = "Machine"
+default = "80"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+DECIDED 13 Oct 2026 (owner): 80 percent of the weekly window. Reaching it offers `plan-downshift-model` as the default until the window resets. The weekly window alone: a five-hour window resets before a step down could matter. It is a whole percent from 1 to 100, and the offer is made once for each window.
+
+**The value lives in settings.json under `plan.downshiftAt`** (live), `docs/concepts/machine.md`, *Quota*.
+"""
+
+[settings.plan-downshift-model]
+name = "Plan downshift model"
+scope = "Machine"
+default = "sonnet"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. What the default model becomes when the owner accepts the offer at `plan-downshift-line`. Its own row rather than a reading of another model: the step down is to a model that still works a Job, and a machine that lowers the Judge or the retro to save plan would lower the checking and not the spend. The adapter states the default and a test holds it to the roster and below its strongest end.
+
+**The value lives in settings.json under `plan.downshiftTo`** (live), `docs/concepts/machine.md`, *Quota*.
 """
 
 [settings.judge-confidence-threshold]

@@ -2,7 +2,7 @@
 //! the adapter's, because a model's spelling is a vendor's; a Job's or a
 //! task's own choice in Bridge wins over these.
 
-use super::{Applies, Entry, Kind, List, Options, Section, Shipped, Words};
+use super::{Applies, Entry, Integer, Kind, List, Options, Section, Shipped, Words};
 
 pub const MODELS_ROSTER: List = List("models.roster");
 pub const MODELS_DEFAULT: Words = Words("models.default");
@@ -11,6 +11,9 @@ pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
 pub const MODELS_COMMANDER: Words = Words("models.commander");
+
+pub const PLAN_DOWNSHIFT_AT: Integer = Integer("plan.downshiftAt");
+pub const PLAN_DOWNSHIFT_TO: Words = Words("plan.downshiftTo");
 
 pub const EFFORT_DEFAULT: Words = Words("effort.default");
 pub const EFFORT_JUDGE: Words = Words("effort.judge");
@@ -42,10 +45,10 @@ pub(super) const MODEL: &[Entry] = &[
         key: MODELS_DEFAULT.0,
         section: Section::Model,
         title: "Default model",
-        description: "The model a Job's Drones run on when the Job names none.",
+        description: "The model a Job's Drones and a Session run on when none is named.",
         kind: Kind::Choice(Options::Models),
         shipped: Shipped::Supplied,
-        applies: Applies::AtRestart,
+        applies: Applies::Live,
         row: Some("default-model-per-job-type"),
         env: Some("ARMADA_MODEL"),
     },
@@ -169,6 +172,35 @@ pub(super) const EFFORT: &[Entry] = &[
         shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
         applies: Applies::Live,
         row: None,
+        env: None,
+    },
+];
+
+pub(super) const PLAN: &[Entry] = &[
+    // The line is the weekly window alone: the five-hour one resets before a
+    // step down could matter.
+    Entry {
+        key: PLAN_DOWNSHIFT_AT.0,
+        section: Section::Plan,
+        title: "Offer a lower default at",
+        description: "How much of the weekly plan window must be used before the default model is offered a step down until the window resets.",
+        kind: Kind::Integer { min: 1, max: 100, unit: "percent" },
+        shipped: Shipped::Integer(80),
+        applies: Applies::Live,
+        row: Some("plan-downshift-line"),
+        env: None,
+    },
+    // The middle tier, as `models.retro` ships: the step is to a model that
+    // still works a Job, not to the Judge's cheap one.
+    Entry {
+        key: PLAN_DOWNSHIFT_TO.0,
+        section: Section::Plan,
+        title: "Lower default model",
+        description: "The model the default steps down to when you accept the offer.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("plan-downshift-model"),
         env: None,
     },
 ];
