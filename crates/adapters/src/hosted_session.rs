@@ -317,8 +317,56 @@ pub fn reads_only(line: &str) -> bool {
         .all(reads)
 }
 
+/// A `git` segment with the options that only say where to look taken off, so `git -C <path>
+/// log` is read as `git log`. A path with a blank in it is left whole and reads as a write.
+fn plain_git(segment: &str) -> std::borrow::Cow<'_, str> {
+    let mut words = segment.split_whitespace().peekable();
+    if words.next() != Some("git") {
+        return segment.into();
+    }
+    while let Some(&word) = words.peek() {
+        match word {
+            "--no-pager" => {
+                words.next();
+            }
+            "-C" => {
+                words.next();
+                if words.next().is_none() {
+                    return segment.into();
+                }
+            }
+            _ => break,
+        }
+    }
+    std::iter::once("git").chain(words).collect::<Vec<_>>().join(" ").into()
+}
+
+/// Whether a `gh api` call only reads: no body, and a method of GET where one is named.
+fn api_reads(segment: &str) -> bool {
+    let words: Vec<&str> = segment.split_whitespace().collect();
+    if words.iter().any(|word| {
+        matches!(*word, "-f" | "-F" | "--field" | "--raw-field" | "--input")
+            || word.starts_with("--field=")
+            || word.starts_with("--raw-field=")
+            || word.starts_with("--input=")
+    }) {
+        return false;
+    }
+    words.iter().enumerate().all(|(at, word)| match *word {
+        "-X" | "--method" => words.get(at + 1).is_some_and(|method| method.eq_ignore_ascii_case("GET")),
+        other => other
+            .strip_prefix("--method=")
+            .or_else(|| other.strip_prefix("-X"))
+            .is_none_or(|method| method.eq_ignore_ascii_case("GET")),
+    })
+}
+
 /// One segment of a line.
 fn reads(segment: &str) -> bool {
+    let segment = &*plain_git(segment);
+    if segment.starts_with("gh api ") {
+        return api_reads(segment);
+    }
     let named = |read: &&str| {
         segment == *read
             || segment
@@ -343,6 +391,9 @@ fn reads(segment: &str) -> bool {
 }
 
 const READS: &[&str] = &[
+    "cd",
+    "pushd",
+    "popd",
     "ls",
     "cat",
     "head",
@@ -378,6 +429,8 @@ const READS: &[&str] = &[
     "git blame",
     "git describe",
     "git fetch",
+    "git merge-base",
+    "git remote -v",
     "gh pr view",
     "gh pr list",
     "gh pr diff",
