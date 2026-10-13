@@ -89,7 +89,7 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
       onTune: tune,
       commands,
       taggable: [
-        ...sessions.filter((one) => one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
+        ...sessions.filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
         ...draft.taggable(),
       ],
       ...(numbered === undefined ? {} : { numbered }),

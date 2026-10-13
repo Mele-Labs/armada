@@ -120,6 +120,10 @@ export type HelmComposerProps = {
   box?: Partial<HelmBox>;
   /** The message, with what went with it. **The box clears itself**, and a message the host refuses is not given back. */
   onSend: (sent: SentFromComposer) => void;
+  /** Helm is working a turn. With `onStop`, a Stop sits beside Send. */
+  working?: boolean;
+  /** Ends the turn Helm is working. */
+  onStop?: () => void;
   /** Nothing is servable, or the connection is down. */
   disabled?: boolean;
 };
@@ -142,6 +146,8 @@ export function HelmComposer({
   location,
   box = {},
   onSend,
+  working = false,
+  onStop,
   disabled = false,
 }: HelmComposerProps) {
   const label = repositories.find((one) => one.id === current)?.label;
@@ -230,7 +236,8 @@ export function HelmComposer({
           the accent, since it is not the view's one Primary (design-system.md, Component →
           token mapping → Helm dock). The mode is left off. */}
       <SessionComposer
-        working={false}
+        working={working}
+        {...(onStop === undefined ? {} : { onStop })}
         modeHidden
         compact
         label="Ask Helm"

@@ -41,6 +41,7 @@ export * from "./compositions/DockQuestions/DockQuestions";
 export * from "./compositions/HelmRecord/HelmRecord";
 export * from "./compositions/HelmThread/HelmThread";
 export * from "./compositions/HelmComposer/HelmComposer";
+export * from "./compositions/HelmHolds/HelmHolds";
 export * from "./compositions/JudgeQuestion/JudgeQuestion";
 export * from "./compositions/EvidenceCard/EvidenceCard";
 export * from "./compositions/FleetPanel/FleetPanel";

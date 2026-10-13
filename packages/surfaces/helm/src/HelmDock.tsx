@@ -6,7 +6,7 @@
 // and a Judge's stay in the block above, and an ask that stopped this
 // conversation is drawn in it.
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread, ProseRefs, ThoughtCard } from "@armada/components";
 import { useRecentRepositories } from "@armada/shell";
 import type {
@@ -96,6 +96,20 @@ export type HelmDockProps = {
    * Helm's replies and in the person's own rows. Absent, the thread is plain text.
    */
   refs?: ProseReferences;
+  /**
+   * **Helm drawn as the Session it is hosted as.** The window builds the Session's thread, with its
+   * tool groups, subagents and questions, and the chips for what Helm holds; the dock lays them out
+   * and keeps what is Helm's own: the thought cards, the repository switch and the record. Present,
+   * the thread above is not drawn, and neither are the permission asks, since Helm runs in auto.
+   */
+  hosted?: {
+    thread: ReactNode;
+    /** The slot, branch, pull requests and subagents Helm holds, under the dock's head. Absent draws none. */
+    holds?: ReactNode;
+    /** A turn is running: the box offers Stop. */
+    working: boolean;
+    onStop?: () => void;
+  };
 };
 
 /**
@@ -135,6 +149,7 @@ export function HelmDock({
   routing,
   box,
   refs,
+  hosted,
 }: HelmDockProps) {
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   // The thought in front is the oldest one still held; the rest wait their turn behind it.
@@ -305,15 +320,24 @@ export function HelmDock({
   }
 
   return (
-    <div className="armada-helm-dock" onKeyDownCapture={keyed}>
-      <ProseRefs.Provider value={refs ?? null}>
-        <HelmThread rows={rows} replying={replying} notice={notice} />
-      </ProseRefs.Provider>
+    <div className="armada-helm-dock" data-hosted={hosted === undefined ? undefined : ""} onKeyDownCapture={keyed}>
+      {hosted?.holds}
+      {hosted === undefined ? (
+        <ProseRefs.Provider value={refs ?? null}>
+          <HelmThread rows={rows} replying={replying} notice={notice} />
+        </ProseRefs.Provider>
+      ) : (
+        <>
+          {notice === undefined ? null : <HelmThread rows={[]} notice={notice} />}
+          <ProseRefs.Provider value={refs ?? null}>{hosted.thread}</ProseRefs.Provider>
+        </>
+      )}
       {/* Between the thread and the message box: the reply is held open above
           it and the person is typing below it, so the ask is in the one place
           neither of them has to be left to find it — #1519. The same
-          `DockQuestions` the dock draws, so there is one card and not two. */}
-      <DockQuestions questions={asks} />
+          `DockQuestions` the dock draws, so there is one card and not two.
+          A hosted Helm runs in auto and asks nothing here. */}
+      {hosted === undefined ? <DockQuestions questions={asks} /> : null}
       {thought === undefined ? null : thought.stage === "routing" ? (
         <ThoughtCard key={thought.id} stage="routing" words={thought.text} />
       ) : thought.stage === "match" ? (
@@ -355,6 +379,7 @@ export function HelmDock({
         onOpenRecord={current === undefined ? undefined : openRecord}
         {...(box === undefined ? {} : { box })}
         onSend={send}
+        {...(hosted === undefined ? {} : { working: hosted.working, ...(hosted.onStop === undefined ? {} : { onStop: hosted.onStop }) })}
         disabled={!live || current === undefined}
       />
       <HelmRecord
