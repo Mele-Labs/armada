@@ -359,6 +359,9 @@ pub enum SessionRow {
         name: String,
         run: u64,
         state: crate::SessionCheckState,
+        /// What the run was narrowed to. Absent where it ran whole.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target: Option<String>,
     },
     /// A Session's retro being written. **The row is replaced by id** as the writing goes
     /// and stays when it is done. `items` settle while the model writes and are empty once
