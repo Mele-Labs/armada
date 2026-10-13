@@ -92,7 +92,7 @@ async fn a_session_with_no_agent_yet_is_found_by_the_keeper_serving_its_socket()
 
 #[test]
 fn the_pid_is_read_out_of_the_way_the_pool_names_a_process() {
-    assert_eq!(pid_in("claude (pid 2838)"), Some(2838));
+    assert_eq!(pid_in("node (pid 2838)"), Some(2838));
     assert_eq!(pid_in("zsh (pid 4120)"), Some(4120));
     assert_eq!(pid_in("Session s7"), None);
     assert_eq!(pid_in(" (pid x)"), None);
@@ -104,7 +104,7 @@ async fn a_process_holder_carries_the_session_it_began_from_on_the_wire() {
     let rig = rig_placing(None);
     let slots = rig.fleet.pool_slots().await.expect("the pool is read");
     let mut one = slots.into_iter().next().expect("a slot");
-    one.reading.held = SlotHeld::Session(String::from("claude (pid 2838)"));
+    one.reading.held = SlotHeld::Session(String::from("node (pid 2838)"));
     one.session = Some(SlotSession {
         id: String::from("5a21fab8"),
         title: Some(String::from("Debug Bridge on Merge line")),
@@ -113,7 +113,7 @@ async fn a_process_holder_carries_the_session_it_began_from_on_the_wire() {
     assert_eq!(
         crate::wire::worktree_slot(&one).held,
         ipc::SlotHolding::Session {
-            holder: String::from("claude (pid 2838)"),
+            holder: String::from("node (pid 2838)"),
             session_id: Some(String::from("5a21fab8")),
             session_title: Some(String::from("Debug Bridge on Merge line")),
         }
@@ -122,7 +122,7 @@ async fn a_process_holder_carries_the_session_it_began_from_on_the_wire() {
     assert_eq!(
         crate::wire::worktree_slot(&one).held,
         ipc::SlotHolding::Session {
-            holder: String::from("claude (pid 2838)"),
+            holder: String::from("node (pid 2838)"),
             session_id: None,
             session_title: None,
         }
