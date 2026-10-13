@@ -173,6 +173,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's Commander started or finished a turn. #2166.
+    Route {
+        operation: "commander.changed",
+        method: "GET",
+        path: "/events",
+    },
     // One entry Fleet just kept for the timeline, for a client holding a window to append.
     Route {
         operation: "timeline.appended",

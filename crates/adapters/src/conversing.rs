@@ -72,6 +72,16 @@ pub fn path_written(detail: &str) -> &str {
     path
 }
 
+/// Whether the CLI could have named this session. **It is argv**, so every
+/// character must be a letter, a digit, `-` or `_`, and the first not `-`.
+pub(crate) fn portable_session(session: &str) -> bool {
+    !session.is_empty()
+        && !session.starts_with('-')
+        && session
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 /// Every tool the agent's door serves, as the CLI allows a whole server.
 pub fn door_tools() -> String {
     format!("mcp__{}", ipc::door::SERVER)
@@ -117,12 +127,7 @@ impl Conversing {
     /// **An id is refused unless every character is a letter, a digit, `-` or
     /// `_`.** It is argv, and one that began with `-` would be read as a flag.
     pub fn resuming(mut self, session: &str) -> Result<Conversing, ConversationRefused> {
-        let portable = !session.is_empty()
-            && !session.starts_with('-')
-            && session
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-        if !portable {
+        if !portable_session(session) {
             return Err(ConversationRefused::SessionNotPortable {
                 given: session.to_string(),
             });

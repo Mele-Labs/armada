@@ -42,6 +42,7 @@ pub(crate) fn supplied() -> Supplied {
         .words(s::MODELS_PROPOSER, "a-model")
         .words(s::MODELS_RETRO, "another-model")
         .words(s::MODELS_SECOND_OPINION, "another-model")
+        .words(s::MODELS_COMMANDER, "a-model")
         .harnesses(&["a-harness"])
 }
 

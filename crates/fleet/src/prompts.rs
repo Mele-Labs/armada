@@ -65,6 +65,10 @@ fn shipped_texts() -> Vec<(Words, String)> {
             crate::helm::shipped(Authority::ReadOnly),
         ),
         (
+            keys::PROMPT_COMMANDER,
+            crate::helm::commander_brief::shipped(),
+        ),
+        (
             keys::PROMPT_HELM_ROUTE,
             crate::helm::routing::QUESTION.to_string(),
         ),

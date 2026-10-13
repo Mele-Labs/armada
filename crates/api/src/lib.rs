@@ -120,7 +120,10 @@ mod watching_session_run;
 mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
-pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
+pub use conversing::{
+    CommanderFeed, CommanderWatch, ConversationFeed, ConversationSeen, ConversationWatch,
+    HelmFeed, HelmSeen, HelmWatch, ObservedCommander, ObservedHelm, Spoken, HELM_BACKLOG,
+};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,

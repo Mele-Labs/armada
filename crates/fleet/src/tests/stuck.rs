@@ -326,7 +326,12 @@ async fn a_restart_onto_a_gone_worktree_answers_409_over_the_wire() {
     delete_the_worktree(&home, &fleet.load(&job).await.expect("the Job"));
 
     let refusal =
-        api::Commands::restart_step(std::sync::Arc::clone(&fleet), ipc::JobId::from(&job), None)
+        api::Commands::restart_step(
+            std::sync::Arc::clone(&fleet),
+            ipc::JobId::from(&job),
+            None,
+            api::Steerer::Person,
+        )
             .await
             .expect_err("the worktree was just deleted");
 

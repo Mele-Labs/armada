@@ -31,6 +31,7 @@ export * from "./folding";
 export * from "./footprint";
 export * from "./forge";
 export * from "./health";
+export * from "./commander";
 export * from "./helm";
 export * from "./helm-calls";
 export * from "./helm-debug";

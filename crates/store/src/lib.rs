@@ -63,6 +63,7 @@ mod gaming;
 mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
+mod commander;
 mod helm_sessions;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;

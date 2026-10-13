@@ -633,6 +633,7 @@ fn assemble(
         model_at(shipped.get(keys::MODELS_SECOND_OPINION), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
+    let commander_model = model_at(shipped.get(keys::MODELS_COMMANDER), shipped.get(keys::EFFORT_COMMANDER))?;
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -730,6 +731,7 @@ fn assemble(
         judge_model,
         proposer_model,
         retro_model,
+        commander_model,
         second_opinion_model,
         // The one link shape resolved before dispatch. See
         // `adapters::IssueLookup` for why it is the only one.

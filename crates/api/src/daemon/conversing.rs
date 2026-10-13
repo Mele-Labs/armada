@@ -11,12 +11,13 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerHelmCall, AskHelm, AskingToRun, EventsSince, HelmCallsWaiting, HelmConversation,
-    HelmDebugInfo, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtSent,
-    ThoughtTarget,
+    AnswerHelmCall, AskCommander, AskHelm, AskingToRun, CommanderConversation, EventsSince,
+    HelmCallsWaiting, HelmConversation, HelmDebugInfo, ManifestId, ReadThought, RunOrNot,
+    TellSession, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
-use crate::conversing::ObservedHelm;
+use crate::conversing::{ObservedCommander, ObservedHelm};
+use crate::reference::Resolved;
 use crate::daemon::Refusal;
 
 /// Everything a client does with a Helm conversation.
@@ -31,6 +32,24 @@ pub trait Conversations: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<ObservedHelm, Refusal>> + Send;
+
+    /// `observe_commander` — one Job's Commander: the thread so far, then every
+    /// message that follows. `observe_helm`'s shape with a Job for its subject,
+    /// and answered before the socket opens for the same reason. #2166.
+    fn observe_commander(
+        &self,
+        job: Resolved,
+    ) -> impl Future<Output = Result<ObservedCommander, Refusal>> + Send;
+
+    /// `ask_commander` — take the owner's words for a Job's Commander and answer
+    /// at once. **The turn is the socket's.** Words that arrive while a turn is
+    /// being written wait for the one after it, and never interrupt. #2166.
+    /// [`Refusal::IllegalMove`] where the Job has no worktree to host it in.
+    fn ask_commander(
+        self: Arc<Self>,
+        job: Resolved,
+        asked: AskCommander,
+    ) -> impl Future<Output = Result<CommanderConversation, Refusal>> + Send;
 
     /// `ask_helm` — take a message and answer at once. **The reply is the
     /// socket's**, so this returns before a session has started, and a message

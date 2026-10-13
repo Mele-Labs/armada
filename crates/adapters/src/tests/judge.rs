@@ -189,6 +189,18 @@ fn a_retro_is_written_on_a_roster_model_stronger_than_the_judges() {
     );
 }
 
+/// A Commander runs on the strongest tier, as `commander-model` decided on
+/// 12 Oct 2026: a member of the roster, and its first.
+#[test]
+fn a_commander_runs_on_the_strongest_model_on_the_roster() {
+    assert_eq!(HeadlessAgent::commander_model(), "opus");
+    assert_eq!(
+        HeadlessAgent::models().first().copied(),
+        Some(HeadlessAgent::commander_model()),
+        "the roster runs strongest first"
+    );
+}
+
 /// Decided 2 Oct 2026: **a Judge reads the repository, and nothing more.** The
 /// three read tools are the whole toolset and the whole allowlist; every
 /// built-in that writes, runs a command or reaches the network is denied by

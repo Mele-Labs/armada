@@ -415,10 +415,15 @@ pub trait Commands: Send + Sync + 'static {
     /// Drone this asks for, which is the road [`Commands::request_changes`]
     /// writes down and not a second one. Refused where a note is already
     /// waiting, and refused blank for [`Commands::redirect_drone`]'s reason.
+    ///
+    /// **`by` signs the move**, as `restart_task`'s does: the caller the
+    /// transport placed, never a field of the request, so a restart a Commander
+    /// asked for reads as the Commander's in the Job's log. `#2166`.
     fn restart_step(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         note: Option<RestartRequested>,
+        by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `approve_review` — the person takes the work, and the Job goes on.

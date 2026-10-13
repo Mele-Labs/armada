@@ -29,6 +29,7 @@ mod footprint;
 mod forget;
 mod gaming;
 mod gate_manifests;
+mod commander_spend;
 mod helm_sessions;
 mod iteration;
 mod kit;

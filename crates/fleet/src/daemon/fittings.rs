@@ -291,6 +291,10 @@ pub struct Fittings<H, V, W> {
     /// per ended Job, read by a person, and raised for neither of the others'
     /// reasons.
     pub retro_model: Model,
+    /// What a Job's Commander runs on when the Job names none. **Its own dial**:
+    /// it reads a whole Job and acts on it, and is raised for neither of the
+    /// others' reasons.
+    pub commander_model: Model,
     /// What a request's own link resolves to, before it becomes a Job's
     /// `facts`. **A pointer rather than a type parameter**, for `judge`'s
     /// reason: rendering cannot fail, so nothing about it needs to be generic.

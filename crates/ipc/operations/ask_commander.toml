@@ -1,0 +1,14 @@
+[operations.ask_commander]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Say something to one Job's Commander, answered at once while its turn streams on its socket"
+notes = """
+**202, and the reply is not in the answer.** Fleet takes the words, puts a row for them on the Commander's thread at once, and answers with whether the next turn resumes a stored session; the turn is written on `observe_commander`. `ask_helm`'s shape, with a Job for its subject.
+
+**It wakes the Commander and never interrupts it.** Words that arrive while a turn is being written wait for the turn after it, and every wake and every message waiting at that moment is one turn. A blank message does not decode.
+
+**Refused with 409 where the Job has no worktree to read**, because a Commander is hosted in the Job's own worktree and never in the owner's checkout: a Job at its approval gate has none yet, and a reclaimed one has none any more.
+
+`agent_access` is `No`: the Commander's words are the owner's, and an agent must not write them for him. A Commander must not drive itself, nor Helm one.
+"""
