@@ -43,6 +43,9 @@ pub struct Pause {
     /// the first one that frees. Only a Job that kept its gate status sets it;
     /// a queued one waits in admission's line instead.
     pub resuming: bool,
+    /// Held until this instant, because the plan's limit stopped the Drone and
+    /// resets then. Admission leaves the Job alone until it has passed.
+    pub until: Option<Timestamp>,
 }
 
 impl Job {
@@ -55,8 +58,18 @@ impl Job {
             by,
             at,
             resuming: false,
+            until: None,
         });
         job.worktree_slot = None;
+        job
+    }
+
+    /// The Job as paused by Fleet until `until`, for a limit that resets then.
+    pub fn held_until(&self, at: Timestamp, until: Timestamp) -> Job {
+        let mut job = self.paused(PausedBy::Fleet, at);
+        if let Some(pause) = job.pause.as_mut() {
+            pause.until = Some(until);
+        }
         job
     }
 

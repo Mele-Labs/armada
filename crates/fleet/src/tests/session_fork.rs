@@ -357,6 +357,48 @@ async fn a_live_terminal_session_is_forked_at_a_message_and_goes_on_untouched() 
 }
 
 #[tokio::test]
+async fn a_fork_of_a_live_session_is_told_whose_work_is_not_its_own() {
+    let rig = rig();
+    rig.a_terminal_session().await;
+    rig.transcript(OLD, &conversation());
+    rig.the_mod_asks().await;
+
+    let forked = rig.forks_at(OLD, Some("a1")).await.expect("forks");
+    rig.first_message(&forked.id).await;
+    let note = rig.stand_in.starts()[0].fork_note.clone().expect("a fork is told it is one");
+    for fact in [
+        "This session is a fork",
+        "\"Why the reader drops lines\"",
+        OLD,
+        "is live and keeps working",
+        "subagents, background tasks and shells, slots",
+        "task-notification",
+        "do not act on it, relaunch that work",
+    ] {
+        assert!(note.contains(fact), "{fact}: {note}");
+    }
+}
+
+#[tokio::test]
+async fn a_fork_of_an_ended_session_is_told_it_has_ended() {
+    let rig = rig();
+    rig.a_terminal_session().await;
+    rig.reports(SessionFact::Ended { reason: "prompt_input_exit".into() }).await;
+
+    let forked = rig.forks(OLD).await.expect("forks");
+    rig.first_message(&forked.id).await;
+    let note = rig.stand_in.starts()[0].fork_note.clone().expect("told");
+    assert!(note.contains("has ended") && !note.contains("keeps working"), "{note}");
+}
+
+#[tokio::test]
+async fn a_session_that_is_no_fork_is_told_nothing_of_one() {
+    let rig = rig();
+    rig.a_hosted_session().await;
+    assert_eq!(rig.stand_in.starts()[0].fork_note, None);
+}
+
+#[tokio::test]
 async fn a_second_row_of_one_line_cuts_at_the_line() {
     let rig = rig();
     rig.a_terminal_session().await;

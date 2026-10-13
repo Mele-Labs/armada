@@ -32,13 +32,14 @@ export type NowAskerDraft = {
 export type AskedOf = { kind: "question"; id: string } | { kind: "judge"; at: string } | { kind: "command" };
 
 /**
- * What the Commander cannot do itself, asked once as one card. **Mock only**: Fleet serves no
- * Commander. The answer is the owner's act, and the host hands it to the Commander, which Fleet
- * wakes on it.
+ * What the Commander cannot do itself, asked once as one card: `JobDetail.commander_card`. The
+ * answer is the owner's act, and Fleet wakes the Commander on it.
  */
 export type NowCommanderAskView = {
   key: string;
   kind: "commander";
+  /** The card's id, which an answer names beside an option's. */
+  card: string;
   text: string;
   reach: string;
   question: string;
@@ -80,8 +81,8 @@ export type NowRunningView = {
   line?: string;
   /** The canvas step it belongs to. */
   step?: { id: string; name: string };
-  /** Who put it to work, where it was the Commander. */
-  by?: { who: "commander"; said: string };
+  /** Whose hand is on the task it works, where that is the Commander's. */
+  by?: { who: "commander" };
   /** The last few lines of its output, oldest first. */
   tail?: readonly string[];
   state: "running" | "passed" | "failed";

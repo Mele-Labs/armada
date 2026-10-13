@@ -96,6 +96,8 @@ mod helm_call;
 mod helm_debug;
 /// Helm reading a thought for where it belongs, and recording where it went.
 mod thought;
+/// What happened across the Fleet and when, for the Cockpit's timeline.
+mod timeline;
 mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
@@ -136,6 +138,8 @@ pub mod layout;
 pub mod key_bindings;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
+/// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.
+mod clashes;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -205,8 +209,15 @@ mod setup;
 mod showing;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
+mod commander;
+mod commander_card;
+mod commander_repair;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
+/// How much of the plan's windows is used.
+mod plan_usage;
+/// What fills a session's context window.
+mod context_breakdown;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -267,7 +278,8 @@ pub use checks::{CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge};
 pub use codec::{decode, encode, Undecodable, Unencodable};
 pub use commanding::{
     AllowedCommandRow, AlwaysAllowScope, AnswerCommand, CommandAnswer, CommandInFlight, Reach,
-    RemoveAllowedCommand, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetModel,
+    RemoveAllowedCommand, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetCommanderModel,
+    SetModel,
     SetWhenBlocked, WhenBlocked,
 };
 pub use configured::ManifestConfig;
@@ -302,6 +314,15 @@ pub use event::{
 pub use explaining::CommandExplained;
 pub use files::FilesFound;
 pub use health::{FleetHealth, HelmActionAuthority, Probe, Unprobed};
+pub use commander_card::{
+    AnswerCommanderCard, AskTheOwner, CardBy, CardId, CardOption, CardOptions, CardText,
+    CommanderCard, CommanderCardAnswered, CommanderCardChanged, Unusable as CardUnusable,
+};
+pub use commander_repair::{Breakage, RepairSent, SendRepairDrone};
+pub use commander::{
+    AskCommander, CommanderChanged, CommanderConversation, CommanderMessage, CommanderOpened,
+    CommanderState, CommanderWoke,
+};
 pub use helm::{
     AskHelm, Blank, Freshness, HelmAsked, HelmChangedCheckout, HelmClosed, HelmContext,
     HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,
@@ -310,6 +331,10 @@ pub use helm::{
 pub use thought::{
     HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
     ThoughtSent, ThoughtTarget,
+};
+pub use timeline::{
+    FleetTimeline, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
+    DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_LIMIT,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
@@ -377,6 +402,7 @@ pub use mods::{
     ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
     SetModEnabled,
 };
+pub use clashes::{ClashHolder, ClashSide, WriteClash, WriteClashes};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};
@@ -465,6 +491,8 @@ pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
     AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
+pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile};
+pub use plan_usage::{PlanUsage, PlanWindow};
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

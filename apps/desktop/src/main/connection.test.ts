@@ -161,6 +161,8 @@ async function serving(preferencesUnavailable = false): Promise<{
   watched: (past: number) => Promise<WebSocket>;
   /** Each connection to this Job's own log. */
   logging: WebSocket[];
+  /** Each connection to this Job's Commander. */
+  commanding: WebSocket[];
   /** How many times one route has been read. */
   read: (route: string) => number;
   /** Fleet goes away: every socket it holds closes. The port stays listening. */
@@ -169,9 +171,11 @@ async function serving(preferencesUnavailable = false): Promise<{
   const stream = new WebSocketServer({ noServer: true });
   const turns = new WebSocketServer({ noServer: true });
   const notes = new WebSocketServer({ noServer: true });
+  const conversation = new WebSocketServer({ noServer: true });
   const events = arriving(stream);
   const transcripts = arriving(turns);
   const logs = arriving(notes);
+  const commanders = arriving(conversation);
 
   const reads = new Map<string, number>();
   const server = createServer((request, answer) => {
@@ -188,7 +192,13 @@ async function serving(preferencesUnavailable = false): Promise<{
   });
   server.on("upgrade", (request: IncomingMessage, socket: Socket, head: Buffer) => {
     const path = request.url ?? "";
-    const to = path.endsWith("/observe") ? turns : path.endsWith("/log") ? notes : stream;
+    const to = path.endsWith("/commander/observe")
+      ? conversation
+      : path.endsWith("/observe")
+        ? turns
+        : path.endsWith("/log")
+          ? notes
+          : stream;
     to.handleUpgrade(request, socket, head, (client) => to.emit("connection", client, request));
   });
   server.listen(0, "127.0.0.1");
@@ -201,9 +211,10 @@ async function serving(preferencesUnavailable = false): Promise<{
     observing: transcripts.all,
     watched: transcripts.past,
     logging: logs.all,
+    commanding: commanders.all,
     read: (route: string) => reads.get(route) ?? 0,
     goesAway: () => {
-      for (const socket of [...events.all, ...transcripts.all, ...logs.all]) socket.close();
+      for (const socket of [...events.all, ...transcripts.all, ...logs.all, ...commanders.all]) socket.close();
     },
   };
 }
@@ -484,6 +495,7 @@ it("brings back every region of the open Job when Fleet comes back", async () =>
   for (const route of Object.values(SCREEN)) expect(fleet.read(route)).toBe(0);
   expect(fleet.observing).toHaveLength(0);
   expect(fleet.logging).toHaveLength(0);
+  expect(fleet.commanding).toHaveLength(0);
 
   // Fleet comes back on the same port, and the runtime file still names it.
   // Nothing below is a press: the retry reattaches on its own.
@@ -501,11 +513,13 @@ it("brings back every region of the open Job when Fleet comes back", async () =>
   );
   // Each read once, together, rather than a screen that half-recovered.
   for (const route of Object.values(SCREEN)) expect(fleet.read(route)).toBe(1);
-  // And both per-Job sockets, which are reopened rather than re-read.
+  // And the per-Job sockets, which are reopened rather than re-read: the transcript, the log and
+  // the Commander's thread.
   await fleet.watched(0);
-  await published.until((state) => state.journalled.state !== "failed");
+  await published.until((state) => state.journalled.state !== "failed" && state.commander.state !== "failed");
   expect(fleet.observing).toHaveLength(1);
   expect(fleet.logging).toHaveLength(1);
+  expect(fleet.commanding).toHaveLength(1);
 }, 15_000);
 
 it("does not fetch the patch again when the stream drops events under a live socket", async () => {

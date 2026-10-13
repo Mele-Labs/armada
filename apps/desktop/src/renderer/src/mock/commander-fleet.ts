@@ -1,19 +1,20 @@
-// A Job's Commander on the mock Fleet: its thread, what it changes in the plan and on the Now panel,
-// and the two ways it hears from the owner. Mock only: Fleet serves no Commander, and the decision
-// that makes one is the record of 11 Oct 2026, "a Job has a Commander".
+// A Job's Commander on the mock Fleet: its thread as the socket would carry it, the card it puts out
+// as `JobDetail.commander_card`, what it changes in the plan as `PlanTask.by`, and the two ways it
+// hears from the owner. **Every value is the wire's** (`packages/protocol/src/commander.ts`), so the
+// screens draw it through the code a real Fleet reaches; only the agent is a script.
 //
 // **The agent is a script, not a model**, as the Sessions mock's is. A scenario names what the
 // Commander does at each moment: a walk's `later` takes the next, the owner's message takes the next
 // reply a moment after it is sent, and his answer to its card takes the one that follows. Each moment
 // writes through `Commanding`, which publishes the thread, the plan and the panels as Fleet would.
 
+import { callViewOf, commanderAskOf } from "@armada/jobs";
 import type { CallView } from "@armada/jobs/draft/calls";
-import type { CommanderAct, CommanderDraft, CommanderRow, CommanderView } from "@armada/jobs/draft/commander";
 import type { NowView } from "@armada/jobs/draft/now";
-import type { TaskBy } from "@armada/jobs/draft/task";
-import type { JobDetail, PlanTask } from "@armada/protocol";
+import type { CardOption, CommanderCard, CommanderThread, CommanderThreadItem, JobDetail, Outcome, PlanTask, Saw } from "@armada/protocol";
 
 import type { Fleet } from "./fake-context";
+import { unanswered } from "./moment";
 
 /** What a moment may do. Every call publishes. */
 export type Commanding = {
@@ -21,37 +22,52 @@ export type Commanding = {
   wake: (why: string) => void;
   /** The owner's words, as he typed them. */
   you: (text: string) => void;
-  read: (text: string) => void;
+  /** A read: a call that changes nothing, by the tool's name. */
+  read: (tool: string) => void;
+  /** A call that changes the Job, by the tool's name. */
+  call: (tool: string) => void;
   say: (text: string) => void;
-  act: (act: CommanderAct) => void;
-  /** Where the turn stands: out, between turns, or a card out to the owner. */
-  state: (state: CommanderView["state"]) => void;
-  /** The mark a task wears for what it changed in it. */
-  mark: (task: string, said: string) => void;
+  /** The turn is over. `waiting` is the card it left out, which stays until he answers. */
+  end: () => void;
+  /** A turn is out again, without a row of its own. */
+  working: () => void;
+  /** It put a card to the owner. The Job reads as waiting on him until he answers. */
+  card: (card: { text: string; reach: string; question: string; options: readonly string[] }) => void;
   /** The plan, as a change makes it. The Job's row counts move with it. */
   plan: (change: (whole: JobDetail) => JobDetail) => void;
-  /** What the Now panel and the Dashboard's calls draw for this Job from here. */
-  panels: (panels: { now?: NowView; calls?: CallView }) => void;
-  /** The owner's answer to the card, from a surface that draws it besides the Now panel. */
-  answer: (option: string) => void;
+  /** Its hand on these tasks: `PlanTask.by`, which a mark on the canvas and the Plan tab read. */
+  mark: (...tasks: readonly string[]) => void;
+  /** What the Now panel and the Dashboard's calls draw for this Job besides the card. */
+  panels: (panels: { now?: NowView }) => void;
 };
 
 export type CommanderScript = {
   job: string;
+  /** The request the Dashboard's call card quotes beside its card. */
+  request?: string;
   /** What the thread and panels hold when the window opens. Nothing here waits. */
   open: (c: Commanding) => void;
   /** One each time a walk lets time pass. */
   moments?: readonly ((c: Commanding) => void)[];
   /** What it does for each message the owner sends, in order; the last answers any more. */
   replies?: readonly ((c: Commanding) => void)[];
-  /** What it does once the owner answers its card. */
-  answered?: (c: Commanding, option: string) => void;
+  /** What it does once the owner answers its card, with the option he picked. */
+  answered?: (c: Commanding, option: CardOption) => void;
 };
 
-export type CommanderStore = { later: () => void };
+export type CommanderStore = {
+  later: () => void;
+  /** `ask_commander`: the owner's words, queued for the next turn. */
+  ask: (jobId: string, text: string) => Outcome;
+  /** `answer_commander_card`: his pick. Refused for a card that is not the one out. */
+  answer: (jobId: string, cardId: string, optionId: string) => Outcome;
+};
 
 /** How long a reply takes: long enough that the working mark is seen. */
 const REPLY_MS = 900;
+
+/** The first instant of a thread; every row after it is seven seconds on, so a stamp never reads out of order. */
+const START = Date.parse("2026-10-11T14:06:00.000Z");
 
 /** The Job's counts as its plan states them. */
 export function countedIn(whole: JobDetail): JobDetail {
@@ -107,82 +123,124 @@ export function groupState(whole: JobDetail, group: string, state: string): JobD
 
 export function commandedBy(script: CommanderScript) {
   return (fleet: Fleet): CommanderStore => {
-    let rows: readonly CommanderRow[] = [];
-    let state: CommanderView["state"] = "idle";
-    let marks: Readonly<Record<string, TaskBy>> = {};
+    let items: CommanderThreadItem[] = [];
+    let replying = false;
+    let card: CommanderCard | undefined;
     let now: NowView | undefined;
-    let calls: CallView | undefined;
     let clock = 0;
     let made = 0;
     let moment = 0;
     let replied = 0;
 
-    /** A time of day that only moves forward, so a row's stamp never reads out of order. */
-    const at = () => {
+    const stamp = () => {
       clock += 7;
-      return `14:${String(6 + Math.floor(clock / 60)).padStart(2, "0")}:${String(clock % 60).padStart(2, "0")}`;
+      return new Date(START + clock * 1000).toISOString();
     };
-    const publish = () => {
+    const id = () => String(made++);
+    const thread = (): CommanderThread => ({ state: "open", jobId: script.job, replying, skipped: 0, missed: 0, items });
+    /** The panel's rows with the card among its asks, and the calls the Dashboard draws from them. */
+    const panels = () => {
       const held = fleet.draft.get() ?? {};
+      const shown: NowView | undefined = card === undefined ? now : { ...now, asks: [...(now?.asks ?? []), commanderAskOf(card)] };
+      const calls: CallView | undefined =
+        shown === undefined ? undefined : { ...callViewOf(shown), ...(script.request === undefined ? {} : { request: script.request }) };
       fleet.draft.set({
         ...held,
-        commander: draft(),
-        ...(now === undefined ? {} : { now: { ...held.now, [script.job]: now } }),
+        ...(shown === undefined ? {} : { now: { ...held.now, [script.job]: shown } }),
         ...(calls === undefined ? {} : { calls: { ...held.calls, [script.job]: calls } }),
       });
     };
-    const add = (row: (id: string, stamp: string) => CommanderRow) => {
-      made += 1;
-      rows = [...rows, row(`c${made}`, at())];
+    const publish = () => {
+      fleet.publish({ commander: thread() });
+      panels();
+    };
+    const add = (item: (id: string, ts: string) => CommanderThreadItem) => {
+      items = [...items, item(id(), stamp())];
       publish();
     };
+    const row = (saw: Saw) => add((itemId, ts) => ({ kind: "row", id: itemId, turn: { ts, seq: Number(itemId), by: "drone", saw } }));
+    const called = (tool: string) => row({ event: "called", tool: `mcp__armada__${tool}`, call: `call-${made}`, detail: script.job, truncated: false });
+    /** The Job's detail carrying the card out, or none. */
+    const carrying = (whole: JobDetail): JobDetail => {
+      const { commander_card: _gone, ...rest } = whole;
+      return { ...rest, ...(card === undefined ? {} : { commander_card: card }), job: { ...whole.job, asking: card !== undefined } };
+    };
+    /** The card and the Job's row, which reads as waiting on the owner while it is out. */
+    const waiting = (out: CommanderCard | undefined) => {
+      card = out;
+      fleet.move(script.job, { asking: out !== undefined });
+      fleet.stepping(script.job, carrying);
+    };
+    // A detail read after the card went out carries it, as Fleet's would: the window opens the Job
+    // after the script's first moment, and what that read finds is the scenario's own.
+    fleet.listen((state) => {
+      const watched = state.watched;
+      if (watched.state === "read" && watched.jobId === script.job && watched.detail.commander_card?.card_id !== card?.card_id) fleet.stepping(script.job, carrying);
+    });
     const c: Commanding = {
       wake: (why) => {
-        add((id, stamp) => ({ id, at: stamp, kind: "woke", why }));
-        c.state("working");
+        replying = true;
+        add((itemId, ts) => ({ kind: "woke", id: itemId, ts, why }));
       },
-      you: (text) => add((id, stamp) => ({ id, at: stamp, kind: "you", text })),
-      read: (text) => add((id, stamp) => ({ id, at: stamp, kind: "read", text })),
-      say: (text) => add((id, stamp) => ({ id, at: stamp, kind: "said", text })),
-      act: (act) => add((id, stamp) => ({ id, at: stamp, kind: "act", act })),
-      state: (next) => {
-        state = next;
+      you: (text) => {
+        replying = true;
+        add((itemId, ts) => ({ kind: "asked", id: itemId, ts, text }));
+      },
+      read: called,
+      call: called,
+      say: (text) => row({ event: "said", text }),
+      end: () => {
+        replying = false;
+        row({ event: "ended", turns: 3, cost_micros: 12_000, refusals: 0 });
+      },
+      working: () => {
+        replying = true;
         publish();
       },
-      mark: (task, said) => {
-        marks = { ...marks, [task]: { who: "commander", said } };
+      card: (out) => {
+        const options = out.options.map((label, at): CardOption => ({ id: String(at + 1), label }));
+        waiting({ card_id: "01M3WJ6FGZ0CARD0000000T7C1", job_id: script.job, by: "commander", raised_at: stamp(), text: out.text, reach: out.reach, question: out.question, options });
         publish();
       },
-      plan: (change) => fleet.stepping(script.job, (whole) => change(whole)),
+      plan: (change) => fleet.stepping(script.job, change),
+      mark: (...tasks) =>
+        fleet.stepping(script.job, (whole) => {
+          const plan = whole.work_plan;
+          if (plan === undefined) return whole;
+          const touched = (task: PlanTask): PlanTask => (tasks.includes(task.id) ? { ...task, by: { who: "commander" } } : task);
+          return { ...whole, work_plan: { ...plan, tasks: plan.tasks.map(touched) } };
+        }),
       panels: (next) => {
         if (next.now !== undefined) now = next.now;
-        if (next.calls !== undefined) calls = next.calls;
-        publish();
+        panels();
       },
-      answer: (option) => draft().answer(script.job, "card", option),
     };
-    const draft = (): CommanderDraft => ({
-      views: { [script.job]: { state, rows, marks } },
-      send: (_job, text) => {
-        c.you(text);
-        c.state("working");
-        const reply = script.replies?.[Math.min(replied, (script.replies?.length ?? 1) - 1)];
-        replied += 1;
-        if (reply !== undefined) window.setTimeout(() => reply(c), REPLY_MS);
-      },
-      answer: (_job, _key, option) => {
-        if (script.answered === undefined) return;
-        c.state("working");
-        window.setTimeout(() => script.answered?.(c, option), REPLY_MS);
-      },
-    });
 
     script.open(c);
+    // A Commander that has done nothing is still the Job's, and its panel is drawn.
+    publish();
     return {
       later: () => {
         const next = script.moments?.[moment];
         moment += 1;
         next?.(c);
+      },
+      ask: (_job, text) => {
+        c.you(text);
+        const reply = script.replies?.[Math.min(replied, (script.replies?.length ?? 1) - 1)];
+        replied += 1;
+        if (reply !== undefined) window.setTimeout(() => reply(c), REPLY_MS);
+        return { ok: true };
+      },
+      answer: (_job, cardId, optionId) => {
+        const picked = card?.options.find((one) => one.id === optionId);
+        if (card === undefined || card.card_id !== cardId || picked === undefined) return unanswered(`/jobs/${script.job}/commander/card/answer`);
+        const question = card.question;
+        waiting(undefined);
+        // Fleet keeps the pick, then wakes the Commander with it.
+        c.wake(`The owner answered your card, "${question}": ${picked.label}`);
+        if (script.answered !== undefined) window.setTimeout(() => script.answered?.(c, picked), REPLY_MS);
+        return { ok: true };
       },
     };
   };

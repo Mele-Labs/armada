@@ -70,7 +70,7 @@ pub(crate) fn seen(at: &Timestamp, step: &StepId, event: &DroneEvent) -> Transcr
                 call: call.clone(),
                 because: because.clone(),
             },
-            DroneEvent::QuotaMoved { window, status } => Saw::QuotaMoved {
+            DroneEvent::QuotaMoved { window, status, .. } => Saw::QuotaMoved {
                 window: window.clone(),
                 status: status.clone(),
             },

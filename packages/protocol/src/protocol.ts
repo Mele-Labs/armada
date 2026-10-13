@@ -149,6 +149,9 @@ export type JobSummary = {
    * other. It comes from the working slot, so it is false on every summary
    * built where no slot was in hand, which is every event publish — correct
    * rather than a gap, since `job.asking` says a question exists.
+   *
+   * **A card the job's Commander has out to the owner reads here too** (#2166): it waits on a
+   * person as a Drone's question does, and the detail's `commander_card` carries it.
    */
   asking?: boolean;
   /**
@@ -234,6 +237,11 @@ export type Paused = {
   at: string;
   /** A resume found every slot held, and the job waits for the first to free. */
   resuming: boolean;
+  /**
+   * The plan's limit stopped this job's Drone and it starts again at this instant, when the limit
+   * has reset. Absent on any other pause.
+   */
+  until?: string;
 };
 
 /** One Check a step declares. `crates/ipc/src/checks.rs`. */

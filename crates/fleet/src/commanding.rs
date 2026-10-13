@@ -29,6 +29,7 @@ use crate::daemon::Fleet;
 // which is the one place they meet.
 use crate::overruling::Overruling;
 use crate::reporting::Filed;
+use crate::timeline::{command_answer_says, judge_answer_says, question_answer_says};
 use crate::resume::Redirection as Instruction;
 use crate::wire::reported;
 
@@ -852,6 +853,7 @@ where
         self: Arc<Self>,
         job_id: JobId,
         note: Option<ipc::RestartRequested>,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = match &note {
             Some(note) => Some(
@@ -861,7 +863,19 @@ where
         };
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
-            async move { Fleet::restart_step(&fleet, &job_id.to_domain(), said.as_ref()).await }
+            async move {
+                // Signed as the caller the transport placed, `restart_task`'s
+                // mapping: a person's, Helm's or a Commander's.
+                let (signed, _) = crate::work_plan::signed(by);
+                Fleet::restart_step_by(
+                    &fleet,
+                    &job_id.to_domain(),
+                    said.as_ref(),
+                    crate::resume::Ending::Unheard,
+                    signed,
+                )
+                .await
+            }
         })
         .await
         .map_err(|why| self.refusal(why))?;
@@ -906,6 +920,7 @@ where
         job_id: JobId,
         answer: ipc::ChosenAnswer,
     ) -> Result<JobSummary, Refusal> {
+        let (asked_of, says) = (job_id.clone(), question_answer_says(&answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -933,6 +948,7 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -957,6 +973,7 @@ where
             answer.rule.as_deref(),
         )
         .kept_in(answer.scope);
+        let (asked_of, says) = (job_id.clone(), command_answer_says(answer.answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -969,6 +986,7 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -1003,6 +1021,7 @@ where
         job_id: JobId,
         answered: ipc::JudgeAnswered,
     ) -> Result<JobSummary, Refusal> {
+        let (asked_of, says) = (job_id.clone(), judge_answer_says(answered.answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -1020,6 +1039,7 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -1089,6 +1109,15 @@ where
         .await
         .map_err(|why| self.refusal(why))?;
         self.summarised(&job).await
+    }
+
+    /// The model and effort this Job's Commander runs on. `job_settings` has it. #2166.
+    async fn set_commander_model(
+        self: Arc<Self>,
+        job_id: JobId,
+        choice: ipc::SetCommanderModel,
+    ) -> Result<JobSummary, Refusal> {
+        self.commander_model_chosen(job_id, choice).await
     }
 
     /// Which model each tier of this Job's tasks runs on. `task_edits` has it.

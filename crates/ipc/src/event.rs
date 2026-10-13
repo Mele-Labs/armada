@@ -35,7 +35,9 @@ use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
+use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
+use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
@@ -216,6 +218,18 @@ pub enum Event {
     SleepChanged(SleepState),
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),
+    // The plan's windows after a session read them moving, whole. `docs/concepts/machine.md`.
+    #[serde(rename = "plan_usage.changed")]
+    PlanUsageChanged(PlanUsage),
+    // A Job's Commander started or finished a turn. `#2166`.
+    #[serde(rename = "commander.changed")]
+    CommanderChanged(crate::commander::CommanderChanged),
+    // A Job's card to the owner went out, or the one out was answered. `#2166`.
+    #[serde(rename = "commander.card")]
+    CommanderCard(crate::commander_card::CommanderCardChanged),
+    // One entry Fleet just kept for the timeline. Since 23.82.
+    #[serde(rename = "timeline.appended")]
+    TimelineAppended(TimelineAppended),
 }
 
 impl Event {

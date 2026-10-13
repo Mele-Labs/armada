@@ -14,9 +14,9 @@ const w = walk("job-commander-asked", [
   { look: inside(commander, text(/turn 288 of 300/)), say: "It reads the Drone and answers in the thread" },
   { type: "fix it", into: box, say: "Then tells it to fix it" },
   { press: inside(commander, button("Send", { exact: true })), say: "Send" },
-  { look: inside(commander, text("Turn cap 300 → 600")), say: "The cap raised, as a row" },
-  { look: inside(commander, text("T7 restarted")), say: "T7 restarted" },
-  { look: inside(now, role("img", "Commander restarted T7")), say: "The Drone it started is marked the Commander's" },
+  { look: inside(commander, text("Turn cap")), say: "The cap raised, as a row" },
+  { look: inside(commander, text("Task restarted")), say: "T7 restarted" },
+  { look: inside(now, role("img", "Commander")), say: "The Drone on it is marked the Commander's" },
 ]);
 
 export { w as "job-commander-asked" };

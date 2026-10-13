@@ -415,10 +415,15 @@ pub trait Commands: Send + Sync + 'static {
     /// Drone this asks for, which is the road [`Commands::request_changes`]
     /// writes down and not a second one. Refused where a note is already
     /// waiting, and refused blank for [`Commands::redirect_drone`]'s reason.
+    ///
+    /// **`by` signs the move**, as `restart_task`'s does: the caller the
+    /// transport placed, never a field of the request, so a restart a Commander
+    /// asked for reads as the Commander's in the Job's log. `#2166`.
     fn restart_step(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         note: Option<RestartRequested>,
+        by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `approve_review` — the person takes the work, and the Job goes on.
@@ -876,6 +881,16 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         choice: ipc::SetModel,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `set_commander_model` — the model and effort this Job's Commander runs
+    /// on, chosen by a person, each half cleared with `null`. #2166. **Read by
+    /// the next turn.** [`Refusal::IllegalMove`] on a model this Fleet does not
+    /// offer or an effort the setting does not spell.
+    fn set_commander_model(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        choice: ipc::SetCommanderModel,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `set_tiers` — which model each tier of this Job's tasks runs on, the

@@ -107,6 +107,10 @@ pub struct FakeDaemon {
     pub kit_servers: Mutex<Vec<ipc::KitServerRow>>,
     /// The one Helm conversation's channel, which a test can offer into.
     pub helm: crate::HelmFeed,
+    /// The Commander conversations' channel, which a test can offer into.
+    pub commander: crate::CommanderFeed,
+    /// What `observe_commander` answers with as the thread. Set by a test.
+    pub commander_thread: Mutex<Vec<ipc::CommanderMessage>>,
     /// What `observe_helm` answers with as the thread. Set by a test.
     pub helm_thread: Mutex<Vec<ipc::HelmMessage>>,
     /// Every permission question the door put to this daemon, in order.
@@ -121,6 +125,8 @@ pub struct FakeDaemon {
     /// The connection each `start_run` reached this daemon on, as
     /// `crate::asking` said it: the port, `None` where there was no peer.
     pub run_asked_on: Mutex<Vec<Option<u16>>>,
+    /// Who each `restart_step` that reached this daemon was signed as.
+    pub restarted_by: Mutex<Vec<crate::Steerer>>,
     /// Who each redirect that reached this daemon was recorded against.
     pub redirected_by: Mutex<Vec<crate::Steerer>>,
     /// Who each add, drop, edit, move and task restart that reached this
@@ -129,7 +135,9 @@ pub struct FakeDaemon {
     /// The door each redirect arrived through, as `crate::via` said it.
     pub redirected_via: Mutex<Vec<Option<ipc::Via>>>,
     /// The port a planted Commander calls from. `#2164`.
-    pub commander_on: Mutex<Option<u16>>,
+    pub commander_on: Mutex<Option<(u16, ipc::JobId)>>,
+    /// The repairs a Commander sent, by Job.
+    pub repairs_sent: Mutex<Vec<(ipc::JobId, ipc::Breakage)>>,
     /// Who each proposal that reached this daemon was recorded against.
     /// `#943`.
     pub proposed_by: Mutex<Vec<crate::Redirector>>,
@@ -175,15 +183,19 @@ impl FakeDaemon {
             repository_allowed: Mutex::new(Vec::new()),
             kit_servers: Mutex::new(Vec::new()),
             helm: crate::HelmFeed::new(),
+            commander: crate::CommanderFeed::new(),
+            commander_thread: Mutex::new(Vec::new()),
             helm_thread: Mutex::new(Vec::new()),
             asked_to_run: Mutex::new(Vec::new()),
             helm_polled: Mutex::new(None),
             helm_on: Mutex::new(None),
             run_asked_on: Mutex::new(Vec::new()),
+            restarted_by: Mutex::new(Vec::new()),
             redirected_by: Mutex::new(Vec::new()),
             plan_changed_by: Mutex::new(Vec::new()),
             redirected_via: Mutex::new(Vec::new()),
             commander_on: Mutex::new(None),
+            repairs_sent: Mutex::new(Vec::new()),
             proposed_by: Mutex::new(Vec::new()),
             raised_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),

@@ -256,6 +256,8 @@ notes = """
 
 Armada does not gate on quota, decided 23 Aug 2026 on that evidence: none of the routes is worth building against a third-party surface that may expose the number properly in a later release. **What that costs, stated so it is not a surprise:** the five-hour window is what will actually stop a fleet on a subscription, dollars stop nothing because nothing is billed per token, and the fleet will meet its real limit as a hard failure with no approach warning. `rate_limit_event` is still worth recording on the Job timeline as the post-mortem evidence.
 
+Two things changed on 12 Oct 2026 and neither enforces this row. The mod reports each window's percent to Fleet for display, and a run the API refused (`rate_limit_event` `rejected` with a reset) is held until the reset instead of failing its Job or session. Holding what was already refused is not a gate: nothing is held back for a percentage.
+
 The row stays rather than being deleted, because it is where that reasoning lives and because the change is small if `used_percentage` ever reaches the headless stream. It says unenforced out loud for `judge-cost-cap-per-check`'s reason: an unenforced cap is worse than an absent one, because only one of the two is visible as missing.
 
 Also sets Doctor's Claude warn boundary — quota below this floor is warn, since dispatch is gated but the CLI still works. Not authenticated or CLI absent is fail. Doctor does not exist either.
@@ -982,6 +984,27 @@ The model is a stronger writer, and the prompt does the rest: it names no cause 
 Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and above the Judge's. The call goes through the Judge's client and budget, so it counts against nothing: an unwatched call emits no cost readout, which is why judge-cost-cap-per-check is open, and it is not part of a Job's spend. It is one call per Job that had a Drone, made after the Job ended, so no Job waits on it.
 
 **The value lives in settings.json under `models.retro`** (live; `ARMADA_RETRO_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+"""
+
+[settings.commander-model]
+name = "Commander model"
+scope = "Machine"
+default = "opus"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 12 Oct 2026 (owner): opus. A Job's Commander reads a whole Job and acts on it with nobody watching, so it runs on the strongest tier on the roster and not the Drone's. Its own row rather than a second reading of the default model: a machine that raised the Commander by raising every Drone would pay the raise on every step of every Job, and the Commander is woken only on trouble.
+
+**Effort follows the same pattern**, in `effort.commander` beside it. A Job may name its own model and its own effort, and the Job's value wins over the Machine's; the per-Job override is carried on the Job and not here.
+
+**Its spend is the Job's and not the Job's cap's.** What a Commander turn costs is recorded against the Job and shown in its cost, and it is never counted against the Job's cost cap: a cap that a Commander's own thinking could spend would stop the agent that raises it. `docs/concepts/commander.md`.
+
+Overridden by ARMADA_COMMANDER_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and to its strongest end.
+
+**The value lives in settings.json under `models.commander`** (live; `ARMADA_COMMANDER_MODEL` still wins).
 """
 
 [settings.judge-confidence-threshold]

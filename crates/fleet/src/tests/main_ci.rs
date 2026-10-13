@@ -546,6 +546,7 @@ async fn a_hub_that_moves_is_published_as_the_merge_lines_whole() {
     let reading = crate::merge_lines::keep_reading(
         std::sync::Arc::clone(&fleet),
         fleet.events(),
+        fleet.timeline().clone(),
         Duration::from_millis(50),
     );
 

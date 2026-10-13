@@ -166,7 +166,7 @@ fn back() -> Vec<Edit> {
     vec![
         check(
             "build",
-            CheckEdit::Run("cargo build --workspace --locked".to_string()),
+            CheckEdit::Run("cargo build --workspace --locked --jobs ${width}".to_string()),
         ),
         check("test", CheckEdit::Requires(Vec::new())),
         check("typecheck", CheckEdit::When(strings(WHEN))),
@@ -206,7 +206,7 @@ fn every_edit_a_form_makes_round_trips_this_repositorys_manifest_byte_for_byte()
     let edited = amended(OWN, &forward());
     // The three lines an edit rewrites in place; every other line stays.
     let named = [
-        "    run: cargo build --workspace --locked",
+        "    run: cargo build --workspace --locked --jobs ${width}",
         "    ready: curl -sf http://localhost:${port.storybook}",
         "  storybook: {}",
     ];
@@ -272,7 +272,7 @@ fn an_edit_to_the_value_already_there_changes_nothing() {
         check(
             "test",
             CheckEdit::Run(
-                "cargo nextest run --workspace --exclude acceptance --test-threads ${width}"
+                "cargo nextest run --workspace --exclude acceptance --build-jobs ${width} --test-threads ${width}"
                     .to_string(),
             ),
         ),

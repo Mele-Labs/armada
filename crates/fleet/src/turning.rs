@@ -183,6 +183,13 @@ pub struct Turned {
     /// checkout serves every Job on a base — so a `GaveBack` naming one would
     /// have to invent a Job id for it.
     pub bases_taken: Vec<String>,
+    /// Jobs moved onto a worktree or environment trigger since the last turn
+    /// took them. **On the turn for `stranded`'s reason**: the Job had no Drone
+    /// to have a [`Worked`] entry by. Read by `crate::commanding_wakes`.
+    pub broken: Vec<(JobId, core_model::EscalationTrigger)>,
+    /// Jobs a Drone's spend was written for since the last turn took them, so a
+    /// cap nearly spent is noticed where the spend lands and not on every tick.
+    pub spent: Vec<JobId>,
 }
 
 impl Turned {
@@ -341,6 +348,8 @@ where
         turned.reseated = self.seat_resuming().await?;
         // After admission, so a Job waiting to start had the room first.
         turned.beside = self.crew_next().await?;
+        // Last, so a Job admitted and stopped on its worktree this turn is in it.
+        (turned.broken, turned.spent) = self.take_stirred();
         Ok(turned)
     }
 
@@ -466,6 +475,7 @@ where
                 Ok(turned) => {
                     fleet.probed(&turned);
                     fleet.walked(&turned);
+                    fleet.woken(&turned).await;
                     // Beside the probes, for their reason: a landing is minutes.
                     fleet.lines_driven().await;
                 }

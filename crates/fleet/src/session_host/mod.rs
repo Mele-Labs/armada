@@ -66,6 +66,9 @@ pub struct Hosts {
     commands: Mutex<Vec<String>>,
     /// What Fleet holds for sessions run in a terminal. Since 23.53.
     terminals: Terminals,
+    /// The newest reading of the account's plan windows, from whichever session reported last.
+    /// Memory only: it is stale in minutes, and a Fleet that restarted would serve an old one as new.
+    plan: Mutex<ipc::PlanUsage>,
 }
 
 impl Hosts {
@@ -79,7 +82,30 @@ impl Hosts {
             sweeping: AtomicBool::new(false),
             commands: Mutex::new(Vec::new()),
             terminals: Terminals::default(),
+            plan: Mutex::new(ipc::PlanUsage::default()),
         }
+    }
+
+    /// The reading held.
+    pub(crate) fn plan_usage(&self) -> ipc::PlanUsage {
+        self.plan.lock().expect("the reading is not held across a panic").clone()
+    }
+
+    /// Keep a session's reading as the newest. `Some` of the reading now where it differs from the
+    /// one held; an empty report is a session off a subscription and leaves the reading alone.
+    pub(crate) fn plan_read(&self, windows: Vec<ipc::PlanWindow>, at: &str) -> Option<ipc::PlanUsage> {
+        if windows.is_empty() {
+            return None;
+        }
+        let mut held = self.plan.lock().expect("the reading is not held across a panic");
+        if held.windows == windows {
+            return None;
+        }
+        *held = ipc::PlanUsage {
+            windows,
+            read_at: Some(ipc::Instant::carried(at)),
+        };
+        Some(held.clone())
     }
 
     pub(crate) fn terminals(&self) -> &Terminals {
@@ -207,6 +233,9 @@ pub(crate) struct State {
     /// The keeper said busy on reattach and nothing has been heard since, so
     /// a long silence is a turn end that was missed.
     pub reattached_busy: bool,
+    /// When the turn running now began, by Fleet's clock, for the timeline's account of how long it
+    /// took. Set when the process says a turn started and taken when one ends.
+    pub turn_began: Option<String>,
 }
 
 impl State {
@@ -237,6 +266,7 @@ impl State {
             unstarted: Vec::new(),
             retried: false,
             reattached_busy: false,
+            turn_began: None,
         }
     }
 }

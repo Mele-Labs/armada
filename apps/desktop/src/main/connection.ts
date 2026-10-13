@@ -28,6 +28,7 @@ import { PilotExits } from "./pilot-exits";
 import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
+import { askCommander, CommanderSocket } from "./commander";
 import { HelmConnection } from "./helm";
 import { JournalSocket } from "./journal";
 import { ActiveJobs } from "./active-jobs";
@@ -54,6 +55,7 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { PlanUsageHost } from "./plan-usage";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
@@ -156,6 +158,8 @@ export class FleetConnection {
   private readonly turns: ObserveSocket;
   /** What Fleet did to the open Job — a third socket. See `journal.ts`. */
   private readonly notes: JournalSocket;
+  /** The open Job's Commander, its thread — another socket, and one that is written to by a request. `commander.ts`. */
+  private readonly commander: CommanderSocket;
   /** One running Check's log, as it is written — a fourth socket. `following.ts`. */
   private readonly follow: FollowSocket;
   /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
@@ -198,6 +202,8 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** The plan's windows — `plan-usage.ts`. */
+  readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
@@ -230,6 +236,7 @@ export class FleetConnection {
     });
     this.turns = new ObserveSocket((observed) => this.publish({ observed }));
     this.notes = new JournalSocket((journalled) => this.publish({ journalled }));
+    this.commander = new CommanderSocket((commander) => this.publish({ commander }));
     this.follow = new FollowSocket((followed) => this.publish({ followed }));
     this.landFollow = new LandFollowSocket((landFollowed) => this.publish({ landFollowed }));
     this.material = new ReviewMaterial((change) => this.publish(change));
@@ -244,6 +251,7 @@ export class FleetConnection {
       publish: (change) => this.publish(change),
       turns: this.turns,
       notes: this.notes,
+      commander: this.commander,
       review: this.material,
       observing: () => this.observing,
       reading: () => this.reading,
@@ -330,6 +338,7 @@ export class FleetConnection {
       sessions: this.sessions,
       held: this.held,
       sleep: this.sleep,
+      planUsage: this.planUsage,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,
@@ -466,6 +475,7 @@ export class FleetConnection {
     this.rehearsal.close();
     this.turns.close();
     this.notes.close();
+    this.commander.close();
     this.follow.close();
     this.landFollow.close();
     this.material.close();
@@ -563,6 +573,13 @@ export class FleetConnection {
     // which is the empty panel this exists to fix, arriving by another route.
     this.reading = jobId;
     this.notes.open(port, jobId);
+    // And its Commander's thread, on the same act for the same reason.
+    this.commander.open(port, jobId);
+  }
+
+  /** The owner's words to a Job's Commander. They queue for the next turn and never interrupt one. */
+  askCommander(jobId: string, text: string): Promise<Outcome> {
+    return askCommander(this.connected()?.port ?? null, jobId, text);
   }
 
   /** One running Check's log, as it is written, or `null` to stop. Opened by a press. */

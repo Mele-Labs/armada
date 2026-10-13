@@ -620,6 +620,26 @@ act writes one line in the Job's log.
 
 **An act on a paused Job opens the Resume confirm.** Approve, request changes, restart and override come back `fleet.paused`, and Bridge shows Resume and Cancel instead of a refusal. Resume only resumes: the act is pressed again after. Where the pool is full the Job reads waiting for a slot, and the confirm says nothing about it. Each refusal of Pause or Resume is said inside the confirm or panel that sent it, in git's words.
 
+## Held for the plan's limit
+
+**A Drone the plan's limit stopped does not fail its Job.** Its stream's last window event is `rejected`
+with a reset time, and it reached for nothing after it. The Job is parked as Fleet's own pause, `by: fleet`
+with `until`: the reset and a minute more. It goes `queued` reading `paused`, its branch is kept, its slot is
+given back, and the row carries `paused.until` for Bridge to draw. Admission leaves it alone until then, and
+a person's Resume lifts the hold early.
+
+| | A limit | Any other ending with nothing submitted |
+|---|---|---|
+| The Job | `queued`, held | `escalated` as `stalled`, `silent`, `blocked_by_policy` or `interrupted` |
+| The step | stays `running` | stops under `run_ended` |
+| A retry | none spent | one, on a restart |
+| What starts it again | admission, after `until` | a person's restart |
+
+**Holding is not gating.** Armada still starts Drones whatever the plan has left; this only keeps a run the
+API already refused from being counted as the work failing (`docs/concepts/machine.md`, *Quota*). Where the
+pool will not take the slot back, the Job escalates as it did before. A window `rejected` with no reset time
+leaves nothing to hold the Job until, and reads as an ordinary ending.
+
 ## Taking a Job over
 
 [Pilot](pilot.md) is the fifth act on a stopped or running Job, and the only one that hands its worktree to a person. `take_over` ends the Drone where one is live, stops the step it was on, and moves the Job to `piloted`. It works from `running`, `awaiting_review`, `awaiting_repair`, `escalated` and `awaiting_attestation`, and is refused on any other status.

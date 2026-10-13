@@ -47,6 +47,7 @@ import type {
   History,
   FollowedLog,
   Journalled,
+  CommanderThread,
   Observed,
   Remarks,
   Watched,
@@ -235,6 +236,17 @@ export type JobsApi = {
     chose: string | undefined,
     mode?: AnswerMode,
   ) => Promise<Outcome>;
+  /**
+   * Say something to a Job's Commander. **It queues for the next turn and never interrupts
+   * one**; the reply arrives on `BridgeState.commander`. Blank is refused before it is sent.
+   */
+  askCommander: (jobId: string, text: string) => Promise<Outcome>;
+  /**
+   * Pick one of the options on the card a Job's Commander put to the owner, by the card's id and
+   * the option's. **No prose**: Fleet keeps the pick, then wakes the Commander with it. A card
+   * that is not the one out, or an option it never offered, is a 409.
+   */
+  answerCommanderCard: (jobId: string, cardId: string, optionId: string) => Promise<Outcome>;
   /**
    * Allow or reject a command the job's drone reached for and was not given,
    * by the call id and one of the answers Fleet offered for it.
@@ -805,6 +817,12 @@ export type JobsState = {
    */
   journalled: Journalled;
   /**
+   * The open Job's Commander, its thread: what woke it, what the owner said and what it did.
+   * **Its own socket and its own piece of state**, `journalled`'s reason, opened by the same act
+   * as `observeJob`. `commander.ts` in main.
+   */
+  commander: CommanderThread;
+  /**
    * The running Check's log somebody opened, as it is written. **Its own
    * socket**, for `journalled`'s reason: a Check's output is a file still
    * growing, and the event stream is bounded to keep payloads that size off
@@ -923,6 +941,7 @@ export const JOBS_NOTHING_YET: JobsState = {
   watched: { state: "none" },
   observed: { state: "none" },
   journalled: { state: "none" },
+  commander: { state: "none" },
   followed: { state: "none" },
   footprint: { state: "none" },
   handed: { state: "none" },
@@ -967,6 +986,8 @@ export const JOBS_CHANNELS = {
   redirectDrone: "bridge:redirect-drone",
   answerQuestion: "bridge:answer-question",
   answerCommand: "bridge:answer-command",
+  askCommander: "bridge:ask-commander",
+  answerCommanderCard: "bridge:answer-commander-card",
   // What a command does, read for the person deciding about it. A read: it
   // moves nothing, and the three answers are live while it is out.
   explainCommand: "bridge:explain-command",

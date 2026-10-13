@@ -2,7 +2,7 @@
 //! with nothing ahead of it, and a read finds nothing. What the ledger keeps and
 //! orders is `fleet::needing`'s, against a real store.
 
-use ipc::{ManifestId, NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
+use ipc::{ManifestId, NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList, WriteClashes};
 
 use super::FakeDaemon;
 use crate::{Needs, Refusal};
@@ -30,5 +30,15 @@ impl Needs for FakeDaemon {
 
     async fn list_needs(&self, _manifest_id: Option<ManifestId>) -> Result<NeedList, Refusal> {
         Ok(NeedList { needs: Vec::new() })
+    }
+
+    async fn list_write_clashes(
+        &self,
+        _manifest_id: Option<ManifestId>,
+        _holder: Option<String>,
+    ) -> Result<WriteClashes, Refusal> {
+        Ok(WriteClashes {
+            clashes: Vec::new(),
+        })
     }
 }

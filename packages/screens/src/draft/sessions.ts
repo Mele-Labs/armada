@@ -8,6 +8,7 @@
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
+import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -155,7 +156,7 @@ export type SessionRow =
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
-  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
+  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
@@ -185,6 +186,12 @@ export type Session = {
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
   blank?: boolean;
+  /** Held until the plan's limit resets, as ISO: Fleet wakes it then. Absent unless it is held. */
+  limitedUntil?: string;
+  /** How full its context window is, as last reported. Absent until it has reported one. */
+  context?: { tokens: number; window: number };
+  /** What fills that window, as the harness reports it. Absent where it has not. */
+  contextBreakdown?: ContextBreakdown;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];

@@ -1,5 +1,5 @@
 import { Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -8,7 +8,9 @@ import { Input } from "../../primitives/Input/Input";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
+import { StopCard, useCardOpen } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
+import { usageLevel } from "../../usage";
 
 /**
  * The title row — what used to be macOS's grey bar saying only "Armada".
@@ -25,6 +27,81 @@ import { useShortcutReveal } from "../../shortcut-reveal";
  * its options are Bridge's own reading of what Fleet serves, and this row only
  * has room for it, the way `TheShell`'s `railHeader` used to.
  */
+/**
+ * One limit of the plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
+ * and `seven_day` as `wk`; any other kind is not drawn.
+ */
+export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string };
+
+const LIMITS: Record<string, { short: string; name: string } | undefined> = {
+  five_hour: { short: "5h", name: "5-hour limit" },
+  seven_day: { short: "wk", name: "Weekly limit" },
+};
+
+/** "2h 14m", "2d 17h", "9m": the two largest units left. */
+function countdown(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  const days = Math.floor(minutes / 1_440);
+  const hours = Math.floor((minutes % 1_440) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
+}
+
+/**
+ * One limit as a fill meter, and the card it opens: **hover or focus opens it, a press keeps it open, and
+ * Esc or a press outside closes it**, as a metro stop's card does in the Bays view. No acts.
+ */
+function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; name: string } }) {
+  const { open, pinned, toggle, bind } = useCardOpen();
+  const percent = Math.round(one.percentUsed);
+  const level = usageLevel(percent);
+  const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
+  const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
+  return (
+    <span className="armada-title-bar__usage-limit" data-level={level} {...bind}>
+      <button
+        type="button"
+        className="armada-title-bar__usage-meter"
+        aria-label={`${limit.name} ${percent}%`}
+        aria-expanded={open}
+        style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
+        onClick={toggle}
+      >
+        <span className="armada-title-bar__usage-label">{limit.short}</span>
+        <span className="armada-title-bar__usage-track" />
+      </button>
+      {open ? (
+        <StopCard
+          className="armada-title-bar__usage-card"
+          role="dialog"
+          aria-label={limit.name}
+          data-pinned={pinned || undefined}
+          pill={`${percent}% used`}
+          where={limit.short}
+          title={limit.name}
+          rows={resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true]]}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
+  const drawn = usage.flatMap((one) => {
+    const limit = LIMITS[one.kind];
+    return limit === undefined ? [] : [{ one, limit }];
+  });
+  if (drawn.length === 0) return null;
+  return (
+    <div className="armada-title-bar__usage">
+      {drawn.map(({ one, limit }) => (
+        <LimitMeter key={one.kind} one={one} limit={limit} />
+      ))}
+    </div>
+  );
+}
+
 export type TitleBarProps = {
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
   repositoryPicker?: ReactNode;
@@ -65,6 +142,11 @@ export type TitleBarProps = {
     onToggle: () => void;
   };
   /**
+   * The plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
+   * knows, draws nothing.** Not Fleet's dot: that stays liveness and nothing else.
+   */
+  planUsage?: readonly PlanUsage[];
+  /**
    * Fleet's liveness, as one dot on the bar's trailing edge. **Drawn at every
    * width**, settled by the owner on 18 Sep 2026. #1438 drew it only while the
    * left column was absent; both that condition and removing the dot outright
@@ -75,8 +157,7 @@ export type TitleBarProps = {
    * is one the contract does not describe.
    *
    * **Liveness and nothing else.** pid, port, protocol and uptime stay in the
-   * Fleet panel; a dot cannot carry a figure and this row is not where one is
-   * read.
+   * Fleet panel; a dot cannot carry a figure.
    */
   fleet: {
     state: FleetState;
@@ -93,6 +174,7 @@ export function TitleBar({
   dispatchDisabled = false,
   helm,
   sleep,
+  planUsage,
   fleet,
 }: TitleBarProps) {
   const revealing = useShortcutReveal();
@@ -115,6 +197,8 @@ export function TitleBar({
       </div>
 
       <div className="armada-title-bar__end">
+        {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
+
         {sleep === undefined ? null : (
           <div className="armada-title-bar__sleep">
             <Button

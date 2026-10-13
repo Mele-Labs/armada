@@ -18,6 +18,7 @@ import type {
   WorkPlan,
 } from "@armada/protocol";
 import type { ActiveJobs } from "./active-jobs";
+import type { CommanderSocket } from "./commander";
 import type { JournalSocket } from "./journal";
 import type { ObserveSocket } from "./observe";
 import { JobReader } from "./reader";
@@ -32,6 +33,7 @@ export type JobFocusWiring = {
   publish: (change: Partial<BridgeState>) => void;
   turns: ObserveSocket;
   notes: JournalSocket;
+  commander: CommanderSocket;
   review: ReviewMaterial;
   /** Every active Job's own pair of reads, taken again on the occasions this Job's are. */
   active: ActiveJobs;
@@ -252,6 +254,7 @@ export class JobFocus {
       history: this.history,
       turns: this.wiring.turns,
       notes: this.wiring.notes,
+      commander: this.wiring.commander,
       observing: this.wiring.observing(),
       reading: this.wiring.reading(),
       review: this.wiring.review,

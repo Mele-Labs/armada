@@ -413,6 +413,15 @@ where
     /// takes**: nothing was spawned, so `not_configurable` reads correctly —
     /// the Manifest's own `ports:` would not resolve to a usable span.
     pub(crate) async fn claimed_ports(&self, job: &Job) -> Result<(), Adrift> {
+        // **A Job that holds a span keeps it.** One whose preparation failed and
+        // was repaired is dispatched from its first step again, and the span it
+        // claimed then is still its own: a second claim is refused by the index.
+        if matches!(
+            self.store().lock().await.port_span_for_job(job.id()),
+            Ok(Some(_))
+        ) {
+            return Ok(());
+        }
         // Sized from what the Job froze, so the span and the names it is later
         // read back through are the same list — `port_map` below.
         let (froze, _) = self.effective_manifest(job).await?;

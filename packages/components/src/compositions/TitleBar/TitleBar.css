@@ -42,6 +42,7 @@
 .armada-title-bar__search,
 .armada-title-bar__helm,
 .armada-title-bar__sleep,
+.armada-title-bar__usage,
 /* Not interactive, but it opts out for the same reason the rest do: a drag
    region swallows the pointer, and a `title` tooltip inside one never opens.
    The dot carries pid, port and protocol nowhere, so being hovered for its
@@ -134,6 +135,76 @@
   gap: var(--space-3);
   justify-self: end;
   min-width: 0;
+}
+
+/* The plan's limits: two small fill meters, a mono label then the track, coloured by how full. The figure is
+ * in the hover card, not beside the meter. The fill is the tokens' own status hues; the width is handed in as `--fill`. */
+.armada-title-bar__usage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+}
+
+.armada-title-bar__usage-meter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-control-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.armada-title-bar__usage-meter:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-title-bar__usage-track {
+  position: relative;
+  width: var(--space-8);
+  height: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.armada-title-bar__usage-track::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill);
+  background: var(--tone);
+}
+
+/* A limit's card hangs under its meter, right edges aligned, in the meter's level tone. Its look is `StopCard`'s. */
+.armada-title-bar__usage-limit {
+  --tone: var(--fg-muted);
+  position: relative;
+  display: flex;
+}
+
+.armada-title-bar__usage-limit[data-level="warning"] {
+  --tone: var(--status-awaiting-review);
+}
+
+.armada-title-bar__usage-limit[data-level="danger"] {
+  --tone: var(--status-completed-failed);
+}
+
+.armada-title-bar__usage-card {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  top: 100%;
+  inset-inline-end: 0;
 }
 
 .armada-title-bar__helm {

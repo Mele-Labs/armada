@@ -6,20 +6,21 @@
 //
 // **Only what is served.** The Plan interview and a Drone's sketch stay on the draft; a row here
 // never stands in for one of them. A Drone's line is the activity `list_job_drones` carries, else
-// its transcript; Issues and Waiting are `JobDetail.issues` and `waiting`.
+// its transcript; Issues and Waiting are `JobDetail.issues` and `waiting`. The Commander's card is
+// `JobDetail.commander_card`, and a Drone on a task the Commander last changed wears its mark.
 
 import { BUDGET_HOLD, CHECK_ADVANCES, JOB_LIFECYCLE, QUEUED_REASON } from "@armada/components";
-import type { CheckUnderway, JobDetail, JobIssue, JobSummary, JobWaiting, StepDetail } from "@armada/protocol";
+import type { CheckUnderway, CommanderCard, JobDetail, JobIssue, JobSummary, JobWaiting, StepDetail } from "@armada/protocol";
 import { span } from "@armada/screens/src/duration";
 
 import type { DroneView } from "./draft/drone";
 import { isWorking } from "./draft/drone";
-import type { NowAskView, NowIssueView, NowRunningView, NowView, NowWaitingView } from "./draft/now";
+import type { NowAskView, NowCommanderAskView, NowIssueView, NowRunningView, NowView, NowWaitingView } from "./draft/now";
 import { basename } from "./phases";
 import { entriesOf } from "./story";
 
 /** The two a Job shows no panel at: nothing has run, and the approval draws its own canvas. */
-const BEFORE_THE_RUN = new Set(["awaiting_approval", "proposing"]);
+export const BEFORE_THE_RUN = new Set(["awaiting_approval", "proposing"]);
 
 /** A quick act on a Check row: `retry_check` and `skip_check`. */
 const CHECK_ACTS = [
@@ -70,7 +71,7 @@ export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRea
   // while the list is unread, and a Job held at a gate keeps that field with its Drone at rest.
   const working = whole.job.status === "running" ? drones.filter(isWorking) : [];
   const running: NowRunningView[] = [
-    ...working.map((drone) => droneRow(drone, droneName(drone), placed(drone.step))),
+    ...working.map((drone) => droneRow(drone, droneName(drone), placed(drone.step), whole.work_plan?.tasks.find((one) => one.id === drone.task)?.by?.who === "commander")),
     ...whole.steps.flatMap(checkRows(placed)),
     ...whole.steps.flatMap((step): NowRunningView[] =>
       step.judging === undefined
@@ -104,6 +105,10 @@ export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRea
       ...(asker === undefined ? {} : { target: asker.id }),
     });
   }
+  const card = whole.commander_card;
+  if (card !== undefined) {
+    asks.push(commanderAskOf(card));
+  }
   const command = whole.command_waiting;
   if (command !== undefined) {
     const asker = askerOn(command.step_id, command.drone_id);
@@ -129,7 +134,12 @@ export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRea
   };
 }
 
-function droneRow(drone: DroneView, name: string, step: { id: string; name: string } | undefined): NowRunningView {
+/** The Commander's card as the Now panel asks it. */
+export function commanderAskOf(card: CommanderCard): NowCommanderAskView {
+  return { key: `card:${card.card_id}`, kind: "commander", card: card.card_id, text: card.text, reach: card.reach, question: card.question, options: card.options };
+}
+
+function droneRow(drone: DroneView, name: string, step: { id: string; name: string } | undefined, byCommander: boolean): NowRunningView {
   // What Fleet served first, else its own calls from the transcript in hand, newest last. A Drone
   // that has said nothing draws no line, never an empty one.
   const calls = entriesOf(drone.transcript ?? [], undefined).flatMap((row) => (row.called === undefined ? [] : [`${row.called.tool} ${row.called.detail}`.trim()]));
@@ -140,6 +150,7 @@ function droneRow(drone: DroneView, name: string, step: { id: string; name: stri
     name,
     state: "running",
     target: drone.id,
+    ...(byCommander ? { by: { who: "commander" as const } } : {}),
     ...(step === undefined ? {} : { step }),
     ...(tail.length === 0 ? {} : { line: tail[tail.length - 1]!, tail }),
   };

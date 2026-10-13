@@ -468,7 +468,9 @@ meaning = "Fleet has no signal despite the Job having been active — the Drone 
 in_code = "Not yet"
 notes = "Detected by the heartbeat/liveness timer, which runs only while the Job is `running` — Drone owns that decision and the reasoning behind it. The response is a poke, then escalation once `poke_limit` is spent. Carries a `silent` sub-kind, which pauses the Job identically and differs only in what the payload recommends.
 
-Job-level: a Drone that stopped producing anything at all is a fact about the Drone, not about the step it happened to be on. `silent` takes its parent's level, since a sub-kind pauses the Job exactly as its parent does."
+Job-level: a Drone that stopped producing anything at all is a fact about the Drone, not about the step it happened to be on. `silent` takes its parent's level, since a sub-kind pauses the Job exactly as its parent does.
+
+**A run the plan's limit ended is none of these.** A window `rejected` with a reset, and the Drone reaching for nothing after it, parks the Job until the reset instead of raising `stalled` or `silent` (`docs/concepts/job.md`, *Held for the plan's limit*)."
 
 [triggers.thrashing]
 kind = "Trigger"

@@ -593,6 +593,40 @@ fn a_quota_window_moving_is_read_and_is_not_about_this_job() {
         vec![DroneEvent::QuotaMoved {
             window: String::from("five_hour"),
             status: String::from("allowed"),
+            resets_at: None,
+        }]
+    );
+}
+
+#[test]
+fn the_plan_limit_fixture_ends_on_a_rejected_window_and_a_reported_end() {
+    let fixture = include_str!("../../../testkit/fixtures/ndjson/plan-limit.ndjson");
+    let events: Vec<DroneEvent> = fixture.lines().flat_map(read).collect();
+    let rejected = DroneEvent::QuotaMoved {
+        window: String::from("five_hour"),
+        status: String::from("rejected"),
+        resets_at: Some(1787506200),
+    };
+    assert!(events.contains(&rejected));
+    assert!(matches!(events.last(), Some(DroneEvent::Ended { .. })));
+    assert!(
+        !events.iter().any(|event| matches!(event, DroneEvent::Unreadable { .. })),
+        "{events:?}"
+    );
+}
+
+#[test]
+fn a_quota_window_keeps_the_instant_it_resets() {
+    let read = read(
+        r#"{"type":"rate_limit_event","rate_limit_info":
+             {"status":"rejected","resetsAt":1787506200,"rateLimitType":"five_hour"}}"#,
+    );
+    assert_eq!(
+        read,
+        vec![DroneEvent::QuotaMoved {
+            window: String::from("five_hour"),
+            status: String::from("rejected"),
+            resets_at: Some(1787506200),
         }]
     );
 }

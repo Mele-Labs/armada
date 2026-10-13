@@ -63,6 +63,7 @@ import {
   skipChecks,
   type Guarded,
 } from "./answers";
+import { answerCommanderCard } from "./commander";
 import { proposeFromRequest as propose } from "./proposing";
 import {
   autoMerge,
@@ -664,6 +665,11 @@ export class JobCommands {
   /** Answer the question the job's drone asked. `answers.ts`. */
   answerQuestion(jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode): Promise<Outcome> {
     return answerQuestion(this.answered, jobId, questionId, chose, mode);
+  }
+
+  /** Pick one of the options a Job's Commander put on its card. `commander.ts`. */
+  answerCommanderCard(jobId: string, cardId: string, optionId: string): Promise<Outcome> {
+    return answerCommanderCard(this.answered, jobId, cardId, optionId);
   }
 
   /** Allow or reject a command the job's drone was not given. `answers.ts`. */

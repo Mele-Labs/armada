@@ -59,6 +59,9 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `get_plan_usage`: the newest reading of the plan's windows. Empty where none has come.
+    fn get_plan_usage(&self) -> impl Future<Output = Result<ipc::PlanUsage, Refusal>> + Send;
+
     /// `get_sleep`: the switch and the night's rows.
     fn get_sleep(&self) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
 
