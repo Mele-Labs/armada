@@ -240,9 +240,16 @@ export class HelmSocket {
   }
 
   /** `POST /helm/thought_sent`. Said after the words were delivered; the row arrives on the socket. */
-  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
+  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
     if (this.port === null) return { ok: false, why: "not_connected" };
-    const body: ThoughtSent = { text, target };
+    const attachments = carry?.attachments ?? [];
+    const mentions = carry?.mentions ?? [];
+    const body: ThoughtSent = {
+      text,
+      target,
+      ...(attachments.length === 0 ? {} : { attachments }),
+      ...(mentions.length === 0 ? {} : { mentions }),
+    };
     const answer = await ask(
       this.port,
       "POST",
@@ -360,8 +367,8 @@ export class HelmConnection {
   }
 
   /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
-  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
-    return await this.socket.recordThoughtSent(manifestId, text, target);
+  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
+    return await this.socket.recordThoughtSent(manifestId, text, target, carry);
   }
 
   /** The record for whichever repository Helm answers for right now. */

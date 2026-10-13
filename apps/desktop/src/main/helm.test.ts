@@ -322,6 +322,20 @@ describe("Helm reading a thought", () => {
     expect(await new HelmSocket(() => {}).recordThoughtSent(MANIFEST, "x", TARGET)).toEqual({ ok: false, why: "not_connected" });
   });
 
+  it("records what the thought went with beside its words, and leaves the fields out when it went with none", async () => {
+    const bodies: string[] = [];
+    const fleet = await serving([], bodies);
+    const helm = new HelmSocket(() => {});
+    opened.push(() => helm.close());
+    helm.open(fleet.port, MANIFEST);
+    await fleet.helmSide();
+
+    expect(await helm.recordThoughtSent(MANIFEST, "the words", TARGET, { attachments: [SHOT], mentions: [ISSUE] })).toEqual({ ok: true });
+    expect(await helm.recordThoughtSent(MANIFEST, "the words", TARGET, { attachments: [], mentions: [] })).toEqual({ ok: true });
+    expect(JSON.parse(bodies[0]!)).toEqual({ text: "the words", target: TARGET, attachments: [SHOT], mentions: [ISSUE] });
+    expect(JSON.parse(bodies[1]!)).toEqual({ text: "the words", target: TARGET });
+  });
+
   it("folds the sent message Fleet publishes into the thread without a reply being written", async () => {
     const fleet = await serving();
     const published = watching();

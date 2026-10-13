@@ -147,6 +147,8 @@ impl Conversations for FakeDaemon {
             ts: Instant::carried("2026-09-13T09:00:00.000Z"),
             text: sent.text,
             target: sent.target,
+            files: Vec::new(),
+            tags: sent.mentions,
         }));
         Ok(HelmConversation {
             manifest_id,
@@ -175,6 +177,8 @@ impl Conversations for FakeDaemon {
             ts: Instant::carried("2026-09-13T09:00:00.000Z"),
             text: tell.text,
             target: target.clone(),
+            files: Vec::new(),
+            tags: Vec::new(),
         }));
         Ok(target)
     }

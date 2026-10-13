@@ -911,8 +911,8 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.helmDebugInfo, () => connection?.helmDebugInfo());
   ipcMain.handle(CHANNELS.readThought, (_event, text: string) => connection?.readThought(text));
-  ipcMain.handle(CHANNELS.recordThoughtSent, (_event, manifestId: string, text: string, target: ThoughtTarget) =>
-    connection?.recordThoughtSent(manifestId, text, target),
+  ipcMain.handle(CHANNELS.recordThoughtSent, (_event, manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) =>
+    connection?.recordThoughtSent(manifestId, text, target, carry),
   );
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
   ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));

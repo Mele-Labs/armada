@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { HelmContext, HelmThreadItem } from "@armada/protocol";
 import { mount, unmount } from "@armada/screens/src/mounted";
-import { MANIFEST_ID, MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
+import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
 import { HelmDock } from "./HelmDock";
 import type { HelmKept } from "./HelmDock";
 import type { ThoughtCarry, ThoughtRouting } from "./thought-routing";
@@ -173,46 +173,32 @@ test("a sent row with nothing to read from draws the names", async () => {
   await expect.element(page.getByText("clock.log")).toBeVisible();
 });
 
-test("words sent on to a Session carry what went with them in the row Fleet kept for them", async () => {
-  const target = { kind: "session" as const, id: "01SESSION", title: "Sessions list views", manifest_id: MANIFEST_ID, slot: 3 };
-  const WORDS = "the sessions page should say waiting";
-  function Routed() {
-    const [items, setItems] = useState<HelmThreadItem[]>([]);
-    const routing: ThoughtRouting = {
-      read: async () => ({ kind: "thought", match: { kind: "session", id: target.id, title: target.title, repository: MANIFEST_NAME, manifestId: MANIFEST_ID, slot: 3 } }),
-      send: async (_target, text) => {
-        setItems((was) => [...was, { kind: "sent", id: "1", ts: "2026-10-12T10:00:00.000Z", text, target }]);
-        return true;
-      },
-      open: () => {},
-      startNew: () => {},
-    };
-    return (
-      <HelmDock
-        helm={{ state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items, facts: {} }}
-        repositories={[repository()]}
-        jobs={[]}
-        workflows={[]}
-        live
-        context={CONTEXT}
-        onAsk={() => {}}
-        routing={routing}
-        onSwitch={() => {}}
-        onReadRecord={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
-        onCopied={() => {}}
-        onSaid={() => {}}
-        onApprove={async () => ({ ok: true })}
-      />
-    );
-  }
-  mount(<Routed />);
+const SENT: HelmThreadItem = {
+  kind: "sent",
+  id: "1",
+  ts: "2026-10-12T10:00:00.000Z",
+  text: "the sessions page should say waiting",
+  target: { kind: "session", id: "01SESSION", title: "Sessions list views", manifest_id: MANIFEST_ID, slot: 3 },
+  files: [
+    { id: "f1", name: "Screenshot.png", media_type: "image/png" },
+    { id: "f2", name: "pin the clock.png", media_type: "image/png" },
+  ],
+  tags: [TAG],
+};
 
-  await pasteAPicture();
-  await box().fill(WORDS);
-  await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("group", { name: "Send to", exact: true })).toBeVisible();
-  await userEvent.keyboard("{Enter}");
+test("words sent on to a Session are drawn with what went with them, from the row Fleet kept and with nothing held here", async () => {
+  const kept: HelmKept = { picture: (id) => (id === "f1" ? PIXEL : undefined), sketch: (name) => (name === "pin the clock.png" ? { id: "k1", title: "pin the clock" } : undefined) };
+  mount(<Dock items={[SENT]} onAsk={() => {}} kept={kept} />);
 
   await expect.element(page.getByRole("button", { name: "Sent to Session Sessions list views" })).toBeVisible();
   await expect.element(page.getByRole("img", { name: /Screenshot\.png/ })).toBeVisible();
+  await expect.element(page.getByText("pin the clock", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("#214 Sessions list drops a quiet Session")).toBeVisible();
+});
+
+test("a sent row with no files or tags draws none", async () => {
+  const { files: _files, tags: _tags, ...plain } = SENT as Extract<HelmThreadItem, { kind: "sent" }>;
+  mount(<Dock items={[plain]} onAsk={() => {}} kept={{ picture: () => PIXEL, sketch: () => undefined }} />);
+  await expect.element(page.getByRole("button", { name: "Sent to Session Sessions list views" })).toBeVisible();
+  expect(page.getByRole("img", { name: /Screenshot/ }).query()).toBeNull();
 });

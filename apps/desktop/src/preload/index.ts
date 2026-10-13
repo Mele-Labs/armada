@@ -928,8 +928,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readHelmFile, manifestId, file),
   helmDebugInfo: (): Promise<HelmDebugRead> => ipcRenderer.invoke(CHANNELS.helmDebugInfo),
   readThought: (text: string): Promise<ThoughtRead> => ipcRenderer.invoke(CHANNELS.readThought, text),
-  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.recordThoughtSent, manifestId, text, target),
+  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.recordThoughtSent, manifestId, text, target, carry),
   startHelmFresh: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.startHelmFresh),
   pointHelm: (manifestId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.pointHelm, manifestId),
 

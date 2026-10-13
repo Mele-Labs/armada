@@ -136,8 +136,6 @@ export function HelmDock({
   box,
   refs,
 }: HelmDockProps) {
-  // What a thought sent on to a Session went with: Fleet's row for it carries the words and the target alone.
-  const [carried, setCarried] = useState<{ text: string; carry: ThoughtCarry }[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   // The thought in front is the oldest one still held; the rest wait their turn behind it.
   const thought = thoughts[0];
@@ -162,11 +160,8 @@ export function HelmDock({
     onSwitch(manifestId);
   }
   const folded = helm.state === "open" || helm.state === "failed" ? helmRowsOf(helm.items) : [];
-  const rows: HelmThreadRow[] = withCarry(
-    folded.map(({ files, tags, ...row }) =>
-      withKept(withCards(row, jobs, workflows, pressed, onApprove, setPressed, repositories, routing), files, tags, kept),
-    ),
-    carried,
+  const rows: HelmThreadRow[] = folded.map(({ files, tags, ...row }) =>
+    withKept(withCards(row, jobs, workflows, pressed, onApprove, setPressed, repositories, routing), files, tags, kept),
   );
   const replying = helmReplying(helm);
 
@@ -269,7 +264,6 @@ export function HelmDock({
       .catch(() => false)
       .then((delivered) => {
         delivering.current = false;
-        if (delivered && onlyIfCarried(one.carry) !== undefined) setCarried((was) => [...was, { text: one.text, carry: one.carry }]);
         if (delivered && held.current.has(one.id)) leave(one.id);
       });
   }
@@ -408,24 +402,6 @@ function withKept(
     ...(sketches.length === 0 ? {} : { sketches }),
     ...(tags === undefined ? {} : { tags }),
   };
-}
-
-/**
- * The rows of the thoughts sent on to a Session, drawn with what went with them. **Matched on the words,
- * newest first**: each entry belongs to the latest row of that kind that says them and has none yet.
- */
-function withCarry(rows: HelmThreadRow[], carried: readonly { text: string; carry: ThoughtCarry }[]): HelmThreadRow[] {
-  if (carried.length === 0) return rows;
-  const given = new Map<string, ThoughtCarry>();
-  for (let at = carried.length - 1; at >= 0; at -= 1) {
-    const one = carried[at]!;
-    const row = [...rows].reverse().find((it) => it.sent !== undefined && it.message === one.text && !given.has(it.id));
-    if (row !== undefined) given.set(row.id, one.carry);
-  }
-  return rows.map((row) => {
-    const carry = given.get(row.id);
-    return carry === undefined ? row : { ...row, files: carry.files, sketches: carry.sketches, tags: carry.tags };
-  });
 }
 
 /**

@@ -12,7 +12,8 @@ use std::time::Duration;
 use api::{Conversations, HelmSeen, HelmWatch, Refusal};
 use base64::Engine as _;
 use ipc::{
-    AskHelm, HelmBoxFacts, HelmMessage, SessionTag, SessionUpload, TagKind, TuneHelm,
+    AskHelm, HelmBoxFacts, HelmMessage, SessionTag, SessionUpload, TagKind, ThoughtKind,
+    ThoughtSent, ThoughtTarget, TuneHelm,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -416,4 +417,46 @@ async fn the_commands_helm_heard_are_served_and_offered_and_before_that_the_sess
         seen.iter().all(|message| !matches!(message, HelmMessage::Facts(_))),
         "{seen:?}"
     );
+}
+
+/// A thought routed to a Session keeps what went with it on its `sent` row, in Helm's own
+/// directory, so a restart draws the same chips and reads the same bytes.
+#[tokio::test]
+async fn a_sent_row_keeps_its_files_and_tags_after_a_restart() {
+    let home = TempDir::new();
+    let host = Arc::new(Recorder::default());
+    let fleet = hosted(&home, &host);
+    fleet
+        .record_thought_sent(
+            ThoughtSent {
+                text: "see this".to_string(),
+                target: ThoughtTarget {
+                    kind: ThoughtKind::Session,
+                    id: "01LISTVIEWSAAAAAAAAAAAAAAA".to_string(),
+                    title: "Sessions list views".to_string(),
+                    manifest_id: None,
+                    slot: None,
+                },
+                attachments: vec![upload("shot.png", "image/png", b"PNGBYTES")],
+                mentions: vec![issue(214, "The title")],
+            },
+            None,
+        )
+        .await
+        .expect("recorded");
+    drop(fleet);
+
+    let again = hosted(&home, &host);
+    let history = again.observe_helm(None).await.expect("observed").history;
+    let [HelmMessage::Sent(row)] = &history[..] else {
+        panic!("one sent row: {history:?}");
+    };
+    assert_eq!(row.files.len(), 1);
+    assert_eq!(row.files[0].name, "shot.png");
+    assert_eq!(row.tags[0].id, "214");
+    let picture = again
+        .get_helm_file(None, row.files[0].id.clone())
+        .await
+        .expect("the picture is served");
+    assert_eq!(picture.bytes, b"PNGBYTES");
 }

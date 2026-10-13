@@ -151,3 +151,25 @@ test("a conversation whose facts name no commands offers none", async () => {
   await userEvent.keyboard("/");
   expect(helm().getByRole("listbox", { name: "Skills and commands" }).query()).toBeNull();
 });
+
+test("a thought sent on to a Session records what it went with, and the row Fleet kept draws it", async () => {
+  const app = mount("helm-rich-composer");
+  const recorded = vi.spyOn(app.api, "recordThoughtSent");
+  const delivered = vi.spyOn(app.api, "sendSessionMessage");
+  await openHelm();
+
+  await userEvent.upload(helm().getByLabelText("Files to attach"), picture());
+  await userEvent.click(box());
+  await userEvent.keyboard("I wish that the sessions page would move sessions into a new status that says they are just waiting for work to land{Enter}");
+  await expect.element(helm().getByRole("group", { name: "Send to", exact: true })).toBeVisible();
+  await userEvent.keyboard("{Enter}");
+
+  await expect.element(helm().getByRole("button", { name: "Sent to Session Sessions list views" })).toBeVisible();
+  expect(delivered).toHaveBeenCalledTimes(1);
+  expect(recorded).toHaveBeenCalledTimes(1);
+  expect(recorded.mock.calls[0]![3]).toEqual({ attachments: [{ name: "shot.png", media_type: "image/png", data: btoa("png") }] });
+  // The picture is the row's own, read back from Fleet.
+  const thumbnail = helm().getByRole("img", { name: /shot\.png/ });
+  await expect.element(thumbnail).toBeVisible();
+  expect((thumbnail.element() as HTMLImageElement).src.startsWith("blob:")).toBe(true);
+});

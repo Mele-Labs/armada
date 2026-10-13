@@ -167,8 +167,8 @@ function build(): Scenario {
         return readAfterPause(text, { sessions: state.sessions.state === "read" ? state.sessions.sessions : [], jobs: state.jobs });
       },
       // Fleet keeps the row for words sent on, after the fact, in the thread that was asked about.
-      recordThoughtSent: async (manifestId, text, target) => {
-        appended(handle, manifestId, (id) => ({ kind: "sent", id, ts: now(), text, target }));
+      recordThoughtSent: async (manifestId, text, target, carry) => {
+        appended(handle, manifestId, (id) => ({ kind: "sent", id, ts: now(), text, target, ...carriedBy(manifestId, carry) }));
         return { ok: true };
       },
       // A picture a message carried, read back for the thread's thumbnail.

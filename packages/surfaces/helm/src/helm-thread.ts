@@ -98,7 +98,15 @@ export function helmRowsOf(items: readonly HelmThreadItem[]): HelmFoldedRow[] {
       // Words that went to other work, in the place they were sent. The same actor as a question, so
       // the thread reads as what the person said; the target is what makes it a row of its own kind.
       flush();
-      rows.push({ id: item.id, at: clock(item.ts), actor: "you", message: item.text, sent: item.target });
+      rows.push({
+        id: item.id,
+        at: clock(item.ts),
+        actor: "you",
+        message: item.text,
+        sent: item.target,
+        ...(item.files === undefined || item.files.length === 0 ? {} : { files: item.files }),
+        ...(item.tags === undefined || item.tags.length === 0 ? {} : { tags: item.tags }),
+      });
       continue;
     }
     if (item.kind === "fresh") {

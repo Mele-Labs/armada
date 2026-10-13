@@ -66,9 +66,10 @@ export type HelmApi = {
   /**
    * Said after the words were delivered to a Session or a Job: Fleet keeps a row for them in the
    * thread of `manifestId`, the conversation the dock shows, and it arrives on `BridgeState.helm`.
-   * **Never sent before the delivery succeeded**, and never to Helm's own session.
+   * **Never sent before the delivery succeeded**, and never to Helm's own session. `carry` is what the
+   * thought went with, which Fleet keeps on the row so a reload draws it.
    */
-  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget) => Promise<Outcome>;
+  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) => Promise<Outcome>;
   /** Forget Helm's stored session and the thread. Refused while a reply is being written. */
   startHelmFresh: () => Promise<Outcome>;
   /**

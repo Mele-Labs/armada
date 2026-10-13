@@ -138,6 +138,8 @@ where
             .into_iter()
             .find_map(|message| match message {
                 HelmMessage::Asked(asked) => asked.files.into_iter().find(|one| one.id == file),
+                // A routed thought's files are kept in the same directory.
+                HelmMessage::Sent(sent) => sent.files.into_iter().find(|one| one.id == file),
                 _ => None,
             })
             .ok_or_else(|| {

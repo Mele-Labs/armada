@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import type { HelmBox } from "@armada/components";
 import type { HelmKept, ThoughtCarry } from "@armada/helm";
 import type { HelmBoxFacts, HelmContext, Outcome, SessionUpload } from "@armada/protocol";
+import type { HelmCarry } from "../../shared/api/helm";
 import type { DrawnSketch, SessionCommand, SessionTag } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
@@ -38,6 +39,8 @@ export type HelmBoxHost = {
   pad: ReactNode;
   /** Sketches drawn here, by id, for a thought that carries them to a Session. */
   sketchesOf: (ids: readonly string[]) => DrawnSketch[];
+  /** What a thought went with, as the wire takes it: files read, sketches drawn to pictures, tags as sent. A sketch is remembered by the name it went as. */
+  carryOf: (carry: ThoughtCarry) => Promise<HelmCarry>;
   /** Words for Helm with what went with them. Uploads are read here; the answer is main's. */
   ask: (text: string, context: HelmContext, carry?: ThoughtCarry) => Promise<Outcome>;
   /** How a sent row draws the files it carried. */
@@ -98,21 +101,26 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
 
   const sketchesOf = useCallback((ids: readonly string[]) => ids.flatMap((id) => known.current.get(id) ?? []), []);
 
-  const ask = useCallback(
-    async (text: string, context: HelmContext, carry?: ThoughtCarry): Promise<Outcome> => {
-      if (carry === undefined) return await window.armada.askHelm(text, context);
+  const carryOf = useCallback(
+    async (carry: ThoughtCarry): Promise<HelmCarry> => {
       const files = (await Promise.all(carry.files.map(uploadOfFile))).filter((one): one is SessionUpload => one !== undefined);
       const sketches = sketchesOf(carry.sketches.map((one) => one.id));
       const pictured = await Promise.all(sketches.map(uploadOfSketch));
       pictured.forEach((upload, at) => sent.current.set(upload.name, { id: sketches[at]!.id, title: sketches[at]!.title }));
       const attachments = [...files, ...pictured];
       const mentions = carry.tags.map(wireTagOf);
-      return await window.armada.askHelm(text, context, {
+      return {
         ...(attachments.length === 0 ? {} : { attachments }),
         ...(mentions.length === 0 ? {} : { mentions }),
-      });
+      };
     },
     [sketchesOf],
+  );
+
+  const ask = useCallback(
+    async (text: string, context: HelmContext, carry?: ThoughtCarry): Promise<Outcome> =>
+      carry === undefined ? await window.armada.askHelm(text, context) : await window.armada.askHelm(text, context, await carryOf(carry)),
+    [carryOf],
   );
 
   const kept = useMemo(
@@ -138,6 +146,7 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
 
   return {
     box,
+    carryOf,
     ask,
     kept,
     pad: (

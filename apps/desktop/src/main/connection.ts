@@ -506,8 +506,8 @@ export class FleetConnection {
   }
 
   /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
-  recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
-    return this.helm.recordThoughtSent(manifestId, text, target);
+  recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
+    return this.helm.recordThoughtSent(manifestId, text, target, carry);
   }
 
   /** Forget Helm's stored session and the thread. Refused while a reply is being written. */

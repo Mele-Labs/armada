@@ -27,7 +27,7 @@ export type HelmThreadItem =
   /** No reply came, and why. */
   | { kind: "unanswered"; id: string; ts: string; why: string }
   /** Words that went to a Session or a Job and never to Helm's session. */
-  | { kind: "sent"; id: string; ts: string; text: string; target: ThoughtTarget };
+  | { kind: "sent"; id: string; ts: string; text: string; target: ThoughtTarget; files?: SentFile[]; tags?: SessionTag[] };
 
 /**
  * One repository's Helm conversation, as a viewer holds it.
@@ -185,7 +185,15 @@ export function helmArrived(
         ...held,
         items: [
           ...held.items,
-          { kind: "sent", id: String(seq), ts: message.ts, text: message.text, target: message.target },
+          {
+            kind: "sent",
+            id: String(seq),
+            ts: message.ts,
+            text: message.text,
+            target: message.target,
+            ...(message.files === undefined ? {} : { files: message.files }),
+            ...(message.tags === undefined ? {} : { tags: message.tags }),
+          },
         ],
       },
       added: true,

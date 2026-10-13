@@ -105,6 +105,38 @@ describe("the thread's fold", () => {
   });
 });
 
+describe("words sent on to other work", () => {
+  const TARGET = { kind: "session", id: "01S", title: "Sessions list views", manifest_id: "01M1", slot: 3 } as const;
+  const SENT: HelmMessage = { message: "sent", ts: "2026-10-12T10:00:00.000Z", text: "the words", target: TARGET, files: [FILE], tags: [ISSUE] };
+
+  it("keeps the files and tags the thought went with on its item", () => {
+    const next = helmArrived(NO_HELM_ITEMS, SENT, 2);
+    expect(next.held.items).toEqual([
+      { kind: "sent", id: "2", ts: "2026-10-12T10:00:00.000Z", text: "the words", target: TARGET, files: [FILE], tags: [ISSUE] },
+    ]);
+  });
+
+  it("keeps them after a reload, which folds the backfill again from an opened message", () => {
+    const first = helmArrived(NO_HELM_ITEMS, SENT, 0).held;
+    const reopened = helmArrived(first, { ...OPENED, facts: {} }, 0).held;
+    expect(reopened.items).toEqual([]);
+    const again = helmArrived(reopened, SENT, 0).held;
+    expect(again.items).toEqual(first.items);
+  });
+
+  it("leaves the fields off a thought that went with nothing", () => {
+    const [item] = helmArrived(NO_HELM_ITEMS, { message: "sent", ts: "2026-10-12T10:00:00.000Z", text: "x", target: TARGET }, 0).held.items;
+    expect(item && "files" in item).toBe(false);
+    expect(item && "tags" in item).toBe(false);
+  });
+
+  it("is folded to a row of the person's own with its files, tags and target", () => {
+    const [item] = helmArrived(NO_HELM_ITEMS, SENT, 0).held.items;
+    const [row] = helmRowsOf(item === undefined ? [] : [item]);
+    expect(row).toMatchObject({ actor: "you", message: "the words", sent: TARGET, files: [FILE], tags: [ISSUE] });
+  });
+});
+
 describe("the row of what a person sent", () => {
   it("is folded with its files and tags as Fleet kept them", () => {
     const [row] = helmRowsOf([{ kind: "asked", id: "0", ts: "2026-10-12T10:00:00.000Z", text: "see this", files: [FILE], tags: [ISSUE] }]);
