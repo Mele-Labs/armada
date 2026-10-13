@@ -89,7 +89,7 @@ export type PullRequestCommit = {
 };
 
 /** `get_pull_request_detail`: everything the panel's tabs and facts draw that `PullRequestState` does not hold. */
-export type PullRequestDetail = {
+export type PullRequestPage = {
   manifest_id: string;
   number: number;
   /** The branch it merges into. */
