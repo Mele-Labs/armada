@@ -1,4 +1,4 @@
-//! `act_on_need` and `list_needs`. Since 23.46. `docs/capabilities/needs.md`.
+//! `act_on_need`, `list_needs` and `list_write_clashes`. Since 23.46. `docs/capabilities/needs.md`.
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
@@ -39,6 +39,26 @@ pub(crate) async fn list_needs<D: Needs>(
     let manifest = listing.manifest_id.map(ipc::ManifestId::carried);
     match served.daemon().list_needs(manifest).await {
         Ok(needs) => answer(StatusCode::OK, &needs, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?manifest_id=&holder=` on `list_write_clashes`.
+#[derive(Deserialize)]
+pub(crate) struct Clashing {
+    #[serde(default)]
+    manifest_id: Option<String>,
+    #[serde(default)]
+    holder: Option<String>,
+}
+
+pub(crate) async fn list_write_clashes<D: Needs>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<Clashing>,
+) -> Response {
+    let manifest = asked.manifest_id.map(ipc::ManifestId::carried);
+    match served.daemon().list_write_clashes(manifest, asked.holder).await {
+        Ok(clashes) => answer(StatusCode::OK, &clashes, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

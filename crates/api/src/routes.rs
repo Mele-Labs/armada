@@ -181,6 +181,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )
+        .route("/clashes", get(crate::needs::list_write_clashes::<D>))
         .route(
             "/pull_requests/:repository/:number",
             get(crate::pull_requests::get_pull_request::<D>),

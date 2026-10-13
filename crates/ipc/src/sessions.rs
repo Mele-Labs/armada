@@ -174,6 +174,11 @@ pub enum SessionFact {
     Limited {
         resets_at: Instant,
     },
+    /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
+    /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
+    Touched {
+        paths: Vec<String>,
+    },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
     Ended {

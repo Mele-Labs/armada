@@ -11,7 +11,8 @@
 //! **Added to the person's settings, never in place of them**: `--settings`
 //! carries two things, the switch that lets another session's message start a
 //! turn here and the hook that holds a write until the session has leased a
-//! slot.
+//! slot. A fork's processes also carry `--append-system-prompt` with the note that
+//! says whose work the copied conversation describes.
 
 use std::error::Error;
 use std::fmt;
@@ -38,7 +39,7 @@ pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
 
 /// The tools a hosted session's first write is held on. **`Bash` is among
 /// them** and a line is told read from write by [`reads_only`].
-const GATED_TOOLS: &str = "Write|Edit|NotebookEdit|Bash";
+const GATED_TOOLS: &str = "Write|Edit|MultiEdit|NotebookEdit|Bash";
 
 /// Everything one process of a hosted session is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,6 +49,8 @@ pub struct HostedLaunch {
     resuming: bool,
     /// The session whose conversation this one begins as a copy of.
     fork_of: Option<String>,
+    /// What every process of a fork is told it is, appended to its system prompt.
+    fork_note: Option<String>,
     /// The transcript line a fork's copy ends at, included. Since 23.79.
     fork_at: Option<String>,
     name: String,
@@ -108,6 +111,7 @@ impl HostedLaunch {
             session: session.to_string(),
             resuming,
             fork_of: None,
+            fork_note: None,
             fork_at: None,
             name: name.to_string(),
             model,
@@ -125,13 +129,22 @@ impl HostedLaunch {
     /// Begin as a copy of `old`'s conversation, under this launch's own id.
     /// **Only the first process forks**: once `resuming`, the session has a
     /// conversation of its own and resumes that.
-    pub fn forking(mut self, old: &str) -> Result<HostedLaunch, HostedRefused> {
+    ///
+    /// **A fork cannot be launched without its note**, which is appended to the
+    /// system prompt of every process of it: the copy carries the old session's
+    /// subagents, tasks and slots in its words, and nothing else says they are
+    /// not this one's.
+    pub fn forking(mut self, old: &str, note: &str) -> Result<HostedLaunch, HostedRefused> {
         if !portable(old) {
             return Err(HostedRefused::SessionNotPortable {
                 given: old.to_string(),
             });
         }
+        if note.trim().is_empty() {
+            return Err(HostedRefused::ForkNotTold);
+        }
         self.fork_of = Some(old.to_string());
+        self.fork_note = Some(note.trim().to_string());
         Ok(self)
     }
 
@@ -237,6 +250,10 @@ impl HeadlessAgent {
             "--name".into(),
             hosted.name.clone(),
         ];
+        if let Some(note) = &hosted.fork_note {
+            args.push("--append-system-prompt".into());
+            args.push(note.clone());
+        }
         if let Some(model) = &hosted.model {
             args.push("--model".into());
             args.push(model.as_str().into());
@@ -374,6 +391,7 @@ pub enum HostedRefused {
     DirectoryNotAbsolute { given: String },
     SessionNotPortable { given: String },
     EffortNotPortable { given: String },
+    ForkNotTold,
     SettingsNotWritten(String),
     Unassembled(SpawnConfigRefused),
 }
@@ -395,6 +413,10 @@ impl fmt::Display for HostedRefused {
             HostedRefused::EffortNotPortable { given } => {
                 write!(out, "the effort `{given}` is not one the agent CLI takes")
             }
+            HostedRefused::ForkNotTold => out.write_str(
+                "a fork would start without being told it is one, and would take the old \
+                 session's background work for its own",
+            ),
             HostedRefused::SettingsNotWritten(why) => {
                 write!(out, "the session's settings would not encode: {why}")
             }

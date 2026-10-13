@@ -17,6 +17,7 @@ import {
   spentUntil,
   customTitleIn,
   titleOf,
+  touchedOf,
   transcriptPath,
 } from './facts'
 
@@ -211,4 +212,14 @@ test('nothing is said of a limit no window shows full, or whose reset is unknown
   expect(spentUntil([{ kind: 'five_hour', percentUsed: 80, resetsAt: '2026-10-12T22:40:00Z' }])).toBeUndefined()
   expect(spentUntil([{ kind: 'five_hour', percentUsed: 100 }])).toBeUndefined()
   expect(spentUntil([])).toBeUndefined()
+})
+
+test('a written file is named from the session directory, and one outside it is not told', () => {
+  expect(touchedOf('/repos/armada', { file_path: '/repos/armada/src/a.rs' })).toBe('src/a.rs')
+  expect(touchedOf('/repos/armada/', { file_path: './src/a.rs' })).toBe('src/a.rs')
+  expect(touchedOf('/repos/armada', { notebook_path: '/repos/armada/n.ipynb' })).toBe('n.ipynb')
+  expect(touchedOf('/repos/armada', { file_path: '/repos/armada-other/a.rs' })).toBeUndefined()
+  expect(touchedOf('/repos/armada', { file_path: '/etc/hosts' })).toBeUndefined()
+  expect(touchedOf('/repos/armada', { file_path: '../x/a.rs' })).toBeUndefined()
+  expect(touchedOf('/repos/armada', { content: 'x' })).toBeUndefined()
 })

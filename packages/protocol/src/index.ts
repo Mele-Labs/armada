@@ -17,6 +17,7 @@ export * from "./approving";
 export * from "./artifacts";
 export * from "./asking";
 export * from "./attempt";
+export * from "./clashes";
 export * from "./commanding";
 export * from "./confidence";
 export * from "./connection";

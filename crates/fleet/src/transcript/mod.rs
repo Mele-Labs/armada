@@ -318,6 +318,12 @@ impl Taps {
         })
     }
 
+    /// One more consumer of the same lines.
+    pub(crate) fn also(mut self, tap: Arc<dyn Tap>) -> Taps {
+        self.each.push(tap);
+        self
+    }
+
     pub(crate) fn each(self) -> Vec<Arc<dyn Tap>> {
         self.each
     }

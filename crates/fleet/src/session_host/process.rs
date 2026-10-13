@@ -36,6 +36,8 @@ pub struct Start {
     pub resuming: bool,
     /// The session whose conversation the first process starts as a copy of.
     pub forking: Option<String>,
+    /// What every process of a fork is told it is. Read only with `forking`, which is refused without it.
+    pub fork_note: Option<String>,
     /// The transcript line the copy ends at, included. Read only with `forking`. Since 23.79.
     pub fork_cut: Option<String>,
     /// What another session addresses this one by.
@@ -193,9 +195,11 @@ impl Processes for ProcessHost {
             start.readable.clone(),
         )
         .map_err(|why| why.to_string())?;
-        let hosted = match &start.forking {
-            Some(old) => hosted.forking(old).map_err(|why| why.to_string())?,
-            None => hosted,
+        let hosted = match (&start.forking, &start.fork_note) {
+            (Some(old), note) => hosted
+                .forking(old, note.as_deref().unwrap_or_default())
+                .map_err(|why| why.to_string())?,
+            (None, _) => hosted,
         };
         let hosted = match &start.fork_cut {
             Some(line) => hosted.cut_at(line).map_err(|why| why.to_string())?,

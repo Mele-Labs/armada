@@ -262,6 +262,24 @@ where
         mod_is_older(session.mod_version.as_deref(), &current)
     }
 
+    /// A terminal Session wrote these files, named from its directory. **Only in a pool slot**, the
+    /// one place Fleet can tell whose tree a file is in.
+    fn session_wrote(&self, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
+        let place = placed(&session.cwd, roots);
+        let (Some(manifest), Some(slot)) = (place.manifest, place.slot) else {
+            return;
+        };
+        let Some((_, root)) = roots.iter().find(|(id, _)| *id == manifest) else {
+            return;
+        };
+        let worktree = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
+        let inside = crate::clashing::inside_worktree(&worktree, &session.cwd, paths);
+        if !inside.is_empty() {
+            let who = crate::clashing::Who::Session(session.id.clone());
+            self.writes().wrote(&who, &manifest, inside, &self.now());
+        }
+    }
+
     /// Take the slot `placed` names for `holder`, or give back the one it was in
     /// where it stands in none. `true` where the ledger changed.
     fn stand_in_slot(
@@ -485,6 +503,10 @@ where
                     .keep_session_limit(&id, resets_at.as_str())
                     .map_err(fault)?;
             }
+            // For the check of who else writes these files; nothing on the ledger changes.
+            SessionFact::Touched { paths } => {
+                self.session_wrote(&session, &roots, &paths);
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -521,6 +543,7 @@ where
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
             self.session_checks_ended(&session.id).await;
+            self.writes().left(&crate::clashing::Who::Session(session.id.clone()));
         }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));

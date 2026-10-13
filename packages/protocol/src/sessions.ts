@@ -280,6 +280,8 @@ export type SessionFact =
   | { kind: "turn_completed" }
   /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
   | { kind: "limited"; resets_at: string }
+  /** Files written, relative to the session's `cwd`. Since 23.81. */
+  | { kind: "touched"; paths: string[] }
   | { kind: "wrote" }
   | { kind: "ended"; reason: string };
 
@@ -298,6 +300,8 @@ export type SessionCheckCall = {
   act: "start" | "end";
   cwd: string;
   name: string;
+  /** What the run was narrowed to: the test filter, or `--changed ` and the packages reached. `end` may tell it when `start` could not. */
+  target?: string;
   run?: number;
   outcome?: "passed" | "failed";
   took_ms?: number;

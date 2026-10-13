@@ -84,3 +84,36 @@ async fn a_change_reaching_only_the_exclusion_runs_nothing_and_passes() {
     assert_eq!(ran.narrowed, Some(Reached::Nothing));
     assert_eq!(ran.status(), 0);
 }
+
+/// What Fleet is told a run was narrowed to, which the Session's thread row draws: the packages
+/// the change reached, in the order the run names them, and nothing where it ran whole or not at all.
+#[tokio::test]
+async fn a_changed_run_names_the_packages_it_reached_as_its_target() {
+    let dir = a_narrowing_repository();
+    let ran = changed(&dir, &["crates/fleet/src/lib.rs", "crates/ipc/src/lib.rs", "docs/a.md"]).await;
+    assert_eq!(ran.target.as_deref(), Some("--changed fleet, ipc"));
+
+    let whole = changed(&dir, &["crates/fleet/src/lib.rs", "Cargo.lock"]).await;
+    assert_eq!(whole.target, None);
+    let nothing = changed(&dir, &["crates/acceptance/tests/a.rs"]).await;
+    assert_eq!(nothing.target, None);
+}
+
+/// A test filter is the target verbatim, and a plain run has none.
+#[tokio::test]
+async fn a_filtered_run_has_its_filter_as_its_target_and_a_plain_run_none() {
+    let dir = TempDir::new();
+    dir.write(
+        "armada.yml",
+        "version: 1\n\
+         id: a-test-project\n\
+         checks:\n  \
+           test:\n    run: /usr/bin/true\n    one_test:\n      run: /bin/echo only {}\n",
+    );
+    let run = |asked| {
+        execute(dir.path(), Registry::Checks, "test", asked, BUDGET, None, Priority::Normal)
+    };
+    let filtered = run(Asked::OneTest("store::reads_the_last_row")).await.expect("declared");
+    assert_eq!(filtered.target.as_deref(), Some("store::reads_the_last_row"));
+    assert_eq!(run(Asked::Whole).await.expect("declared").target, None);
+}

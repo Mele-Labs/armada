@@ -261,7 +261,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
       case "check":
-        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state });
+        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });

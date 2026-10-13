@@ -76,6 +76,7 @@ mod checking;
 mod checkouts;
 /// One Manifest as Fleet resolved it, for the caller asking what a Job here
 /// will be held to.
+mod clashing;
 mod clearing;
 pub mod clock;
 /// `api::Commands`, implemented over a real Fleet — the write half of the seam

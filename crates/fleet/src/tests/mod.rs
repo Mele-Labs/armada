@@ -45,6 +45,7 @@ mod building;
 mod capacity;
 mod carrying_on;
 mod checking;
+mod clashing;
 mod checkout_runs;
 mod checkouts_apart;
 mod checks;
