@@ -44,6 +44,8 @@ mod attempt;
 mod auto_merge_asked;
 /// A test broken on main, and the Job drafted to fix it. #999.
 mod breakages;
+/// What Fleet told a session about the build it now runs, so it is told once.
+mod build_notice;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
 mod check_runs;
 mod checked;

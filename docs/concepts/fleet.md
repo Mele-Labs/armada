@@ -441,6 +441,22 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **An owner is the Session whose `pr` row holds the pull request's number, else the Session holding its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
 
+### Telling sessions the build they now run
+
+**One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.
+
+| A live session in a served repository | Told |
+|---|---|
+| Holds a branch | The build, and for each branch whether it is in it |
+| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, and the wait is answered `Restarted: preview at 1234567` |
+| Neither | Nothing |
+
+**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing.
+
+**A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
+
+**Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, session). A session that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait is settled only after it was told.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation. It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, working Drones are adopted at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
