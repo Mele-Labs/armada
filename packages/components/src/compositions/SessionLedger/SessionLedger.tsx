@@ -328,6 +328,7 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               <QuestionDeck
                 questions={[{ question: row.name, header: "", multi_select: false, options: options.map((one) => ({ label: one.label, description: one.description ?? "" })) }]}
                 canSkip={false}
+                flat
                 onAnswer={(_, answers) => {
                   const chosen = answers?.[0]?.chosen[0];
                   if (chosen === undefined) return;
