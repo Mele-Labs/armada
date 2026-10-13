@@ -103,6 +103,25 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         claim: ipc::ClaimPullRequest,
     ) -> impl Future<Output = Result<ipc::PullRequestClaimed, Refusal>> + Send;
+    /// `start_another_session` — a hosted Session's agent starts a Session with a first message held for the
+    /// person. `caller` places the Session, which the body cannot name. No process starts.
+    /// [`Refusal::Unacceptable`] for a call that places no hosted Session, a blank title or message, or
+    /// a repository Fleet does not serve.
+    fn start_another_session(
+        &self,
+        caller: Option<crate::Caller>,
+        start: ipc::StartAnotherSession,
+    ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;
+
+    /// `fork_this_session` — a hosted Session's agent forks its own conversation, whole or at a message,
+    /// with a first message held for the person. [`Refusal::Unacceptable`] as `start_another_session`'s,
+    /// and for a message the conversation does not hold.
+    fn fork_this_session(
+        &self,
+        caller: Option<crate::Caller>,
+        fork: ipc::ForkThisSession,
+    ) -> impl Future<Output = Result<ipc::SessionHeld, Refusal>> + Send;
+
     /// `waiting_for` — the agent sets the whole list of what it needs from the person. `caller`
     /// places a hosted session as `show_window`'s does. Answers with the row.
     /// [`Refusal::Unacceptable`] for a call that places no session or an item with no id or text.

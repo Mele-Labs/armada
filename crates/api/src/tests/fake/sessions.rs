@@ -90,6 +90,30 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn start_another_session(
+        &self,
+        _caller: Option<crate::Caller>,
+        start: ipc::StartAnotherSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        Ok(ipc::SessionHeld {
+            session_id: ipc::SessionId::carried("session"),
+            title: start.title,
+            fork: false,
+        })
+    }
+
+    async fn fork_this_session(
+        &self,
+        _caller: Option<crate::Caller>,
+        fork: ipc::ForkThisSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        Ok(ipc::SessionHeld {
+            session_id: ipc::SessionId::carried("session"),
+            title: fork.title,
+            fork: true,
+        })
+    }
+
     async fn claim_pull_request(
         &self,
         _caller: Option<crate::Caller>,

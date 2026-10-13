@@ -436,8 +436,13 @@ type OldBridgeApi = {
         scroll: (wheel: CaptureWheel) => void;
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+        pick: (at: number) => Promise<void>;
         panel: (open: boolean) => Promise<void>;
         openOwner: () => Promise<void>;
+        walkNext: () => Promise<void>;
+        walkBack: () => Promise<void>;
+        walkAutoplay: (on: boolean) => Promise<void>;
+        walkReplay: () => Promise<void>;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
@@ -769,8 +774,13 @@ const OLD_CHANNELS = {
     captureWindowScroll: "bridge:capture-window-scroll",
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+    captureWindowPick: "bridge:capture-window-pick",
     captureWindowPanel: "bridge:capture-window-panel",
     captureWindowOpenOwner: "bridge:capture-window-open-owner",
+    captureWindowWalkNext: "bridge:capture-window-walk-next",
+    captureWindowWalkBack: "bridge:capture-window-walk-back",
+    captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
+    captureWindowWalkReplay: "bridge:capture-window-walk-replay",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",

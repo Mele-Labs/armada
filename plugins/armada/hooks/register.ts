@@ -399,7 +399,7 @@ async function settledInTerminal($: Door, id: string, answered: boolean): Promis
 const ASK_IN_WINDOW = "To ask the owner about something on a page you showed him, call ask_in_window with the question, its options, the page's url and a CSS selector for the place, passing session_id, then end your turn.";
 
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and then call all_done, passing session_id, so Bridge offers to end the session; do not call it while anything is still running or owed. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. ${ASK_IN_WINDOW}`
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and then call all_done, passing session_id, so Bridge offers to end the session; do not call it while anything is still running or owed. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. ${ASK_IN_WINDOW}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -706,6 +706,20 @@ export const register: Register = on => {
       if (ran.deny === undefined && ran.isError !== true) {
         const created = tool === 'Write' && (ran.result as { type?: string } | undefined)?.type === 'create'
         void made($, tool, e as Record<string, unknown>, ran.text ?? '', created).catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
+  // The session's own write, not a subagent's, says it is changing what a window shows: Fleet marks
+  // the windows it showed as still changing until its turn ends or it shows the page again.
+  for (const tool of ['Edit', 'Write', 'NotebookEdit']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+        void current($)
+          .then(([id]) => say($, id, { kind: 'wrote' }))
+          .catch(() => undefined)
       }
       return ran
     })

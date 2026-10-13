@@ -6,9 +6,10 @@
 import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { CaptureOpened, SessionRecord } from "@armada/protocol";
+import type { CaptureOpened, SessionRecord, WindowTake } from "@armada/protocol";
 import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
 import { isPinned, pinned, webOrigin } from "./address";
+import { jobReadiness, sessionReadiness } from "./readiness";
 import type { PanelSubject } from "./layout";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
 
@@ -73,7 +74,9 @@ export class CaptureWindows {
     }
     const pin = pinned(state, serverId, url);
     if (!isPinned(pin)) return pin;
-    this.open.set(serverId, new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn)));
+    const opened = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
+    opened.setReadiness("job" in landsOn ? jobReadiness(job?.status) : undefined);
+    this.open.set(serverId, opened);
     return { ok: true };
   }
 
@@ -84,14 +87,15 @@ export class CaptureWindows {
    * replaces its window rather than opening a second. **Any `http` or `https` address**, unlike a
    * server's window; the origin it is pinned to is the address's own, since the
    * Session named it and there is no live holder to resolve it against as a server's link has.
+   * **`takes` are several pages of one change**, the first at `url`: the window swaps among exactly those.
    */
-  openForSession(sessionId: string, title: string, url: string): CaptureOpened {
+  openForSession(sessionId: string, title: string, url: string, takes: readonly WindowTake[] = []): CaptureOpened {
     const origin = webOrigin(url);
-    if (origin === null) return { ok: false, why: "no_address" };
+    if (origin === null || takes.some((one) => webOrigin(one.url) === null)) return { ok: false, why: "no_address" };
     const key = `${SESSION_KEY}${sessionId}`;
     const standing = this.open.get(key);
     if (standing !== undefined && standing.open) {
-      if (standing.address === url) {
+      if (standing.address === url && standing.showing(takes)) {
         standing.raise();
         return { ok: true };
       }
@@ -102,11 +106,12 @@ export class CaptureWindows {
     // window shown with no title is titled by its address.
     const record = this.sessions?.find((one) => one.id === sessionId);
     const landsOn = { session: { id: sessionId, title: cleanTitle(record?.title) ?? addressOf(sessionId) } };
-    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
+    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes);
     this.open.set(key, window);
+    window.setReadiness(sessionReadiness(record, url));
     this.board.windowsChanged?.();
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.
-    if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), origin));
+    if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), window.origins));
     return { ok: true };
   }
 
@@ -117,7 +122,7 @@ export class CaptureWindows {
    */
   askedFor(sessionId: string, title: string, window: string, place: string): CaptureOpened {
     const standing = this.open.get(`${SESSION_KEY}${sessionId}`);
-    const here = standing !== undefined && standing.open && webOrigin(standing.address) === webOrigin(place);
+    const here = standing !== undefined && standing.open && standing.origins.includes(webOrigin(place) ?? "");
     const opened = here ? ({ ok: true } as const) : this.openForSession(sessionId, title, window);
     this.ask();
     return opened;
@@ -134,7 +139,7 @@ export class CaptureWindows {
     for (const [key, window] of this.open) {
       if (!key.startsWith(SESSION_KEY) || !window.open) continue;
       const record = this.sessions.find((one) => one.id === key.slice(SESSION_KEY.length));
-      window.question(questionOf(record, webOrigin(window.address)));
+      window.question(questionOf(record, window.origins));
     }
   }
 
@@ -150,8 +155,13 @@ export class CaptureWindows {
         continue;
       }
       // A Session's page is no Run, so nothing Fleet publishes about servers ends it.
-      if (serverId.startsWith(SESSION_KEY)) continue;
+      if (serverId.startsWith(SESSION_KEY)) {
+        window.setReadiness(sessionReadiness(this.sessions?.find((one) => one.id === serverId.slice(SESSION_KEY.length)), window.address));
+        continue;
+      }
       const server = state.servers.servers.find((one) => one.id === serverId);
+      const owner = window.owner;
+      if (owner?.kind === "job") window.setReadiness(jobReadiness(state.jobs.find((one) => one.id === owner.id)?.status));
       if (server === undefined || server.phase === "exited") window.ended();
     }
     this.ask();
@@ -193,13 +203,13 @@ export class CaptureWindows {
 }
 
 /**
- * The question a Session's window shows: its oldest open `window_ask` item on that window's origin.
+ * The question a Session's window shows: its oldest open `window_ask` item on the origin of its page or of any of its takes.
  * Pure, so the rule is tested without a window.
  */
-export function questionOf(record: SessionRecord | undefined, origin: string | null): WindowQuestion | null {
+export function questionOf(record: SessionRecord | undefined, origins: readonly string[]): WindowQuestion | null {
   for (const item of record?.waiting_for ?? []) {
     if (item.source !== "window_ask" || item.place === undefined) continue;
-    if (origin === null || webOrigin(item.place.url) !== origin) continue;
+    if (!origins.includes(webOrigin(item.place.url) ?? "")) continue;
     return { id: item.id, question: item.text, options: item.options ?? [], place: item.place };
   }
   return null;

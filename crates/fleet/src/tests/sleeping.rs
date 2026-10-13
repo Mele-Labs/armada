@@ -155,7 +155,7 @@ async fn within_the_grace_nothing_happens_and_a_walk_is_recorded() {
     pass(&rig).await;
     assert!(night(&rig).await.decided.is_empty(), "the agent has two minutes to carry on");
     rig.fleet
-        .show_window(None, ShowWindow { url: "http://localhost:5173/".into(), title: Some("Findings".into()), session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: "http://localhost:5173/".into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .unwrap();
     pass(&rig).await;

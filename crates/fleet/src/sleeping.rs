@@ -362,6 +362,8 @@ where
                     WaitingSource::Walk | WaitingSource::WindowAsk => {
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
+                    // Nothing to decide: sending it is his, and it stays on the list for the morning.
+                    WaitingSource::FirstMessage => continue,
                     WaitingSource::Permission => {
                         self.leave(row("blocked", id, who.clone(), item.text.clone())).await?;
                     }

@@ -199,15 +199,32 @@
 }
 
 .armada-mock-walk__where {
+  display: flex;
+  min-width: 0;
   margin: 0;
+  white-space: nowrap;
   color: var(--fg-muted);
   font-size: var(--text-xs);
+}
+
+/* The walk's name is what gives, so the step it is on stays readable. */
+.armada-mock-walk__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .armada-mock-walk__said {
   margin: var(--space-1) 0 0;
   color: var(--fg-default);
   font-size: var(--text-sm);
+}
+
+/* A control and the key that presses it, side by side. */
+.armada-mock-walk__keyed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .armada-mock-walk__bar {

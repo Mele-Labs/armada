@@ -23,8 +23,22 @@ pub(crate) fn walk_open_refusal() -> String {
     format!("{WALK_OPEN_ASK} {WALK_ASK_THE_PAGE}")
 }
 
-/// What Bridge's Approve sends the session, ahead of the address.
-pub(crate) const APPROVED: &str = "Approved: ";
+/// What Bridge's Approve sends the session, ahead of the address. **Of several takes it names the
+/// one approved between**: `Approved B, Needs you first: <address>`.
+const APPROVED: &str = "Approved";
+
+/// The address an Approve message approves, or `None` where the text is anything else. Exactly the
+/// two shapes Bridge sends, so a person's own sentence that begins with the word is not one.
+pub(crate) fn approved_address(text: &str) -> Option<&str> {
+    let rest = text.trim().strip_prefix(APPROVED)?;
+    if let Some(address) = rest.strip_prefix(": ") {
+        return Some(address.trim());
+    }
+    let take = rest.strip_prefix(' ')?;
+    let mut letters = take.chars();
+    (letters.next()?.is_ascii_uppercase() && letters.as_str().starts_with(", ")).then_some(())?;
+    take.rsplit_once(": ").map(|(_, address)| address.trim())
+}
 
 /// The address of the walk open on this thread: the newest `window` row, unless it has ended.
 pub(crate) fn open_walk(rows: &[SessionRow]) -> Option<&str> {
@@ -51,15 +65,17 @@ where
         open_walk(&rows).map(str::to_string)
     }
 
-    /// End the newest walk on `url` that is still open: its row gets `ended_at` and is published
-    /// again. Where none is open, nothing happens.
+    /// End the newest walk on `url` that is still open, whether `url` is its page or one of its
+    /// takes: its row gets `ended_at` and is published again. Where none is open, nothing happens.
     pub(crate) async fn walk_ended(&self, session: &str, url: &str) {
         let Ok(rows) = self.rows_of(session).await else {
             return;
         };
         let open = rows.into_iter().rev().find_map(|row| match row {
-            SessionRow::Window { id, at, title, url: shown, ended_at: None } if shown == url => {
-                Some(SessionRow::Window { id, at, title, url: shown, ended_at: Some(self.instant()) })
+            SessionRow::Window { id, at, title, url: shown, variations, ended_at: None }
+                if shown == url || variations.iter().any(|take| take.url == url) =>
+            {
+                Some(SessionRow::Window { id, at, title, url: shown, variations, ended_at: Some(self.instant()) })
             }
             _ => None,
         });

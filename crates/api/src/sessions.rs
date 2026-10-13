@@ -248,6 +248,46 @@ pub(crate) async fn claim_pull_request<D: Sessions>(
     }
 }
 
+/// A Session's agent starts a Session, held for the person. 200 with `SessionHeld`; 422 for a call that
+/// places no hosted Session, a blank title or message, or a repository Fleet does not serve.
+pub(crate) async fn start_another_session<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let start: ipc::StartAnotherSession = match ipc::decode("a session to start", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .start_another_session(crate::acting::asking(), start)
+        .await
+    {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Session's agent forks its own conversation, held for the person. 200 with `SessionHeld`; 422 for a
+/// call that places no hosted Session, a blank title or message, or a message the conversation does not hold.
+pub(crate) async fn fork_this_session<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let fork: ipc::ForkThisSession = match ipc::decode("a session to fork", &body) {
+        Ok(fork) => fork,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .fork_this_session(crate::acting::asking(), fork)
+        .await
+    {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `armada check` tells Fleet a Session's run began or ended. 200 with the run, or none where no
 /// Session holds the slot; 422 for a call that names neither a Check nor a run.
 pub(crate) async fn report_session_check<D: Sessions>(
