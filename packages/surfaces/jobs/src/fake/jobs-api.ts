@@ -305,6 +305,9 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       overrideVerdict: async (jobId) => whilePaused(jobId) ?? (stepping(jobId, accepted), OK),
       rerunGate: async (jobId) => (stepping(jobId, askedAgain), OK),
       rerunChecks: async () => OK,
+      retryCheck: async () => OK,
+      skipCheck: async () => OK,
+      skipChecks: async () => OK,
       showAgain: async () => OK,
       raiseCostCap: async () => OK,
       raiseTurnCap: async () => OK,
@@ -362,6 +365,8 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       // A fixture with no history is one whose story never asked for it, and `none` is what it draws.
       readHistory: async (jobId) =>
         publish({ history: jobId === null ? nothing : (readsOf(jobId)?.history ?? nothing) }),
+      // The mock's `active` is the draft's, so there is nothing to hold.
+      followActive: async () => {},
       readResources: async (jobId) =>
         publish({
           resources: jobId === null ? nothing : (readsOf(jobId)?.resources ?? failed(jobId, "/resources")),

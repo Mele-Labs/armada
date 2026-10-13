@@ -656,11 +656,11 @@
   line-height: var(--leading-sm);
 }
 
-/* An act: one filled line like the lease, with the answer after the target
-   and wrapping under it where it is long. */
+/* An act: the eyebrow, the target and the time on one line; the answer under it at
+   full width. A long target truncates and names itself in a tooltip. */
 .armada-session-did {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-1) var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -681,6 +681,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  flex: 0 1 auto;
+  justify-self: start;
   min-width: 0;
   max-width: 100%;
   padding: 0 var(--space-2);
@@ -693,11 +695,14 @@
 
 .armada-session-did__target {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .armada-session-did__said {
-  flex: 1 1 16ch;
+  grid-column: 1 / -1;
+  grid-row: 2;
   min-width: 0;
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
@@ -705,7 +710,8 @@
 }
 
 .armada-session-did__at {
-  margin-inline-start: auto;
+  grid-column: 3;
+  grid-row: 1;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);

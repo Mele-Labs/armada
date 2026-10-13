@@ -7,17 +7,20 @@
 //! answer that is not the JSON asked for is a question. **Whatever goes wrong the words go to
 //! Helm**, the one place they cannot be lost.
 //!
-//! Delivery is not here. Bridge delivers with the acts that already exist and then says so
-//! (`thought_sent`), which is when the thread gets its row.
+//! Bridge delivers with the acts that already exist and then says so (`thought_sent`), which is
+//! when the thread gets its row. Helm delivers to a Session itself (`session_told`), when the
+//! words reach it as a request, and keeps the same row.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
-use api::{Refusal, Sessions};
+use api::{HostedSessions, Refusal, Sessions};
 use config::settings::PROMPT_HELM_ROUTE;
 use ipc::{
     HelmConversation, HelmMessage, HelmSent, HelmThoughtRouted, Instant, ManifestId, ReadThought,
-    SessionRecord, SessionState, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
+    SendSessionMessage, SessionRecord, SessionState, TellSession, ThoughtKind, ThoughtReading,
+    ThoughtSent, ThoughtTarget,
 };
 use serde::{Deserialize, Serialize};
 
@@ -28,8 +31,10 @@ use crate::judging::{said, JudgeBudget};
 use crate::prompts::Prompts;
 
 /// How long the call may take. Past it the words go to Helm: a reading a person waits on is
-/// worth less than the message it delays. A call measures about three seconds.
-const READ_BUDGET: Duration = Duration::from_secs(8);
+/// worth less than the message it delays. **A call measured 5.0 to 7.5 seconds** on a live Fleet,
+/// most of it the CLI starting, and at eight seconds the slower ones were read as questions and sent
+/// to Helm. Bridge shows the turning mark for as long as the read takes.
+pub(crate) const READ_BUDGET: Duration = Duration::from_secs(20);
 
 /// The most Sessions, and the most Jobs, the model is shown. The Sessions come most recently seen
 /// first, so what is cut is the quietest.
@@ -99,6 +104,29 @@ pub(crate) struct Candidate {
     target: ThoughtTarget,
 }
 
+/// Where words sent to this Session went, named so a person can tell which. **Not only live
+/// Sessions with a title**, unlike a [`Candidate`]: a Session that was sent to has a row to point at,
+/// titled or not.
+fn session_target(record: &SessionRecord) -> ThoughtTarget {
+    let slot = record
+        .attachments
+        .iter()
+        .filter(|held| held.state != ipc::AttachmentState::GivenBack && held.kind == "slot")
+        .filter_map(|held| held.target.parse::<u32>().ok())
+        .last();
+    ThoughtTarget {
+        kind: ThoughtKind::Session,
+        id: record.id.as_str().to_string(),
+        title: record
+            .title
+            .as_deref()
+            .filter(|title| !title.trim().is_empty())
+            .map_or_else(|| record.id.as_str().to_string(), str::to_string),
+        manifest_id: record.manifest_id.clone(),
+        slot,
+    }
+}
+
 /// `text` cut to `most` characters, with three dots where it was cut.
 fn cut(text: &str, most: usize) -> String {
     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -117,13 +145,12 @@ impl Candidate {
             return None;
         }
         let mut ledger = Vec::new();
-        let mut slot = None;
         for held in &record.attachments {
             if held.state == ipc::AttachmentState::GivenBack {
                 continue;
             }
             match held.kind.as_str() {
-                "slot" => slot = held.target.parse::<u32>().ok(),
+                "slot" => {}
                 "branch" => ledger.push(cut(&held.target, MOST_LINE)),
                 _ => {
                     if let Some(named) = held.detail.get("title") {
@@ -144,13 +171,7 @@ impl Candidate {
             ledger,
             must_meet: Vec::new(),
             plan: None,
-            target: ThoughtTarget {
-                kind: ThoughtKind::Session,
-                id: record.id.as_str().to_string(),
-                title: title.to_string(),
-                manifest_id: record.manifest_id.clone(),
-                slot,
-            },
+            target: session_target(record),
         })
     }
 
@@ -318,6 +339,38 @@ where
             ));
         }
         found
+    }
+
+    /// `tell_session`: Helm passes words to a live Session. **The send is Bridge's own**, so a
+    /// terminal Session that is not listening is refused in the same words, and the row and the
+    /// event are `thought_sent`'s. **A refused send records nothing**: the `?` leaves before either.
+    pub(crate) async fn session_told(
+        self: Arc<Self>,
+        tell: TellSession,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<ThoughtTarget, Refusal> {
+        // The thread that keeps the row is looked up first, so words are not delivered to a
+        // Session and then left unrecorded for want of a conversation to keep them in.
+        self.helm_of(manifest_id.as_ref())?;
+        let text = tell.text.clone();
+        let record = Arc::clone(&self)
+            .send_session_message(SendSessionMessage {
+                session_id: tell.session_id,
+                text: tell.text,
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await?;
+        let target = session_target(&record);
+        self.thought_sent(
+            ThoughtSent {
+                text,
+                target: target.clone(),
+            },
+            manifest_id,
+        )
+        .await?;
+        Ok(target)
     }
 
     /// `record_thought_sent`: the row in the thread, and the audit event. **Never told to Helm's

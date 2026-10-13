@@ -182,7 +182,7 @@ describe("the Now panel on a real Job: the Judge", () => {
     const { whole, drones } = onImplement({
       judge_question: { step_id: "implement", criterion_id: "C2", question: "Is the retry cap in scope?", expected: "e", produced: "p", consequence: "c", asked_at: "2026-10-09T09:40:00Z" },
     });
-    expect(nowViewOf({ whole, drones })?.asks).toEqual([{ key: "judge:implement:C2", kind: "judge", name: "Judge on Implement", text: "Is the retry cap in scope?" }]);
+    expect(nowViewOf({ whole, drones })?.asks).toEqual([{ key: "judge:implement:C2", kind: "judge", name: "Judge on Implement", text: "Is the retry cap in scope?", asked: { kind: "judge", at: "2026-10-09T09:40:00Z" } }]);
   });
 });
 
@@ -201,7 +201,7 @@ describe("the Now panel on a real Job: what a Drone asks", () => {
   it("names the one Drone working that step, and opens it", () => {
     const { whole, drones } = onImplement({ asking: question });
     expect(nowViewOf({ whole, drones })?.asks).toEqual([
-      { key: "ask:Q1", kind: "drone", name: "Implement Drone", text: "Which clock does the fixture pin?", target: DRONE },
+      { key: "ask:Q1", kind: "drone", name: "Implement Drone", text: "Which clock does the fixture pin?", asked: { kind: "question", id: "Q1" }, target: DRONE },
     ]);
   });
 
@@ -226,7 +226,7 @@ describe("the Now panel on a real Job: what a Drone asks", () => {
       },
     });
     expect(nowViewOf({ whole, drones })?.asks).toEqual([
-      { key: "command:toolu_1", kind: "drone", name: "Implement Drone", text: "Bash pnpm add -D reselect", target: DRONE },
+      { key: "command:toolu_1", kind: "drone", name: "Implement Drone", text: "Bash pnpm add -D reselect", asked: { kind: "command" }, target: DRONE },
     ]);
   });
 });

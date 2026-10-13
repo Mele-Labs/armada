@@ -650,6 +650,36 @@ where
         self.summarised(&job).await
     }
 
+    /// A person's hand on a running gate: `crate::check_acts`.
+    async fn retry_check(
+        self: Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        let job = Fleet::retry_check(&self, &job_id.to_domain(), &named.check)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    async fn skip_check(
+        self: Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        let job = Fleet::skip_check(&self, &job_id.to_domain(), &named.check)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    async fn skip_checks(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        let job = Fleet::skip_checks(&self, &job_id.to_domain())
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// Words to one Drone of the Job, by id: `crate::one_drone`.
     async fn redirect_one_drone(
         self: Arc<Self>,
@@ -881,14 +911,21 @@ where
             async move {
                 let id = job_id.to_domain();
                 let question = answer.question_id.as_str();
-                // A label answers a single question and picks answer an
-                // interview. Anything else goes the interview's way, where
+                // A label or a mode answers a single question and picks answer
+                // an interview. Anything else goes the interview's way, where
                 // the missing picks are refused by name.
-                match (answer.chose.as_deref(), answer.decisions.is_empty()) {
-                    (Some(chose), true) => {
-                        Fleet::answer_question(&fleet, &id, question, chose).await
-                    }
-                    _ => Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await,
+                if answer.decisions.is_empty() && (answer.chose.is_some() || answer.mode.is_some())
+                {
+                    Fleet::answer_question(
+                        &fleet,
+                        &id,
+                        question,
+                        answer.chose.as_deref(),
+                        answer.mode,
+                    )
+                    .await
+                } else {
+                    Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await
                 }
                 .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
@@ -924,7 +961,7 @@ where
             let fleet = Arc::clone(&self);
             async move {
                 let id = job_id.to_domain();
-                Fleet::answer_command(&fleet, &id, &answer.call, answered)
+                Fleet::answer_command(&fleet, &id, &answer.call, answered, answer.mode)
                     .await
                     .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
@@ -976,6 +1013,7 @@ where
                     answered.answer,
                     answered.asked_at,
                     answered.note,
+                    answered.mode,
                 )
                 .await
             }

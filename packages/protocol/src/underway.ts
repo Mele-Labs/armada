@@ -30,6 +30,12 @@ export type ChecksUnderway = {
   checks: CheckUnderway[];
 };
 
+/** The body of `retry_check` and `skip_check`: which Check of the running gate. A name it is not running is a 409. */
+export type CheckNamed = {
+  /** `CheckUnderway.name`. */
+  check: string;
+};
+
 /** One declared Check, as the gate has it right now. */
 export type CheckUnderway = {
   /** The Check's name, or the built-in's kind. Joins to `CheckRun.name`. */

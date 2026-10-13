@@ -516,6 +516,26 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.fake_one_drone(job_id, drone_id, false).await
     }
+    async fn retry_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
+    async fn skip_check(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
+    async fn skip_checks(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> Result<JobSummary, Refusal> {
+        self.fake_check_act(job_id)
+    }
     async fn kill_processes(
         self: std::sync::Arc<Self>,
         job_id: JobId,

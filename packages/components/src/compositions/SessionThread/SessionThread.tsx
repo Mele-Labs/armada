@@ -358,21 +358,25 @@ function actOf(text: string): Act | null {
   return null;
 }
 
+/** A target this long is likely cut to one line, so it names itself in a tooltip. */
+const TARGET_TRUNCATES = 40;
+
 /** The person's act: one filled line in the inverse neutral, what it was and on what. */
 function Did({ act, at }: { act: Act; at: string }) {
   const approved = act.kind === "approved";
   const Glyph = approved ? Check : Reply;
   const word = approved ? "Approved" : "Answered";
+  const shown = approved ? act.shown : act.target;
   const chip = (
     <span className="armada-session-did__chip" role="img" aria-label={`${word}: ${act.target}`}>
       <Glyph size={12} strokeWidth={2} aria-hidden />
-      <span className="armada-session-did__target">{approved ? act.shown : act.target}</span>
+      <span className="armada-session-did__target">{shown}</span>
     </span>
   );
   return (
     <li className="armada-session-did" role="region" aria-label={`You ${word.toLowerCase()}`}>
       <span className="armada-session-did__eyebrow">{word}</span>
-      {approved && act.shown !== act.target ? <Tooltip label={act.target}>{chip}</Tooltip> : chip}
+      {shown !== act.target || act.target.length > TARGET_TRUNCATES ? <Tooltip label={act.target} asChild>{chip}</Tooltip> : chip}
       {act.kind === "answered" && act.said !== "" ? <span className="armada-session-did__said">{act.said}</span> : null}
       <span className="armada-session-did__at">{at}</span>
     </li>

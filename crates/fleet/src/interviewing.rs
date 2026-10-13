@@ -172,7 +172,7 @@ where
             .map(|(_, label)| label.as_str())
             .collect::<Vec<_>>()
             .join(" | ");
-        self.noted_answered(job_id, &step, question_id, &chose);
+        self.noted_answered(job_id, &step, question_id, Some(&chose), None);
         self.events().publish(ipc::Event::JobAsking(ipc::JobAsking {
             job_id: ipc::JobId::from(job_id),
             step_id: ipc::StepId::from(&step),
@@ -183,7 +183,7 @@ where
         Ok(Told {
             job: job_id.clone(),
             step,
-            chose,
+            chose: Some(chose),
         })
     }
 }

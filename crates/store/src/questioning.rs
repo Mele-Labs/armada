@@ -34,14 +34,16 @@ pub(crate) fn read_question(row: &Row<'_>, job: Job) -> Result<Job, RowError> {
         .map_err(|why| malformed("question_options", &why.to_string()))?;
     let answer = match (
         maybe(row, "question_chose")?,
+        maybe(row, "question_deciding")?,
         maybe(row, "question_answered_at")?,
     ) {
-        (Some(label), Some(at)) => Some(GivenAnswer {
+        (label, deciding, Some(at)) => Some(GivenAnswer {
             label,
+            deciding,
             at: Timestamp::from_rfc3339(at),
         }),
-        (None, None) => None,
-        _ => return Err(malformed("question_chose", "an answer with no instant")),
+        (None, None, None) => None,
+        _ => return Err(malformed("question_answered_at", "an answer with no instant")),
     };
     let decisions = match maybe(row, "question_decisions")? {
         Some(held) => decisions_held(&held)
@@ -134,7 +136,8 @@ impl Store {
             .execute(
                 "UPDATE jobs SET question_id = ?2, question_step = ?3, question_asked_at = ?4,
                         question_text = ?5, question_options = ?6, question_chose = ?7,
-                        question_answered_at = ?8, question_decisions = ?9
+                        question_answered_at = ?8, question_deciding = ?9,
+                        question_decisions = ?10
                  WHERE job_id = ?1",
                 (
                     job.id().as_str(),
@@ -143,8 +146,9 @@ impl Store {
                     question.map(|question| question.asked_at.as_str()),
                     question.map(|question| question.question.as_str()),
                     options,
-                    answer.map(|given| given.label.as_str()),
+                    answer.and_then(|given| given.label.as_deref()),
                     answer.map(|given| given.at.as_str()),
+                    answer.and_then(|given| given.deciding.as_deref()),
                     decisions,
                 ),
             )

@@ -338,3 +338,8 @@ path.armada-session-ledger__picture-later {
 .armada-pr-state[data-state="open"] {
   color: var(--status-awaiting-review);
 }
+
+/* A command waiting to be run is its block, as in the thread, with Run always shown: the row is there to be run. */
+.armada-session-ledger__run .armada-prose__run-acts {
+  opacity: 1;
+}

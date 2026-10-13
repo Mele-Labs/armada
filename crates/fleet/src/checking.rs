@@ -45,6 +45,7 @@
 
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::Footprint;
@@ -56,6 +57,7 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 use verification::{Artifact, Exit, NeverRan, Observed};
 
+use crate::check_acts::{interrupted, Control, Interrupt};
 use crate::gated::{within, Gated};
 use crate::places::{Ask, Place, Room};
 use crate::ports::resolve_ports;
@@ -561,6 +563,11 @@ pub(crate) async fn ran(
             Planned::Already(_) | Planned::Blocked { .. } => None,
         })
         .collect::<Vec<(usize, String)>>();
+    // What each Check runs, kept so a person's retry can queue it again.
+    let mut commands: Vec<Option<String>> = vec![None; planned.len()];
+    for (at, run) in &queued {
+        commands[*at] = Some(run.clone());
+    }
     let queued: VecDeque<(usize, String)> = room.past().fastest_first(queued, checks);
     let (later, now): (Vec<(usize, String)>, Vec<(usize, String)>) = queued
         .into_iter()
@@ -593,6 +600,11 @@ pub(crate) async fn ran(
         halting = None;
     }
     let mut stopped = vec![false; planned.len()];
+    // A person's skip and retry, which only a gate's own run takes.
+    let control: Option<Arc<Control>> = announcing.control();
+    let mut woken = control.as_ref().map(|control| control.subscribe());
+    let mut skipped = vec![false; planned.len()];
+    let mut in_flight = vec![false; planned.len()];
     let mut ledger = crate::check_history::Ledger::begin(planned.len());
     // **The place comes back out with the answer**, so it is given back here
     // rather than wherever the spawned future happens to end. A place dropped
@@ -600,7 +612,7 @@ pub(crate) async fn ran(
     // before `announcing.finished` has said the Check that held it is done —
     // and a snapshot taken in between reads one more Check started than the
     // bound, on a run where no more than the bound ever ran. #1436.
-    let mut running: JoinSet<(usize, RunAttempt, Duration, Place)> = JoinSet::new();
+    let mut running: JoinSet<(usize, RunAttempt, Duration, Place, Option<Interrupt>)> = JoinSet::new();
     // The batch's turn for its next Check, kept across wakes so it keeps its place in line.
     let mut ask: Option<Ask> = None;
     // Places this batch's own running Checks hold right now — in places, not
@@ -615,7 +627,7 @@ pub(crate) async fn ran(
             if let Some(held) = later.take() {
                 match halting.is_some()
                     && !stop.handoff_held
-                    && passed_so_far(checks, &planned, &done, &deferred)
+                    && passed_so_far(checks, &planned, &done, &deferred, &skipped)
                 {
                     true => queued = held,
                     false => {
@@ -636,6 +648,23 @@ pub(crate) async fn ran(
         if !wants_a_turn {
             ask = None;
             if running.is_empty() {
+                // Shut only where no request is waiting to be read, so an act
+                // is either carried out before the ruling or refused.
+                if control.as_ref().is_some_and(|control| !control.close_if_idle()) {
+                    acted_on(
+                        control.as_deref(),
+                        announcing,
+                        checks,
+                        &commands,
+                        &in_flight,
+                        &mut queued,
+                        &mut later,
+                        &mut done,
+                        &mut skipped,
+                        &mut held_back,
+                    );
+                    continue;
+                }
                 break;
             }
         } else if ask.is_none() {
@@ -670,13 +699,19 @@ pub(crate) async fn ran(
                 let writing = log.clone();
                 let stop = stop.clone();
                 let halted = halted.clone();
+                let steering = control.clone();
+                in_flight[at] = true;
                 running.spawn(async move {
                     let held: Place = place;
                     let began = Instant::now();
-                    let ended = async move {
-                        tokio::select! {
-                            () = stop.stopped() => {}
-                            () = halted.stopped() => {}
+                    let ended = {
+                        let steering = steering.clone();
+                        async move {
+                            tokio::select! {
+                                () = stop.stopped() => {}
+                                () = halted.stopped() => {}
+                                () = interrupted(steering, at) => {}
+                            }
                         }
                     };
                     let attempt = checks_runner::run_until(
@@ -689,7 +724,12 @@ pub(crate) async fn ran(
                         checks_runner::Priority::from_env(),
                     )
                     .await;
-                    (at, attempt, began.elapsed(), held)
+                    // Signalled while a request stands: ended by the press, not by its own answer.
+                    let asked = steering
+                        .as_ref()
+                        .filter(|_| matches!(attempt.exit, Exit::Signalled { .. }))
+                        .and_then(|control| control.pending(at));
+                    (at, attempt, began.elapsed(), held, asked)
                 });
                 announcing.started(at, log.as_deref());
             }
@@ -703,11 +743,59 @@ pub(crate) async fn ran(
                     done[at] = Some((attempt, Duration::ZERO));
                 }
             }
+            () = async {
+                match woken.as_mut() {
+                    Some(woken) => {
+                        let _ = woken.changed().await;
+                    }
+                    None => std::future::pending::<()>().await,
+                }
+            } => {
+                acted_on(
+                    control.as_deref(),
+                    announcing,
+                    checks,
+                    &commands,
+                    &in_flight,
+                    &mut queued,
+                    &mut later,
+                    &mut done,
+                    &mut skipped,
+                    &mut held_back,
+                );
+            }
             Some(joined) = running.join_next(), if !running.is_empty() => {
-                let Ok((at, attempt, took, held)) = joined else {
+                let Ok((at, attempt, took, held, asked)) = joined else {
                     continue;
                 };
+                in_flight[at] = false;
                 own_places = own_places.saturating_sub(checks[at].places().get() as usize);
+                // A press ended it: a retry waits for a place like any other
+                // Check, and a skip is its answer.
+                match asked {
+                    Some(Interrupt::Retry) => {
+                        if let Some(control) = control.as_ref() {
+                            control.settled(at);
+                        }
+                        announcing.restarted(at);
+                        if let Some(run) = commands[at].clone() {
+                            queued.push_front((at, run));
+                        }
+                        drop(held);
+                        continue;
+                    }
+                    Some(Interrupt::Skip) => {
+                        if let Some(control) = control.as_ref() {
+                            control.settled(at);
+                        }
+                        skipped[at] = true;
+                        announcing.finished(at, &checks[at], &Observed::Waived, took);
+                        drop(held);
+                        done[at] = Some((attempt, took));
+                        continue;
+                    }
+                    None => {}
+                }
                 let observed = Observed::Command(attempt.exit.clone());
                 // Ended by the halt rather than by its own answer.
                 let cut = failed_first
@@ -771,6 +859,14 @@ pub(crate) async fn ran(
             continue;
         }
         completed.push(match plan {
+            // **A person's skip.** What printed before it ended is kept.
+            Planned::Command { name, .. } if skipped[at] => Completed {
+                observed: Observed::Waived,
+                narrowed_to: None,
+                printed: done[at].take().map(|(attempt, _)| (name, attempt.output)),
+                took: Duration::ZERO,
+                stopped: None,
+            },
             Planned::Already(observed) => Completed {
                 observed,
                 narrowed_to: None,
@@ -858,15 +954,65 @@ fn never_started(run: String) -> RunAttempt {
     }
 }
 
+/// Carry out what a person asked of a gate's run since it last looked: a Check
+/// not yet started is skipped here, one that finished is reset and queued to
+/// run again, and one still running reacts to the request itself.
+#[allow(clippy::too_many_arguments)]
+fn acted_on(
+    control: Option<&Control>,
+    announcing: &Announcing,
+    checks: &[ResolvedCheck],
+    commands: &[Option<String>],
+    in_flight: &[bool],
+    queued: &mut VecDeque<(usize, String)>,
+    later: &mut Option<VecDeque<(usize, String)>>,
+    done: &mut [Option<(RunAttempt, Duration)>],
+    skipped: &mut [bool],
+    held_back: &mut [bool],
+) {
+    let Some(control) = control else { return };
+    for (at, asked) in control.requested() {
+        if in_flight[at] {
+            continue;
+        }
+        let waiting = |line: &VecDeque<(usize, String)>| line.iter().any(|(held, _)| *held == at);
+        let in_line = waiting(queued) || later.as_ref().is_some_and(waiting);
+        match asked {
+            Interrupt::Skip if in_line => {
+                queued.retain(|(held, _)| *held != at);
+                if let Some(later) = later.as_mut() {
+                    later.retain(|(held, _)| *held != at);
+                }
+                skipped[at] = true;
+                announcing.finished(at, &checks[at], &Observed::Waived, Duration::ZERO);
+                done[at] = Some((never_started(commands[at].clone().unwrap_or_default()), Duration::ZERO));
+            }
+            Interrupt::Retry if !in_line => {
+                if let Some(run) = commands[at].clone() {
+                    done[at] = None;
+                    skipped[at] = false;
+                    held_back[at] = false;
+                    announcing.restarted(at);
+                    queued.push_front((at, run));
+                }
+            }
+            _ => {}
+        }
+        control.settled(at);
+    }
+}
+
 /// Whether every answer not waiting for handoff lets the step through.
 fn passed_so_far(
     checks: &[ResolvedCheck],
     planned: &[Planned],
     done: &[Option<(RunAttempt, Duration)>],
     deferred: &[bool],
+    skipped: &[bool],
 ) -> bool {
     planned.iter().enumerate().all(|(at, plan)| {
         deferred[at]
+            || skipped[at]
             || match plan {
                 Planned::Already(observed) | Planned::Blocked { observed, .. } => {
                     advances(&checks[at], observed)

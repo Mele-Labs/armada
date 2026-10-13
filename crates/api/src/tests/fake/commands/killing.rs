@@ -75,6 +75,23 @@ impl FakeDaemon {
         Ok(job.clone())
     }
 
+    /// A skip or a retry: the fake never runs a gate, so what it answers is the
+    /// refusal a Job with none gets.
+    pub(super) fn fake_check_act(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
+        let jobs = self.jobs.lock().expect("not poisoned");
+        if !jobs.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        Err(Refusal::IllegalMove(
+            WireError::raised(
+                "fleet.no_check_to_act",
+                "no gate is running Checks for this Job",
+                run_id(),
+            )
+            .about_job(job_id),
+        ))
+    }
+
     /// Every process: the Drone goes, and the Job survives. **`Ok` where
     /// there is no Drone**, as Fleet's `kill_drone` answers on a Job with
     /// nothing in its slot.
