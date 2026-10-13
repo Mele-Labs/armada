@@ -42,6 +42,9 @@ pub(crate) const WAKES_PER_PROBLEM: u32 = 3;
 pub(crate) struct Stirred {
     broken: Vec<(JobId, EscalationTrigger)>,
     spent: BTreeSet<JobId>,
+    /// Repairs the last Fleet had out, found at boot. The rows stay in the store
+    /// until the wake for each is made, so a Fleet that dies first finds them.
+    lost: Vec<store::RepairOut>,
 }
 
 /// The escalations that mean no Drone could run: the worktree or the
@@ -286,6 +289,15 @@ where
             .insert(job.clone());
     }
 
+    /// A repair Drone the last Fleet sent, found at boot with its Job still held.
+    pub(crate) fn stirred_by_a_lost_repair(&self, repair: store::RepairOut) {
+        self.stirrings().lock().expect("not poisoned").lost.push(repair);
+    }
+
+    fn take_lost_repairs(&self) -> Vec<store::RepairOut> {
+        std::mem::take(&mut self.stirrings().lock().expect("not poisoned").lost)
+    }
+
     /// What was noted since the last turn, for this turn to carry.
     pub(crate) fn take_stirred(&self) -> (Vec<(JobId, EscalationTrigger)>, Vec<JobId>) {
         let mut stirred = self.stirrings().lock().expect("not poisoned");
@@ -299,6 +311,9 @@ where
     /// `keep_turning` beside `probed` and `walked`**; a turn with no trouble in
     /// it returns without reading the store.
     pub(crate) async fn woken(self: &Arc<Self>, turned: &Turned) {
+        for lost in self.take_lost_repairs() {
+            self.repair_lost(lost).await;
+        }
         let mut found: Vec<(JobId, Trouble)> = Vec::new();
         for worked in &turned.each {
             for trouble in troubles(worked) {

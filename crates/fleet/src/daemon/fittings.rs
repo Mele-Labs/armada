@@ -439,7 +439,7 @@ where
             proving: Arc::new(Mutex::new(crate::proving::Proving::default())),
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             heals: std::sync::Mutex::default(),
-            repairing: crate::job_repair::Underway::default(),
+            repairing: crate::repair_hold::Underway::default(),
             stirred: std::sync::Mutex::default(),
             trigger_repairs: std::sync::Mutex::default(),
             owner_runs: std::sync::Mutex::default(),

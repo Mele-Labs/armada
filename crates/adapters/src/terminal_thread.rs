@@ -105,11 +105,17 @@ pub struct Subagent {
     pub report: Option<String>,
 }
 
-/// Subagent `agent` of session `id`: the file the CLI keeps beside the session's own, at
+/// Subagent `agent` of session `id`: the file the CLI keeps at
 /// `<project>/<id>/subagents/agent-<agent>.jsonl`. **Only that path is ever read**; both names are
 /// checked as `find` checks one.
+///
+/// **Every project folder is tried, not only the one `find` answers.** A session moved into a
+/// slot has its transcript linked into the slot's folder, and the CLI writes its later subagents
+/// there: the first folder holding `<id>.jsonl` can be the old one, with no subagents beside it,
+/// and every such subagent read as running with a blank thread (13 Oct 2026).
 pub fn find_subagent(home: &str, id: &str, agent: &str) -> Option<PathBuf> {
-    if agent.is_empty() || !agent.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+    let named = |name: &str| !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    if !named(id) || !named(agent) {
         return None;
     }
     let key = (home.to_string(), id.to_string(), agent.to_string());
@@ -117,8 +123,11 @@ pub fn find_subagent(home: &str, id: &str, agent: &str) -> Option<PathBuf> {
     if let Some(file) = kept.filter(|file| file.is_file()) {
         return Some(file);
     }
-    let file = find(home, id)?.with_extension("").join("subagents").join(format!("agent-{agent}.jsonl"));
-    let found = file.is_file().then_some(file)?;
+    let found = std::fs::read_dir(Path::new(home).join(SESSIONS))
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path().join(id).join("subagents").join(format!("agent-{agent}.jsonl")))
+        .find(|file| file.is_file())?;
     if let Ok(mut seen) = FOUND.lock() {
         seen.insert(key, found.clone());
     }

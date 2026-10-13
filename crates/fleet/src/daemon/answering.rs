@@ -158,6 +158,8 @@ where
         // Once, the clone's needs into the ledger, and every live Job's own
         // branch and slot beside them. `crate::needing`, `crate::ledgering`.
         self.needs_converted(served, &jobs).await;
+        // A repair the last Fleet sent holds its Job until it is dealt with.
+        self.repairs_left_out(&jobs).await;
         let rekeyed = crate::transcript::rekeyed(served.records_root(), &jobs).await;
         reconciled.rekeyed.logs += rekeyed.logs;
         reconciled.rekeyed.transcripts += rekeyed.transcripts;

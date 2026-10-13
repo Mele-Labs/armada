@@ -48,14 +48,17 @@ use adapter_traits::{Environment, McpConfig, Model};
 use adapter_traits::{Grant, Repair, Toolbelt};
 use adapters::{denied_to_a_commander, door_tools, Commanding, HeadlessAgent};
 use api::{offerable, offerable_to_a_commander, CommanderReach, COMMANDER_ALLOWED};
-use core_model::{Actor, Attempt, JobStatus, PlanAuthor, StepId, Via};
+use core_model::{
+    Actor, Attempt, DroneStanding, EscalationTrigger, JobStatus, PlanAuthor, Refusals, Standing,
+    StepId, Stuck, TransitionReason, Via,
+};
 use fleet::job_repair::JobRepair;
 use ipc::Breakage;
 use testkit::FakeWorkProduct;
 
 use bench::commander::{
     a_plan_four_acts_were_made_on, a_plan_recorded_by, a_step_the_commander_stopped,
-    status_moves_received, stopped_by_fleet_and_resumed_by_the_commander, stopped_on_the_fix,
+    failed_in_preparation, status_moves_received, stopped_by_fleet_and_resumed_by_the_commander, stopped_on_the_fix,
 };
 use bench::overview::{detail_of, round_trip_detail, section_of};
 use bench::plan::PLAN;
@@ -585,5 +588,59 @@ async fn a_repair_is_granted_what_the_fault_needs_and_held_off_every_manifest() 
             )),
             "no dispatch and no plan"
         );
+    }
+}
+
+/// #2170. A Job that broke before its first step is repaired like one that
+/// stopped on a step, and put back at the first: the repair is aimed at it, in
+/// the Job's own worktree, and the Commander's queueing of the Job is a move the
+/// machine admits and a Bridge receives as the Commander's. That the first
+/// step's gate sees the repair's file is `fleet`'s `tests::job_repair_early`,
+/// which has the Drone and the baseline.
+#[test]
+fn a_repair_of_a_job_that_broke_in_preparation_is_aimed_at_the_first_step_and_queues_the_job() {
+    let bench = a_bench();
+    let mut run = failed_in_preparation(&bench, EscalationTrigger::NotPrepared);
+
+    let repair = JobRepair::onto(&run.job, run.worktree.clone(), Breakage::MergeConflict)
+        .expect("a first step to begin");
+    assert_eq!(repair.restarts(), &bench.step(0), "the first, since none had begun");
+    assert_eq!(repair.worktree(), &run.worktree, "the Job's own worktree");
+
+    bench.moved(&mut run, core_model::Target::Queued, Actor::Commander);
+    let last = status_moves_received(&bench).pop().expect("a move");
+    assert_eq!(
+        (last.to.as_wire(), last.actor.as_wire()),
+        ("queued", "commander"),
+        "back in the queue, signed by the Commander"
+    );
+}
+
+/// #2170. Of the Jobs that never had a Drone, only a failed preparation is a
+/// repair's. The rest are the Manifest's or the machine's, and the Drone cannot
+/// edit the one or add to the other.
+#[test]
+fn only_a_failed_preparation_is_a_repair_among_the_jobs_that_never_had_a_drone() {
+    let standing = Standing {
+        drone: DroneStanding::Gone,
+        worktree_on_disk: true,
+        checks_passed: true,
+        workflow_held: true,
+        checks_rerunning: false,
+    };
+    for (trigger, repairable) in [
+        (EscalationTrigger::NotPrepared, true),
+        (EscalationTrigger::NotConfigurable, false),
+        (EscalationTrigger::WouldNotStart, false),
+        (EscalationTrigger::ResourceExhausted, false),
+    ] {
+        let bench = a_bench();
+        let run = failed_in_preparation(&bench, trigger);
+        let reason = TransitionReason::Escalation(trigger);
+
+        let stuck = Stuck::of(&run.job, Some(&reason), standing, Refusals::none(), None)
+            .expect("an escalated Job is classified");
+
+        assert_eq!(stuck.unprepared(), repairable, "{}", trigger.as_wire());
     }
 }

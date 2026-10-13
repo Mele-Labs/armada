@@ -53,6 +53,17 @@ pub async fn stopped_on_the_fix(bench: &Bench) -> Run {
     run
 }
 
+/// A Job whose preparation failed before its first step: approved, admitted and
+/// escalated `not_prepared`, with no step entered. Where a repair is sent from
+/// when nothing had begun.
+pub fn failed_in_preparation(bench: &Bench, trigger: EscalationTrigger) -> Run {
+    let mut run = bench.created("make the worktree workable");
+    bench.moved(&mut run, core_model::Target::Queued, Actor::Human);
+    bench.moved(&mut run, core_model::Target::Running, Actor::Fleet);
+    bench.moved(&mut run, core_model::Target::Escalated(trigger), Actor::Fleet);
+    run
+}
+
 /// Every status move the bench recorded, as a connected client receives it.
 pub fn status_moves_received(bench: &Bench) -> Vec<JobStateChanged> {
     bench

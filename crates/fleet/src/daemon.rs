@@ -185,7 +185,7 @@ pub struct Fleet<H, V, W> {
     fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
     heals: std::sync::Mutex<crate::healing::Heals>,
     /// The Jobs a Commander's repair Drone is on. Never written down — `crate::job_repair`.
-    repairing: crate::job_repair::Underway,
+    repairing: crate::repair_hold::Underway,
     /// What a turn is to wake a Commander for that happened outside it.
     /// Never written down — `crate::commanding_wakes`.
     stirred: std::sync::Mutex<crate::commanding_wakes::Stirred>,
