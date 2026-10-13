@@ -35,8 +35,9 @@ pub const ALLOWED: &[&str] = &[
     "move_plan",
     // The one way it reaches the owner: a card that outlives the turn.
     "ask_the_owner",
-    // Not here until its issue lands, adding its own line:
-    //   the repair Drone onto the Job's branch   `#2170`
+    // A repair Drone onto the Job's own branch, and never `add_job_step`: a step
+    // the Commander wrote would be gated as that step's, not as a repair. `#2170`.
+    "send_repair_drone",
 ];
 
 /// Whether a Commander may call one operation the door offers.

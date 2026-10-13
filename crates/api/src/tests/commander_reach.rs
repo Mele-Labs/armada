@@ -248,6 +248,10 @@ fn a_commander_may_call_every_query_and_every_allowed_act_and_nothing_else() {
         );
     }
     assert!(!reach.may("an_operation_nobody_has_written"));
+    assert!(
+        reach.may("send_repair_drone"),
+        "the repair onto the Job's branch is its own act, and `add_job_step` is not given in its place"
+    );
 }
 
 /// A query that changed something would be a gate-passer the allowlist waves

@@ -116,6 +116,7 @@ mod history;
 mod holding;
 mod host;
 mod http;
+mod job_repair;
 mod journal;
 mod judging;
 mod keeping;

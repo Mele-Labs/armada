@@ -77,6 +77,10 @@ fn shipped_texts() -> Vec<(Words, String)> {
             crate::trigger_repair::SHIPPED.to_string(),
         ),
         (
+            keys::PROMPT_JOB_REPAIR,
+            crate::job_repair::SHIPPED.to_string(),
+        ),
+        (
             keys::PROMPT_CROSSING_ANSWERED,
             crate::questioning::ANSWERED.to_string(),
         ),

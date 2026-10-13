@@ -56,6 +56,17 @@ where
         self.commander_card_raised(job, asked).await
     }
 
+    async fn send_repair_drone(
+        self: Arc<Self>,
+        job: api::Resolved,
+        sending: ipc::SendRepairDrone,
+    ) -> Result<ipc::RepairSent, Refusal> {
+        let refusal = Arc::clone(&self);
+        self.repair_sent(&job.id().to_domain(), sending.broke)
+            .await
+            .map_err(|why| refusal.refusal(why))
+    }
+
     async fn answer_commander_card(
         self: Arc<Self>,
         job: api::Resolved,

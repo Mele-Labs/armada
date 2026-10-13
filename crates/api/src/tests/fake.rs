@@ -136,6 +136,8 @@ pub struct FakeDaemon {
     pub redirected_via: Mutex<Vec<Option<ipc::Via>>>,
     /// The port a planted Commander calls from. `#2164`.
     pub commander_on: Mutex<Option<(u16, ipc::JobId)>>,
+    /// The repairs a Commander sent, by Job.
+    pub repairs_sent: Mutex<Vec<(ipc::JobId, ipc::Breakage)>>,
     /// Who each proposal that reached this daemon was recorded against.
     /// `#943`.
     pub proposed_by: Mutex<Vec<crate::Redirector>>,
@@ -193,6 +195,7 @@ impl FakeDaemon {
             plan_changed_by: Mutex::new(Vec::new()),
             redirected_via: Mutex::new(Vec::new()),
             commander_on: Mutex::new(None),
+            repairs_sent: Mutex::new(Vec::new()),
             proposed_by: Mutex::new(Vec::new()),
             raised_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),

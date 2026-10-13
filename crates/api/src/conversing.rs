@@ -18,7 +18,7 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::{
     AnswerCommanderCard, AskCommander, AskHelm, AskTheOwner, AskingToRun, CommanderMessage, CommanderOpened, HelmMessage,
-    HelmOpened, ManifestId, Missed, ProtocolId, ReadThought, TellSession, ThoughtSent,
+    HelmOpened, ManifestId, Missed, ProtocolId, ReadThought, SendRepairDrone, TellSession, ThoughtSent,
 };
 use tokio::sync::broadcast;
 
@@ -426,6 +426,33 @@ pub(crate) async fn ask_the_owner<D: Conversations>(
     };
     match served.shared().ask_the_owner(job, asked).await {
         Ok(card) => answer(StatusCode::OK, &card, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Commander sends a repair Drone onto its Job's own branch. **Only a
+/// Commander can**, for `ask_the_owner`'s reason: the move it ends in is signed
+/// by the connection and never by the body. 202, because the Drone has not
+/// finished; the step it unblocks restarts when it hands in.
+pub(crate) async fn send_repair_drone<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    commander: Option<axum::Extension<crate::placed::CommanderCalled>>,
+    body: Bytes,
+) -> Response {
+    if commander.is_none() {
+        return refused(crate::Refusal::IllegalMove(ipc::WireError::raised(
+            "api.only_a_commander_sends_a_repair",
+            "only a Job's Commander sends a repair Drone onto its branch",
+            served.run_id().clone(),
+        )));
+    }
+    let sending: SendRepairDrone = match ipc::decode("a repair to send", &body) {
+        Ok(sending) => sending,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_repair_drone(job, sending).await {
+        Ok(sent) => answer(StatusCode::ACCEPTED, &sent, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

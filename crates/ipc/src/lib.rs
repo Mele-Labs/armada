@@ -211,6 +211,7 @@ mod showing;
 mod autopilot;
 mod commander;
 mod commander_card;
+mod commander_repair;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// How much of the plan's windows is used.
@@ -317,6 +318,7 @@ pub use commander_card::{
     AnswerCommanderCard, AskTheOwner, CardBy, CardId, CardOption, CardOptions, CardText,
     CommanderCard, CommanderCardAnswered, CommanderCardChanged, Unusable as CardUnusable,
 };
+pub use commander_repair::{Breakage, RepairSent, SendRepairDrone};
 pub use commander::{
     AskCommander, CommanderChanged, CommanderConversation, CommanderMessage, CommanderOpened,
     CommanderState, CommanderWoke,

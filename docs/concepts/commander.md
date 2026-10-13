@@ -10,6 +10,8 @@
 
 **It does not do the work.** The Drones do the tasks. A Commander reads the Job and steers, and it has no tool that edits a file or runs a command.
 
+**A repair is a Drone's, not its own.** It sends one with `send_repair_drone` and writes no file itself.
+
 **It claims nothing.** The Checks and the Judge decide whether work advances, and nothing a Commander says is read as a claim that moves a Job. `../scope.md`'s third attempt rejected a transcript read as a claim; a Commander's thread is a thread.
 
 ## What it is
@@ -42,12 +44,30 @@ Every Job has a Commander, and it wakes only on trouble. Each trouble is read fr
 | Work past the plan | `Worked::drifting`; `Worked::wandering` once the Drone has not answered the instruction to report | The Drone on step *s* is working outside the plan |
 | A broken worktree or environment | `Turned::broken`: a Job moved onto `no_worktree`, `not_configurable`, `would_not_start`, `resource_exhausted` or `not_prepared` | No Drone could run: the worktree was unusable |
 | A cap nearly spent | `Turned::spent`: a Job a Drone's spend was just written for, against `Allowance::nearly_spent_by` at 80% of the cost cap or of the turn cap | The cost cap is nearly spent: $4.25 of $5.00 |
+| A repair Drone it sent ended with nothing handed in | The repair's own end (*The repair*, below), made where the Drone ends and not on a tick | The repair Drone on step *s* ended with nothing handed in |
 
-The last two have no turn to sit on, because an environment failure happens while a Job is admitted and spend is written when a Drone ends. Each leaves a note in memory (`Stirred`) that the next turn carries.
+The broken-environment and cap rows have no turn to sit on, because an environment failure happens while a Job is admitted and spend is written when a Drone ends. Each leaves a note in memory (`Stirred`) that the next turn carries.
 
-**Once each.** A wake is recorded in `job_commander_wakes` before it is made, keyed by trouble, step and the step's attempt. A Job-level trouble has no step, and its attempt is how many times the Job has escalated; a cap has none either, and its attempt is the cap in force, so a raised cap is a new fact. The 250 ms tick and a Fleet restart both find the row and wake nothing. A crash between the row and the wake loses that wake and never repeats it.
+**Once each.** A wake is recorded in `job_commander_wakes` before it is made, keyed by trouble, step and the step's attempt. A Job-level trouble has no step, and its attempt is how many times the Job has escalated; a cap has none either, and its attempt is the cap in force, so a raised cap is a new fact. A repair does not enter the step again, so its attempt is how many wakes of its own kind the step has had, and each repair that hands nothing in is a new fact. The 250 ms tick and a Fleet restart both find the row and wake nothing. A crash between the row and the wake loses that wake and never repeats it.
 
 **The loop bound.** The same trouble on the same step, woken for three times while the Job stands exactly as it did at the last wake, is a loop, and the fourth wake is not made. The Job stands as it did when its status, any step's state, or the number of tasks in any state is the same as at the last wake; a Job that restarted a step and met the same trouble again has not moved, and one that handed in a task has. At the bound the Commander stops acting on that problem, the Job's log says so in one warning line, and **a card goes to the owner in its place** (below). The bound moves nothing: a Job still running (drift, a cap nearly spent) keeps running, and an already escalated one stays escalated with the card beside it. A different problem still wakes the Commander, and so does the owner's answer to the card.
+
+## The repair
+
+A Commander cannot edit a file or run a command, so when the Job is stopped by its worktree or its environment it sends a Drone that can. `send_repair_drone` takes what broke, one of `merge_conflict`, `dependencies`, `missing_binary` and `worktree`, and nothing else.
+
+| | |
+|---|---|
+| Where it works | **The Job's own branch and worktree.** Not a side branch the owner places: a failed Trigger's repair (`fleet.md`, *A failed Trigger's repair*) keeps its own branch and its hold for his choice, and this shares nothing with it but the Drone's run and its belt. No slot is leased and no branch is cut |
+| Offered | Where `restart_step` is, by the same reading, so the act and the restart it ends in cannot disagree. Refused at the moment it is asked where the Job is not held for a person, a Drone is on it, its worktree is gone (that is a redispatch) or no step stopped. A Job whose preparation failed before any step began is such a Job: its Commander sends the card |
+| What it may do | Write and build, run the Manifest's non-destructive commands, and one grant for the fault: `git add` for a conflict or a broken worktree, the declared bootstrap for the other two. **It is held off `armada.yml`, every workspace's, and `.armada`**, which is where a Check is declared, as the Commander is. It cannot commit or push: Fleet commits what it wrote to the Job's branch |
+| Its work is gated | **By restarting the step the breakage stopped, over the repair's commit.** A step's baseline is read when it first began and is kept, so the repair's files count as that step's work: the step's Checks run on the tree that holds them, and the Judge reads a patch that includes them. The other choice, gating the repair's commit as a step of its own, would have needed a gate of its own and is `add_job_step`'s shape. Nothing the repair does skips a Check or the Judge |
+| Signed | The restart is the Commander's, as every move it makes is |
+| One at a time | A second repair, and a person's `restart_step`, are refused while one is out |
+| The count | **The loop bound owns it.** The repair never calls `healing`'s repair, so the repairs per kind a Job is allowed there are not spent. A repair that hands nothing in (it would not start, ran past its budget, stopped before it finished, or left the conflict) wakes the Commander as its own trouble, and the loop bound's card is what ends it |
+| The thread | The Commander's call is a row with `broke` in its argument, and the Job's log carries Fleet's line naming the step, the branch and the Drone. No message of its own: a repair sent is a call, and what it came to is the Job's next move |
+
+A Fleet that restarts ends a repair that is out with the process that read it; the Job is still held, and the Commander is woken for what it finds.
 
 ## The card
 

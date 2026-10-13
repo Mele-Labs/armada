@@ -33,6 +33,28 @@ pub enum CommanderWake {
 }
 
 impl Store {
+    /// How many wakes have been noted for this trigger on this step, whatever
+    /// the attempt. For a trouble that does not move the step's attempt, so
+    /// that its next fact is not read as one already seen.
+    pub fn commander_wakes_noted(
+        &self,
+        job_id: &JobId,
+        trigger: &str,
+        step: &str,
+    ) -> Result<u64, crate::error::RowError> {
+        self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM job_commander_wakes \
+                 WHERE job_id = ?1 AND problem = ?2 AND step = ?3",
+                (job_id.as_str(), trigger, step),
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|count| count as u64)
+            .map_err(|why| {
+                crate::error::RowError::Database(fault("counting a Commander's wakes")(why))
+            })
+    }
+
     /// Write down that a Commander is to be woken for this fact, unless it has
     /// been. `standing` is the Job as it is now, in whatever words the caller
     /// compares it by: a wake whose `standing` differs from the last one's on

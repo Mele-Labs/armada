@@ -359,6 +359,13 @@ where
         ending: Ending,
         by: Actor,
     ) -> Result<Job, Adrift> {
+        // A repair Drone is writing in this worktree, and the step restarts over
+        // what it wrote when it hands in: `crate::job_repair`.
+        if self.repairing().holds(job_id) {
+            return Err(Adrift::RepairUnderway {
+                job: job_id.clone(),
+            });
+        }
         // Looked up rather than opened: this act starts nothing, so it needs no
         // place in the roster. What it wants the slot for is the one question
         // only the slot can answer — whether a Drone is still standing here —
@@ -562,7 +569,7 @@ where
     /// [`resumed`](Fleet::resumed) where it found a step to unfreeze;
     /// `awaiting_repair` has no edge to `running` at all, because the Drone is
     /// gone by the time a person sees it and a restart takes `-> queued`.
-    fn held_for_a_person(&self, job: &Job) -> Result<(), Adrift> {
+    pub(crate) fn held_for_a_person(&self, job: &Job) -> Result<(), Adrift> {
         matches!(
             job.status(),
             JobStatus::Escalated | JobStatus::AwaitingRepair

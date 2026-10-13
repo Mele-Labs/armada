@@ -119,3 +119,23 @@ export type CommanderCardChanged = {
   job_id: string;
   card?: CommanderCard;
 };
+
+/** What a Job's Commander found broken in the Job's worktree or environment. #2170. */
+export type Breakage = "merge_conflict" | "dependencies" | "missing_binary" | "worktree";
+
+/**
+ * `POST /jobs/:job_id/commander/repair` — send a repair Drone onto the Job's own branch and
+ * worktree. A Commander's alone: the route refuses a call the door did not place as one. #2170.
+ */
+export type SendRepairDrone = {
+  broke: Breakage;
+};
+
+/** What `send_repair_drone` answers with (202). The Drone has not finished. */
+export type RepairSent = {
+  job_id: string;
+  /** The step the breakage stopped, restarted once the repair hands in. */
+  step_id: string;
+  drone_id: string;
+  broke: Breakage;
+};

@@ -34,11 +34,11 @@ when it builds the prompt, and a save that drops one is refused whole.
 Material — a diff, a file, a request, a person's note in a list — is never a
 piece: the code lays it, after the words that say how to read it, and the
 first line a harness keys on (`REPAIR THE TRIGGER`, `RUN THE SKILL`, `REPAIR
-THE INDEX`) stays Fleet's. A wording change to what ships still belongs here
+THE INDEX`, `REPAIR THE JOB`) stays Fleet's. A wording change to what ships still belongs here
 first. The keys, by family: `prompts.droneBaseline` (section 5) and the
 rest of a Drone's brief and turns as `prompts.drone…`, `prompts.crossing…`,
 `prompts.peers…`, `prompts.fix…`, `prompts.plan…`, `prompts.heal…`,
-`prompts.side…` and `prompts.triggerRepair`; the turns injected while it
+`prompts.side…`, `prompts.triggerRepair` and `prompts.jobRepair`; the turns injected while it
 works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
 gate's `prompts.outcome…` and `prompts.base…`; a piloted session's preface as
 `prompts.pilot…`; `prompts.helm`,
@@ -2266,7 +2266,7 @@ is resumed is told the turn alone.
 | **Opening** | Get this Job through by steering its Drones, plan and caps | A Commander is not Helm: it has one Job, and without the block it reads like a conversation about everything |
 | **The worktree** | Read the Job's worktree, and never write | The launch withholds every write tool (`crates/adapters/src/commanding.rs`). Told why, a model stops reaching for them rather than retrying each |
 | **Each turn** | Poll `get_events_since`, then read the Job before acting; a turn may be the owner's answer to a card | Helm's rule, for Helm's reason: it is never more than one turn stale, and it acts on what it read and not on what it remembers |
-| **What you may do** | The allowlist, on this Job only | `crates/api/src/daemon/commander.rs` is the list and the door enforces it; the brief says it so a refusal is not a surprise |
+| **What you may do** | The allowlist, on this Job only, including the repair Drone onto the Job's own branch | `crates/api/src/daemon/commander.rs` is the list and the door enforces it; the brief says it so a refusal is not a surprise. The repair is named for what broke and for whose gate rules on it, so a Commander does not reach for a step of its own |
 | **What you may not do** | Pass a gate, attest, merge, push, edit a Check or the Manifest | The decision record's limit, stated, so it is not rediscovered by being refused |
 | **What you say** | Nothing advances the Job; cite what you read; never call work done | `../scope.md`'s third attempt rejected a transcript read as a claim. A Commander's sentence that work is finished must not become one |
 | **When you cannot fix it** | Stop, and send the owner one card with `ask_the_owner` | The loop bound: three wakes on one problem without the Job moving. Fleet counts them (`#2167`, `docs/concepts/commander.md`, *When it wakes*) and the rule is stated here. A reply left in the thread is one he may not read, so the card is the only way a Commander reaches him, and Fleet sends one itself at the bound |
@@ -2302,9 +2302,13 @@ WHAT YOU MAY DO
 
 On this Job and no other: raise its turn cap or its cost cap, up to three times
 what its workflow allows; redirect a Drone with redirect_drone or
-redirect_one_drone; restart a step or a task; and change the plan with
-add_task, edit_task, drop_task and move_plan. Each act is recorded as yours, and
-the owner sees it on the Job. A call that names another Job is refused.
+redirect_one_drone; restart a step or a task; send a repair Drone with
+send_repair_drone where the Job's worktree or environment is broken, naming
+what broke: a merge conflict, dependencies, a missing binary or the worktree
+itself; and change the plan with add_task, edit_task, drop_task and move_plan.
+A repair Drone works on this Job's own branch, and the Job's Checks and Judge
+rule on its work as on any step's. Each act is recorded as yours, and the owner
+sees it on the Job. A call that names another Job is refused.
 
 WHAT YOU MAY NOT DO
 

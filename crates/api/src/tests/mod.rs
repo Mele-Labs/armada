@@ -14,6 +14,7 @@
 mod callers;
 mod commander_card;
 mod commander_reach;
+mod commander_repair;
 mod commander_scope;
 mod conversing;
 mod door;

@@ -11,7 +11,7 @@
 //! |---|---|---|
 //! | A reason to wake it | [`Fleet::wake_commander`] | `crate::commanding_wakes` (`#2167`), which decides when |
 //! | A card that outlives a turn | `Fleet::commander_card_raised` | `commander_card.rs` (`#2166`) |
-//! | A repair Drone | none | `#2170` |
+//! | A repair Drone | `Fleet::repair_sent` | `crate::job_repair` (`#2170`) |
 
 use std::sync::{Arc, Mutex};
 

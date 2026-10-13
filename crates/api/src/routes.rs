@@ -677,6 +677,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::conversing::ask_the_owner::<D>),
         )
         .route(
+            "/jobs/:job_id/commander/repair",
+            post(crate::conversing::send_repair_drone::<D>),
+        )
+        .route(
             "/jobs/:job_id/commander/card/answer",
             post(crate::conversing::answer_commander_card::<D>),
         )
