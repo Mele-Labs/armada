@@ -230,6 +230,11 @@ export type JobSummary = {
   alert?: JobAlert;
   /** Each bay the job has held, oldest first. Absent is none, or a job from before Fleet kept them. */
   bays?: JobBay[];
+  /**
+   * When somebody last told this job's Drone something or restarted a step, RFC 3339. Fleet holds it in
+   * memory, so it is lost on a restart: read it as "told since X", never as a history. Absent is none.
+   */
+  last_told_at?: string;
 };
 
 /** One stretch of a job in one bay of its repository's pool. `crates/ipc/src/job.rs`. */

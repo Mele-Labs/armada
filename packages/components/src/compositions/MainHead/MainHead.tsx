@@ -44,6 +44,8 @@ export type MainRed = {
   testUrl?: string;
   /** Any other CI job that failed, each as the first is. Absent is the one. */
   also?: readonly { check: string; unmapped?: true; test?: string }[];
+  /** When main first read red, RFC 3339, kept while it stays red. Absent from a Fleet before it carried it. */
+  since?: string;
   /** The pull request that merged. Absent where the forge named none, as a direct push does not. */
   merge?: {
     number: number;
