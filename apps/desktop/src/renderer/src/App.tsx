@@ -17,7 +17,7 @@
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
+import { heldOfPicked, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, helmReplying, NO_CHIP, opened, screenOf } from "@armada/helm";
@@ -45,6 +45,7 @@ import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
+import { optionsFor } from "./dispatch-panel/reading";
 import { useHelmBox } from "./helm-box";
 import { useHelmRefs } from "./helm-refs";
 import { useThoughtRouting } from "./thought-routing";
@@ -530,6 +531,16 @@ export function App({ draft }: AppProps = {}) {
   const all = pickedRepository === null && repositories.length > 0;
   // The Board's Jobs follow the pick. The status bar, the palette and held worktrees read every Job.
   const boardJobs = useMemo(() => ofPicked(state.jobs, pickedRepository), [state.jobs, pickedRepository]);
+  // On All, New Session asks which repository: a session starts in one, and guessing would put it somewhere unseen.
+  const startIn = useMemo(
+    () => (pickedRepository === null ? optionsFor(repositories, []).map(({ root, name }) => ({ root, name })) : undefined),
+    [pickedRepository, repositories],
+  );
+  // Worktree Slots follow the pick too. A pause's confirm still reads every worktree it could hold.
+  const pickedHeld = useMemo(
+    () => (state.held.state === "read" ? { ...state.held, held: heldOfPicked(state.held.held, pickedRepository, state.jobs) } : state.held),
+    [state.held, pickedRepository, state.jobs],
+  );
   // Where the person is, for Helm — #1075. `cursorRowFor` picks the Board's
   // or Overview's row by which screen is showing, so neither's stale row
   // reaches an ask made on the other.
@@ -889,7 +900,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => void commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : sessioning ? (<><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} />{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
+            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => void commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : sessioning ? (<><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} {...(startIn === undefined ? {} : { startIn })} />{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -898,7 +909,7 @@ export function App({ draft }: AppProps = {}) {
                  this is where the rest is given back, one tile at a time. */
               <Boundary region="Cleanup" {...guarded}>
                 <Worktrees
-                  held={state.held}
+                  held={pickedHeld}
                   // Read for the handle that names a worktree outside the
                   // pool, and a `depended_on` reason's blocker.
                   jobs={state.jobs}

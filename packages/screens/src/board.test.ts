@@ -16,8 +16,10 @@ import {
   BOARD_COLUMNS,
   columnsFor,
   DEFAULT_SORT,
+  heldOfPicked,
   ofPicked,
   sectionOf,
+  sessionsOfPicked,
   sectionsOf,
   needsYou,
   sorted,
@@ -27,7 +29,7 @@ import {
   TASKS_COLUMN,
 } from "./board";
 
-import type { JobSummary } from "@armada/protocol";
+import type { JobSummary, SessionRecord, WorktreeHeld, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 
 /** A row with everything the Board reads, and nothing it does not. */
 function job(over: Partial<JobSummary> = {}): JobSummary {
@@ -72,6 +74,36 @@ describe("which Jobs the Board lists", () => {
   it("lists every Job when Fleet has listed no repository to pick", () => {
     expect(ofPicked([], null)).toEqual([]);
     expect(ofPicked([ours], null)).toEqual([ours]);
+  });
+});
+
+describe("which Sessions and held worktrees the pick lists", () => {
+  const session = (id: string, manifest_id?: string) => ({ id, ...(manifest_id === undefined ? {} : { manifest_id }) }) as unknown as SessionRecord;
+  const ours = session("ours", "armada");
+  const theirs = session("theirs", "ynap");
+  const loose = session("loose");
+  const armada = { manifest: { id: "armada" } };
+
+  it("lists only the picked repository's Sessions, and every one on All", () => {
+    expect(sessionsOfPicked([ours, theirs, loose], armada)).toEqual([ours]);
+    expect(sessionsOfPicked([ours, theirs, loose], null)).toEqual([ours, theirs, loose]);
+  });
+
+  it("lists no Session for a picked repository that has no Manifest yet", () => {
+    expect(sessionsOfPicked([ours, loose], {})).toEqual([]);
+  });
+
+  const slot = (manifest_id: string, n: number) => ({ manifest_id, slot: n }) as unknown as WorktreeSlot;
+  const worktree = (job_id: string) => ({ job_id }) as unknown as WorktreeHeld;
+  const jobs = [job({ id: "j-ours", owner_manifest_id: "armada" }), job({ id: "j-theirs", owner_manifest_id: "ynap" })];
+  const held: WorktreesHeld = { worktrees: [worktree("j-ours"), worktree("j-theirs"), worktree("j-gone")], slots: [slot("armada", 1), slot("ynap", 2)] };
+
+  it("keeps the picked repository's slots, and the worktrees of its Jobs", () => {
+    expect(heldOfPicked(held, armada, jobs)).toEqual({ worktrees: [worktree("j-ours")], slots: [slot("armada", 1)] });
+  });
+
+  it("keeps everything on All, a worktree whose Job is no longer listed included", () => {
+    expect(heldOfPicked(held, null, jobs)).toBe(held);
   });
 });
 
