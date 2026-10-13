@@ -26,6 +26,7 @@ import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type 
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "@armada/screens/src/facts";
 import type { HeldCommand } from "./drone-held";
+import { inOneColumn } from "./card-width";
 import { askNodeId, withAsk } from "./held-card";
 import { frozenBeneath } from "@armada/screens/src/frozen";
 import { plural } from "./plan-canvas";
@@ -306,7 +307,9 @@ export function workflowRunOf({
 
   const at = whole.job.current_step_id;
   const running = at !== undefined && steps.some((step) => step.step_id === at) ? stepNodeId(at) : null;
-  const asked = withAsk(nodes, edges, held === undefined ? undefined : stepNodeId(held.stepId), held);
+  // Every step as wide as the widest name, so the spine stays one column.
+  const column = inOneColumn(nodes);
+  const asked = withAsk(column, edges, held === undefined ? undefined : stepNodeId(held.stepId), held);
   const hosted = held !== undefined && asked.nodes.length > nodes.length ? stepNodeId(held.stepId) : undefined;
   const reading = opensOn(steps, at);
   // The held step and its card, so a fit that cannot show the run opens on the prompt.

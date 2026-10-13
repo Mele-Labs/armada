@@ -26,6 +26,7 @@ import { SHELL_UNSEEN } from "./plan-board";
 import { awaitingSaid } from "./tab-plan-read";
 import type { TaskState, TaskView } from "./draft/task";
 import type { HeldCommand } from "./drone-held";
+import { inOneColumn } from "./card-width";
 import { askNodeId, withAsk } from "./held-card";
 
 /**
@@ -239,7 +240,11 @@ export function planGraphOf({
     down = Math.max(down + GROUP_APART, under + AFTER_GROUP);
   }
 
-  const asked = withAsk(nodes, edges, held?.taskId === undefined ? undefined : taskNodeId(held.taskId), held);
+  // Every task as wide as the widest title, so the tasks stay one column.
+  const tasks = inOneColumn(nodes.filter((node) => node.card.kind === "task"));
+  const widened = new Map(tasks.map((node) => [node.id, node]));
+  const fitted = nodes.map((node) => widened.get(node.id) ?? node);
+  const asked = withAsk(fitted, edges, held?.taskId === undefined ? undefined : taskNodeId(held.taskId), held);
   const around = held?.taskId === undefined || asked.nodes.length === nodes.length ? undefined : taskNodeId(held.taskId);
   const groupIds = groups.map((group) => groupNodeId(group.id));
   // A held task's card and the one beside it are what a fit that cannot show the

@@ -53,6 +53,22 @@
   -webkit-line-clamp: 2;
 }
 
+/* A card whose layout worked its width out (`width`) has room for the whole
+   name, so a task's takes one line: the two-line clamp above is for a card
+   held to its token width. The head is still one fixed row, so the box does
+   not change with its words. */
+.armada-wf-card[data-kind="task"][data-fit] .armada-wf-card__head {
+  align-items: center;
+  height: var(--leading-sm);
+}
+
+.armada-wf-card[data-kind="task"][data-fit] .armada-wf-card__name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* The step the Job is on. An edge rather than a fill: the fill is what a
    verdict uses, and a position is not an outcome. */
 .armada-wf-card[data-current] {
