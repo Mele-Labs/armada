@@ -7,7 +7,8 @@ import type { MergeLine } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { Scenario } from "../moment";
-import { appended, carriedBy, s210RouteAThought } from "./route-a-thought";
+import { appended, carriedBy } from "../helm-carry";
+import { s210RouteAThought } from "./route-a-thought";
 
 /** Helm's reply, in the facts of the two pull requests the walk tags and nothing past them. */
 const REPLY = [
