@@ -3,12 +3,12 @@
 // A stop opens its card on hover or focus and keeps it open when pressed; a line's title selects its
 // work as the grid and the map do. What moves is what is still working: nothing here does.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Plane } from "lucide-react";
-import { Button, ClashMark, StopCard } from "@armada/components";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { LoaderCircle, Plane } from "lucide-react";
+import { Button, ClashMark, StopCard, Tooltip } from "@armada/components";
 
 import type { BaysRead } from "./bays";
-import { MAIN, STATIONS, metroOf, type Act, type Card, type Line, type Metro, type Tone } from "./metro";
+import { MAIN, REVIEW, STATIONS, metroOf, type Act, type Card, type Line, type LineHolder, type Metro, type Tone } from "./metro";
 
 const TONE: Record<Tone, string> = {
   run: "var(--status-running)",
@@ -50,8 +50,37 @@ function AutopilotKey() {
 /** What an Autopilot that is on adds: its marks on the lines, and its sidings under them (`AutopilotSidings.tsx`). */
 export type BaysAutopilot = { mark: (metro: Metro) => Metro; sidings: ReactNode };
 
-function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false }: {
+/** Whose work the pull requests under it are: the Job or Session, its live state as its tile draws it, and a press opens it. */
+function Holder({ holder, onOpen }: { holder: LineHolder; onOpen: (act: Act) => void }) {
+  const alive = holder.item?.live === true && holder.item.settling !== true;
+  const spins = holder.item?.mark === undefined && alive;
+  const State = holder.item === undefined ? undefined : (holder.item.mark ?? (spins ? LoaderCircle : holder.item.icon));
+  const said = holder.item === undefined ? undefined : (holder.item.state ?? (holder.item.hue === "ask" ? "Waiting on you" : holder.item.kind));
+  return (
+    <li className="armada-metro__row" data-holder data-wants={holder.tone === "ask" ? "you" : undefined} style={{ ["--line" as string]: TONE[holder.tone] } as CSSProperties}>
+      <button type="button" className="armada-metro__who" aria-label={`${holder.kind === "job" ? "Job" : "Session"}: ${holder.title}`} data-opens="" onClick={() => onOpen(holder.open)}>
+        <span className="armada-metro__bay">
+          {State === undefined || said === undefined ? null : (
+            <Tooltip label={said}>
+              <span role="img" aria-label={said} className="armada-metro__state" data-spin={spins || undefined} data-live={(!spins && alive) || undefined}>
+                <State size={14} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+        <span className="armada-metro__mark" data-session={holder.kind === "session" || undefined} />
+        <Tooltip label={holder.open.label}>
+          <span className="armada-metro__title">{holder.title}</span>
+        </Tooltip>
+      </button>
+    </li>
+  );
+}
+
+function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, nextUp = false }: {
   line: Line;
+  /** The stations drawn, each with its place on the line: Review only while some line has one. */
+  stations: readonly (readonly [string, number])[];
   selected: boolean;
   onSelect: () => void;
   onOpen: (act: Act) => void;
@@ -60,22 +89,34 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
   nextUp?: boolean;
 }) {
   return (
-    <li className="armada-metro__row" data-wants={line.wants} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
+    <li className="armada-metro__row" data-wants={line.wants} data-owned={line.holder === undefined ? undefined : ""} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
       <span className="armada-metro__cell">
       <button type="button" className="armada-metro__who" aria-label={line.from !== undefined ? `Pull request: ${line.title}` : line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
-        title={line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
+        title={line.pull !== undefined ? undefined : line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
         data-opens={line.open === undefined ? undefined : ""}
         onClick={() => {
           onSelect();
           if (line.open !== undefined) onOpen(line.open);
         }}
       >
-        <span className="armada-metro__bay">{line.bay === undefined ? "—" : two(line.bay)}</span>
-        <span className="armada-metro__mark" data-session={line.session || undefined} />
+        <span className="armada-metro__bay" data-pull={line.pull === undefined ? undefined : ""}>{line.pull !== undefined ? `#${line.pull.number}` : line.bay === undefined ? "—" : two(line.bay)}</span>
+        {line.pull === undefined ? (
+          <span className="armada-metro__mark" data-session={line.session || undefined} />
+        ) : (
+          <Tooltip label={line.pull.ci}>
+            <span className="armada-metro__mark" role="img" aria-label={line.pull.ci} />
+          </Tooltip>
+        )}
         {line.autopilot === true ? <Plane className="armada-metro__autopilot" size={12} aria-label="Picked by Autopilot" /> : null}
-        <span className="armada-metro__title" title={line.title}>
-          {line.title}
-        </span>
+        {line.pull === undefined || line.open === undefined ? (
+          <span className="armada-metro__title" title={line.title}>
+            {line.title}
+          </span>
+        ) : (
+          <Tooltip label={`Open ${line.pull.said}`}>
+            <span className="armada-metro__title">{line.title}</span>
+          </Tooltip>
+        )}
       </button>
       {line.open?.kind === "job" || line.open?.kind === "session" ? <ClashMark kind={line.open.kind} id={line.open.id} /> : null}
       </span>
@@ -88,7 +129,7 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
           )}
         </span>
       )}
-      {STATIONS.map((station, at) => {
+      {stations.map(([station, at]) => {
         const stop = line.stops[at];
         // Before the station a line starts at, it has no track: a pull request opened outside a bay was never in one.
         const state = at < (line.from ?? 0) ? "none" : at < line.reach ? "past" : at === line.reach ? "now" : "ahead";
@@ -102,6 +143,7 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
                 type="button"
                 className="armada-metro__stop"
                 data-session={line.session && at > 0 ? "" : undefined}
+                data-dashed={stop.dashed === true ? "" : undefined}
                 aria-label={`${line.title}: ${station}, ${stop.card.pill}`}
                 style={{ ["--tone" as string]: TONE[stop.tone], ["--p" as string]: stop.progress ?? 100 } as CSSProperties}
                 onMouseEnter={(event) => onCard(id, stop.card, station, event.currentTarget, false)}
@@ -135,6 +177,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
 }) {
   const metro = useMemo(() => (autopilot === undefined ? metroOf(read, now) : autopilot.mark(metroOf(read, now))), [read, now, autopilot]);
   const nextUp = autopilot !== undefined;
+  const stations = STATIONS.map((station, at): readonly [string, number] => [station, at]).filter(([, at]) => at !== REVIEW || metro.review);
   const host = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<Open>();
 
@@ -197,11 +240,11 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
   }
   const named = metro.harbours.length > 1;
   return (
-    <div ref={host} className="armada-metro" data-next-up={nextUp || undefined} onMouseLeave={leave}>
+    <div ref={host} className="armada-metro" data-next-up={nextUp || undefined} style={{ ["--stations" as string]: stations.length + (nextUp ? 1 : 0) } as CSSProperties} onMouseLeave={leave}>
       <div className="armada-metro__head" role="presentation">
         <span className="armada-metro__label">Work</span>
         {nextUp ? <span className="armada-metro__station-name" data-next-up>Next up</span> : null}
-        {STATIONS.map((station, at) => (
+        {stations.map(([station, at]) => (
           <span key={station} className="armada-metro__station-name">
             {station}
             <span className="armada-metro__counts">
@@ -223,7 +266,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol key={harbour.manifest} className="armada-metro__block" aria-label={named ? `${harbour.name} bays` : "Bays"}>
             {named ? <li className="armada-metro__part">{harbour.name}</li> : null}
             {harbour.lines.map((line) => (
-              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
+              <Row key={line.key} line={line} stations={stations} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
             ))}
           </ol>
         ))}
@@ -231,9 +274,15 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           harbour.outside.length === 0 ? null : (
             <ol key={`${harbour.manifest}:outside`} className="armada-metro__block" aria-label={named ? `${harbour.name} pull requests outside a bay` : "Pull requests outside a bay"}>
               <li className="armada-metro__part">{named ? `${harbour.name}: pull requests outside a bay` : "Pull requests outside a bay"}</li>
-              {harbour.outside.map((line) => (
-                <Row key={line.key} line={line} nextUp={nextUp} selected={false} onSelect={() => undefined} onOpen={act} onCard={onCard} onLeave={leave} />
-              ))}
+              {harbour.outside.map((line, at) => {
+                const before = harbour.outside[at - 1]?.holder;
+                return (
+                  <Fragment key={line.key}>
+                    {line.holder === undefined || (before?.kind === line.holder.kind && before.id === line.holder.id) ? null : <Holder holder={line.holder} onOpen={act} />}
+                    <Row line={line} stations={stations} nextUp={nextUp} selected={false} onSelect={() => undefined} onOpen={act} onCard={onCard} onLeave={leave} />
+                  </Fragment>
+                );
+              })}
             </ol>
           ),
         )}
@@ -241,7 +290,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol className="armada-metro__block" aria-label="Picked by Autopilot, not started">
             <li className="armada-metro__part">Picked by Autopilot, not started</li>
             {metro.nextUp!.map((line) => (
-              <Row key={line.key} line={line} nextUp selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
+              <Row key={line.key} line={line} stations={stations} nextUp selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
             ))}
           </ol>
         )}
@@ -249,7 +298,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol className="armada-metro__block" aria-label="Waiting for a bay">
             <li className="armada-metro__part">Waiting for a bay</li>
             {metro.waiting.map((line) => (
-              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
+              <Row key={line.key} line={line} stations={stations} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
             ))}
           </ol>
         )}

@@ -7,6 +7,10 @@
 //! `hearing::moved_into` then resumes the session with the slot as its
 //! directory. **A line the hook cannot read as a read is a write**, so a shell
 //! line it does not know leases a slot rather than touching the checkout.
+//!
+//! **A full pool queues the session** (`queueing`) rather than telling it to try
+//! again: it is denied, told its place and told to stop, and Fleet leases and moves
+//! it when a slot frees.
 
 use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec};
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
@@ -69,6 +73,10 @@ where
         // The pool is read here, so the ledger's slot is the pool's before it decides.
         let hosting = self.follow_the_pool(&id, &served, hosting).await;
         let own = hosting.lease_slot;
+        // A slot it came by some other way ends its wait.
+        if own.is_some() {
+            self.hosts().slot_queue().leave(&id);
+        }
         let directory = Self::directory_of(&served, &hosting);
         let held = |slot: u32| {
             own == Some(slot)
@@ -109,7 +117,7 @@ where
                 if own.is_none() {
                     return self.leased(&id, &served).await;
                 }
-                let hit = written_by(&command)
+                let hit = written_by(&command, &gate.cwd)
                     .into_iter()
                     .find_map(|path| match lands(&path) {
                         Place::Main => Some(format!(
@@ -150,20 +158,65 @@ where
         answer
     }
 
-    /// Lease a slot for the session and cut its branch. **One at a time**, so
-    /// two writes in one turn lease one slot.
+    /// A first write into the checkout. **Behind everyone already waiting**, so a slot
+    /// freed between two of them is not taken by the newer. When the pool is full the
+    /// session is queued, and `queueing` leases it a slot when one frees.
     async fn leased(&self, id: &str, served: &Served) -> GateAnswer {
+        let queue = self.hosts().slot_queue();
+        let manifest = served.manifest().id().as_str();
+        let taken = match queue.ahead_of(manifest, id) {
+            0 => self.take_lease(id, served).await,
+            _ => Taken::Full,
+        };
+        match taken {
+            Taken::Gone => GateAnswer::pass(),
+            Taken::Held { slot, directory } => {
+                queue.leave(id);
+                GateAnswer::deny(waiting_to_move(slot, &directory))
+            }
+            Taken::Refused(why) => GateAnswer::deny(why),
+            Taken::Full => {
+                let ahead = queue.join(manifest, id);
+                // A slot may have been given back between the lease and the join.
+                queue.freed();
+                GateAnswer::deny(queued(ahead))
+            }
+            Taken::Moving(moving) => {
+                queue.leave(id);
+                GateAnswer::deny(format!(
+                    "This session writes only inside a worktree leased for it, and it had none \
+                     until this write. Slot {} is leased on branch {} at {}, and Fleet is \
+                     moving the session there now. Stop here: make no more tool calls and write \
+                     nothing more this turn. You will be told when you are in the slot, and then \
+                     repeat this write there.",
+                    moving.slot, moving.branch, moving.directory
+                ))
+            }
+        }
+    }
+
+    /// Lease a slot for the session and cut its branch. **One at a time**, so
+    /// two writes in one turn lease one slot. Shared by the gate and by the grant
+    /// that serves a queued session, which is why it answers a verdict and not a
+    /// [`GateAnswer`].
+    pub(super) async fn take_lease(&self, id: &str, served: &Served) -> Taken {
         let runtime = self.hosts().of(id);
         let _one_at_a_time = runtime.lease.lock().await;
         let Ok((session, mut hosting)) = self.session_and_hosting(id).await else {
-            return GateAnswer::pass();
+            return Taken::Gone;
         };
+        if session.state == store::SessionState::Ended {
+            return Taken::Gone;
+        }
         if let Some(slot) = hosting.lease_slot {
-            return GateAnswer::deny(waiting_to_move(slot, &Self::directory_of(served, &hosting)));
+            return Taken::Held {
+                slot,
+                directory: Self::directory_of(served, &hosting),
+            };
         }
         let spec = match WorktreeSpec::for_job(served.root(), &format!("session-{}", &id[..8])) {
             Ok(spec) => spec,
-            Err(why) => return GateAnswer::deny(format!("no slot could be named: {why:?}")),
+            Err(why) => return Taken::Refused(format!("no slot could be named: {why:?}")),
         };
         let pool = crate::leasing::pool_of(served);
         let (slot, directory, branch) =
@@ -173,12 +226,9 @@ where
                     worktree.path().to_string(),
                     worktree.branch().to_string(),
                 ),
-                Ok(SlotLeased::Full) => return GateAnswer::deny(
-                    "Every worktree slot is in use, so this session cannot write yet. Tell the \
-                     person, and try again once one is free.",
-                ),
+                Ok(SlotLeased::Full) => return Taken::Full,
                 Err(why) => {
-                    return GateAnswer::deny(format!(
+                    return Taken::Refused(format!(
                         "A slot could not be leased for this write: {why}"
                     ))
                 }
@@ -212,30 +262,39 @@ where
             let _ = store.keep_session(&row);
         }
         self.session_slot(id, titled, Some(hosting.manifest_id.clone()), slot, true);
-        runtime.state().moving = Some(Move {
+        let moving = Move {
             slot,
             branch: branch.clone(),
-            directory: directory.clone(),
-        });
+            directory,
+        };
+        runtime.state().moving = Some(moving.clone());
         self.row_put(
             id,
             SessionRow::Lease {
                 id: self.row_id(id),
                 at: self.instant(),
                 slot,
-                branch: branch.clone(),
+                branch,
             },
         )
         .await;
         let _ = self.published_hosted(id).await;
-        GateAnswer::deny(format!(
-            "This session writes only inside a worktree leased for it, and it had none until \
-             this write. Slot {slot} is leased on branch {branch} at {directory}, and Fleet is \
-             moving the session there now. Stop here: make no more tool calls and write nothing \
-             more this turn. You will be told when you are in the slot, and then repeat this \
-             write there."
-        ))
+        Taken::Moving(moving)
     }
+}
+
+/// What taking a session's lease came to.
+pub(super) enum Taken {
+    /// Leased now, and `Runtime::moving` says the session is to be moved into it.
+    Moving(Move),
+    /// It held a slot already.
+    Held { slot: u32, directory: String },
+    /// Every slot is held.
+    Full,
+    /// The pool would not lease, and why.
+    Refused(String),
+    /// The session is ended or unreadable, and has no use for a slot.
+    Gone,
 }
 
 fn not_held(path: &str, slot: u32) -> String {
@@ -243,6 +302,19 @@ fn not_held(path: &str, slot: u32) -> String {
         "{path} is in slot {slot}, which is not leased by this session or by anything it \
          started. Lease a slot for it with `armada worktree lease <branch>`, or write in the \
          slot this session already holds."
+    )
+}
+
+fn queued(ahead: usize) -> String {
+    let place = match ahead {
+        0 => String::from("first in the queue"),
+        n => format!("{n} ahead of it in the queue"),
+    };
+    format!(
+        "Every worktree slot is in use, so this session cannot write yet. It is {place} for \
+         one. Stop here: make no more tool calls and write nothing more this turn. Fleet leases \
+         a slot for it when one frees, moves the session there and tells it, and then it repeats \
+         this write."
     )
 }
 

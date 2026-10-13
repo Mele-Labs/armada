@@ -34,4 +34,7 @@ pub struct PullRequestFacts {
     pub title: String,
     /// Where it is, as the forge prints it.
     pub url: String,
+    /// What its author wrote in its description. **Absent where there is none**,
+    /// and where it is only blank space.
+    pub body: Option<String>,
 }

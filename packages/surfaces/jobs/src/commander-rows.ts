@@ -3,11 +3,12 @@
 // name its tooltip says, and the one line of facts it leaves in the thread.
 //
 // **Only what the wire says.** A row is the session's own: a call carries its tool and one line of
-// argument, so an act's row names the act and no figure, and the plan's own marks say which task it
-// touched. A call is an `act` row where it is one of the three the owner has seen drawn as one, and
-// a quiet `tool` row otherwise; nothing it said or did is read as more than that.
+// argument, which for an act is the figure it was taken on (a cap, a task, what broke). An act's row
+// states that figure and nothing the call did not carry, so no old value; one with no figure reads as
+// the act alone. A call is an `act` row where it is one of the acts below, and a quiet `tool` row
+// otherwise; nothing it said or did is read as more than that.
 
-import { ArrowUpToLine, RotateCw } from "lucide-react";
+import { ArrowUpDown, ArrowUpToLine, Pencil, Plus, RotateCw, Trash2, Wrench } from "lucide-react";
 import type { SessionThreadRow } from "@armada/components";
 import type { CommanderState } from "@armada/components";
 import type { CommanderThread, CommanderThreadItem, JobDetail } from "@armada/protocol";
@@ -16,10 +17,16 @@ import { clock } from "@armada/screens/src/duration";
 /** A tool as its session names it, `mcp__<server>__raise_turn_cap`, without the server. */
 const bare = (tool: string): string => tool.replace(/^mcp__.*?__/, "");
 
-const ACTS: Readonly<Record<string, { icon: typeof RotateCw; said: string; text: string }>> = {
-  raise_turn_cap: { icon: ArrowUpToLine, said: "Raised cap", text: "Turn cap" },
-  raise_cost_cap: { icon: ArrowUpToLine, said: "Raised cap", text: "Cost cap" },
-  restart_task: { icon: RotateCw, said: "Restarted task", text: "Task restarted" },
+/** An act's row: its glyph, the name its tooltip says, its line alone, and its line given the figure the call carried. */
+const ACTS: Readonly<Record<string, { icon: typeof RotateCw; said: string; alone: string; of: (figure: string) => string }>> = {
+  raise_turn_cap: { icon: ArrowUpToLine, said: "Raised cap", alone: "Turn cap", of: (figure) => `Turn cap ${figure}` },
+  raise_cost_cap: { icon: ArrowUpToLine, said: "Raised cap", alone: "Cost cap", of: (figure) => `Cost cap ${figure}` },
+  restart_task: { icon: RotateCw, said: "Restarted task", alone: "Task restarted", of: (figure) => `${figure} restarted` },
+  edit_task: { icon: Pencil, said: "Edited task", alone: "Task edited", of: (figure) => `${figure} edited` },
+  add_task: { icon: Plus, said: "Added task", alone: "Task added", of: (figure) => `Added ${figure}` },
+  drop_task: { icon: Trash2, said: "Dropped task", alone: "Task dropped", of: (figure) => `${figure} dropped` },
+  move_plan: { icon: ArrowUpDown, said: "Moved in plan", alone: "Plan moved", of: (figure) => `Moved ${figure}` },
+  send_repair_drone: { icon: Wrench, said: "Sent repair Drone", alone: "Repair", of: (figure) => `Repair: ${figure}` },
 };
 
 /**
@@ -47,9 +54,10 @@ export function commanderThreadOf(items: readonly CommanderThreadItem[], jobId: 
         if (saw.event === "said") return item.turn.by === "drone" ? [{ id: item.id, at, kind: "message", from: "agent", text: saw.text }] : [];
         if (saw.event !== "called") return [];
         const name = bare(saw.tool);
-        const act = ACTS[name];
-        if (act !== undefined) return [{ id: item.id, at, kind: "act", ...act }];
+        // A call that sent no figure, or a row written before the figure was carried, holds the Job's own id.
         const detail = saw.detail === jobId ? "" : saw.detail;
+        const act = ACTS[name];
+        if (act !== undefined) return [{ id: item.id, at, kind: "act", icon: act.icon, said: act.said, text: detail === "" ? act.alone : act.of(detail) }];
         return [{ id: item.id, at, kind: "tool", text: `${name} ${detail}`.trim() }];
       }
     }

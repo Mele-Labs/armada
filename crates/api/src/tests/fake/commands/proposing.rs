@@ -106,6 +106,7 @@ impl FakeDaemon {
             fixes_main: None,
             piloted: None,
             alert: None,
+            bays: Vec::new(),
         };
         self.jobs.lock().expect("not poisoned").push(job.clone());
         self.proposed_by.lock().expect("not poisoned").push(by);

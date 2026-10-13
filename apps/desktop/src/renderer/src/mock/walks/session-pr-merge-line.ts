@@ -1,6 +1,6 @@
 // A Session's pull request panel shows the line the pull request is in: the pull requests in the
 // merge queue in order, each opening its own address, this one marked and its place the leading
-// figure. #1849, in no queue, draws nothing. Over the `session-merge-line` scenario. Told twice:
+// figure, on a plate beside the panel. #1849, in no queue, draws nothing. Over the `session-merge-line` scenario. Told twice:
 // wide, and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
@@ -11,7 +11,7 @@ function steps(narrow: boolean): Step[] {
   const { sheet, close, row } = kit(narrow);
   const sessions = region("Sessions");
   const card = sheet("Pull request #1850");
-  const queue = inside(card, role("list", "Merge queue"));
+  const queue = role("list", "Merge queue");
   const ahead = inside(queue, role("listitem", /^Cap the log reader's buffer/));
   const mine = inside(queue, role("listitem", /^Record each migration once/));
   return [

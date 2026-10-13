@@ -243,11 +243,11 @@ export function TitleBar({
               size="sm"
               iconOnly
               aria-label="Sleep mode"
-              title="Sleep mode"
+              title={sleep.on ? "Sleep mode on" : "Sleep mode off"}
               aria-pressed={sleep.on}
               onClick={sleep.onToggle}
             >
-              <Moon size={16} strokeWidth={2} aria-hidden />
+              <Moon size={16} strokeWidth={2} fill={sleep.on ? "currentColor" : "none"} aria-hidden />
             </Button>
           </div>
         )}

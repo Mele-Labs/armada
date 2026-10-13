@@ -332,6 +332,18 @@
   margin-right: 0;
 }
 
+/* Plates off the leading edge: the handle's own width is the gap to the sheet, so they are
+   pushed to it the way the handle is pushed to the sheet. Held off the top and bottom as a
+   floating sheet is, and they scroll before they run past the area. */
+.armada-sheet-scrim > .armada-sheet__aside {
+  flex: none;
+  align-self: flex-start;
+  min-height: 0;
+  max-height: calc(100% - 2 * var(--space-4));
+  margin: var(--space-4) 0 var(--space-4) auto;
+  overflow-y: auto;
+}
+
 /* Beside another floating sheet: the file diff to the left of Plan's task
    panel. **One dim, not two** — the sheet it sits beside already dims the
    screen and takes the presses, so this scrim paints nothing, takes nothing,

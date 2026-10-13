@@ -12,6 +12,16 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
+/** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
+export type SessionTrail = {
+  /** `SessionRecord.started_at`. */
+  started: string;
+  /** The slots it held, oldest first: a `slot` attachment's `since` and, once given back, `changed_at`. */
+  bays?: readonly { slot: number; from: string; until?: string }[];
+  /** When each pull request was recorded, by number: a `pr` attachment's `since`. */
+  opened?: Readonly<Record<number, string>>;
+};
+
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
@@ -24,6 +34,8 @@ export type SessionAttachment =
       title: string;
       branch: string;
       address: string;
+      /** What its author wrote of it, as Markdown. Absent where there is none. */
+      body?: string;
       checks: SessionChecks;
       /** A draft is not ready for review; a merged one has landed. */
       state: SessionPullRequestState;
@@ -120,6 +132,8 @@ export type SessionRow =
       id: string;
       at: string;
       kind: "message";
+      /** The instant `at` is the clock of, where the wire gave one. A mock's carries none. */
+      instant?: string;
       from: SessionVoice;
       text: string;
       /** What the person sent with it. */
@@ -193,6 +207,11 @@ export type Session = {
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];
+  /**
+   * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
+   * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
+   */
+  trail?: SessionTrail;
   rows: readonly SessionRow[];
   turn: SessionTurn;
   /** When the last turn ended, already worded. Absent on a Session that has not had one. */

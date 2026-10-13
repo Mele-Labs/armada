@@ -367,13 +367,20 @@ function FitsTheFrame({
       void flow.fitView(options);
       return;
     }
-    const bounds = getNodesBounds(found);
-    void flow.setViewport({
-      x: centred
-        ? (width - bounds.width * SMALLEST_READABLE) / 2 - bounds.x * SMALLEST_READABLE
-        : INSET - bounds.x * SMALLEST_READABLE,
-      y: INSET - bounds.y * SMALLEST_READABLE,
-      zoom: SMALLEST_READABLE,
+    // **After the open's own fit, and on measured cards.** React Flow fits the
+    // whole run when its nodes are first measured, and that lands after this
+    // effect: a viewport set here at once is fitted over, and a plan too tall
+    // for its frame opened centred on the run with its first group above the
+    // edge. The fit's promise settles once the cards are measured and placed.
+    void flow.fitView({ ...options, nodes: found, duration: 0 }).then(() => {
+      const bounds = getNodesBounds(found.map((one) => flow.getNode(one.id) ?? one));
+      void flow.setViewport({
+        x: centred
+          ? (width - bounds.width * SMALLEST_READABLE) / 2 - bounds.x * SMALLEST_READABLE
+          : INSET - bounds.x * SMALLEST_READABLE,
+        y: INSET - bounds.y * SMALLEST_READABLE,
+        zoom: SMALLEST_READABLE,
+      });
     });
   }, [flow, following, options, opens, width, height, hangsFromTop, centred]);
   return null;

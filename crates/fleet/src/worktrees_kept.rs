@@ -255,6 +255,8 @@ where
     /// a keeper is serving, so the surface that pressed the act and reads the
     /// list is not shown the list from before it.
     pub(crate) async fn worktrees_changed(&self) {
+        // A rescue or a reclaim gives a slot back without passing the Job's ledger.
+        self.hosts().slot_freed();
         self.worktrees_memory().changed();
         if self.worktrees_memory().serving() {
             // A read that fails leaves the snapshot behind, and the keeper tries again.

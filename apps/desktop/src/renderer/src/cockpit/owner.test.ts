@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { mainOwner, pullOwner } from "./owner";
+import { mainOwner, pullOwner, workOwner } from "./owner";
 
 type Views = Parameters<typeof pullOwner>[0];
 type Sessions = Parameters<typeof pullOwner>[1];
@@ -53,5 +53,39 @@ describe("who owns main's red", () => {
     expect(mainOwner(views([], red({ number: 1815, branch: "nick/theme", url: "u" })), [], "/armada")).toBeUndefined();
     expect(mainOwner(views([], red()), [], "/armada")).toBeUndefined();
     expect(mainOwner(views([], { state: "green" }), [], "/armada")).toBeUndefined();
+  });
+});
+
+describe("whose work a pull request is", () => {
+  const seen = views([{ number: 7, branch: "feat/seven" }]);
+  const jobs = [{ id: "j9", title: "Seven by branch", branch: "feat/seven" }];
+  const branched = (name: string) => ({ kind: "branch", name });
+
+  test("the Job the wire names comes first, before a Job on its branch or a Session that holds it", () => {
+    const named = views([{ number: 7, branch: "feat/seven", job: { id: "j1", title: "Named" } }]);
+    expect(workOwner(named, jobs, [session("s1", "S", [holds(7)])], 7, "feat/seven")).toEqual({ kind: "job", id: "j1", title: "Named" });
+  });
+
+  test("a Job on its branch comes before a Session that holds it", () => {
+    expect(workOwner(seen, jobs, [session("s1", "S", [holds(7)])], 7, "feat/seven")).toEqual({ kind: "job", id: "j9", title: "Seven by branch" });
+  });
+
+  test("a Session holds it by its number, its pull request's branch, or the branch it works on", () => {
+    expect(workOwner(seen, [], [session("s1", "S", [holds(7)])], 7, "feat/seven")?.id).toBe("s1");
+    expect(workOwner(seen, [], [session("s2", "S", [holds(0, "feat/seven")])], 7, "feat/seven")?.id).toBe("s2");
+    expect(workOwner(seen, [], [session("s3", "S", [branched("feat/seven")])], 7, "feat/seven")?.id).toBe("s3");
+  });
+
+  test("a live Session comes before one that ended, and an ended one still owns what no live one holds", () => {
+    const ended = { ...session("old", "Old", [holds(7)]), dead: "ended" } as unknown as Sessions[number];
+    const live = session("live", "Live", [branched("feat/seven")]);
+    expect(workOwner(seen, [], [ended, live], 7, "feat/seven")?.id).toBe("live");
+    expect(workOwner(seen, [], [ended], 7, "feat/seven")?.id).toBe("old");
+  });
+
+  test("a Session without a title is called by its id, and nobody owns a person's pull request", () => {
+    const blank = { id: "s5", attachments: [holds(7)], rows: [] } as unknown as Sessions[number];
+    expect(workOwner(seen, [], [blank], 7, "feat/seven")).toEqual({ kind: "session", id: "s5", title: "s5" });
+    expect(workOwner(seen, jobs, [session("s1", "S", [holds(8, "other")])], 7, "chore/by-hand")).toBeUndefined();
   });
 });

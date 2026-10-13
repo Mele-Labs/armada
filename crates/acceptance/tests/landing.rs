@@ -144,6 +144,7 @@ async fn the_job_holds_at_the_gate_with_its_pull_request_open() {
             pull_request_title: None,
             pull_request_comments: None,
             merged_at: None,
+            pull_request_opened_at: None,
         },
     ));
     assert_eq!(
@@ -194,6 +195,7 @@ async fn the_merge_is_an_answer_at_the_gate_and_not_a_recourse() {
             pull_request_title: None,
             pull_request_comments: None,
             merged_at: None,
+            pull_request_opened_at: None,
         },
     ));
     assert!(

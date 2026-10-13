@@ -282,7 +282,7 @@ export const SleepModeToggle: Story = {
   play: async ({ args, canvas, userEvent }) => {
     const moon = canvas.getByRole("button", { name: "Sleep mode" });
     await expect(moon).toHaveAttribute("aria-pressed", "false");
-    await expect(moon).toHaveAttribute("title", "Sleep mode");
+    await expect(moon).toHaveAttribute("title", "Sleep mode off");
     await userEvent.click(moon);
     await expect(args.sleep?.onToggle).toHaveBeenCalledTimes(1);
   },

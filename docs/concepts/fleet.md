@@ -441,6 +441,22 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **An owner is the Session whose `pr` row holds the pull request's number, else the Session holding its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
 
+### Telling sessions the build they now run
+
+**One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.
+
+| A live session in a served repository | Told |
+|---|---|
+| Holds a branch | The build, and for each branch whether it is in it |
+| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, as the answer to that wait, so it wakes once |
+| Neither | Nothing |
+
+**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
+
+**A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
+
+**Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, session). A session that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation. It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, working Drones are adopted at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
@@ -516,10 +532,10 @@ worktrees a repository leases* — until a person changes the pool on this machi
 
 | Act | What happens |
 |---|---|
-| Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
+| Lease | Takes the first free slot and points it at the branch. **A branch that exists here, or on `origin`, is checked out at its own tip and never moved**; a name nothing has is cut from the freshly fetched base with no upstream. Removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
 | Release | `armada worktree release` is refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
 | Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Refused on a checkout on no branch, on the base, on a branch the lease does not name, and while a take or release is under way. It answers with the commit and the paths it took |
-| Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist and for one another checkout already has, naming where. `armada worktree lease --existing <branch>` |
+| Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist here or on `origin`, and for one another checkout already has, naming where. A slot whose holder is gone and which is clean is taken back for its own branch; one holding uncommitted files is not. `armada worktree lease --existing <branch>` |
 | Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
 | Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, and also refuses commits on neither the remote nor the base, since it then deletes the branch; a Job that has not ended keeps its slot |
 | Add | One more slot, numbered lowest-unused and not made until a lease makes it |
@@ -534,17 +550,22 @@ and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
 release at a time. The holder is the first process above the command that is not a shell
 — an agent's session, or the terminal a person typed in — so a subshell or a
-pipeline between the two does not become the holder.
+pipeline between the two does not become the holder. **A session Fleet hosts is
+the exception**: Fleet ends and resumes its process when it moves slots, so
+`armada worktree lease` there holds as a Job of the session's id, read from
+`ARMADA_SESSION`, and is given back when the session closes.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
 > waiting for a slot names it.
 > Why: a slot is reused, and reuse must never be what throws work away.
 
-> **Rule.** A lease refuses a branch that already exists with commits on
-> neither the remote nor the base.
-> Why: a lease cuts its branch fresh from the base, and resetting one that
-> holds work would orphan it.
+> **Rule.** A lease never moves a branch that exists, here or on `origin`: it
+> checks the branch out at its own tip, and only a name nothing has is cut
+> from the base.
+> Why: resetting a branch to the base orphans its commits, and on 13 Oct 2026
+> a lease did exactly that to a pushed branch in a slot whose holder was
+> gone. It survived only because it was pushed.
 
 **A person's changes to the pool are this machine's, and outlive Fleet.** Add,
 remove, close and open write `.armada/slots/pool` beside the slots' own

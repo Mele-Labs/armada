@@ -88,7 +88,7 @@ export const OwnerMessage: Story = {
     await userEvent.click(send);
     await expect(args.onSend).toHaveBeenCalledTimes(1);
     await expect(args.onSend).toHaveBeenCalledWith("Raise the cost cap too");
-    await expect(box).toHaveValue("");
+    await expect(box).toHaveTextContent("");
     await expect(canvas.getByText("Raise the cost cap too")).toBeVisible();
     await expect(send).toBeDisabled();
   },
@@ -134,10 +134,56 @@ export const KeepsADraft: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
     await expect(canvas.queryByRole("textbox", { name: "Tell the Commander" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-    await expect(box()).toHaveValue("half a thought");
+    await expect(box()).toHaveTextContent("half a thought");
     await userEvent.click(canvas.getByRole("button", { name: "Other Job" }));
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
     await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
-    await expect(box()).toHaveValue("");
+    await expect(box()).toHaveTextContent("");
+  },
+};
+
+// Held to hold what was agreed (owner, 13 Oct 2026, `job-commander-woken`): the Commander's box is
+// the Sessions box, text only.
+
+/** ↵ sends and ⇧↵ breaks the line: the first sends nothing, the second sends the two lines as typed. */
+export const EnterSendsAndShiftEnterBreaks: Story = {
+  args: { jobId: "job-keys" },
+  play: async ({ canvas, args }) => {
+    const box = canvas.getByRole("textbox", { name: "Tell the Commander" });
+    await userEvent.type(box, "first{Shift>}{Enter}{/Shift}second");
+    await expect(args.onSend).not.toHaveBeenCalled();
+    await expect(box).toHaveTextContent("first second");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledTimes(1);
+    await expect(args.onSend).toHaveBeenCalledWith("first\nsecond");
+    await expect(box).toHaveTextContent("");
+  },
+};
+
+/** What was sent is not kept: coming back to the Job finds the box empty, not holding the message again. */
+export const SendClearsTheDraft: Story = {
+  render: () => <Panels />,
+  play: async ({ canvas }) => {
+    const box = () => canvas.getByRole("textbox", { name: "Tell the Commander" });
+    await userEvent.type(box(), "sent and gone");
+    await userEvent.keyboard("{Enter}");
+    await expect(box()).toHaveTextContent("");
+    await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
+    await expect(box()).toHaveTextContent("");
+  },
+};
+
+/** It talks to an agent that reads text: no model, effort, permission, file or sketch to set. */
+export const OffersOnlyWords: Story = {
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole("textbox", { name: "Tell the Commander" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Send" })).toBeVisible();
+    await expect(canvas.queryByRole("combobox", { name: "Model" })).toBeNull();
+    await expect(canvas.queryByRole("combobox", { name: "Effort" })).toBeNull();
+    await expect(canvas.queryByRole("combobox", { name: "Permission mode" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Attach file" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Draw sketch" })).toBeNull();
+    await expect(canvasElement.querySelector("input[type=file]")).toBeNull();
   },
 };

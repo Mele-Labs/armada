@@ -58,7 +58,7 @@ test("mock asks: the Board row rings, Run on the leaf passes the Command once an
   await onScreen();
   // The Job asks, so a call comes forward over the Dashboard; its Open Job opens the Job.
   await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
-  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("button", { name: /Open Job$/ }).click();
   await pressOnCanvas(page.getByRole("button", { name: "Run", exact: true }));
   await expect.element(page.getByRole("button", { name: "Run", exact: true })).not.toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
@@ -69,7 +69,7 @@ test("mock asks: the Board row rings, Run on the leaf passes the Command once an
 test("mock asks: Skip records the firing skipped by the owner and the bell goes", async () => {
   mount("real/job-2-trigger-asks");
   await onScreen();
-  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("button", { name: /Open Job$/ }).click();
   await pressOnCanvas(page.getByRole("button", { name: "Skip", exact: true }).first());
   await expect.element(page.getByRole("img", { name: /wipe_qa. was skipped by the owner/ }).first()).toBeVisible();
   await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
@@ -80,7 +80,7 @@ test("mock asks: a step added to the Job on a destructive Command rings the row,
   await onScreen();
   // The Job asks, so a call comes forward over the Dashboard; its Open Job opens the Job.
   await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
-  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("button", { name: /Open Job$/ }).click();
   await page.getByRole("tab", { name: "Workflow" }).click();
   await pressOnCanvas(page.getByRole("button", { name: "Run", exact: true }));
   await expect.element(page.getByRole("button", { name: "Run", exact: true })).not.toBeInTheDocument();
@@ -92,7 +92,7 @@ test("mock asks: a step added to the Job on a destructive Command rings the row,
 test("mock asks: Skip on an added step records it skipped by the owner and the bell goes", async () => {
   mount("real/job-2-added-step-asks");
   await onScreen();
-  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("button", { name: /Open Job$/ }).click();
   await page.getByRole("tab", { name: "Workflow" }).click();
   await pressOnCanvas(page.getByRole("button", { name: "Skip", exact: true }).first());
   await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();

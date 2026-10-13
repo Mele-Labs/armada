@@ -97,7 +97,7 @@ pub(crate) fn checkout_of<'a>(roots: impl IntoIterator<Item = &'a str>) -> Optio
         .find(|root| root.join(WRAPPER).is_file())
 }
 
-fn source_in(support: &Path) -> Result<BuildSource, NotOffered> {
+pub(crate) fn source_in(support: &Path) -> Result<BuildSource, NotOffered> {
     let recorded = std::fs::read_to_string(support.join(SOURCE)).unwrap_or_default();
     let tree = recorded.trim();
     if tree.is_empty() {
@@ -110,7 +110,7 @@ fn source_in(support: &Path) -> Result<BuildSource, NotOffered> {
 }
 
 /// The recorded commit, if it is a full object name.
-fn commit_in(support: &Path) -> Option<String> {
+pub(crate) fn commit_in(support: &Path) -> Option<String> {
     let recorded = std::fs::read_to_string(support.join(COMMIT)).ok()?;
     let commit = recorded.trim();
     (commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit())).then(|| commit.to_string())
@@ -160,7 +160,12 @@ fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
     }
 }
 
-fn build_word(build: BuildSource) -> &'static str {
+/// Whether `scripts/restart-build` is working now, so the commit on file is not yet the build.
+pub(crate) fn restarting_in(support: &Path, now: SystemTime) -> bool {
+    matches!(status_in(support, now), Some(Status::Running(..)))
+}
+
+pub(crate) fn build_word(build: BuildSource) -> &'static str {
     match build {
         BuildSource::Main => "main",
         BuildSource::Preview => "preview",
