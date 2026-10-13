@@ -230,6 +230,7 @@ mod session;
 mod session_auto;
 mod session_fork;
 mod session_gate;
+mod session_gate_leases;
 mod session_done;
 mod session_host;
 mod session_keeper;

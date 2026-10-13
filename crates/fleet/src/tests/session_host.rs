@@ -183,10 +183,15 @@ impl Rig {
     }
 
     pub(super) async fn gate(&self, id: &SessionId, tool: &str, input: &str) -> GateAnswer {
+        self.gate_in(&self.root, id, tool, input).await
+    }
+
+    /// A gate call made with the tool's working directory at `cwd`, which is where a relative
+    /// path in the call lands.
+    pub(super) async fn gate_in(&self, cwd: &str, id: &SessionId, tool: &str, input: &str) -> GateAnswer {
         let call = format!(
-            r#"{{"session_id":"{}","cwd":"{}","tool_name":"{tool}","tool_input":{input}}}"#,
+            r#"{{"session_id":"{}","cwd":"{cwd}","tool_name":"{tool}","tool_input":{input}}}"#,
             id.as_str(),
-            self.root
         );
         let gate: SessionGate = ipc::decode("a gate", call.as_bytes()).expect("a gate");
         self.fleet.gate_session_call(gate).await.expect("answered")

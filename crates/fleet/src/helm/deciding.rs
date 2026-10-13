@@ -64,7 +64,7 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
         return door(operation, asking);
     }
     if tool == "Bash" {
-        return shell(asking.detail().unwrap_or_default(), None);
+        return shell(asking.detail().unwrap_or_default(), &[]);
     }
     if WRITES_A_FILE.contains(&tool) {
         return writing(asking);
@@ -72,12 +72,14 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
     named(tool)
 }
 
-/// [`because`] for a call a hosted session made in `directory`, which is the
-/// slot it leased. **The same three classes, read for a session**: what it
-/// writes inside its own slot is its work, and a line is read through the
-/// substitutions and heredocs it carries, since `git commit -m "$(cat <<'EOF'`
-/// is the ordinary way to commit and is none of the three.
-pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Because> {
+/// [`because`] for a call a hosted session made, where `held` are the directories it may
+/// write in: the slot it leased and every slot something it started leased (its subagents),
+/// or the repository's root before its first lease. **The same three classes, read for a
+/// session**: what it writes inside a slot it holds is its work, and a line is read through the
+/// substitutions and heredocs it carries, since `git commit -m "$(cat <<'EOF'` is the ordinary
+/// way to commit and is none of the three. Which slot is held is the lease ledger's to say;
+/// whether a slot may be written at all is the write gate's.
+pub fn because_in_a_session(asking: &AskingToRun, held: &[&str]) -> Option<Because> {
     let tool = asking.tool_name.as_str();
     if WRITES_A_FILE.contains(&tool) {
         let path = asking
@@ -85,7 +87,7 @@ pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Bec
             .get("file_path")
             .or_else(|| asking.input.get("notebook_path"))
             .and_then(|named| named.as_str());
-        if path.is_some_and(|path| inside_the_directory(path, directory)) {
+        if path.is_some_and(|path| held.iter().any(|one| inside_the_directory(path, one))) {
             return None;
         }
         return because(asking);
@@ -100,7 +102,7 @@ pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Bec
         {
             return Some(Because::ReachesOutside);
         }
-        return shell(&line, slot_of(directory));
+        return shell(&line, &slots_of(held));
     }
     let named = ["file_path", "path"]
         .iter()
@@ -161,18 +163,21 @@ fn reaches_outside(word: &str) -> bool {
         || word.starts_with("/Volumes/")
 }
 
-/// `directory` when it is a slot. Before its first lease a session runs in
+/// The directories of `held` that are slots. Before its first lease a session runs in
 /// the repository's root, the owner's own checkout, and nothing is taken away
 /// there unasked.
-fn slot_of(directory: &str) -> Option<&str> {
-    directory.contains("/.armada/slots/").then_some(directory)
+fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
+    held.iter()
+        .copied()
+        .filter(|directory| directory.contains("/.armada/slots/"))
+        .collect()
 }
 
 /// Whether `word`, a path a shell line removes or overwrites, is inside
-/// `slot`. **Removing a file in the slot it holds is the session's own work**
+/// one of `slots`. **Removing a file in a slot it holds is the session's own work**
 /// (the owner, 8 Oct 2026); its root, a `..`, a `~` or a `$` is never read as
 /// inside, and a relative path only where the line has not moved with `cd`.
-fn in_the_slot(word: &str, slot: &str, relative: bool) -> bool {
+fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     if word.is_empty() || word.contains('$') || word.starts_with('~') {
         return false;
@@ -183,12 +188,14 @@ fn in_the_slot(word: &str, slot: &str, relative: bool) -> bool {
         return true;
     }
     if word.starts_with('/') {
-        return inside_the_directory(word, slot)
-            && word.trim_end_matches('/') != slot.trim_end_matches('/');
+        return slots.iter().any(|slot| {
+            inside_the_directory(word, slot)
+                && word.trim_end_matches('/') != slot.trim_end_matches('/')
+        });
     }
     relative
         && !matches!(word.trim_end_matches('/'), "" | "." | "*")
-        && inside_the_directory(word, slot)
+        && slots.iter().any(|slot| inside_the_directory(word, slot))
 }
 
 /// Where a session may write and remove besides its slot.
@@ -373,7 +380,7 @@ fn writing(asking: &AskingToRun) -> Option<Because> {
 ///
 /// **Every segment, never the first word.** `cd crates && rm -rf target` has
 /// `cd` at the front of it, and a classifier reading one word would run it.
-fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
+fn shell(line: &str, slots: &[&str]) -> Option<Because> {
     let line = line.trim();
     if line.is_empty() {
         return Some(Because::Unreadable);
@@ -398,12 +405,12 @@ fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
         .collect();
     // A `cd` into the slot keeps a relative path inside it; one anywhere else,
     // or one that cannot be read, loses track of where the line is.
-    let slot = slot.map(|slot| Slot {
-        slot,
+    let slot = (!slots.is_empty()).then(|| Slot {
+        slots,
         relative: segments.iter().all(|said| {
             let mut words = said.split_whitespace();
             match words.next() {
-                Some("cd" | "pushd") => words.next().is_some_and(|to| in_the_slot(to, slot, true)),
+                Some("cd" | "pushd") => words.next().is_some_and(|to| in_the_slot(to, slots, true)),
                 Some("popd") => false,
                 _ => true,
             }
@@ -457,17 +464,17 @@ fn word_in(line: &str, word: &str) -> bool {
         .any(|said| said == word)
 }
 
-/// The slot a session's line runs in, and whether a relative path in it is
-/// still read against the slot.
+/// The slots a session's line may write in, and whether a relative path in it is
+/// still read against one of them.
 #[derive(Clone, Copy)]
 struct Slot<'a> {
-    slot: &'a str,
+    slots: &'a [&'a str],
     relative: bool,
 }
 
 impl Slot<'_> {
     fn holds(&self, word: &str) -> bool {
-        in_the_slot(word, self.slot, self.relative)
+        in_the_slot(word, self.slots, self.relative)
     }
 }
 

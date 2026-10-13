@@ -173,33 +173,49 @@ waits for a slot itself.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so
 the gate tells three places apart: the main checkout, a slot, and anywhere
-else. A file tool is let through in **any slot whose lease is held for this
-session or by a process it started**. A slot the session leased with `armada
-worktree lease` is held for the session by its id (Fleet sets `ARMADA_SESSION`
-in the process it starts), as a Job's is, so it survives Fleet ending and
-resuming the process. One a subagent's process leased is held by that process,
-the first above the command that is not a shell, and is writable too. A slot held by anything
-else, or by a holder that has gone, is refused with a sentence saying so. The
-main checkout stays refused, and a `..` is resolved by reading before the path
-is placed. A shell line is also held when it **obviously names a path in the
-main checkout or in a slot the session does not hold**: a redirect (`>`, `>>`,
-`2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`,
-`chmod`, `truncate`, `dd`, `sed -i` and `perl -i` with an absolute path
-argument, and `git -C <path>` with any subcommand that is not a read, and `armada worktree
-release`, which names the slot it gives back (the directory it runs in, where it
-names none). **A `cd`
-or `pushd` moves what follows it**: a line that goes into the main checkout or
-a slot the session does not hold, by an absolute path or one relative to where
-the call started, and then runs anything that is not a read, is held. `cd
-<slot> && git status` is a read and runs. **Not covered**: a relative path
-with no `cd` (the session's directory is the slot, so it lands there), a path
-or a `cd` target built from a variable or a substitution, and anything a script
-or a build writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
+else. **A session writes in a slot it leased, or one something it started leased
+(its subagents), and in no other** (the owner, 13 Oct 2026). A write by any other
+session, a fork included, into a slot it never leased is refused with a sentence
+saying so; a fork owns nothing of the session it came from, whatever its copy of the
+conversation says. Who holds a slot is read from the lease record beside it, at every
+call. A slot leased with `armada worktree lease` from a hosted session, the
+agent's or a subagent's, is held for the session by its id (Fleet sets
+`ARMADA_SESSION` in the process it starts and a subagent inherits it), as a Job's is,
+so it survives Fleet ending and resuming the process. One leased with no session id
+in the environment is held by the first process above the command that is not a
+shell, and is the session's while that process is in its tree. A slot held by
+anything else, or by a holder that has gone, is refused. The main checkout stays
+refused, and a `..` is resolved by reading before the path is placed.
+
+The same slots decide for **every write path alike**:
+
+| Write | Placed by |
+|---|---|
+| `Write`, `Edit`, `MultiEdit`, `NotebookEdit` | The path; a relative one against the call's working directory |
+| A shell redirect (`>`, `>>`, `2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`, `chmod`, `truncate`, `dd`, `sed -i`, `perl -i` | The paths it names; one that begins with `..` is read against the working directory |
+| `git` with a subcommand that is not a read | `-C`, `--work-tree` or `--git-dir`, and otherwise where the call stands |
+| `python`, `node`, `ruby`, `perl`, `php`, `sh -c` and other interpreters | Every slot path in the line, since what the code writes cannot be read from it. A read of a slot's file through an interpreter is held too |
+| `armada worktree release` | The slot it gives back (the directory it runs in, where it names none) |
+| Anything else that is not a read | The directory the call stands in |
+
+**A `cd` or `pushd` moves what follows it**, and **the working directory persists between
+a session's calls**: a line that goes into the main checkout or a slot the session does
+not hold, and a line that goes nowhere while the call already stands in a slot it does not
+hold, is held if it then runs anything that is not a read. `cd <slot> && git status` is a
+read and runs. **Not covered**: a path or a `cd` target built from a variable or a
+substitution, a file a script opens by a name the line does not spell, and anything a build
+writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
+
+**The permission door reads the same ledger.** In `auto` it refuses a call that removes or
+overwrites something outside the slots the session holds and `/tmp`: **every** slot the
+session holds, its own and each one a subagent leased, and not only the one it runs in. The
+door decides whether a call is one of the owner's three classes; whether a slot may be
+written at all is the gate's.
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
-Inside its slot and `/tmp` it runs, rewrites its own branch, pushes and reaches
+Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
 off the machine unasked. A call that reaches into the owner's own files, or
-removes or overwrites something outside its slot and `/tmp`, is refused with a
+removes or overwrites something outside its slots and `/tmp`, is refused with a
 reason the agent reads and works around. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
 
