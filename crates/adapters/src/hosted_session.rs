@@ -38,7 +38,7 @@ pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
 
 /// The tools a hosted session's first write is held on. **`Bash` is among
 /// them** and a line is told read from write by [`reads_only`].
-const GATED_TOOLS: &str = "Write|Edit|NotebookEdit|Bash";
+const GATED_TOOLS: &str = "Write|Edit|MultiEdit|NotebookEdit|Bash";
 
 /// Everything one process of a hosted session is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -433,6 +433,7 @@ where
             issue_sweeping: Mutex::new(crate::issue_noticing::IssueSweep::default()),
             cut_from: crate::approved::CutFrom::default(),
             peering: Mutex::new(crate::peers::Peering::default()),
+            writes: Arc::default(),
             proving: Arc::new(Mutex::new(crate::proving::Proving::default())),
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             heals: std::sync::Mutex::default(),
