@@ -49,10 +49,15 @@ export type SheetSide = "right" | "left";
  * output the same narrow column `wide` gives a log with a file rail beside it,
  * and this sheet has no rail to share that width with.
  *
+ * `panel` is `--w-dialog-wide`, 640px: a pull request's tabs and its comment box
+ * hold a diff stat, a check's name and a line of Markdown on one row. A width
+ * and not a fraction, since its content has a measure. Borrowed from the
+ * dialog's second width until the sheets have a token of their own.
+ *
  * MISSING TOKEN, reported: `--w-sheet` is 480px and describes none of these.
  * A fraction of the ground is not a width and has no token to be.
  */
-export type SheetSize = "default" | "dock" | "wide" | "widest" | "reading";
+export type SheetSize = "default" | "dock" | "wide" | "widest" | "reading" | "panel";
 
 /**
  * The way back to where a person was before a press elsewhere opened this

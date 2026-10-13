@@ -48,3 +48,49 @@ export function mainOwner(views: readonly Seen[], sessions: readonly Session[], 
   if (merge.job !== undefined) return { kind: "job", id: merge.job.id, title: merge.job.title };
   return pullOwner(views, sessions, merge.number, merge.branch);
 }
+
+/** Whoever owns what a `pull:<number>` or `main:<root>` call is about; nobody for any other call. */
+export function ownerOfCall(views: readonly Seen[], sessions: readonly Session[], key: string): Owner | undefined {
+  if (key.startsWith("pull:")) return pullOwner(views, sessions, Number(key.slice("pull:".length)));
+  if (key.startsWith("main:")) return mainOwner(views, sessions, key.slice("main:".length));
+  return undefined;
+}
+
+/**
+ * When the failure a call is about arose, in epoch milliseconds: the pull request's `updated_at` (the
+ * forge's "anything last happened", the nearest the wire has to when its checks failed) or the instant main
+ * first read red (`red_since`). Undefined where the wire carried neither.
+ */
+export function failedAt(views: readonly Seen[], key: string): number | undefined {
+  const at = key.startsWith("pull:")
+    ? views.flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === Number(key.slice("pull:".length)))?.updatedAt
+    : key.startsWith("main:")
+      ? (() => {
+          const main = views.find((view) => view.root === key.slice("main:".length))?.hub?.main;
+          return main?.state === "red" ? main.red.since : undefined;
+        })()
+      : undefined;
+  const parsed = at === undefined ? NaN : Date.parse(at);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+/**
+ * Whether the owner is already on the failure, so the call is not raised. A Job is on it while it runs, or once
+ * it was told (a redirect to its Drone, or a step restarted: `last_told_at`) after the failure arose. A
+ * Session is on it while its turn works, or once anything was said to it (the owner's words, a Poke, another
+ * Session's) after the failure arose; one that went idle with nothing sent since is not, and the call comes
+ * back. With no time for the failure, only work in progress counts. `runningJobs` is the Jobs at work; `told`
+ * is each Job's `last_told_at`, by id.
+ */
+export function isOnIt(owner: Owner, sessions: readonly Session[], runningJobs: ReadonlySet<string>, told: ReadonlyMap<string, string>, since: number | undefined): boolean {
+  if (owner.kind === "job") {
+    if (runningJobs.has(owner.id)) return true;
+    const at = Date.parse(told.get(owner.id) ?? "");
+    return since !== undefined && !Number.isNaN(at) && at > since;
+  }
+  const session = sessions.find((one) => one.id === owner.id);
+  if (session === undefined || session.dead !== undefined) return false;
+  if (session.turn.state === "working") return true;
+  if (since === undefined) return false;
+  return session.rows.some((row) => row.kind === "message" && row.from.kind !== "agent" && (Date.parse(row.instant ?? row.at) || 0) > since);
+}

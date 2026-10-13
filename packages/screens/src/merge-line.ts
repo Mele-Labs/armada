@@ -208,6 +208,7 @@ function redOf(main: MainStanding): MainRed | undefined {
     check: first.check ?? first.name,
     ...(first.check === undefined ? { unmapped: true as const } : {}),
     ...(first.tests?.[0] === undefined ? {} : { test: first.tests[0] }),
+    ...(main.red_since === undefined ? {} : { since: main.red_since }),
     ...(rest.length === 0
       ? {}
       : {

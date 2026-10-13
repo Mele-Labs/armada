@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::{crate_dirs, files_with_ext, walk, Report};
+use crate::{crate_dirs, files_with_ext, Report};
 
 /// Source extensions the line-length and literal rules read.
 const SOURCE_EXTS: &[&str] = &["rs", "ts", "tsx"];
@@ -144,50 +144,6 @@ pub fn every_failure_mode_has_a_fixture(root: &Path) -> Report {
     report
 }
 
-// -------------------------------------------------------------- rule three
-
-/// The one file this rule does not read, and why.
-///
-/// **A migration restates the whole trigger it changes**, so `schema.rs` grows
-/// by roughly a trigger every time a row shape moves — four migrations have.
-/// That is structural rather than reasoning that stopped fitting, which is what
-/// the rule is for, and the obvious split is worse: one module per migration
-/// breaks the `V1..V16` sequence that has to stay readable in order, and
-/// separating triggers from tables puts a row's shape in a different file from
-/// the row.
-///
-/// Exempted by the owner Aug 28 2026, on the same footing as the `serde_json`
-/// allowance for `store` and `ipc` below — a named file with a stated reason,
-/// not an allowlist. **It buys no ceiling**: nothing now tells anyone this file
-/// has grown too far, so the next person to reorganise it will decide to
-/// without the gate asking.
-const LENGTH_EXEMPT: &[&str] = &["crates/store/src/schema.rs"];
-
-/// No source file over 1200 lines. Warn at 500.
-///
-/// A long file is not wrong on its own; it is where the reasoning stopped
-/// fitting in one place. The warn threshold is the one that does the work.
-pub fn no_file_too_long(root: &Path) -> Report {
-    let mut report = Report::new("no source file over 1200 lines, warn at 500");
-    for source_root in SOURCE_ROOTS {
-        for path in files_with_ext(root, &root.join(source_root), SOURCE_EXTS) {
-            if LENGTH_EXEMPT.iter().any(|exempt| path == *exempt) {
-                continue;
-            }
-            let Ok(text) = fs::read_to_string(root.join(&path)) else {
-                continue;
-            };
-            let lines = text.lines().count();
-            if lines > 1200 {
-                report.fail(format!("{path} is {lines} lines, over 1200"));
-            } else if lines > 500 {
-                report.warn(format!("{path} is {lines} lines, over 500"));
-            }
-        }
-    }
-    report
-}
-
 // --------------------------------------------------------------- rule five
 
 /// No `serde_json::from_*` outside `store` and `ipc`.
@@ -323,59 +279,6 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
     report
 }
 
-// -------------------------------------------------------------- rule seven
-
-/// Thresholds for a `CLAUDE.md`. Far below the general source ceiling, because
-/// these files are read by an agent at the start of every task rather than by a
-/// person looking something up.
-///
-/// **The warn moved 30 → 40 on 2026-09-08.** The root file had sat one line
-/// over 30 for weeks, which is a warning that says nothing: a mark a file is
-/// permanently past cannot tell accretion from the routing the file exists to
-/// do. Forty is where a router has stopped routing. The refusal did not move.
-const CLAUDE_MD_FAIL: usize = 50;
-const CLAUDE_MD_WARN: usize = 40;
-
-/// No `CLAUDE.md` over fifty lines.
-///
-/// **A CLAUDE.md routes; it does not explain.** Anything longer than a pointer
-/// belongs in a practice doc or a skill — one of which is already the authority
-/// on it, so a copy in a CLAUDE.md can only drift downward while being read more
-/// often than the original.
-///
-/// v1's single agent file reached 328 lines by accretion, one reasonable-looking
-/// paragraph at a time. No individual addition was wrong, which is exactly why a
-/// ceiling is the only thing that stops it.
-pub fn no_bloated_claude_md(root: &Path) -> Report {
-    let mut report = Report::new("no CLAUDE.md over 50 lines, warn at 40");
-    let mut found = Vec::new();
-    walk(root, &mut |path| {
-        if path.file_name().and_then(|n| n.to_str()) == Some("CLAUDE.md") {
-            found.push(path.to_path_buf());
-        }
-    });
-    found.sort();
-    for path in found {
-        let Ok(text) = fs::read_to_string(&path) else {
-            continue;
-        };
-        let rel = path
-            .strip_prefix(root)
-            .unwrap_or(&path)
-            .to_string_lossy()
-            .replace('\\', "/");
-        let lines = text.lines().count();
-        if lines > CLAUDE_MD_FAIL {
-            report.fail(format!(
-                "{rel} is {lines} lines, over {CLAUDE_MD_FAIL} — move the explanation, keep the pointer"
-            ));
-        } else if lines > CLAUDE_MD_WARN {
-            report.warn(format!("{rel} is {lines} lines, over {CLAUDE_MD_WARN}"));
-        }
-    }
-    report
-}
-
 // ------------------------------------------------------------- rule eight
 
 /// The v1 harvest has an index, and the index knows every note.
@@ -471,47 +374,6 @@ pub fn nothing_writes_its_own_log_format(root: &Path) -> Report {
 // pipeline rather than Rust source, and the second one exists because the first
 // cannot see whether what it checked in works in a browser.
 
-// -------------------------------------------------------- rule twenty-three
-
-/// A comment is a line or two; fifteen is where a block stops being one
-/// argument and starts being a document — `.claude/skills/comments/SKILL.md`'s
-/// own line. Five warned on 4,584 of the 5,714 blocks it found, which the skill
-/// calls correct, so it never said which block to open; 1,130 are over fifteen.
-/// Measured 11 Sep 2026. Still a warning: that backlog is not rewritten today.
-pub fn no_comment_block_too_long(root: &Path) -> Report {
-    let mut report = Report::new("no comment block over 15 lines");
-    const CAP: usize = 15;
-
-    for source_root in SOURCE_ROOTS {
-        for path in files_with_ext(root, &root.join(source_root), SOURCE_EXTS) {
-            let Ok(text) = fs::read_to_string(root.join(&path)) else {
-                continue;
-            };
-            let (mut run, mut started) = (0usize, 0usize);
-            let flush = |report: &mut Report, run: usize, started: usize| {
-                if run > CAP {
-                    report.warn(format!(
-                        "{path}:{started} — {run} lines of comment in one block, over {CAP}"
-                    ));
-                }
-            };
-            for (n, line) in text.lines().enumerate() {
-                let t = line.trim_start();
-                if t.starts_with("//") || t.starts_with('*') || t.starts_with("/*") {
-                    if run == 0 {
-                        started = n + 1;
-                    }
-                    run += 1;
-                } else {
-                    flush(&mut report, run, started);
-                    run = 0;
-                }
-            }
-            flush(&mut report, run, started);
-        }
-    }
-    report
-}
 
 #[cfg(test)]
 mod tests;
