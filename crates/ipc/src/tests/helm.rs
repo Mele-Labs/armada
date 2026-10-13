@@ -1,9 +1,9 @@
-//! What a Helm conversation's wire must keep true: a blank message does not
-//! decode, and every socket message is told apart by its `message` tag.
+//! What a Helm conversation's wire must keep true: every socket message is told apart by its
+//! `message` tag. A blank message is Fleet's to refuse, and `helm_box.rs` holds what rides with one.
 
 use crate::{
     decode, encode, AskHelm, Freshness, HelmAsked, HelmClosed, HelmContext, HelmFresh, HelmMessage,
-    HelmScreen, HelmSilence, HelmText, Instant, JobId, ManifestId, Saw, Shown, StudioId,
+    HelmScreen, HelmSilence, Instant, JobId, ManifestId, Saw, Shown, StudioId,
     StudioNodeId, TranscriptRow, Voice,
 };
 
@@ -11,7 +11,7 @@ use crate::{
 fn a_message_with_something_in_it_decodes() {
     let asked = decode::<AskHelm>("a message to Helm", br#"{"text":"why did job 12 stall?"}"#)
         .expect("plain data");
-    assert_eq!(asked.text.as_str(), "why did job 12 stall?");
+    assert_eq!(asked.text, "why did job 12 stall?");
 }
 
 /// An older Bridge asks with no `context` at all — `#1075`'s protocol minor
@@ -26,7 +26,9 @@ fn an_ask_with_no_context_still_decodes() {
 #[test]
 fn an_asks_context_round_trips() {
     let asked = AskHelm {
-        text: HelmText::said("what is this stuck on?").expect("not blank"),
+        text: "what is this stuck on?".to_string(),
+        attachments: Vec::new(),
+        mentions: Vec::new(),
         context: Some(HelmContext {
             screen: HelmScreen::JobDetail,
             picked: Some(ManifestId::carried("armada")),
@@ -53,7 +55,9 @@ fn an_asks_context_round_trips() {
 #[test]
 fn a_studios_context_round_trips_and_an_older_one_still_decodes() {
     let asked = AskHelm {
-        text: HelmText::said("what does this connect to?").expect("not blank"),
+        text: "what does this connect to?".to_string(),
+        attachments: Vec::new(),
+        mentions: Vec::new(),
         context: Some(HelmContext {
             screen: HelmScreen::Studio,
             picked: Some(ManifestId::carried("armada")),
@@ -98,14 +102,6 @@ fn the_workflows_screen_round_trips() {
 }
 
 #[test]
-fn a_blank_message_does_not_decode() {
-    for body in [&br#"{"text":""}"#[..], br#"{"text":"  \n "}"#, br#"{}"#] {
-        assert!(decode::<AskHelm>("a message to Helm", body).is_err());
-    }
-    assert_eq!(HelmText::said("   "), None);
-}
-
-#[test]
 fn each_socket_message_carries_its_tag_and_round_trips() {
     let row = Shown::of(TranscriptRow {
         ts: Instant::carried("2026-09-13T09:00:00.000Z"),
@@ -122,6 +118,8 @@ fn each_socket_message_carries_its_tag_and_round_trips() {
             HelmMessage::Asked(HelmAsked {
                 ts: Instant::carried("2026-09-13T09:00:00.000Z"),
                 text: "why?".to_string(),
+                files: Vec::new(),
+                tags: Vec::new(),
             }),
             r#""message":"asked""#,
         ),

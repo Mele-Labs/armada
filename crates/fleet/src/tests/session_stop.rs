@@ -1,4 +1,4 @@
-//! Stopping the turn a hosted session is running. Since 23.83. **A stand-in process, as
+//! Stopping the turn a hosted session is running. Since 23.84. **A stand-in process, as
 //! `session_host` has**: the stop is Fleet ending it and setting the turn, which is what is
 //! read here.
 

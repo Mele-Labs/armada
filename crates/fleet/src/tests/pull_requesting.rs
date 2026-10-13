@@ -19,11 +19,11 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::{fittings, one, workflow_named};
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
-const ADDRESS: &str = "https://forge.invalid/armada/pull/12";
+pub(super) const ADDRESS: &str = "https://forge.invalid/armada/pull/12";
 
-fn a_fleet(home: &TempDir) -> Fixture {
+pub(super) fn a_fleet(home: &TempDir) -> Fixture {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     fittings.starting().workflows = one(workflow_named("code_review"));
     // A base, since the merge queue is the base branch's.
@@ -35,7 +35,7 @@ fn a_fleet(home: &TempDir) -> Fixture {
     Fleet::assembled(fittings)
 }
 
-fn facts(standing: PullRequestStanding) -> PullRequestFacts {
+pub(super) fn facts(standing: PullRequestStanding) -> PullRequestFacts {
     PullRequestFacts {
         standing,
         branch: "fleet/pr-acts".into(),
@@ -46,14 +46,14 @@ fn facts(standing: PullRequestStanding) -> PullRequestFacts {
     }
 }
 
-fn forge_ran(fleet: &Fixture, ran: WhatTheForgeRan) {
+pub(super) fn forge_ran(fleet: &Fixture, ran: WhatTheForgeRan) {
     fleet.vcs().now_under_review(UnderReview {
         checks: ran,
         ..UnderReview::unreadable()
     });
 }
 
-fn passed() -> WhatTheForgeRan {
+pub(super) fn passed() -> WhatTheForgeRan {
     WhatTheForgeRan::AllPassed { checks: 2 }
 }
 
@@ -64,7 +64,7 @@ fn running() -> WhatTheForgeRan {
     }
 }
 
-fn manifest(fleet: &Fixture) -> (ManifestId, String) {
+pub(super) fn manifest(fleet: &Fixture) -> (ManifestId, String) {
     let one = fleet.repositories().first().expect("a served repository");
     (
         ManifestId::carried(one.manifest().id().as_str()),
@@ -72,11 +72,11 @@ fn manifest(fleet: &Fixture) -> (ManifestId, String) {
     )
 }
 
-fn code(refusal: &Refusal) -> &str {
+pub(super) fn code(refusal: &Refusal) -> &str {
     &refusal.error().code
 }
 
-async fn a_session_holding_pull_request_12(fleet: &Fixture, id: &str) -> SessionRecord {
+pub(super) async fn a_session_holding_pull_request_12(fleet: &Fixture, id: &str) -> SessionRecord {
     let (_, root) = manifest(fleet);
     let report = |fact| SessionReport {
         harness: "a_harness".into(),
@@ -104,7 +104,7 @@ async fn a_session_holding_pull_request_12(fleet: &Fixture, id: &str) -> Session
         .expect("attached")
 }
 
-async fn the_row(fleet: &Fixture, id: &str, kind: &str) -> ipc::Attachment {
+pub(super) async fn the_row(fleet: &Fixture, id: &str, kind: &str) -> ipc::Attachment {
     let listed = fleet
         .list_sessions(None, Some(id.into()), None)
         .await

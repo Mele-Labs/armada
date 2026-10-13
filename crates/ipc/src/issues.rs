@@ -36,3 +36,20 @@ pub struct IssueList {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stale: Option<String>,
 }
+
+/// Whether the tracker holds an issue open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IssueState {
+    Open,
+    Closed,
+}
+
+/// `get_issue`' answer: one issue by number, open or closed. Every string is the tracker's own.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssueRead {
+    pub number: u64,
+    pub title: String,
+    pub url: String,
+    pub state: IssueState,
+}

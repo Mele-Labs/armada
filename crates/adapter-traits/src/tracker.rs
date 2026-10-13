@@ -32,6 +32,16 @@ pub struct OpenIssue {
     pub linked_pull_request: bool,
 }
 
+/// One issue read by its number, open or closed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReadIssue {
+    pub number: u64,
+    pub title: FromOutside,
+    pub url: FromOutside,
+    /// The tracker no longer holds it open.
+    pub closed: bool,
+}
+
 /// Why the tracker did not do what was asked, in its own words.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NotTracked {
@@ -61,6 +71,11 @@ pub trait Tracker {
     /// Every open issue in the repository checked out at `in_repo`, newest
     /// edit first. Pull requests are not issues here.
     fn open_issues(&self, in_repo: &str) -> Result<Vec<OpenIssue>, NotTracked>;
+
+    /// The issue numbered `number` in the repository checked out at `in_repo`, closed ones
+    /// included. `None` where there is none, **and where the number is a pull request's**: a
+    /// pull request is not an issue here, as it is not in [`open_issues`](Tracker::open_issues).
+    fn read_issue(&self, in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked>;
 
     /// Post `text` on the issue as a comment.
     fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked>;

@@ -13,6 +13,13 @@ pub enum Delivered {
     ReadPullRequest { pull_request: String },
     /// A pull request was taken out of draft.
     MarkedReady { pull_request: String },
+    /// The forge was asked for a pull request's page.
+    ReadPullRequestPage { pull_request: String },
+    /// Something was written on a pull request.
+    WroteOnPullRequest {
+        pull_request: String,
+        write: adapter_traits::PullRequestWrite,
+    },
     /// `branch` was merged into the one `into` has checked out.
     MergedBranch { branch: String, into: String },
     /// The remote was asked for its copy of `base`.

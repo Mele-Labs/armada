@@ -18,7 +18,12 @@ export function readDom(root: Node): { text: string; tags: ComposerTag[] } {
       } else if (child instanceof HTMLElement) {
         if (child.dataset.tagKind !== undefined) {
           text += CHIP;
-          tags.push({ kind: child.dataset.tagKind as ComposerTag["kind"], id: child.dataset.tagId ?? "", title: child.dataset.tagTitle ?? "" });
+          tags.push({
+            kind: child.dataset.tagKind as ComposerTag["kind"],
+            id: child.dataset.tagId ?? "",
+            title: child.dataset.tagTitle ?? "",
+            ...(child.dataset.tagUrl === undefined ? {} : { url: child.dataset.tagUrl }),
+          });
         } else if (child.tagName === "BR") {
           text += "\n";
         } else {

@@ -81,6 +81,7 @@ import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
 import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
+import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { runnerOf } from "./session-runner";
 import { useViewing } from "./cockpit/viewed";
@@ -544,7 +545,7 @@ function ReadingSheet({
 const BLANK: Drawing = { shapes: [], joins: [], strokes: [], pictures: [] };
 
 /** The pad Dispatch draws on, in a sheet over the Session: what is drawn goes with the next message. */
-function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () => void; onAttach: (sketch: DrawnSketch) => void }) {
+export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () => void; onAttach: (sketch: DrawnSketch) => void }) {
   const floor = useAtFloor();
   const [drawing, setDrawing] = useState<Drawing>(BLANK);
   const attach = () => {
@@ -741,6 +742,7 @@ const NO_ROWS: SessionThreadRow[] = [];
 function SessionView({ session, goes, onOpen, held, board, lines, settings }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
+  const numbered = useNumbered(session.manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
@@ -955,6 +957,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                 ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
                 ...draft.taggable(),
               ]}
+              {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}
               draftKey={session.id}
               focusFor={focusFor}
@@ -1024,6 +1027,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
  */
 export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
   const draft = useSessionsDraft();
+  const numbered = useNumbered(session.manifestId);
   if (draft === undefined || session.dead !== undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   return (
@@ -1041,6 +1045,7 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
       commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
       compact
       taggable={[]}
+      {...(numbered === undefined ? {} : { numbered })}
       tags={session.pendingTags ?? []}
       draftKey={session.id}
       onTags={(tags) => draft.setTags(session.id, tags)}

@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use adapter_traits::DroneEvent;
 use api::Conversations;
-use ipc::{AskHelm, Cursor, EventTally, EventsSince, HelmDebugSaid, HelmText, ManifestId};
+use ipc::{AskHelm, Cursor, EventTally, EventsSince, HelmDebugSaid, ManifestId};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
@@ -80,7 +80,9 @@ async fn answered(fleet: &Arc<Hosted>, text: &str) {
     Arc::clone(fleet)
         .ask_helm(
             AskHelm {
-                text: HelmText::said(text).expect("not blank"),
+                text: text.to_string(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
                 context: None,
             },
             None,

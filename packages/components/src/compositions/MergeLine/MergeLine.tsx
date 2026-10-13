@@ -330,7 +330,7 @@ export function MergeLine(props: MergeLineProps) {
                     <h3 className="armada-merge-line__subheading">Open pull requests</h3>
                     <ul className="armada-merge-line__list" aria-label="Open pull requests">
                       {hub.pulls.map((pull) => (
-                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
                       ))}
                     </ul>
                   </>
@@ -785,13 +785,21 @@ function Pull({
   fixing,
   onOpenPullRequest,
   onOpenJob,
+  focus,
 }: {
   pull: HubPull;
+  /** A branch another surface asked for, as an `Entry` takes it. */
+  focus?: string;
   /** The Job working on main's red, named on a pull request that waits for it. */
   fixing: HubJob | undefined;
   onOpenPullRequest: (url: string) => void;
   onOpenJob?: (jobId: string) => void;
 }) {
+  const row = useRef<HTMLLIElement>(null);
+  const focused = focus === pull.branch;
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView?.({ block: "center" });
+  }, [focused]);
   const queued = pull.queue === undefined ? undefined : QUEUE[pull.queue.state];
   const mark = queued ?? (pull.ci === undefined ? undefined : CI[pull.ci]);
   const Icon = mark?.reading?.icon ?? null;
@@ -802,7 +810,9 @@ function Pull({
   const position = pull.queue?.position;
   return (
     <li
+      ref={row}
       className="armada-merge-line__row"
+      aria-current={focused ? "true" : undefined}
       aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}
       tabIndex={0}
       data-merge-item=""

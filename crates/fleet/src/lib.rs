@@ -270,6 +270,9 @@ mod claiming;
 mod pull_attaching;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
+/// What a pull request's panel reads when it opens, and its comment box writes.
+/// Since 23.83.
+mod pull_request_panel;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;

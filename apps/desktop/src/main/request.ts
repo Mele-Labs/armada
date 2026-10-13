@@ -582,6 +582,11 @@ export async function sessionFileOf(port: number, sessionId: string, file: strin
   return await fileAt(port, `/sessions/file?session_id=${encodeURIComponent(sessionId)}&file=${encodeURIComponent(file)}`);
 }
 
+/** A picture or file a message to Helm carried, read the way a session's is. `GET /helm/file`. */
+export async function helmFileOf(port: number, manifestId: string, file: string): Promise<FrameRead> {
+  return await fileAt(port, `/helm/file?manifest_id=${encodeURIComponent(manifestId)}&file=${encodeURIComponent(file)}`);
+}
+
 /** The file at one path, as [`frameOf`] describes: bytes and a media type, or a refusal. */
 async function fileAt(port: number, path: string): Promise<FrameRead> {
   const asked = { method: "GET" as const, path };

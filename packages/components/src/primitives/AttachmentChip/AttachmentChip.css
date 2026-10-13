@@ -18,6 +18,14 @@
   max-width: 100%;
 }
 
+.armada-attachment-chip__preview {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
 .armada-attachment-chip__name {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -39,8 +39,9 @@ use crate::commands::{
     stop_proposal, take_up_remarks,
 };
 use crate::conversing::{
-    answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
-    read_thought, record_thought_sent, start_helm_fresh, tell_session,
+    answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, get_helm_file,
+    list_helm_calls, observe_helm, read_thought, record_thought_sent, start_helm_fresh,
+    tell_session, tune_helm,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -203,6 +204,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/pull_request_reviews/:repository",
             post(crate::pull_requests::review_pull_request::<D>),
+        )
+        .route(
+            "/pull_request_details/:repository/:number",
+            get(crate::pull_request_panel::get_pull_request_detail::<D>),
+        )
+        .route(
+            "/pull_request_writes/:repository",
+            post(crate::pull_request_panel::write_pull_request::<D>),
         )
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
@@ -693,6 +702,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/helm/read_thought", post(read_thought::<D>))
         .route("/helm/thought_sent", post(record_thought_sent::<D>))
         .route("/helm/tell_session", post(tell_session::<D>))
+        .route("/helm/tune", post(tune_helm::<D>))
+        .route("/helm/file", get(get_helm_file::<D>))
         .route("/helm/permission", post(ask_the_person::<D>))
         .route("/helm/calls", get(list_helm_calls::<D>))
         .route("/helm/calls/answer", post(answer_helm_call::<D>))

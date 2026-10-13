@@ -52,6 +52,10 @@ impl Rows {
 }
 
 impl Heard for Rows {
+    fn commands(&self, names: Vec<String>) {
+        super::facts::commands_changed(&self.conversation, names);
+    }
+
     fn heard(&self, events: &[DroneEvent]) {
         let at = self.clock.now();
         for event in events {

@@ -5,9 +5,11 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 import { routeTargetOf, wireTargetOf } from "@armada/helm";
-import type { RouteTarget, ThoughtReading, ThoughtRouting } from "@armada/helm";
+import type { RouteTarget, ThoughtCarry, ThoughtReading, ThoughtRouting } from "@armada/helm";
+import type { DrawnSketch, SessionTag } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import type { HelmCarry } from "../../shared/api/helm";
 import type { BridgeState } from "../../shared/bridge";
 import type { Dispatching } from "./dispatch-panel/dispatching";
 import { useSessionsDraft } from "./sessions-draft";
@@ -19,19 +21,27 @@ type Host = {
   dispatching: Dispatching;
   openSession: (id: string) => void;
   openJob: (jobId: string) => void;
+  /** Sketches drawn in Helm's box, by id: a thought sent to a Session carries them. */
+  sketchesOf: (ids: readonly string[]) => DrawnSketch[];
+  /** What a thought went with, as the wire takes it, for the row Fleet keeps. */
+  carryOf: (carry: ThoughtCarry) => Promise<HelmCarry>;
 };
 
 /** The dock's routing: Fleet's reading, and the acts the words may go through. */
-export function useThoughtRouting({ state, repositories, dispatching, openSession, openJob }: Host): ThoughtRouting {
+export function useThoughtRouting({ state, repositories, dispatching, openSession, openJob, sketchesOf, carryOf }: Host): ThoughtRouting {
   const draft = useSessionsDraft();
   // The conversation the dock shows, whose thread keeps the row for words sent on.
   const manifestId = state.helm.state === "none" ? undefined : state.helm.manifestId;
 
   /** The words reached the Session or Job: Fleet keeps a row for them. A refusal is said, the words having arrived. */
-  async function recorded(target: RouteTarget, text: string): Promise<void> {
+  async function recorded(target: RouteTarget, text: string, carry?: ThoughtCarry): Promise<void> {
     if (manifestId === undefined) return;
     try {
-      const outcome = await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target));
+      // What the thought went with is kept on the row, so a reload draws it as it was.
+      const sent = carry === undefined || carry.files.length + carry.tags.length + carry.sketches.length === 0 ? undefined : await carryOf(carry);
+      const outcome = sent === undefined
+        ? await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target))
+        : await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target), sent);
       if (!outcome.ok) askToTell(refusalWords(outcome));
     } catch {
       askToTell(`Sent to "${target.title}", but the thread could not record it`);
@@ -46,14 +56,19 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
       const { target } = read.reading;
       return target === undefined ? { kind: "thought" } : { kind: "thought", match: routeTargetOf(target, repositories) };
     },
-    send: async (target, text) => {
+    send: async (target, text, carry?: ThoughtCarry) => {
       if (target.kind === "session") {
         if (draft === undefined) {
           askToTell(`Not sent to "${target.title}": Sessions are not served`);
           return false;
         }
-        // The composer's own send: a refusal is already a toast, in Fleet's words.
-        const arrived = await draft.send(target.id, { text, files: [], sketches: [], tags: [] });
+        // The composer's own send, with what went with the words: a refusal is already a toast, in Fleet's words.
+        const arrived = await draft.send(target.id, {
+          text,
+          files: carry?.files ?? [],
+          sketches: sketchesOf(carry?.sketches.map((one) => one.id) ?? []),
+          tags: (carry?.tags ?? []) as readonly SessionTag[],
+        });
         if (arrived === false) return false;
       } else {
         const outcome = await window.armada.redirectDrone(target.id, text);
@@ -62,7 +77,7 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
           return false;
         }
       }
-      await recorded(target, text);
+      await recorded(target, text, target.kind === "session" ? carry : undefined);
       return true;
     },
     open: (target) => (target.kind === "session" ? openSession(target.id) : openJob(target.id)),

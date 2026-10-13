@@ -38,14 +38,17 @@ export type StartSession = {
   fork?: { session_id: string; at?: string };
 };
 
-export type TagKind = "session" | "job" | "pull_request" | "branch";
+export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
 
 /** What a message names with `@`. Fleet writes the line that tells the agent. */
 export type SessionTag = {
   kind: TagKind;
-  /** A session's id, a Job's id, a pull request's number or a branch's name. */
+  /** A session's id, a Job's id, a pull request's or an issue's number, or a branch's name. */
   id: string;
+  /** An issue's or a pull request's reads `#2214 The title`. */
   title: string;
+  /** The forge's address for an issue or a pull request. Absent for any other kind. */
+  url?: string;
   job?: { number: number; branch: string; slot: number; state: string };
 };
 
@@ -115,7 +118,7 @@ export type RunSessionCommand = { session_id: string; command: string };
 /** `POST /sessions/close`. A terminal session is ended by its mod, and the row ends when the terminal says so. */
 export type CloseSession = { session_id: string };
 
-/** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.83. */
+/** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
 
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */

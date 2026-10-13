@@ -90,6 +90,8 @@ pub enum TagKind {
     Job,
     PullRequest,
     Branch,
+    /// A tracker issue. `id` is its number as a string.
+    Issue,
 }
 
 /// Something a message names: another session, a Job, a pull request or a
@@ -98,13 +100,16 @@ pub enum TagKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionTag {
     pub kind: TagKind,
-    /// A session's id, a Job's id, a pull request's number or a branch's name.
+    /// A session's id, a Job's id, a pull request's or an issue's number, or a branch's name.
     pub id: String,
     pub title: String,
     /// What a Job tag knows of the Job, so the ledger can hold it as one the
     /// session is looking at.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job: Option<TaggedJob>,
+    /// The forge's address for an issue or a pull request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,7 +181,7 @@ pub struct CloseSession {
     pub session_id: SessionId,
 }
 
-/// `stop_session`: end the turn that is running. Since 23.83.
+/// `stop_session`: end the turn that is running. Since 23.84.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StopSession {
     pub session_id: SessionId,
