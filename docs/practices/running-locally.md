@@ -408,8 +408,8 @@ A `running` status older than twenty minutes is a wrapper that died and is ignor
 
 **A Session's restart is the same button.** Bridge reads a command a Session
 hands the person, `scripts/preview --restart` or `scripts/restart --main` with
-`--adopt` at most, as this switch: its waiting item, its Cockpit card and a shell
-block of it press the button rather than run a shell. A shell run is Fleet's
+`--adopt` at most, as this switch: ▶ on its waiting item, or on a shell block of
+it, presses the button rather than running a shell. A shell run is Fleet's
 child, so it died with the Fleet it stopped and never reopened Bridge, which was
 left on the old protocol. Seen 13 Oct 2026. `apps/desktop/src/renderer/src/build-change.ts`.
 

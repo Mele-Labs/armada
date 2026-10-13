@@ -1,5 +1,5 @@
 // What a Session's waiting line offers the owner follows its act. A slash command is the Session's own
-// and is sent to it; a shell command is copied; a restart is the Fleet panel's button; a pull request opens; a plain line is a text box; only
+// and is sent to it; a shell command is copied; a pull request opens; a plain line is a text box; only
 // a question with options carries the standing answers. Over `session-errands`.
 
 import { button, inside, region, role, walk } from "../walk";
@@ -13,9 +13,7 @@ const sessionErrands = walk("session-errands", [
   { look: inside(line, role("radio", /Run \/land 2109 2118 2119/)), say: "A slash command is for the Session itself: the button names it and sends it as the reply" },
   { look: reply, say: "A text box under it, and no standing answers" },
   { key: "l", on: cockpit, say: "Later" },
-  { look: inside(line, role("radio", /Copy pnpm -C .armada\/preview install/)), say: "A shell command is for him: the button copies it" },
-  { key: "l", on: cockpit, say: "Later" },
-  { look: inside(line, role("radio", /Refresh preview/)), say: "A restart onto the preview is the Fleet panel's Refresh preview" },
+  { look: inside(line, role("radio", /Copy scripts\/preview --restart --adopt/)), say: "A shell command is for him: the button copies it" },
   { key: "l", on: cockpit, say: "Later" },
   { look: inside(line, role("radio", /Open #2118/)), say: "A pull request to approve: the button opens it" },
   { key: "l", on: cockpit, say: "Later" },

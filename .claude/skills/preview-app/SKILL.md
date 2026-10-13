@@ -67,9 +67,8 @@ Bridge asks before `--adopt`, listing the working Jobs. It runs
 `docs/practices/running-locally.md`, *Restarting from Bridge*.
 
 **To ask him to restart, put the exact command in `waiting_for` as a `run`
-item**: `scripts/preview --restart`, with `--adopt` only once he said so. Bridge
-draws it as that button and presses it, and does the same for a shell block of
-the command. Never ask him to run it any other way: a shell run from Bridge is
+item**: `scripts/preview --restart`, with `--adopt` only once he said so. ▶ on
+it, or on a shell block of the command, presses that button. Never ask him to run it any other way: a shell run from Bridge is
 Fleet's child, dies with the Fleet it stops, and leaves Bridge on the old
 protocol. Confirmed 13 Oct 2026.
 
