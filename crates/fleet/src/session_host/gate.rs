@@ -17,7 +17,7 @@ use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::following::Standing;
-use super::places::{place_of, worked_in, written_by, Place};
+use super::places::{normalised, place_of, run_from, worked_in, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
 use crate::daemon::Fleet;
@@ -83,9 +83,18 @@ where
                 || self.held_by_the_tree(&id, &adapter_traits::slot_path(&root, slot))
                     == Standing::Ours
         };
-        // Where the call lands, against the main checkout and the pool.
+        // Where the call lands, against the main checkout and the pool. A relative path lands
+        // where the call stands: in a slot if it stands in one, and otherwise the session's own
+        // directory, which is a slot or the checkout.
         let lands = |path: &str| match path.starts_with('/') {
             true => place_of(path, &root),
+            false if gate.cwd.starts_with('/') => {
+                let at = normalised(&format!("{}/{path}", gate.cwd.trim_end_matches('/')));
+                match place_of(&at, &root) {
+                    Place::Slot(slot) => Place::Slot(slot),
+                    _ => Place::Main,
+                }
+            }
             false => Place::Main,
         };
         let touching = touch(&gate);
@@ -139,6 +148,14 @@ where
                             Place::Slot(slot) if !held(slot) => Some(not_held(&entered, slot)),
                             _ => None,
                         })
+                });
+                // **A working directory persists between calls**, so a line that runs something
+                // without going anywhere is judged by where the call stands.
+                let hit = hit.or_else(|| {
+                    run_from(&command, &gate.cwd).and_then(|here| match lands(&here) {
+                        Place::Slot(slot) if !held(slot) => Some(not_held(&here, slot)),
+                        _ => None,
+                    })
                 });
                 match hit {
                     Some(why) => GateAnswer::deny(why),

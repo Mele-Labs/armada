@@ -144,6 +144,28 @@ where
         })
     }
 
+    /// Every directory this session may write in: the one it runs in, and every other slot the
+    /// pool holds for it or for something it started. **A subagent's `armada worktree lease` is
+    /// the session's**: it holds the slot under the session's id, or under a process the
+    /// session's tree holds, so a slot the ledger has never recorded for the session is still
+    /// its own.
+    pub(super) fn held_directories(
+        &self,
+        id: &str,
+        served: &Served,
+        hosting: &KeptHosting,
+    ) -> Vec<String> {
+        let root = served.root().trim_end_matches('/').to_string();
+        let mut held = vec![Self::directory_of(served, hosting)];
+        for slot in 1..=crate::leasing::pool_of(served).slots() {
+            let at = adapter_traits::slot_path(&root, slot);
+            if hosting.lease_slot != Some(slot) && self.held_by_the_tree(id, &at) == Standing::Ours {
+                held.push(at);
+            }
+        }
+        held
+    }
+
     /// Park every slot an ending session holds: the one the ledger records,
     /// and any other `armada worktree lease` took for it (a subagent's), which
     /// the pool holds under the session's id and would otherwise hold for
