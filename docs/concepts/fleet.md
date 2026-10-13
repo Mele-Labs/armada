@@ -550,7 +550,10 @@ and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
 release at a time. The holder is the first process above the command that is not a shell
 — an agent's session, or the terminal a person typed in — so a subshell or a
-pipeline between the two does not become the holder.
+pipeline between the two does not become the holder. **A session Fleet hosts is
+the exception**: Fleet ends and resumes its process when it moves slots, so
+`armada worktree lease` there holds as a Job of the session's id, read from
+`ARMADA_SESSION`, and is given back when the session closes.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
