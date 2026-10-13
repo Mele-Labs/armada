@@ -26,7 +26,7 @@ fn a_helm_and_a_commander_on_one_job() -> Arc<FakeDaemon> {
     let daemon = FakeDaemon::new(Broadcaster::new());
     running(&daemon, "01JOB");
     *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, |_| true));
-    *daemon.commander_on.lock().expect("not poisoned") = Some(COMMANDER);
+    *daemon.commander_on.lock().expect("not poisoned") = Some((COMMANDER, ipc::JobId::carried("01JOB")));
     Arc::new(daemon)
 }
 

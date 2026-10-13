@@ -1169,4 +1169,11 @@ pub struct JobSpend {
     /// zero**: it is a Job nothing has run for yet, and a surface that folded
     /// the two would say a Job was free when nobody had tried it.
     pub drones: u64,
+    /// What the Job's Commander has cost, **beside `cost_micros` and never in
+    /// it**. It is the Job's cost, and a surface that draws the total adds the
+    /// two; it is not counted against `cost_cap_micros`, which is compared with
+    /// the Drones' figure alone, so the agent that raises a cap cannot spend it.
+    /// Absent on a row written before a Commander existed: nought.
+    #[serde(default)]
+    pub commander_cost_micros: u64,
 }

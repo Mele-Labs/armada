@@ -551,6 +551,13 @@ where
         )
     }
 
+    /// Whether this process, one a Commander host is running, holds this call's
+    /// connection. **`helm_holds`' question about one pid**, because a
+    /// Commander's reach is the Job of the process that holds it. `#2166`.
+    pub(crate) fn commander_holds(&self, caller: &api::Caller, pid: u32) -> bool {
+        held_within(caller, self.host.port, &[pid], self.peers.as_ref())
+    }
+
     /// A Drone started on this Job, as this process.
     pub(crate) fn drone_at_work(&self, job: &JobId, pid: u32) {
         self.held_drones().arrived(job, pid);

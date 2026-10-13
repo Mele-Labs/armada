@@ -17,6 +17,7 @@ mod ci_workflows;
 mod cloning;
 mod commit;
 mod concurrently;
+mod commanding;
 mod conversing;
 mod delivery;
 mod edited;

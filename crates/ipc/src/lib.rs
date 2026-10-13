@@ -205,6 +205,7 @@ mod setup;
 mod showing;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
+mod commander;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// How much of the plan's windows is used.
@@ -306,6 +307,10 @@ pub use event::{
 pub use explaining::CommandExplained;
 pub use files::FilesFound;
 pub use health::{FleetHealth, HelmActionAuthority, Probe, Unprobed};
+pub use commander::{
+    AskCommander, CommanderChanged, CommanderConversation, CommanderMessage, CommanderOpened,
+    CommanderState, CommanderWoke,
+};
 pub use helm::{
     AskHelm, Blank, Freshness, HelmAsked, HelmChangedCheckout, HelmClosed, HelmContext,
     HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,

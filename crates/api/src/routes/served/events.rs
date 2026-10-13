@@ -179,6 +179,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's Commander started or finished a turn. #2166.
+    Route {
+        operation: "commander.changed",
+        method: "GET",
+        path: "/events",
+    },
     // One row of a hosted session's thread, appended or replaced.
     Route {
         operation: "session.row",

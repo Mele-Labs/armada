@@ -23,6 +23,7 @@ import type { SessionRowChanged } from "./hosted-sessions";
 import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { Autopilot } from "./autopilot";
+import type { CommanderChanged } from "./commander";
 import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -115,7 +116,9 @@ export type Event =
   /** A repository's Autopilot after any change to it, whole. #2092. */
   | ({ kind: "autopilot.changed" } & Autopilot)
   /** The plan's windows after a session read them moving, whole. */
-  | ({ kind: "plan_usage.changed" } & PlanUsage);
+  | ({ kind: "plan_usage.changed" } & PlanUsage)
+  /** A Job's Commander started or finished a turn. #2166. */
+  | ({ kind: "commander.changed" } & CommanderChanged);
 
 /**
  * A Job exists that did not before, carrying the row whole.

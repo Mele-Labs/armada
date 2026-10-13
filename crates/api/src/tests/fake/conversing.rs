@@ -39,8 +39,8 @@ impl crate::Admitting for FakeDaemon {
     }
 
     fn commander_at(&self, caller: crate::Caller) -> Option<crate::CommanderReach> {
-        let port = (*self.commander_on.lock().expect("not poisoned"))?;
-        (caller.port() == Some(port)).then(crate::CommanderReach::of_the_allowlist)
+        let (port, job) = self.commander_on.lock().expect("not poisoned").clone()?;
+        (caller.port() == Some(port)).then(|| crate::CommanderReach::of_the_allowlist(job))
     }
 }
 
@@ -53,6 +53,35 @@ impl Conversations for FakeDaemon {
             live: self.helm.watch(),
             history: self.helm_thread.lock().expect("not poisoned").clone(),
             skipped: 0,
+        })
+    }
+
+    async fn observe_commander(
+        &self,
+        job: crate::reference::Resolved,
+    ) -> Result<crate::ObservedCommander, Refusal> {
+        Ok(crate::ObservedCommander {
+            job_id: job.id(),
+            replying: false,
+            live: self.commander.watch(),
+            history: self.commander_thread.lock().expect("not poisoned").clone(),
+            skipped: 0,
+        })
+    }
+
+    async fn ask_commander(
+        self: Arc<Self>,
+        job: crate::reference::Resolved,
+        asked: ipc::AskCommander,
+    ) -> Result<ipc::CommanderConversation, Refusal> {
+        self.commander.offer(ipc::CommanderMessage::Asked(HelmAsked {
+            ts: Instant::carried("2026-10-12T09:00:00.000Z"),
+            text: String::from(asked.text),
+        }));
+        Ok(ipc::CommanderConversation {
+            job_id: job.id(),
+            replying: true,
+            resumes: false,
         })
     }
 

@@ -52,6 +52,9 @@ pub(crate) struct Tuning {
     pub(crate) second_opinion_model: Model,
     pub(crate) proposer_model: Model,
     pub(crate) retro_model: Model,
+    /// What a Job's Commander runs on when the Job names none, and how hard it
+    /// thinks. `crate::helm::commander`.
+    pub(crate) commander_model: Model,
     /// This machine's tier of the pull request mode, beneath the workflow's and
     /// the repository's — `crate::pr_mode`.
     pub(crate) draft_pull_requests: bool,
@@ -130,6 +133,7 @@ impl Tuning {
                 self.retro_model.effort(),
             )
             .unwrap_or_else(|_| self.retro_model.clone()),
+            commander_model: model(keys::MODELS_COMMANDER, keys::EFFORT_COMMANDER, &self.commander_model),
             draft_pull_requests: settings.chosen(keys::DRAFT_PULL_REQUESTS).unwrap_or(self.draft_pull_requests),
             default_effort: settings
                 .chosen(keys::EFFORT_DEFAULT)
@@ -183,6 +187,7 @@ impl<H, V, W> crate::daemon::Fittings<H, V, W> {
             second_opinion_model: self.second_opinion_model.clone(),
             proposer_model: self.proposer_model.clone(),
             retro_model: self.retro_model.clone(),
+            commander_model: self.commander_model.clone(),
             draft_pull_requests: false,
             default_effort: None,
             clearing_sends: crate::conflict_resolution::CLEARING_SENDS,

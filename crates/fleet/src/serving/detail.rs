@@ -256,6 +256,12 @@ where
             turn_cap: allowance.turns(),
             ran_ms: spent.ran_ms,
             drones: spent.drones,
+            commander_cost_micros: self
+                .store()
+                .lock()
+                .await
+                .commander_cost_for(job.id())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?,
         });
         // Before `step_facts`, which consumes the Check runs: the
         // classification reads them to answer whether an override is available,

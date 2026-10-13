@@ -14,8 +14,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use api::{HelmFeed, HelmWatch};
+use api::{ConversationFeed, ConversationWatch, Spoken};
 use ipc::{HelmClosed, HelmMessage, HelmSilence};
+use serde::de::DeserializeOwned;
 
 /// How many messages a viewer is sent when it opens. What is left out is
 /// counted.
@@ -53,20 +54,31 @@ pub fn what_was_said(kept: &str) -> String {
     said.join("\n\n")
 }
 
-pub(crate) struct Thread {
-    feed: HelmFeed,
-    held: Mutex<Held>,
+/// A conversation's thread. **Generic over what is said**, so a Job's
+/// Commander, whose conversation is Helm's host keyed by the Job, is kept in
+/// the same file format and offered on the same channel and not a copy of them.
+pub(crate) struct Thread<M = HelmMessage> {
+    feed: ConversationFeed<M>,
+    held: Mutex<Held<M>>,
     file: PathBuf,
 }
 
-#[derive(Default)]
-struct Held {
-    messages: VecDeque<HelmMessage>,
+struct Held<M> {
+    messages: VecDeque<M>,
     skipped: u64,
 }
 
-impl Held {
-    fn push(&mut self, message: HelmMessage) {
+impl<M> Default for Held<M> {
+    fn default() -> Held<M> {
+        Held {
+            messages: VecDeque::new(),
+            skipped: 0,
+        }
+    }
+}
+
+impl<M> Held<M> {
+    fn push(&mut self, message: M) {
         if self.messages.len() == THREAD {
             self.messages.pop_front();
             self.skipped += 1;
@@ -75,21 +87,21 @@ impl Held {
     }
 }
 
-impl Thread {
+impl<M: Spoken + DeserializeOwned> Thread<M> {
     /// The thread `file` holds. **A line that will not decode is counted**, for
     /// the transcript backfill's reason: it was a message.
-    pub(crate) fn opened(file: PathBuf) -> Thread {
+    pub(crate) fn opened(file: PathBuf) -> Thread<M> {
         let mut held = Held::default();
         if let Ok(text) = std::fs::read_to_string(&file) {
             for line in text.lines().filter(|line| !line.trim().is_empty()) {
-                match ipc::decode::<HelmMessage>("a Helm thread line", line.as_bytes()) {
+                match ipc::decode::<M>("a conversation's thread line", line.as_bytes()) {
                     Ok(message) => held.push(message),
                     Err(_) => held.skipped += 1,
                 }
             }
         }
         Thread {
-            feed: HelmFeed::new(),
+            feed: ConversationFeed::new(),
             held: Mutex::new(held),
             file,
         }
@@ -99,7 +111,7 @@ impl Thread {
     ///
     /// **A file that will not take the line loses it on a restart and nowhere
     /// else** — viewers already have it, and the session remembers regardless.
-    pub(crate) fn say(&self, message: HelmMessage) {
+    pub(crate) fn say(&self, message: M) {
         let mut held = self.held();
         if let Ok(line) = ipc::encode(&message) {
             let _ = self.appended(&line);
@@ -110,7 +122,7 @@ impl Thread {
 
     /// The subscription, then the thread, under one lock so nothing said
     /// between the two is lost or sent twice.
-    pub(crate) fn watched(&self) -> (HelmWatch, Vec<HelmMessage>, u64) {
+    pub(crate) fn watched(&self) -> (ConversationWatch<M>, Vec<M>, u64) {
         let held = self.held();
         let watch = self.feed.watch();
         (watch, held.messages.iter().cloned().collect(), held.skipped)
@@ -119,22 +131,12 @@ impl Thread {
     /// The thread as it stands, and how many older lines it has dropped.
     /// **No subscription**, unlike [`Thread::watched`]: a record is taken
     /// once and nothing follows it.
-    pub(crate) fn taken(&self) -> (Vec<HelmMessage>, u64) {
+    pub(crate) fn taken(&self) -> (Vec<M>, u64) {
         let held = self.held();
         (held.messages.iter().cloned().collect(), held.skipped)
     }
 
-    /// Forget the thread, and tell every viewer it is gone.
-    pub(crate) fn clear(&self) {
-        let mut held = self.held();
-        *held = Held::default();
-        let _ = std::fs::remove_file(&self.file);
-        self.feed.offer(HelmMessage::Closed(HelmClosed {
-            because: HelmSilence::StartedFresh,
-        }));
-    }
-
-    fn held(&self) -> std::sync::MutexGuard<'_, Held> {
+    fn held(&self) -> std::sync::MutexGuard<'_, Held<M>> {
         self.held
             .lock()
             .expect("the thread is not held across a panic")
@@ -149,5 +151,18 @@ impl Thread {
             .append(true)
             .open(&self.file)?;
         writeln!(out, "{line}")
+    }
+}
+
+impl Thread<HelmMessage> {
+    /// Forget the thread, and tell every viewer it is gone. **Helm's alone**: a
+    /// Commander's thread has no one to start it fresh.
+    pub(crate) fn clear(&self) {
+        let mut held = self.held();
+        *held = Held::default();
+        let _ = std::fs::remove_file(&self.file);
+        self.feed.offer(HelmMessage::Closed(HelmClosed {
+            because: HelmSilence::StartedFresh,
+        }));
     }
 }

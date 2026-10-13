@@ -220,6 +220,9 @@ pub enum Event {
     // The plan's windows after a session read them moving, whole. `docs/concepts/machine.md`.
     #[serde(rename = "plan_usage.changed")]
     PlanUsageChanged(PlanUsage),
+    // A Job's Commander started or finished a turn. `#2166`.
+    #[serde(rename = "commander.changed")]
+    CommanderChanged(crate::commander::CommanderChanged),
 }
 
 impl Event {
