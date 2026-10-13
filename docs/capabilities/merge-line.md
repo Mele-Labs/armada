@@ -445,6 +445,31 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - **The open pull requests are held in memory.** A Fleet restarted shows main at once and the list from its next visit to that repository.
 - **The draining queue draws where it did**, beneath the hub, so nothing in flight disappears.
 
+### Fixing a red across machines
+
+**A take is claimed on the forge, so a Fleet on another machine knows the red is held and refuses a second fix.** `main_ci_fixes` is one machine's record; two Fleets serving one repository never read each other's. #2248.
+
+**This is a stopgap until Armada has a shared store.** The forge is the only state both machines reach, and the claim is borrowed from it. Everything below sits behind the `Delivery` port, so a store replaces the adapter and nothing in Fleet.
+
+| Piece | What it is |
+|---|---|
+| The key | The commit main went red at (`MainCi::red_commit()`). `red_at` is each Fleet's own clock and is never shared. |
+| The lock | `refs/armada/fixing/<red-sha>`, created through the forge's refs API and pointing at the red commit. **Creating a ref that exists fails**, so one take wins and the other is told. |
+| The holder | An issue labelled `main-red`, opened by the winner only: the machine, Job or Session, its title, the Check and test, the culprit pull request, and when. Fleet reads the holder from it; the person reads it on the forge. |
+| The machine | The host's name, or `machine.name` in settings where two hosts share one. |
+
+**A claim is made on any take, whoever turned main red.** Blame decides only whether the automatic send-back fires; it is often wrong, and a red nobody local caused is still taken by a person's dispatch or a Session, and claimed then.
+
+- **The claim comes before the Job.** Each way in claims before `approve` or the send-back, and a lock already held refuses the take as `MainNotFixable::TakenElsewhere`, naming the machine, holder and age. The automatic pickup skips silently, as it skips a red already held here.
+- **A forge that cannot be reached refuses the take** (the owner, 13 Oct 2026). A fix nobody else can see is the double fix this exists to stop.
+- **A Session takes a red with `take_main_red`**, which `agent_access` opens to agents as `claim_pull_request` is opened. It writes the same row, with `session_id` where a Job's take has `job_id`, and the same claim. A Session is told who holds the red when it is refused, and not before.
+- **A take over is asked for, never assumed.** `take_over: true` on `fix_main` or `take_main_red` deletes the other machine's ref, closes its issue with a note, and claims. A claim shows its age so a stale one reads as stale.
+- **Reading the other machine's claim** rides the reading that finds the red: one listing of `refs/armada/fixing/<red-sha>`, and the `main-red` issue for its holder. `hub.fixing_elsewhere` `{machine, holder, since, issue}` carries it beside `hub.fixing`. A lock whose issue has not appeared yet is drawn as *held, holder not yet named*. A remote claim is seen as late as the rotation reaches its repository; a take is never late, because it meets the lock itself.
+- **A take that ends gives its claim back**: its Fleet deletes the ref and closes the issue, so the other machine may take the red.
+- **Green clears every claim.** Any Fleet that reads green deletes each `refs/armada/fixing/*` and closes each open `main-red` issue, its own or not, so a claim left by a machine that is asleep still ends.
+
+**The proof is two Fleets on one scripted forge** (`crates/acceptance`): A takes the red and B's hub names A; B's `fix_main` and `take_main_red` are refused naming A; a forge that refuses every call refuses the take; green clears both.
+
 ## What it depends on
 
 - `concepts/fleet.md` — *Write-scope overlap*, *Catching a branch up*, and what Fleet knows after a merge.
