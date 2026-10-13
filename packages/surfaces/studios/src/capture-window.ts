@@ -65,6 +65,22 @@ export type CaptureWindowState = {
   variations?: { names: string[]; at: number };
   /** Whether the page is ready to walk, as its Session or Job says. Absent: nobody has said. */
   readiness?: CaptureReadiness;
+  /** The walk the page is playing. Absent: the page is not a walk. **Main bounds it; the page said it.** */
+  walk?: CaptureWalk;
+};
+
+/** Where a walk on the page stands. `at` counts from 1, up to `of`. Text only: the bar draws it as words. */
+export type CaptureWalk = {
+  name: string;
+  at: number;
+  of: number;
+  /** The step's caption. */
+  said: string;
+  autoplay: boolean;
+  /** The step's target is ringed, so Next has something to act on. */
+  ready: boolean;
+  /** Past the last step. */
+  done: boolean;
 };
 
 /** `ready`: done and waiting on the person. `working`: still being changed. */

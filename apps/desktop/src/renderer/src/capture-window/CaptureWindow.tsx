@@ -54,6 +54,10 @@ export type CaptureWindowApi = {
   pick: (at: number) => Promise<void>;
   panel: (open: boolean) => Promise<void>;
   openOwner: () => Promise<void>;
+  walkNext: () => Promise<void>;
+  walkBack: () => Promise<void>;
+  walkAutoplay: (on: boolean) => Promise<void>;
+  walkReplay: () => Promise<void>;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -99,6 +103,25 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     window.addEventListener("wheel", wheeled, { capture: true, passive: true });
     return () => window.removeEventListener("wheel", wheeled, true);
   }, [api, asking, strip]);
+
+  // The walk's keys answer while this bar has the keyboard, even when nothing in it holds focus: a Next
+  // that goes disabled while the step seeks drops focus to the body, and the keys would go quiet.
+  // The press is handed to the bar's own root, where its key handler is.
+  const walking = state?.walk !== undefined && !armed;
+  useEffect(() => {
+    if (!walking) return undefined;
+    function keyed(event: KeyboardEvent): void {
+      const root = bar.current?.firstElementChild;
+      if (root === null || root === undefined || event.target !== document.body || !event.isTrusted) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || !/^(arrowright|arrowleft|enter|a|r)$/i.test(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const { key, metaKey, ctrlKey, altKey } = event;
+      root.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey, ctrlKey, altKey, bubbles: true, cancelable: true }));
+    }
+    window.addEventListener("keydown", keyed, true);
+    return () => window.removeEventListener("keydown", keyed, true);
+  }, [walking]);
 
   const close = useCallback(() => {
     setHeld(null);
@@ -253,6 +276,17 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           {...(state.studio === null && (state.job !== undefined || state.session !== undefined) ? { onApprove: () => void approve() } : {})}
           {...(approval === undefined || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
           {...(state.readiness === undefined ? {} : { readiness: state.readiness })}
+          {...(state.walk === undefined
+            ? {}
+            : {
+                walk: {
+                  ...state.walk,
+                  onBack: () => void api.walkBack(),
+                  onNext: () => void api.walkNext(),
+                  onAutoplay: (on: boolean) => void api.walkAutoplay(on),
+                  onReplay: () => void api.walkReplay(),
+                },
+              })}
           {...(state.variations === undefined ? {} : { variations: { names: state.variations.names, at: state.variations.at, onPick: (at: number) => void api.pick(at) } })}
           {...(ask === undefined || ask.shown ? {} : { question: ask.question, onShowQuestion: () => void api.showAsk(true) })}
           {...(panel === undefined ? {} : { panel: { kind: panel.kind, open: panel.open, onToggle: (open: boolean) => void api.panel(open) } })}

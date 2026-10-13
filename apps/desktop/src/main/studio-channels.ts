@@ -226,6 +226,13 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
     const owner = barred(event)?.owner ?? null;
     if (owner !== null) summon(owner.kind === "job" ? { jobId: owner.id } : { jobId: null, sessionId: owner.id });
   });
+  // The walk the page plays: four entries and one boolean, each a call main makes on the page's walk handle.
+  ipc.handle(CHANNELS.captureWindowWalkNext, async (event) => void (await barred(event)?.walkAct("next")));
+  ipc.handle(CHANNELS.captureWindowWalkBack, async (event) => void (await barred(event)?.walkAct("back")));
+  ipc.handle(CHANNELS.captureWindowWalkReplay, async (event) => void (await barred(event)?.walkAct("replay")));
+  ipc.handle(CHANNELS.captureWindowWalkAutoplay, async (event, on: unknown) => {
+    if (typeof on === "boolean") await barred(event)?.walkAct(on ? "autoplay_on" : "autoplay_off");
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

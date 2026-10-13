@@ -21,6 +21,7 @@ import type {
   CaptureRefusedWhat,
   CaptureWheel,
   CaptureReadiness,
+  CaptureWalk,
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
@@ -31,6 +32,7 @@ import { followedBy } from "./follow";
 import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
+import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
 
 export type { LandsOn } from "./layout";
@@ -80,6 +82,13 @@ export type WindowQuestion = {
   place: WindowPlace;
 };
 
+/** How often a walk in the page is read, and how often it is looked for after a load, and for how many looks. */
+const WALK_READ_MS = 250;
+const WALK_FIND_MS = 100;
+const WALK_FIND_TRIES = 50;
+/** The longest one read or act waits on the page before the next is allowed. */
+const WALK_ASK_MS = 1000;
+
 /** How the window is sized, in CSS pixels, from tokens: the bar's row, the panel, and the page's floor beside it. */
 export type WalkSizes = { bar: number; panel: number; floor: number };
 
@@ -124,6 +133,14 @@ export class CaptureWindow {
   private relocating: ReturnType<typeof setTimeout> | null = null;
   /** Questions answered from this bar, so a publish from before the answer cannot raise one again. */
   private readonly settled = new Set<string>();
+  /** The walk the page is playing, as last read and bounded here. `null`: the page is not a walk. */
+  private walk: CaptureWalk | null = null;
+  private walkTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Whether this document has been told to leave its card to the bar. */
+  private walkHosted = false;
+  private walkReading = false;
+  /** Which load's looking is current, so an answer that lands after another load began is let go. */
+  private walkRound = 0;
 
   constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null, takes: readonly WindowTake[] = []) {
     this.pin = pin;
@@ -166,6 +183,7 @@ export class CaptureWindow {
     this.window.on("closed", () => {
       this.board.focused(pin.run, false);
       if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, this.opened);
+      this.stopWatchingWalk();
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
       for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
     });
@@ -306,6 +324,7 @@ export class CaptureWindow {
       ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
       ...(this.takes.length === 0 ? {} : { variations: { names: this.takes.map((one) => one.name), at: this.at } }),
       ...(this.readiness === undefined ? {} : { readiness: this.readiness }),
+      ...(this.walk === null ? {} : { walk: this.walk }),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -562,8 +581,8 @@ export class CaptureWindow {
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
-    // The takes are a row of their own, under the bar's, and the second row follows them.
-    const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (said ? 1 : 0));
+    // The takes and the walk are rows of their own, under the bar's, and the second row follows them.
+    const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (this.walk === null ? 0 : 1) + (said ? 1 : 0));
     const shown = this.panel !== null && this.panelOpen;
     const at = walkLayout({ width, height, strip, covered: this.covered(), panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
     this.page.setBounds(at.page);
@@ -629,6 +648,94 @@ export class CaptureWindow {
     // A page the question moved to, or one that moved under it: its place is looked for again.
     contents.on("did-finish-load", () => void this.locate());
     contents.on("did-navigate-in-page", () => void this.locate());
+    // A walk mounts a moment after its page loads, and Back loads the page again.
+    // `dom-ready` is the new document's, so it is told to leave its card again; the walk itself mounts after it.
+    contents.on("dom-ready", () => this.findWalk());
+    contents.on("did-finish-load", () => this.findWalk());
+  }
+
+  /**
+   * Look for a walk in the page: **main asks, the page never tells**. Each look is one script that
+   * returns a string, as a capture's does, so the page keeps no listener of Bridge's and holds no way
+   * to speak first. Looked for after every load for a few seconds; once found it is read on a beat for
+   * as long as it answers. The row stays through a reload, so Back does not flicker the layout.
+   */
+  private findWalk(): void {
+    this.stopWatchingWalk();
+    this.walkHosted = false;
+    const round = this.walkRound;
+    let missed = 0;
+    const look = async (): Promise<void> => {
+      if (!this.open) return;
+      const found = await this.readWalk();
+      // A later load has started its own looking.
+      if (!this.open || round !== this.walkRound) return;
+      if (found) missed = 0;
+      else if ((missed += 1) > WALK_FIND_TRIES) {
+        this.setWalk(null);
+        return;
+      }
+      this.walkTimer = setTimeout(() => void look(), found ? WALK_READ_MS : WALK_FIND_MS);
+    };
+    void look();
+  }
+
+  private stopWatchingWalk(): void {
+    this.walkRound += 1;
+    if (this.walkTimer !== null) clearTimeout(this.walkTimer);
+    this.walkTimer = null;
+  }
+
+  /** One script in the page, or `null` where there is no page to ask. A page that never answers is let go of. */
+  private async inPage(source: string): Promise<unknown> {
+    const contents = this.page.webContents;
+    if (contents.isDestroyed() || !this.serving || !onOrigin(this.pin.origin, contents.getURL())) return null;
+    let giveUp: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        contents.executeJavaScript(source, false),
+        new Promise<null>((resolve) => (giveUp = setTimeout(() => resolve(null), WALK_ASK_MS))),
+      ]);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(giveUp);
+    }
+  }
+
+  /** Read the walk once and tell the bar if it moved. Whether the page has a walk. */
+  private async readWalk(): Promise<boolean> {
+    if (this.walkReading) return this.walk !== null;
+    this.walkReading = true;
+    try {
+      const walk = readWalk(await this.inPage(readSource()));
+      if (walk !== null && !this.walkHosted) {
+        this.walkHosted = true;
+        await this.inPage(hostSource());
+      }
+      if (walk !== null) this.setWalk(walk);
+      return walk !== null;
+    } finally {
+      this.walkReading = false;
+    }
+  }
+
+  private setWalk(walk: CaptureWalk | null): void {
+    if (sameWalk(this.walk, walk)) return;
+    this.walk = walk;
+    this.tell();
+  }
+
+  /**
+   * One of the walk's five acts, called in the page. **The bar names the act and nothing else**: the
+   * source is fixed text per act, and it is refused where the page has no walk.
+   */
+  async walkAct(act: WalkAct): Promise<void> {
+    if (this.walk === null) return;
+    await this.inPage(actSource(act));
+    // The bar is told what the act did without waiting for the next beat.
+    if (!this.open) return;
+    setTimeout(() => void this.readWalk(), 50);
   }
 }
 

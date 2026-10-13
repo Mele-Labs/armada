@@ -42,6 +42,10 @@ test("the bar names the page ready or still changing, and Approve waits while it
     pick: async () => {},
     panel: async () => {},
     openOwner: async () => {},
+    walkNext: async () => {},
+    walkBack: async () => {},
+    walkAutoplay: async () => {},
+    walkReplay: async () => {},
   } satisfies CaptureWindowApi;
   const host = document.body.appendChild(document.createElement("div"));
   createRoot(host).render(<CaptureWindow api={api} />);

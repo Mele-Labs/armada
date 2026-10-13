@@ -188,6 +188,11 @@ export type StudiosApi = {
     panel: (open: boolean) => Promise<void>;
     /** Bring Bridge's window forward on the Job or the Session the bar names. Main reads which off the window. */
     openOwner: () => Promise<void>;
+    /** The walk the page plays, acted on from the bar. **Five acts and no others**: main calls the page's walk handle for them, and nothing the bar names is run. */
+    walkNext: () => Promise<void>;
+    walkBack: () => Promise<void>;
+    walkAutoplay: (on: boolean) => Promise<void>;
+    walkReplay: () => Promise<void>;
   };
   /**
    * What the panel beside a walk window's page may ask that Bridge's own window does not. **Answered for
@@ -266,5 +271,9 @@ export const STUDIOS_CHANNELS = {
   captureWindowPick: "bridge:capture-window-pick",
   captureWindowPanel: "bridge:capture-window-panel",
   captureWindowOpenOwner: "bridge:capture-window-open-owner",
+  captureWindowWalkNext: "bridge:capture-window-walk-next",
+  captureWindowWalkBack: "bridge:capture-window-walk-back",
+  captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
+  captureWindowWalkReplay: "bridge:capture-window-walk-replay",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
 } as const;

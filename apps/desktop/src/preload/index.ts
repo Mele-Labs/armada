@@ -795,6 +795,10 @@ const api: BridgeApi = {
     pick: (at: number): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPick, at),
     panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
     openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
+    walkNext: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkNext),
+    walkBack: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkBack),
+    walkAutoplay: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkAutoplay, on),
+    walkReplay: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkReplay),
   },
   // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
   // names nothing: main answers for the panel the call came from, and refuses any other document.
