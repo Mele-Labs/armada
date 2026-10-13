@@ -259,6 +259,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
 | `close_session` | Ends the process, parks every slot held for the session and ends what ran in it, ends the row and its walk. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
+| `stop_session` | Ends the turn that is running and leaves the row live (*Stopping a turn*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -501,6 +502,14 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The context figure | The header reads `context_tokens` and `context_window` from `usage` as live tokens and the percent, `53.8k · 5%`, coloured normal below 80, warning from 80, danger from 95. Where `context_breakdown` is held it is a button: hover or focus opens a card, a press keeps it open, Esc or a press outside closes it. The card is the Bays view's stop card: a pill `5% used`, the tokens over the window, a slim bar of the categories in the window, one fact a category, then the three heaviest memory files and MCP servers (a server's tools summed). Where none is held it is a figure with a tooltip and no button |
 | A session held for the plan's limit | `held_until` draws `battery-low` in place of the live state mark, on its list row, its Cockpit tile and its header, with the tooltip `Limit reached · resumes 6:40 PM`. Nothing animates. A Job Fleet holds the same way carries it as `paused.until` and draws the same mark beside its status, in place of the pause mark |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
+
+## Stopping a turn
+
+**A Stop sits beside the working mark at the end of a hosted Session's thread**, and the same press is available wherever that mark is drawn with a turn running. It sends `stop_session` (`POST /sessions/stop`, 23.83). Fleet ends the process as it does after a quiet spell, withdraws a question the agent was held on, sets the turn to `idle` and publishes the row. **The row stays live and the slot stays held**: nothing is parked or committed, which is what separates it from `close_session`. The next message resumes the conversation. The thread keeps every row the agent had written, and Stop draws no row of its own.
+
+**A terminal Session has no Stop.** Fleet does not host its process and refuses the act.
+
+**Debug Bridge starts a Session with no turn.** `start_session` writes the row and runs nothing, so Bridge starts one for the note and leaves the note and its picture in the message box as a draft (`annotate/debug-draft.ts`). The first turn is the person's Enter, with whatever he added. `docs/practices/running-locally.md`, *Annotating Bridge*.
 
 ## A Session's Checks
 

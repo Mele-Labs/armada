@@ -105,6 +105,8 @@ export type Calls = {
   tuned: TuneSession[];
   renamed: RenameSession[];
   closed: string[];
+  /** The Sessions whose running turn was stopped. */
+  stopped: string[];
   forked: string[];
   /** The Sessions forked from one message, and the message. */
   forkedAt: { sessionId: string; at: string }[];
@@ -124,7 +126,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -248,7 +250,16 @@ export class FakeSessionsFleet {
           sendSessionMessage: async (send) => {
             if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
             this.calls.sent.push(send);
-            this.row(send.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: send.text });
+            this.row(send.session_id, {
+              kind: "message",
+              id: this.rowId(),
+              at: AT,
+              from: { kind: "you" },
+              text: send.text,
+              ...(send.attachments === undefined || send.attachments.length === 0
+                ? {}
+                : { files: send.attachments.map((one, at) => ({ id: `${this.rowed}-${at}`, name: one.name, media_type: one.media_type })) }),
+            });
             // The first message of a Session an agent started: sent, it is no longer unsent and nothing waits on it.
             const sent = this.change(send.session_id, (one) => ({
               ...one,
@@ -343,6 +354,10 @@ export class FakeSessionsFleet {
             // A terminal's end is held for its mod: the row ends when the terminal says it did (`changed`).
             if (this.records.find((one) => one.id === sessionId)?.origin === "terminal") return this.change(sessionId, (one) => one);
             return this.change(sessionId, (one) => ({ ...one, state: "ended" }));
+          },
+          stopSession: async (sessionId) => {
+            this.calls.stopped.push(sessionId);
+            return this.change(sessionId, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "idle" } } }));
           },
           watchSession: async (sessionId) => {
             this.calls.watched.push(sessionId);

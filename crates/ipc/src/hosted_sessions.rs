@@ -176,6 +176,12 @@ pub struct CloseSession {
     pub session_id: SessionId,
 }
 
+/// `stop_session`: end the turn that is running. Since 23.83.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StopSession {
+    pub session_id: SessionId,
+}
+
 /// A turn running, or none. **A message from another session starts one**, so
 /// `working` can have no author on the person's side.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
