@@ -55,6 +55,13 @@ export function LimitMark({ said, size = 16 }: { said: string; size?: 12 | 16 })
   );
 }
 
+/** The mark's tooltip: "Limit reached · resumes 6:40 PM", in local time. */
+export function limitHeldSaid(until: string): string {
+  const at = new Date(until);
+  if (Number.isNaN(at.getTime())) return "Limit reached";
+  return `Limit reached · resumes ${at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+}
+
 /** A terminal Session whose mod is older than the repository's. The act is the terminal's own. */
 export const MOD_OUT_OF_DATE = "Mod out of date: run /reload-plugins";
 
@@ -68,7 +75,8 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
   );
 }
 
-export type { ContextBreakdown, ContextFill } from "./ContextFigure";
+export type { ContextFill } from "./ContextFigure";
+export type { ContextBreakdown } from "../../context-breakdown";
 
 export type SessionFrameProps = {
   state: SessionState;

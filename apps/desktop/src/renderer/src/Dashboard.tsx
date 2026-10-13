@@ -32,13 +32,13 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
+import { Button, Radio, RadioGroup, Textarea, limitHeldSaid } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
-import { JobActs, isTerminal, limitHeld, limitHeldSaid, titleOf, type PauseAct } from "@armada/screens";
+import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
 import { boardPressOf } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
@@ -634,7 +634,7 @@ export function useItems(
       const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
       // The workflow is the proposer's to settle: until it lands there is nothing to draw pips from.
       const settling = job.status === "proposing" && job.workflow_id === "";
-      const limited = limitHeld.until(job.id);
+      const limited = job.paused?.until;
       return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }), ...(limited === undefined ? {} : { mark: BatteryLow, state: limitHeldSaid(limited), live: false }) };
     });
     return drawn.filter((item) => !answered.has(item.key));

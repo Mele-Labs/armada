@@ -6,8 +6,9 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
+import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import type {
@@ -354,11 +355,25 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
+    ...(record.held_until === undefined || ended ? {} : { limitedUntil: record.held_until }),
+    ...(record.context_breakdown === undefined ? {} : { contextBreakdown: contextBreakdownOf(record.context_breakdown) }),
     ...(record.usage.context_tokens === undefined || record.usage.context_window === undefined
       ? {}
       : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
+  };
+}
+
+/** What fills a window, in the camelCase the view-model draws. */
+function contextBreakdownOf(wire: WireContextBreakdown): ContextBreakdown {
+  return {
+    categories: wire.categories,
+    memoryFiles: wire.memory_files,
+    mcpTools: wire.mcp_tools,
+    totalTokens: wire.total_tokens,
+    maxTokens: wire.max_tokens,
+    ...(wire.autocompact_threshold === undefined ? {} : { autocompactThreshold: wire.autocompact_threshold }),
   };
 }
 

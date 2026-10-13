@@ -1,12 +1,12 @@
-// The Claude plan's limits for the title row. Behind a source the way Sleep's state is, so a Bridge with
-// none draws nothing. There is no real one yet: the limits will come from the mod's `session.measure`.
-// The mock's is `mock/plan-usage.ts`.
+// The plan's windows for the title row. Behind a source the way Sleep's state is, so a Bridge with none
+// draws nothing. The real one is `fleet-plan-usage.ts`, over Fleet's `/plan_usage` and `plan_usage.changed`.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import type { PlanUsage } from "@armada/components";
+import type { PlanUsage as PlanUsageDrawn } from "@armada/components";
+import type { PlanUsage } from "@armada/protocol";
 
 export type PlanUsageSource = {
-  get(): readonly PlanUsage[] | undefined;
+  get(): PlanUsage | undefined;
   subscribe(on: () => void): () => void;
 };
 
@@ -15,8 +15,14 @@ export const PlanUsageSourceProvider = PlanUsageContext.Provider;
 
 const NONE: PlanUsageSource = { get: () => undefined, subscribe: () => () => undefined };
 
-/** The limits, where a source has them. */
-export function usePlanUsage(): readonly PlanUsage[] | undefined {
+/** The title row's figures, from the wire's windows: `percent_used` is the row's `percentUsed`. */
+export function planUsageDrawn(usage: PlanUsage): PlanUsageDrawn[] {
+  return usage.windows.map((one) => ({ kind: one.kind, percentUsed: one.percent_used, ...(one.resets_at === undefined ? {} : { resetsAt: one.resets_at }) }));
+}
+
+/** The windows the title row draws, where a source has a reading. */
+export function usePlanUsage(): PlanUsageDrawn[] | undefined {
   const source = useContext(PlanUsageContext) ?? NONE;
-  return useSyncExternalStore(source.subscribe, source.get);
+  const usage = useSyncExternalStore(source.subscribe, source.get);
+  return usage === undefined ? undefined : planUsageDrawn(usage);
 }

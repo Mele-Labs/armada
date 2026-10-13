@@ -143,7 +143,7 @@ import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
-import { useSleepMode } from "./sleep"; import { usePlanUsage } from "./plan-usage";
+import { useTitleRow } from "./title-row";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
@@ -273,7 +273,7 @@ export function App({ draft }: AppProps = {}) {
   // reports it up (#1075), so the palette can title its context block with the
   // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
-  const slept = useSleepMode(); const planUsage = usePlanUsage();
+  const titleRow = useTitleRow();
   const [cursor, setCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
@@ -612,7 +612,7 @@ export function App({ draft }: AppProps = {}) {
           onOpenManifest={() => goTo(SURFACE.manifest)}
           onCompose={() => setComposing(true)}
           onSearch={palette.onOpen}
-          {...(slept.sleep === undefined ? {} : { sleep: slept.sleep })} {...(planUsage === undefined ? {} : { planUsage })}
+          {...titleRow}
           questions={questions}
           asking={asks.length}
           helm={

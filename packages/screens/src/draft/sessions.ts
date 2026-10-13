@@ -8,7 +8,7 @@
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
-import type { ContextBreakdown } from "@armada/components";
+import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 

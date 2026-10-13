@@ -21,8 +21,6 @@ import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
-import { limitHeld } from "@armada/screens/src/limit-held";
-import { contextBreakdowns } from "@armada/screens/src/context-breakdown";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   Session,
@@ -39,13 +37,6 @@ import { uploadOfFile, uploadOfSketch } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
 
 const NONE: readonly never[] = [];
-
-/** A Session held for the plan limit carries when it resumes, and one that has reported it carries what fills its window. Nothing sets either outside the mock yet. */
-const heldForLimit = (session: Session): Session => {
-  const limitedUntil = limitHeld.until(session.id);
-  const contextBreakdown = contextBreakdowns.of(session.id);
-  return limitedUntil === undefined && contextBreakdown === undefined ? session : { ...session, ...(limitedUntil === undefined ? {} : { limitedUntil }), ...(contextBreakdown === undefined ? {} : { contextBreakdown }) };
-};
 const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
@@ -95,7 +86,7 @@ export class WiredStore {
 
   private recompute(): void {
     const read = this.inputs?.sessions;
-    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside).map(heldForLimit);
+    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside);
     this.listeners.forEach((listener) => listener());
   }
 

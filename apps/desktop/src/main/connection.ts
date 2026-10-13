@@ -53,6 +53,7 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { PlanUsageHost } from "./plan-usage";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
@@ -195,6 +196,8 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** The plan's windows — `plan-usage.ts`. */
+  readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
@@ -325,6 +328,7 @@ export class FleetConnection {
       sessions: this.sessions,
       held: this.held,
       sleep: this.sleep,
+      planUsage: this.planUsage,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,
       fleetBuild: this.fleetBuild,

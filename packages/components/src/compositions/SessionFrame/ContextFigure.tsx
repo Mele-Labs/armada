@@ -1,21 +1,9 @@
 import type { CSSProperties } from "react";
 
+import type { ContextBreakdown } from "../../context-breakdown";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { usageLevel } from "../../usage";
 import { StopCard, StopCardList, useCardOpen } from "../StopCard/StopCard";
-
-/**
- * What fills a Session's context window, as the harness reports it. `kind` says how a category counts:
- * `used` is in the window, `free` is room left, `buffer` is held back for autocompact, and `deferred`
- * is loaded on demand and counts for nothing until it is.
- */
-export type ContextBreakdown = {
-  categories: readonly { name: string; tokens: number; kind: "used" | "free" | "buffer" | "deferred" }[];
-  memoryFiles: readonly { path: string; tokens: number }[];
-  mcpTools: readonly { name: string; server: string; tokens: number }[];
-  totalTokens: number;
-  maxTokens: number;
-};
 
 /** How full the Session's context window is, as it last reported, and what it is made of where that is known. */
 export type ContextFill = { tokens: number; window: number; breakdown?: ContextBreakdown };

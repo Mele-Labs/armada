@@ -32,6 +32,7 @@ import {
   TileSheet,
   pressedSlot,
   useKept,
+  limitHeldSaid,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -73,7 +74,7 @@ import {
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
-import { limitHeldSaid, placeOf } from "@armada/screens";
+import { placeOf } from "@armada/screens";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
