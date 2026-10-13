@@ -22,7 +22,7 @@ import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
-import { fixJob, type JobFix } from "./fix-job";
+import { checkFixesOf, fixJob, type JobFix } from "./fix-job";
 import { mainOwner, pullOwner, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
@@ -253,7 +253,11 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     fixJob(request).then((done): Told => (done.ok ? { kind: "answered" } : { kind: "refused", said: done.said }));
   /** The words go to the Drone that is live, or start the step again with them where none is. */
   const redirect = (words: string): JobFix | undefined =>
-    jobId === undefined ? undefined : issue?.of === "drone" ? { kind: "redirect_one_drone", jobId, words } : { kind: "restart_step", jobId, words };
+    jobId === undefined
+      ? undefined
+      : issue?.of === "drone"
+        ? { kind: "redirect_one_drone", jobId, words, ...(issue.target === undefined ? {} : { droneId: issue.target }) }
+        : { kind: "restart_step", jobId, words };
 
   const answer = (label: string, run: (words?: string) => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
@@ -261,6 +265,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     const tap = (label: string, request: JobFix, says?: string): Answer =>
       answer(label, () => wait(label, () => fix(request), finish), { once: true, ...(says === undefined ? {} : { says }) });
     if (one.of === "check") {
+      // Fleet has no route for these on main; the keys are not drawn where the window has none.
+      if (checkFixesOf() === undefined) return [];
       const check = one.target ?? one.name;
       return [
         tap("Retry", { kind: "retry_check", jobId: id, check }),

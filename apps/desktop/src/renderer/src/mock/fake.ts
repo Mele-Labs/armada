@@ -16,6 +16,8 @@ import type { Scenario } from "./moment";
 import { SLICES } from "./slices";
 import type { AnySlice } from "./slices";
 import { cockpitRoutes } from "./cockpit-routes";
+import { mockCheckFixes } from "./check-fixes";
+import { registerCheckFixes } from "../cockpit/fix-job";
 import type { SessionsStore } from "./sessions/script";
 import { onTimePassing } from "./time-passes";
 
@@ -107,6 +109,7 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
     }
   }
   DRAFTS.set(fake, { current: fleet.draft.get, subscribe: fleet.draft.subscribe });
+  registerCheckFixes(fake, mockCheckFixes);
   return fake;
 }
 
