@@ -20,6 +20,7 @@ import type { SessionRunMessage } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
+import { sessionsOfPicked } from "@armada/screens/src/board";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
@@ -43,7 +44,7 @@ const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds">;
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository">;
 
 /** The store behind one window's Sessions. Exported for a test that holds it without a window. */
 export class WiredStore {
@@ -74,14 +75,16 @@ export class WiredStore {
 
   private take(state: BridgeState): void {
     const was = this.inputs;
-    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds) return;
-    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds };
+    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository) return;
+    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository };
     this.recompute();
   }
 
   private recompute(): void {
     const read = this.inputs?.sessions;
-    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(read.sessions, this.inputs!.sessionThreads, this.beside);
+    // The window holds the picked repository's Sessions, as the Board holds its Jobs: every list here reads this one.
+    const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
+    this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside);
     this.listeners.forEach((listener) => listener());
   }
 

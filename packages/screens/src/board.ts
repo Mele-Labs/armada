@@ -77,7 +77,7 @@
 // strip is still a breakdown of what is on screen — and a tab that empties
 // under a search renders no count rather than a `0`.
 
-import type { JobSummary, RepositorySummary, TaskCounts } from "@armada/protocol";
+import type { JobSummary, RepositorySummary, SessionRecord, TaskCounts, WorktreesHeld } from "@armada/protocol";
 import type { TaskBarSegment } from "@armada/components";
 // The module, not the package: this file is arithmetic, tested in node, and the package draws.
 import { manifestLabel } from "@armada/shell/src/repository-label";
@@ -109,6 +109,32 @@ export function ofPicked(
 ): readonly JobSummary[] {
   if (picked === null) return jobs;
   return jobs.filter((job) => job.owner_manifest_id === picked.manifest?.id);
+}
+
+/** The Sessions the pick names, as `ofPicked` for Jobs. One with no Manifest of its own is on All alone. */
+export function sessionsOfPicked(
+  sessions: readonly SessionRecord[],
+  picked: { manifest?: { id: string } } | null,
+): readonly SessionRecord[] {
+  if (picked === null) return sessions;
+  return sessions.filter((one) => one.manifest_id !== undefined && one.manifest_id === picked.manifest?.id);
+}
+
+/**
+ * What Fleet holds disk for, of the picked repository. A slot names its Manifest; a Job's worktree
+ * does not, so it follows its Job, and one whose Job the Board no longer lists is on All alone.
+ */
+export function heldOfPicked(
+  held: WorktreesHeld,
+  picked: { manifest?: { id: string } } | null,
+  jobs: readonly JobSummary[],
+): WorktreesHeld {
+  if (picked === null) return held;
+  const owned = new Set(ofPicked(jobs, picked).map((job) => job.id));
+  return {
+    worktrees: held.worktrees.filter((one) => owned.has(one.job_id)),
+    ...(held.slots === undefined ? {} : { slots: held.slots.filter((one) => one.manifest_id === picked.manifest?.id) }),
+  };
 }
 
 /** The two orders. `Critical first` is the one Overview reads by; the control that offered
