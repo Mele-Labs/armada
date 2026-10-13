@@ -269,7 +269,7 @@ where
     /// longer shows as the session's is given back; with none recorded, a slot
     /// held by the session's own tree is attached with its branch. Returns the
     /// hosting as it now stands.
-    pub(super) async fn follow_the_pool(
+    pub(crate) async fn follow_the_pool(
         &self,
         id: &str,
         served: &Served,

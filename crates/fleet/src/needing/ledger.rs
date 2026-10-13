@@ -94,23 +94,28 @@ pub(crate) fn branch_of(holder: &Holder) -> Option<&str> {
     }
 }
 
-/// Who holds `branch` in this repository: the Job standing on it, else a session
-/// standing on it, else the branch itself. **The same rule for a Job's own
-/// declaration and a terminal's `armada need`**, so both land in one order.
+/// Who holds `branch` in this repository, whose pool is at `root`: the Job standing on it, else
+/// the session the pool confirms works it (`crate::slot_holders`), else the branch itself.
+/// **The same rule for a Job's own declaration and a terminal's `armada need`**, so both land in
+/// one order.
 pub(crate) fn holder_of_branch(
     store: &Store,
     manifest: &str,
+    root: &str,
     branch: &str,
 ) -> Result<Holder, WriteError> {
-    let standing: Vec<Holder> = store
+    let job = store
         .attachments_at("branch", branch, Some(manifest))?
         .into_iter()
-        .filter(|row| row.state == AttachmentState::Standing)
-        .map(|row| row.holder)
-        .collect();
-    let by_kind = |kind| standing.iter().find(|holder| holder.kind == kind).cloned();
-    Ok(by_kind(HolderKind::Job)
-        .or_else(|| by_kind(HolderKind::Session))
+        .find(|row| row.state == AttachmentState::Standing && row.holder.kind == HolderKind::Job)
+        .map(|row| row.holder);
+    Ok(job
+        .or_else(|| {
+            crate::slot_holders::sessions_on_branch(store, manifest, root, branch)
+                .into_iter()
+                .next()
+                .map(Holder::session)
+        })
         .unwrap_or_else(|| branch_holder(branch)))
 }
 

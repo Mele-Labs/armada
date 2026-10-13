@@ -248,6 +248,27 @@ async fn a_slot_the_agent_released_by_the_cli_is_given_back_in_the_ledger() {
     assert_eq!(hosting.lease_slot, None);
 }
 
+/// #2239. A release by the agent's own CLI told nobody: the rows stood until the session's next
+/// tool call, and a session with none to make kept them. The sweep reads the pool for it.
+#[tokio::test]
+async fn a_slot_the_agent_released_is_given_back_on_the_sweep_without_another_tool_call() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    let file = format!(r#"{{"file_path":"{own}/src/lib.rs"}}"#);
+    assert!(!denied(&rig.gate(&id, "Edit", &file).await));
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
+
+    std::fs::remove_file(format!("{own}.lease")).expect("released");
+    let served = rig.fleet.repositories().first().expect("served");
+    rig.fleet.slot_rows_followed(&served).await;
+
+    assert!(standing(&rig, &id, "slot").await.is_empty());
+    assert!(standing(&rig, &id, "branch").await.is_empty());
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, None);
+}
+
 #[tokio::test]
 async fn a_slot_the_agent_leased_by_the_cli_is_attached_and_writable() {
     let peers = Placing::nothing();

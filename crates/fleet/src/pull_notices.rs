@@ -142,6 +142,8 @@ where
     pub(crate) async fn pulls_told(self: &Arc<Self>, served: &Served) {
         let base = served.manifest().base().unwrap_or("the base").to_string();
         let root = served.root().to_string();
+        // Before the forge is asked, which may not answer: the pool is local.
+        self.slot_rows_followed(served).await;
         let Some(watched) = self
             .forge_asked(&root, |vcs: &V, root: &str| vcs.pull_watch(root))
             .await

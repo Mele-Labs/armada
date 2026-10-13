@@ -12,11 +12,12 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0, reports: 0 }
+  const processes: { argv: string[] }[] = []
   const submitted: { text: string; asUser?: boolean }[] = []
   const usages: unknown[] = []
   const asked: unknown[] = []
@@ -66,6 +67,7 @@ function world(
     return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
   })
   on('process.run', (_$, e) => {
+    processes.push(e)
     if (e.argv[0] === 'git') {
       return { value: { exitCode: 0, stdout: 'fleet/session-ledger\n', stderr: '' } }
     }
@@ -81,7 +83,7 @@ function world(
     options.onCommand?.()
     return { value: {} }
   })
-  on('session.cwd', () => ({ value: '/repos/armada' }))
+  on('session.cwd', () => ({ value: options.cwd?.() ?? '/repos/armada' }))
   // What the engine answers beneath the mod for the events a test raises.
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
@@ -105,7 +107,7 @@ function world(
   })
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -124,6 +126,25 @@ test('a session starting is told to Fleet with its directory and its branch', as
     kind: 'attached',
     attachment: { kind: 'branch', target: 'fleet/session-ledger' },
   })
+})
+
+test('the branch and its pull request are read where the session is now, not where it last said it was', async ($, on) => {
+  let here = '/repos/armada'
+  const { processes, clock } = world(on, { cwd: () => here })
+  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  processes.length = 0
+
+  // The shell is in a slot now, and the cached directory still names the first.
+  here = '/repos/armada/.armada/slots/slot-13'
+  await $.tool.call({ tool: 'Bash', command: 'git checkout topic' })
+  await clock.settle()
+
+  expect(processes.length).toBeGreaterThan(0)
+  for (const one of processes) {
+    expect(JSON.stringify(one)).toContain('/repos/armada/.armada/slots/slot-13')
+  }
 })
 
 test('a Drone, Judge call or scout is not told to Fleet', async ($, on) => {

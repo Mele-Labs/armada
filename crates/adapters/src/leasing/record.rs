@@ -31,6 +31,11 @@ impl Holder {
     /// for the session.
     pub const SESSION_ENV: &'static str = "ARMADA_SESSION";
 
+    /// What the agent sets in every command it runs, to its own session's id. A lease taken by a
+    /// terminal session's command is written with it, so the pool says which session holds a slot
+    /// that a bare process could not.
+    pub const AGENT_SESSION_ENV: &'static str = "CLAUDE_CODE_SESSION_ID";
+
     /// The Job with this id.
     pub fn job(id: &str) -> Holder {
         Holder::Job(id.to_string())
@@ -159,9 +164,12 @@ pub(super) struct Record {
     /// was. Only a Job's lease carries one: it is how a slot a finished Job
     /// could not give back says so.
     pub(super) kept: Option<String>,
-    /// The Session whose process tree held the slot, for a holder that is a
-    /// process: the holder alone cannot say, once it is gone. Fleet writes it
-    /// (`Pool::note_session`); absent from every record written before it.
+    /// The agent Session that holds this lease, or held it last, for a holder that is a process:
+    /// the holder alone cannot say whose it was, once it is gone. Written two ways. `armada
+    /// worktree lease` writes the Session whose command took the lease, from the agent's own
+    /// environment. Fleet writes it with `Pool::note_session` for a live process holder whose
+    /// tree it finds in a Session, which also fills leases taken before either existed. A Job's
+    /// record never carries one: it already names its Session. A record with none was taken by hand.
     pub(super) session: Option<String>,
     /// The Job completed and holds the slot until a person clears it.
     pub(super) completed: bool,
