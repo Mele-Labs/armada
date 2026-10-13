@@ -458,3 +458,35 @@ describe("what a session waits on", () => {
     expect(sessionOfRecord(record("a", { state: "ended", waiting_for: items }), undefined, beside()).waitingFor).toBeUndefined();
   });
 });
+
+describe("the plan's limit and the context window", () => {
+  const breakdown = {
+    categories: [
+      { name: "Messages", tokens: 23_600, kind: "used" as const },
+      { name: "Free space", tokens: 913_000, kind: "free" as const },
+    ],
+    memory_files: [{ path: "NOTES.md", tokens: 2_100 }],
+    mcp_tools: [{ name: "list_jobs", server: "armada-fleet", tokens: 2_600 }],
+    total_tokens: 53_840,
+    max_tokens: 1_000_000,
+    autocompact_threshold: 967_000,
+  };
+
+  it("reads held_until as the reset a held session resumes at, and nothing for one that ended", () => {
+    expect(sessionOfRecord(record("a", { held_until: "2026-10-12T22:40:00Z" }), undefined, beside()).limitedUntil).toBe("2026-10-12T22:40:00Z");
+    expect(sessionOfRecord(record("a"), undefined, beside()).limitedUntil).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", held_until: "2026-10-12T22:40:00Z" }), undefined, beside()).limitedUntil).toBeUndefined();
+  });
+
+  it("reads context_breakdown in the camelCase the view-model draws, and nothing without one", () => {
+    expect(sessionOfRecord(record("a", { context_breakdown: breakdown }), undefined, beside()).contextBreakdown).toEqual({
+      categories: breakdown.categories,
+      memoryFiles: breakdown.memory_files,
+      mcpTools: breakdown.mcp_tools,
+      totalTokens: 53_840,
+      maxTokens: 1_000_000,
+      autocompactThreshold: 967_000,
+    });
+    expect(sessionOfRecord(record("a"), undefined, beside()).contextBreakdown).toBeUndefined();
+  });
+});

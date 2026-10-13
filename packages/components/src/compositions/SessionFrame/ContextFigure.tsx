@@ -21,7 +21,7 @@ const TOP = 3;
 /** The heaviest few of a list, by tokens. */
 const heaviest = <T extends { tokens: number }>(items: readonly T[]): T[] => [...items].sort((a, b) => b.tokens - a.tokens).slice(0, TOP);
 
-/** A path's last segment, `CLAUDE.md` for `apps/CLAUDE.md`; the last two where another file shares it. */
+/** A path's last segment, `NOTES.md` for `apps/NOTES.md`; the last two where another file shares it. */
 const nameOf = (path: string, all: readonly { path: string }[]): string => {
   const parts = path.split("/");
   const last = parts[parts.length - 1] ?? path;

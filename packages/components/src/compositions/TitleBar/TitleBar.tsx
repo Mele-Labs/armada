@@ -28,7 +28,7 @@ import { usageLevel } from "../../usage";
  * has room for it, the way `TheShell`'s `railHeader` used to.
  */
 /**
- * One limit of the Claude plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
+ * One limit of the plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
  * and `seven_day` as `wk`; any other kind is not drawn.
  */
 export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string };
@@ -142,7 +142,7 @@ export type TitleBarProps = {
     onToggle: () => void;
   };
   /**
-   * The Claude plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
+   * The plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
    * knows, draws nothing.** Not Fleet's dot: that stays liveness and nothing else.
    */
   planUsage?: readonly PlanUsage[];

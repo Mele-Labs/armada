@@ -1,4 +1,4 @@
-// How full a Session's context window is, and how much of the Claude plan is used. The context is a bare
+// How full a Session's context window is, and how much of the plan is used. The context is a bare
 // figure in each Session's header, beside its acts, the live tokens and the percent, opening a card of what fills the window. The 5-hour and weekly limits are two fill meters in the
 // title bar, beside Sleep, each opening a card on hover or focus, kept by a press and closed by Esc or a press outside. Normal below 80%, amber from 80%, red from 95%.
 // A Session or a Job held for the plan limit wears a battery-low mark with when it resumes, on its row and, for

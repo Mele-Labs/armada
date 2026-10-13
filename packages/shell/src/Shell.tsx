@@ -123,7 +123,7 @@ export type ShellProps = {
   onSearch: () => void;
   /** Sleep mode's control, in the title row beside Helm's. Absent draws none. */
   sleep?: TheShellProps["sleep"];
-  /** The Claude plan's limits, in the title row. Absent draws none. */
+  /** The plan's limits, in the title row. Absent draws none. */
   planUsage?: TheShellProps["planUsage"];
   /** Which surface is up, by its id in `surfaces.ts`. The rail marks it. */
   showing: string;

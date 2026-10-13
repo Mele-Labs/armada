@@ -47,9 +47,9 @@ function breakdownOf(total: number, max: number): ContextBreakdown {
       { name: "Autocompact buffer", tokens: buffer, kind: "buffer" },
     ],
     memory_files: [
-      { path: "CLAUDE.md", tokens: 2_100 },
-      { path: ".claude/MEMORY.md", tokens: 1_800 },
-      { path: "apps/CLAUDE.md", tokens: 700 },
+      { path: "NOTES.md", tokens: 2_100 },
+      { path: ".notes/MEMORY.md", tokens: 1_800 },
+      { path: "apps/NOTES.md", tokens: 700 },
     ],
     mcp_tools: [
       { name: "list_jobs", server: "armada-fleet", tokens: 2_600 },

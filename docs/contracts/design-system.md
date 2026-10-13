@@ -1049,6 +1049,8 @@ The colour is the Fleet panel's, from the one map — the dot and the panel
 cannot disagree, because neither holds a table of its own. Status colour is
 mapped, never chosen; see [Iconography](iconography.md).
 
+**The Session header carries the context figure.** Live tokens and the percent of the window, `53.8k · 5%`, in mono beside the header's acts and before the state mark, coloured by the same levels as the plan meters: normal below 80, warning from 80, danger from 95. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No gauge, no dial, and no text where nothing is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
+
 **pid, port, protocol and uptime do not follow it.** They stay in the panel,
 and at the rail they are behind the column's own expansion. A dot cannot carry
 a figure; Fleet's own figures are read in the panel.

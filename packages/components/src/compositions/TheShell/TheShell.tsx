@@ -44,7 +44,7 @@ export type TheShellProps = {
   dispatchDisabled?: boolean;
   /** Sleep mode's control in the title row, beside Helm's. Absent draws none. */
   sleep?: TitleBarProps["sleep"];
-  /** The Claude plan's limits, as figures in the title row. Absent draws none. */
+  /** The plan's limits, as figures in the title row. Absent draws none. */
   planUsage?: TitleBarProps["planUsage"];
   /**
    * The rail's panels, each its own rounded panel in the column — the owner
