@@ -2246,7 +2246,7 @@ is resumed is told the turn alone.
 | **What you may do** | The allowlist, on this Job only | `crates/api/src/daemon/commander.rs` is the list and the door enforces it; the brief says it so a refusal is not a surprise |
 | **What you may not do** | Pass a gate, attest, merge, push, edit a Check or the Manifest | The decision record's limit, stated, so it is not rediscovered by being refused |
 | **What you say** | Nothing advances the Job; cite what you read; never call work done | `../scope.md`'s third attempt rejected a transcript read as a claim. A Commander's sentence that work is finished must not become one |
-| **When you cannot fix it** | Stop, and say what is wrong and what the owner could do | The loop bound: three wakes on one problem without the Job moving. Counting them is `#2167`'s and the rule is stated here. A card to the owner replaces "say" with the second part of `#2166` |
+| **When you cannot fix it** | Stop, and say what is wrong and what the owner could do | The loop bound: three wakes on one problem without the Job moving. Fleet counts them (`#2167`, `docs/concepts/commander.md`, *When it wakes*) and the rule is stated here. A card to the owner replaces "say" with the second part of `#2166` |
 
 **Voice is not given**, for 5b's reason. The brief is overridable as
 `prompts.commander`, which must keep `{job}`.
