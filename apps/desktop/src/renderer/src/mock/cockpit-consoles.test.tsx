@@ -8,6 +8,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import { s205DashboardNeedsYou } from "./scenarios/dashboard-needs-you";
+import { s212CockpitConsoles } from "./scenarios/cockpit-consoles";
 import type { Scenario } from "./moment";
 import { mockSleep } from "./sleep";
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -120,6 +121,51 @@ test("a Job's box is hidden until t, and its words go to the Drone, or start the
   await userEvent.type(box(), "Start from the failing case\n");
   await expect.poll(() => restart.mock.calls.length).toBe(1);
   expect(restart).toHaveBeenLastCalledWith(expect.any(String), "Start from the failing case");
+});
+
+test("a call Fleet serves draws only what its issue carries: Retry step and the box for a stuck Drone, nothing for an overlap", async () => {
+  const [stuckJob, overlapJob] = Object.keys(s212CockpitConsoles.draft!.calls!).slice(1, 3) as [string, string];
+  const calls = {
+    [stuckJob]: {
+      served: true as const,
+      issues: [
+        {
+          key: "stuck:d1",
+          of: "drone" as const,
+          name: "Implement Drone",
+          text: "No output for 12m",
+          said: "Drone stuck",
+          target: "d1",
+          acts: [
+            { glyph: "redirect" as const, said: "Redirect Drone" },
+            { glyph: "retry_step" as const, said: "Retry step" },
+          ],
+        },
+      ],
+    },
+    [overlapJob]: {
+      served: true as const,
+      issues: [{ key: "overlap:j9", of: "drone" as const, name: "Pin the clock", text: "crates/store/src/clock.rs", said: "Write scope overlaps" }],
+    },
+  };
+  const scenario: Scenario = { ...s212CockpitConsoles, draft: { ...s212CockpitConsoles.draft!, calls } };
+  const app = mount(scenario);
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  const redirect = vi.spyOn(app.api, "redirectDrone");
+  const box = () => page.getByRole("textbox", { name: "Message" });
+
+  await reach(/^Write scope overlaps/);
+  expect(key(/Retry step/).query()).toBeNull();
+  await userEvent.keyboard("t");
+  expect(box().query()).toBeNull();
+
+  await reach(/^Drone stuck/);
+  await expect.element(key(/Retry step/)).toBeVisible();
+  await userEvent.keyboard("t");
+  await userEvent.type(box(), "Run the one test\n");
+  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  expect(redirect).toHaveBeenLastCalledWith(stuckJob, "Run the one test", "d1");
 });
 
 // ---- Sleep's decisions as calls ------------------------------------------------------------------
