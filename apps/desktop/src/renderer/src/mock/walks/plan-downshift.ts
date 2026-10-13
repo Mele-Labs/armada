@@ -1,6 +1,6 @@
-// The weekly window nearing its end: past 80% Bridge offers the default model a step down until the window
+// The weekly window nearing its end: past 80% Bridge offers the Session model a step down until the window
 // resets, in a notification and on the `wk` meter's card, and offers the way back once it has. The Session's
-// model list says which default it follows throughout. `planDownshiftChoosing` presses Choose… instead.
+// model list says which Session default it follows throughout. `planDownshiftChoosing` presses Choose… instead.
 // Over `plan-downshift`.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
@@ -45,9 +45,9 @@ const planDownshift = walk("plan-downshift", [
 const planDownshiftChoosing = walk("plan-downshift", [
   ...crossing,
   { press: inside(card, button("Choose…")), say: "Choose…" },
-  { look: text("Default model"), say: "Settings opens at the models" },
-  { type: "haiku", into: role("textbox", "Default model", { exact: true }), say: "Set it by hand" },
-  { press: button("Save Default model"), say: "Save" },
+  { look: text("Session model"), say: "Settings opens at the models" },
+  { type: "haiku", into: role("textbox", "Session model", { exact: true }), say: "Set it by hand" },
+  { press: button("Save Session model"), say: "Save" },
   toSessions,
   { press: inside(region("Sessions"), button(/Cart totals rounding/)), say: "The Session" },
   { look: following("haiku"), say: "Its model list follows" },

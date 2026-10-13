@@ -106,7 +106,7 @@ const CONNECTED: Connection = connectedTo(
 );
 
 /** What `list_models` answers — `props.ts`' own guess, so a story and the app agree. */
-const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet", harnesses: [HARNESS] };
+const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet", session: "opus", harnesses: [HARNESS] };
 
 /** The state a connected Fleet publishes over `nothingYet`, holding these Jobs. */
 export function connected<S extends PublishedCore>(

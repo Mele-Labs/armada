@@ -1,6 +1,6 @@
 // The weekly window nearing its end, and the default model offered a step down until it resets. The title bar
 // holds the plan's limits at 5h 30% and wk 75%, and one live Session shows the default in its model list. A walk's
-// `later` moves the week to 83% (the offer), then to a new window (the restore). The default is `models.default`
+// `later` moves the week to 83% (the offer), then to a new window (the restore). The Session default is `models.session`
 // in settings.json, so pressing the offer and the Settings page agree. The walk `planDownshift` plays it.
 
 import type { PlanUsage, RepositorySummary } from "@armada/protocol";
@@ -45,7 +45,7 @@ function build(): Scenario {
     ...served,
     name: "plan-downshift",
     says: "The title bar holding the weekly limit at 75%, which the walk takes over 80% and then past its reset; the Session's model list shows the default",
-    state: { ...served.state, holds: { ...served.state.holds, models: { models: ["haiku", "sonnet", "opus"], ...models, default: "opus" } } },
+    state: { ...served.state, holds: { ...served.state.holds, models: { models: ["haiku", "sonnet", "opus"], default: "sonnet", ...models, session: "opus" } } },
     behaves: (handle) => {
       const fleet = new FakeSessionsFleet(records(), {}).scenario(board).behaves!(handle);
       let at = 0;
@@ -65,13 +65,13 @@ function build(): Scenario {
           heard.add(on);
           return () => void heard.delete(on);
         },
-        // Fleet answers a save with the settings now in force, and the model list it serves follows `models.default`.
+        // Fleet answers a save with the settings now in force, and the model list it serves follows `models.session`.
         saveSettings: async (changes) => {
           const held = handle.state().settings;
           if (held !== null) handle.publish({ settings: savedInto(held, changes) });
           const { holds, settings } = handle.state();
-          const chosen = "models.default" in changes ? settings?.settings.find((one) => one.key === "models.default")?.value : undefined;
-          if (holds.models !== null && typeof chosen === "string") handle.publish({ holds: { ...holds, models: { ...holds.models, default: chosen } } });
+          const chosen = "models.session" in changes ? settings?.settings.find((one) => one.key === "models.session")?.value : undefined;
+          if (holds.models !== null && typeof chosen === "string") handle.publish({ holds: { ...holds, models: { ...holds.models, session: chosen } } });
           return { ok: true };
         },
       };

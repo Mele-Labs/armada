@@ -12,6 +12,8 @@ const questionDeck = walk("session-many-questions", [
   { press: rail("Sessions"), say: "The Sessions page" },
   { press: inside(region("Sessions"), button(/Plan the night/)), say: "A Session asking four questions" },
   { look: inside(ask, text("Should a destructive best answer be decided overnight?")), say: "One question in front, three behind" },
+  { press: inside(ask, button(/Destructive/)), say: "Pressing the band folds the card to it, so the thread above can be read" },
+  { press: inside(ask, button(/Destructive/)), say: "Pressing it again opens the card, nothing picked is lost" },
   { press: inside(ask, role("radio", "Hold for me")), say: "Picking an answer" },
   { look: inside(ask, text("Should the Morning review open when Sleep goes off?")), say: "Brings the next one forward" },
   { press: inside(ask, role("radio", "Only if non-empty")), say: "And the next" },

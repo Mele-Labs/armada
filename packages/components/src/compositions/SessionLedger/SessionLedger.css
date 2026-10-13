@@ -343,3 +343,22 @@ path.armada-session-ledger__picture-later {
 .armada-session-ledger__run .armada-prose__run-acts {
   opacity: 1;
 }
+
+/* A restart's mark: in its state's hue, and turning while the switch runs. */
+.armada-session-mark[data-restart="running"] { color: var(--status-running); }
+.armada-session-mark[data-restart="passed"] { color: var(--status-completed-success); }
+.armada-session-mark[data-restart="failed"] { color: var(--status-completed-failed); }
+
+.armada-session-mark[data-restart="running"] > svg {
+  animation: armada-session-ledger-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-session-ledger-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-mark[data-restart="running"] > svg {
+    animation: none;
+  }
+}
