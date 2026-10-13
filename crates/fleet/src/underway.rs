@@ -35,6 +35,7 @@ use core_model::{Attempt, ResolvedCheck};
 use tokio::sync::mpsc::UnboundedSender;
 use verification::{Exit, Observed, Ran};
 
+use crate::check_acts::Control;
 use crate::clock::Clock;
 
 /// Each Job's gate that is running Checks right now. Shared with Fleet, which
@@ -90,6 +91,9 @@ struct Running {
     files: Vec<Option<PathBuf>>,
     /// Which writer put this entry up, so one dropped late takes down only its own.
     token: u64,
+    /// Where a person's skip or retry reaches the gate's loop. Only a gate's own
+    /// run has one: a Drone's asked run is not one a person steers.
+    control: Option<Arc<Control>>,
 }
 
 /// One Check's result, landed while a Drone's run still has others going. #1062.
@@ -143,6 +147,21 @@ impl Underway {
         let held = self.0.lock().ok()?;
         let running = held.asked_runs.get(job)?;
         (&running.step == step).then(|| running.checks.clone())
+    }
+
+    /// The control of this Job's running gate, and which of its Checks have a
+    /// result, by position. `None` where no gate is running Checks.
+    pub(crate) fn gate_of(&self, job: &ipc::JobId) -> Option<(Arc<Control>, Vec<bool>)> {
+        let held = self.0.lock().ok()?;
+        let running = held.gates.get(job)?;
+        let control = running.control.clone()?;
+        let finished = running
+            .checks
+            .checks
+            .iter()
+            .map(|check| check.ran.is_some())
+            .collect();
+        Some((control, finished))
     }
 
     /// Both of this Job's entries, whichever step they are on.
@@ -387,6 +406,34 @@ impl Announcing {
         }
     }
 
+    /// Where a person's skip or retry reaches this run. `None` for a run that
+    /// is not a gate's own, and for a red's run alone.
+    pub(crate) fn control(&self) -> Option<Arc<Control>> {
+        let bound = self.0.as_ref().filter(|bound| bound.again.is_none())?;
+        let held = bound.underway.0.lock().ok()?;
+        held.whose(bound.whose)
+            .get(&bound.job)
+            .filter(|running| running.token == bound.token)
+            .and_then(|running| running.control.clone())
+    }
+
+    /// The Check at `at` is going to run again: its row reads as waiting.
+    pub(crate) fn restarted(&self, at: usize) {
+        let Some(bound) = self.0.as_ref() else { return };
+        let at = Self::slot(bound, at);
+        self.moved(bound, at, |check, files| {
+            check.started_at = None;
+            check.took_ms = None;
+            check.ran = None;
+            check.output_path = None;
+            check.stopped_by = None;
+            check.waiting_behind = None;
+            if let Some(file) = files {
+                *file = None;
+            }
+        });
+    }
+
     /// The step's slot for the Check at `at` of this run.
     fn slot(bound: &Bound, at: usize) -> usize {
         bound
@@ -484,6 +531,14 @@ impl Announcing {
             },
             files: vec![None; checks.len()],
             token: bound.token,
+            control: matches!(bound.whose, Whose::Gate).then(|| {
+                Arc::new(Control::new(
+                    checks
+                        .iter()
+                        .zip(settled)
+                        .map(|(check, known)| (check.key().to_string(), known.is_none())),
+                ))
+            }),
         };
         let checking = running.checks.clone();
         if let Ok(mut held) = bound.underway.0.lock() {
@@ -737,6 +792,9 @@ impl Drop for Announcing {
         // A run alone's writer tells the gate's entry and never owns it.
         if bound.again.is_some() {
             return;
+        }
+        if let Some(control) = self.control() {
+            control.close();
         }
         let was = bound.underway.0.lock().ok().and_then(|mut held| {
             let entries = held.whose_mut(bound.whose);

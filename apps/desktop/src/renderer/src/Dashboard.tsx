@@ -34,7 +34,8 @@ import {
 import { Button, Radio, RadioGroup } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { AskedOf, NowView } from "@armada/jobs/draft/now";
+import type { NowActed } from "@armada/jobs";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
 import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
@@ -104,9 +105,13 @@ export type Item = {
   sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
   waiting?: { sessionId: string; item: WaitingItem };
+  /** What a Job's ask is answered through, where Fleet served it: the question or Judge call, or a command. */
+  asked?: AskedOf;
+  /** Drawn from what Fleet serves, so its acts are real ones: Open Job, and no mock stub. */
+  served?: true;
 };
 
-/** What the Dashboard knows of each Job's Now, by Job id. Mock only: Fleet serves none. */
+/** What the Dashboard knows of each Job's Now, by Job id: the draft's, else what Fleet serves for the active Jobs. */
 export const Nows = createContext<Readonly<Record<string, NowView>> | undefined>(undefined);
 
 const WAITING = {
@@ -167,6 +172,8 @@ export type Hosts = {
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: ((sentence: string) => void) | undefined;
+  /** A quick act pressed on a Job's Now panel. Absent, the panel says what the act would do. */
+  onNowAct?: ((jobId: string, acted: NowActed) => void) | undefined;
   /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
@@ -330,6 +337,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
         where,
         body: [["From", ask.name]],
         said: [ask.text],
+        ...(ask.asked === undefined ? {} : { asked: ask.asked }),
         acts: () => <Button variant="primary" onClick={open}>Open Job</Button>,
       });
     }
@@ -352,6 +360,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
       where,
       body: [["On", issue.name]],
       said: [issue.text],
+      ...(view?.served === true ? { served: true as const } : {}),
       acts: () => null,
     });
   }
@@ -602,7 +611,7 @@ export function useItems(
           .map((one) => sessionItem(one, hosts)),
       );
     }
-    items.push(...lineItems(state, tab, hosts, nowViews !== undefined));
+    items.push(...lineItems(state, tab, hosts, nowViews !== undefined && !Object.values(nowViews).some((view) => view.served === true)));
     // A Job's pips come from its workflow and its icon from the first thing active on it.
     const drawn = items.map((item): Item => {
       if (item.job === undefined || tab === "command-central") return item;

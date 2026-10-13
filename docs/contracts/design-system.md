@@ -1529,7 +1529,8 @@ and `call`, because their keys act on neither a list nor a Job. A call in front
 takes the digits, `Enter`, `l`, `d`, `e`, `b` and `g` while it is up and gives them
 back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
-never on a call Fleet raises about a state. The panel's `[ ]` and `⌥1–3`
+never on a call Fleet raises about a state. On a Job's question they answer with
+`mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told. The panel's `[ ]` and `⌥1–3`
 move between its filters, `m` flips grid and map, `w` brings a waiting call
 back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
 

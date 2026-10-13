@@ -16,7 +16,7 @@ use ipc::{
     AnswerHelmCall, AskHelm, AskingToRun, EventsSince, Freshness, HelmAsked, HelmCallsWaiting,
     HelmChangedCheckout, HelmContext, HelmConversation, HelmDebugInfo, HelmFresh, HelmMessage,
     HelmScreen, HelmUnanswered, Instant, ManifestId, ReadThought, RunOrNot, Shown, ThoughtReading,
-    ThoughtSent, WireError,
+    TellSession, ThoughtSent, ThoughtTarget, WireError,
 };
 
 use super::conversation::{Conversation, ConversationKey};
@@ -172,6 +172,14 @@ where
         manifest_id: Option<ManifestId>,
     ) -> Result<HelmConversation, Refusal> {
         self.thought_sent(sent, manifest_id).await
+    }
+
+    async fn tell_session(
+        self: Arc<Self>,
+        tell: TellSession,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<ThoughtTarget, Refusal> {
+        self.session_told(tell, manifest_id).await
     }
 
     async fn start_helm_fresh(

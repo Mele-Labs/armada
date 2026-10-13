@@ -1,0 +1,12 @@
+[operations.skip_checks]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Ends every Check of a step's gate that has not finished, each recorded as skipped"
+notes = """
+The band-level act on a Job's Now, `skip_check` for every unfinished Check at once. No body. Checks that finished keep their outcome.
+
+Refused with a 409 where no gate is running Checks for the Job.
+
+`agent_access` is `Helm only`, `skip_check`'s reason.
+"""

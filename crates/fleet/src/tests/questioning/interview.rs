@@ -316,7 +316,7 @@ async fn each_form_is_answered_in_its_own_shape() {
     let asked = fleet.ask_question(&job, an_interview()).await.unwrap();
 
     let refused = fleet
-        .answer_question(&job, asked.id.as_str(), "Fold it in")
+        .answer_question(&job, asked.id.as_str(), Some("Fold it in"), None)
         .await
         .expect_err("a label answers one question, not an interview");
     assert!(matches!(refused, NotAnswered::AnInterview { .. }), "{refused:?}");
@@ -363,6 +363,7 @@ async fn the_answer_route_takes_every_pick_at_once_and_refuses_a_partial_one() {
     let answer = |decisions: Vec<ChosenDecision>| ipc::ChosenAnswer {
         question_id: ipc::QuestionId::from(&asked.id),
         chose: None,
+        mode: None,
         decisions,
     };
 

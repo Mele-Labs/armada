@@ -20,9 +20,10 @@ import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
+import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
-import { checkFixesOf, fixJob, type JobFix } from "./fix-job";
+import { fixJob, type JobFix } from "./fix-job";
 import { mainOwner, pullOwner, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
@@ -193,6 +194,13 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
   };
 
+  /** Best or quick on a Job's ask. An ask Fleet holds no question for, such as the mock's, only clears. */
+  const sendToJob = (mode: "best" | "quick") => {
+    const call = item.job === undefined ? undefined : answerJobAsk(item.job.id, item.asked, mode);
+    if (call === undefined) return finish();
+    wait(mode, call);
+  };
+
   /** A short nudge to whoever owns the pull request, through the path that reaches them. */
   const poke = (who: Owner) => {
     const said = `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
@@ -266,9 +274,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const fixesOf = (one: NonNullable<typeof issue>, id: string): Answer[] => {
     const tap = (label: string, request: JobFix, says?: string): Answer =>
       answer(label, () => wait(label, () => fix(request), finish), { once: true, ...(says === undefined ? {} : { says }) });
+    // A call Fleet serves draws only the acts its issue names. Retry step is one; the other is the box.
+    if (item.served === true) return (one.acts ?? []).filter((act) => act.glyph === "retry_step").map(() => tap("Retry step", { kind: "restart_step", jobId: id }));
     if (one.of === "check") {
-      // Fleet has no route for these on main; the keys are not drawn where the window has none.
-      if (checkFixesOf() === undefined) return [];
       const check = one.target ?? one.name;
       return [
         tap("Retry", { kind: "retry_check", jobId: id, check }),
@@ -340,7 +348,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         }))
       : actsOf();
   const permission = waiting?.item.source === "permission";
-  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? () => finish() : (mode) => sendWaiting(mode, { mode }), permission) : [];
+  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? sendToJob : (mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
   // One answer is the answer: Enter sends it without a number first. Where every answer is an act, Enter runs the first.
@@ -388,7 +396,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(sleep !== undefined
       ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
       : {}),
-    ...(issue !== undefined && jobId !== undefined
+    ...(issue !== undefined && jobId !== undefined && (item.served !== true || (issue.acts?.length ?? 0) > 0)
       ? {
           reply: (text: string, accepted?: () => void) => {
             const request = redirect(text);

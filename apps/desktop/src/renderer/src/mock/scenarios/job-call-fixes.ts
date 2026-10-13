@@ -109,13 +109,13 @@ const calls: Record<string, CallView> = {
   },
 };
 
-/** Fleet takes a moment over Message and Retry step, as it does over a Check fix, so a card shows its pending state. */
+/** Fleet takes a moment over each fix, so a card shows its pending state. */
 const BEAT_MS = 350;
 const beat = () => new Promise<{ ok: true }>((resolve) => setTimeout(() => resolve({ ok: true }), BEAT_MS));
 
 function build(): Scenario {
   const base = holding("job-call-fixes", "The Cockpit with a Job whose Check failed, one whose Drone went quiet, one whose ruling failed and one in another Job's files", [failed, quiet, ruled, clashing]);
-  return { ...base, state: { ...base.state, repository: repository().root, jobs: [failed.job, quiet.job, ruled.job, clashing.job] }, draft: { calls }, behaves: () => ({ redirectDrone: beat, restartStep: beat }) };
+  return { ...base, state: { ...base.state, repository: repository().root, jobs: [failed.job, quiet.job, ruled.job, clashing.job] }, draft: { calls }, behaves: () => ({ redirectDrone: beat, restartStep: beat, retryCheck: beat, skipCheck: beat, skipChecks: beat }) };
 }
 
 export const s211JobCallFixes: Scenario = build();

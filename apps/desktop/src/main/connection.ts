@@ -30,6 +30,7 @@ import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
 import { JournalSocket } from "./journal";
+import { ActiveJobs } from "./active-jobs";
 import { JobFocus } from "./job-focus";
 import { JobReads } from "./job-reads";
 import { ObserveSocket } from "./observe";
@@ -93,6 +94,8 @@ export class FleetConnection {
   private greeted = false;
   /** The open Job, its examination and its history — see `job-focus.ts`. */
   private readonly jobFocus: JobFocus;
+  /** The Job and its Drones for every active Job — `active-jobs.ts`. */
+  private readonly activeJobs: ActiveJobs;
   /** Journey 9's run sheet and the servers it starts — see `rehearsal.ts`.
    * One field for both, `commands`' reason: they are one feature. */
   readonly rehearsal: RehearsalConnection;
@@ -232,8 +235,10 @@ export class FleetConnection {
     this.material = new ReviewMaterial((change) => this.publish(change));
     const port = (): number | null => this.connected()?.port ?? null;
     this.helm = new HelmConnection({ publish: (change) => this.publish(change), port });
+    this.activeJobs = new ActiveJobs({ publish: (change) => this.publish(change) });
     this.jobFocus = new JobFocus({
       port,
+      active: this.activeJobs,
       current: () => this.current,
       now: wiring.now,
       publish: (change) => this.publish(change),
@@ -457,6 +462,7 @@ export class FleetConnection {
     this.observing = null;
     this.reading = null;
     this.jobFocus.close();
+    this.activeJobs.close();
     this.rehearsal.close();
     this.turns.close();
     this.notes.close();
@@ -516,6 +522,11 @@ export class FleetConnection {
 
   async watchJob(jobId: string | null): Promise<void> {
     await this.jobFocus.watchJob(jobId);
+  }
+
+  /** The Job and Drones of every active Job, while a Cockpit or Dashboard draws them. */
+  followActive(want: boolean): void {
+    this.activeJobs.follow(want, this.connected()?.port ?? null, this.current.jobs);
   }
 
   async readResources(jobId: string | null): Promise<void> {
@@ -695,6 +706,9 @@ export class FleetConnection {
     // wired at `RepositoryReads`'s own `onPicked`, the one place a pick
     // actually changes.
     if (change.holds !== undefined) this.helm.onRepositoriesChanged(this.current.holds.repositories ?? []);
+    // A Job began or ended where the Board says so. After the publish: the
+    // readers speak only when an answer lands, and that is never in here.
+    if (change.jobs !== undefined) this.activeJobs.sync(this.connected()?.port ?? null, this.current.jobs);
     this.wiring.publish(this.current);
   }
 }

@@ -76,6 +76,24 @@ pub(crate) fn coupling(job: &Job, standing: &BTreeMap<JobId, JobStatus>) -> Coup
     }
 }
 
+/// The peers a Job waits on that have not ended, or are not on the board.
+///
+/// **Not [`coupling`]'s verdict** — a peer that failed is `Failed`, not
+/// waited on — but read through the same edges, so the Job a Now names is one
+/// `Coupling::Waiting` is holding the Job for.
+pub(crate) fn unfinished_peers(job: &Job, standing: &BTreeMap<JobId, JobStatus>) -> Vec<JobId> {
+    job.dependencies()
+        .iter()
+        .filter(|edge| edge.direction == DependencyDirection::DependsOn)
+        .filter(|edge| {
+            standing
+                .get(&edge.peer)
+                .map_or(true, |status| !status.is_terminal())
+        })
+        .map(|edge| edge.peer.clone())
+        .collect()
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,

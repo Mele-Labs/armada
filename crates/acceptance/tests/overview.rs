@@ -415,6 +415,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
     let chosen = ChosenAnswer {
         question_id: QuestionId::carried("01QUESTIONOVERVIEWDRONEA"),
         chose: Some("the read cursor".to_string()),
+        mode: None,
         decisions: Vec::new(),
     };
     let received = round_trip_chosen_answer(&chosen);
@@ -426,6 +427,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
         note: Some("not on this job".to_string()),
         rule: None,
         scope: None,
+        mode: None,
     };
     let received = round_trip_answer_command(&answered_command);
     assert_eq!(received.call, answered_command.call);
@@ -434,6 +436,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
         answer: JudgeAnswer::Agree,
         asked_at: Some(ipc::Instant::carried("2026-09-13T09:07:00.000Z")),
         note: None,
+        mode: None,
     };
     let received = round_trip_judge_answered(&answered_judge);
     assert_eq!(

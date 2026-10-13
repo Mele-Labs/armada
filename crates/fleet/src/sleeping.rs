@@ -29,7 +29,7 @@ use store::{SessionState, SleepRow};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::resume::{Ending, Redirection, Steer};
-use crate::session_host::waiting::mode_line;
+use crate::answer_mode::mode_line;
 
 /// How long an item waits before the night answers it.
 pub const GRACE: Duration = Duration::from_secs(120);
@@ -303,7 +303,7 @@ where
                 self.leave(done).await?;
                 continue;
             }
-            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(WaitingMode::Best))) else {
+            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(ipc::AnswerMode::Best))) else {
                 continue;
             };
             let by = Actor::Fleet;

@@ -593,6 +593,21 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
+type Runner = NonNullable<LedgerEntry["run"]>["runner"];
+
+/** Runs a command where the Session works. A clean exit settles the item that asked for that command, and the agent is told. */
+function runnerOf(draft: SessionsDraft, session: Session): Runner | undefined {
+  const run = draft.run;
+  if (run === undefined) return undefined;
+  return (command, on) =>
+    run(session.id, command, (event) => {
+      on(event);
+      if (event.kind !== "end" || event.code !== 0) return;
+      const asked = (session.waitingFor ?? []).find((one) => one.act?.kind === "run" && one.act.target.trim() === command.trim());
+      if (asked !== undefined) draft.answerWaiting?.(session.id, asked.id, { text: "Ran: exit 0" });
+    });
+}
+
 function entriesOf(
   session: Session,
   goes: LedgerGoes,
@@ -604,6 +619,7 @@ function entriesOf(
   answerWaiting: ((itemId: string, answer: { choice: number } | { text: string }) => void) | undefined,
   scrollToAsk: () => void,
   known: Known,
+  runner: Runner | undefined,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
@@ -619,6 +635,7 @@ function entriesOf(
         facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
       },
       ...(act === undefined ? {} : { act: act.kind }),
+      ...(act?.kind === "run" && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
         : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, { choice: at }) })) }),
@@ -819,6 +836,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
     setLedgerOpen(false);
     open(...args);
   };
+  const runner = runnerOf(draft, session);
   const entries = entriesOf(
     session,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
@@ -835,6 +853,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         }
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
+    runner,
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -934,7 +953,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
                     },
                   },
                 })}
-            {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+            {...(runner === undefined ? {} : { runner })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             {...(session.asked === undefined
               ? {}
@@ -1078,13 +1097,14 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
   if (draft === undefined || session === undefined) return null;
+  const runner = runnerOf(draft, session);
   return (
     <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
       <div className="armada-session-mini__thread">
         <SessionThread
           sessionId={session.id}
           rows={thread}
-          {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+          {...(runner === undefined ? {} : { runner })}
           {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
           {...(session.asked === undefined
             ? {}
