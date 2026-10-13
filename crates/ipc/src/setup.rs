@@ -338,8 +338,9 @@ pub struct ManifestSummary {
 pub struct ModelChoices {
     /// Every model a proposal may name, in the order a picker offers them.
     pub models: Vec<String>,
-    /// The one a proposal that names none is given. Always a member of
-    /// `models`, so a picker can select it without a lookup that can miss.
+    /// The one a proposal that names none is given: `models.default` as it stands
+    /// when asked. Always a member of `models`, so a picker can select it
+    /// without a lookup that can miss.
     pub default: String,
     /// The agent harnesses a Drone may run under, in the harness's own name.
     /// **One today.** A step's tuning naming any other is refused, naming

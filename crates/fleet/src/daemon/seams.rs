@@ -434,8 +434,8 @@ where
     pub(crate) fn stop_proposal(&self, proposal: &ipc::ProposalId) -> bool {
         self.proposals.stop(proposal)
     }
-    /// The models a Job may name. Read at creation and served by
-    /// `list_models`; nothing else consults it.
+    /// The roster a Job may name and the harnesses, as Fleet started. Its `default` is the one at
+    /// start: [`default_model`](Fleet::default_model) is the one in force.
     pub(crate) fn models(&self) -> &ipc::ModelChoices {
         &self.models
     }
