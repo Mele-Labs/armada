@@ -193,6 +193,7 @@ mod phone_door;
 mod proving;
 mod pull_notices;
 mod pull_request_card;
+mod pull_request_panel;
 mod pull_requesting;
 mod pushing_onto_base;
 mod questioning;

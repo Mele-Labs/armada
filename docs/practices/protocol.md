@@ -3532,6 +3532,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
 
+## Protocol 23.83: a pull request's page and the writes on it
+
+`docs/concepts/session.md`, *Acts on a pull request*. **Additive only**: two operations and the DTOs of `ipc::pull_requests` that go with them. The type is `PullRequestPage` and not `PullRequestDetail`, which a Job's live pull request snapshot already is.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `get_pull_request_detail` (`GET /pull_request_details/:repository/:number`) | `PullRequestPage`: `base`, `author?`, `created_at?`, `additions`, `deletions`, `mergeable`, `review`, `approvals`, and `conversation[]`, `checks[]`, `files[]`, `commits[]` | One forge read. Comments and reviews merge in time order. Capped at the first 300 files, the first 250 commits and the latest 200 things said, with the count left out in Fleet's log. `agent_access` `Yes` |
+| `write_pull_request` (`POST /pull_request_writes/:repository`) | `WritePullRequest`: `pull_request`, `kind` (`comment`, `approve` or `request_changes`), `body?`, `session_id?` | Answers `PullRequestPage`, read again after the write, and every Session's `pr` row follows the forge. A comment or a request for changes with no body is a 422 `fleet.pull_request_write_blank`; a `session_id` the ledger does not know is a 422 `fleet.session_unknown`; the forge's refusal is a 409 `fleet.pull_request_write_refused`. `Helm only`, and Helm asks first (`pushes to shared`) |
+
+**Skew.** A Fleet before 23.83 answers 404 to both, so a Bridge that opens the panel draws its tabs empty and cannot write.
+
 ## Protocol 23.81: write clashes between agents
 
 `docs/concepts/fleet.md`, *Write clashes*. **Additive only**: one operation, one fact a terminal reports, and one new reach for `leave_note`.
