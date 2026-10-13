@@ -424,8 +424,7 @@ where
             }
         }
         self.sleep_jobs().await?;
-        self.sleep_cards().await?;
-        self.sleep_chose().await
+        self.sleep_cards().await
     }
 }
 
