@@ -164,7 +164,7 @@ for a first write and moves the session into it, whether or not its refused turn
 has ended: an idle session is resumed at once, one still finishing the turn is
 moved as that turn ends. A slot is given back by a session closing or its
 terminal ending, a Job ending, being paused or cleared, a release or rescue from
-Cleanup, and the pool growing or a slot reopening; a slot freed where Fleet is
+Cleanup (a release of a bay a hosted Session holds is refused while its turn runs, and otherwise gives back its slot and branch rows), and the pool growing or a slot reopening; a slot freed where Fleet is
 not told, as `armada worktree release` frees one, is found by a look every 15
 seconds while anyone waits. A session that ends, or is leased a slot another way,
 leaves the line, and a Fleet that restarts forgets it: the session's next write

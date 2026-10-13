@@ -3118,8 +3118,11 @@ what was committed.
 | `released` | `SlotPoolChanged` | `{ "branch", "saved"? }`, `saved` as above | Every act but `release` |
 | `fleet.slot_holder_changed`, `fleet.slot_not_parkable` | 409 | The slot has another holder now, or git would not commit to a branch | |
 | `fleet.slot_holder_unnamed` | 422 | A release naming no holder | |
+| `fleet.slot_session_working` | 409 | A release of a bay a hosted Session holds, while its turn runs. `holder` is the Session's id, as `HostedSession` shows it. Not a new field or act | |
 
 A release hands a slot an agent session holds back by the same park, and only for the holder named, so a slot re-leased since is refused. The session's process is not touched.
+
+A bay a hosted Session holds is released the same way with the Session's id as `holder`, and is refused with `fleet.slot_session_working` while its turn runs, since the park ends every process in the slot.
 
 `reclaim_worktree` no longer refuses a slot for uncommitted files. It commits them to the Job's
 branch, never pushes, and frees the slot; a Job's own worktree outside the pool is committed the same

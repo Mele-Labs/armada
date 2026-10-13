@@ -21,11 +21,11 @@ function holderParts(holder: string): { command: string; pid: string | null } {
  */
 export function ReleaseConfirm({ row, onSend, onCancel }: { row: TileRow; onSend: () => void; onCancel: () => void }) {
   const { slot } = row;
-  if (slot === undefined || slot.held.state !== "session") return null;
+  if (slot === undefined || (slot.held.state !== "session" && slot.held.state !== "hosted_session")) return null;
   const name = nameOf(row);
   const branch = slot.branch ?? "its branch";
   const files = slot.stranded?.uncommitted ?? [];
-  const { command, pid } = holderParts(slot.held.holder);
+  const { command, pid } = slot.held.state === "session" ? holderParts(slot.held.holder) : { command: slot.held.session_title ?? "a Session", pid: null };
   return (
     <div className="armada-confirm" role="group" aria-label={`Release ${name}`}>
       <Line
