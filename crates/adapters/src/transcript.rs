@@ -92,6 +92,7 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
         Line::RateLimit(event) => vec![DroneEvent::QuotaMoved {
             window: event.rate_limit_info.rate_limit_type,
             status: event.rate_limit_info.status,
+            resets_at: event.rate_limit_info.resets_at,
         }],
         Line::Unnamed => vec![DroneEvent::Unrecognised {
             kind: kind_of(trimmed),
@@ -612,6 +613,8 @@ struct RateLimitInfo {
     status: String,
     #[serde(rename = "rateLimitType", default)]
     rate_limit_type: String,
+    #[serde(rename = "resetsAt", default)]
+    resets_at: Option<i64>,
 }
 
 /// Who a `SendMessage` call went to and what it said, out of the detail

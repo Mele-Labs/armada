@@ -108,6 +108,8 @@ mod sockets;
 mod stream;
 /// A Studio's routes: the list, one Studio, and every act on one. `#1285`.
 mod studios;
+/// What happened across the Fleet in a window of time. Since 23.82.
+mod timeline;
 /// A Job's walk notes, captured and taken back. Since 23.18.
 mod walking;
 /// A person's run's output, on a socket of its own per run — never `/events`.
@@ -118,9 +120,12 @@ mod watching_session_run;
 mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
-pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
+pub use conversing::{
+    CommanderFeed, CommanderWatch, ConversationFeed, ConversationSeen, ConversationWatch,
+    HelmFeed, HelmSeen, HelmWatch, ObservedCommander, ObservedHelm, Spoken, HELM_BACKLOG,
+};
 pub use daemon::{
-    offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
+    offerable, offerable_to_a_commander, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
     PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios, Tools, COMMANDER_ALLOWED,

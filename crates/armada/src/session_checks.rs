@@ -31,8 +31,10 @@ fn say(fleet: &Loopback, call: &SessionCheckCall) -> Option<SessionCheckAnswer> 
         .flatten()
 }
 
-/// Tell Fleet a Check `name` is starting in `cwd`. `None` where no Session holds that slot.
-pub fn begin(cwd: &Path, name: &str) -> Option<Told> {
+/// Tell Fleet a Check `name` is starting in `cwd`, with the test filter it was given if any.
+/// `None` where no Session holds that slot. A `--changed` run tells its target at the end instead,
+/// since what the change reaches is only resolved as the Check runs.
+pub fn begin(cwd: &Path, name: &str, filter: Option<&str>) -> Option<Told> {
     let at = runtime::machine_path().ok()?;
     let fleet = Loopback::at(crate::mcp::listening(runtime::read(&at), &at).ok()?);
     let cwd = cwd.to_str()?.to_string();
@@ -40,6 +42,7 @@ pub fn begin(cwd: &Path, name: &str) -> Option<Told> {
         act: SessionCheckAct::Start,
         cwd: cwd.clone(),
         name: name.to_string(),
+        target: filter.map(str::to_string),
         run: None,
         outcome: None,
         took_ms: None,
@@ -59,19 +62,20 @@ impl Told {
     pub fn end(self, ran: &Ran, took: Duration) {
         let output = &ran.attempt.output;
         let log = format!("$ {}\n{}{}", ran.command, output.stdout, output.stderr);
-        self.ended(ran.status() == 0, took, log);
+        self.ended(ran.status() == 0, took, log, ran.target.clone());
     }
 
     /// The Check could not be run at all, and Fleet is told that, so the row does not stay out.
     pub fn refused(self, why: &str, took: Duration) {
-        self.ended(false, took, why.to_string());
+        self.ended(false, took, why.to_string(), None);
     }
 
-    fn ended(self, passed: bool, took: Duration, log: String) {
+    fn ended(self, passed: bool, took: Duration, log: String, target: Option<String>) {
         let call = SessionCheckCall {
             act: SessionCheckAct::End,
             cwd: self.cwd,
             name: self.name,
+            target,
             run: Some(self.run),
             outcome: Some(match passed {
                 true => SessionCheckState::Passed,

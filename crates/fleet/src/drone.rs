@@ -286,6 +286,9 @@ pub enum Ending {
         /// that the run's last call was allowed.
         reached_after_refusal: bool,
     },
+    /// The plan's limit refused the run and it stopped there. `until` is when
+    /// the window opens again, in unix seconds. Nothing went wrong with the work.
+    Limited { until: i64 },
     /// The process is gone and no terminating event ever arrived.
     Vanished,
 }
@@ -298,6 +301,15 @@ impl Ending {
     /// proves the Drone was producing output, so a run full of them is not a
     /// silent one.
     pub fn of(events: &[DroneEvent]) -> Ending {
+        match limited_until(events) {
+            Some(until) => Ending::Limited { until },
+            None => Ending::folded(events),
+        }
+    }
+
+    /// The fold alone, as if no limit had been hit. **What a person's kill and the fallback of a
+    /// hold that could not be made read**, since neither may wait on a reset.
+    pub(crate) fn folded(events: &[DroneEvent]) -> Ending {
         let mut reported = None;
         let mut called_something = false;
         let mut reached_after_refusal = false;
@@ -328,6 +340,30 @@ impl Ending {
             None => Ending::Vanished,
         }
     }
+}
+
+/// When the plan's limit opens again, if it is what stopped this run.
+///
+/// **The last window event is `rejected`, it carries a reset, and the Drone
+/// reached for nothing after it.** A rejection followed by more calls was
+/// something the run got past, and an event with no reset leaves nothing to
+/// hold the Job until, so both read as an ordinary ending.
+pub fn limited_until(events: &[DroneEvent]) -> Option<i64> {
+    let at = events
+        .iter()
+        .rposition(|event| matches!(event, DroneEvent::QuotaMoved { .. }))?;
+    let DroneEvent::QuotaMoved {
+        status, resets_at, ..
+    } = &events[at]
+    else {
+        return None;
+    };
+    let reached_after = events[at..]
+        .iter()
+        .any(|event| matches!(event, DroneEvent::Called { .. }));
+    (status == "rejected" && !reached_after)
+        .then_some(*resets_at)
+        .flatten()
 }
 
 /// Whether the Drone's run ended with work still running behind it.
@@ -382,6 +418,10 @@ pub enum Aftermath {
     TheGateDecides,
     /// The Job moves, now, to this.
     JobMoves(Target),
+    /// The plan's limit stopped the run. The Job waits, parked, until `until`
+    /// (unix seconds) and a fresh Drone resumes the step — `crate::limit_hold`.
+    /// It does not escalate, and nothing counts against it.
+    HeldUntil { until: i64 },
     /// The Job had already stopped, so its Drone going takes nothing further
     /// with it. **The escalation already recorded stands** — a second one
     /// would be the `escalated -> escalated` move the machine refuses, which
@@ -400,6 +440,7 @@ pub enum Aftermath {
 /// | working | reported, refused and never reached again | nothing | `blocked_by_policy` — widen the allowlist, do not rephrase |
 /// | working | reported, called nothing | nothing | `silent` — rephrase, then redispatch |
 /// | working | reported, called things | nothing | `stalled` — it worked and never submitted, refused on the way or not |
+/// | working | the plan's limit refused it | nothing | held until the limit resets, then resumed |
 /// | working | vanished | nothing | `interrupted` — the process died; a person decides |
 /// | stopped | anything | anything | nothing moves; the Job is now restartable |
 ///
@@ -408,7 +449,7 @@ pub enum Aftermath {
 /// allowlist a person would be sent to widen; what decides is whether it
 /// reached again after the last refusal.
 ///
-/// **Every answer but the first two leaves the Job escalated, which is not
+/// **Every answer but the first two and the limit's leaves the Job escalated, which is not
 /// terminal** — the registry wins over the milestone step's word: `escalated`
 /// holds the worktree and the port span until a person answers, and answering
 /// is what takes it terminal. What the step asks is that the Job never stays
@@ -424,7 +465,8 @@ pub fn aftermath(status: JobStatus, ending: &Ending, left: Left) -> Aftermath {
     if left == Left::Evidence {
         return Aftermath::TheGateDecides;
     }
-    Aftermath::JobMoves(Target::Escalated(match ending {
+    let trigger = match ending {
+        Ending::Limited { until } => return Aftermath::HeldUntil { until: *until },
         Ending::Reported {
             refusals,
             reached_after_refusal: false,
@@ -436,5 +478,6 @@ pub fn aftermath(status: JobStatus, ending: &Ending, left: Left) -> Aftermath {
         } => EscalationTrigger::Silent,
         Ending::Reported { .. } => EscalationTrigger::Stalled,
         Ending::Vanished => EscalationTrigger::Interrupted,
-    }))
+    };
+    Aftermath::JobMoves(Target::Escalated(trigger))
 }

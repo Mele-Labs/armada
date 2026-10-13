@@ -29,6 +29,8 @@ import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep } from "./sleep";
+import { PlanUsageSourceProvider } from "../plan-usage";
+import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -105,6 +107,7 @@ export function mountApp(
   if (shared === undefined) mockLayout.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
+  const planUsage = createFleetPlanUsage(api);
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -124,11 +127,13 @@ export function mountApp(
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
                   <SleepSourceProvider value={mockSleep}>
-                    <SessionsHere held={heldSessions(api)}>
-                      <ClashesFrom clashes={chosen.draft?.clashes}>
-                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                      </ClashesFrom>
-                    </SessionsHere>
+                    <PlanUsageSourceProvider value={planUsage}>
+                      <SessionsHere held={heldSessions(api)}>
+                        <ClashesFrom clashes={chosen.draft?.clashes}>
+                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                        </ClashesFrom>
+                      </SessionsHere>
+                    </PlanUsageSourceProvider>
                   </SleepSourceProvider>
                 </PhoneSourceProvider>
               </MockFleetBuild>

@@ -133,7 +133,12 @@ async fn a_restart_with_the_drone_still_there_answers_409_over_the_wire() {
     let job = refused(&fleet, &home).await;
 
     let refusal =
-        api::Commands::restart_step(std::sync::Arc::clone(&fleet), ipc::JobId::from(&job), None)
+        api::Commands::restart_step(
+            std::sync::Arc::clone(&fleet),
+            ipc::JobId::from(&job),
+            None,
+            api::Steerer::Person,
+        )
             .await
             .expect_err("the Drone `refused` left in the slot is still there");
 

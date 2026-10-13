@@ -1,0 +1,25 @@
+/* A stop's card: the Bays view's metro card, and the title bar's plan card. The tone is `--tone`, set by the
+   caller; position and stacking are the caller's too. */
+.armada-stop-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: calc(var(--space-12) * 6);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-top: calc(var(--border-width) * 3) solid var(--tone);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-xs);
+}
+.armada-stop-card__head { display: flex; align-items: center; gap: var(--space-2); }
+.armada-stop-card__pill { padding: 0 var(--space-2); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-stop-card__where { flex: none; margin-left: auto; color: var(--fg-subtle); font-size: var(--text-2xs); white-space: nowrap; }
+.armada-stop-card__title { color: var(--fg-default); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.armada-stop-card__facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--border-width) * 2) var(--space-3); margin: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-stop-card__facts > div { display: contents; }
+.armada-stop-card__facts dt { color: var(--fg-subtle); }
+.armada-stop-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
+.armada-stop-card__facts dd[data-mono] { font-family: var(--font-mono); }
+.armada-stop-card__heading { margin-top: var(--space-2); color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }

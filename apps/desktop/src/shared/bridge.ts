@@ -42,6 +42,7 @@ import type { JobsState } from "./api/jobs";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
 import { SLEEP_CHANNELS } from "./api/sleep";
+import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { ISSUES_CHANNELS } from "./api/issues";
 
 export type { HistoryStep, Summons } from "./api/core";
@@ -153,6 +154,7 @@ export const CHANNELS = {
   ...JOBS_CHANNELS,
   ...SESSIONS_CHANNELS,
   ...SLEEP_CHANNELS,
+  ...PLAN_USAGE_CHANNELS,
   ...ISSUES_CHANNELS,
   ...AUTOPILOT_CHANNELS,
 } as const;

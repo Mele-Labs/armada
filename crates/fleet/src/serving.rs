@@ -906,6 +906,14 @@ where
         Ok(self.request_repository(words).await)
     }
 
+    /// What happened inside a window — [`crate::timeline`].
+    async fn get_fleet_timeline(
+        &self,
+        ask: ipc::TimelineAsk,
+    ) -> Result<ipc::FleetTimeline, Refusal> {
+        self.fleet_timeline(ask).await
+    }
+
     /// Each served repository's merge line — [`crate::merge_lines`].
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(crate::merge_lines::answer(self).await)

@@ -7,15 +7,15 @@ fn a_run_ends_once_and_keeps_its_log() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     let run = store
-        .start_session_check("s1", "armada", 6, "components_test", "2026-10-09T10:00:00.000Z")
+        .start_session_check("s1", "armada", 6, "components_test", None, "2026-10-09T10:00:00.000Z")
         .expect("begins");
     assert_eq!(store.session_check(run).expect("reads").expect("kept").state, "running");
 
     assert!(store
-        .end_session_check(run, "failed", "2026-10-09T10:00:21.000Z", 21_000, "$ vitest\nFAIL")
+        .end_session_check(run, "failed", "2026-10-09T10:00:21.000Z", 21_000, "$ vitest\nFAIL", None)
         .expect("ends"));
     assert!(!store
-        .end_session_check(run, "passed", "2026-10-09T10:05:00.000Z", 1, "later")
+        .end_session_check(run, "passed", "2026-10-09T10:05:00.000Z", 1, "later", None)
         .expect("ends"));
 
     let ended = store.session_check(run).expect("reads").expect("kept");
@@ -28,13 +28,30 @@ fn a_run_ends_once_and_keeps_its_log() {
 fn runs_list_newest_first_for_one_repository() {
     let dir = TempDir::new();
     let mut store = open(&dir);
-    let first = store.start_session_check("s1", "armada", 6, "a", "t1").expect("begins");
-    store.start_session_check("s2", "other", 2, "b", "t2").expect("begins");
-    let third = store.start_session_check("s1", "armada", 6, "c", "t3").expect("begins");
+    let first = store.start_session_check("s1", "armada", 6, "a", None, "t1").expect("begins");
+    store.start_session_check("s2", "other", 2, "b", None, "t2").expect("begins");
+    let third = store.start_session_check("s1", "armada", 6, "c", None, "t3").expect("begins");
 
     let ids = |manifest| -> Vec<i64> {
         store.session_checks(manifest, 10).expect("reads").iter().map(|run| run.id).collect()
     };
     assert_eq!(ids(Some("armada")), vec![third, first]);
     assert_eq!(ids(None).len(), 3);
+}
+
+#[test]
+fn a_target_told_at_the_end_replaces_the_one_told_at_the_start() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let filtered = store.start_session_check("s1", "armada", 6, "test", Some("store::reads"), "t1").expect("begins");
+    let changed = store.start_session_check("s1", "armada", 6, "test", None, "t2").expect("begins");
+    let whole = store.start_session_check("s1", "armada", 6, "test", None, "t3").expect("begins");
+    store.end_session_check(filtered, "passed", "t4", 1, "", None).expect("ends");
+    store.end_session_check(changed, "passed", "t5", 1, "", Some("--changed fleet, ipc")).expect("ends");
+    store.end_session_check(whole, "passed", "t6", 1, "", None).expect("ends");
+
+    let target = |run| store.session_check(run).expect("reads").expect("kept").target;
+    assert_eq!(target(filtered).as_deref(), Some("store::reads"));
+    assert_eq!(target(changed).as_deref(), Some("--changed fleet, ipc"));
+    assert_eq!(target(whole), None);
 }

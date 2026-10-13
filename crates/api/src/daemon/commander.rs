@@ -33,9 +33,11 @@ pub const ALLOWED: &[&str] = &[
     "add_task",
     "drop_task",
     "move_plan",
-    // Not here until their issues land, each adding its own line:
-    //   the repair Drone onto the Job's branch   `#2170`
-    //   the one card to the owner                `#2166`
+    // The one way it reaches the owner: a card that outlives the turn.
+    "ask_the_owner",
+    // A repair Drone onto the Job's own branch, and never `add_job_step`: a step
+    // the Commander wrote would be gated as that step's, not as a repair. `#2170`.
+    "send_repair_drone",
 ];
 
 /// Whether a Commander may call one operation the door offers.
@@ -48,21 +50,33 @@ pub fn may(offered: &Reachable) -> bool {
 
 /// What the Commander of one Job may call through the door.
 ///
-/// **There is one, and it takes no argument**: the Commander's reach is not a
-/// setting, so no machine can widen it and no caller can choose it.
+/// **The allowlist is not a setting, so no machine can widen it and no caller
+/// can choose it; the Job is the one argument, and it is the Job the process
+/// was started for.** A reach with no Job cannot be made, so a Commander that
+/// is not some Job's is not a value: the door narrows every act on a Job to
+/// this one (`crate::reference::Resolved`), and an act naming another is
+/// refused there, by the type that resolves the Job and not by a check each
+/// handler remembers (`#2166`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommanderReach {
     may: Vec<&'static str>,
+    job: ipc::JobId,
 }
 
 impl CommanderReach {
-    pub fn of_the_allowlist() -> CommanderReach {
+    pub fn of_the_allowlist(job: ipc::JobId) -> CommanderReach {
         CommanderReach {
-            may: super::offerable()
+            may: super::offerable_to_a_commander()
                 .filter(|row| may(row))
                 .map(|row| row.operation)
                 .collect(),
+            job,
         }
+    }
+
+    /// The one Job this Commander steers.
+    pub fn job(&self) -> &ipc::JobId {
+        &self.job
     }
 
     pub fn may(&self, operation: &str) -> bool {

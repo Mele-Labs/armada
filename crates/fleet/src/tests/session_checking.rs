@@ -16,6 +16,7 @@ fn call(act: SessionCheckAct, cwd: &str) -> SessionCheckCall {
         act,
         cwd: cwd.into(),
         name: "components_test".into(),
+        target: None,
         run: None,
         outcome: None,
         took_ms: None,
@@ -132,4 +133,55 @@ async fn a_session_check_still_out_when_the_session_ends_fails_with_that_said() 
     assert_eq!(log.lines, ["the Session ended"]);
     let rows = fleet.rows_of("s1").await.expect("the thread");
     assert!(matches!(&rows[..], [ipc::SessionRow::Check { state: SessionCheckState::Failed, .. }]));
+}
+
+/// A run started with a target carries it on its row, through the end; a `--changed` run only
+/// knows its target at the end, and a plain run has none.
+#[tokio::test]
+async fn a_session_check_row_carries_what_the_run_was_narrowed_to() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let slot = adapter_traits::slot_path(&root, 2);
+    fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s1"),
+            fact: SessionFact::Started {
+                cwd: slot.clone(),
+                title: None,
+                origin: ipc::SessionOrigin::Bridge,
+                mod_version: None,
+            },
+        })
+        .await
+        .expect("kept");
+    let start = |target: Option<&str>| {
+        let mut start = call(SessionCheckAct::Start, &slot);
+        start.target = target.map(str::to_string);
+        fleet.session_check_reported(start)
+    };
+    let run_of = |answer: SessionCheckAnswer| answer.run.expect("the Session holds the slot");
+    let filtered = run_of(start(Some("store::reads_the_last_row")).await.expect("begins"));
+    let changed = run_of(start(None).await.expect("begins"));
+    let plain = run_of(start(None).await.expect("begins"));
+
+    let mut end = call(SessionCheckAct::End, &slot);
+    end.run = Some(changed);
+    end.outcome = Some(SessionCheckState::Passed);
+    end.target = Some("--changed fleet, ipc".into());
+    fleet.session_check_reported(end).await.expect("ends");
+
+    let rows = fleet.rows_of("s1").await.expect("the thread");
+    let target_of = |run: u64| {
+        rows.iter()
+            .find_map(|row| match row {
+                ipc::SessionRow::Check { run: at, target, .. } if *at == run => Some(target.clone()),
+                _ => None,
+            })
+            .expect("a row for the run")
+    };
+    assert_eq!(target_of(filtered).as_deref(), Some("store::reads_the_last_row"));
+    assert_eq!(target_of(changed).as_deref(), Some("--changed fleet, ipc"));
+    assert_eq!(target_of(plain), None);
 }

@@ -130,7 +130,7 @@ Both turn one thing into several Jobs, and the difference between them is the ap
 
 **Disk earns its place from a measured failure**, not from symmetry with memory: a volume filled during a parallel agent run and agents died at zero bytes free holding uncommitted work, with no warning of any kind. It is also the one held against an absolute floor rather than a share, because what a Job costs in disk — a worktree plus a build — is a number of gigabytes rather than a fraction of whatever volume it landed on, which is why it is a settings row of its own rather than sharing the memory threshold.
 
-**Quota is not a third.** The agent's rate-limit event carries a window and a status and no quantity, so there is no number to hold a Job back against. See the spike on what a Job costs.
+**Quota is not a third.** The agent's rate-limit event carries a window and a status and no quantity, so there is no number to hold a Job back against. See the spike on what a Job costs. A run the limit already refused is held until the reset, which is not a gate: *Held for the plan's limit* in [Job](job.md).
 
 **A machine that cannot be read admits.** A failed reading holds nothing back: a Fleet that queues every Job for ever because a command did not answer is a Fleet that looks dead, and the concurrency cap is still the cap.
 
@@ -204,7 +204,7 @@ This sentence used to say the opposite, and the overlap warning below was writte
 
 **Overlap is not ordered; a declared need is.** The warning is deliberately not a lease. Why: `write_targets` is a declaration and a Drone's worktree is a whole-repo checkout, so a hold over declared paths would serialise the Jobs that declared honestly and miss the one that wrote somewhere it never named — which is the collision nobody saw coming.
 
-**It compares what two Jobs claimed, and a claim is not a write.** The Job that never names a path and writes there anyway produces nothing here, and cannot: that is the same whole-repo checkout the paragraph above turns on. The check that reads a real diff is the per-step drift check, and it measures one step against its own plan.
+**It compares what two Jobs claimed, and a claim is not a write.** The Job that never names a path and writes there anyway produces nothing here, and cannot: that is the same whole-repo checkout the paragraph above turns on. What two agents actually wrote is *Write clashes*, below. The per-step drift check reads a real diff too, and it measures one step against its own plan.
 
 **A Job's claim has two possible authors, and the warning says which.** `write_targets` is what the requester stated before anything ran, and it is null on every Job the proposer drafted. A step's declared plan is what the Drone working it said, having read the code, and it is what a running Job actually has. Both are compared; each named path says which author it came from on each side. The latest run of a step replaces its earlier runs, because calling the scope tool again is how a Drone corrects its plan. Neither list is authoritative over the other; [Change a Job's scope](../journeys/change-a-jobs-scope.md) holds what each is for.
 
@@ -213,6 +213,36 @@ This sentence used to say the opposite, and the overlap warning below was writte
 **Every unfinished Job, not only the running ones.** The pair is one fact and it has to read the same from either side; naming only the running peers would have made two Jobs' detail views disagree about whether there is a collision. The other Job's status travels with the warning, so a person can see which of the two is already writing.
 
 The remedy needs no new state: `depends_on` already sequences Jobs and already parks the waiting one at `blocked_by_dependency`. **Taking it is not built** — there is no operation that writes an edge onto a Job that already exists, and this page says above that a Job's edges are written once, at creation. That write-once property is what lets DAG scheduling above skip a topological sort, so an operation that breaks it is not a small one; `#231` is where that is settled. What a person has today is the two gate answers they already had.
+
+### Write clashes
+
+**Decided by the owner, 12 Oct 2026.** Two agents in one repository learn they collide from what they wrote, with no declaration needed. Nobody is paused, held or refused, and a declared need stays as it is.
+
+| Whose writes | Where Fleet sees them |
+|---|---|
+| A Job's Drone | Its edit calls on the stream: `Edit`, `MultiEdit`, `Write`, `NotebookEdit` |
+| A hosted Session | The write gate (`POST /sessions/gate`), for a call it lets through inside its own slot |
+| A terminal Session | The `armada` mod's `touched` fact: the path from the session's directory, never the content |
+
+```
+ write ─▶ table: path ─▶ holders             (memory, per repository)
+           2+ holders on a path
+              │  wait 30s, once per pair; a later write by either asks again
+              ▼
+ git: tree of each worktree as it stands, tree of their merge base,
+      `git merge-tree`        clean ─▶ nothing is said
+                              conflict ─▶ the files, to both
+```
+
+**Git decides, not the path.** Each holder's worktree is read as a whole tree through a scratch index, so its own index is never written and a shell write no hook saw is in it. A file both edited in places that merge clean says nothing. Where git will not answer, the last reading stands and the Job's log says why.
+
+**What each side is told.** The files that conflict, who the other is, and how to reach it. A Drone hears it in its next peer turn (`docs/contracts/agent-prompt.md`, *The peer turn*) and reaches a Job with `leave_note` on its handle and a Session with `leave_note` on `s-` and the first eight characters of its id. A Session hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Session*) and reaches a Job with `redirect_drone` and a Session with `SendMessage`. **Told once per set of files**: a changed set is told again, a cleared one is never said.
+
+**Main moving.** Where Fleet reads the base's head and it has moved, every standing pair is asked again, since a holder may have merged main in or the other may have landed. Each live holder whose files main changed since their merge base is set against main's new tip, and a conflict is told to that holder only, with the commit on main that changed the file.
+
+**A holder leaves the table with its clashes** where its needs are given back: a Job reaching a terminal status, a Session ending. Any check also drops a holder whose worktree, branch or Job is gone, or a terminal Session unheard for six hours. A Job has no way to reach a Session except a clash it is in: `leave_note` to a Session is refused where Fleet found none, and otherwise arrives as a message naming the Job.
+
+**Memory only.** A restart forgets the table and the next writes rebuild it. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session, for Bridge to mark both rows.
 
 ### Declared needs
 

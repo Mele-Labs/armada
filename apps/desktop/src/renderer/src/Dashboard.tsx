@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  BatteryLow,
   Bot,
   Box,
   Check,
@@ -31,7 +32,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
+import { Button, Radio, RadioGroup, Textarea, limitHeldSaid } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
@@ -47,6 +48,7 @@ import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
+import type { JobAnswered } from "./cockpit/answer-job";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
@@ -58,8 +60,8 @@ export type Item = {
   owner?: string;
   /** The Plan decisions, where the item is one: the call answers them as tiles. */
   decisions?: Extract<CallAskView, { kind: "plan" }>["decisions"];
-  /** Told the option picked at the last decision, where somebody besides the card hears the answer. */
-  onDecision?: (optionId: string) => void;
+  /** The pick on a Commander's card, sent to Fleet, which wakes the Commander on it or refuses in these words. */
+  answerCard?: (optionId: string) => Promise<JobAnswered>;
   icon: LucideIcon;
   /** The icon's tooltip: what kind of thing the row is. */
   kind: string;
@@ -171,6 +173,8 @@ export type Hosts = {
   onTell?: ((sentence: string) => void) | undefined;
   /** A quick act pressed on a Job's Now panel. Absent, the panel says what the act would do. */
   onNowAct?: ((jobId: string, acted: NowActed) => void) | undefined;
+  /** A pick on a Job's Commander card, by the card's id and the option's. `commander-acts.ts`. */
+  onAnswerCard?: ((jobId: string, card: string, option: string) => Promise<JobAnswered>) | undefined;
   /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
@@ -286,7 +290,18 @@ export function useCursor(job: JobSummary | undefined, onCursor: Hosts["onCursor
 }
 
 /** A Plan decision, answered in place: one question at a time, the answer sent at the last. */
-function PlanAnswer({ decisions, done, told }: { decisions: Extract<CallAskView, { kind: "plan" }>["decisions"]; done: () => void; told?: (option: string) => void }) {
+function PlanAnswer({
+  decisions,
+  done,
+  told,
+  refused,
+}: {
+  decisions: Extract<CallAskView, { kind: "plan" }>["decisions"];
+  done: () => void;
+  /** Sends the pick to Fleet, where somebody besides the card hears it: the card clears once it is taken. */
+  told?: ((option: string) => Promise<JobAnswered>) | undefined;
+  refused?: ((said: string) => void) | undefined;
+}) {
   const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<string>();
   const decision = decisions[at]!;
@@ -302,7 +317,7 @@ function PlanAnswer({ decisions, done, told }: { decisions: Extract<CallAskView,
       <Button
         variant="primary"
         disabled={picked === undefined}
-        onClick={() => (at + 1 < decisions.length ? (setAt(at + 1), setPicked(undefined)) : (told?.(picked!), done()))}
+        onClick={() => (at + 1 < decisions.length ? (setAt(at + 1), setPicked(undefined)) : told === undefined ? done() : void told(picked!).then((one) => (one.kind === "answered" ? done() : refused?.(one.said))))}
       >
         Answer
       </Button>
@@ -317,6 +332,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
   for (const ask of view?.asks ?? []) {
     if (ask.kind === "plan" || ask.kind === "commander") {
       const commander = ask.kind === "commander";
+      const answerCard = ask.kind === "commander" && hosts.onAnswerCard !== undefined ? (option: string) => hosts.onAnswerCard!(job.id, ask.card, option) : undefined;
       items.push({
         key: `${job.id}:${ask.key}`,
         owner: job.id,
@@ -325,7 +341,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
         ...(view?.about === undefined ? {} : { about: view.about }),
         ...(ask.context === undefined ? {} : { context: ask.context, contextHead: "Why it asks" }),
         decisions: ask.decisions,
-        ...(ask.kind === "commander" ? { onDecision: ask.onAnswer } : {}),
+        ...(answerCard === undefined ? {} : { answerCard }),
         icon: commander ? Compass : MessageSquare,
         kind: commander ? "Commander asks" : "Plan question",
         title: titleOf(job),
@@ -334,7 +350,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
         hue: "ask",
         where,
         body: commander ? [["From", "Commander"]] : [["Step", "Plan"]],
-        acts: (done) => <PlanAnswer decisions={ask.decisions} done={done} {...(ask.kind === "commander" ? { told: ask.onAnswer } : {})} />,
+        acts: (done) => <PlanAnswer decisions={ask.decisions} done={done} told={answerCard} refused={hosts.onTell} />,
       });
     } else {
       items.push({
@@ -398,20 +414,21 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const ended = session.dead === "ended";
   const working = session.turn.state === "working";
   const waiting = session.asked !== undefined && !ended && !working;
+  const limited = ended ? undefined : session.limitedUntil;
   return {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Session",
     session: true,
-    mark: ended ? Unplug : waiting ? Eye : working ? CircleDot : Check,
-    state: waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
+    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : working ? CircleDot : Check,
+    state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
     spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
-    fact: waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
+    fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
     at: session.lastTurnAt,
-    hue: waiting ? "ask" : ended ? "ok" : working ? "running" : "queued",
-    live: working,
+    hue: waiting ? "ask" : ended ? "ok" : working && limited === undefined ? "running" : "queued",
+    live: working && limited === undefined,
     where: session.address ?? "",
     body: waiting ? [["Asks to run", session.asked!.command]] : [],
     ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
@@ -643,7 +660,8 @@ export function useItems(
       const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
       // The workflow is the proposer's to settle: until it lands there is nothing to draw pips from.
       const settling = job.status === "proposing" && job.workflow_id === "";
-      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
+      const limited = job.paused?.until;
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }), ...(limited === undefined ? {} : { mark: BatteryLow, state: limitHeldSaid(limited), live: false }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
   }, [tab, state, picked, nowViews, nows, sessions, slept, answered, dismissed]);

@@ -30,11 +30,12 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { SleepState } from "@armada/protocol";
+import type { PlanUsage, SleepState } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
+import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { IssuesRead } from "../shared/api/issues";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
@@ -248,6 +249,11 @@ const api: BridgeApi = {
     mode?: AnswerMode,
   ): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope, mode),
+  // The owner's words to a Job's Commander, and his pick on its card: a card's id and an option's id.
+  askCommander: (jobId: string, text: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.askCommander, jobId, text),
+  answerCommanderCard: (jobId: string, cardId: string, optionId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.answerCommanderCard, jobId, cardId, optionId),
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
@@ -656,6 +662,14 @@ const api: BridgeApi = {
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
   ...autopilotPreload,
+  getPlanUsage: (): Promise<PlanUsageRead> => ipcRenderer.invoke(CHANNELS.getPlanUsage),
+  onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void): (() => void) => {
+    const handler = (_event: unknown, usage: PlanUsage): void => onChanged(usage);
+    ipcRenderer.on(CHANNELS.planUsageChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.planUsageChanged, handler);
+    };
+  },
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),

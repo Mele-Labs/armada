@@ -129,6 +129,34 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/helm/ask",
     },
+    // One Job's Commander, a conversation on Helm's host keyed by the Job. #2166.
+    Route {
+        operation: "observe_commander",
+        method: "GET",
+        path: "/jobs/:job_id/commander/observe",
+    },
+    Route {
+        operation: "ask_commander",
+        method: "POST",
+        path: "/jobs/:job_id/commander/ask",
+    },
+    // A card to the owner and his pick, the Commander's question that outlives a turn. #2166.
+    Route {
+        operation: "ask_the_owner",
+        method: "POST",
+        path: "/jobs/:job_id/commander/card",
+    },
+    // A repair Drone onto the Job's own branch, the Commander's alone. #2170.
+    Route {
+        operation: "send_repair_drone",
+        method: "POST",
+        path: "/jobs/:job_id/commander/repair",
+    },
+    Route {
+        operation: "answer_commander_card",
+        method: "POST",
+        path: "/jobs/:job_id/commander/card/answer",
+    },
     // The session as one record, `#1367`. Beside the conversation it reports
     // on, not under `/debug`: there is no such surface, and the subject is the
     // conversation.
@@ -1090,6 +1118,11 @@ const ROUTES: &[Route] = &[
         operation: "set_review_model",
         method: "POST",
         path: "/jobs/:job_id/set_review_model",
+    },
+    Route {
+        operation: "set_commander_model",
+        method: "POST",
+        path: "/jobs/:job_id/set_commander_model",
     },
     Route {
         operation: "set_tiers",

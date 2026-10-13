@@ -423,30 +423,10 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 .armada-metro__legend > span { display: inline-flex; align-items: center; gap: var(--space-1); }
 .armada-metro__legend i { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--tone); }
 
-/* A stop's card: opened by hover or focus, kept by a press. */
+/* A stop's card: opened by hover or focus, kept by a press. Its look is `StopCard`'s; where it stands is ours. */
 .armada-metro__card {
   position: absolute;
   z-index: 5;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  width: calc(var(--space-12) * 6);
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-top: calc(var(--border-width) * 3) solid var(--tone);
-  border-radius: var(--radius-md);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-xs);
 }
-.armada-metro__card-head { display: flex; align-items: center; gap: var(--space-2); }
-.armada-metro__pill { padding: 0 var(--space-2); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.armada-metro__where { flex: none; margin-left: auto; color: var(--fg-subtle); font-size: var(--text-2xs); white-space: nowrap; }
-.armada-metro__card-title { color: var(--fg-default); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
-.armada-metro__facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--border-width) * 2) var(--space-3); margin: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.armada-metro__facts > div { display: contents; }
-.armada-metro__facts dt { color: var(--fg-subtle); }
-.armada-metro__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
-.armada-metro__facts dd[data-mono] { font-family: var(--font-mono); }
 .armada-metro__acts { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
 .armada-metro__hint { margin-top: var(--space-1); color: var(--fg-subtle); font-size: var(--text-2xs); }

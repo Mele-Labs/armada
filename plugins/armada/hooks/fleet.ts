@@ -4,6 +4,8 @@
 
 import type { Engine } from 'claude-code'
 
+import type { ContextBreakdown, PlanWindow } from './facts'
+
 export type Door = Pick<Engine, 'clock' | 'env' | 'fs' | 'http'>
 
 export type Report = {
@@ -39,7 +41,7 @@ export type Fact =
       attachment: { kind: string; target: string }
       state: 'spent' | 'given_back'
     }
-  | { kind: 'measured'; usage: Usage }
+  | { kind: 'measured'; usage: Usage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
   | {
       kind: 'tuned'
       model?: string
@@ -49,5 +51,7 @@ export type Fact =
       mod_version?: string
     }
   | { kind: 'turn_completed' }
+  | { kind: 'limited'; resets_at: string }
+  | { kind: 'touched'; paths: string[] }
   | { kind: 'wrote' }
   | { kind: 'ended'; reason: string }

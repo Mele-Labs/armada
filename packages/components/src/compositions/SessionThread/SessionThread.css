@@ -430,6 +430,32 @@
   list-style: none;
 }
 
+/* A fold of Check runs is drawn at the size of a lone run's press, which takes its parent's. */
+.armada-session-fold--checks > details > .armada-session-fold__head {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* What a Check run was narrowed to: mono, quieter than the Check's name. */
+.armada-session-fold__target {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: inherit;
+  color: var(--fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-fold__at {
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+.armada-session-fold__target + .armada-session-fold__at {
+  margin-inline-start: var(--space-2);
+}
+
 .armada-session-fold__body {
   margin-top: var(--space-1);
   padding-inline-start: var(--space-4);

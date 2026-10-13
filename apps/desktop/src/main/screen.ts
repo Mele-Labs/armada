@@ -62,7 +62,7 @@ type Reviewed = {
  * | What it holds, `resources` | Every event naming it | Every occasion |
  * | Every Drone it has had, `drones` | Every event naming it | Every occasion |
  * | Its transition history | Every event naming it, where unfolded | Every occasion |
- * | Its turns, and its own log | Their own sockets | Reopened where down |
+ * | Its turns, its own log, its Commander's thread | Their own sockets | Reopened where down |
  * | What its Drones claimed, and the patch | The surface that draws it, asking | On a reconnection where it is showing a failure; on Refresh always |
  *
  * **Three per-Job things are deliberately absent, and each is absent for its
@@ -92,6 +92,7 @@ export type Screen = {
   history: Region;
   turns: Channel;
   notes: Channel;
+  commander: Channel;
   /** The Job whose turns are open, and whose log is. `null` is neither. */
   observing: string | null;
   reading: string | null;
@@ -157,6 +158,8 @@ export async function takeAgain(port: number, again: Again, screen: Screen): Pro
   // could not read the file, on the next occasion that reaches here.
   const reading = screen.reading;
   if (mine(reading) && !screen.notes.attached()) screen.notes.open(port, reading);
+  // The Commander's thread is opened with the log, by the same act, and comes back on the same terms.
+  if (mine(reading) && !screen.commander.attached()) screen.commander.open(port, reading);
 
   // `review.ts` owns why a reconnection takes only what is stuck and a press
   // takes both. The short of it is the megabyte.

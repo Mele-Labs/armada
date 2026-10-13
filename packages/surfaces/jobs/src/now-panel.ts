@@ -15,8 +15,8 @@ export type NowHost = {
   onOpenCheckLog?: ((log: JobCheckLog) => void) | undefined;
   onOpenJob?: ((jobId: string) => void) | undefined;
   onAct?: ((acted: NowActed) => void) | undefined;
-  /** The owner's answer to the Commander's card: the card's key, then the answer. */
-  onAnswerCommander?: ((key: string, option: string) => void) | undefined;
+  /** The owner's pick on the Commander's card: the card's id, then the option's. `false` is Fleet refusing it. */
+  onAnswerCommander?: ((card: string, option: string) => void | Promise<boolean>) | undefined;
   onSaid: (sentence: string) => void;
 };
 
@@ -37,7 +37,7 @@ export function nowPanelOf(view: NowView | undefined, host: NowHost): Omit<NowPa
     }));
   const asks: NowAsk[] = (view.asks ?? []).map((ask) =>
     ask.kind === "commander"
-      ? { ...ask, onAnswer: (option: string) => host.onAnswerCommander?.(ask.key, option) }
+      ? { key: ask.key, kind: ask.kind, text: ask.text, reach: ask.reach, question: ask.question, options: ask.options, onAnswer: (option: string) => host.onAnswerCommander?.(ask.card, option) }
       : ask.kind === "plan"
       ? { ...ask, onAnswer: () => host.onSaid("Answer sent") }
       : { key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, ...(ask.sketch === undefined ? {} : { sketch: ask.sketch }), ...(ask.asker === undefined ? {} : { asker: ask.asker }), onOpen: opens(ask.kind, ask.target) },

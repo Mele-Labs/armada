@@ -11,12 +11,14 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerHelmCall, AskHelm, AskingToRun, EventsSince, HelmCallsWaiting, HelmConversation,
-    HelmDebugInfo, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtSent,
-    ThoughtTarget,
+    AnswerCommanderCard, AnswerHelmCall, AskCommander, AskHelm, AskTheOwner, AskingToRun,
+    CommanderCard, CommanderCardAnswered, CommanderConversation, EventsSince,
+    HelmCallsWaiting, HelmConversation, HelmDebugInfo, ManifestId, ReadThought, RepairSent,
+    RunOrNot, SendRepairDrone, TellSession, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
-use crate::conversing::ObservedHelm;
+use crate::conversing::{ObservedCommander, ObservedHelm};
+use crate::reference::Resolved;
 use crate::daemon::Refusal;
 
 /// Everything a client does with a Helm conversation.
@@ -31,6 +33,60 @@ pub trait Conversations: Send + Sync + 'static {
         &self,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<ObservedHelm, Refusal>> + Send;
+
+    /// `observe_commander` — one Job's Commander: the thread so far, then every
+    /// message that follows. `observe_helm`'s shape with a Job for its subject,
+    /// and answered before the socket opens for the same reason. #2166.
+    fn observe_commander(
+        &self,
+        job: Resolved,
+    ) -> impl Future<Output = Result<ObservedCommander, Refusal>> + Send;
+
+    /// `ask_commander` — take the owner's words for a Job's Commander and answer
+    /// at once. **The turn is the socket's.** Words that arrive while a turn is
+    /// being written wait for the one after it, and never interrupt. #2166.
+    /// [`Refusal::IllegalMove`] where the Job has no worktree to host it in.
+    fn ask_commander(
+        self: Arc<Self>,
+        job: Resolved,
+        asked: AskCommander,
+    ) -> impl Future<Output = Result<CommanderConversation, Refusal>> + Send;
+
+    /// `ask_the_owner` — put a card to the owner for a Job's Commander. **The
+    /// card is kept and the call answers at once**: it waits until he answers,
+    /// however long, and is not a held call. #2166.
+    ///
+    /// [`Refusal::IllegalMove`] where the Job already has a card out, naming
+    /// its question, or where the Job has ended.
+    fn ask_the_owner(
+        self: Arc<Self>,
+        job: Resolved,
+        asked: AskTheOwner,
+    ) -> impl Future<Output = Result<CommanderCard, Refusal>> + Send;
+
+    /// `send_repair_drone` — a repair Drone onto the Job's own branch and
+    /// worktree, for a Job's Commander. **The Drone is on its way and the call
+    /// answers at once**; the stopped step is restarted when it hands in. #2170.
+    ///
+    /// [`Refusal::IllegalMove`] where the Job is not held for a person, a Drone
+    /// is still on it, its worktree is gone, no step stopped, or a repair is
+    /// already out.
+    fn send_repair_drone(
+        self: Arc<Self>,
+        job: Resolved,
+        sending: SendRepairDrone,
+    ) -> impl Future<Output = Result<RepairSent, Refusal>> + Send;
+
+    /// `answer_commander_card` — the owner's pick, recorded and handed to the
+    /// Commander as the reason it is woken for. #2166.
+    ///
+    /// [`Refusal::IllegalMove`] where the card is not the one out, or did not
+    /// offer the option.
+    fn answer_commander_card(
+        self: Arc<Self>,
+        job: Resolved,
+        answered: AnswerCommanderCard,
+    ) -> impl Future<Output = Result<CommanderCardAnswered, Refusal>> + Send;
 
     /// `ask_helm` — take a message and answer at once. **The reply is the
     /// socket's**, so this returns before a session has started, and a message

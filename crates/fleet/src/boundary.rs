@@ -238,6 +238,7 @@ fn said(ending: &Ending, signalled: bool) -> String {
                 (false, _) => "",
             }
         ),
+        Ending::Limited { until } => format!("stopped by the plan's limit, which resets at {until} (unix seconds)"),
         Ending::Vanished if signalled => String::from("stopped before a terminating event arrived"),
         Ending::Vanished => String::from("no terminating event ever arrived"),
     }

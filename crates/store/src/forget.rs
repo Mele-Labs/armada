@@ -178,7 +178,7 @@ impl Forgotten {
             "job_step_plans" => &mut self.step_plans,
             "job_step_plan_paths" => &mut self.step_plan_paths,
             "job_drone_process" => &mut self.drone_process,
-            "job_drone_spend" => &mut self.drone_spend,
+            "job_drone_spend" | "job_commander_spend" => &mut self.drone_spend,
             "asked_runs" => &mut self.asked_runs,
             "job_remarks_taken_up" => &mut self.remarks_taken_up,
             "job_allowed_commands" => &mut self.allowed_commands,
@@ -213,6 +213,7 @@ impl Forgotten {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,
+            "job_commander_wakes" | "commander_cards" => &mut self.retros,
             "merge_line_entries" => &mut self.merge_line_entries,
             "job_step_baselines" => &mut self.step_baselines,
             "job_frozen_triggers" | "job_triggers" | "job_additions" => &mut self.triggers,

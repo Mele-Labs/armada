@@ -9,7 +9,7 @@ import type { Scenario } from "../moment";
 
 const fixture = asRow(review(), 15, "commander-review", "Retry a short read once");
 
-const idle = commandedBy({ job: fixture.job.id, open: (c) => c.state("idle") });
+const idle = commandedBy({ job: fixture.job.id, open: () => {} });
 
 export const s233JobCommanderReview: Scenario = {
   ...holding("job-commander-review", "A Job at its review gate: the approval is an ask in the Now panel", [fixture], { opens: fixture.job.id }),
