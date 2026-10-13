@@ -441,6 +441,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **An owner is the Session whose `pr` row holds the pull request's number, else the Session holding its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
 
+**A Session counts only where the pool agrees (decided for #2239, 13 Oct 2026).** Among the Sessions, the owner is the one the pool confirms works the branch: it stands in a slot whose lease is its own, the branch is checked out there, and the branch row stands. Where several are confirmed, the one whose `pr` row holds the number. Where none is, the Session whose standing `pr` row is oldest, else the one whose standing `branch` row is. One Session, not every row: a Session that read the pull request from a directory in a slot it had left was told its checks failed while another Session worked it. `docs/concepts/session.md`, *Whose slot it is*.
+
 ### Telling sessions the build they now run
 
 **One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.
@@ -553,7 +555,7 @@ release at a time. The holder is the first process above the command that is not
 pipeline between the two does not become the holder. **A session Fleet hosts is
 the exception**: Fleet ends and resumes its process when it moves slots, so
 `armada worktree lease` there holds as a Job of the session's id, read from
-`ARMADA_SESSION`, and is given back when the session closes.
+`ARMADA_SESSION`, and is given back when the session closes. **A terminal agent's lease also records the agent session it ran under**, read from the environment the agent sets in each command it runs, so the pool says which Session holds a slot a process holds. A lease taken by hand, or before this was written, names none.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease

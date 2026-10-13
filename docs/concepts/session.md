@@ -38,8 +38,8 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 |---|---|---|
 | `started` | `cwd`, `title?`, `origin?`, `mod_version?` | Creates the row or starts a resumed one again; resolves the directory to a repository and a pool slot |
 | `titled` | `title`, `named?` | `named` is a person's `/rename` in the terminal and replaces the title; without it, the first prompt's line, kept only where there is no title |
-| `moved` | `cwd` | Re-resolves; a slot the session left is given back |
-| `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
+| `moved` | `cwd` | Re-resolves; a slot the session left is given back. A slot whose lease is another Session's is not taken |
+| `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held. A `branch` or `pr` read from a slot whose lease is another Session's is dropped (*Whose slot it is*) |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?`; `plan?`: the plan's windows; `context_breakdown?`: what fills the window | Keeps what was reported. The breakdown is kept whole in `session_context`, one row a session, and replaced by the next; a report without one leaves it. The windows are the account's, so Fleet keeps the newest from any session as `get_plan_usage` (`machine.md`, *Quota*) and keeps nothing of them on the session |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
@@ -66,8 +66,8 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 
 | `kind` | `target` | Held until |
 |---|---|---|
-| `slot` | the slot's number | the session leaves it or ends |
-| `branch` | the branch's name | the session checks out another or ends |
+| `slot` | the slot's number | the session leaves it, the pool shows it held by another or free, or the session ends |
+| `branch` | the branch's name | the session checks out another, its slot is given back, or it ends |
 | `pr` | the pull request's number | it merges (`spent`) or closes (`given_back`) |
 | `job` | the Job's id | nothing settles it yet |
 | `need` | the path, repository-relative | its holder's work merges (`spent`), or the holder is gone or releases it (`given_back`). Not exclusive: `docs/capabilities/needs.md` |
@@ -92,6 +92,20 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
 **A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
+
+### Whose slot it is
+
+**The lease in the pool says which Session works a slot. A ledger row is a claim, believed while the pool agrees.** A harness reports the directory a Session is in, and a slot it left stays in that directory for whoever leases it next, so the directory says where a Session was and the lease says who works there. `armada worktree lease` records the agent session it ran under beside the holder; a hosted Session holds as a Job of its own id; a lease taken by hand, or before leases named a session, names none.
+
+| What the pool says of a slot, for a Session | Fleet |
+|---|---|
+| The lease is written as the Session's | Credits the `slot`, its checked-out `branch`, and what is read from it |
+| The lease names no live Session: a person's own terminal, an older lease, a Session that ended (`/clear` starts a new id in the same terminal) | Credits it, as before the lease named anyone |
+| Held for another live Session or a Job, or free | Credits no `slot` and drops a `branch` or `pr` read from it |
+
+**A release is settled by the pull sweep, for hosted and terminal Sessions alike.** Each interval Fleet gives back the `slot` and `branch` rows of a live Session whose lease is no longer its own, by whatever road the slot went: its own `armada worktree release`, Bridge's release, a lease taken back from a gone holder. A hosted Session is also followed at its next tool call. **A `pr` row stays**: the Session that opened a pull request is still the one to tell after it leaves the slot, and the row settles when the pull request merges or closes.
+
+**One reading answers who holds a branch or a pull request.** A Session is confirmed on a branch when it is live, its `slot` row stands, the lease there is its own or names nobody live, the worktree exists, its `branch` row stands and that branch is checked out. The owner of a pull request, the holder of a need, the Sessions told which branches a build holds, the write-clash table and the attaching of a pull request nobody reported all ask it (`crate::slot_holders`). Where no Session is confirmed, the one whose standing row is oldest stands, and a branch a Session gave back is nobody's. A merge is attributed to whoever held the pull request or its branch in any state, since the question there is who made it.
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
@@ -386,7 +400,7 @@ A minute after `held_until`, a tick of the notice loop sends the session `Contin
 
 ## What Fleet tells a Session
 
-**A Session never has to be told to watch its pull request.** When a pull request a Session holds in the ledger fails its checks, conflicts with the base, leaves the merge queue, is marked unmergeable, or merges, Fleet sends that Session one message, once. It names the pull request, what happened and the branch. For failed checks it lists each failing check with its log address, and the last lines of the first two logs. A merge says the Session's slot and branch can be released. `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
+**A Session never has to be told to watch its pull request.** When a pull request a Session holds fails its checks, conflicts with the base, leaves the merge queue, is marked unmergeable, or merges, Fleet sends that Session one message, once. It names the pull request, what happened and the branch. For failed checks it lists each failing check with its log address, and the last lines of the first two logs. A merge says the Session's slot and branch can be released. `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
 
 | Session | What happens |
 |---|---|
