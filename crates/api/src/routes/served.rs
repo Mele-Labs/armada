@@ -9,7 +9,8 @@
 //! [`studios`](mod@studios), the published event kinds in [`events`](mod@events), a pilot's in
 //! [`piloting`](mod@piloting), workflows' and Triggers' in [`authoring`](mod@authoring), the
 //! Machine's settings in [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot),
-//! and every other row here. Each is a subject a reader opens on its own, and [`SERVED`] stays one
+//! repositories and Kit's in [`repositories`](mod@repositories), retros and Lessons in
+//! [`retro`](mod@retro), runs and Servers in [`runs`](mod@runs), and every other row here. Each is a subject a reader opens on its own, and [`SERVED`] stays one
 //! slice to every caller. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
 mod authoring;
@@ -18,6 +19,9 @@ mod events;
 mod hosted_sessions;
 mod outside;
 mod piloting;
+mod repositories;
+mod retro;
+mod runs;
 mod settings;
 mod studios;
 
@@ -54,6 +58,9 @@ pub const SERVED: &[Route] = &joined::<
             + outside::ROUTES.len()
             + hosted_sessions::ROUTES.len()
             + autopilot::ROUTES.len()
+            + repositories::ROUTES.len()
+            + retro::ROUTES.len()
+            + runs::ROUTES.len()
     },
 >([
     ROUTES,
@@ -65,10 +72,13 @@ pub const SERVED: &[Route] = &joined::<
     outside::ROUTES,
     hosted_sessions::ROUTES,
     autopilot::ROUTES,
+    repositories::ROUTES,
+    retro::ROUTES,
+    runs::ROUTES,
 ]);
 
-/// The nine tables as one, in order. A count that disagrees with `N` fails the build.
-const fn joined<const N: usize>(tables: [&[Route]; 9]) -> [Route; N] {
+/// The twelve tables as one, in order. A count that disagrees with `N` fails the build.
+const fn joined<const N: usize>(tables: [&[Route]; 12]) -> [Route; N] {
     // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);
@@ -198,179 +208,6 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/helm/calls/answer",
     },
-    // Fleet's reading of its own Manifest, and singular where `/manifests` is
-    // plural on purpose: that route lists what Fleet holds, and this one is the
-    // single `armada.yml` Fleet is running on and watching. Not under `/jobs`
-    // for `get_capacity`'s reason — a reload belongs to no Job at all.
-    Route {
-        operation: "get_manifest_reading",
-        method: "GET",
-        path: "/manifest/reading",
-    },
-    // The other half of the reading above, and a different question: that one
-    // is what Fleet could not adopt from the file, this is whether the
-    // repository still has what the file names. Under `/manifest` beside it for
-    // its reason — a Fleet serves one repository and neither belongs to a Job.
-    Route {
-        operation: "get_manifest_drift",
-        method: "GET",
-        path: "/manifest/drift",
-    },
-    // Scan, and not under `/manifest`: it reads a repository nobody has written
-    // an `armada.yml` for, so there is no Manifest for the path to be under.
-    // Every repository served, and one more by folder. Beside Scan, which
-    // reads one of them by the root these answer with.
-    Route {
-        operation: "list_repositories",
-        method: "GET",
-        path: "/repositories",
-    },
-    Route {
-        operation: "add_repository",
-        method: "POST",
-        path: "/repositories/add",
-    },
-    // Each served repository's merge line, beside the list it is keyed by. Not
-    // under `/repositories`: that is the list and its two acts.
-    Route {
-        operation: "get_merge_lines",
-        method: "GET",
-        path: "/merge_lines",
-    },
-    // One Check's log on that line, as it is written. Named by the line's own
-    // three words in the query, never by a path: a root is a path itself.
-    Route {
-        operation: "observe_land_check",
-        method: "GET",
-        path: "/merge_lines/checks/observe",
-    },
-    // Main's red handed to a Job, from the band on that line.
-    Route {
-        operation: "fix_main",
-        method: "POST",
-        path: "/merge_lines/fix",
-    },
-    Route {
-        operation: "clone_repository",
-        method: "POST",
-        path: "/repositories/clone",
-    },
-    Route {
-        operation: "get_repository_scan",
-        method: "GET",
-        path: "/repository/scan",
-    },
-    // What Scan's findings become, beside it. The edit spells its act in the last segment.
-    Route {
-        operation: "get_manifest_proposals",
-        method: "GET",
-        path: "/repository/proposals",
-    },
-    Route {
-        operation: "edit_manifest_proposal",
-        method: "POST",
-        path: "/repository/edit_proposal",
-    },
-    // The only route here that makes a file in the main checkout where there was none.
-    Route {
-        operation: "write_manifest_proposal",
-        method: "POST",
-        path: "/repository/write_proposal",
-    },
-    // The file itself, where the two rows above are readings of it. Singular
-    // and beside them for their reason, and never `/manifests/:id/file`: a
-    // Fleet resolves its own `armada.yml`, so there is no id to carry and no
-    // path a caller could compose.
-    Route {
-        operation: "get_manifest_file",
-        method: "GET",
-        path: "/manifest/file",
-    },
-    // The write, and the one route on this table that changes a tracked file in
-    // the main checkout. It spells the act in its last segment the way
-    // `start_checkout_run` does, so the read above stays the bare noun.
-    Route {
-        operation: "save_manifest_file",
-        method: "POST",
-        path: "/manifest/save_file",
-    },
-    // A form's edits to the same file, as edits: keys and values, never text.
-    // Beside the save and for its reason, with the act in the last segment.
-    Route {
-        operation: "edit_manifest",
-        method: "POST",
-        path: "/manifest/edit",
-    },
-    // The `@` mention popup's read. `?q=` rather than a path segment: the
-    // query is a person's typed text, empty the instant they type `@` and
-    // before anything follows it, and a path segment cannot carry that. A
-    // Fleet serves one repository, so nothing here names one.
-    Route {
-        operation: "search_files",
-        method: "GET",
-        path: "/manifest/files",
-    },
-    // What a Job may start from and land in: #1605, spike 022 slice 4.
-    Route {
-        operation: "list_branches",
-        method: "GET",
-        path: "/manifest/branches",
-    },
-    // A rule a person always-allowed for the repository is Fleet's own, kept
-    // per Manifest rather than any one Job's — `#836`. The remove spells the
-    // act in its last segment for `save_manifest_file`'s reason.
-    Route {
-        operation: "get_repository_allowed_commands",
-        method: "GET",
-        path: "/manifest/allowed_commands",
-    },
-    Route {
-        operation: "remove_repository_allowed_command",
-        method: "POST",
-        path: "/manifest/allowed_commands/remove",
-    },
-    // Kit's servers, machine-wide, with the Manifest scoping the second tier
-    // rather than naming a resource — `#1275`. Each act spells itself in its
-    // last segment, as the remove above does.
-    // The setup a person already has, read to be shown — `#1491`. Machine-wide
-    // like the servers above, and under `/kit` for the surface that draws both.
-    Route {
-        operation: "get_kit_inventory",
-        method: "GET",
-        path: "/kit/inventory",
-    },
-    Route {
-        operation: "get_kit_servers",
-        method: "GET",
-        path: "/kit/servers",
-    },
-    Route {
-        operation: "add_kit_server",
-        method: "POST",
-        path: "/kit/servers/add",
-    },
-    Route {
-        operation: "forget_kit_server",
-        method: "POST",
-        path: "/kit/servers/forget",
-    },
-    Route {
-        operation: "set_kit_server_reach",
-        method: "POST",
-        path: "/kit/servers/reach",
-    },
-    Route {
-        operation: "set_manifest_server_reach",
-        method: "POST",
-        path: "/kit/servers/manifest_reach",
-    },
-    // Kit's allowlist is the machine's, so no Manifest scopes it. Read through
-    // `get_kit_inventory`, which is why only the remove has a route here.
-    Route {
-        operation: "remove_kit_allowed_command",
-        method: "POST",
-        path: "/kit/allowed_commands/remove",
-    },
     // The path taken, under the Job that took it. `get_job_events` drops
     // `get_` and `job_` for the reason `redispatch` drops `_job`: the segment
     // before it already names the Job. It is not `/events`, which is the
@@ -379,63 +216,6 @@ const ROUTES: &[Route] = &[
         operation: "get_job_events",
         method: "GET",
         path: "/jobs/:job_id/events",
-    },
-    // What got in the way while the Job ran, and the record it was read from.
-    // `docs/concepts/retro.md`.
-    Route {
-        operation: "get_job_retro",
-        method: "GET",
-        path: "/jobs/:job_id/retro",
-    },
-    // A Session's retro: read, and written on a press. Under `/sessions` by the
-    // Session's id, since a Session is not a Job and `/jobs/:job_id` would not
-    // resolve it.
-    Route {
-        operation: "get_session_retro",
-        method: "GET",
-        path: "/sessions/:session_id/retro",
-    },
-    Route {
-        operation: "write_session_retro",
-        method: "POST",
-        path: "/sessions/:session_id/retro",
-    },
-    // Every retro's items across Jobs, for the Lessons page. Not under
-    // `/jobs`: an item is about a Job and the list is about none of them.
-    Route {
-        operation: "list_lessons",
-        method: "GET",
-        path: "/lessons",
-    },
-    // A person's answer to one item. Under `/lessons`, by the item's own id,
-    // because the item is what is acted on and its Job is only where it came
-    // from.
-    Route {
-        operation: "agree_lesson",
-        method: "POST",
-        path: "/lessons/:lesson_id/agree",
-    },
-    Route {
-        operation: "start_lesson_session",
-        method: "POST",
-        path: "/lessons/:lesson_id/session",
-    },
-    Route {
-        operation: "disagree_lesson",
-        method: "POST",
-        path: "/lessons/:lesson_id/disagree",
-    },
-    // Two model calls over the open items, neither of which stores anything.
-    // `review` is a literal segment beside `:lesson_id`, which axum ranks first.
-    Route {
-        operation: "review_lessons",
-        method: "POST",
-        path: "/lessons/review",
-    },
-    Route {
-        operation: "ask_lesson",
-        method: "POST",
-        path: "/lessons/:lesson_id/ask",
     },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
@@ -847,105 +627,6 @@ const ROUTES: &[Route] = &[
         operation: "show_again",
         method: "POST",
         path: "/jobs/:job_id/show_again",
-    },
-    // The run sheet: what can be run in a Job's worktree, a person's run of one
-    // entry, and what the runs left. A rehearsal, so nothing here moves the Job.
-    // `runs/:run_id/output` is `checks/:kept/output`'s shape one record over.
-    Route {
-        operation: "get_run_sheet",
-        method: "GET",
-        path: "/jobs/:job_id/run_sheet",
-    },
-    Route {
-        operation: "list_runs",
-        method: "GET",
-        path: "/jobs/:job_id/runs",
-    },
-    Route {
-        operation: "get_run_output",
-        method: "GET",
-        path: "/jobs/:job_id/runs/:run_id/output",
-    },
-    Route {
-        operation: "start_run",
-        method: "POST",
-        path: "/jobs/:job_id/start_run",
-    },
-    Route {
-        operation: "stop_run",
-        method: "POST",
-        path: "/jobs/:job_id/stop_run",
-    },
-    Route {
-        operation: "undo_run",
-        method: "POST",
-        path: "/jobs/:job_id/undo_run",
-    },
-    // The same sheet for the main checkout, under `/manifest` beside
-    // `get_manifest_reading` and for its reason: no Job is involved at all.
-    Route {
-        operation: "get_checkout_run_sheet",
-        method: "GET",
-        path: "/manifest/run_sheet",
-    },
-    Route {
-        operation: "list_manifest_checks",
-        method: "GET",
-        path: "/manifest/checks",
-    },
-    Route {
-        operation: "list_checkout_runs",
-        method: "GET",
-        path: "/manifest/runs",
-    },
-    Route {
-        operation: "get_checkout_run_output",
-        method: "GET",
-        path: "/manifest/runs/:run_id/output",
-    },
-    Route {
-        operation: "get_checkout_run_diff",
-        method: "GET",
-        path: "/manifest/runs/:run_id/diff",
-    },
-    Route {
-        operation: "start_checkout_run",
-        method: "POST",
-        path: "/manifest/start_run",
-    },
-    Route {
-        operation: "stop_checkout_run",
-        method: "POST",
-        path: "/manifest/stop_run",
-    },
-    Route {
-        operation: "undo_checkout_run",
-        method: "POST",
-        path: "/manifest/undo_run",
-    },
-    Route {
-        operation: "start_checkout_verify",
-        method: "POST",
-        path: "/manifest/start_verify",
-    },
-    // Servers: a Command that stays running. Not under `/jobs` because one
-    // started with no Job belongs to none; the start and stop are segments of
-    // the collection, `stop_proposal`'s shape, since an instance's id is all a
-    // stop needs.
-    Route {
-        operation: "list_servers",
-        method: "GET",
-        path: "/servers",
-    },
-    Route {
-        operation: "start_server",
-        method: "POST",
-        path: "/servers/start",
-    },
-    Route {
-        operation: "stop_server",
-        method: "POST",
-        path: "/servers/stop",
     },
     // The one act on this table that changes what a Job may spend, and its own
     // route because nothing else on the Job is a number a person sets. It is
