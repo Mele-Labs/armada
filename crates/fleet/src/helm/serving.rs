@@ -9,20 +9,19 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, DroneEvent, Speaker, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Conversations as Surface, ObservedHelm, Refusal};
-use core_model::StepId;
 use ipc::{
     AnswerHelmCall, AskHelm, AskingToRun, EventsSince, Freshness, HelmAsked, HelmCallsWaiting,
-    HelmChangedCheckout, HelmContext, HelmConversation, HelmDebugInfo, HelmFresh, HelmMessage,
-    HelmScreen, HelmUnanswered, Instant, ManifestId, ReadThought, RunOrNot, Shown, ThoughtReading,
+    HelmContext, HelmConversation, HelmDebugInfo, HelmFresh, HelmMessage,
+    HelmScreen, HelmUnanswered, Instant, ManifestId, ReadThought, RunOrNot, ThoughtReading,
     ThoughtSent, WireError,
 };
 
 use super::conversation::{Conversation, ConversationKey};
-use super::hosting::{Carried, Carry, Heard};
+use super::hosting::{Carried, Carry, Heard, Seat};
+use super::rows::Rows;
 use super::{recording, unanswered, worded, Authority};
-use crate::clock::Clock;
 use crate::daemon::Fleet;
 use crate::prompts::Prompts;
 use crate::repositories::Served;
@@ -42,6 +41,21 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    async fn observe_commander(
+        &self,
+        job: api::Resolved,
+    ) -> Result<api::ObservedCommander, Refusal> {
+        self.commander_observed(job).await
+    }
+
+    async fn ask_commander(
+        self: Arc<Self>,
+        job: api::Resolved,
+        asked: ipc::AskCommander,
+    ) -> Result<ipc::CommanderConversation, Refusal> {
+        self.commander_asked(job, asked).await
+    }
+
     async fn observe_helm(&self, manifest_id: Option<ManifestId>) -> Result<ObservedHelm, Refusal> {
         let (served, key) = self.helm_of(manifest_id.as_ref())?;
         let conversation = self.helm().open(&key, served.records_root());
@@ -235,7 +249,7 @@ where
     /// expiry`, on every reply rather than on a timer. **Best-effort**: a
     /// store fault sweeping old rows must not stop the reply it rides in on,
     /// so nothing here is surfaced past a swallow. `#943`.
-    async fn swept_stale_helm_sessions(&self) {
+    pub(super) async fn swept_stale_helm_sessions(&self) {
         let now = self.now();
         let _ = self
             .store()
@@ -289,6 +303,38 @@ where
         context: Option<&HelmContext>,
         heard: &Rows,
     ) -> Result<(), String> {
+        let prompts = self.prompts();
+        let authority = self.helm_authority();
+        self.turn_carried(
+            key,
+            heard,
+            || {
+                heard.conversation.thread.say(HelmMessage::Fresh(HelmFresh {
+                    ts: Instant::from(&self.now()),
+                    because: Freshness::SessionNotFound,
+                }))
+            },
+            |resuming| carrying(served, text, context, resuming, &prompts, authority),
+        )
+        .await
+    }
+
+    /// **The turn every conversation takes**: the stored session is read, the
+    /// message is carried to the host, a session the host could not find is
+    /// forgotten and the message carried again on a new one (`fresh` tells the
+    /// thread why), and the session the host answered under is kept. Helm's
+    /// reply and a Job's Commander's turn are two callers of this and have no
+    /// second copy of it to drift from (`#2166`).
+    ///
+    /// `carry` builds the message for the session it is given: the stored one,
+    /// then none.
+    pub(super) async fn turn_carried(
+        &self,
+        key: &ConversationKey,
+        heard: &dyn Heard,
+        fresh: impl Fn(),
+        carry: impl Fn(Option<String>) -> Carry,
+    ) -> Result<(), String> {
         let stored = self
             .store()
             .lock()
@@ -296,30 +342,15 @@ where
             .helm_session(key.as_str())
             .map_err(unanswered::session_would_not_read)?;
         let host = self.helm().host();
-        let prompts = self.prompts();
-        let authority = self.helm_authority();
-        let mut carried = host
-            .carry(
-                carrying(served, text, context, stored.clone(), &prompts, authority),
-                heard,
-            )
-            .await;
+        let mut carried = host.carry(carry(stored.clone()), heard).await;
         if carried == Carried::NoSuchSession && stored.is_some() {
             self.store()
                 .lock()
                 .await
                 .forget_helm_session(key.as_str())
                 .map_err(unanswered::lost_session_not_forgotten)?;
-            heard.conversation.thread.say(HelmMessage::Fresh(HelmFresh {
-                ts: Instant::from(&self.now()),
-                because: Freshness::SessionNotFound,
-            }));
-            carried = host
-                .carry(
-                    carrying(served, text, context, None, &prompts, authority),
-                    heard,
-                )
-                .await;
+            fresh();
+            carried = host.carry(carry(None), heard).await;
         }
         match carried {
             Carried::Answered { session } => self
@@ -361,6 +392,7 @@ fn carrying(
         directory: served.root().to_string(),
         turn,
         resuming,
+        seat: Seat::Helm,
     }
 }
 
@@ -408,71 +440,4 @@ fn screen_phrase(screen: HelmScreen) -> &'static str {
 
 pub(super) fn on_the_wire(served: &Served) -> ManifestId {
     ManifestId::carried(served.manifest().id().as_str())
-}
-
-/// What a session says, as rows in its thread — and, where it wrote a file in
-/// the checkout, as an event of Helm's own.
-struct Rows {
-    conversation: Arc<Conversation>,
-    clock: Arc<dyn Clock>,
-    manifest_id: ManifestId,
-    root: String,
-    events: api::Broadcaster,
-}
-
-impl Rows {
-    /// `helm.changed_checkout`, where this call was one of the built-ins that
-    /// edits a file. **A path and never the contents**: what was written is on
-    /// the thread, and this stream is for a client that is not watching the
-    /// dock. `docs/concepts/helm.md`, *Audit trail*.
-    fn published_as_a_write(&self, event: &DroneEvent, at: &core_model::Timestamp) {
-        let DroneEvent::Called { tool, detail, .. } = event else {
-            return;
-        };
-        if !adapters::wrote_the_checkout(tool) {
-            return;
-        }
-        let path = adapters::path_written(detail.whole().unwrap_or(detail.shown()));
-        if path.is_empty() {
-            return;
-        }
-        let inside = format!("{}/", self.root.trim_end_matches('/'));
-        self.events
-            .publish(ipc::Event::HelmChangedCheckout(HelmChangedCheckout {
-                manifest_id: self.manifest_id.clone(),
-                tool: tool.clone(),
-                path: path.strip_prefix(&inside).unwrap_or(path).to_string(),
-                at: Instant::from(at),
-            }));
-    }
-}
-
-impl Heard for Rows {
-    fn heard(&self, events: &[DroneEvent]) {
-        let at = self.clock.now();
-        for event in events {
-            // **Prose that arrived on the session's input channel is never
-            // Helm's reply.** A skill the session calls is injected as a user
-            // turn carrying its whole body, and it reads as text exactly as
-            // the brief coming back does; the thread draws every `said` row
-            // as Helm's, so it is dropped here, where `Speaker` is still known.
-            if matches!(
-                event,
-                DroneEvent::Said {
-                    by: Speaker::Armada,
-                    ..
-                }
-            ) {
-                continue;
-            }
-            self.published_as_a_write(event, &at);
-            // `seen` labels a row with a Drone's step, and a conversation has
-            // none, so the label is taken off again.
-            let mut row = crate::transcript::seen(&at, &StepId::new(""), event);
-            row.step = None;
-            if let Some(shown) = Shown::of(row) {
-                self.conversation.thread.say(HelmMessage::Row(shown));
-            }
-        }
-    }
 }

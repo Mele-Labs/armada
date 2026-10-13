@@ -100,6 +100,8 @@ mod headroom;
 mod helm_conversation;
 mod helm_routing;
 mod helm_deciding;
+mod commander_conversation;
+mod commander_door;
 mod helm_door;
 mod helm_permission;
 mod helm_record;

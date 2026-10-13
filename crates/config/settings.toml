@@ -984,6 +984,27 @@ Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing 
 **The value lives in settings.json under `models.retro`** (live; `ARMADA_RETRO_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.commander-model]
+name = "Commander model"
+scope = "Machine"
+default = "opus"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 12 Oct 2026 (owner): opus. A Job's Commander reads a whole Job and acts on it with nobody watching, so it runs on the strongest tier on the roster and not the Drone's. Its own row rather than a second reading of the default model: a machine that raised the Commander by raising every Drone would pay the raise on every step of every Job, and the Commander is woken only on trouble.
+
+**Effort follows the same pattern**, in `effort.commander` beside it. A Job may name its own model and its own effort, and the Job's value wins over the Machine's; the per-Job override is carried on the Job and not here.
+
+**Its spend is the Job's and not the Job's cap's.** What a Commander turn costs is recorded against the Job and shown in its cost, and it is never counted against the Job's cost cap: a cap that a Commander's own thinking could spend would stop the agent that raises it. `docs/concepts/commander.md`.
+
+Overridden by ARMADA_COMMANDER_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and to its strongest end.
+
+**The value lives in settings.json under `models.commander`** (live; `ARMADA_COMMANDER_MODEL` still wins).
+"""
+
 [settings.judge-confidence-threshold]
 name = "Judge confidence threshold"
 scope = "Kit → Manifest"

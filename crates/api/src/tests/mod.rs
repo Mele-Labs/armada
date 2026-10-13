@@ -13,6 +13,7 @@
 /// is not one.
 mod callers;
 mod commander_reach;
+mod commander_scope;
 mod conversing;
 mod door;
 mod door_scope;

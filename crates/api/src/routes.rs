@@ -636,6 +636,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/helm/observe", get(observe_helm::<D>))
         .route("/helm/ask", post(ask_helm::<D>))
+        .route(
+            "/jobs/:job_id/commander/observe",
+            get(crate::conversing::observe_commander::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/ask",
+            post(crate::conversing::ask_commander::<D>),
+        )
         .route("/helm/debug", get(get_helm_debug_info::<D>))
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))
         .route("/helm/read_thought", post(read_thought::<D>))

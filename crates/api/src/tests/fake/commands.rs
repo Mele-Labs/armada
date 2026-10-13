@@ -699,7 +699,9 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         note: Option<ipc::RestartRequested>,
+        by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
+        self.restarted_by.lock().expect("not poisoned").push(by);
         self.fake_restart_step(job_id, note).await
     }
     async fn redispatch_job(

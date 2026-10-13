@@ -29,6 +29,7 @@ pub const PROMPT_CROSSING_DECIDED: Words = Words("prompts.crossingDecided");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
+pub const PROMPT_COMMANDER: Words = Words("prompts.commander");
 pub const PROMPT_TRIGGER_REPAIR: Words = Words("prompts.triggerRepair");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
@@ -315,6 +316,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Helm, read only",
         "What a Helm session is told when it starts, where Helm only reads. {manifest} and {folder} name the repository, and {workflow_fields} and {workflow_sample} what a workflow is written in.",
         &["manifest", "folder", "workflow_fields", "workflow_sample"],
+    ),
+    prompt(
+        PromptSection::Helm,
+        PROMPT_COMMANDER,
+        "A Job's Commander",
+        "What a Job's Commander is told when its session starts. {job} names the Job it steers. Each turn after it is worded by Fleet.",
+        &["job"],
     ),
     prompt(
         PromptSection::Helm,

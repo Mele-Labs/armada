@@ -70,6 +70,12 @@ const RETRO_MODEL: &str = "sonnet";
 /// and paid only where a flag was raised.
 const SECOND_OPINION_MODEL: &str = "sonnet";
 
+/// The model a Job's Commander runs on when nothing names one. **Named rather
+/// than derived**, and held to the roster by a test: the owner chose the
+/// strongest tier on 12 Oct 2026. It is `crates/config/settings.toml`'s
+/// `commander-model` row.
+const COMMANDER_MODEL: &str = "opus";
+
 impl HeadlessAgent {
     /// The model a step that names none is judged by: **the cheapest alias on
     /// the roster**, which is what `crates/config/settings.toml`'s
@@ -110,6 +116,12 @@ impl HeadlessAgent {
     /// The model a judged gaming flag is read a second time on.
     pub fn second_opinion_model() -> &'static str {
         SECOND_OPINION_MODEL
+    }
+
+    /// The model a Job's Commander runs on when neither the Job nor the
+    /// machine names one.
+    pub fn commander_model() -> &'static str {
+        COMMANDER_MODEL
     }
 }
 
