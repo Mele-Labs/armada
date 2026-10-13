@@ -8,9 +8,10 @@ import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
-  const { message, thread, ledger, opened } = kit(narrow);
+  const { message, thread, opened } = kit(narrow);
   const started = (title: string) => role("button", title, { exact: true });
   const sessions = region("Sessions");
+  const needs = region("Needs you");
   return [
     { press: inside(sessions, button("Debug Job 14")), say: "A live Session, with a finding in it" },
     { look: inside(thread, text("The loop reads the cap once at startup")), say: "What it found" },
@@ -21,11 +22,10 @@ function steps(narrow: boolean): Step[] {
     { press: inside(thread, started("Settings loader and the cap")), say: "He opens it from the thread" },
     { look: role("button", "Started by Debug Job 14", { exact: true }), say: "Its thread opens on where it came from" },
     { look: message, say: "The agent's first message waits in its box, unsent" },
-    ...opened([
-      { look: inside(ledger, region("Waiting on you")), say: "And in Waiting on you" },
-      { hover: inside(ledger, role("img", "Goes to the message", { exact: true })), say: "Its glyph names the act" },
-      { look: inside(role("region", "Started"), text("Started by Debug Job 14")), say: "The ledger says where it came from" },
-    ]),
+    { look: needs, say: "And in Needs you, at the foot of its thread" },
+    { press: inside(needs, button(/^Needs you/)), say: "A press opens it" },
+    { hover: inside(needs, role("img", "Goes to the message", { exact: true })), say: "Its glyph names the act" },
+    ...opened([{ look: inside(role("region", "Started"), text("Started by Debug Job 14")), say: "The ledger says where it came from" }]),
     { press: button("Sessions"), say: "Back to the list" },
     { look: inside(sessions, role("heading", "Needs you")), say: "The new Session is under Needs you" },
     { hover: inside(sessions, role("img", /^Waiting on you:/)), say: "A hand, and on hover what it waits on" },
@@ -40,7 +40,7 @@ function steps(narrow: boolean): Step[] {
     { press: role("button", "Forked from Debug Job 14", { exact: true }), say: "It opens onto the conversation up to that finding" },
     { look: inside(role("group", "Forked from Debug Job 14"), text("settings loader seems to ignore")), say: "Up to the message it was forked at" },
     { look: message, say: "The agent's first message waits in its box, unsent" },
-    ...opened([{ look: inside(ledger, region("Waiting on you")), say: "Waiting on you, as the other was" }]),
+    { look: needs, say: "Needs you, as the other was" },
   ];
 }
 
