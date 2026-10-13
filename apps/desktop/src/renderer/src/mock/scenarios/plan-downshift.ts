@@ -19,21 +19,23 @@ const fromNow = (hours: number, minutes: number): string => new Date(Date.now() 
 
 const records = () => [hosted("01DSHIFTAAAAAAAAAAAAAAAAAA", { title: "Cart totals rounding", last_turn_at: now() })];
 
-/** Each window's end is read once, so the week is one window until the walk says it is over. */
-const FIVE = fromNow(2, 14);
-const WEEK = fromNow(2 * 24 + 17, 0);
-const NEXT_WEEK = new Date(new Date(WEEK).getTime() + 7 * 24 * 60 * 60_000).toISOString();
+/** Each window's end is fixed once read, so the week stays one window until the walk says it is over. */
+const ends = { five: fromNow(2, 14), week: fromNow(2 * 24 + 17, 0), then: { five: "", week: "" } };
 
-const reading = (five: number, week: number, weekEnds: string): PlanUsage => ({
-  windows: [
-    { kind: "five_hour", percent_used: five, resets_at: FIVE },
-    { kind: "seven_day", percent_used: week, resets_at: weekEnds },
-  ],
-  read_at: now(),
-});
+const reading = (five: number, week: number, over = false): PlanUsage => {
+  // The next windows start when the walk reaches them, so they end a full window from then.
+  if (over && ends.then.week === "") ends.then = { five: fromNow(5, 0), week: fromNow(7 * 24, 0) };
+  return {
+    windows: [
+      { kind: "five_hour", percent_used: five, resets_at: over ? ends.then.five : ends.five },
+      { kind: "seven_day", percent_used: week, resets_at: over ? ends.then.week : ends.week },
+    ],
+    read_at: now(),
+  };
+};
 
 /** What Fleet reads as the walk goes on: under the line, over it, then a new week. */
-const READINGS = [() => reading(30, 75, WEEK), () => reading(41, 83, WEEK), () => reading(6, 3, NEXT_WEEK)];
+const READINGS = [() => reading(30, 75), () => reading(41, 83), () => reading(6, 3, true)];
 
 function build(): Scenario {
   const board = onBoard([], { repositories: [ARMADA], picked: ARMADA.root });

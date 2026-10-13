@@ -83,7 +83,7 @@ function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; na
         <span className="armada-title-bar__usage-label">{limit.short}</span>
         <span className="armada-title-bar__usage-track" />
         {one.offer?.attention === undefined ? null : (
-          <Tooltip label={one.offer.attention}>
+          <Tooltip label={one.offer.attention} beside>
             <span className="armada-title-bar__usage-attention" role="img" aria-label={one.offer.attention}>
               <BellRing size={12} strokeWidth={2} aria-hidden />
             </span>
