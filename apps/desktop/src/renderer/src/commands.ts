@@ -57,6 +57,7 @@ import type {
 } from "@armada/protocol";
 import type { HelmContext, JobSummary, PullRequestState } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
+import type { SendSessionMessage } from "@armada/protocol";
 import type { Confirming } from "./ConfirmAct";
 import type { AskTurn } from "@armada/jobs/review-wire";
 import type { PauseAct, Taken, TakenAct } from "@armada/screens";
@@ -165,6 +166,8 @@ export const readLessons = (state: "open" | "accepted") => window.armada.readLes
 export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lessonId);
 export const disagreeLesson = (lessonId: string) => window.armada.disagreeLesson(lessonId);
 export const startLessonSession = (lessonId: string) => window.armada.startLessonSession(lessonId);
+/** Setup's Set up with a session: the two Session calls it makes, on the repository being set up. */
+export const setupSessionFleet = { startSession: (title?: string, root?: string) => window.armada.startSession(title, root), sendSessionMessage: (send: SendSessionMessage) => window.armada.sendSessionMessage(send) };
 export const reviewLessons = () => window.armada.reviewLessons();
 export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
   window.armada.askLesson(lessonId, question, history);
