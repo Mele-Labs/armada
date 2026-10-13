@@ -448,14 +448,14 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | A live session in a served repository | Told |
 |---|---|
 | Holds a branch | The build, and for each branch whether it is in it |
-| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, and the wait is answered `Restarted: preview at 1234567` |
+| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, as the answer to that wait, so it wakes once |
 | Neither | Nothing |
 
-**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing.
+**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
 
-**A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
+**A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
 
-**Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, session). A session that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait is settled only after it was told.
+**Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, session). A session that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.
 
 ### Restarting Fleet
 

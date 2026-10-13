@@ -134,6 +134,35 @@ fn a_branch_ahead_of_the_build_is_in_it_up_to_the_newest_commit_the_build_holds(
     );
 }
 
+/// A merge of `theirs` into `ours`, as a session merging a newer main into its branch makes.
+fn merge_of(repo: &TempRepo, ours: &str, theirs: &str) -> String {
+    let opened = repo.open();
+    let find = |one: &str| opened.find_commit(git2::Oid::from_str(one).expect("an object id")).expect("a parent");
+    let (ours, theirs) = (find(ours), find(theirs));
+    let who = git2::Signature::now("armada", "armada@example.invalid").expect("a signature");
+    let tree = ours.tree().expect("a tree");
+    let made = opened
+        .commit(None, &who, &who, "a merge of main", &tree, &[&ours, &theirs])
+        .expect("a merge");
+    made.to_string()
+}
+
+#[test]
+fn a_newer_main_merged_into_the_branch_is_not_counted_as_its_own() {
+    let (repo, first) = a_repository_at_main();
+    let work = child_of(&repo, &first, "work");
+    let built = child_of(&repo, &work, "a build holding the work");
+    let newer = child_of(&repo, &first, "main moves on");
+    point_origin_main_at(&repo, &newer);
+    let merged = merge_of(&repo, &work, &newer);
+    branch_at(&repo, "armada/work", &merged);
+    assert_eq!(
+        branch_in_build(&repo.root_str(), &built, "armada/work"),
+        Some(BranchInBuild::Partly { newest: work, since: 1 }),
+        "only the merge commit is the branch's own and not in the build"
+    );
+}
+
 #[test]
 fn main_a_branch_with_nothing_of_its_own_and_one_that_is_not_there_say_nothing() {
     let (repo, first) = a_repository_at_main();

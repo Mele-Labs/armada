@@ -252,10 +252,9 @@ async fn a_restart_wait_is_settled_by_the_build_it_asked_for_and_a_mismatch_is_n
 
     rig.fleet.builds_told().await;
 
-    let short = &rig.build[..7];
     let settled = rig.thread_of(&preview).await;
-    assert!(settled.iter().any(|one| one.starts_with("Fleet and Bridge now run the preview")), "{settled:?}");
-    assert!(settled.iter().any(|one| one.contains(&format!("Restarted: preview at {short}"))), "{settled:?}");
+    assert_eq!(settled.len(), 1, "the wait is answered with the notice, and no more: {settled:?}");
+    assert!(settled[0].contains("Fleet and Bridge now run the preview"), "{settled:?}");
     assert!(rig.waiting_on(&preview).await.is_empty(), "the wait is settled");
 
     let told = rig.thread_of(&main).await;

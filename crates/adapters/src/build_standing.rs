@@ -61,7 +61,8 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
     if own.is_empty() {
         return None;
     }
-    let lacking = commits(root, &["rev-list", &format!("{build}..{tip}")])?;
+    // Past `origin/main` too, so a newer main merged into the branch is not counted as its own.
+    let lacking = commits(root, &["rev-list", &tip, &format!("^{build}"), "^origin/main"])?;
     if lacking.is_empty() {
         return Some(BranchInBuild::In);
     }

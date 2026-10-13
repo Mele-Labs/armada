@@ -9,7 +9,7 @@
 //! **Told once**: the key is (build commit, session) in the store, so a later Fleet does not
 //! repeat it. A session that cannot be told now is asked again next reading, with nothing kept.
 //! Who is told: a live session in a served repository that holds a branch, or waits on the person
-//! to restart. That wait is settled by the notice, unless it asked for the other build.
+//! to restart. That wait is answered with the notice, unless it asked for the other build.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -70,6 +70,16 @@ fn said(build: BuildSource, commit: &str, branches: &[(String, BranchInBuild)]) 
         });
     }
     out
+}
+
+fn answer(session: &str, item: String, text: &str) -> AnswerWaiting {
+    AnswerWaiting {
+        session_id: SessionId::carried(session),
+        item_id: item,
+        choice: None,
+        text: Some(text.to_string()),
+        mode: None,
+    }
 }
 
 /// A session's reasons to be told: the branches it holds, and the waits that ask for a restart.
@@ -136,23 +146,21 @@ where
             }
             let standing = self.branches_in_build(served, commit, &reasons.branches).await;
             let text = said(build, commit, &standing);
-            if !matches!(self.told_by_fleet(&session, &text).await, Ok(true)) {
+            let mut settling = reasons.restarts.into_iter().filter(|(_, asked)| *asked == build).map(|(item, _)| item);
+            // A wait for this build is answered with the notice itself, so the session wakes once.
+            let told = match settling.next() {
+                Some(item) => Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok(),
+                None => matches!(self.told_by_fleet(&session, &text).await, Ok(true)),
+            };
+            if !told {
                 everyone = false;
                 continue;
             }
             let at = self.now();
             let _ = self.store().lock().await.keep_build_notice(commit, &session, &at);
             let words = format!("Restarted: {} at {}", build_word(build), short(commit));
-            // Settled after the notice, so a session that could not be told keeps its wait.
-            for (item, _) in reasons.restarts.into_iter().filter(|(_, asked)| *asked == build) {
-                let answer = AnswerWaiting {
-                    session_id: SessionId::carried(&session),
-                    item_id: item,
-                    choice: None,
-                    text: Some(words.clone()),
-                    mode: None,
-                };
-                let _ = Arc::clone(self).settle_waiting(answer).await;
+            for item in settling {
+                let _ = Arc::clone(self).settle_waiting(answer(&session, item, &words)).await;
             }
         }
         everyone
