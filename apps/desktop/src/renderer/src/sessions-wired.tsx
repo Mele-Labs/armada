@@ -147,9 +147,9 @@ export class WiredStore {
     });
   }
 
-  private async starting(tag: SessionTag | undefined): Promise<string | undefined> {
+  private async starting(tag: SessionTag | undefined, root: string | undefined): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession();
+    const done = await this.api.startSession(undefined, root);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -322,7 +322,7 @@ export class WiredStore {
     return {
     get: () => this.mapped,
     subscribe: this.subscribe,
-    start: (tag) => this.starting(tag),
+    start: (tag, root) => this.starting(tag, root),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     forkAt: (id, at) => this.forkingAt(id, at),
