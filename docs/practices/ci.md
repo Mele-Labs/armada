@@ -105,7 +105,7 @@ reports on its own, so a red smoke shard or a red unit job never blocks a change
 
 ## Foundations
 
-`cargo xtask verify-foundations` is the gate for what no Check covers: the size limits on a source file and on a comment block, the document rules, and the generated files. The merge line ran it on every turn, so CI runs it on every change, docs included. `foundations` is a job of its own, not a Check: it is not in armada.yml and `armada covers` does not choose it.
+`cargo xtask verify-foundations` is the gate for what no Check covers: the document rules, and the generated files. The merge line ran it on every turn, so CI runs it on every change, docs included. `foundations` is a job of its own, not a Check: it is not in armada.yml and `armada covers` does not choose it.
 
 ```
 HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ──┐
