@@ -30,6 +30,8 @@ import { mockPhone } from "./phone";
 import { SleepSourceProvider } from "../sleep";
 import { mockSleep } from "./sleep";
 import { PlanUsageSourceProvider } from "../plan-usage";
+import { DownshiftSourceProvider } from "../downshift";
+import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
@@ -108,6 +110,8 @@ export function mountApp(
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(api);
+  // Only the scenario that plays the offer has one; every other window draws the limits as they were.
+  const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -128,11 +132,13 @@ export function mountApp(
                 <PhoneSourceProvider value={mockPhone}>
                   <SleepSourceProvider value={mockSleep}>
                     <PlanUsageSourceProvider value={planUsage}>
-                      <SessionsHere held={heldSessions(api)}>
-                        <ClashesFrom clashes={chosen.draft?.clashes}>
-                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                        </ClashesFrom>
-                      </SessionsHere>
+                      <DownshiftSourceProvider value={downshift}>
+                        <SessionsHere held={heldSessions(api)}>
+                          <ClashesFrom clashes={chosen.draft?.clashes}>
+                            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                          </ClashesFrom>
+                        </SessionsHere>
+                      </DownshiftSourceProvider>
                     </PlanUsageSourceProvider>
                   </SleepSourceProvider>
                 </PhoneSourceProvider>
