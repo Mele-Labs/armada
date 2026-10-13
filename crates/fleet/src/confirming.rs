@@ -200,14 +200,21 @@ async fn one_alone(
     else {
         return None;
     };
-    // Compiled in the members that declare the test, not the workspace.
-    let command = checks_runner::one_test_in(
+    // Compiled in the members that declare the test, not the workspace. A name
+    // no member's source spells, such as a macro's test, runs unnarrowed: the
+    // gate confirms a red rather than leaving it standing on a lookup.
+    let command = match checks_runner::one_test_in(
         &again.worktree.join(manifest_dir),
         template,
         narrow.as_ref(),
         test,
-    )
-    .ok()?;
+    ) {
+        Ok(command) => command,
+        Err(checks_runner::OneTestRefused::NoMember { .. }) => {
+            checks_runner::one_test(template, test)?
+        }
+        Err(checks_runner::OneTestRefused::Blank) => return None,
+    };
     let one = holding_every_place(check, Some(command))?;
     let done = checking::ran(
         std::slice::from_ref(&one),

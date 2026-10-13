@@ -285,21 +285,28 @@ where
         })?;
         // **Only the members that declare the test are compiled**, where the
         // Check's `narrow` says what a member is, as `armada check <name>
-        // <test>` does. A name no member declares matched nothing on main.
-        let command = checks_runner::one_test_in(
+        // <test>` does. A name no member's source spells, such as a macro's
+        // test, runs unnarrowed rather than being refused on a lookup.
+        let command = match checks_runner::one_test_in(
             &std::path::Path::new(served.root()).join(&manifest_dir),
             &template,
             narrow.as_ref(),
             test,
-        )
-        .map_err(|refused| match refused {
-            checks_runner::OneTestRefused::Blank => NotFixed::NotOneArgument {
-                test: test.to_string(),
-            },
-            checks_runner::OneTestRefused::NoMember { .. } => NotFixed::NoMatch {
-                test: test.to_string(),
-            },
-        })?;
+        ) {
+            Ok(command) => command,
+            Err(checks_runner::OneTestRefused::NoMember { .. }) => {
+                checks_runner::one_test(&template, test).ok_or_else(|| {
+                    NotFixed::NotOneArgument {
+                        test: test.to_string(),
+                    }
+                })?
+            }
+            Err(checks_runner::OneTestRefused::Blank) => {
+                return Err(NotFixed::NotOneArgument {
+                    test: test.to_string(),
+                })
+            }
+        };
         Ok(Request {
             repository: ManifestId::carried(Ulid::carried(owner)),
             root: served.root().to_string(),
