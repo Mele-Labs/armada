@@ -228,6 +228,18 @@ export type JobSummary = {
    * waits on the owner's choice, or one failed after its repair tries. Absent is none. Since 23.68.
    */
   alert?: JobAlert;
+  /** Each bay the job has held, oldest first. Absent is none, or a job from before Fleet kept them. */
+  bays?: JobBay[];
+};
+
+/** One stretch of a job in one bay of its repository's pool. `crates/ipc/src/job.rs`. */
+export type JobBay = {
+  /** The slot's number, as `armada worktree --status` numbers it. */
+  slot: number;
+  /** When the job took it, RFC 3339. */
+  since: string;
+  /** When it gave it back. Absent is it still holds the bay, which a completed job does until a person clears it. */
+  until?: string;
 };
 
 /** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */

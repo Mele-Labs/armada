@@ -106,7 +106,7 @@ mod worktree;
 #[cfg(test)]
 mod tests;
 
-pub use build_standing::{fetch_branch, fetch_main, position_against_main};
+pub use build_standing::{branch_in_build, fetch_branch, fetch_main, position_against_main, BranchInBuild};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use commanding::{denied_to_a_commander, Commanding};

@@ -332,7 +332,7 @@ where
             self.store()
                 .lock()
                 .await
-                .record_pull_request_opened(job.id(), review.title())
+                .record_pull_request_opened(job.id(), review.title(), self.now().as_str())
                 .map_err(Adrift::Writing)?;
         }
         // **The same composition, kept beside the Job.** The pull request

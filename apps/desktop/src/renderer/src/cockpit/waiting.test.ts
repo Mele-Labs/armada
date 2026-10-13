@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { callsFromWaiting, permissionOf, sessionIdOf, waitingOf } from "./waiting";
+import { callsFromWaiting, lastOwnerMessageAt, permissionOf, sessionIdOf, touchedAt, waitingOf } from "./waiting";
 
 type Held = Parameters<typeof waitingOf>[0];
 
@@ -89,5 +89,88 @@ describe("what a Session waits on", () => {
     expect(sessionIdOf("session:s9")).toBe("s9");
     expect(sessionIdOf("session:s9:ask:q-a:0")).toBe("s9");
     expect(sessionIdOf("job:s9")).toBeUndefined();
+  });
+});
+
+// The owner, 13 Oct: a call card led him into a Session, he got it moving, and coming back to the
+// cockpit the same card stood there stale. "I want these stale call cards to go away. Automatically."
+describe("a call is raised only if he has not been in the Session since it began waiting", () => {
+  const SINCE = "2026-10-09T09:00:00.000Z";
+  const at = (iso: string) => Date.parse(iso);
+  const item = (id: string, since: string, source = "agent") => ({ id, text: id, since, source });
+  const waiting = (extra: Record<string, unknown> = {}) => session("w", { waitingFor: [item("a", SINCE)], ...extra });
+  const youSaid = (iso: string) => ({ id: "m", at: "09:30:00", instant: iso, kind: "message", from: { kind: "you" }, text: "go on" });
+  const ids = (sessions: Held[], viewedAt?: (id: string) => number) => callsFromWaiting(sessions, viewedAt).map((one) => one.item.id);
+
+  test("he never was in it: a call", () => {
+    expect(ids([waiting()])).toEqual(["a"]);
+    expect(ids([waiting()], () => 0)).toEqual(["a"]);
+  });
+
+  test("an item older than his last view is no call", () => {
+    expect(ids([waiting()], () => at("2026-10-09T09:30:00.000Z"))).toEqual([]);
+  });
+
+  test("an item older than his last message is no call", () => {
+    expect(ids([waiting({ rows: [youSaid("2026-10-09T09:30:00.000Z")] })])).toEqual([]);
+  });
+
+  test("an item newer than both is a call", () => {
+    const later = session("w", { rows: [youSaid("2026-10-09T09:30:00.000Z")], waitingFor: [item("b", "2026-10-09T10:00:00.000Z")] });
+    expect(ids([later], () => at("2026-10-09T09:45:00.000Z"))).toEqual(["b"]);
+  });
+
+  test("whichever is later counts: his view after his message, and his message after his view", () => {
+    const said = session("w", { rows: [youSaid("2026-10-09T09:30:00.000Z")] });
+    expect(touchedAt(said, () => at("2026-10-09T09:40:00.000Z"))).toBe(at("2026-10-09T09:40:00.000Z"));
+    expect(touchedAt(said, () => at("2026-10-09T09:10:00.000Z"))).toBe(at("2026-10-09T09:30:00.000Z"));
+  });
+
+  test("an item the agent posts again under the same id keeps its since and does not call again; a new one does", () => {
+    const viewed = () => at("2026-10-09T09:30:00.000Z");
+    const first = waiting();
+    const again = waiting({ waitingFor: [item("a", SINCE), item("b", "2026-10-09T10:00:00.000Z")] });
+    expect(ids([first], viewed)).toEqual([]);
+    expect(ids([again], viewed)).toEqual(["b"]);
+  });
+
+  test("a message from the agent or another Session is not him", () => {
+    const rows = [
+      { id: "m1", at: "09:30:00", instant: "2026-10-09T09:30:00.000Z", kind: "message", from: { kind: "agent" }, text: "hi" },
+      { id: "m2", at: "09:31:00", instant: "2026-10-09T09:31:00.000Z", kind: "message", from: { kind: "session", id: "x", title: "X" }, text: "hi" },
+      { id: "t", at: "09:32:00", kind: "tool", text: "ls" },
+    ];
+    expect(lastOwnerMessageAt(waiting({ rows }))).toBe(0);
+    expect(ids([waiting({ rows })])).toEqual(["a"]);
+  });
+
+  test("a row with no instant, as a mock's, says nothing about when", () => {
+    expect(lastOwnerMessageAt(waiting({ rows: [{ id: "m", at: "09:30:00", kind: "message", from: { kind: "you" }, text: "x" }] }))).toBe(0);
+  });
+
+  test("a blocking source follows the same rule: a question, a permission and a window ask he was there for are no call", () => {
+    const working = (source: string) => session("w", { turn: { state: "working" }, waitingFor: [item(source, SINCE, source)] });
+    for (const source of ["ask_card", "permission", "window_ask"]) {
+      expect(ids([working(source)])).toEqual([source]);
+      expect(ids([working(source)], () => at("2026-10-09T09:30:00.000Z"))).toEqual([]);
+      expect(ids([working(source)], () => at("2026-10-09T08:30:00.000Z"))).toEqual([source]);
+    }
+  });
+
+  test("a pending ask read off the Session follows it too, by the turn that ended", () => {
+    expect(ids([asking("a")], () => at("2026-10-09T10:30:00.000Z"))).toEqual([]);
+    expect(ids([asking("a")], () => at("2026-10-09T09:30:00.000Z"))).toEqual(["ask:q-a:0"]);
+  });
+
+  test("it is per Session: being in one leaves another's call", () => {
+    const one = session("one", { waitingFor: [item("x", SINCE)] });
+    const two = session("two", { waitingFor: [item("y", SINCE)] });
+    expect(ids([one, two], (id) => (id === "one" ? at("2026-10-09T09:30:00.000Z") : 0))).toEqual(["y"]);
+  });
+
+  test("the item stays on the Session's own list: only the call goes", () => {
+    const held = waiting();
+    callsFromWaiting([held], () => at("2026-10-09T09:30:00.000Z"));
+    expect(waitingOf(held).map((one) => one.id)).toEqual(["a"]);
   });
 });

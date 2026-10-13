@@ -28,6 +28,7 @@ const METRO: Metro = {
   counts: [[["idle", 2]], [], [["run", 2]], [], [], []],
   bays: { held: 2, free: 0, closed: 0, strip: [], names: [] },
   main: undefined,
+  review: false,
 };
 
 const AUTOPILOT = {

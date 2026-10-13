@@ -361,7 +361,7 @@ pub use ids::{
 };
 pub use issues::{IssueList, TrackedIssue};
 pub use job::{
-    AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
+    AttachmentRef, DependencyEdge, JobBay, JobForgotten, JobList, JobRequest, JobSummary, Paused,
     ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
     Subject, UnreadableJob,
 };
@@ -390,8 +390,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
-    HubQueueState, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub,
 };
 pub use merge_line::{

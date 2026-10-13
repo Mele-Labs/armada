@@ -179,6 +179,13 @@ const captureWindows = new CaptureWindows({
   sessionClosed: (sessionId, address) => {
     void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
   },
+  // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
+  windowsChanged: () => {
+    const open = captureWindows.sessionAddresses();
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(CHANNELS.sessionWindowsChanged, open);
+    }
+  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
@@ -998,6 +1005,7 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
+  ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });

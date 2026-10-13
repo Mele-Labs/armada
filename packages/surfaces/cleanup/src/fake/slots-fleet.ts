@@ -86,6 +86,8 @@ export function reshaped(
         return refusedAs("fleet.slot_held", `held by job ${target.held.job_id}`);
       case "session":
         return refusedAs("fleet.slot_held", `held by ${target.held.holder}`);
+      case "hosted_session":
+        return refusedAs("fleet.slot_held", `held by session ${target.held.session_id}`);
       case "stranded":
         return refusedAs("fleet.slot_stranded", `stranded, holding ${target.held.why}`);
       case "busy":

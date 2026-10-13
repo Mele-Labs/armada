@@ -1,0 +1,214 @@
+/* A pull request's panel and the plates off its leading edge. The plates are the Cockpit Helm
+   rail's: a solid panel with a hue-tinted frame, no glow and no gradient. Written here because
+   nothing else draws them. */
+
+.armada-pr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-pr-panel__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-pr-panel__repository {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-panel__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-pr-panel__branch {
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-pr-panel__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-pr-panel__description {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-pr-panel__open {
+  margin-inline-start: auto;
+}
+
+/* The column of plates: beside the sheet it is its own width, in the panel it is the panel's. */
+.armada-pr-plates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-sheet__aside > .armada-pr-plates {
+  width: calc(var(--space-12) * 7);
+}
+
+.armada-pr-plate {
+  --hue: var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+}
+
+.armada-pr-plate[data-tone="running"] {
+  --hue: var(--status-running);
+}
+
+.armada-pr-plate[data-tone="success"] {
+  --hue: var(--status-completed-success);
+}
+
+.armada-pr-plate[data-tone="failed"] {
+  --hue: var(--status-completed-failed);
+}
+
+.armada-pr-plate__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.armada-pr-plate[data-tone="failed"] .armada-pr-plate__eyebrow > svg {
+  color: var(--status-completed-failed);
+}
+
+/* The status plate: a ring with the glyph, what and why, and the place figure where there is one. */
+.armada-pr-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.armada-pr-status__ring {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-12) - var(--space-2));
+  height: calc(var(--space-12) - var(--space-2));
+  border-radius: 50%;
+  color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 16%, transparent);
+}
+
+.armada-pr-status__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.armada-pr-status__what {
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-pr-status__why {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.armada-pr-status__place {
+  font-size: var(--text-2xl);
+  line-height: 1;
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-pr-status__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-pr-status__fact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  white-space: nowrap;
+}
+
+.armada-pr-status__fact > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-pr-status__fact[data-tone="running"] > svg {
+  color: var(--status-running);
+}
+
+.armada-pr-status__fact[data-tone="success"] > svg {
+  color: var(--status-completed-success);
+}
+
+.armada-pr-status__fact[data-tone="failed"] > svg {
+  color: var(--status-completed-failed);
+}
+
+.armada-pr-failing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-pr-failing__row {
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}

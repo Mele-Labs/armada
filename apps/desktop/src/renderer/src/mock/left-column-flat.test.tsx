@@ -13,7 +13,7 @@ const panels = () => [...document.querySelectorAll(".armada-shell__left > :is(.a
 const surface = (element: Element) => getComputedStyle(element);
 const layer = (element: Element) => getComputedStyle(element, "::before");
 
-test("Navigation (Work and Machine) and Fleet are flat, and the Dashboard's call is still a raised card", async () => {
+test("Navigation (Work and Machine) and Fleet are flat, and the Dashboard's call is still set apart by its frame", async () => {
   await page.viewport(1440, 900);
   mount("every-state");
   await expect.element(page.getByText("pid")).toBeVisible();
@@ -28,5 +28,7 @@ test("Navigation (Work and Machine) and Fleet are flat, and the Dashboard's call
   }
 
   await expect.poll(() => document.querySelector(".armada-callcard")).not.toBeNull();
-  expect(surface(document.querySelector(".armada-callcard")!).boxShadow).not.toBe("none");
+  // On the Helm rail (12 Oct 2026) the call is framed, not shadowed: a frame twice a panel's weight.
+  const card = surface(document.querySelector(".armada-callcard")!);
+  expect(parseFloat(card.borderTopWidth)).toBeGreaterThan(parseFloat(surface(flat[0]!).borderTopWidth));
 });

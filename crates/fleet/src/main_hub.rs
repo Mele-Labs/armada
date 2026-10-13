@@ -15,14 +15,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, CiState, Delivery, OpenPull, QueueEntry, QueueState, RecentlyMerged, Vcs,
-    WorkProduct,
+    AgentHarness, CiState, Delivery, OpenPull, PullMergeable, PullReview, QueueEntry, QueueState,
+    RecentlyMerged, Vcs, WorkProduct,
 };
 use core_model::JobId;
 use core_model::Timestamp;
 use ipc::{
-    HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubSession, MainChecking,
-    MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
+    HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview,
+    HubSession, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
 };
 use store::{MainCi, MainState};
 
@@ -662,6 +662,30 @@ fn request(
         }),
         job: one.job.as_ref().and_then(titled),
         queue: queue_of(pull, queue),
+        opened_at: pull
+            .facts
+            .opened_at
+            .as_ref()
+            .map(|it| ipc::Instant::carried(it.as_written())),
+        updated_at: pull
+            .facts
+            .updated_at
+            .as_ref()
+            .map(|it| ipc::Instant::carried(it.as_written())),
+        draft: pull.facts.draft,
+        mergeable: pull.facts.mergeable.map(|it| match it {
+            PullMergeable::Clean => HubMergeable::Clean,
+            PullMergeable::Conflicting => HubMergeable::Conflicting,
+            PullMergeable::Unknown => HubMergeable::Unknown,
+        }),
+        review: pull.facts.review.map(|it| match it {
+            PullReview::Approved => HubReview::Approved,
+            PullReview::ChangesRequested => HubReview::ChangesRequested,
+            PullReview::ReviewRequired => HubReview::ReviewRequired,
+            PullReview::None => HubReview::None,
+        }),
+        additions: pull.facts.additions,
+        deletions: pull.facts.deletions,
     }
 }
 

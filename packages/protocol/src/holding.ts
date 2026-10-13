@@ -192,7 +192,15 @@ export type SlotHolding =
       completed?: boolean;
     }
   /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */
-  | { state: "session"; holder: string }
+  | {
+      state: "session";
+      holder: string;
+      /** The hosted Session whose agent, or something it started, this process is. Absent for a terminal Fleet does not host. */
+      session_id?: string;
+      session_title?: string;
+    }
+  /** A Session Fleet hosts, holding the slot under its own id. Not a Job: a Job's acts do not apply. */
+  | { state: "hosted_session"; session_id: string; session_title?: string }
   /** Its holder is gone and it still holds work. */
   | { state: "stranded"; why: string };
 

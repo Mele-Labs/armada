@@ -2,7 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A question answered for the owner. `chose` is empty where the agent was told to decide for itself.
+use crate::sessions::SessionId;
+
+/// A question answered for the owner: `chose` is the option labelled "(Recommended)". A Job told to decide
+/// for itself leaves it empty. `session_id` is the session the question came from, absent on a Job's row.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SleepDecided {
     pub id: String,
@@ -11,6 +14,8 @@ pub struct SleepDecided {
     pub chose: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub corrected: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
 }
 
 /// Something only the owner can settle.

@@ -25,6 +25,11 @@ export type TabsItem = {
    * `Tooltip`, so it is also the tab's description. Absent draws none.
    */
   hint?: string;
+  /**
+   * A dot on the tab, where something in it needs the person, and what it says on hover. **A dot and
+   * never a figure**: how many is not what it is for. Absent draws none.
+   */
+  alert?: string;
 };
 
 export type TabsProps = {
@@ -79,6 +84,11 @@ export function Tabs({ items, value, defaultValue, onChange }: TabsProps) {
             onClick={() => select(item.id)}
           >
             {item.label}
+            {item.alert === undefined ? null : (
+              <Tooltip label={item.alert}>
+                <span className="armada-tabs__alert" role="img" aria-label={item.alert} />
+              </Tooltip>
+            )}
           </button>
         );
         return item.hint === undefined ? (

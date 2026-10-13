@@ -5,12 +5,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Alert,
   Button,
   ChipOwnership,
-  MergeLinePlace,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -18,8 +17,6 @@ import {
   PilotExits,
   RetroPress,
   Tooltip,
-  PullRequestActs,
-  PullRequestCard,
   Sheet,
   SessionComposer,
   SessionFrame,
@@ -75,15 +72,18 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
-import { placeOf } from "@armada/screens";
+import type { HeldWorktrees, JobSummary, MergeLines, SettingsList } from "@armada/protocol";
+import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
-import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
+import { runnerOf } from "./session-runner";
+import { useViewing } from "./cockpit/viewed";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -475,19 +475,35 @@ function ReadingSheet({
       })
       .finally(() => setPressed(undefined));
   };
+  const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
+  if (one?.kind === "pull_request") {
+    return (
+      <SessionPullRequest
+        one={one}
+        lines={lines}
+        floor={floor}
+        pending={pressed?.number === one.number ? pressed.act : undefined}
+        reviewed={reviewed.has(`${sessionId}#${one.number}`)}
+        sentBack={sentBack(one)}
+        onAct={(act) => press(one.number, act)}
+        onSendBack={() => sendBack(one)}
+        onOpenLink={onOpenLink}
+        onClose={onClose}
+      >
+        <Refused />
+      </SessionPullRequest>
+    );
+  }
   const title =
     one === undefined
       ? ""
-      : one.kind === "pull_request"
-        ? `Pull request #${one.number}`
-        : one.kind === "sketch"
-          ? `Sketch ${one.title}`
-          : one.kind === "subagent"
-            ? `Subagent ${one.task}`
-            : one.kind === "artifact"
-              ? one.title
-              : "";
-  const place = one?.kind === "pull_request" ? placeOf(lines, one) : undefined;
+      : one.kind === "sketch"
+        ? `Sketch ${one.title}`
+        : one.kind === "subagent"
+          ? `Subagent ${one.task}`
+          : one.kind === "artifact"
+            ? one.title
+            : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
   const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
@@ -514,34 +530,7 @@ function ReadingSheet({
       closeBinding="Esc"
       onClose={onClose}
     >
-      {one?.kind === "pull_request" ? (
-        <div className="armada-session-reading">
-          <PullRequestCard
-            number={`#${one.number}`}
-            address={one.address}
-            title={one.title}
-            branch={one.branch}
-            checks={checksSaid(one.checks)}
-            {...(one.state === "merged" ? { state: { status: "completed-success", icon: GitMerge, label: "Merged" } } : {})}
-            onOpen={() => onOpenLink(one.address)}
-          >
-            {factsOf(one).map((fact) => (
-              <span key={fact}>{fact}</span>
-            ))}
-          </PullRequestCard>
-          {place === undefined ? null : <MergeLinePlace rows={place} onOpenPullRequest={onOpenLink} />}
-          <Refused />
-          <PullRequestActs
-            state={one.state}
-            checks={one.checks.state}
-            auto={one.auto}
-            queued={one.queued === true}
-            {...(pressed?.number === one.number ? { pending: pressed.act } : {})}
-            reviewed={reviewed.has(`${sessionId}#${one.number}`)}
-            onAct={(act) => press(one.number, act)}
-          />
-        </div>
-      ) : one?.kind === "sketch" ? (
+      {one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
       ) : one?.kind === "subagent" ? (
         <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
@@ -598,19 +587,6 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
 }
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
-
-/** Runs a command where the Session works. A clean exit settles the item that asked for that command, and the agent is told. */
-function runnerOf(draft: SessionsDraft, session: Session): Runner | undefined {
-  const run = draft.run;
-  if (run === undefined) return undefined;
-  return (command, on) =>
-    run(session.id, command, (event) => {
-      on(event);
-      if (event.kind !== "end" || event.code !== 0) return;
-      const asked = (session.waitingFor ?? []).find((one) => one.act?.kind === "run" && one.act.target.trim() === command.trim());
-      if (asked !== undefined) draft.answerWaiting?.(session.id, asked.id, { text: "Ran: exit 0" });
-    });
-}
 
 function entriesOf(
   session: Session,
@@ -762,7 +738,7 @@ const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held, board, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null }) {
+function SessionView({ session, goes, onOpen, held, board, lines, settings }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -820,10 +796,16 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
     open(...args);
   };
   const runner = runnerOf(draft, session);
+  // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
+  const read = (one: Reading) => {
+    const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
+    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
+    else setReading(one);
+  };
   const entries = entriesOf(
     session,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
-    narrow ? fold(setReading) : setReading,
+    narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
     narrow ? fold(onOpen) : onOpen,
@@ -1037,6 +1019,40 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
 }
 
 /**
+ * A Session's own message box, as `SessionMini` draws it. `onSend` takes the words where the host sends
+ * them itself (a call card answers its waiting item with them); with none, the message goes to the Session.
+ */
+export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
+  const draft = useSessionsDraft();
+  if (draft === undefined || session.dead !== undefined) return null;
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  return (
+    <SessionComposer
+      modeLocked={session.terminal === true}
+      modeHidden={session.terminal === true && session.mode === undefined}
+      working={session.turn.state === "working"}
+      mode={mode}
+      onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+      model={session.model ?? null}
+      effort={session.effort ?? null}
+      models={draft.models}
+      efforts={draft.efforts}
+      onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+      commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+      compact
+      taggable={[]}
+      tags={session.pendingTags ?? []}
+      draftKey={session.id}
+      onTags={(tags) => draft.setTags(session.id, tags)}
+      drawn={[]}
+      onDraw={() => onOpen(session.id)}
+      onRemoveDrawn={() => undefined}
+      onSend={(sent) => (onSend === undefined ? draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] }) : onSend(sent.text))}
+    />
+  );
+}
+
+/**
  * A Session in miniature, for the Dashboard's pane and a walk window's panel: its thread, what it is
  * held on, and the box to answer it, as its own page draws them. No ledger, no frame; Open goes to the
  * whole Session. `fill`: the thread takes the height it is given rather than the pane's cap.
@@ -1049,7 +1065,6 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
   if (draft === undefined || session === undefined) return null;
-  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   const runner = runnerOf(draft, session);
   return (
     <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
@@ -1074,29 +1089,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           onOpenSession={onOpen}
         />
       </div>
-      {session.dead !== undefined ? null : (
-        <SessionComposer
-          modeLocked={session.terminal === true}
-          modeHidden={session.terminal === true && session.mode === undefined}
-          working={session.turn.state === "working"}
-          mode={mode}
-          onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
-          model={session.model ?? null}
-          effort={session.effort ?? null}
-          models={draft.models}
-          efforts={draft.efforts}
-          onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-          commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
-          compact
-          taggable={[]}
-          tags={session.pendingTags ?? []}
-          onTags={(tags) => draft.setTags(session.id, tags)}
-          drawn={[]}
-          onDraw={() => onOpen(session.id)}
-          onRemoveDrawn={() => undefined}
-          onSend={(sent) => draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] })}
-        />
-      )}
+      <SessionBox session={session} onOpen={onOpen} />
     </div>
   );
 }
@@ -1118,6 +1111,7 @@ export function SessionsSurface({
   held,
   board = NO_JOBS,
   lines = null,
+  settings = null,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1126,9 +1120,11 @@ export function SessionsSurface({
   /** The Board's Jobs, for what a Job row's card says beyond the Session's own record of it. */
   board?: readonly JobSummary[];
   lines?: MergeLines | null;
+  settings?: SettingsList | null;
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
+  useViewing(open?.id);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
@@ -1147,7 +1143,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }
