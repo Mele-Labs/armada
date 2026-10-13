@@ -3,16 +3,17 @@
 // the title on top with its state's mark, the time at the top right, and the facts below on one line that
 // never wraps. State is the tile's edge and the mark, and only a Job that is running turns it. A running
 // Job also carries a one-line Now: what its Drone is doing at this moment, and how long ago.
+// Beside its pull request a live Job draws its plan's tasks as a bar, done first; the figure is the tooltip's.
 // The sections, the fold of a lineage and the order are Overview's own (`overviewListsOf`); the acts are
 // the Board row's, the less used behind the ellipsis. j and k, Enter, x and n are the Board's keys.
 
 import { useMemo, useState } from "react";
 import { Ellipsis, LoaderCircle } from "lucide-react";
-import { Button, Chip, DropdownMenu, Tabs, Tooltip, usePilot, useOpenInSession } from "@armada/components";
+import { Button, Chip, DropdownMenu, StepBar, Tabs, Tooltip, usePilot, useOpenInSession } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { JobSummary, MergeLines, RepositorySummary } from "@armada/protocol";
 import type { NowView } from "@armada/jobs/draft/now";
-import { JobMarks, hasMarks, isTerminal, titleOf as plainTitle, repositoryOf, sectionOf, readingOf, canPause, canResume, elapsedOf, absoluteOf, ACT_LABEL } from "@armada/screens";
+import { JobMarks, hasMarks, isTerminal, titleOf as plainTitle, repositoryOf, sectionOf, readingOf, canPause, canResume, elapsedOf, absoluteOf, taskBarSegmentsOf, taskFigureOf, tasksOwed, ACT_LABEL } from "@armada/screens";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { BoardEmpty, OverviewEmpty } from "@armada/screens/src/BoardEmpty";
 import { boardPressOf } from "@armada/screens/src/keys";
@@ -132,7 +133,10 @@ function Tile({
       </Tooltip>
     ),
     pull === undefined ? null : <Chip key="pr" chip={{ kind: "pull_request", number: pull.number }} {...(checks === undefined ? {} : { checks })} />,
-    job.branch === undefined ? null : <Chip key="branch" chip={{ kind: "branch", name: job.branch }} />,
+    // How far along it is in its step: the plan's tasks, as `JobSummary` counts them. The branch is on the Job's detail.
+    ended || job.tasks === undefined || tasksOwed(job.tasks) === 0 ? null : (
+      <StepBar key="tasks" tasks={taskBarSegmentsOf(job.tasks)} label={`${doing?.step ?? job.current_step_id ?? "Plan"} · ${taskFigureOf(job.tasks)} tasks done`} />
+    ),
     repository === undefined ? null : (
       <Tooltip key="repository" label="Repository">
         <span>{repository}</span>

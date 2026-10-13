@@ -172,10 +172,20 @@ function nowing(): Record<string, NowView> {
   );
 }
 
+/** How far each running Job's plan has come: done, working, open. The base gives every Job the same counts. */
+const TASKS: Record<number, readonly [number, number, number]> = { 80: [3, 1, 1], 81: [1, 1, 3], 82: [0, 1, 2], 83: [0, 1, 4], 87: [0, 0, 3], 88: [2, 1, 1], 90: [3, 1, 2] };
+
 export const s207FleetTimeline: Scenario = {
   ...base,
   name: "fleet-timeline",
   says: "The Cockpit's timeline: two hours of what Fleet did to Jobs, Sessions and pull requests in two repositories",
   later: [],
+  state: {
+    ...base.state,
+    jobs: base.state.jobs.map((one) => {
+      const counts = TASKS[Number(one.handle.split("-")[0])];
+      return counts === undefined ? one : { ...one, tasks: { done: counts[0], working: counts[1], open: counts[2], dropped: 0 } };
+    }),
+  },
   draft: { ...base.draft, events: EVENTS, now: nowing() },
 };
