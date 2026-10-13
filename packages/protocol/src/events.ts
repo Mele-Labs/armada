@@ -20,6 +20,7 @@ import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
+import type { ModelDownshiftState } from "./model-downshift";
 import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
@@ -118,6 +119,8 @@ export type Event =
   | ({ kind: "autopilot.changed" } & Autopilot)
   /** The plan's windows after a session read them moving, whole. */
   | ({ kind: "plan_usage.changed" } & PlanUsage)
+  /** The default model's step down after any change to it, whole. Absent `downshift` is none. */
+  | ({ kind: "model_downshift.changed" } & ModelDownshiftState)
   /** A Job's Commander started or finished a turn. #2166. */
   | ({ kind: "commander.changed" } & CommanderChanged)
   /** A Job's card to the owner went out, or the one out was answered. #2166. */

@@ -76,6 +76,7 @@ export * from "./hosted-sessions";
 export * from "./sessions";
 export * from "./context-breakdown";
 export * from "./plan-usage";
+export * from "./model-downshift";
 export * from "./sleep";
 export * from "./remarks";
 export * from "./report";

@@ -26,6 +26,7 @@ fn supplied() -> Supplied {
         .words(s::MODELS_RETRO, "middle")
         .words(s::MODELS_SECOND_OPINION, "middle")
         .words(s::MODELS_COMMANDER, "big")
+        .words(s::PLAN_DOWNSHIFT_TO, "middle")
         .harnesses(&["the-cli"])
 }
 
@@ -141,6 +142,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::BRIDGE_RECONNECT_MS,
         s::RUN_LOG_DAYS,
         s::HELM_SESSION_DAYS,
+        s::PLAN_DOWNSHIFT_AT,
     ] {
         assert!(
             matches!(kinds(key.name()), Kind::Integer { .. }),
@@ -188,6 +190,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_RETRO,
         s::MODELS_SECOND_OPINION,
         s::MODELS_COMMANDER,
+        s::PLAN_DOWNSHIFT_TO,
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
@@ -218,7 +221,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 15 + 4 + 18 + 2 + 2 + s::prompt_keys().count();
+    let handles = 22 + 15 + 4 + 19 + 2 + 2 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

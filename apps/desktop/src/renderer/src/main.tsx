@@ -20,6 +20,8 @@ import { createFleetPlanUsage } from "./fleet-plan-usage";
 import { createFleetTimeline } from "./fleet-timeline";
 import { FleetEventsOver } from "./cockpit/fleet-events";
 import { PlanUsageSourceProvider } from "./plan-usage";
+import { createFleetDownshift } from "./fleet-downshift";
+import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
 import { ClashesFromFleet } from "./clashes";
 import { CATALOGUE } from "./catalogue";
@@ -53,6 +55,8 @@ const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request)
 const SLEEP = createFleetSleep(window.armada);
 /** The plan's windows in the title row, over Fleet. */
 const PLAN_USAGE = createFleetPlanUsage(window.armada);
+/** The default model's offered step down on the weekly meter, over Fleet. */
+const DOWNSHIFT = createFleetDownshift(window.armada);
 const TIMELINE = createFleetTimeline(window.armada);
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(window.armada);
@@ -82,13 +86,15 @@ function Root() {
               <SleepSourceProvider value={SLEEP}>
                 <WiredNumbered>
                   <PlanUsageSourceProvider value={PLAN_USAGE}>
-                    <WiredSessions>
-                      <ClashesFromFleet source={CLASHES}>
-                        <FleetEventsOver source={TIMELINE}>
-                          <App />
-                        </FleetEventsOver>
-                      </ClashesFromFleet>
-                    </WiredSessions>
+                    <DownshiftSourceProvider value={DOWNSHIFT}>
+                      <WiredSessions>
+                        <ClashesFromFleet source={CLASHES}>
+                          <FleetEventsOver source={TIMELINE}>
+                            <App />
+                          </FleetEventsOver>
+                        </ClashesFromFleet>
+                      </WiredSessions>
+                    </DownshiftSourceProvider>
                   </PlanUsageSourceProvider>
                 </WiredNumbered>
               </SleepSourceProvider>

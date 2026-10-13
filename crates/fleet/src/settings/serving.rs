@@ -102,6 +102,7 @@ where
         };
         self.retuned(&resolved);
         self.relimited(&resolved).await;
+        self.downshift_settings_moved(&resolved).await;
         let list = settings.listed();
         self.publish(Event::SettingsChanged(list.clone()));
         list

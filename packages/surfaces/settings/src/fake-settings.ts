@@ -8,7 +8,7 @@ type Extra = Partial<Pick<Setting, "saved" | "applies" | "pending_restart" | "ov
 
 /** Each section's group, as `config::settings` names it. */
 const GROUP: Record<string, string> = {
-  Limits: "Fleet", Timeouts: "Fleet", Retention: "Fleet", Harness: "Agents", Model: "Agents", Effort: "Agents", Prompts: "Prompts",
+  Limits: "Fleet", Timeouts: "Fleet", Retention: "Fleet", Harness: "Agents", Model: "Agents", Effort: "Agents", Plan: "Agents", Prompts: "Prompts",
   Features: "Features", Editor: "Tools", Terminal: "Tools", Links: "Tools", Bridge: "Appearance",
 };
 
@@ -74,6 +74,8 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Model", "models.proposer", "Job proposer model", "The model that reads a request and proposes a job.", TEXT, "haiku", { saved: "sonnet" }),
     row("Effort", "effort.default", "Default effort", "The effort a step runs at when it names none. Harness default passes nothing.", EFFORT, "harness default"),
     row("Effort", "effort.judge", "Judge effort", "The effort each Judge call runs at.", EFFORT, "harness default"),
+    row("Plan", "plan.downshiftAt", "Offer a lower default at", "How much of the weekly plan window must be used before the default model is offered a step down until the window resets.", count(1, 100, "percent"), 80),
+    row("Plan", "plan.downshiftTo", "Lower default model", "The model the default steps down to when you accept the offer.", TEXT, "sonnet"),
     row("Prompts", "prompts.droneBaseline", "Drone baseline", "What every drone is told before its step's own brief.", PROMPT, BASELINE),
     row("Prompts", "prompts.proposer", "Job proposer", "What the job proposer is told before the request.", PROMPT, PROPOSER),
     row("Features", "features.helmCanAct", "Helm can act", "Helm may redirect a job itself. Off, Helm reads one and suggests it.", BOOLEAN, true, { applies: "at_restart" }),

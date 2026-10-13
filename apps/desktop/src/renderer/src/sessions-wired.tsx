@@ -392,6 +392,9 @@ export class WiredStore {
     get models() {
       return store.inputs?.holds.models?.models ?? NONE;
     },
+    get defaultModel() {
+      return store.inputs?.holds.models?.default;
+    },
     efforts: EFFORTS,
     get commands() {
       return store.commandsRead();

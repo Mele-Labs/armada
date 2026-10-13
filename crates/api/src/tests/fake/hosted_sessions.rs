@@ -55,6 +55,26 @@ impl HostedSessions for FakeDaemon {
         Ok(ipc::PlanUsage::default())
     }
 
+    async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Ok(ipc::ModelDownshiftState::default())
+    }
+
+    async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn restore_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn keep_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn settle_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         Ok(ipc::SleepState::default())
     }

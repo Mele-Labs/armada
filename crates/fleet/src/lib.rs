@@ -204,6 +204,8 @@ pub mod manifest_proposal;
 mod mending;
 pub mod merge_lines;
 mod merging;
+mod model_downshift;
+mod model_downshifting;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;

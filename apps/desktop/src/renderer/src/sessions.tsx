@@ -989,6 +989,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
               model={session.model ?? null}
               effort={session.effort ?? null}
               models={draft.models}
+              {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
               efforts={draft.efforts}
               onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
@@ -1080,6 +1081,7 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
       model={session.model ?? null}
       effort={session.effort ?? null}
       models={draft.models}
+      {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
       efforts={draft.efforts}
       onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
       commands={session.terminal === true ? (session.commands ?? []) : draft.commands}

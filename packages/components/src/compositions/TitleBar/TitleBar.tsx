@@ -1,14 +1,15 @@
-import { Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
+import { BellRing, Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
 import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
-import { StopCard, useCardOpen } from "../StopCard/StopCard";
+import { StopCard, useCardOpen, type StopCardRow } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 
@@ -31,7 +32,18 @@ import { usageLevel } from "../../usage";
  * One limit of the plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
  * and `seven_day` as `wk`; any other kind is not drawn.
  */
-export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string };
+export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string; offer?: LimitOffer };
+
+/**
+ * What the owner is being offered on one limit: facts the card states under its own, acts it draws as
+ * buttons, and **`attention`, the words of the bell on the meter** while something waits on him. Absent
+ * draws the card as it was.
+ */
+export type LimitOffer = {
+  facts?: readonly StopCardRow[];
+  acts?: readonly { label: string; onPress: () => void; /** Keeps the card open after, for an act whose result the card states. Closes it otherwise. */ stays?: boolean; primary?: boolean }[];
+  attention?: string;
+};
 
 const LIMITS: Record<string, { short: string; name: string } | undefined> = {
   five_hour: { short: "5h", name: "5-hour limit" },
@@ -53,7 +65,7 @@ function countdown(ms: number): string {
  * Esc or a press outside closes it**, as a metro stop's card does in the Bays view. No acts.
  */
 function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; name: string } }) {
-  const { open, pinned, toggle, bind } = useCardOpen();
+  const { open, pinned, toggle, close, bind } = useCardOpen();
   const percent = Math.round(one.percentUsed);
   const level = usageLevel(percent);
   const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
@@ -70,6 +82,13 @@ function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; na
       >
         <span className="armada-title-bar__usage-label">{limit.short}</span>
         <span className="armada-title-bar__usage-track" />
+        {one.offer?.attention === undefined ? null : (
+          <Tooltip label={one.offer.attention} beside>
+            <span className="armada-title-bar__usage-attention" role="img" aria-label={one.offer.attention}>
+              <BellRing size={12} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        )}
       </button>
       {open ? (
         <StopCard
@@ -80,8 +99,26 @@ function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; na
           pill={`${percent}% used`}
           where={limit.short}
           title={limit.name}
-          rows={resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true]]}
-        />
+          rows={[...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])]}
+        >
+          {one.offer?.acts === undefined || one.offer.acts.length === 0 ? null : (
+            <span className="armada-title-bar__usage-acts">
+              {one.offer.acts.map((act) => (
+                <Button
+                  key={act.label}
+                  variant={act.primary === true ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={() => {
+                    act.onPress();
+                    if (act.stays !== true) close();
+                  }}
+                >
+                  {act.label}
+                </Button>
+              ))}
+            </span>
+          )}
+        </StopCard>
       ) : null}
     </span>
   );

@@ -637,6 +637,7 @@ export function sessionsStore(
         ? { ok: true, bytes: new TextEncoder().encode(PICTURE), type: "image/svg+xml" }
         : { ok: true, bytes: new TextEncoder().encode(NOTE), type: path.endsWith(".md") ? "text/markdown" : "text/plain" },
     models: MODELS,
+    defaultModel: "sonnet",
     efforts: EFFORTS,
     commands: COMMANDS,
     answerWaiting: (id, itemId, given) => {

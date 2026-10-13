@@ -1,0 +1,10 @@
+[operations.settle_downshift]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The owner is choosing the default by hand: drop the offer and make none again in this window"
+notes = """
+`POST /model_downshift/settle`, no body. Valid while the state is `offered`; answered with `ModelDownshiftState`, now empty. Fleet remembers the window it was offered for, so no second offer comes before the window resets. A 409 in any other phase.
+
+**A hand edit of `models.default` while a state stands does the same**, from the settings.json watch or a save: while `offered`, any value but the one the offer found; while `shifted` or `reset`, any value but `to`.
+"""

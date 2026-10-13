@@ -76,6 +76,12 @@ const SECOND_OPINION_MODEL: &str = "sonnet";
 /// `commander-model` row.
 const COMMANDER_MODEL: &str = "opus";
 
+/// The model the default steps down to when the weekly plan window runs out.
+/// **Named rather than derived**, and held to the roster by a test: the middle
+/// tier, as the retro's. It is `crates/config/settings.toml`'s
+/// `plan-downshift-model` row.
+const DOWNSHIFT_MODEL: &str = "sonnet";
+
 impl HeadlessAgent {
     /// The model a step that names none is judged by: **the cheapest alias on
     /// the roster**, which is what `crates/config/settings.toml`'s
@@ -122,6 +128,11 @@ impl HeadlessAgent {
     /// machine names one.
     pub fn commander_model() -> &'static str {
         COMMANDER_MODEL
+    }
+
+    /// The model the default is offered a step down to.
+    pub fn downshift_model() -> &'static str {
+        DOWNSHIFT_MODEL
     }
 }
 

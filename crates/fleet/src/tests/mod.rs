@@ -261,6 +261,7 @@ mod showing_again;
 mod silence;
 mod slot_pool;
 mod worktrees_kept;
+mod model_downshift;
 mod snapshotting;
 mod standing_rules;
 mod starting;

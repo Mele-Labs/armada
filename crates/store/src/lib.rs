@@ -114,6 +114,7 @@ mod migration_files;
 /// What a migration is, and the table recording which names a file has had.
 mod migrations;
 /// The model a person chose for a Job's later steps.
+mod model_downshift;
 mod model_override;
 /// A Job's tier map, and the model each Drone ran. Spike 022, slice 3.
 mod model_per_task;
@@ -245,6 +246,7 @@ pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use issue_writeback::{WriteBackOwed, WrittenBack};
 pub use job_bays::KeptBay;
+pub use model_downshift::KeptDownshift;
 pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use limits::SavedLimits;

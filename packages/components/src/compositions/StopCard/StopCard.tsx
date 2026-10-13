@@ -100,6 +100,11 @@ export function useCardOpen() {
     open,
     pinned,
     toggle: () => setPinned((on) => !on),
+    /** Closes it, hovered or kept: for an act in the card that takes the owner somewhere else. */
+    close: () => {
+      setPinned(false);
+      setHovered(false);
+    },
     bind: {
       ref: here,
       onMouseEnter: () => setHovered(true),

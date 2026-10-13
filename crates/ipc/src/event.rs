@@ -35,6 +35,7 @@ use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
+use crate::model_downshift::ModelDownshiftState;
 use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
 use crate::timeline::TimelineAppended;
@@ -221,6 +222,9 @@ pub enum Event {
     // The plan's windows after a session read them moving, whole. `docs/concepts/machine.md`.
     #[serde(rename = "plan_usage.changed")]
     PlanUsageChanged(PlanUsage),
+    // The default model's step down after any change to it, whole. `docs/concepts/machine.md`, *Quota*.
+    #[serde(rename = "model_downshift.changed")]
+    ModelDownshiftChanged(ModelDownshiftState),
     // A Job's Commander started or finished a turn. `#2166`.
     #[serde(rename = "commander.changed")]
     CommanderChanged(crate::commander::CommanderChanged),

@@ -91,6 +91,8 @@ export type SessionComposerProps = {
   model: string | null;
   effort: string | null;
   models: readonly string[];
+  /** The model a Session follows while it names none. The empty option reads it, so the box shows what the next turn runs on. */
+  defaultModel?: string;
   efforts: readonly string[];
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** What `/` offers. */
@@ -215,6 +217,7 @@ export function SessionComposer({
   model,
   effort,
   models,
+  defaultModel,
   efforts,
   onTune,
   commands,
@@ -542,7 +545,7 @@ export function SessionComposer({
           <>
             <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
               <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-                <option value="">{compact ? "Auto" : "Model"}</option>
+                <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? defaultModel : `${defaultModel} · default`}</option>
                 {models.map((one) => (
                   <option key={one} value={one}>
                     {one}

@@ -147,6 +147,7 @@ import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./com
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
+import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { JobsSurface } from "./jobs-surface"; import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
@@ -278,7 +279,8 @@ export function App({ draft }: AppProps = {}) {
   // reports it up (#1075), so the palette can title its context block with the
   // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
-  const titleRow = useTitleRow();
+  const openModelSetting = () => openSettingsAt("settings:model", () => goTo(SURFACE.settings));
+  const titleRow = useTitleRow(openModelSetting);
   const [cursor, setCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
@@ -1219,6 +1221,7 @@ export function App({ draft }: AppProps = {}) {
           said={telling}
           onCopied={setCopied}
         >
+          <DownshiftAlert choose={openModelSetting} />
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>
