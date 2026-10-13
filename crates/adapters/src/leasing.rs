@@ -25,6 +25,7 @@ mod record;
 mod rescue;
 mod saving;
 mod shape;
+pub(crate) mod strays;
 mod trim;
 
 use std::fs::{File, OpenOptions, TryLockError};
@@ -339,15 +340,20 @@ impl Pool {
         let lock = self.lock_file(number).map_err(ReleaseRefused::Vcs)?;
         lock.lock()
             .map_err(|why| ReleaseRefused::Vcs(why.to_string()))?;
-        self.give_back_locked(number, holder)
+        self.give_back_locked(number, holder, None)
     }
 
     /// [`give_back`](Pool::give_back) for a caller already holding slot
     /// `number`'s lock, as a park does between its commit and its release.
+    ///
+    /// `on` is the branch the checkout is judged against where it is not the
+    /// one the lease records: a session's park, which commits to the branch the
+    /// session moved to.
     fn give_back_locked(
         &self,
         number: usize,
         holder: Option<&Holder>,
+        on: Option<&str>,
     ) -> Result<Released, ReleaseRefused> {
         let slot = self.path_of(number);
         let Some(mut record) = Record::read(&self.record_path(number)) else {
@@ -356,16 +362,17 @@ impl Pool {
         if holder.is_some_and(|holder| *holder != record.holder) {
             return Err(ReleaseRefused::HeldByAnother(record.holder.said()));
         }
+        let branch = on.map_or_else(|| record.branch.clone(), str::to_string);
         let refused = match git::dirty(&slot) {
             Err(why) => Some(ReleaseRefused::Vcs(why)),
             Ok(files) if !files.is_empty() => Some(ReleaseRefused::Dirty {
                 path: slot.clone(),
                 files,
             }),
-            Ok(_) => match self.off_branch(&slot, &record.branch) {
+            Ok(_) => match self.off_branch(&slot, &branch) {
                 0 => None,
                 commits => Some(ReleaseRefused::OffTheBranch {
-                    branch: record.branch.clone(),
+                    branch: branch.clone(),
                     commits,
                 }),
             },
@@ -384,7 +391,7 @@ impl Pool {
         trim_target(&slot.join("target"), self.trim, SystemTime::now());
         Ok(Released {
             slot: number,
-            branch: record.branch,
+            branch,
         })
     }
 

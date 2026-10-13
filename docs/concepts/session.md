@@ -226,8 +226,24 @@ session reads `ARMADA_SESSION` and holds as a Job of that id, and takes a slot
 of its own each call. Before this a lease was held for the agent's process,
 which Fleet ends when it moves the session into a slot, so the lease read as
 gone and the next caller took it. It is given back on close by parking every
-slot held under the id: what is in each is committed to the session's own
-branch and nothing is pushed.
+slot held under the id: what is in each is committed and nothing is pushed.
+
+**It is committed to the branch the slot is on, not the one it was leased on.** A
+session rewrites its own branch inside its slot, so it may have moved to another.
+Only the base and a detached head are refused, as for a Job. A Job's park still
+refuses a slot on another branch than its lease names. **What the session left
+running in the slot ends first**: every process whose working directory is the
+slot or inside it (a backgrounded `pnpm mock`, a Check's process, a subagent's
+agent), found by working directory and never outside the slot. This process and
+its ancestors are spared. Fleet holds no pid for a Check run its CLI makes, so
+that is how a run's process ends; the run itself is marked failed. A server
+Fleet holds for the slot's checkout is stopped, and the session's open walk is
+ended, which Bridge reads as its window closing. **A park the pool refuses
+leaves the ledger's slot and branch rows standing**, so `who_owns` still names the
+session as holding the slot, since a row given back over a held slot is how one is
+stranded with nothing saying so. Fleet parks it again at boot, and again when a
+repository is added, for any slot the pool holds under the id of a session that
+has ended.
 
 **The person sets the mode, the model and the effort** for each session. `auto`
 is the default and means what it means for Helm: everything runs except what is
@@ -258,7 +274,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
 | `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
-| `close_session` | Ends the process, parks every slot held for the session, ends the row. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
+| `close_session` | Ends the process, parks every slot held for the session and ends what ran in it, ends the row and its walk. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -583,7 +599,7 @@ mod ended an interactive `claude` (exit status 0) and fired `session.end` with
 | The press, mod older than 0.3.10 | Refused the same way: an older mod would drop the end unread. `/reload-plugins` in the terminal fixes it |
 | The mod's next answer | The messages, then `end`. The mod runs `/exit` after them |
 | The terminal ends | The mod reports `ended`; the row ends with `end_reason` `closed` |
-| The slot | Parked once the process holding its lease has gone. The mod reports from inside the exit, so Fleet asks the pool again for up to ten seconds. A holder still running then (a person's own terminal, another session's lease) is left alone |
+| The slot | Parked once the process holding its lease has gone, as a hosted close parks (the branch it is on, what still runs in it ended first). The mod reports from inside the exit, so Fleet asks the pool again for up to ten seconds. A holder still running then (a person's own terminal, another session's lease) is left alone; a park the pool refuses for another reason is said on Fleet's log. The ledger's rows were given back when the terminal reported its end, so unlike a hosted close they do not wait on the park |
 
 **A terminal that ends on its own is parked too**, the same way and with the
 same wait for its process, and its row keeps the terminal's reason:

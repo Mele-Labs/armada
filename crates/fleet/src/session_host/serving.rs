@@ -29,6 +29,8 @@ use crate::repositories::Served;
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
+/// The ledger rows that say a session holds a slot in the pool.
+const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
 /// A command that is not one slash command, or a session that is not a terminal one. A 422.
 pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
@@ -288,14 +290,15 @@ where
             state.turn = SessionTurn::Idle;
             state.moving = None;
         }
+        let mut still_held = Vec::new();
         if let Some(job) = self.piloted_job_of(&id).await {
             // The worktree is the Job's, handed over: it goes back to it, and
             // is not committed to anyone's branch on the way.
             self.closed_while_piloting(&job).await;
         } else if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
-            // Parked: what is in each slot is committed to the session's own
-            // branch and nothing is pushed, so closing loses no work.
-            self.park_every_slot_of(&id, &served, hosting.lease_slot).await;
+            // Parked: what is in each slot is committed to the branch it is on and
+            // nothing is pushed, so closing loses no work.
+            still_held = self.park_every_slot_of(&id, &served, hosting.lease_slot).await;
         }
         // Out of the line if it was in it, and its slot, if it had one, is the next one's.
         self.hosts().slot_queue().leave(&id);
@@ -311,11 +314,19 @@ where
             store
                 .keep_session(&row)
                 .map_err(|why| self.ledger_fault(why))?;
-            store
-                .give_back(&Holder::session(&id), None, &now)
-                .map_err(|why| self.ledger_fault(why))?;
+            // A slot the pool still holds for it stays on the ledger as held, or it is
+            // stranded with nothing saying so. The boot pass parks it once it can.
+            let holder = Holder::session(&id);
+            if still_held.is_empty() {
+                store.give_back(&holder, None, &now).map_err(|why| self.ledger_fault(why))?;
+            } else {
+                let held = store.attachments_of(&holder).map_err(|why| self.ledger_fault(why))?;
+                for kind in held.iter().map(|one| one.kind.as_str()).filter(|kind| !SLOT_KINDS.contains(kind)) {
+                    store.give_back(&holder, Some(kind), &now).map_err(|why| self.ledger_fault(why))?;
+                }
+            }
         }
-        self.session_checks_ended(&id).await;
+        self.session_wound_up(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.published_hosted(&id).await
     }

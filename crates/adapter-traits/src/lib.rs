@@ -392,6 +392,11 @@ pub trait Vcs {
     /// [`park_slot`](Vcs::park_slot) for a slot a session Fleet hosts leased,
     /// which the pool holds under the session's id: the WIP commit names a
     /// session, and not a Job of that id.
+    ///
+    /// **A session rewrites its own branch inside its slot**, so this commits
+    /// to the branch the checkout is on, not the one the lease names, and
+    /// refuses only the base and a detached head. Whatever still runs with its
+    /// working directory in the slot is ended first, and nothing outside it.
     fn park_hosted_slot(
         &self,
         pool: &SlotPool,
@@ -403,6 +408,8 @@ pub trait Vcs {
     /// and give it back, **only once the process that leased it has ended**:
     /// a holder still running is [`SlotParkRefused::HeldByAnother`], so a
     /// caller waiting for the end asks again. The WIP commit names the session.
+    /// As [`park_hosted_slot`](Vcs::park_hosted_slot), it follows the branch the
+    /// checkout is on and ends what still runs in the slot.
     fn park_ended_session_slot(
         &self,
         pool: &SlotPool,

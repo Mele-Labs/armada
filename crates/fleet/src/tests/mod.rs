@@ -233,6 +233,7 @@ mod session;
 mod session_auto;
 mod session_bays;
 mod session_fork;
+mod session_ending_slots;
 mod session_gate;
 mod session_gate_leases;
 mod session_done;
