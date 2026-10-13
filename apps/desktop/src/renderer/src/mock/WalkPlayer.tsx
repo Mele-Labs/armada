@@ -2,11 +2,21 @@
 // its caption in a card, and Next to move on. Dev-only: nothing the Electron
 // build bundles imports this file. `walk.ts` is the engine, shared with the
 // walk's test and the capture command.
+//
+// **Keys**: → or Enter Next, ← Back, A Autoplay, R replay from step 1, . fold.
+// **Back is a replay.** A step acts on the app, and nothing undoes that, so Back
+// loads the page again on `?step=<n>`: steps before n run straight through, with
+// no dwell, and the walk stands ringed on step n.
+//
+// **`window.__armadaWalk`** is how the walk window's bar reaches the walk in its
+// page, and hides the card there. The real window would reach it by main running
+// script in the page, as it does for capture.
 
-import { StrictMode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { StrictMode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { createRoot } from "react-dom/client";
-import { Alert, Button, Card, Switch } from "@armada/components";
+import { Alert, Button, Card, Kbd, Switch, Tooltip } from "@armada/components";
+import type { WalkHandle, WalkState } from "@armada/jobs/fake";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import "./mock.css";
@@ -88,8 +98,13 @@ function useEdge(card: HTMLElement | null, ring: DOMRect | null, placed: boolean
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: string; script: WalkScript; autoplay: boolean }) {
+/** The walk window's stand-in frames this page, and draws the controls itself. */
+const framed = () => window.parent !== window && new URLSearchParams(window.location.search).has("walked");
+
+export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: { name: string; script: WalkScript; autoplay: boolean; from?: number }) {
   const [phase, setPhase] = useState<Phase>({ is: "seeking", at: 0 });
+  // The bar of a window that frames this page draws the controls: the card steps aside, the ring stays.
+  const [hosted, setHosted] = useState(framed);
   const [autoplay, setAutoplay] = useState(startPlaying);
   const [card, setCard] = useState<HTMLDivElement | null>(null);
   const box = useBox(phase.is === "ready" ? phase.element : null);
@@ -104,12 +119,17 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
     let gone = false;
     void arrive(steps[at]!).then((element) => {
       if (gone) return;
-      setPhase(element === null ? { is: "stopped", at } : { is: "ready", at, element });
+      if (element === null) setPhase({ is: "stopped", at });
+      // A step before the one asked to start on runs straight through.
+      else if (at < from) {
+        act(steps[at]!, element);
+        setPhase({ is: "seeking", at: at + 1 });
+      } else setPhase({ is: "ready", at, element });
     });
     return () => {
       gone = true;
     };
-  }, [phase.is, at, steps]);
+  }, [phase.is, at, steps, from]);
 
   const next = useCallback(() => {
     if (phase.is !== "ready") return;
@@ -117,13 +137,88 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
     setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
   }, [phase, steps]);
 
-  // `.` folds the card to a pill and opens it again, except where a field has the keys.
+  /** The page again on step `to`, counted from 1: the steps before it run straight through. */
+  const goTo = useCallback(
+    (to: number) => {
+      const url = new URL(window.location.href);
+      if (to <= 1) url.searchParams.delete("step");
+      else url.searchParams.set("step", String(Math.min(to, steps.length)));
+      if (autoplay) url.searchParams.set("autoplay", "");
+      else url.searchParams.delete("autoplay");
+      window.location.assign(url);
+    },
+    [autoplay, steps.length],
+  );
+  const back = useCallback(() => {
+    if (at > 0) goTo(at);
+  }, [at, goTo]);
+  const replay = useCallback(() => goTo(1), [goTo]);
+
+  const controls = useRef({ next, back, replay, setAutoplay });
+  controls.current = { next, back, replay, setAutoplay };
+
+  // **Heard by the bar as well as the card.** Not a key a walk's own step sent: those are synthetic,
+  // and a step that presses `r` is not asking to replay.
   useEffect(() => {
-    const fold = (event: KeyboardEvent) => {
-      if (event.key === "." && !event.metaKey && !event.ctrlKey && !event.altKey && !typing(event.target)) setFolded((was) => !was);
+    const keys = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return;
+      if (event.key === ".") {
+        setFolded((was) => !was);
+        return;
+      }
+      if (!event.isTrusted) return;
+      const key = event.key.toLowerCase();
+      // Enter on one of the card's own buttons presses it.
+      if (key === "enter" && event.target instanceof HTMLElement && event.target.closest(`[${WALK_UI}] button`) !== null) return;
+      if (event.repeat && (key === "a" || key === "r")) return;
+      const run = controls.current;
+      const act =
+        key === "arrowright" || key === "enter"
+          ? run.next
+          : key === "arrowleft"
+            ? run.back
+            : key === "a"
+              ? () => run.setAutoplay((was) => !was)
+              : key === "r"
+                ? run.replay
+                : null;
+      if (act === null) return;
+      // Not also the press of whatever has focus.
+      event.preventDefault();
+      act();
     };
-    window.addEventListener("keydown", fold);
-    return () => window.removeEventListener("keydown", fold);
+    window.addEventListener("keydown", keys);
+    return () => window.removeEventListener("keydown", keys);
+  }, []);
+
+  const said = phase.is === "stopped" ? stopped(phase.at, steps[phase.at]!) : steps[Math.min(at, steps.length - 1)]!.say;
+  const state = useMemo<WalkState>(
+    () => ({ name, at: Math.min(at + 1, steps.length), of: steps.length, said, autoplay, ready: phase.is === "ready", done: phase.is === "done" }),
+    [name, at, steps.length, said, autoplay, phase.is],
+  );
+  const latest = useRef(state);
+  latest.current = state;
+  const listeners = useRef(new Set<() => void>());
+  useEffect(() => {
+    for (const hear of listeners.current) hear();
+  }, [state]);
+  useEffect(() => {
+    const handle: WalkHandle = {
+      state: () => latest.current,
+      subscribe: (hear) => {
+        listeners.current.add(hear);
+        return () => void listeners.current.delete(hear);
+      },
+      next: () => controls.current.next(),
+      back: () => controls.current.back(),
+      autoplay: (on) => controls.current.setAutoplay(on),
+      replay: () => controls.current.replay(),
+      hostCard: setHosted,
+    };
+    window.__armadaWalk = handle;
+    return () => {
+      if (window.__armadaWalk === handle) delete window.__armadaWalk;
+    };
   }, []);
 
   /** Drags the card by its header, and keeps the spot it is dropped on. */
@@ -171,70 +266,115 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
         event.preventDefault();
       }}>
       {ring !== undefined && <div className="armada-mock-walk__ring" style={ring} />}
-      <div
-        ref={setCard}
-        className="armada-mock-walk__card"
-        data-edge={edge}
-        data-folded={folded || undefined}
-        style={spot === null ? undefined : { left: spot.x, top: spot.y, right: "auto", bottom: "auto" }}
-        data-walk-state={phase.is}
-        data-walk-step={at + 1}
-      >
-        {phase.is === "done" ? (
-          <Button size="sm" onClick={() => window.location.reload()}>
-            Replay {name}
-          </Button>
-        ) : folded ? (
-          <div className="armada-mock-walk__pill" onPointerDown={drag}>
-            <span className="armada-mock-walk__where">
-              Step {at + 1} of {steps.length}
-            </span>
-            <Button variant="ghost" size="sm" iconOnly aria-label="Unfold the card" onClick={() => setFolded(false)}>
-              <ChevronUp size={14} aria-hidden="true" />
-            </Button>
-            <Button variant="primary" size="sm" disabled={phase.is !== "ready"} onClick={next}>
-              Next
-            </Button>
-          </div>
-        ) : (
-          <Card>
-            <div className="armada-mock-walk__head" onPointerDown={drag}>
-              <p className="armada-mock-walk__where">
-                {name} · Step {at + 1} of {steps.length}
-              </p>
-              <Button variant="ghost" size="sm" iconOnly aria-label="Fold the card" onClick={() => setFolded(true)}>
-                <ChevronDown size={14} aria-hidden="true" />
+      {!hosted && (
+        <div
+          ref={setCard}
+          className="armada-mock-walk__card"
+          data-edge={edge}
+          data-folded={folded || undefined}
+          style={spot === null ? undefined : { left: spot.x, top: spot.y, right: "auto", bottom: "auto" }}
+          data-walk-state={phase.is}
+          data-walk-step={at + 1}
+        >
+          {phase.is === "done" ? (
+            <div className="armada-mock-walk__keyed">
+              <Button size="sm" onClick={replay}>
+                Replay {name}
               </Button>
+              <Kbd>R</Kbd>
             </div>
-            {phase.is === "stopped" ? (
-              <div className="armada-mock-walk__said" data-stopped>
-                <Alert>{stopped(phase.at, steps[phase.at]!)}</Alert>
-              </div>
-            ) : (
-              <p className="armada-mock-walk__said">{steps[at]!.say}</p>
-            )}
-            {phase.is !== "stopped" && (
-              <div className="armada-mock-walk__bar">
-                <Switch checked={autoplay} onChange={(event) => setAutoplay(event.target.checked)}>
-                  Autoplay
-                </Switch>
+          ) : folded ? (
+            <div className="armada-mock-walk__pill" onPointerDown={drag}>
+              <span className="armada-mock-walk__where">
+                Step {at + 1} of {steps.length}
+              </span>
+              <span className="armada-mock-walk__keyed">
+                <Tooltip label="Unfold the card">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Unfold the card" onClick={() => setFolded(false)}>
+                    <ChevronUp size={14} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <Kbd>.</Kbd>
+              </span>
+              <span className="armada-mock-walk__keyed">
                 <Button variant="primary" size="sm" disabled={phase.is !== "ready"} onClick={next}>
                   Next
                 </Button>
+                <Kbd>→</Kbd>
+              </span>
+            </div>
+          ) : (
+            <Card>
+              <div className="armada-mock-walk__head" onPointerDown={drag}>
+                <p className="armada-mock-walk__where">
+                  <span className="armada-mock-walk__name">{name}</span>
+                  <span>
+                    {" · "}Step {at + 1} of {steps.length}
+                  </span>
+                </p>
+                <span className="armada-mock-walk__keyed">
+                  <Tooltip label="Replay from step 1">
+                    <Button variant="ghost" size="sm" iconOnly aria-label="Replay from step 1" onClick={replay}>
+                      <RotateCcw size={14} aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                  <Kbd>R</Kbd>
+                  <Tooltip label="Fold the card">
+                    <Button variant="ghost" size="sm" iconOnly aria-label="Fold the card" onClick={() => setFolded(true)}>
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                  <Kbd>.</Kbd>
+                </span>
               </div>
-            )}
-          </Card>
-        )}
-      </div>
+              {phase.is === "stopped" ? (
+                <div className="armada-mock-walk__said" data-stopped>
+                  <Alert>{stopped(phase.at, steps[phase.at]!)}</Alert>
+                </div>
+              ) : (
+                <p className="armada-mock-walk__said">{steps[at]!.say}</p>
+              )}
+              {phase.is !== "stopped" && (
+                <div className="armada-mock-walk__bar">
+                  <span className="armada-mock-walk__keyed">
+                    <Tooltip label="Replay to the step before">
+                      <Button variant="ghost" size="sm" disabled={at < 1} onClick={back}>
+                        Back
+                      </Button>
+                    </Tooltip>
+                    <Kbd>←</Kbd>
+                  </span>
+                  <span className="armada-mock-walk__keyed">
+                    <Tooltip label="Go on by itself">
+                      <Switch checked={autoplay} onChange={(event) => setAutoplay(event.target.checked)}>
+                        Autoplay
+                      </Switch>
+                    </Tooltip>
+                    <Kbd>A</Kbd>
+                  </span>
+                  <span className="armada-mock-walk__keyed">
+                    <Tooltip label="Act on the ringed target and go on">
+                      <Button variant="primary" size="sm" disabled={phase.is !== "ready"} onClick={next}>
+                        Next
+                      </Button>
+                    </Tooltip>
+                    <Kbd>→</Kbd>
+                  </span>
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 /** The walk's card and ring, in their own root over the app's. */
-export function mountWalk(name: string, script: WalkScript, autoplay: boolean, host: HTMLElement): void {
+export function mountWalk(name: string, script: WalkScript, autoplay: boolean, host: HTMLElement, from = 0): void {
   createRoot(host).render(
     <StrictMode>
-      <WalkPlayer name={name} script={script} autoplay={autoplay} />
+      <WalkPlayer name={name} script={script} autoplay={autoplay} from={from} />
     </StrictMode>,
   );
 }

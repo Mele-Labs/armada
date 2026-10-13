@@ -33,6 +33,7 @@ pub(crate) use agent_starting::UNSENT_ITEM;
 pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
 pub(crate) mod waiting;
+pub(crate) mod readiness;
 pub(crate) mod walking;
 
 use std::collections::HashMap;

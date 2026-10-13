@@ -332,6 +332,10 @@ pub enum SessionRow {
         at: Instant,
         title: String,
         url: String,
+        /// The takes it shows, when it shows several; `url` is the first's. **Kept when the walk
+        /// ends**, so the row reopens the window with them.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        variations: Vec<crate::sessions::WindowTake>,
         /// When the walk ended: the person approved the page or closed its window. Absent while
         /// it is open. **The row is replaced by id** when it is set.
         #[serde(default, skip_serializing_if = "Option::is_none")]

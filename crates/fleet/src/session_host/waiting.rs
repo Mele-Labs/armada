@@ -235,12 +235,20 @@ where
                     from: SessionVoice::You,
                     text,
                     ..
-                } => text
-                    .strip_prefix("Approved: ")
-                    .map(|url| url.trim().to_string()),
+                } => crate::session_host::walking::approved_address(text).map(str::to_string),
                 _ => None,
             })
             .collect();
+        // An Approve of any take approves the window: the takes are on the row that showed it.
+        let approves = |target: &str| {
+            approved.iter().any(|url| url == target)
+                || rows.iter().rev().any(|row| match row {
+                    SessionRow::Window { url, variations, .. } if url == target => {
+                        variations.iter().any(|take| approved.contains(&take.url))
+                    }
+                    _ => false,
+                })
+        };
         let spoke = rows.iter().filter_map(|row| match row {
             SessionRow::Message {
                 from: SessionVoice::You,
@@ -259,7 +267,7 @@ where
             })
             .max_by(|a, b| a.since.cmp(&b.since));
         let windows: Vec<Window> = newest
-            .filter(|one| !approved.contains(&one.target))
+            .filter(|one| !approves(&one.target))
             .filter(|one| last_spoke.map_or(true, |at| at <= &one.since))
             .map(|one| Window {
                 url: one.target.clone(),

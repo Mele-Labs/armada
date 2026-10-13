@@ -9,7 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
-import type { SessionRecord, WaitingOption, WindowPlace } from "./sessions";
+import type { SessionRecord, WaitingOption, WindowPlace, WindowTake } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -220,9 +220,10 @@ export type SessionRow =
     }
   /**
    * The session showed the person a page in a window. `ended_at` is when the walk ended, by an
-   * approval or the window closing; absent while it is open.
+   * approval or the window closing; absent while it is open. `variations` are the takes it shows
+   * when it shows several, `url` the first's; absent for one page.
    */
-  | { kind: "window"; id: string; at: string; title: string; url: string; ended_at?: string }
+  | { kind: "window"; id: string; at: string; title: string; url: string; variations?: WindowTake[]; ended_at?: string }
   /**
    * This session's agent started a session, or forked its own conversation into one, when the person
    * asked it to. Written in the starting session's thread; `session` is the new one.
