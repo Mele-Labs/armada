@@ -280,6 +280,16 @@ export function Cockpit({
     onOpenJob: hosts.onOpen,
     onSaid: () => {},
     ...(hosts.onNowAct === undefined ? {} : { onAct: (acted: NowActed) => hosts.onNowAct!(jobId, acted) }),
+    // The Commander's card, answered where it is drawn; a refusal is said and the card takes another pick.
+    ...(hosts.onAnswerCard === undefined
+      ? {}
+      : {
+          onAnswerCommander: async (card: string, option: string) => {
+            const told = await hosts.onAnswerCard!(jobId, card, option);
+            if (told.kind === "refused") hosts.onTell?.(told.said);
+            return told.kind === "answered";
+          },
+        }),
   });
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.

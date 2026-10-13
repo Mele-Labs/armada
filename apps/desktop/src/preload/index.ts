@@ -248,6 +248,11 @@ const api: BridgeApi = {
     mode?: AnswerMode,
   ): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope, mode),
+  // The owner's words to a Job's Commander, and his pick on its card: a card's id and an option's id.
+  askCommander: (jobId: string, text: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.askCommander, jobId, text),
+  answerCommanderCard: (jobId: string, cardId: string, optionId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.answerCommanderCard, jobId, cardId, optionId),
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>

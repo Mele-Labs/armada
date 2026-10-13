@@ -31,10 +31,10 @@ export type TaskTreatment = "step_drone" | "own_drone" | "job";
 export type TaskTier = "difficult" | "medium" | "easy";
 
 /**
- * Who put a task in the plan, where it was not the planner: the Commander's split or add. **Mock
- * only**: the wire's `PlanTask` holds no such field, so Fleet would owe one. The words are the act's.
+ * Whose hand is on a task, where it is the Commander's: it added, edited, moved, dropped or reopened
+ * it. `PlanTask.by`, which names who and not which act, so a mark says no more than that.
  */
-export type TaskBy = { who: "commander"; said: string };
+export type TaskBy = { who: "commander" };
 
 /** One task of a plan, with everything the boards draw. */
 export type TaskView = {
@@ -60,7 +60,7 @@ export type TaskView = {
    * not what a person is being asked to decide.
    */
   touched_after_done: boolean;
-  /** Who put it in the plan, where that was the Commander. Absent on a task the planner wrote. */
+  /** Whose hand is on it, where that is the Commander's. Absent on a task it never touched. */
   by?: TaskBy;
   /** The group holding it. A stable id — see `RunCoord`. */
   group: string;
@@ -135,6 +135,8 @@ export function taskViewOf(detail: JobDetail, task: PlanTask): TaskView {
   if (task.shown !== undefined) view.shown = task.shown;
   if (task.reason !== undefined) view.reason = task.reason;
   if (task.failed_reason !== undefined) view.failed_reason = task.failed_reason;
+  // A person's or Helm's change draws no mark: only the Commander's hand is told apart on the board.
+  if (task.by?.who === "commander") view.by = { who: "commander" };
   // The Job's kept Drone is a working task's only where one task is working:
   // with several at once (23.10) which Drone is whose is `list_job_drones`'.
   const working = (detail.work_plan?.tasks ?? []).filter((one) => one.state === "working").length;

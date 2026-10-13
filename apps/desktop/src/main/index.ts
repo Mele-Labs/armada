@@ -686,6 +686,13 @@ void app.whenReady().then(() => {
     (_event, jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) =>
       connection?.commands.answerQuestion(jobId, questionId, chose, mode),
   );
+  // The owner's words to a Job's Commander, and his pick on its card.
+  ipcMain.handle(CHANNELS.askCommander, (_event, jobId: string, text: string) =>
+    connection?.askCommander(jobId, text),
+  );
+  ipcMain.handle(CHANNELS.answerCommanderCard, (_event, jobId: string, cardId: string, optionId: string) =>
+    connection?.commands.answerCommanderCard(jobId, cardId, optionId),
+  );
   // A command the drone was not given, answered where it waits or where it was
   // refused. The note rides with a reject, and the rule with an always-allow —
   // nothing else reads either.

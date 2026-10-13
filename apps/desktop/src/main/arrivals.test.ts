@@ -367,3 +367,40 @@ describe("a repository's Autopilot, changed in Fleet", () => {
     expect(state().connection).toMatchObject({ state: "connected" });
   });
 });
+
+describe("a card the Job's Commander put to the owner", () => {
+  const CARD = {
+    card_id: "01CARD",
+    job_id: JOB_ID,
+    by: "commander",
+    raised_at: "2026-10-13T10:00:00Z",
+    text: "desktop_test is red on main as well",
+    reach: "A Check is skipped or edited by you",
+    question: "What should Group 3 do?",
+    options: [
+      { id: "1", label: "Skip desktop_test" },
+      { id: "2", label: "Leave it" },
+    ],
+  };
+  const event = (card?: typeof CARD) =>
+    JSON.stringify({ message: "event", cursor: 3, event: { kind: "commander.card", job_id: JOB_ID, ...(card === undefined ? {} : { card }) } });
+
+  it("puts the Job's row among those waiting on him, and re-reads the open Job", () => {
+    const { host, refresh, state } = fakeHost([job()]);
+    applyArrival(host, event(CARD), FLEET);
+    expect(state().jobs[0]?.asking).toBe(true);
+    expect(refresh).toHaveBeenCalledWith(FLEET.port, JOB_ID);
+  });
+
+  it("takes it off the row when it is answered", () => {
+    const { host, state } = fakeHost([job({ asking: true })]);
+    applyArrival(host, event(), FLEET);
+    expect(state().jobs[0]?.asking).toBe(false);
+  });
+
+  it("leaves the row waiting where a Drone's own question is still out", () => {
+    const { host, state } = fakeHost([job({ asking: true })], [{ kind: "drone", job_id: JOB_ID, asking: ASKING }]);
+    applyArrival(host, event(), FLEET);
+    expect(state().jobs[0]?.asking).toBe(true);
+  });
+});

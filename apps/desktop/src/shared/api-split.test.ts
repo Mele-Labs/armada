@@ -30,6 +30,7 @@ import type {
   AlwaysAllowScope,
   AnswerMode,
   Active,
+  CommanderThread,
   CommandAnswer,
   HelmCallAnswer,
   CommandExplainedRead,
@@ -219,6 +220,7 @@ type OldBridgeState = {
     watched: Watched;
     observed: Observed;
     journalled: Journalled;
+    commander: CommanderThread;
     followed: FollowedLog;
     footprint: Footprint;
     handed: Handed;
@@ -288,6 +290,8 @@ type OldBridgeApi = {
     redirectDrone: (jobId: string, instruction: string, droneId?: string) => Promise<Outcome>;
     answerQuestion: (jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) => Promise<Outcome>;
     answerCommand: (jobId: string, call: string, answer: CommandAnswer, note?: string, rule?: string, scope?: AlwaysAllowScope, mode?: AnswerMode) => Promise<Outcome>;
+    askCommander: (jobId: string, text: string) => Promise<Outcome>;
+    answerCommanderCard: (jobId: string, cardId: string, optionId: string) => Promise<Outcome>;
     answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
     explainCommand: (jobId: string, callId: string) => Promise<CommandExplainedRead>;
     setWhenBlocked: (jobId: string, whenBlocked: WhenBlocked) => Promise<Outcome>;
@@ -533,6 +537,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     watched: { state: "none" },
     observed: { state: "none" },
     journalled: { state: "none" },
+    commander: { state: "none" },
     followed: { state: "none" },
     footprint: { state: "none" },
     handed: { state: "none" },
@@ -600,6 +605,8 @@ const OLD_CHANNELS = {
     redirectDrone: "bridge:redirect-drone",
     answerQuestion: "bridge:answer-question",
     answerCommand: "bridge:answer-command",
+    askCommander: "bridge:ask-commander",
+    answerCommanderCard: "bridge:answer-commander-card",
     answerHelmCall: "bridge:answer-helm-call",
     explainCommand: "bridge:explain-command",
     setWhenBlocked: "bridge:set-when-blocked",
