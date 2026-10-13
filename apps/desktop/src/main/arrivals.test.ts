@@ -7,13 +7,17 @@
 // A real `Questions` proves the dock's half; `refresh` is a spy standing for the detail's, because
 // what re-reads it lives behind Electron's IPC and a socket this file has no reason to open.
 
-import { describe, expect, it, vi } from "vitest";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PROTOCOL_ID } from "@armada/protocol";
 import type {
   CommandInFlight,
   JobSummary,
   JudgeQuestion,
+  ModelChoices,
   ModSummary,
   ProposalSettled,
   QuestionInFlight,
@@ -445,5 +449,56 @@ describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
     );
     expect(appended).toHaveBeenCalledWith(entry);
     expect(state().jobs).toEqual([job()]);
+  });
+});
+
+describe("the models Fleet holds, read again when what sets them moves", () => {
+  let server: Server | null = null;
+  afterEach(async () => {
+    const held = server;
+    server = null;
+    if (held === null) return;
+    held.closeAllConnections();
+    await new Promise<void>((done) => held.close(() => done()));
+  });
+
+  /** A Fleet that answers `/models` with whatever `answer` holds now, and nothing else. */
+  async function fleetAnswering(answer: { status: number; body: ModelChoices }): Promise<number> {
+    server = createServer((request, response) => {
+      const models = request.url === "/models";
+      response.writeHead(models ? answer.status : 404, { "content-type": "application/json" });
+      response.end(JSON.stringify(models ? answer.body : {}));
+      request.resume();
+    });
+    const listening = server;
+    await new Promise<void>((done) => listening.listen(0, "127.0.0.1", () => done()));
+    return (listening.address() as AddressInfo).port;
+  }
+
+  const OPUS: ModelChoices = { models: ["opus", "sonnet"], default: "sonnet", session: "opus" };
+  const SONNET: ModelChoices = { ...OPUS, session: "sonnet" };
+  const event = (kind: "settings.changed" | "model_downshift.changed") =>
+    JSON.stringify({ message: "event", cursor: 5, event: kind === "settings.changed" ? { kind, settings: [] } : { kind } });
+
+  it.each(["settings.changed", "model_downshift.changed"] as const)("follows `models.session` after %s", async (kind) => {
+    const answer = { status: 200, body: OPUS };
+    const port = await fleetAnswering(answer);
+    const { host, state } = fakeHost([]);
+    host.publish({ holds: { ...state().holds, models: OPUS } });
+    answer.body = SONNET;
+    applyArrival(host, event(kind), { ...FLEET, port });
+    await vi.waitFor(() => expect(state().holds.models?.session).toBe("sonnet"));
+    // Only the models moved: the rest of what is held stays.
+    expect(state().holds.workflows).toEqual([]);
+  });
+
+  it("keeps what was held where the read fails", async () => {
+    const port = await fleetAnswering({ status: 500, body: SONNET });
+    const { host, state } = fakeHost([]);
+    host.publish({ holds: { ...state().holds, models: OPUS } });
+    applyArrival(host, event("settings.changed"), { ...FLEET, port });
+    // The other reads in the same arm settle on the same server; give them the same moment.
+    await new Promise((done) => setTimeout(done, 50));
+    expect(state().holds.models).toEqual(OPUS);
   });
 });
