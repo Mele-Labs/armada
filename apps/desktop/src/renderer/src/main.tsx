@@ -12,6 +12,7 @@ import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings"
 import { App, WAITING } from "./App";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
+import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
@@ -79,15 +80,17 @@ function Root() {
           <LayoutSourceProvider value={LAYOUT}>
             <PhoneSourceProvider value={PHONE}>
               <SleepSourceProvider value={SLEEP}>
-                <PlanUsageSourceProvider value={PLAN_USAGE}>
-                  <WiredSessions>
-                    <ClashesFromFleet source={CLASHES}>
-                      <FleetEventsOver source={TIMELINE}>
-                        <App />
-                      </FleetEventsOver>
-                    </ClashesFromFleet>
-                  </WiredSessions>
-                </PlanUsageSourceProvider>
+                <WiredNumbered>
+                  <PlanUsageSourceProvider value={PLAN_USAGE}>
+                    <WiredSessions>
+                      <ClashesFromFleet source={CLASHES}>
+                        <FleetEventsOver source={TIMELINE}>
+                          <App />
+                        </FleetEventsOver>
+                      </ClashesFromFleet>
+                    </WiredSessions>
+                  </PlanUsageSourceProvider>
+                </WiredNumbered>
               </SleepSourceProvider>
             </PhoneSourceProvider>
           </LayoutSourceProvider>

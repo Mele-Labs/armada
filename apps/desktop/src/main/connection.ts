@@ -15,6 +15,7 @@
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { PilotOutcome } from "@armada/protocol";
+import type { HelmCarry, HelmTuned } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
@@ -503,8 +504,18 @@ export class FleetConnection {
 
   // ------------------------------------------------------------------- Helm
   /** Say something to Helm, about whichever repository it currently answers for. */
-  askHelm(text: string, context?: HelmContext): Promise<Outcome> {
-    return this.helm.askHelm(text, context);
+  askHelm(text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
+    return this.helm.askHelm(text, context, carry);
+  }
+
+  /** The model and effort Helm uses for a conversation. */
+  tuneHelm(manifestId: string | undefined, model: string | null, effort: string | null): Promise<HelmTuned> {
+    return this.helm.tuneHelm(manifestId, model, effort);
+  }
+
+  /** A picture or file one of Helm's messages carried. */
+  readHelmFile(manifestId: string, file: string): Promise<FrameRead> {
+    return this.helm.readHelmFile(manifestId, file);
   }
 
   /** The Helm session Bridge is pointed at, as one quotable record — #1367. */
@@ -518,8 +529,8 @@ export class FleetConnection {
   }
 
   /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
-  recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
-    return this.helm.recordThoughtSent(manifestId, text, target);
+  recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
+    return this.helm.recordThoughtSent(manifestId, text, target, carry);
   }
 
   /** Forget Helm's stored session and the thread. Refused while a reply is being written. */

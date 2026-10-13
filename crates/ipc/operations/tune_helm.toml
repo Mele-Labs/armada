@@ -1,0 +1,10 @@
+[operations.tune_helm]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Set the model and effort one repository's Helm replies on"
+notes = """
+`POST /helm/tune?manifest_id=`, body `TuneHelm`: `model?`, `effort?`. `manifest_id` absent is the first served. Answers `HelmBoxFacts`: the `model`, `effort` and `commands` the box now offers. A model or effort left out, or blank, is the machine's own.
+
+`effort` is `low`, `medium` or `high`, else 422 `fleet.unacceptable_effort`; a model is taken as given. **Held per conversation by Fleet and read at every launch**, so it applies from the next reply and survives a restart and starting fresh. Every watcher of the thread is sent `facts` when it changes.
+"""

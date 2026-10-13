@@ -206,6 +206,8 @@ export type Session = {
   contextBreakdown?: ContextBreakdown;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
+  /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
+  manifestId?: string;
   attachments: readonly SessionAttachment[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
@@ -239,14 +241,16 @@ export type Session = {
 };
 
 /**
- * Something a message tags with `@`, so the agent knows what is meant: another
- * Session, a Job, a pull request or a branch. A Job carries what the ledger
+ * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
+ * is meant: another Session, a Job, a pull request, a branch or an issue. A Job carries what the ledger
  * needs to hold it as one the Session is looking at.
  */
 export type SessionTag = {
-  kind: "session" | "job" | "pull_request" | "branch";
+  kind: "session" | "job" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
+  /** The forge's address of an issue or a pull request. */
+  url?: string;
   /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */
   job?: { number: number; branch: string; slot?: number; state: SessionJobState };
 };

@@ -111,6 +111,9 @@ where
         for served in self.repositories().served() {
             self.reconciled_jobs(&served, &jobs, &mut reconciled)
                 .await?;
+            // A slot still held by a session that ended: parked now, before
+            // admission looks for a free one.
+            self.freed_from_ended_sessions(&served).await;
         }
         reconciled.admitted = self.admit_next().await?;
         Ok(reconciled)
@@ -129,6 +132,7 @@ where
         let mut reconciled = Reconciled::default();
         self.reconciled_jobs(served, &loaded.jobs, &mut reconciled)
             .await?;
+        self.freed_from_ended_sessions(served).await;
         // Ruled on here, in the add request: there is no boot barrier to keep
         // commands out of, and no `Arc` to spawn from.
         let awaiting = self

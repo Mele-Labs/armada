@@ -56,15 +56,28 @@ pub struct TempDir {
 }
 
 impl TempDir {
+    /// **Made fresh, never reused.** nextest runs each test in a process of its own, so a pid
+    /// comes round again and a leftover directory under it was taken as this test's own: a git
+    /// worktree half-written into it failed `main` on 13 Oct 2026.
     pub fn new() -> TempDir {
-        let path = std::env::temp_dir().join(format!(
-            "armada-cli-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir_all(&path).expect("a temporary directory");
-        TempDir {
-            path: path.canonicalize().expect("a real path"),
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_nanos());
+        loop {
+            let path = std::env::temp_dir().join(format!(
+                "armada-cli-{}-{nanos}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            match std::fs::create_dir(&path) {
+                Ok(()) => {
+                    return TempDir {
+                        path: path.canonicalize().expect("a real path"),
+                    }
+                }
+                Err(why) if why.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(why) => panic!("a temporary directory: {why}"),
+            }
         }
     }
 

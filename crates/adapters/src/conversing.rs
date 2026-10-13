@@ -95,6 +95,8 @@ pub struct Conversing {
     door: McpConfig,
     environment: Environment,
     resuming: Option<String>,
+    /// Directories the session may read without being asked, beyond the repository.
+    readable: Vec<String>,
 }
 
 impl Conversing {
@@ -119,7 +121,20 @@ impl Conversing {
             door,
             environment,
             resuming: None,
+            readable: Vec::new(),
         })
+    }
+
+    /// The same, able to read `directory` without a permission ask: where a message's uploads
+    /// are kept. **Absolute only**, as the repository is, because it is argv.
+    pub fn reading(mut self, directory: &str) -> Result<Conversing, ConversationRefused> {
+        if !directory.starts_with('/') {
+            return Err(ConversationRefused::DirectoryNotAbsolute {
+                given: directory.to_string(),
+            });
+        }
+        self.readable.push(directory.to_string());
+        Ok(self)
     }
 
     /// The same, resuming a session the CLI named on an earlier message.
@@ -173,6 +188,10 @@ impl HeadlessAgent {
             conversing.door.path().into(),
         ];
         crate::harness::thinking(&mut args, conversing.model.effort());
+        for directory in &conversing.readable {
+            args.push("--add-dir".into());
+            args.push(directory.clone());
+        }
         if let Some(session) = &conversing.resuming {
             args.push("--resume".into());
             args.push(session.clone());

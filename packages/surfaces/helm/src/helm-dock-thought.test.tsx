@@ -45,7 +45,7 @@ function Dock({ items: first, thread, onAsk, routing }: { items: HelmThreadItem[
   thread.deliver = (item) => setItems((was) => [...was, item]);
   return (
     <HelmDock
-      helm={{ state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items }}
+      helm={{ state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items, facts: {} }}
       repositories={[repository()]}
       jobs={[]}
       workflows={[]}
@@ -81,10 +81,13 @@ function dock(wiring: Wiring = {}) {
   return { onAsk, send, open, startNew };
 }
 
-/** Type the words and send them with ⌘↵, leaving the box empty and focused as it is after any send. */
+/** What the box holds. It is a text box that is edited in place, so its text is its content. */
+const typed = (): string => box().element().textContent ?? "";
+
+/** Type the words and send them with ↵, leaving the box empty and focused as it is after any send. */
 async function say(words = WORDS): Promise<void> {
   await box().fill(words);
-  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await userEvent.keyboard("{Enter}");
 }
 
 const noMatch = async (): Promise<ThoughtReading> => ({ kind: "thought" });
@@ -97,9 +100,12 @@ test("with text in the box, N H Esc and ↵ are not answers: the card stays and 
   await box().fill("x");
   await userEvent.keyboard("nh");
   await userEvent.keyboard("{Escape}");
-  await userEvent.keyboard("{Enter}");
+  expect(typed()).toBe("xnh");
+  await expect.element(sendCard()).toBeVisible();
 
-  expect((box().element() as HTMLTextAreaElement).value).toBe("xnh\n");
+  // ↵ with words in the box sends them as a thought of their own, queued behind the card: it does not answer it.
+  await userEvent.keyboard("{Enter}");
+  expect(typed()).toBe("");
   await expect.element(sendCard()).toBeVisible();
   expect(send).not.toHaveBeenCalled();
   expect(onAsk).not.toHaveBeenCalled();
@@ -114,7 +120,7 @@ test("with text in the box, S and J are not answers either", async () => {
   await userEvent.keyboard("sj");
   await userEvent.keyboard("{Escape}");
 
-  expect((box().element() as HTMLTextAreaElement).value).toBe("xsj");
+  expect(typed()).toBe("xsj");
   await expect.element(newCard()).toBeVisible();
   expect(startNew).not.toHaveBeenCalled();
   expect(onAsk).not.toHaveBeenCalled();

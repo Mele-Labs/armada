@@ -214,7 +214,7 @@ pub(super) struct Quoted<'a> {
     pub(super) command: &'a str,
 }
 
-async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
+pub(super) async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
     rig.fleet
         .store()
         .lock()

@@ -263,6 +263,10 @@ where
                     model: model.clone(),
                 }),
                 resuming,
+                pictures: Vec::new(),
+                model: None,
+                effort: None,
+                readable: None,
             },
         )
         .await

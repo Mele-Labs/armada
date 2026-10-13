@@ -1,11 +1,10 @@
-import type { FormEvent, KeyboardEvent } from "react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
-import { Textarea } from "../../primitives/Textarea/Textarea";
-import { SendKbd, sendsOn } from "../../send-message";
 import { COPY_DEBUG_INFO } from "../../errors/ErrorNotice/payload";
+import { SessionComposer } from "../SessionComposer/SessionComposer";
+import type { ComposerNumbered, ComposerTag, SentFromComposer } from "../SessionComposer/SessionComposer";
 
 /** One repository the switch may point Helm at — id is the Manifest id. */
 export type HelmRepositoryOption = { id: string; label: string };
@@ -42,9 +41,36 @@ function switchEntries(
 export type HelmComposerChip = { jobHandle: string; title: string };
 
 /**
+ * What the Sessions box takes from outside, and Helm's takes the same. **No permission mode**: Helm
+ * keeps its own rule. Everything absent is empty, and the box then offers only what it can.
+ */
+export type HelmBox = {
+  /** The model and effort the next ask runs on. Absent is Auto. */
+  model: string | null;
+  effort: string | null;
+  models: readonly string[];
+  efforts: readonly string[];
+  onTune: (tuning: { model: string | null; effort: string | null }) => void;
+  /** What `/` offers. */
+  commands: readonly { name: string; says: string }[];
+  /** What `@` offers: other Sessions, Jobs, pull requests and branches. */
+  taggable: readonly ComposerTag[];
+  /** What `#` offers for the repository Helm answers for. */
+  numbered: ComposerNumbered;
+  /** Sketches drawn for this message and waiting to go. */
+  drawn: readonly { id: string; title: string }[];
+  onDraw: () => void;
+  onRemoveDrawn: (id: string) => void;
+};
+
+/**
  * The composer under Helm's thread — #944. **Typing never answers a pending
  * question**; that is a card's own button, above this, in the dock's
  * questions zone. This only ever sends a fresh message.
+ *
+ * **The box is the Sessions box** (`SessionComposer`): ↵ sends and ⇧↵ breaks the line, and it
+ * brings files and pictures, sketches, and `/`, `@` and `#`. What it keeps of Helm's own is
+ * everything around it.
  */
 export type HelmComposerProps = {
   /** The repository Helm answers for right now, by its Manifest id. Absent where nothing is servable yet. */
@@ -90,12 +116,19 @@ export type HelmComposerProps = {
    * "Helm reads where you are: …". `#1094`. Absent draws no footer.
    */
   location?: string;
-  value: string;
-  onChange: (value: string) => void;
-  onSend: () => void;
+  /** The box's parts. Absent draws the box with nothing to offer beyond what is typed. */
+  box?: Partial<HelmBox>;
+  /** The message, with what went with it. **The box clears itself**, and a message the host refuses is not given back. */
+  onSend: (sent: SentFromComposer) => void;
   /** Nothing is servable, or the connection is down. */
   disabled?: boolean;
 };
+
+const NO_TAGS: readonly ComposerTag[] = [];
+const NO_NAMES: readonly string[] = [];
+const NO_COMMANDS: readonly { name: string; says: string }[] = [];
+const NO_DRAWN: readonly { id: string; title: string }[] = [];
+const NOTHING_TO_DO = (): void => undefined;
 
 export function HelmComposer({
   current,
@@ -107,13 +140,10 @@ export function HelmComposer({
   chip,
   onRemoveChip,
   location,
-  value,
-  onChange,
+  box = {},
   onSend,
   disabled = false,
 }: HelmComposerProps) {
-  const blank = value.trim() === "";
-  const available = !blank && !disabled;
   const label = repositories.find((one) => one.id === current)?.label;
   /**
    * Somewhere to point Helm that it is not pointed at already. **Pointed at a
@@ -133,21 +163,8 @@ export function HelmComposer({
    */
   const naming = label ?? (switching ? undefined : "No repository to ask yet");
 
-  function submit(event: FormEvent): void {
-    event.preventDefault();
-    if (available) onSend();
-  }
-
-  // ⌘Enter asks exactly what Send asks — the drone message box's binding, one
-  // treatment. Plain Enter is still a new line: an ask is prose too.
-  function keyed(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    if (!sendsOn(event)) return;
-    event.preventDefault();
-    if (available) onSend();
-  }
-
   return (
-    <form className="armada-helm-composer" onSubmit={submit}>
+    <div className="armada-helm-composer">
       {chip === undefined ? null : (
         <AttachmentChip filename={`Job ${chip.jobHandle} · ${chip.title}`} onRemove={onRemoveChip} />
       )}
@@ -208,41 +225,42 @@ export function HelmComposer({
           </Button>
         ) : null}
       </div>
-      {/* Send sits inside the field's own frame, at its trailing foot — the
-          same treatment as the drone message box, decided together on
-          17 Sep 2026. The dock is narrow, so Send sits closer to the text
-          here than it does there; the room it takes is still reserved as the
-          field's bottom padding, so a typed line never runs under it. */}
-      <div className="armada-helm-composer__field">
-        <Textarea
-          aria-label="Ask Helm"
-          // Three rows, as the drone message box takes: an ask is a sentence
-          // or two, and in a dock this narrow one of them wraps.
-          rows={3}
-          grow
-          keep={`helm:${current}`}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={keyed}
-          disabled={disabled}
-          placeholder="Ask Helm about this repository"
-          // Reopening the dock remounts this field — #1094 — and that is the
-          // only time this fires: nothing else in the tree changes its key.
-          autoFocus
-        />
-        {/* Tinted Helm, not the accent: Send is not the view's one Primary
-            (design-system.md, Component → token mapping → Helm dock). The
-            tint is HelmComposer.css's, over a secondary. */}
-        <Button type="submit" variant="secondary" ground="card" size="sm" disabled={disabled || blank}>
-          Send
-          <SendKbd available={available} />
-        </Button>
-      </div>
+      {/* The Sessions box, whole: its row under the typing area holds the model and effort,
+          the paperclip and the pencil, what waits to go and Send. Send is tinted Helm and not
+          the accent, since it is not the view's one Primary (design-system.md, Component →
+          token mapping → Helm dock). The mode is left off. */}
+      <SessionComposer
+        working={false}
+        modeHidden
+        compact
+        label="Ask Helm"
+        disabled={disabled}
+        send="secondary"
+        slim
+        grows="scroller"
+        model={box.model ?? null}
+        effort={box.effort ?? null}
+        models={box.models ?? NO_NAMES}
+        efforts={box.efforts ?? NO_NAMES}
+        onTune={box.onTune ?? NOTHING_TO_DO}
+        commands={box.commands ?? NO_COMMANDS}
+        taggable={box.taggable ?? NO_TAGS}
+        {...(box.numbered === undefined ? {} : { numbered: box.numbered })}
+        tags={NO_TAGS}
+        onTags={NOTHING_TO_DO}
+        drawn={box.drawn ?? NO_DRAWN}
+        onDraw={box.onDraw ?? NOTHING_TO_DO}
+        onRemoveDrawn={box.onRemoveDrawn ?? NOTHING_TO_DO}
+        // Kept per repository, and focused when the dock opens and when Helm is pointed elsewhere.
+        draftKey={`helm:${current}`}
+        focusFor={`helm:${current}`}
+        onSend={onSend}
+      />
       {/* Where the person is stays under the field, not inside it: it is a
           sentence to read, and the dock has no width to put it beside Send. */}
       {location === undefined ? null : (
         <span className="armada-helm-composer__location">{location}</span>
       )}
-    </form>
+    </div>
   );
 }

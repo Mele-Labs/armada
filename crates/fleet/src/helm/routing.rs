@@ -366,6 +366,8 @@ where
             ThoughtSent {
                 text,
                 target: target.clone(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
             },
             manifest_id,
         )
@@ -382,12 +384,20 @@ where
     ) -> Result<HelmConversation, Refusal> {
         let (served, key) = self.helm_of(manifest_id.as_ref())?;
         let conversation = self.helm().open(&key, served.records_root());
+        // Kept as an ask's are, so a refused upload leaves no row.
+        let kept = self.keep_uploads(
+            &key.uploads_in(&self.host().attachments_dir),
+            key.as_str(),
+            &sent.attachments,
+        )?;
         let at = Instant::from(&self.now());
         let (to, id) = (sent.target.kind, sent.target.id.clone());
         conversation.thread.say(HelmMessage::Sent(HelmSent {
             ts: at.clone(),
             text: sent.text,
             target: sent.target,
+            files: kept.files,
+            tags: sent.mentions,
         }));
         self.events()
             .publish(ipc::Event::HelmThoughtRouted(HelmThoughtRouted {
