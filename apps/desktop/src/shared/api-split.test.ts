@@ -188,6 +188,7 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { PlanUsageRead } from "./api/plan-usage";
+import type { WriteClashesRead } from "./api/clashes";
 import type { IssuesRead } from "./api/issues";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
@@ -489,6 +490,7 @@ type OldBridgeApi = {
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
+    getWriteClashes: () => Promise<WriteClashesRead>;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
@@ -803,6 +805,7 @@ const OLD_CHANNELS = {
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
+    getWriteClashes: "bridge:get-write-clashes",
     planUsageChanged: "bridge:plan-usage-changed",
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",

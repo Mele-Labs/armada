@@ -333,7 +333,7 @@ A minute after `held_until`, a tick of the notice loop sends the session `Contin
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
 
-**A Session is told when what it wrote would conflict.** When Fleet finds that the files a Session wrote conflict with another Job's or Session's, or with the base after it moved, it sends that Session one message: the files, who the other is and how to reach it. The Session is not paused and the message is sent once per set of files. `docs/concepts/fleet.md`, *Write clashes*.
+**A Session is told when what it wrote would conflict.** When Fleet finds that the files a Session wrote conflict with another Job's or Session's, or with the base after it moved, it sends that Session one message: the files, who the other is and how to reach it. The Session is not paused and the message is sent once per set of files. `docs/concepts/fleet.md`, *Write clashes*. Bridge marks the Session's row, and its open thread names the other holder and the files, from the standing clashes Fleet lists.
 
 | The other is | The message names |
 |---|---|

@@ -56,6 +56,7 @@ import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
 import { PlanUsageHost } from "./plan-usage";
+import { ClashesHost } from "./clashes";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
@@ -204,6 +205,14 @@ export class FleetConnection {
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
   /** The plan's windows — `plan-usage.ts`. */
   readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
+  /** Where two agents' changes would conflict, per served repository — `clashes.ts`. */
+  readonly clashes: ClashesHost = new ClashesHost(
+    () => this.connected()?.port ?? null,
+    () => {
+      const listed = this.current.holds.repositories;
+      return listed === undefined || listed.length === 0 ? null : listed.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
+    },
+  );
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
