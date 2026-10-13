@@ -135,12 +135,6 @@ export type WorkflowStepCardProps = {
   added?: boolean;
   /** Whose hand is on a task, where that is the Commander's: a mark after the name. */
   by?: { who: "commander"; said?: string };
-  /**
-   * The card's width in canvas px, **worked out by the layout that placed it**
-   * so the name fits on one line and the placement knows how far the card
-   * reaches. Absent draws the kind's token width, and a task's name on two lines.
-   */
-  width?: number;
 };
 
 export function WorkflowStepCard({
@@ -167,7 +161,6 @@ export function WorkflowStepCard({
   returns = false,
   added = false,
   by,
-  width,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -297,18 +290,14 @@ export function WorkflowStepCard({
     "data-dimmed": dimmed || undefined,
     "data-working": working || undefined,
     "data-added": added || undefined,
-    "data-fit": width !== undefined || undefined,
     ...(band === undefined
       ? {}
       : {
           "data-banded": "",
           "data-look": band.look ?? "solid",
           "data-returns": returns || undefined,
+          style: { "--armada-wf-band": `var(${band.token})` } as CSSProperties,
         }),
-    style: {
-      ...(band === undefined ? {} : { "--armada-wf-band": `var(${band.token})` }),
-      ...(width === undefined ? {} : { width }),
-    } as CSSProperties,
   };
 
   return onOpen === undefined ? (

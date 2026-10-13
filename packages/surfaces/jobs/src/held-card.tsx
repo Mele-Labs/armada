@@ -9,7 +9,7 @@ import { CanvasAsk, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "@ar
 
 import type { HeldCommand } from "./drone-held";
 
-/** Canvas widths of the cards, off `--w-workflow-node`, `-group-node` and `-task-node` — a card the layout widened says its own. */
+/** Canvas widths of the cards, off `--w-workflow-node`, `-group-node` and `-task-node`. */
 const WIDTH = { step: 260, group: 228, task: 196 } as const;
 /** `--w-dock`, the width `CanvasAsk` takes. */
 const ASK_WIDTH = 380;
@@ -37,7 +37,7 @@ export function askBeside(
 ): { node: WorkflowCanvasNode; edge: WorkflowCanvasEdge } | undefined {
   const host = nodes.find((one) => one.id === hostId);
   if (host === undefined) return undefined;
-  const reach = (one: WorkflowCanvasNode): number => one.card.width ?? WIDTH[one.card.kind];
+  const reach = (one: WorkflowCanvasNode): number => WIDTH[one.card.kind];
   const others = nodes.filter((one) => one.id !== hostId && one.backdrop !== true);
   const y = host.position.y;
   let x = host.position.x + reach(host) + GAP;

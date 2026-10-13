@@ -34,39 +34,25 @@
   background: var(--bg-sunken);
 }
 
-/* A task's name is a sentence where a step's is a label, so it takes two lines
-   rather than clipping the half that says what the task is. Two lines whatever
-   it says, never up to two: a node whose box changes with its words is what
-   raises Chromium's ResizeObserver loop notice off React Flow's per-node
-   observer — docs/spikes/019-what-raises-the-resize-loop-notice-on-a-studio.md.
-   The height is on the row and never on the clamp, which Chromium clamps to. */
-.armada-wf-card[data-kind="task"] .armada-wf-card__head {
+/* A step's label and a task's title wrap onto as many lines as they need and
+   the card grows to fit; nothing is clipped. The width is fixed, so a card is
+   as tall as its words make it and the layout places by that height
+   (`card-height.ts`). The box is settled when the card is drawn and does not
+   move after, which is what keeps Chromium's ResizeObserver loop notice off
+   React Flow's per-node observer —
+   docs/spikes/019-what-raises-the-resize-loop-notice-on-a-studio.md. The mark
+   stays on the first line. */
+.armada-wf-card[data-kind="task"] .armada-wf-card__head,
+.armada-wf-card[data-kind="step"] .armada-wf-card__head {
   align-items: flex-start;
-  height: calc(var(--leading-sm) * 2);
 }
 
-.armada-wf-card[data-kind="task"] .armada-wf-card__name {
+.armada-wf-card[data-kind="task"] .armada-wf-card__name,
+.armada-wf-card[data-kind="step"] .armada-wf-card__name {
   white-space: normal;
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-/* A card whose layout worked its width out (`width`) has room for the whole
-   name, so a task's takes one line: the two-line clamp above is for a card
-   held to its token width. The head is still one fixed row, so the box does
-   not change with its words. */
-.armada-wf-card[data-kind="task"][data-fit] .armada-wf-card__head {
-  align-items: center;
-  height: var(--leading-sm);
-}
-
-.armada-wf-card[data-kind="task"][data-fit] .armada-wf-card__name {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* The step the Job is on. An edge rather than a fill: the fill is what a
