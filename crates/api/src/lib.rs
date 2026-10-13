@@ -124,7 +124,7 @@ mod tests;
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use conversing::{
     CommanderFeed, CommanderWatch, ConversationFeed, ConversationSeen, ConversationWatch,
-    HelmFeed, HelmSeen, HelmWatch, ObservedCommander, ObservedHelm, Spoken, HELM_BACKLOG,
+    ObservedCommander, Spoken, HELM_BACKLOG,
 };
 pub use daemon::{
     offerable, offerable_to_a_commander, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,

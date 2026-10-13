@@ -1,9 +1,10 @@
-//! Helm: the conversation Fleet hosts for one repository, over the agent door.
+//! Helm: a hosted Session per repository, over the agent door.
 //!
-//! What a session is told and what it may do are here so the host and the door
-//! (`#941`) read one answer. The conversation itself — one per repository,
-//! resumed by id for each message — is `#939`'s, and its host sits behind one
-//! interface, [`Hosting`], so a host elsewhere is a switch.
+//! What the Helm Session is told and what it may do are here so the host and the door (`#941`) read
+//! one answer. The Session itself is `session_host`'s, and `session` is the part that is Helm's:
+//! the lookup, the first message that makes one, Start fresh and the `sent` row. The host that
+//! carries a message per process, behind one interface, [`Hosting`], now carries a Job's Commander
+//! (`commander*.rs`) and nothing else; it carried Helm's replies when this was `#939`'s.
 
 mod admitting;
 mod asking;
@@ -14,7 +15,6 @@ mod commander_card;
 mod composing;
 mod conversation;
 mod deciding;
-mod facts;
 mod hosting;
 mod permitting;
 mod reach;
@@ -22,6 +22,7 @@ mod recording;
 mod rows;
 pub(crate) mod routing;
 mod serving;
+mod session;
 mod thread;
 pub(crate) mod unanswered;
 

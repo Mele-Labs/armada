@@ -9,7 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
-import type { PullRequestPage, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { PullRequestPage, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -142,6 +142,21 @@ export type SessionRow =
       /** Sessions tagged with `@`, so the agent knows to talk to them. */
       tags?: readonly SessionTag[];
     }
+  /**
+   * Words typed in Helm's box that went to a Session or a Job and never to Helm. Only Helm's own Session
+   * has these: Fleet keeps the row beside the ones the agent wrote, in the thread where it was sent.
+   */
+  | {
+      id: string;
+      at: string;
+      kind: "sent";
+      text: string;
+      /** The Session or Job the words went to, and the repository it is of as the picker names it. */
+      target: ThoughtTarget & { repository: string };
+      files?: readonly SentFile[];
+      sketches?: readonly { id: string; title: string }[];
+      tags?: readonly SessionTag[];
+    }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** A command the person ran in the terminal, as typed. */
@@ -204,6 +219,12 @@ export type Session = {
   context?: { tokens: number; window: number };
   /** What fills that window, as the harness reports it. Absent where it has not. */
   contextBreakdown?: ContextBreakdown;
+  /**
+   * Helm's own Session for a repository: hosted like any other, pinned to Helm's dock, one per
+   * repository. The Sessions list marks it and opening it opens the dock, not a page of its own.
+   * It runs in auto, so `mode` is never offered for it.
+   */
+  helm?: true;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
@@ -317,6 +338,12 @@ export type PageBounds = { x: number; y: number; width: number; height: number }
  */
 export type SessionsDraft = {
   get: () => readonly Session[];
+  /**
+   * The live Helm Session of the repository Helm's dock answers for, **whatever the rail picked**: the
+   * list holds the picked repository's Sessions, and Helm may be pointed at another. Absent where the
+   * list holds every Session, and the dock then finds it there.
+   */
+  helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
   /**
    * Takes a Job's worktree: starts a Session on it and returns the Session's id. **A promise on a real

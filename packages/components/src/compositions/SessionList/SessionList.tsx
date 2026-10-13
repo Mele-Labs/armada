@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BellRing, LoaderCircle, Search } from "lucide-react";
+import { BellRing, LoaderCircle, MessageSquare, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -48,6 +48,8 @@ export type SessionRowView = {
   waiting?: readonly string[];
   /** Its retro is being written. */
   retroWriting?: boolean;
+  /** Helm's own Session for a repository, pinned to the dock: it carries Helm's mark, and opening it opens the dock. */
+  helm?: boolean;
 };
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
@@ -274,6 +276,13 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
                     <div className="armada-session-list__top">
                       <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
                         {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
+                        {row.helm !== true ? null : (
+                          <Tooltip label="Helm">
+                            <span className="armada-session-mark" role="img" aria-label="Helm">
+                              <MessageSquare size={12} strokeWidth={2} aria-hidden />
+                            </span>
+                          </Tooltip>
+                        )}
                         <span className="armada-session-list__title">
                           {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
                         </span>

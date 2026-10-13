@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { heldOfPicked, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
-import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, helmReplying, NO_CHIP, opened, screenOf } from "@armada/helm";
+import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, NO_CHIP, opened, screenOf } from "@armada/helm";
 import type { ChipState } from "@armada/helm";
 import { Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
@@ -48,6 +48,8 @@ import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { optionsFor } from "./dispatch-panel/reading";
 import { useHelmBox } from "./helm-box";
 import { useHelmRefs } from "./helm-refs";
+import { useHelmHosted } from "./helm-session";
+import { useSessions } from "./sessions-draft";
 import { useThoughtRouting } from "./thought-routing";
 import { TitleDispatchedStrip, TitleDispatchPanel } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
@@ -162,7 +164,7 @@ import { DoctorSurface } from "./doctor/Doctor";
 import { firstContactOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
-import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
+import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
 /** Re-exported so nothing importing it has to learn a new path. */
 export const WAITING: BridgeState = NOTHING_YET;
@@ -432,8 +434,21 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
+  const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
   const helmRefs = useHelmRefs({ state, repositories, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (root !== undefined && state.repository !== root && pickRepository(root), setComposing(true)) });
+  const helmHosted = useHelmHosted({
+    manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
+    goes: { onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) },
+    held: { held: state.held, onWant: readHeld },
+    board: state.jobs,
+    workflows: state.holds.workflows,
+    onApprove: commands.approve,
+    lines: state.mergeLines,
+    settings: state.settings,
+    openSession,
+    openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)),
+  });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ palette, live, compose: (words) => (setSeed(words), setComposing(true)), dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   const nowing = useNowActs({ live, active: state.active, jobs: state.jobs, draft, commands, onConfirm: setConfirming, onOpen: setOpenJob }); // Every active Job's Now, for the Cockpit and the Dashboard.
@@ -475,6 +490,13 @@ export function App({ draft }: AppProps = {}) {
    * view gets left standing under the next one.
    */
   function openSession(id: string): void {
+    // Helm's own Session is the dock: it points at its repository and opens, and no page is shown.
+    const helm = sessions.find((one) => one.id === id && one.helm === true);
+    if (helm !== undefined) {
+      if (helm.manifestId !== undefined) pointHelm(helm.manifestId);
+      askToOpenHelm();
+      return;
+    }
     goTo(SURFACE.sessions);
     setSessionOpen(id);
   }
@@ -641,15 +663,14 @@ export function App({ draft }: AppProps = {}) {
               routing={routing}
               {...(helmBox.box === undefined ? {} : { box: helmBox.box })}
               refs={helmRefs}
+              {...(helmHosted.hosted === undefined ? {} : { hosted: helmHosted.hosted })}
               helm={state.helm}
               repositories={repositories}
               jobs={state.jobs}
-              workflows={state.holds.workflows}
               live={live}
               chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
               onRemoveChip={() => setChip(dismissed)}
               onAsk={(text, context, carry) => void helmBox.ask(text, context, carry)}
-              kept={helmBox.kept}
               context={helmContext}
               studio={
                 shownStudio === null
@@ -666,23 +687,22 @@ export function App({ draft }: AppProps = {}) {
               onReadRecord={helmDebugInfo}
               onCopied={setCopied}
               onSaid={setTelling}
-              onApprove={commands.approve}
             />
             {helmBox.pad}
+            {helmHosted.sheets}
             </>
           }
           // The dock's head carries this, beside Close — the owner's note of
           // 18 Sep 2026. It ends the conversation the whole dock is showing, so
           // it belongs to the dock rather than to the row above the message box,
           // where three controls wrapped onto a second line at the dock's width.
-          // Refused while a reply is being written: Fleet's own rule, read
-          // through the same helper the thread below reads it with.
+          // Held while a turn runs: Stop is the Session's own control for that.
           helmAction={
             <Button
               variant="ghost"
               size="sm"
               onClick={() => void startHelmFresh()}
-              disabled={helmReplying(state.helm)}
+              disabled={helmHosted.hosted?.working === true}
             >
               Start fresh
             </Button>

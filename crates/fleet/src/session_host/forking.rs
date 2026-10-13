@@ -170,6 +170,8 @@ where
                     lease_slot: None,
                     lease_branch: None,
                     fork_of: Some(old_id.clone()),
+                    // A fork of Helm is an ordinary Session: Helm's note is not in the copied conversation.
+                    helm: false,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // `spent`, not `standing`: the old session ending gives back what

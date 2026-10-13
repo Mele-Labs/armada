@@ -13,7 +13,10 @@ import { branchOfPullRequest, scanRefs } from "@armada/helm";
 import type { RefWorld } from "@armada/helm";
 import type { RepositorySummary } from "@armada/protocol";
 
+import type { Session } from "@armada/screens/src/draft/sessions";
+
 import type { BridgeState } from "../../shared/bridge";
+import { useHelmSession } from "./helm-session";
 import { useNumbered } from "./numbered";
 import { useSessions } from "./sessions-draft";
 
@@ -28,10 +31,8 @@ type Host = {
 };
 
 /** Every `#N` the thread's words hold. */
-function numbersIn(state: BridgeState): number[] {
-  const helm = state.helm;
-  if (helm.state !== "open" && helm.state !== "failed") return [];
-  const words = helm.items.flatMap((item) => (item.kind === "asked" || item.kind === "sent" ? [item.text] : item.kind === "row" && item.turn.saw.event === "said" ? [item.turn.saw.text] : []));
+function numbersIn(session: Session | undefined): number[] {
+  const words = (session?.rows ?? []).flatMap((row) => (row.kind === "message" || row.kind === "sent" ? [row.text] : []));
   return words.flatMap((text) => [...text.matchAll(/(?<![\w&/#])#(\d+)(?!\w)/g)].map((one) => Number(one[1])));
 }
 
@@ -40,8 +41,9 @@ export function useHelmRefs({ state, repositories, openSession, openJob, openPul
   const root = repositories.find((one) => one.manifest?.id === manifestId)?.root;
   const numbered = useNumbered(manifestId);
   const sessions = useSessions();
+  const helm = useHelmSession(manifestId);
   const [looked, setLooked] = useState<Record<string, NumberedHit | null>>({});
-  const wanted = numbersIn(state).join();
+  const wanted = numbersIn(helm).join();
 
   // A number the open lists do not hold is read once.
   useEffect(() => {
@@ -56,10 +58,15 @@ export function useHelmRefs({ state, repositories, openSession, openJob, openPul
   }, [wanted, numbered, manifestId, looked]);
 
   return useMemo((): ProseReferences => {
-    const known = [...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
+    // A pull request Helm opened is known by its Session, whatever the forge's open list says.
+    const opened = (helm?.attachments ?? []).flatMap((one): NumberedHit[] =>
+      one.kind === "pull_request" ? [{ tag: { kind: "pull_request", id: String(one.number), title: `#${one.number} ${one.title}` } }] : [],
+    );
+    const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
     const world: RefWorld = {
       jobs: state.jobs,
-      sessions: sessions.filter((one) => one.dead === undefined),
+      // Helm's own Session is named by its repository, which would link every mention of it.
+      sessions: sessions.filter((one) => one.dead === undefined && one.helm !== true),
       numbered: known.flatMap((one) => (one.tag.kind === "issue" || one.tag.kind === "pull_request" ? [{ kind: one.tag.kind, number: one.tag.id, title: one.tag.title }] : [])),
     };
     const line = state.mergeLines?.lines.find((one) => one.root === root);
@@ -72,5 +79,5 @@ export function useHelmRefs({ state, repositories, openSession, openJob, openPul
         else openIssues(root);
       },
     };
-  }, [numbered, looked, manifestId, state.jobs, state.mergeLines, sessions, root, openSession, openJob, openPullRequest, openIssues]);
+  }, [numbered, looked, manifestId, helm, state.jobs, state.mergeLines, sessions, root, openSession, openJob, openPullRequest, openIssues]);
 }

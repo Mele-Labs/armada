@@ -1,41 +1,36 @@
-//! One repository's Helm conversation: watch it, speak into it, start it over.
-//! `#939`.
+//! One repository's Helm: find its Session, speak into it, start it over. `#939`.
 //!
-//! **A fourth surface, not three methods spread over two of the others.** The
-//! conversation is one thing that may move: `#73` keeps a host in Bridge a
-//! switch rather than a rebuild, and a surface split across `Queries` and
-//! `Commands` would make that switch in two places. What these three answer is
-//! whole on its own, so another implementor can answer all of it.
+//! **Helm is a hosted Session**, so reading its thread, tuning it and fetching what a message
+//! carried are the Sessions' own operations; what is here is what only Helm has: the lookup of
+//! the Session, the message with the person's whereabouts, and the commander's conversation that
+//! shares this surface.
 
 use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
     AnswerCommanderCard, AnswerHelmCall, AskCommander, AskHelm, AskTheOwner, AskingToRun,
-    CommanderCard, CommanderCardAnswered, CommanderConversation, EventsSince, HelmBoxFacts,
-    HelmCallsWaiting, HelmConversation, HelmDebugInfo, ManifestId, ReadThought, RepairSent,
-    RunOrNot, SendRepairDrone, TellSession, ThoughtReading, ThoughtSent, ThoughtTarget, TuneHelm,
+    CommanderCard, CommanderCardAnswered, CommanderConversation, EventsSince, HelmCallsWaiting,
+    HelmDebugInfo, HelmSession, ManifestId, ReadThought, RepairSent, RunOrNot, SendRepairDrone,
+    SessionRecord, TellSession, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
-use crate::conversing::{ObservedCommander, ObservedHelm};
-use crate::daemon::{Refusal, StoredFile};
+use crate::conversing::ObservedCommander;
+use crate::daemon::Refusal;
 use crate::reference::Resolved;
 
 /// Everything a client does with a Helm conversation.
 pub trait Conversations: Send + Sync + 'static {
-    /// `observe_helm` — the thread so far, then every message that follows.
-    ///
-    /// **It answers before the socket opens**, for `Queries::observe_job`'s
-    /// reason, and the subscription is already open inside what comes back.
+    /// `get_helm_session` — the repository's live Helm Session and its thread, or none.
     /// `manifest_id` names the repository; absent is the one Fleet started in.
     /// [`Refusal::Unacceptable`] where Fleet serves no such Manifest.
-    fn observe_helm(
-        &self,
+    fn get_helm_session(
+        self: Arc<Self>,
         manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<ObservedHelm, Refusal>> + Send;
+    ) -> impl Future<Output = Result<HelmSession, Refusal>> + Send;
 
     /// `observe_commander` — one Job's Commander: the thread so far, then every
-    /// message that follows. `observe_helm`'s shape with a Job for its subject,
+    /// message that follows. a Helm-socket shape (that socket is gone: the dock reads a Session) with a Job for its subject,
     /// and answered before the socket opens for the same reason. #2166.
     fn observe_commander(
         &self,
@@ -88,33 +83,19 @@ pub trait Conversations: Send + Sync + 'static {
         answered: AnswerCommanderCard,
     ) -> impl Future<Output = Result<CommanderCardAnswered, Refusal>> + Send;
 
-    /// `ask_helm` — take a message and answer at once. **The reply is the
-    /// socket's**, so this returns before a session has started, and a message
-    /// sent while a reply is being written waits its turn rather than refusing.
+    /// `ask_helm` — a message to the repository's Helm Session, **started by this one if none is
+    /// live**. Sent as `send_session_message` sends, with a line of the person's whereabouts ahead
+    /// of the words in the turn. The reply is the Session's thread, on `session.row`. Answers the
+    /// Session's record.
     fn ask_helm(
         self: Arc<Self>,
         asked: AskHelm,
         manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
-
-    /// `tune_helm` — set the model and effort the next reply runs on, and tell every watcher.
-    /// [`Refusal::Unacceptable`] for an effort that is not `low`, `medium` or `high`.
-    fn tune_helm(
-        &self,
-        tuned: TuneHelm,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<HelmBoxFacts, Refusal>> + Send;
-
-    /// `get_helm_file` — what a message to Helm carried, by its `SentFile.id`.
-    fn get_helm_file(
-        &self,
-        manifest_id: Option<ManifestId>,
-        file: String,
-    ) -> impl Future<Output = Result<StoredFile, Refusal>> + Send;
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `get_helm_debug_info` — the session as one quotable record, taken at
     /// this moment. `#1367`. [`Refusal::Unacceptable`] where Fleet serves no
-    /// such Manifest, the same as `observe_helm`.
+    /// such Manifest, the same as `get_helm_session`.
     fn get_helm_debug_info(
         &self,
         manifest_id: Option<ManifestId>,
@@ -132,32 +113,30 @@ pub trait Conversations: Send + Sync + 'static {
         counted: EventsSince,
     ) -> impl Future<Output = ()> + Send;
 
-    /// `start_helm_fresh` — forget the stored session and the thread, so the
-    /// next message starts over. [`Refusal::IllegalMove`] while a reply is being
-    /// written: forgetting a session under a process still writing into it
-    /// would leave its answer nowhere.
+    /// `start_helm_fresh` — end the repository's live Helm Session, so the next message starts a
+    /// new one. Answers with no session. Nothing happens where none is live.
     fn start_helm_fresh(
         &self,
         manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
+    ) -> impl Future<Output = Result<HelmSession, Refusal>> + Send;
 
     /// `read_thought` — words typed into Helm's box, read for where they belong.
     /// **Total**: a reading that cannot be made is [`ThoughtReading::Question`], so the words
     /// go to Helm and are never lost.
     fn read_thought(&self, read: ReadThought) -> impl Future<Output = ThoughtReading> + Send;
 
-    /// `record_thought_sent` — the words were delivered to a Session or a Job: keep a row in
-    /// the thread and publish `helm.thought_routed`. **Nothing is sent to Helm's session.**
-    /// [`Refusal::Unacceptable`] where Fleet serves no such Manifest.
+    /// `record_thought_sent` — the words were delivered to a Session or a Job: keep a `sent` row in
+    /// the Helm Session's thread and publish `helm.thought_routed`. **Nothing is sent to Helm's
+    /// process.** [`Refusal::Unacceptable`] where Fleet serves no such Manifest.
     fn record_thought_sent(
         &self,
         sent: ThoughtSent,
         manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `tell_session` — Helm passes words to a live Session. **Sent as `send_session_message`
     /// sends**, so a refusal is that send's, and on success the same row and `helm.thought_routed`
-    /// as [`record_thought_sent`](Conversations::record_thought_sent) are kept. Answers where the
+    /// as [`record_thought_sent`](Conversations::record_thought_sent) are kept in the Helm Session's thread. Answers where the
     /// words went. A refused send records nothing.
     fn tell_session(
         self: Arc<Self>,

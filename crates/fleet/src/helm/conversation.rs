@@ -1,25 +1,22 @@
-//! Which conversation a message belongs to, and the one reply at a time each
+//! Which conversation a message belongs to, and the one turn at a time each
 //! conversation writes. `#939`.
 //!
-//! **A conversation is looked up by a [`ConversationKey`]: a repository's, or a
-//! Job's.** A Job's is its Commander's (`#2166`), the second constructor on the
-//! key the first version of this note said a topic would be; the table, the
-//! thread and the host are keyed by whatever it holds.
+//! **A conversation is looked up by a [`ConversationKey`].** It is a Job's, its Commander's
+//! (`#2166`), and the table, the thread and the host are keyed by it. A repository's Helm was a
+//! second kind of key until Helm became a hosted Session; its old thread files under `helm/` are
+//! left on disk and read by nothing.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use ipc::{CommanderMessage, EventsSince, HelmAsked, Instant};
+use ipc::{CommanderMessage, HelmAsked, Instant};
 
 use super::asking::{Asks, HelmAskHold};
 use super::hosting::Hosting;
 use super::thread::Thread;
 
-/// What a Job's key starts with. **A character a repository's key never holds**
-/// ([`ConversationKey::of_repository`] writes a `:` as `_`), so the two cannot
-/// be the same string whatever a Manifest is called.
+/// What a Job's key starts with.
 const JOB_PREFIX: &str = "commander:";
 
 /// Which conversation.
@@ -27,40 +24,18 @@ const JOB_PREFIX: &str = "commander:";
 pub struct ConversationKey {
     /// What `helm_sessions` is keyed by.
     stored: String,
-    job: bool,
 }
 
 impl ConversationKey {
-    /// A repository's conversation: Helm's. **A `:` in the Manifest's id is
-    /// written as `_`**, which is what keeps this from ever equalling
-    /// [`ConversationKey::of_job`]'s.
-    pub fn of_repository(manifest: &core_model::ManifestId) -> ConversationKey {
-        ConversationKey {
-            stored: manifest.as_str().replace(':', "_"),
-            job: false,
-        }
-    }
-
-    /// A Job's conversation: its Commander's. Prefixed, so it cannot collide
-    /// with a repository's.
+    /// A Job's conversation: its Commander's.
     pub fn of_job(job: &core_model::JobId) -> ConversationKey {
         ConversationKey {
             stored: format!("{JOB_PREFIX}{}", job.as_str()),
-            job: true,
         }
     }
 
     pub fn as_str(&self) -> &str {
         &self.stored
-    }
-
-    /// Where what its messages carried is kept, under `attachments_dir`, named as the thread's
-    /// file is so that no key can name a path outside it. A Job's lives in a directory of its
-    /// own, as its thread does.
-    pub(crate) fn uploads_in(&self, attachments_dir: &str) -> PathBuf {
-        Path::new(attachments_dir)
-            .join(if self.job { "commander" } else { "helm" })
-            .join(self.safe_name())
     }
 
     fn safe_name(&self) -> String {
@@ -77,13 +52,12 @@ impl ConversationKey {
 
     /// Where its thread is kept. A character a file name should not carry is
     /// written as `_`, so no key can name a path outside the directory. **A
-    /// Job's lives in a directory of its own**, because `commander:x` and
-    /// `commander_x` both become `commander_x` and one directory would let a
-    /// repository called the second read the first's thread.
+    /// Job's lives in a directory of its own**, `commander`, beside the `helm` directory an
+    /// older Helm kept its threads in.
     pub(crate) fn thread_in(&self, records_root: &str) -> PathBuf {
         let name = self.safe_name();
         Path::new(records_root)
-            .join(if self.job { "commander" } else { "helm" })
+            .join("commander")
             .join(format!("{name}.jsonl"))
     }
 }
@@ -91,7 +65,6 @@ impl ConversationKey {
 /// Every conversation Fleet hosts, and the host that carries their messages.
 pub struct Conversations {
     host: Arc<dyn Hosting>,
-    open: Mutex<BTreeMap<ConversationKey, Arc<Conversation>>>,
     /// Every Job's Commander that has been written to or woken this run.
     commanders: Mutex<BTreeMap<ConversationKey, Arc<Commanded>>>,
     /// Every call held open for a person, across every conversation. **Here
@@ -104,7 +77,6 @@ impl Conversations {
     pub fn hosted_by(host: Arc<dyn Hosting>, hold: HelmAskHold) -> Conversations {
         Conversations {
             host,
-            open: Mutex::new(BTreeMap::new()),
             commanders: Mutex::new(BTreeMap::new()),
             asks: Asks::holding_for(hold),
         }
@@ -122,26 +94,6 @@ impl Conversations {
     /// different host keeps the bound the composition root resolved.
     pub fn hold(&self) -> HelmAskHold {
         self.asks.held_for()
-    }
-
-    /// The conversation `key` names, its thread read from under `records_root`
-    /// the first time it is asked for.
-    pub(crate) fn open(&self, key: &ConversationKey, records_root: &str) -> Arc<Conversation> {
-        let mut open = self
-            .open
-            .lock()
-            .expect("the conversations are not held across a panic");
-        let conversation = open.entry(key.clone()).or_insert_with(|| {
-            Arc::new(Conversation {
-                turn: tokio::sync::Mutex::new(()),
-                waiting: AtomicUsize::new(0),
-                thread: Thread::opened(key.thread_in(records_root)),
-                polled: Mutex::new(None),
-                commands: Mutex::new(Vec::new()),
-                tuned: Mutex::new((None, None)),
-            })
-        });
-        Arc::clone(conversation)
     }
 }
 
@@ -252,85 +204,5 @@ impl Commanded {
         self.waiting
             .lock()
             .expect("the queue is not held across a panic")
-    }
-}
-
-/// One conversation.
-pub(crate) struct Conversation {
-    /// Held while a reply is written. **One at a time**: a second message
-    /// resumes the session the first reply ran in, so it waits for that one.
-    pub(crate) turn: tokio::sync::Mutex<()>,
-    /// Messages taken and not yet answered.
-    waiting: AtomicUsize,
-    pub(crate) thread: Thread,
-    /// What this conversation's last `get_events_since` was answered. **In
-    /// memory for this run of Fleet** — the record says so rather than
-    /// claiming the session never polled. `#1367`.
-    polled: Mutex<Option<EventsSince>>,
-    /// The commands Helm's own session last said it has. **In memory**: empty until it has
-    /// spoken in this run of Fleet, and `/` offers the Sessions' list meanwhile.
-    commands: Mutex<Vec<String>>,
-    /// The model and effort chosen for this conversation as last read or set, so what a
-    /// listener publishes does not need the store. The store is the record.
-    tuned: Mutex<(Option<String>, Option<String>)>,
-}
-
-impl Conversation {
-    pub(crate) fn taken(&self) {
-        self.waiting.fetch_add(1, Ordering::SeqCst);
-    }
-
-    pub(crate) fn answered(&self) {
-        self.waiting.fetch_sub(1, Ordering::SeqCst);
-    }
-
-    pub(crate) fn replying(&self) -> bool {
-        self.waiting.load(Ordering::SeqCst) > 0
-    }
-
-    pub(crate) fn polled(&self, counted: EventsSince) {
-        *self.held_poll() = Some(counted);
-    }
-
-    pub(crate) fn last_poll(&self) -> Option<EventsSince> {
-        self.held_poll().clone()
-    }
-
-    /// What Helm's session said it has. `true` where that is a change.
-    pub(crate) fn heard_commands(&self, names: Vec<String>) -> bool {
-        let mut held = self
-            .commands
-            .lock()
-            .expect("the commands are not held across a panic");
-        let changed = *held != names;
-        *held = names;
-        changed
-    }
-
-    pub(crate) fn commands(&self) -> Vec<String> {
-        self.commands
-            .lock()
-            .expect("the commands are not held across a panic")
-            .clone()
-    }
-
-    pub(crate) fn tuned_to(&self, model: Option<String>, effort: Option<String>) {
-        *self
-            .tuned
-            .lock()
-            .expect("the tuning is not held across a panic") = (model, effort);
-    }
-
-    pub(crate) fn tuning(&self) -> (Option<String>, Option<String>) {
-        self.tuned
-            .lock()
-            .expect("the tuning is not held across a panic")
-            .clone()
-    }
-
-    fn held_poll(&self) -> std::sync::MutexGuard<'_, Option<EventsSince>> {
-        self.polled
-            .lock()
-            .expect("the last poll is not held across a panic")
     }
 }

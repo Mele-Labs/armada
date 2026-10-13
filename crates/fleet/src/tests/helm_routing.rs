@@ -12,8 +12,8 @@ use std::time::Duration;
 use api::{Conversations, Next, Sessions, Subscription};
 use axum::http::StatusCode;
 use ipc::{
-    HelmConversation, HelmMessage, ReadThought, SessionFact, SessionId, SessionOrigin,
-    SessionReport, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
+    ReadThought, SessionFact, SessionId, SessionOrigin, SessionRecord, SessionReport, SessionRow,
+    ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 use testkit::{FakeJudge, FakeWorkProduct};
 
@@ -321,14 +321,15 @@ async fn words_delivered_are_a_row_in_the_thread_and_an_event_and_never_asked_of
     let (status, answer) = sent(&app, "POST", "/helm/thought_sent", &body, From::Bridge).await;
 
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
-    let conversation: HelmConversation = ipc::decode("a conversation", &answer).expect("one");
-    assert!(!conversation.replying);
-    let observed = fleet.observe_helm(None).await.expect("a conversation");
-    let [HelmMessage::Sent(row)] = &observed.history[..] else {
-        panic!("one sent row and nothing asked of Helm: {:?}", observed.history);
+    let record: SessionRecord = ipc::decode("a record", &answer).expect("the Helm Session");
+    assert!(record.helm);
+    let thread = Arc::clone(&fleet).get_helm_session(None).await.expect("read");
+    let rows = thread.session.expect("a Helm Session was made for the row").rows;
+    let [SessionRow::Sent { text, target: went, .. }] = &rows[..] else {
+        panic!("one sent row and nothing asked of Helm: {rows:?}");
     };
-    assert_eq!(row.text, "say which ones wait on a merge");
-    assert_eq!(row.target, target);
+    assert_eq!(text, "say which ones wait on a merge");
+    assert_eq!(*went, target);
     let events = published(&mut watching).await;
     let routed: Vec<&ipc::HelmThoughtRouted> = events
         .iter()
@@ -344,7 +345,7 @@ async fn words_delivered_are_a_row_in_the_thread_and_an_event_and_never_asked_of
     assert_eq!(routed.id, "01LISTVIEWSAAAAAAAAAAAAAAA");
 }
 
-/// A Fleet restarted keeps the row: the thread is a file.
+/// A Fleet restarted keeps the row: the thread is in the store.
 #[tokio::test]
 async fn the_row_is_still_there_after_a_restart() {
     let home = TempDir::new();
@@ -371,13 +372,46 @@ async fn the_row_is_still_there_after_a_restart() {
 
     let again = Arc::new(Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[]))));
 
-    let observed = again.observe_helm(None).await.expect("a conversation");
+    let rows = again
+        .get_helm_session(None)
+        .await
+        .expect("read")
+        .session
+        .expect("the Helm Session outlives the Fleet")
+        .rows;
     assert!(
-        observed
-            .history
-            .iter()
-            .any(|message| matches!(message, HelmMessage::Sent(row) if row.text == "back off longer")),
-        "{:?}",
-        observed.history
+        rows.iter()
+            .any(|row| matches!(row, SessionRow::Sent { text, .. } if text == "back off longer")),
+        "{rows:?}"
     );
+}
+
+/// Helm's own Session is where a question goes: it is never offered as a place a thought belongs.
+#[tokio::test]
+async fn the_helm_session_is_no_candidate_for_a_thought() {
+    let home = TempDir::new();
+    let (fleet, _app, _job) = running(&home, Arc::new(FakeJudge::saying("{}"))).await;
+    let helm = fleet
+        .record_thought_sent(
+            ThoughtSent {
+                text: "x".into(),
+                target: ThoughtTarget {
+                    kind: ThoughtKind::Job,
+                    id: "01JOB".into(),
+                    title: "A Job".into(),
+                    manifest_id: None,
+                    slot: None,
+                },
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            },
+            None,
+        )
+        .await
+        .expect("the Helm Session is made for the row");
+    assert!(helm.helm && helm.title.as_deref() == Some("Helm"));
+    assert!(Candidate::session(&helm).is_none(), "titled, live and still no candidate");
+    let mut ordinary = helm.clone();
+    ordinary.helm = false;
+    assert!(Candidate::session(&ordinary).is_some(), "the same row unmarked is one");
 }

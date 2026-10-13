@@ -1,5 +1,5 @@
 //! Helm passing words to a live Session (`tell_session`): the send is the one Bridge's composer
-//! makes, and the thread's row and `helm.thought_routed` follow it and only it.
+//! makes, and the Helm Session's `sent` row and `helm.thought_routed` follow it and only it.
 //! `docs/concepts/helm.md`, *Routing a thought*.
 //!
 //! **The Session is real and the process behind it is the stand-in**, as `session_host` has it, so
@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use api::{Conversations, HostedSessions, Next, Sessions, Subscription};
 use ipc::{
-    HelmMessage, ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, StartSession,
+    ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, StartSession,
     TakeHeld, TellSession, ThoughtKind,
 };
 
@@ -83,8 +83,15 @@ impl Rig {
             .map_err(|why| format!("{why:?}"))
     }
 
-    async fn thread(&self) -> Vec<HelmMessage> {
-        self.fleet.observe_helm(None).await.expect("a conversation").history
+    /// The rows of the Helm Session's thread: none where the repository has no Helm Session.
+    async fn thread(&self) -> Vec<SessionRow> {
+        Arc::clone(&self.fleet)
+            .get_helm_session(None)
+            .await
+            .expect("read")
+            .session
+            .map(|thread| thread.rows)
+            .unwrap_or_default()
     }
 }
 
@@ -120,11 +127,11 @@ async fn words_told_to_a_hosted_session_take_a_turn_and_are_a_row_and_an_event()
         "the Session was sent the words: {rows:?}"
     );
     let thread = rig.thread().await;
-    let [HelmMessage::Sent(row)] = &thread[..] else {
+    let [SessionRow::Sent { text, target: went, .. }] = &thread[..] else {
         panic!("one sent row and nothing asked of Helm: {thread:?}");
     };
-    assert_eq!(row.text, "make the take names shorter");
-    assert_eq!(row.target, target);
+    assert_eq!(text, "make the take names shorter");
+    assert_eq!(*went, target);
     let events = routed(&mut watching).await;
     let [event] = events.as_slice() else {
         panic!("one routed event: {events:?}");
@@ -142,7 +149,7 @@ async fn words_told_to_a_listening_terminal_session_are_held_for_its_mod() {
     rig.tells(&id, "group them by pull request").await.expect("told");
 
     assert_eq!(rig.mod_listens().await, vec!["group them by pull request"]);
-    assert!(matches!(&rig.thread().await[..], [HelmMessage::Sent(_)]));
+    assert!(matches!(&rig.thread().await[..], [SessionRow::Sent { .. }]));
 }
 
 /// **A refused send records nothing**: not the row, not the event, and the refusal is the send's

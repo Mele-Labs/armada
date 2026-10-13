@@ -1,49 +1,104 @@
-// What Helm's box carries in the mock, as Fleet keeps it: the `/` list, the files an ask carried, and
-// rows added to Helm's thread. Outside `scenarios/`, where every export is read as a row.
+// A mock Fleet that serves Helm as the Session it is: Sessions answered by `FakeSessionsFleet`, and the
+// four things only Helm's dock asks — a message, a thought recorded, Start fresh, and the reading of a
+// thought. The first message of a repository (or the first thought recorded against it) makes its Helm
+// Session, and what follows is rows in that Session's thread, which the window reads as it reads any
+// Session's. Outside `scenarios/`, where every export is read as a row.
 
-import type { HelmBoxFacts, HelmThreadItem, SessionTag, SessionUpload } from "@armada/protocol";
+import type { SessionRecord, SessionRow, SessionTag, SessionUpload, ThoughtTarget } from "@armada/protocol";
 
-import type { FleetHandle } from "./moment";
+import type { BridgeApi } from "../../../shared/api";
+import type { HelmCarry } from "../../../shared/api/helm";
+import { FakeSessionsFleet, hosted } from "./sessions-fleet";
+import type { FleetHandle, Scenario } from "./moment";
+import { readAfterPause } from "./thought-reading";
 
 /** What `/` offers in a message box: the agent's own skills and commands, as its init line names them. */
 export const COMMANDS = ["review", "simplify", "security-review", "init", "compact", "clear", "model"];
 
-/** What Helm's box offers in this scenario: no model or effort picked, and the same commands a Session lists. */
-export const HELM_FACTS: HelmBoxFacts = { commands: COMMANDS };
+const now = () => new Date().toISOString();
 
-/** The files Helm's messages carried, by conversation and id, as Fleet keeps them for `get_helm_file`. */
-export const KEPT_FILES = new Map<string, { bytes: Uint8Array; type: string }>();
-let fileCounter = 0;
-
-/** What an ask carried, as the `asked` row of the thread keeps it: each upload kept, and the tags as sent. */
-export function carriedBy(manifestId: string, carry: { attachments?: SessionUpload[]; mentions?: SessionTag[] } | undefined): Pick<Extract<HelmThreadItem, { kind: "asked" }>, "files" | "tags"> {
-  const files = (carry?.attachments ?? []).map((upload) => {
-    fileCounter += 1;
-    const id = `file-${fileCounter}`;
-    KEPT_FILES.set(`${manifestId}\n${id}`, { bytes: Uint8Array.from(atob(upload.data), (one) => one.charCodeAt(0)), type: upload.media_type });
-    return { id, name: upload.name, media_type: upload.media_type };
-  });
+/** What an upload or a tag becomes on a row of the thread, the way Fleet keeps it. */
+function carried(rowId: string, carry: { attachments?: SessionUpload[]; mentions?: SessionTag[] } | undefined) {
+  const files = (carry?.attachments ?? []).map((upload, at) => ({ id: `${rowId}-${at}`, name: upload.name, media_type: upload.media_type }));
   const tags = carry?.mentions ?? [];
   return { ...(files.length === 0 ? {} : { files }), ...(tags.length === 0 ? {} : { tags }) };
 }
 
-/** Items added to Helm's thread, after the ones it holds: each takes the next id. */
-export function appended(
-  handle: FleetHandle,
-  manifestId: string,
-  ...items: ((id: string) => HelmThreadItem)[]
-): void {
-  const held = handle.state().helm;
-  const was = held.state === "open" ? held.items : [];
-  handle.publish({
-    helm: {
-      state: "open",
-      manifestId,
-      replying: false,
-      skipped: 0,
-      missed: 0,
-      items: [...was, ...items.map((item, at) => item(String(was.length + at)))],
-      facts: held.state === "open" ? held.facts : HELM_FACTS,
+/**
+ * `scenario`'s Sessions and Jobs, served by a Fleet of this mount's own, with Helm's acts on top. `reply` is
+ * what Helm says to any message. The Helm Session of a repository is made by its first message.
+ */
+export function helmFleetOn(scenario: Scenario, handle: FleetHandle, reply: string): Partial<BridgeApi> {
+  const fleet = new FakeSessionsFleet(scenario.state.sessions.state === "read" ? [...scenario.state.sessions.sessions] : [], {});
+  // The dock opens the thread after the first message makes the Session, so what was said before is kept for it.
+  fleet.keepsRows = true;
+  const sessions = fleet.scenario(scenario).behaves!(handle);
+  const live = new Map<string, SessionRecord>();
+  let rowed = 0;
+  const id = () => `helm-row-${(rowed += 1)}`;
+  /** The repository the dock answers for. */
+  const aimed = (): string => {
+    const aim = handle.state().helm;
+    return aim.state === "pointed" ? aim.manifestId : "armada";
+  };
+  /** Helm's Session for a repository, made now if it has none. */
+  const session = (manifestId: string, tuning: { model?: string; effort?: string } = {}): SessionRecord => {
+    const found = live.get(manifestId);
+    if (found !== undefined) return found;
+    const made = hosted(`01HELM${manifestId.toUpperCase().padEnd(20, "A")}`.slice(0, 26), {
+      helm: true,
+      manifest_id: manifestId,
+      title: `Helm · ${manifestId}`,
+      last_turn_at: now(),
+      hosted: { turn: { state: "idle" }, mode: "auto", running: true, commands: COMMANDS, ...tuning },
+    });
+    live.set(manifestId, made);
+    fleet.changed(made);
+    return made;
+  };
+  const row = (sessionId: string, make: SessionRow): void => fleet.row(sessionId, make);
+  const working = (record: SessionRecord, turn: "working" | "idle"): void => {
+    const next = { ...record, hosted: { ...record.hosted!, turn: { state: turn } }, ...(turn === "idle" ? { last_turn_at: now() } : {}) } as SessionRecord;
+    live.set(record.manifest_id!, next);
+    fleet.changed(next);
+  };
+
+  return {
+    ...sessions,
+    // Fleet's reading of a thought: the mock's keyword scorer over this scenario's own Sessions and Jobs. Helm's own
+    // Session is not a place a thought goes.
+    readThought: (text) => {
+      const state = handle.state();
+      return readAfterPause(text, {
+        sessions: state.sessions.state === "read" ? state.sessions.sessions.filter((one) => one.helm !== true) : [],
+        jobs: state.jobs,
+      });
     },
-  });
+    askHelm: async (text, _context, carry?: HelmCarry) => {
+      const record = session(aimed(), { ...(carry?.model === undefined ? {} : { model: carry.model }), ...(carry?.effort === undefined ? {} : { effort: carry.effort }) });
+      const at = now();
+      const said = id();
+      row(record.id, { kind: "message", id: said, at, from: { kind: "you" }, text, ...carried(said, carry) });
+      working(record, "working");
+      // Helm's reply is Fleet's to write; the mock gives the one answer the scenario asks for.
+      row(record.id, { kind: "message", id: id(), at, from: { kind: "agent" }, text: reply });
+      working(live.get(record.manifest_id!)!, "idle");
+      return { ok: true };
+    },
+    // Fleet keeps the row for words sent on, after the fact, in the Session of the repository that was asked about.
+    recordThoughtSent: async (manifestId, text: string, target: ThoughtTarget, carry?: HelmCarry) => {
+      const record = session(manifestId);
+      const sent = id();
+      row(record.id, { kind: "sent", id: sent, at: now(), text, target, ...carried(sent, carry) });
+      return { ok: true };
+    },
+    // The Session ends and the next message starts a new one.
+    startHelmFresh: async () => {
+      const record = live.get(aimed());
+      if (record === undefined) return { ok: true };
+      live.delete(aimed());
+      fleet.changed({ ...record, state: "ended" });
+      return { ok: true };
+    },
+  };
 }

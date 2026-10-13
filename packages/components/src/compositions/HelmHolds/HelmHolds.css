@@ -1,0 +1,46 @@
+/* What Helm holds, as one row of chips under the dock's head: the ledger's rows, compact. */
+.armada-helm-holds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-helm-holds__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.armada-helm-holds__chip:hover {
+  border-color: var(--helm-edge);
+  color: var(--fg-default);
+}
+
+.armada-helm-holds__chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-helm-holds__chip > svg {
+  flex: none;
+}
+
+.armada-helm-holds__text {
+  min-width: 0;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

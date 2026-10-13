@@ -49,13 +49,15 @@ const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository">;
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository" | "helm">;
 
 /** The store behind one window's Sessions. Exported for a test that holds it without a window. */
 export class WiredStore {
   private readonly api: BridgeApi;
   private inputs: Inputs | undefined;
   private mapped: readonly Session[] = NONE;
+  /** The live Helm Session of the repository the dock answers for, held whatever the rail picked. */
+  private helm: Session | undefined;
   private refusal: string | undefined;
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, readonly SessionTag[]>();
@@ -80,8 +82,8 @@ export class WiredStore {
 
   private take(state: BridgeState): void {
     const was = this.inputs;
-    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository) return;
-    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository };
+    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository && was.helm === state.helm) return;
+    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository, helm: state.helm };
     this.recompute();
   }
 
@@ -90,6 +92,10 @@ export class WiredStore {
     // The window holds the picked repository's Sessions, as the Board holds its Jobs: every list here reads this one.
     const picked = this.inputs?.holds.repositories?.find((one) => one.root === this.inputs?.repository) ?? null;
     this.mapped = read === undefined || read.state !== "read" ? NONE : sessionsOfRecords(sessionsOfPicked(read.sessions, picked), this.inputs!.sessionThreads, this.beside);
+    // Helm answers for the repository the dock points at, which the rail's pick need not be.
+    const aimed = this.inputs?.helm.state === "pointed" ? this.inputs.helm.manifestId : undefined;
+    const record = aimed === undefined || read === undefined || read.state !== "read" ? undefined : read.sessions.find((one) => one.helm === true && one.state !== "ended" && one.manifest_id === aimed);
+    this.helm = record === undefined ? undefined : sessionsOfRecords([record], this.inputs!.sessionThreads, this.beside)[0];
     this.listeners.forEach((listener) => listener());
   }
 
@@ -98,6 +104,7 @@ export class WiredStore {
     picture: (sessionId, fileId) => this.picture(sessionId, fileId),
     sketches: this.sketches.get(id) ?? NONE,
     pending: this.pending.get(id) ?? NONE,
+    repository: (manifestId) => this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "",
   });
 
   /** A picture a message carried, once read. Read on first ask and drawn from then on. */
@@ -333,6 +340,7 @@ export class WiredStore {
     const store = this;
     return {
     get: () => this.mapped,
+    helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
     start: (tag, root) => this.starting(tag, root),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),

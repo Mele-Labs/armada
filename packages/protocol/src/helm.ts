@@ -1,20 +1,15 @@
-// One repository's Helm conversation, as TypeScript sees it. `crates/ipc/src/helm.rs`.
+// One repository's Helm, as TypeScript sees it. `crates/ipc/src/helm.rs`.
 //
-// Hand-written like `turn.ts`, for `turn.ts`'s own reason: this is a second
-// query whose transport is a socket, and the codegen that would emit both
-// sides does not exist yet.
+// **Helm is a hosted Session** (`docs/concepts/helm.md`, the decision record of 13 Oct 2026).
+// `AskHelm`, `HelmSession`, `HelmContext` and `HelmScreen` are the wire the dock speaks. The
+// socket Helm used to have (`GET /helm/observe`, `POST /helm/tune`, `GET /helm/file`,
+// `helm.changed_checkout`) is gone from Fleet and from this file. `HelmAsked`, `HelmFresh`,
+// `HelmUnanswered` and `Freshness` stay for the Commander, whose thread is still Helm's old host.
 //
-// **A `row` here is a Drone's turn's own `Saw`, from `turn.ts`.** A reply is
-// read with the vocabulary a Drone's transcript already has — `docs/practices/
-// protocol.md`'s "The Helm socket" is explicit about it — so this file adds no
-// second row shape for prose that happens to come from a session instead of a
-// Drone.
+// Hand-written like `turn.ts`: the codegen that would emit both sides does not exist yet.
 
-import type { Missed } from "./events";
-import type { Saw, Voice } from "./turn";
-import type { ProtocolId } from "./connection";
-import type { HelmSent } from "./thought";
-import type { SentFile, SessionTag, SessionUpload } from "./hosted-sessions";
+import type { SentFile, SessionTag, SessionThread, SessionUpload } from "./hosted-sessions";
+import type { SessionRecord } from "./sessions";
 
 /**
  * `POST /helm/ask` — what a person says to Helm. **The text may be blank when `attachments` or `mentions`
@@ -28,24 +23,29 @@ export type AskHelm = {
   attachments?: SessionUpload[];
   /** What the message names with `@` and `#`. Left out when there are none. */
   mentions?: SessionTag[];
-};
-
-/** `POST /helm/tune?manifest_id=`: the model and effort Helm's next reply uses. Absent is Auto. 422 `fleet.unacceptable_effort`. */
-export type TuneHelm = {
+  /**
+   * The model and effort for the Helm Session, where this message is the one that starts it. Absent
+   * is the Session's default. Ignored once a Session is live, which `tune_session` changes. 422
+   * `fleet.unacceptable_effort`.
+   */
   model?: string;
   effort?: string;
 };
 
 /**
- * What Helm's message box offers and holds for one conversation: the model and effort it uses, and the
- * names its `/` lists. Absent is Auto, and no commands. `tune_helm` answers it, and `observe_helm` carries it.
+ * `GET /helm/session?manifest_id=` and what `POST /helm/start_fresh` answers: the repository's live Helm
+ * Session and its thread, or none. **`session` is absent before the first message and after a person
+ * starts fresh.** The dock reads the thread here, then follows `session.row` and `session.changed` on
+ * `/events` by the session's id, as a Session's page does. `POST /helm/ask` and `POST
+ * /helm/thought_sent` answer a `SessionRecord`, with `helm: true`.
  */
-export type HelmBoxFacts = {
-  model?: string;
-  effort?: string;
-  /** Command names, no sentence. */
-  commands?: string[];
+export type HelmSession = {
+  manifest_id: string;
+  session?: SessionThread;
 };
+
+/** What `POST /helm/ask` answers: the Helm Session's record. Its reply arrives as `session.row`. */
+export type HelmAnswered = SessionRecord;
 
 /**
  * Where the person is in Bridge, as one ask carries it — a snapshot of the
@@ -84,50 +84,11 @@ export type HelmScreen =
   | "workflows"
   | "job_detail";
 
-/**
- * What `POST /helm/ask` and `POST /helm/start_fresh` answer with. **Not the
- * reply**, which arrives on the socket.
- */
-export type HelmConversation = {
-  manifest_id: string;
-  /** A reply is being written, or a message is waiting for one. */
-  replying: boolean;
-  /** The next message resumes a stored session. `false` starts a new one. */
-  resumes: boolean;
-};
-
-/** One message on `GET /helm/observe`'s socket. */
-export type HelmMessage =
-  | ({ message: "opened" } & HelmOpened)
-  | ({ message: "asked" } & HelmAsked)
-  /** `Shown` on the Rust side. `turn.ts`'s own row, tagged the same way. */
-  | ({ message: "row"; ts: string; step?: string; by?: Voice } & Saw)
-  | ({ message: "fresh" } & HelmFresh)
-  | ({ message: "unanswered" } & HelmUnanswered)
-  /** These words went to a Session or a Job and never to Helm's session. Since a thought was routed: `thought.ts`. */
-  | ({ message: "sent" } & HelmSent)
-  /** The box's facts changed. **Live only**: never part of the thread's items or its backfill, and it replaces the held facts. */
-  | ({ message: "facts" } & HelmBoxFacts)
-  | ({ message: "missed" } & Missed)
-  | ({ message: "closed" } & HelmClosed);
-
-/** The first message on every connection. */
-export type HelmOpened = {
-  protocol_id: ProtocolId;
-  manifest_id: string;
-  /** Whether a reply was being written when this opened. */
-  replying: boolean;
-  /** Older messages the thread left out, because the backfill is bounded. */
-  skipped: number;
-  /** What the message box offers and holds. */
-  facts: HelmBoxFacts;
-};
-
 /** What a person said, as Fleet took it, and what it carried. */
 export type HelmAsked = {
   ts: string;
   text: string;
-  /** Files and pictures it carried, kept by Fleet. `get_helm_file` serves them. */
+  /** Files and pictures it carried, kept by Fleet. */
   files?: SentFile[];
   /** What it named with `@` and `#`. */
   tags?: SessionTag[];
@@ -147,10 +108,3 @@ export type HelmUnanswered = {
   ts: string;
   why: string;
 };
-
-/** Nothing more on this connection, and why. */
-export type HelmClosed = {
-  because: HelmSilence;
-};
-
-export type HelmSilence = "started_fresh";

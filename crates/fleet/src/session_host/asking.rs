@@ -45,10 +45,19 @@ where
     /// The hosted session whose process holds this call's connection.
     /// **Placed by the connection**, as Helm's is, never by what the caller says.
     pub(crate) fn session_holding(&self, caller: &Caller) -> Option<String> {
+        self.session_placed(caller).map(|(id, _)| id)
+    }
+
+    /// The hosted session whose process holds this call's connection, and whether it is a
+    /// repository's Helm, whose door is Helm's and not a Session's.
+    pub(crate) fn session_placed(&self, caller: &Caller) -> Option<(String, bool)> {
         self.hosts().all().into_iter().find_map(|(id, runtime)| {
-            let pid = runtime.state().process.as_ref().and_then(|p| p.pid())?;
+            let (pid, helm) = {
+                let state = runtime.state();
+                (state.process.as_ref().and_then(|p| p.pid())?, state.helm)
+            };
             crate::peer::held_within(caller, self.host().port, &[pid], self.peers().as_ref())
-                .then_some(id)
+                .then_some((id, helm))
         })
     }
 

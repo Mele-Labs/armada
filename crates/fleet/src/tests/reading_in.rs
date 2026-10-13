@@ -2,7 +2,7 @@
 //!
 //! **Nothing here reaches a network.** A session is a file this test writes
 //! under the project directory the checkout's own path keys, a Helm thread is
-//! the file Fleet already writes, and the forge is a stand-in `gh` on the PATH
+//! the rows the Helm Session keeps, and the forge is a stand-in `gh` on the PATH
 //! Fleet gives every process it spawns — which is the point being held as much
 //! as the fixture: the scout fetches nothing, so a read-in is testable without
 //! one.
@@ -120,16 +120,59 @@ fn reading_answered(home: &TempDir, read: &str) -> Arc<Reading> {
     Arc::new(Fleet::assembled(fittings).scouting_on(host))
 }
 
-/// A key as a file name, the way `helm::ConversationKey` writes one.
-fn keyed(key: &str) -> String {
-    key.chars()
-        .map(
-            |c| match c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-                true => c,
-                false => '_',
-            },
-        )
-        .collect()
+/// The repository's Helm Session, with a thread of what was said in it: the person's words and
+/// Helm's, as the rows a Session keeps. **Written to the store as `start_session` and a turn would
+/// have left them**, which is all a read-in reads.
+async fn a_helm_thread(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::SessionVoice, &str)]) {
+    let id = "00000000-0000-4000-8000-0000000000a1";
+    let at = "2026-09-17T09:00:00.000Z";
+    let mut store = fleet.store().lock().await;
+    store
+        .keep_session(&store::KeptSession {
+            id: id.to_string(),
+            harness: String::from(adapters::HOSTED_HARNESS),
+            origin: String::from("bridge"),
+            manifest_id: Some(manifest.to_string()),
+            cwd: String::new(),
+            title: Some(String::from("Helm")),
+            state: store::SessionState::Live,
+            started_at: at.to_string(),
+            last_seen_at: at.to_string(),
+            last_turn_at: None,
+            ended_at: None,
+            end_reason: None,
+            figures: Default::default(),
+            mod_version: None,
+        })
+        .expect("a session");
+    store
+        .keep_hosting(&store::KeptHosting {
+            session_id: id.to_string(),
+            manifest_id: manifest.to_string(),
+            model: None,
+            effort: None,
+            mode: String::from("auto"),
+            ran: false,
+            lease_slot: None,
+            lease_branch: None,
+            fork_of: None,
+            helm: true,
+        })
+        .expect("a hosting");
+    for (at_row, (from, text)) in said.iter().enumerate() {
+        let row = ipc::SessionRow::Message {
+            id: format!("r{at_row}"),
+            at: ipc::Instant::carried(at),
+            from: from.clone(),
+            text: text.to_string(),
+            files: Vec::new(),
+            tags: Vec::new(),
+        };
+        let body = ipc::encode(&row).expect("a row");
+        store
+            .keep_session_row(id, row.id(), &body)
+            .expect("kept");
+    }
 }
 
 /// What the stand-in was told, once the scout it ran as has ended.
@@ -303,22 +346,22 @@ fn kind(node: &StudioNode) -> &'static str {
 /// Link survives with its address, and Notes and a Contradiction hang off it.**
 ///
 /// A Helm thread is the source, because it is the one Fleet reads off its own
-/// disk — `observe_helm` refuses every agent, so nothing a scout could call
+/// store — `get_helm_session` refuses every agent, so nothing a scout could call
 /// reaches one.
 #[tokio::test]
 async fn a_thread_read_in_leaves_the_link_standing_with_notes_and_a_contradiction_off_it() {
     let home = TempDir::new();
     let fleet = reading(&home);
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    let thread = home.path().join("helm");
-    std::fs::create_dir_all(&thread).expect("a helm directory");
-    std::fs::write(
-        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
-        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"is a Studio per repository?\"}\n\
-         {\"message\":\"row\",\"ts\":\"2026-09-17T09:00:01Z\",\"by\":\"drone\",\"event\":\"said\",\
-         \"text\":\"one per repository\"}\n",
+    a_helm_thread(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[
+            (ipc::SessionVoice::You, "is a Studio per repository?"),
+            (ipc::SessionVoice::Agent, "one per repository"),
+        ],
     )
-    .expect("a thread");
+    .await;
 
     let answered = Arc::clone(&fleet)
         .read_in_link(
@@ -400,13 +443,12 @@ async fn a_cluster_read_in_is_produced_by_each_note_it_names() {
         r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"The problem today\",\"of\":[\"n1\",\"n2\",\"n9\"]}]}"#,
     );
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    let thread = home.path().join("helm");
-    std::fs::create_dir_all(&thread).expect("a helm directory");
-    std::fs::write(
-        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
-        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"what is wrong?\"}\n",
+    a_helm_thread(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[(ipc::SessionVoice::You, "what is wrong?")],
     )
-    .expect("a thread");
+    .await;
 
     Arc::clone(&fleet)
         .read_in_link(
@@ -470,13 +512,12 @@ async fn a_cluster_of_one_note_or_none_lands_no_frame_and_its_note_still_lands()
         r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"One\",\"of\":[\"n1\"]},{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
     );
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    let thread = home.path().join("helm");
-    std::fs::create_dir_all(&thread).expect("a helm directory");
-    std::fs::write(
-        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
-        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"what is wrong?\"}\n",
+    a_helm_thread(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[(ipc::SessionVoice::You, "what is wrong?")],
     )
-    .expect("a thread");
+    .await;
 
     Arc::clone(&fleet)
         .read_in_link(
@@ -513,13 +554,12 @@ async fn a_read_in_answered_with_nothing_lands_one_note_from_its_finding() {
         r#"{\"clusters\":[{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
     );
     let (studio, link) = a_link(&fleet, "armada:thread").await;
-    let thread = home.path().join("helm");
-    std::fs::create_dir_all(&thread).expect("a helm directory");
-    std::fs::write(
-        thread.join(format!("{}.jsonl", keyed(studio.manifest_id.as_str()))),
-        "{\"message\":\"asked\",\"ts\":\"2026-09-17T09:00:00Z\",\"text\":\"what is wrong?\"}\n",
+    a_helm_thread(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[(ipc::SessionVoice::You, "what is wrong?")],
     )
-    .expect("a thread");
+    .await;
 
     Arc::clone(&fleet)
         .read_in_link(
