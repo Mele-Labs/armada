@@ -13,7 +13,6 @@
 //!
 //! | Step of the claim | Carried by |
 //! |---|---|
-//! | The owner sees in the thread and on each task's mark that it acted, and answers a card | #2169 |
 //! | A repair Drone goes onto the Job's own branch | #2170 |
 
 //! What is asserted here is what a Commander is given and shown, without a Fleet:
@@ -35,7 +34,11 @@
 //! restart, it counts as the Job waiting on him without moving the Job, the
 //! night records it as blocked, his answer wakes the Commander, and at the loop
 //! bound a card goes out and a running Job keeps running. What crosses the wire
-//! is asserted here. A Fleet cannot be assembled from here without the fixture
+//! is asserted here, and **what the owner sees of it is Bridge's**: the thread, each
+//! task's mark and the card in Now and in Your move are drawn by the Jobs surface
+//! from these same values, and asserted in `apps/desktop`'s
+//! `mock/job-commander.test.tsx` and `packages/surfaces/jobs`' `commander-rows.test.ts`,
+//! since nothing in this workspace renders. A Fleet cannot be assembled from here without the fixture
 //! that crate keeps private, and its thread is a file.
 
 // Shared with the other milestones' tests, and none of them uses all of it.
@@ -52,6 +55,7 @@ use bench::commander::{
     a_plan_four_acts_were_made_on, a_plan_recorded_by, a_step_the_commander_stopped,
     status_moves_received, stopped_by_fleet_and_resumed_by_the_commander,
 };
+use bench::overview::{detail_of, round_trip_detail, section_of};
 use bench::plan::PLAN;
 use bench::Bench;
 
@@ -456,4 +460,42 @@ fn a_job_names_its_commanders_model_and_effort_with_both_keys_present() {
             String::from_utf8_lossy(dropped)
         );
     }
+}
+
+/// #2169. A Job with a card out reaches a Bridge as one waiting on the owner,
+/// with the card itself beside it: the row that puts it among those Your move
+/// lists, and the detail the card is drawn from.
+#[test]
+fn a_job_with_a_card_out_reaches_a_bridge_waiting_on_the_owner_with_the_card_beside_it() {
+    let bench = a_bench();
+    let mut run = bench.created("steer the red group");
+    bench.approved_and_dispatched(&mut run);
+    let mut detail = detail_of(&run.job, None);
+    assert_eq!(section_of(&detail.job), Some("running"), "a running Job is not waiting before the card");
+
+    detail.job.asking = true;
+    detail.commander_card = Some(ipc::CommanderCard {
+        card_id: ipc::CardId::carried("01CARD"),
+        job_id: detail.job.id.clone(),
+        by: ipc::CardBy::Commander,
+        raised_at: ipc::Instant::carried("2026-10-13T09:00:00.000Z"),
+        text: "Group 3 is red on desktop_test".to_string(),
+        reach: "A Check is skipped or edited by you".to_string(),
+        question: "What should Group 3 do?".to_string(),
+        options: vec![
+            ipc::CardOption { id: "1".to_string(), label: "Skip desktop_test".to_string() },
+            ipc::CardOption { id: "2".to_string(), label: "Leave it".to_string() },
+        ],
+    });
+
+    let received = round_trip_detail(&detail);
+    assert_eq!(section_of(&received.job), Some("needs-you"), "the row Your move reads");
+    let card = received.commander_card.expect("the card is served on its Job");
+    assert_eq!(card.question, "What should Group 3 do?");
+    assert_eq!(
+        card.options.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(),
+        ["1", "2"],
+        "an answer names the card and one of these"
+    );
+    assert_eq!(received.job.status, detail.job.status, "no status moved");
 }
