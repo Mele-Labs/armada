@@ -139,6 +139,21 @@ const takes = (): Variation[] =>
     return { name, url: url.toString() };
   });
 
+/** The Session that shows three walks in a window when it is next spoken to: the bar draws their controls. */
+export const WALKER = "s13";
+const WALKED = "Walks in a window";
+/** Its takes: three short walks, each the mock playing itself in the frame, the way a Session would serve a walkthrough. */
+const walkTakes = (): Variation[] =>
+  [
+    { name: "Ledger filter", walk: "session-ledger-filter" },
+    { name: "Task marks", walk: "taskMarkTooltips" },
+    { name: "Sleep cockpit", walk: "sleepCockpit" },
+  ].map(({ name, walk }) => {
+    const url = new URL(mockPage());
+    url.search = `?walk=${walk}&walked`;
+    return { name, url: url.toString() };
+  });
+
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
 
@@ -237,7 +252,7 @@ export function sessionsStore(
         await store.send(id, { text: `Approved${which}: ${address}`, files: [], sketches: [], tags: [] });
         return { ok: true };
       },
-      ...(id === VARIER ? { variations: takes() } : {}),
+      ...(id === VARIER ? { variations: takes() } : id === WALKER ? { variations: walkTakes() } : {}),
       // Shown is said to be ready: a Session shows a page when it is done with it.
       readiness: "ready",
     });
@@ -546,13 +561,14 @@ export function sessionsStore(
             });
           }
         });
-      } else if (id === VARIER) {
+      } else if (id === VARIER || id === WALKER) {
         const had = asked.get(id) ?? 0;
         asked.set(id, had + 1);
         after(900, () => {
           if (had === 0) {
-            addTo(id, [tool(`show_window ${VARIED}, 3 variations`), said("Three layouts are in a window.")]);
-            showWindow(id, takes()[0]!.url, VARIED);
+            const walks = id === WALKER;
+            addTo(id, [tool(`show_window ${walks ? WALKED : VARIED}, 3 variations`), said(walks ? "Three walks are in a window." : "Three layouts are in a window.")]);
+            showWindow(id, (walks ? walkTakes() : takes())[0]!.url, walks ? WALKED : VARIED);
           } else {
             addTo(id, [said("Noted. I will change that.")]);
           }

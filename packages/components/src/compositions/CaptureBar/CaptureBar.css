@@ -170,3 +170,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The page's walk, a row under the bar's own: where it stands and its acts. The caption is the one
+   track that gives, and the full words are its tooltip. */
+.armada-capture-bar__walk {
+  gap: var(--space-2);
+}
+
+.armada-capture-bar__walk-where {
+  flex: none;
+  margin-inline-start: var(--space-1);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.armada-capture-bar__walk-said {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

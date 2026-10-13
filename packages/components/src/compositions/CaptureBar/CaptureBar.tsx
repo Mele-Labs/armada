@@ -1,7 +1,10 @@
-import { Check } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import type { KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
-import { KbdChord } from "../../primitives/Kbd/Kbd";
+import { Kbd, KbdChord } from "../../primitives/Kbd/Kbd";
+import { Switch } from "../../primitives/Switch/Switch";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 
 /**
@@ -101,7 +104,57 @@ export type CaptureBarProps = {
    * the bar's start and as the bar's own hue. **Absent: nobody has said.**
    */
   readiness?: CaptureBarReadiness;
+  /**
+   * The walk the page is playing, its controls drawn in a row of their own so the page keeps its
+   * room. **Absent: the page is not a walk.** Keys pressed on the bar act on the walk as they do in
+   * the page.
+   */
+  walk?: CaptureBarWalk;
 };
+
+/** Where a walk on the page stands, and the acts on it. `at` counts from 1. */
+export type CaptureBarWalk = {
+  name: string;
+  at: number;
+  of: number;
+  /** The step's caption. */
+  said: string;
+  autoplay: boolean;
+  /** The step's target is ringed, so Next has something to act on. */
+  ready: boolean;
+  /** Past the last step. */
+  done: boolean;
+  onBack: () => void;
+  onNext: () => void;
+  onAutoplay: (on: boolean) => void;
+  onReplay: () => void;
+};
+
+/**
+ * The walk's keys, as the page takes them: a key that is not one of them is left alone. Enter
+ * is left to a button of the bar's own row above, which it presses.
+ */
+function walkKey(event: KeyboardEvent<HTMLElement>, walk: CaptureBarWalk): void {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const key = event.key.toLowerCase();
+  const onAButton = event.target instanceof HTMLElement && event.target.closest("button") !== null;
+  const inWalkRow = event.target instanceof HTMLElement && event.target.closest(".armada-capture-bar__walk") !== null;
+  const act =
+    key === "arrowright" || (key === "enter" && (!onAButton || inWalkRow))
+      ? walk.onNext
+      : key === "arrowleft"
+        ? walk.onBack
+        : key === "a"
+          ? () => walk.onAutoplay(!walk.autoplay)
+          : key === "r"
+            ? walk.onReplay
+            : null;
+  if (act === null) return;
+  // Not the button's own press as well, and not the page behind that hears the same key.
+  event.preventDefault();
+  event.stopPropagation();
+  act();
+}
 
 export type CaptureBarReadiness = "ready" | "working";
 
@@ -128,7 +181,7 @@ export function hasASecondRow(
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness } = props;
+  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk } = props;
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const owner = job ?? session;
   const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
@@ -149,7 +202,12 @@ export function CaptureBar(props: CaptureBarProps) {
       landsOn
     );
   return (
-    <div className="armada-capture-bar" data-armed={armed ? "" : undefined} data-readiness={readiness}>
+    <div
+      className="armada-capture-bar"
+      data-armed={armed ? "" : undefined}
+      data-readiness={readiness}
+      {...(walk === undefined ? {} : { onKeyDown: (event: KeyboardEvent<HTMLElement>) => walkKey(event, walk) })}
+    >
       <div className="armada-capture-bar__row">
         {readiness === undefined ? null : <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />}
         {run === undefined ? null : (
@@ -218,6 +276,42 @@ export function CaptureBar(props: CaptureBarProps) {
               {name}
             </button>
           ))}
+        </div>
+      )}
+      {walk === undefined ? null : (
+        <div className="armada-capture-bar__row armada-capture-bar__walk" role="group" aria-label={`Walk ${walk.name}`}>
+          <Tooltip label="Replay to the step before">
+            <Button variant="ghost" size="sm" disabled={walk.at <= 1} onClick={walk.onBack}>
+              <ChevronLeft size={12} strokeWidth={2} aria-hidden />
+              Back
+            </Button>
+          </Tooltip>
+          <Kbd>←</Kbd>
+          <span className="armada-capture-bar__walk-where">
+            Step {walk.at} of {walk.of}
+          </span>
+          <span className="armada-capture-bar__walk-said" title={walk.said}>
+            {walk.said}
+          </span>
+          <Tooltip label="Replay from step 1">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Replay" onClick={walk.onReplay}>
+              <RotateCcw size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Kbd>R</Kbd>
+          <Tooltip label="Go on by itself">
+            <Switch checked={walk.autoplay} onChange={(event) => walk.onAutoplay(event.target.checked)}>
+              Autoplay
+            </Switch>
+          </Tooltip>
+          <Kbd>A</Kbd>
+          <Tooltip label="Act on the ringed target and go on">
+            <Button variant="primary" size="sm" disabled={!walk.ready || walk.done} onClick={walk.onNext}>
+              Next
+              <ChevronRight size={12} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+          <Kbd>→</Kbd>
         </div>
       )}
       {hasASecondRow(props) ? (

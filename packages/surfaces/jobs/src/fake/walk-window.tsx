@@ -11,9 +11,37 @@
 // the note is handed to `onNote`. The page is this mock on the same origin, so
 // the frame's document is reachable — main asks its page through a script.
 
-import { StrictMode, useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useRef, useState, type RefObject } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, variationLetter, type CaptureBarApproval, type CaptureBarReadiness } from "@armada/components";
+import { Button, CaptureBar, variationLetter, type CaptureBarApproval, type CaptureBarReadiness, type CaptureBarWalk } from "@armada/components";
+
+/** Where the walk a page is playing stands, as its bar draws it. `at` counts from 1. */
+export type WalkState = { name: string; at: number; of: number; said: string; autoplay: boolean; ready: boolean; done: boolean };
+
+/**
+ * **What the walk in a page offers the window that frames it**, on the page's `window.__armadaWalk`.
+ * The real window would reach it by main running script in the page, as it does for capture and for
+ * a question; here the frame is the same origin and the stand-in reads it straight off.
+ */
+export type WalkHandle = {
+  state: () => WalkState;
+  /** Told after every change in `state`. Returns the way to stop hearing. */
+  subscribe: (hear: () => void) => () => void;
+  next: () => void;
+  /** Replays the page to the step before. */
+  back: () => void;
+  autoplay: (on: boolean) => void;
+  /** Replays the page from step 1. */
+  replay: () => void;
+  /** The page draws its own card, or leaves it to the bar. The ring stays either way. */
+  hostCard: (hidden: boolean) => void;
+};
+
+declare global {
+  interface Window {
+    __armadaWalk?: WalkHandle;
+  }
+}
 
 /** What a press inside the page picked, as a walk note describes it. */
 export type Picked = { element: string; selector: string; location: string; variation?: Taken };
@@ -129,6 +157,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwn
   // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
   const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
   const [at, setAt] = useState(0);
+  const walking = useWalkOn(frame, testing);
   const url = variations?.[at]?.url ?? first;
   const taken: Taken | undefined = variations?.[at] === undefined ? undefined : { letter: variationLetter(at), name: variations[at].name };
 
@@ -258,6 +287,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwn
         {...(approval?.at !== at ? {} : { approval: approval.state })}
         {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
         {...(readiness === undefined ? {} : { readiness })}
+        {...(walking === null ? {} : { walk: walking })}
       />
       {picked === null ? null : (
         <form
@@ -296,6 +326,115 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwn
     </div>
   );
 }
+
+/**
+ * The walk in the framed page, as the bar draws it: **null where the page is not a walk**. A page
+ * that loads again — a walk replaying for Back — is read again when it has loaded. The card is told to
+ * leave the page to the bar, and to come back when the bar goes.
+ *
+ * **No page under test**, so a test gets a walk of its own over three steps: the bar's row and its keys
+ * are what it holds.
+ */
+function useWalkOn(frame: RefObject<HTMLIFrameElement | null>, testing: boolean): CaptureBarWalk | null {
+  const [handle, setHandle] = useState<WalkHandle | null>(null);
+  const [state, setState] = useState<WalkState | null>(null);
+
+  useEffect(() => {
+    const inner = frame.current;
+    if (inner === null) return;
+    let poll = 0;
+    let off = (): void => {};
+    const connect = (): void => {
+      off();
+      off = () => {};
+      window.clearInterval(poll);
+      setHandle(null);
+      setState(null);
+      let tries = 0;
+      const look = (): boolean => {
+        // A page of another origin, or none yet, has no handle to read.
+        let found: WalkHandle | undefined;
+        try {
+          found = testing ? testWalk : inner.contentWindow?.__armadaWalk;
+        } catch {
+          return false;
+        }
+        if (found === undefined) return false;
+        found.hostCard(true);
+        const hear = found.subscribe(() => setState(found.state()));
+        off = () => {
+          hear();
+          try {
+            found.hostCard(false);
+          } catch {
+            // The page is gone with its card.
+          }
+        };
+        setHandle(found);
+        setState(found.state());
+        return true;
+      };
+      // The walk mounts a moment after the page loads.
+      if (!look()) poll = window.setInterval(() => (look() || (tries += 1) > 50) && window.clearInterval(poll), 100);
+    };
+    inner.addEventListener("load", connect);
+    connect();
+    return () => {
+      inner.removeEventListener("load", connect);
+      window.clearInterval(poll);
+      off();
+    };
+  }, [frame, testing]);
+
+  if (handle === null || state === null) return null;
+  return {
+    name: state.name,
+    at: state.at,
+    of: state.of,
+    said: state.said,
+    autoplay: state.autoplay,
+    ready: state.ready,
+    done: state.done,
+    onBack: handle.back,
+    onNext: handle.next,
+    onAutoplay: handle.autoplay,
+    onReplay: handle.replay,
+  };
+}
+
+/** A walk over three steps held in memory, for a window with no page in its frame. */
+const testWalk: WalkHandle = (() => {
+  const said = ["First step", "Second step", "Third step"];
+  const hearing = new Set<() => void>();
+  let at = 0;
+  let autoplay = false;
+  const move = (to: number) => {
+    at = to;
+    hearing.forEach((hear) => hear());
+  };
+  let snapshot: WalkState = { name: "a walk", at: 1, of: 3, said: said[0]!, autoplay, ready: true, done: false };
+  const state = () => {
+    if (snapshot.at !== Math.min(at + 1, 3) || snapshot.autoplay !== autoplay) {
+      snapshot = { name: "a walk", at: Math.min(at + 1, 3), of: 3, said: said[Math.min(at, 2)]!, autoplay, ready: at < 3, done: at >= 3 };
+    }
+    return snapshot;
+  };
+  return {
+    state,
+    subscribe: (hear) => {
+      hearing.add(hear);
+      return () => void hearing.delete(hear);
+    },
+    next: () => at < 3 && move(at + 1),
+    back: () => at > 0 && move(at - 1),
+    autoplay: (on) => {
+      autoplay = on;
+      move(at);
+    },
+    replay: () => move(0),
+    hostCard: () => {},
+  };
+})();
 
 /** What was picked, the way a person names it: its role or tag and its words. */
 function described(element: HTMLElement): string {
