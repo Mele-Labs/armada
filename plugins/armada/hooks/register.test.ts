@@ -170,6 +170,16 @@ test('a pull request read off the branch carries its title, branch and address',
   })
 })
 
+test('a subagent that stops is settled as spent', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('classic.SubagentStop', () => ({}))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.SubagentStop({ stop_hook_active: false, agent_id: 'a1b2', agent_transcript_path: '/t.jsonl', agent_type: 'Explore' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'settled', attachment: { kind: 'subagent', target: 'a1b2' }, state: 'spent' })
+})
+
 test('a message is reported as who it went to, and its text never leaves', async ($, on) => {
   const { posts, clock } = world(on)
   on('session.send', () => ({ isDelivered: true }))
