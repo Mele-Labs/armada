@@ -35,6 +35,9 @@ import type { FleetHandle } from "./moment";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
+/** A picture that decodes. A sent message draws what it carried, and a broken one raises an error the walks hear. */
+const ONE_PIXEL = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+
 /** An attachment as Fleet writes it. */
 export function held(kind: string, target: string, detail: Record<string, string> = {}, state: AttachmentState = "standing"): Attachment {
   return { kind, manifest_id: "armada", target, state, detail, since: AT, changed_at: AT };
@@ -368,7 +371,7 @@ export class FakeSessionsFleet {
             const thread = this.subagents[subagentId];
             return thread === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: thread };
           },
-          readSessionFile: async () => ({ ok: true, bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png" }),
+          readSessionFile: async () => ({ ok: true, bytes: ONE_PIXEL, type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),
           readSessionArtifact: async () => ({ ok: true, bytes: new TextEncoder().encode("# Store clock"), type: "text/markdown" }),
           showSessionPage: async (_sessionId, address) => {
