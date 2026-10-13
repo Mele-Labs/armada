@@ -7,6 +7,7 @@
 //! a process says into rows and turns, `gate` is the lease, `asking` is the
 //! permission door and `rows` writes the thread.
 
+mod agent_starting;
 mod asking;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
@@ -29,10 +30,12 @@ mod rows;
 pub(crate) use rows::{mention_line, UserLine};
 mod serving;
 mod thread_cache;
+pub(crate) use agent_starting::UNSENT_ITEM;
 pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
+pub(crate) mod readiness;
 pub(crate) mod walking;
 
 use std::collections::HashMap;

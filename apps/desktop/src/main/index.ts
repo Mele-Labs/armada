@@ -26,7 +26,7 @@ import type {
 } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
-import { sessionNoteText } from "./capture/session-note";
+import { approvedText, sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
@@ -161,13 +161,13 @@ const captureWindows = new CaptureWindows({
   walkNote: async (jobId, said, capture, frame) =>
     (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
     UNSENT,
-  sessionNote: async (sessionId, said, capture, address) => {
-    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address) });
+  sessionNote: async (sessionId, said, capture, address, take) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
   walkApproved: async (jobId) => (await connection?.commands.approveReview(jobId)) ?? UNSENT,
-  sessionApproved: async (sessionId, address) => {
-    const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
+  sessionApproved: async (sessionId, address, take) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: approvedText(address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
   // The Session's question in its window settles as the item it is under Waiting on you.
@@ -494,7 +494,7 @@ void app.whenReady().then(() => {
     now: () => Date.now(),
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
-  connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
+  connection.sessions.onWindow((sessionId, title, url, takes) => void captureWindows.openForSession(sessionId, title, url, takes));
   // A Session asked about a place on its walk: the window comes forward and goes there.
   connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
   // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.

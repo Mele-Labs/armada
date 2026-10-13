@@ -103,9 +103,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The transcript line session `old`'s row `at` was written as. **Read before anything is
-    /// written**, so a refusal leaves no session behind.
-    pub(super) async fn fork_cut(&self, old: &str, at: &str) -> Result<String, Refusal> {
+    /// Session `old` as a fork reads it: whether Fleet hosts it, its thread, and the transcript.
+    async fn fork_reads(&self, old: &str) -> Result<(bool, Vec<SessionRow>, Vec<SessionRow>), Refusal> {
         let (known, hosted) = {
             let store = self.store().lock().await;
             let known = store.session(old).map_err(|why| self.ledger_fault(why))?;
@@ -121,11 +120,42 @@ where
         let (_, transcript, _) = tokio::task::spawn_blocking(move || threads.thread(&home, &id))
             .await
             .map_err(|why| self.hosted_fault(super::rows::SESSION_THREAD_UNREADABLE, &why.to_string()))?;
+        Ok((hosted, thread, transcript))
+    }
+
+    /// The transcript line session `old`'s row `at` was written as. **Read before anything is
+    /// written**, so a refusal leaves no session behind.
+    pub(super) async fn fork_cut(&self, old: &str, at: &str) -> Result<String, Refusal> {
+        let (hosted, thread, transcript) = self.fork_reads(old).await?;
         cut_in(hosted, &thread, &transcript, at).ok_or_else(|| {
             self.hosted_refusal(
                 FORK_POINT_UNWRITTEN,
                 &format!("no message {at} is written in session {old}'s conversation"),
             )
         })
+    }
+
+    /// The row of session `old`'s thread a fork with no `at` ends at: its latest message of its own
+    /// that the transcript holds. **The agent's, not the person's**, so the fork's first message
+    /// follows an agent turn as it would in the old conversation.
+    pub(super) async fn latest_fork_point(&self, old: &str) -> Result<String, Refusal> {
+        let (hosted, thread, transcript) = self.fork_reads(old).await?;
+        thread
+            .iter()
+            .rev()
+            .find_map(|row| match row {
+                SessionRow::Message { id, from: SessionVoice::Agent, .. }
+                    if cut_in(hosted, &thread, &transcript, id).is_some() =>
+                {
+                    Some(id.clone())
+                }
+                _ => None,
+            })
+            .ok_or_else(|| {
+                self.hosted_refusal(
+                    FORK_POINT_UNWRITTEN,
+                    &format!("none of session {old}'s own messages is written in its conversation yet"),
+                )
+            })
     }
 }

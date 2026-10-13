@@ -53,8 +53,10 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
+import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
@@ -624,6 +626,7 @@ function entriesOf(
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
+    if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -662,11 +665,10 @@ function entriesOf(
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
       case "forked_to":
-      case "forked_from": {
-        const title = sessions.find((other) => other.id === one.id)?.title ?? one.id;
-        const way = one.kind === "forked_to" ? "Forked to" : "Forked from";
-        return { key: `${one.kind}${one.id}`, kind: "fork", name: `${way} ${title}`, text: `${way} ${title}`, onOpen: () => open(one.id) };
-      }
+      case "forked_from":
+      case "started_to":
+      case "started_by":
+        return linkEntry(one, sessions, open);
       case "slot":
         return {
           key: `slot${one.slot}`,
@@ -755,28 +757,6 @@ function entriesOf(
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
-/** Whether the ledger is hidden beside the thread, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
-function useMinimized(): [boolean, (minimized: boolean) => void] {
-  const [minimized, set] = useState(() => {
-    try {
-      return localStorage.getItem("armada.session-ledger.minimized") === "1";
-    } catch {
-      return false;
-    }
-  });
-  return [
-    minimized,
-    (next) => {
-      set(next);
-      try {
-        localStorage.setItem("armada.session-ledger.minimized", next ? "1" : "0");
-      } catch {
-        // Not kept: the ledger is as it was left until the window closes.
-      }
-    },
-  ];
-}
-
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
@@ -829,6 +809,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
   // **Up to and including the message it was forked at**, and not what was said after it.
+  const startedBy = useStartedBy(session, sessions, onOpen);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
@@ -933,6 +914,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
           )}
+          {startedBy}
           <SessionThread
             sessionId={session.id}
             rows={thread}

@@ -236,7 +236,7 @@ async fn an_open_walk_window_waits_until_it_is_approved_and_an_agent_item_become
     let url = "http://localhost:5173/";
     let shown = rig
         .fleet
-        .show_window(None, ShowWindow { url: url.into(), title: Some("Findings".into()), session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: url.into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .unwrap();
     assert!(!shown.waiting_for.is_empty(), "{:?}", shown.attachments);
@@ -279,7 +279,7 @@ async fn an_open_walk_window_waits_until_it_is_approved_and_an_agent_item_become
 
 async fn show(rig: &Rig, id: &ipc::SessionId, url: &str) -> ipc::SessionRecord {
     rig.fleet
-        .show_window(None, ShowWindow { url: url.into(), title: Some(url.into()), session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: url.into(), title: Some(url.into()), session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .unwrap()
 }

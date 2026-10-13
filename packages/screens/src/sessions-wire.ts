@@ -165,6 +165,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
             : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
         );
         break;
+      case "started_to":
+      case "started_by":
+        out.push({ kind: one.kind, id: one.target });
+        break;
       case "subagent":
         out.push({
           kind: "subagent",
@@ -262,6 +266,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
         break;
+      case "started":
+        out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });
+        break;
       case "retro":
         out.push(retroRowOf(row, at));
         break;
@@ -328,8 +335,12 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const mode = hosted?.mode ?? terminal?.mode;
   const asked = hosted?.asked ?? terminal?.asked;
   const ended = record.state === "ended";
-  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and what it made, to be read.
-  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "pull_request" || one.kind === "artifact");
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and starts, and what it made, to be read.
+  const attachments = attachmentsOfRecord(record, beside).filter(
+    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
+  );
+  // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
+  const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
@@ -356,6 +367,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
+    ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
   };

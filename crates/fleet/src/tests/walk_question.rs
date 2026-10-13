@@ -4,9 +4,10 @@
 //! end its turn. `docs/concepts/session.md`, *Showing a window*.
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use api::{HostedSessions, Sessions};
-use ipc::{RunOrNot, SessionId, SessionRow, ShowWindow, WindowClosed};
+use api::{HostedSessions, Next, Sessions};
+use ipc::{Event, RunOrNot, SessionFact, SessionId, SessionReport, SessionRow, ShowWindow, WindowClosed, WindowTake};
 
 use super::session_host::{rig_placing, Rig};
 
@@ -19,7 +20,7 @@ const TWO: &str = "http://localhost:5173/two";
 
 async fn show(rig: &Rig, id: &SessionId, url: &str) {
     rig.fleet
-        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .expect("shown");
 }
@@ -83,4 +84,136 @@ async fn a_walk_is_open_until_it_is_approved_its_window_is_closed_or_a_newer_one
         .filter(|row| matches!(row, SessionRow::Window { ended_at: Some(_), .. }))
         .count();
     assert_eq!(ended, 3, "each walk that ended says so on its row: {rows:?}");
+}
+
+fn takes() -> Vec<WindowTake> {
+    [("Every state", ONE), ("Needs you first", TWO)]
+        .map(|(name, url)| WindowTake { name: name.into(), url: url.into() })
+        .into()
+}
+
+#[tokio::test]
+async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_take_that_is_no_page_shows_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut watching = rig.fleet.events().subscribe();
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    let record = rig.fleet.show_window(None, shown).await.expect("shown");
+
+    let kept = record
+        .attachments
+        .iter()
+        .find(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .expect("the window is on the ledger");
+    let on_ledger = kept.detail.get("variations").expect("and its takes with it");
+    assert!(on_ledger.contains("Needs you first") && on_ledger.contains(TWO), "{on_ledger}");
+
+    let arrived = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let Event::SessionRow(ipc::SessionRowChanged { row: SessionRow::Window { variations, .. }, .. }) = delivered.event {
+                        return variations;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("the window row arrives");
+    assert_eq!(arrived, takes(), "Bridge opens the window on the row, with the takes it carries");
+
+    let refused = |url: &str, variations: Vec<WindowTake>| ShowWindow {
+        url: url.into(),
+        title: None,
+        session_id: Some(id.clone()),
+        variations,
+    };
+    let bad = |name: &str, url: &str| WindowTake { name: name.into(), url: url.into() };
+    for (url, variations) in [
+        (ONE, vec![bad("A", ONE), bad("B", "file:///etc/passwd")]),
+        (ONE, vec![bad("A", ONE), bad("B", "javascript:alert(1)")]),
+        (ONE, vec![bad("A", ONE), bad("  ", TWO)]),
+        (TWO, vec![bad("A", ONE), bad("B", TWO)]),
+    ] {
+        assert!(rig.fleet.show_window(None, refused(url, variations.clone())).await.is_err(), "{variations:?}");
+    }
+    let windows = rig.rows(&id).await.into_iter().filter(|row| matches!(row, SessionRow::Window { .. })).count();
+    assert_eq!(windows, 1, "a refused call writes no row");
+}
+
+#[tokio::test]
+async fn approving_any_take_ends_the_walk_and_a_sentence_that_only_begins_with_the_word_does_not() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    rig.fleet.show_window(None, shown).await.expect("shown");
+
+    let waiting = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.len() };
+    assert_eq!(waiting().await, 1, "the walk waits on him");
+    rig.send(&id, &format!("Approved the second one: {TWO}")).await;
+    assert_eq!(walking(&rig, &id).await.as_deref(), Some(ONE), "his own words are not an Approve");
+    rig.send(&id, &format!("Approved B, Needs you first: {TWO}")).await;
+    assert_eq!(walking(&rig, &id).await, None, "the take on screen was approved");
+    assert_eq!(waiting().await, 0, "and the walk no longer waits on him");
+}
+
+#[tokio::test]
+async fn a_question_may_be_about_a_take_on_another_origin_than_the_first() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let other = "http://localhost:6006/two";
+    let takes = vec![
+        WindowTake { name: "A".into(), url: ONE.into() },
+        WindowTake { name: "B".into(), url: other.into() },
+    ];
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes };
+    rig.fleet.show_window(None, shown).await.expect("shown");
+    let ask = |url: &str| ipc::AskInWindow {
+        question: "Beside or under?".into(),
+        options: Vec::new(),
+        url: url.into(),
+        selector: "main > h1".into(),
+        text: None,
+        session_id: Some(id.clone()),
+    };
+    rig.fleet.ask_in_window(None, ask(other)).await.expect("on a take's origin");
+    assert!(rig.fleet.ask_in_window(None, ask("http://localhost:7000/")).await.is_err(), "on no take's origin");
+    let window = rig.rows(&id).await.into_iter().find_map(|row| match row {
+        SessionRow::WindowAsk { window, .. } => Some(window),
+        _ => None,
+    });
+    assert_eq!(window.as_deref(), Some(ONE), "the window it is asked in is the one the Session showed");
+}
+
+#[tokio::test]
+async fn a_window_is_working_from_the_sessions_own_write_or_a_note_and_ready_when_it_shows_again_or_its_turn_ends() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let working = || async {
+        let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.attachments;
+        let window = kept.iter().find(|one| one.detail.get("form").map(String::as_str) == Some("window")).expect("shown");
+        window.detail.get("working").map(String::as_str) == Some("true")
+    };
+    let told = |fact| async {
+        let report = SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact };
+        rig.fleet.report_session(report).await.expect("kept");
+    };
+    show(&rig, &id, ONE).await;
+    assert!(!working().await, "showing a page says it is ready");
+
+    told(SessionFact::Wrote).await;
+    assert!(working().await, "the session wrote a file: it is changing the page");
+    told(SessionFact::TurnCompleted).await;
+    assert!(!working().await, "its turn ended");
+
+    told(SessionFact::Wrote).await;
+    show(&rig, &id, ONE).await;
+    assert!(!working().await, "it showed the page again mid-turn");
+
+    rig.send(&id, "Too slow\nOn header, top, at http://localhost:5173/one").await;
+    assert!(working().await, "a note taken in the window: it will change the page");
+    rig.send(&id, "Looks fine").await;
+    assert!(working().await, "a message that is no note changes nothing");
 }

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { createPortal } from "react-dom";
-import { MoveRight } from "lucide-react";
+import { GitFork } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -148,7 +148,7 @@ export function ForkFromSelection({ scope, onFork }: { scope: RefObject<HTMLElem
             setSpot(undefined);
           }}
         >
-          <MoveRight size={16} strokeWidth={2} aria-hidden />
+          <GitFork size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
     </div>,
