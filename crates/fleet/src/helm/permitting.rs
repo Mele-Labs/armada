@@ -176,13 +176,14 @@ where
     }
 }
 
-/// The shipped hold: five minutes.
+/// The shipped hold: fourteen minutes.
 ///
 /// **Chosen against three bounds and it is the smallest.** A reply's whole
 /// process ends at `super::hosting::REPLY_BUDGET`, fifteen minutes, so a hold
-/// of five leaves room for a reply that is asked about more than once; spike 15
+/// of fourteen ends before the reply does; spike 15
 /// measured a stdio permission tool abandoned near thirty minutes, and the door
 /// a Helm session holds is stdio; and spike 19 measured a two-minute hold
 /// surviving intact. Beyond that it is a person's patience rather than a
-/// process's.
-pub const SHIPPED_ASK_HOLD: Duration = Duration::from_secs(5 * 60);
+/// process's. It was five minutes until 13 Oct 2026, when the owner found a
+/// question lapsing before he came back to it.
+pub const SHIPPED_ASK_HOLD: Duration = Duration::from_secs(14 * 60);

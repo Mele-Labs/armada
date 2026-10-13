@@ -167,7 +167,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         row: Some("poke-limit-poke-limit"),
         env: None,
     },
-    // `fleet::helm::SHIPPED_ASK_HOLD` says what the five minutes is measured
+    // `fleet::helm::SHIPPED_ASK_HOLD` says what the fourteen minutes is measured
     // against; the row carries it too.
     Entry {
         key: HELM_ASK_HOLD_SECONDS.0,
@@ -175,7 +175,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
         title: "Helm ask held open",
         description: "How long one call a Helm session made waits for a person in the dock before Fleet refuses it for them.",
         kind: Kind::Seconds { min: 30, max: 3_600 },
-        shipped: Shipped::Seconds(300),
+        shipped: Shipped::Seconds(840),
         applies: Applies::AtRestart,
         row: Some("helm-ask-hold"),
         env: None,
