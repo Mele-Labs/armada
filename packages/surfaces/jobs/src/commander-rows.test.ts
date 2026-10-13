@@ -1,6 +1,6 @@
 // The Commander's thread as the Job's page draws it, from what its socket carries. Over the wire's
 // own shapes (`packages/protocol/src/commander.ts`): a row says what the session did and nothing
-// more, so an act names itself and no figure, and the card puts the Commander at `waiting`.
+// more, so an act states the figure its call carried, and the card puts the Commander at `waiting`.
 
 import { describe, expect, it } from "vitest";
 
@@ -35,13 +35,35 @@ describe("the thread's rows", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("draws the acts the owner has seen as acts, by name, with no figure the wire does not carry", () => {
-    const rows = commanderThreadOf([called("0", "mcp__armada__raise_turn_cap"), called("1", "mcp__armada__raise_cost_cap"), called("2", "mcp__armada__restart_task")], JOB);
+  it("draws an act with the figure the call carried, and no old value", () => {
+    const rows = commanderThreadOf(
+      [
+        called("0", "mcp__armada__raise_turn_cap", "600"),
+        called("1", "mcp__armada__raise_cost_cap", "$12"),
+        called("2", "mcp__armada__restart_task", "T7"),
+        called("3", "mcp__armada__edit_task", "T7"),
+        called("4", "mcp__armada__add_task", "Draw the ask on the card"),
+        called("5", "mcp__armada__drop_task", "T4"),
+        called("6", "mcp__armada__move_plan", "T4 to G3"),
+        called("7", "mcp__armada__send_repair_drone", "merge_conflict"),
+      ],
+      JOB,
+    );
     expect(rows.map((one) => (one.kind === "act" ? [one.said, one.text] : one.kind))).toEqual([
-      ["Raised cap", "Turn cap"],
-      ["Raised cap", "Cost cap"],
-      ["Restarted task", "Task restarted"],
+      ["Raised cap", "Turn cap 600"],
+      ["Raised cap", "Cost cap $12"],
+      ["Restarted task", "T7 restarted"],
+      ["Edited task", "T7 edited"],
+      ["Added task", "Added Draw the ask on the card"],
+      ["Dropped task", "T4 dropped"],
+      ["Moved in plan", "Moved T4 to G3"],
+      ["Sent repair Drone", "Repair: merge_conflict"],
     ]);
+  });
+
+  it("draws an act by name alone where the call carried no figure, or only the Job's own id", () => {
+    const rows = commanderThreadOf([called("0", "mcp__armada__raise_turn_cap"), called("1", "mcp__armada__raise_cost_cap"), called("2", "mcp__armada__restart_task", "")], JOB);
+    expect(rows.map((one) => (one.kind === "act" ? one.text : one.kind))).toEqual(["Turn cap", "Cost cap", "Task restarted"]);
   });
 
   it("draws any other call as a quiet tool row, without the server's name or the Job's own id", () => {

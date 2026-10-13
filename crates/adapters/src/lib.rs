@@ -38,6 +38,7 @@
 //! would resolve a bare issue link, and `fleet` is what has a network to run
 //! it with.
 
+mod acted;
 mod base;
 mod basing;
 mod build_standing;
