@@ -37,6 +37,7 @@ use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
+use crate::timeline::TimelineAppended;
 use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
@@ -223,6 +224,9 @@ pub enum Event {
     // A Job's Commander started or finished a turn. `#2166`.
     #[serde(rename = "commander.changed")]
     CommanderChanged(crate::commander::CommanderChanged),
+    // One entry Fleet just kept for the timeline. Since 23.82.
+    #[serde(rename = "timeline.appended")]
+    TimelineAppended(TimelineAppended),
 }
 
 impl Event {

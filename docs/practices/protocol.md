@@ -319,7 +319,7 @@ draw anything, into a Board Fleet could state in one message.
 | Whether a Drone is on it | Anything about a Job retained out after a terminal status |
 
 A surface drawing a timeline reads `get_job_events`, and its timeline begins at
-the connection.
+the connection. One drawing the whole Fleet's reads `get_fleet_timeline`, below.
 
 **What a resync cannot rebuild, Bridge reads back — every region together.** A
 resync is a Board, so nothing under the open Job comes with it, and the
@@ -3711,6 +3711,45 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, f
 | `JobSummary.paused.until?` | an instant | The Job's Drone was stopped by the limit; admission starts it again a minute after |
 
 **The event stream.** `plan_usage.changed` is one small message per moved whole percent, through the shared drop-oldest backlog, and a mod reports at most every ten seconds a session. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_plan_usage` on the resync that follows a `Missed`. It leaves the unmeasured sink risk where it was. Held sessions and Jobs add no event of their own; they ride `session.changed` and `job.paused`.
+
+## The Fleet's timeline: kept as it happens, read as a window
+
+`get_fleet_timeline` (`GET /timeline?since=&until=&limit=`) and `timeline.appended` serve the Cockpit's
+timeline: what happened to Jobs, Sessions, pull requests, slots and main, each with its instant. Before
+them nothing answered it. `get_events_since` counts kinds, `get_job_events` is one Job's status moves,
+and a Session or a merge line moves as a row replaced whole, with no instant to cut a window by.
+Since 23.82.
+
+| Source | How it is entered | Why not an event of its own |
+|---|---|---|
+| A Job's moves, a Session row | A tap on the stream (`Broadcaster::tap`) turns each published event into an entry | They are events already; they only lacked a record |
+| Pull requests, main's colour | `merge_lines::keep_reading` compares each read of the hub with the one before | `merge_lines.changed` carries the list whole, so what happened is the difference |
+| A person's answer | The three Job answers and the Session ones enter it after they succeed | The answer is a command, and the row it clears is replaced |
+| A slot leased or given back | The ledger calls that take and give back a Job's or Session's slot, when the row changed | The pool is read whole and never published |
+
+**A tap and not a subscription.** A subscription drops its oldest when it falls behind, and a timeline
+that silently lacks a Job's failure is worse than none. The tap runs inside `publish`, so it only
+queues; one writer takes the store lock and numbers entries in the order queued. `timeline.appended` is
+published after the write, so its `id` is the number the store gave it.
+
+**Entries are dated by whoever saw the thing**: a Job's event carries its instant, a Session's row states
+its start and each item's `since`, the forge dates a merge, and the rest are stamped by the read that saw
+them. The window is cut by `at` and never by `id`, which only says what a client holds already.
+
+**Kept thirty days**, pruned on the next write, as `check_runs` is. The row is the fact as it read then,
+so a forgotten Job keeps its history.
+
+**A Session's turn is entered once, where it ends**, and the fact is its length (`session.turn`, "Turn took
+2m 14s"), from the start Fleet heard to the end it heard. Never on the rows between, and not on the end of a
+turn held for a slot, which resumes in it as one turn. A turn reattached after a restart has no start heard,
+so it enters nothing.
+
+**Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
+anything before this shipped. A Session already live when Fleet starts is entered as started the first time
+its row changes.
+
+**The event wraps the entry under `event`.** The stream tags its events with `kind`, and an entry has a
+`kind` of its own; spread into one message they produced a duplicate key, which a test caught.
 
 ## Open questions
 

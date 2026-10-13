@@ -270,6 +270,7 @@ mod work_plan;
 // descendant of this module and need the same temporary directory every
 // fixture here already uses, rather than a second one invented beside it.
 pub(crate) mod tmp;
+mod timeline;
 mod tools;
 mod transcript;
 mod tuning;

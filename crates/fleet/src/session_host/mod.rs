@@ -233,6 +233,9 @@ pub(crate) struct State {
     /// The keeper said busy on reattach and nothing has been heard since, so
     /// a long silence is a turn end that was missed.
     pub reattached_busy: bool,
+    /// When the turn running now began, by Fleet's clock, for the timeline's account of how long it
+    /// took. Set when the process says a turn started and taken when one ends.
+    pub turn_began: Option<String>,
 }
 
 impl State {
@@ -263,6 +266,7 @@ impl State {
             unstarted: Vec::new(),
             retried: false,
             reattached_busy: false,
+            turn_began: None,
         }
     }
 }
