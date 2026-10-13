@@ -138,8 +138,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The page as the forge shows it. **A list the reader capped is said in
-    /// the log**, so a cut is never silent.
+    /// The page as the forge shows it. What the reader capped is counted in
+    /// the facts' `omitted`; Fleet has no log outside a Job to say it in.
     fn page_read(
         &self,
         manifest_id: &ManifestId,
@@ -155,13 +155,6 @@ where
                     format!("the forge would not say what is on pull request {number}"),
                 ))
             })?;
-        let left = facts.omitted;
-        if left.conversation + left.files + left.commits > 0 {
-            eprintln!(
-                "pull request {number}: page capped, {} things said, {} files and {} commits left out",
-                left.conversation, left.files, left.commits
-            );
-        }
         Ok(page_of(manifest_id.clone(), number, facts))
     }
 }
