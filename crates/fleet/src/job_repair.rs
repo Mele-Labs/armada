@@ -6,15 +6,21 @@
 //! stopped step restarts over it, so the step's own Checks and Judge rule on
 //! the work. It never calls `healing::healed`: the loop bound in
 //! `crate::commanding_wakes` is the only count a repair spends.
+//!
+//! **A Job whose preparation failed has no stopped step**, and it is put back
+//! the other way: queued, to be prepared and begun again as the Commander's
+//! move, with the first step's baseline read before the repair so its file
+//! counts as that step's work. `Stuck::unprepared` says which Jobs.
 
-use std::collections::BTreeSet;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use adapter_traits::{
     AgentHarness, Delivery, Grant, Prompt, Repair, Toolbelt, Vcs, WorkProduct, Worktree,
 };
 use config::settings as keys;
-use core_model::{Actor, DroneId, DroneStanding, Job, JobId, Level, Recourse, StepId};
+use core_model::{
+    Actor, DroneId, DroneStanding, Job, JobId, Level, Recourse, StepId, StepState, Target,
+};
 use ipc::Breakage;
 
 use crate::adrift::Adrift;
@@ -22,43 +28,12 @@ use crate::commanding_wakes::Trouble;
 use crate::daemon::Fleet;
 use crate::healing::holds_a_marker;
 use crate::prompts::Prompts;
+use crate::repair_hold::Held;
 use crate::resume::Ending;
 
 /// Where a Check is declared. Held off at launch; the gate refuses the same
 /// paths in the diff (`verification::forbidden`).
 const NOT_THE_DRONES: [&str; 2] = ["armada.yml", ".armada"];
-
-/// The Jobs a repair Drone is on, so a second is refused and a person's
-/// restart does not put a step Drone beside it. In memory: a Fleet that
-/// restarts ends the Drone with the process that read it.
-#[derive(Clone, Default)]
-pub(crate) struct Underway(Arc<Mutex<BTreeSet<JobId>>>);
-
-impl Underway {
-    fn taking(&self, job: &JobId) -> Option<Held> {
-        let mut held = self.0.lock().expect("not poisoned");
-        held.insert(job.clone()).then(|| Held {
-            all: self.clone(),
-            job: job.clone(),
-        })
-    }
-
-    pub(crate) fn holds(&self, job: &JobId) -> bool {
-        self.0.lock().expect("not poisoned").contains(job)
-    }
-}
-
-/// A Job's hold, given back when the repair task ends however it ends.
-pub(crate) struct Held {
-    all: Underway,
-    job: JobId,
-}
-
-impl Drop for Held {
-    fn drop(&mut self) {
-        self.all.0.lock().expect("not poisoned").remove(&self.job);
-    }
-}
 
 /// A repair as it is sent: where it works and which step it puts back. There is
 /// no branch to name, so it cannot be aimed anywhere but at the Job's own.
@@ -67,20 +42,39 @@ pub struct JobRepair {
     worktree: Worktree,
     step: StepId,
     broke: Breakage,
+    back: Back,
+}
+
+/// Where the Job goes once the repair is in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Back {
+    /// The step the breakage stopped is restarted.
+    ToTheStep,
+    /// No step had begun: the Job is queued and met at its first.
+    ToTheFirst,
 }
 
 impl JobRepair {
     /// `None` where the Job has no step to put back: the one that stopped, or
-    /// else the one it is on.
+    /// else the one it is on, or the first of a Job that never began one.
     pub fn onto(job: &Job, worktree: Worktree, broke: Breakage) -> Option<JobRepair> {
-        let step = job
-            .stopped_on()
-            .map(|(step, _)| step.clone())
-            .or_else(|| job.current_step_id().cloned())?;
+        let begun = job
+            .steps()
+            .iter()
+            .any(|step| step.state() != StepState::NotStarted);
+        let (step, back) = match job.stopped_on() {
+            Some((step, _)) => (step.clone(), Back::ToTheStep),
+            None if !begun => (
+                job.workflow().steps().first()?.id().clone(),
+                Back::ToTheFirst,
+            ),
+            None => (job.current_step_id().cloned()?, Back::ToTheStep),
+        };
         Some(JobRepair {
             worktree,
             step,
             broke,
+            back,
         })
     }
 
@@ -89,7 +83,7 @@ impl JobRepair {
         &self.worktree
     }
 
-    /// The step restarted once the repair is in.
+    /// The step restarted once the repair is in, or begun for the first time.
     pub fn restarts(&self) -> &StepId {
         &self.step
     }
@@ -221,7 +215,10 @@ where
                 job: job_id.clone(),
             });
         }
-        if !stuck.recourse().contains(&Recourse::RestartStep) {
+        // A Job that broke before its first step has no restart to offer, and
+        // a preparation that failed is the one such Job a repair answers.
+        let before_a_step = stuck.unprepared();
+        if !before_a_step && !stuck.recourse().contains(&Recourse::RestartStep) {
             return Err(no_step());
         }
         let repair = JobRepair::onto(&job, worktree, broke).ok_or_else(no_step)?;
@@ -231,6 +228,9 @@ where
             .ok_or_else(|| Adrift::RepairUnderway {
                 job: job_id.clone(),
             })?;
+        if before_a_step {
+            self.baseline_before_the_repair(job_id, &repair).await?;
+        }
         let drone = DroneId::carried(self.mint().ulid());
         let sent = ipc::RepairSent {
             job_id: ipc::JobId::from(job_id),
@@ -238,6 +238,17 @@ where
             drone_id: ipc::DroneId::from(&drone),
             broke,
         };
+        // Before the Drone starts, so a Fleet that dies with it out finds the hold.
+        self.store()
+            .lock()
+            .await
+            .note_repair_out(&store::RepairOut {
+                job_id: job_id.clone(),
+                step: repair.restarts().as_str().to_string(),
+                broke: named(broke).to_string(),
+                drone_id: drone.as_str().to_string(),
+            })
+            .map_err(Adrift::Writing)?;
         self.noted_setting(
             job_id,
             "the Job's Commander sent a repair Drone onto the Job's branch",
@@ -270,28 +281,81 @@ where
         // before a wake, whose turn may send another.
         drop(held);
         let came = match ran {
-            Came::HandedIn => self.step_restarted_over(job, repair).await,
+            Came::HandedIn => match repair.back {
+                Back::ToTheStep => self.step_restarted_over(job, repair).await,
+                Back::ToTheFirst => self.first_step_restored(job, repair).await,
+            },
             nothing => nothing,
         };
         if let Came::Nothing(why) = came {
-            self.noted_setting(
-                job.id(),
-                "a repair Drone ended with nothing handed in",
-                &[
-                    ("broke", named(repair.broke()).to_string()),
-                    ("step", repair.restarts().as_str().to_string()),
-                    ("why", why),
-                ],
-            )
-            .await;
-            self.woken_for(
-                job.id(),
-                Trouble::RepairHandedNothingIn {
-                    step: repair.restarts().clone(),
-                },
-            )
-            .await;
+            self.nothing_handed_in(job.id(), repair.restarts(), named(repair.broke()), why)
+                .await;
         }
+        // Last, so a Fleet that dies before it is here finds the hold and deals
+        // with it. A row left over a Job that has moved on is dropped at boot.
+        self.repair_dealt_with(job.id(), drone.as_str()).await;
+    }
+
+    /// A repair that came to nothing: the Job's log says so and the Commander
+    /// is woken, which the loop bound counts.
+    pub(crate) async fn nothing_handed_in(
+        self: &Arc<Self>,
+        job: &JobId,
+        step: &StepId,
+        broke: &str,
+        why: String,
+    ) {
+        self.noted_setting(
+            job,
+            "a repair Drone ended with nothing handed in",
+            &[
+                ("broke", broke.to_string()),
+                ("step", step.as_str().to_string()),
+                ("why", why),
+            ],
+        )
+        .await;
+        self.woken_for(job, Trouble::RepairHandedNothingIn { step: step.clone() })
+            .await;
+    }
+
+    /// The Drone's row given back. A store that will not write leaves it for
+    /// the next boot, which finds a Job that has moved on and drops it.
+    pub(crate) async fn repair_dealt_with(&self, job: &JobId, drone: &str) {
+        let _ = self.store().lock().await.repair_dealt_with(job, drone);
+    }
+
+    /// The first step's baseline, read before the repair writes anything. A
+    /// step that has not begun has none, and the one read after the repair's
+    /// commit would count the repair as the branch's, so its file would never
+    /// reach the step's Checks and Judge as work. One already kept stands: an
+    /// earlier repair that came to nothing may have left files, and they are
+    /// the repair's too.
+    async fn baseline_before_the_repair(
+        &self,
+        job: &JobId,
+        repair: &JobRepair,
+    ) -> Result<(), Adrift> {
+        let kept = self
+            .store()
+            .lock()
+            .await
+            .step_baseline(job, repair.restarts());
+        if matches!(kept, Ok(Some(_))) {
+            return Ok(());
+        }
+        let read = self
+            .work()
+            .footprint(repair.worktree())
+            .map_err(|cause| Adrift::WorkUnreadable {
+                job: job.clone(),
+                cause: Box::new(cause),
+            })?;
+        self.store()
+            .lock()
+            .await
+            .keep_step_baseline(job, repair.restarts(), &read)
+            .map_err(Adrift::Writing)
     }
 
     /// Run the Drone in the Job's worktree and commit what it wrote.
@@ -382,6 +446,30 @@ where
                 Came::HandedIn
             }
             Err(why) => Came::Nothing(format!("the step could not be restarted: {why}")),
+        }
+    }
+
+    /// The Job of a failed preparation, queued as the Commander. It is prepared
+    /// again and its first step begun as any Job's is: the preparation that
+    /// failed is the first thing the repair is judged by.
+    async fn first_step_restored(&self, job: &Job, repair: &JobRepair) -> Came {
+        let record = match self.load(job.id()).await {
+            Ok(record) => record,
+            Err(why) => return Came::Nothing(format!("the Job could not be read: {why}")),
+        };
+        if let Err(why) = self.held_for_a_person(&record) {
+            return Came::Nothing(format!("the Job is no longer held: {why}"));
+        }
+        match self.move_job(&record, Target::Queued, Actor::Commander).await {
+            Ok(_) => {
+                let said = format!(
+                    "a repair Drone handed in and the Job was queued for its first step {}",
+                    repair.restarts().as_str()
+                );
+                self.logged(job.id(), self.trigger_line(job, Level::Info, &said));
+                Came::HandedIn
+            }
+            Err(why) => Came::Nothing(format!("the Job could not be queued: {why}")),
         }
     }
 

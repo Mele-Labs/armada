@@ -652,8 +652,8 @@ Fleet restarts the step it names when the Drone hands in.
 | Rule | How it is held |
 | --- | --- |
 | Only a Commander sends one | `agent_access = "Commander only"`, and the route refuses a call the door did not place as a Commander's, so the move that puts the step back is always signed Commander |
-| Offered where `restart_step` is | The same reading (`Stuck::of`) decides both. A 409 where the Job is not held for a person, a Drone is on it, its worktree is gone (a redispatch) or no step stopped |
-| One at a time per Job | A second repair, or a person's `restart_step`, is a 409 while one is out |
+| Offered where `restart_step` is, and after a failed preparation | The same reading (`Stuck::of`) decides both, with `Stuck::unprepared` for a Job escalated `not_prepared` before any step began; `RepairSent.step_id` is then the first step. A 409 where the Job is not held for a person, a Drone is on it, its worktree is gone (a redispatch), no step stopped, or the Job never had a Drone for any other reason |
+| One at a time per Job | A second repair, or a person's `restart_step`, is a 409 while one is out, and still is after a Fleet restart until the Commander has been woken for the repair the last Fleet lost |
 | Not `add_job_step` | The repair is gated as the step it unblocks; a step the Commander wrote would be gated as its own |
 
 **Nothing new crosses to Bridge.** The thread shows the Commander's call as a

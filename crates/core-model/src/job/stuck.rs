@@ -272,6 +272,7 @@ pub struct Stuck {
     standing: Standing,
     refused: Refusals,
     undecided: Option<String>,
+    unprepared: bool,
 }
 
 impl Stuck {
@@ -385,6 +386,7 @@ impl Stuck {
         if redispatchable(job, &standing) {
             recourse.push(Recourse::Redispatch);
         }
+        let unprepared = unprepared(job, stopped.is_some(), reason, &standing);
 
         Some(Stuck {
             stopped_by: stopped
@@ -396,6 +398,7 @@ impl Stuck {
             standing,
             refused,
             undecided,
+            unprepared,
         })
     }
 
@@ -489,6 +492,20 @@ impl Stuck {
         self.undecided.as_deref()
     }
 
+    /// Whether this Job stopped in preparation before any step began, with no
+    /// Drone on it and its worktree on disk: the one early failure a
+    /// Commander's repair Drone answers. **Not a [`Recourse`]**: a person is
+    /// offered nothing new by it.
+    ///
+    /// **Only `not_prepared`.** A `setup.requires` command failed inside a real
+    /// checkout, which is what the Drone's grants are for. `not_configurable` is
+    /// a Manifest the Drone is held off, `would_not_start` is the harness the
+    /// repair is started by, and `resource_exhausted` is a machine a second Drone
+    /// adds to. Fleet queues the Job for its first step once the repair is in.
+    pub fn unprepared(&self) -> bool {
+        self.unprepared
+    }
+
     /// Whether one act applies. **The predicate every caller wants**, so that
     /// no two of them spell the search over [`recourse`](Stuck::recourse)
     /// differently.
@@ -549,6 +566,29 @@ fn abandoned_mid_step(job: &Job, reason: Option<&TransitionReason>, standing: &S
         && job
             .current_step()
             .is_some_and(|step| step.state() == StepState::Running)
+}
+
+/// A Job escalated `not_prepared` with no step begun, no Drone and its worktree
+/// on disk. **The trigger is read off the transition, as every Job-level
+/// reading is**, and the steps are asked as well: `not_prepared` is raised once,
+/// before the first is entered, so any begun step is a record this does not
+/// describe.
+fn unprepared(
+    job: &Job,
+    stopped: bool,
+    reason: Option<&TransitionReason>,
+    standing: &Standing,
+) -> bool {
+    job.status() == JobStatus::Escalated
+        && !stopped
+        && escalated_by(reason) == Some(EscalationTrigger::NotPrepared)
+        && job
+            .steps()
+            .iter()
+            .all(|step| step.state() == StepState::NotStarted)
+        && standing.drone == DroneStanding::Gone
+        && standing.worktree_on_disk
+        && !standing.checks_rerunning
 }
 
 /// Whether a replacement can be minted from this Job.
