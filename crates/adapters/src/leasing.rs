@@ -180,33 +180,33 @@ impl Pool {
                     seeded_from: None,
                     unfetched: None,
                     made: false,
+                    cut: false,
                 }));
             }
         }
-        // An existing branch is leased at its tip: nothing is cut from the
-        // base, so there is no base to fetch.
+        // A branch that exists is leased at its tip whatever was asked, and
+        // nothing is cut from the base, so there is no base to fetch.
+        let onto = self.resolved(onto, branch)?;
         let unfetched = match onto {
             Onto::New => self.fetched().err(),
-            Onto::Existing => None,
+            Onto::Existing | Onto::Remote => None,
         };
         let from = self.base_ref();
-        let existing = format!("refs/heads/{branch}");
-        match onto {
-            Onto::Existing => self.existing_free(branch)?,
-            Onto::New => {
-                if git_ok(&self.root, &["rev-parse", "--verify", "--quiet", &existing]) {
-                    let commits = self.unlanded(&self.root, &existing);
-                    if commits > 0 {
-                        return Err(LeaseRefused::BranchHoldsWork {
-                            branch: branch.to_string(),
-                            commits,
-                        });
-                    }
-                }
+        // Git lets one checkout have a branch, so it can only go to the slot
+        // that has it, and only if that slot may be taken: one whose holder
+        // is gone is, and is already on the branch.
+        let mut bays = self.bays();
+        let mut only = None;
+        if let Onto::Existing = onto {
+            if let Some(at) = self.checked_out(branch)? {
+                let number = self.slot_at(&at).ok_or_else(|| LeaseRefused::CheckedOutElsewhere {
+                    branch: branch.to_string(),
+                    at: at.clone(),
+                })?;
+                bays.retain(|bay| *bay == number);
+                only = Some(at);
             }
         }
-
-        let bays = self.bays();
         let mut slots = Vec::with_capacity(bays.len());
         let mut unmade = None;
         for number in bays {
@@ -256,6 +256,17 @@ impl Pool {
             }));
         }
 
+        if let Some(at) = only {
+            // Held, stranded or not a checkout: not this lease's to take, and
+            // not worth waiting on.
+            return match slots.iter().all(|slot| slot.state == SlotState::Busy) {
+                true => Ok(Leased::Full(Full { slots })),
+                false => Err(LeaseRefused::CheckedOutElsewhere {
+                    branch: branch.to_string(),
+                    at,
+                }),
+            };
+        }
         let Some(number) = unmade else {
             return Ok(Leased::Full(Full { slots }));
         };
@@ -498,7 +509,8 @@ impl Pool {
         (state, Some(status))
     }
 
-    /// Put slot `number` on `branch` at the base, cleaned of all but the warm
+    /// Put slot `number` on `branch` (at the base if `onto` is new, else at
+    /// its own tip), cleaned of all but the warm
     /// paths, and record who holds it. The caller holds the slot's lock.
     fn point(
         &self,
@@ -525,6 +537,17 @@ impl Pool {
                 &["switch", "--quiet", "--no-track", "-C", branch, from],
             ),
             Onto::Existing => git(&path, &["switch", "--quiet", branch]),
+            Onto::Remote => git(
+                &path,
+                &[
+                    "switch",
+                    "--quiet",
+                    "--track",
+                    "-c",
+                    branch,
+                    &existing::remote(branch),
+                ],
+            ),
         }
         .map_err(LeaseRefused::Vcs)?;
         let mut clean = vec!["clean", "-fdx", "--quiet"];
@@ -548,6 +571,7 @@ impl Pool {
             seeded_from,
             unfetched: None,
             made: false,
+            cut: matches!(onto, Onto::New),
         })
     }
 
