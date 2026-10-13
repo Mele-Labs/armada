@@ -78,7 +78,7 @@ A Commander cannot reach the owner in a reply he may not read. It reaches him wi
 | | |
 |---|---|
 | Raised by | The Commander, with `ask_the_owner`: what is wrong, what is out of its reach, a question, and two to four options. Fleet, at the loop bound, with the trouble for what is wrong and *Try again* and *Leave it* for the options |
-| Kept as | A row in `commander_cards`, **modelled on a Drone's question and never a held tool call**. Helm's ask is a call held open that dies at five minutes and silence there is a refusal; a card waits until he answers, however long, and a Fleet that restarts still has it |
+| Kept as | A row in `commander_cards`, **modelled on a Drone's question and never a held tool call**. Helm's ask is a call held open that dies at fourteen minutes and silence there is a refusal; a card waits until he answers, however long, and a Fleet that restarts still has it |
 | One at a time | A Job has one card out. A second `ask_the_owner` is refused with the question already waiting, and the loop bound leaves a card out as it is |
 | Counts as | The Job waiting on the owner, **like an escalation and without one**: the Job's row reads `asking`, which is what puts it in Your move, and `list_alerts` names it in the blocked list. No status moves |
 | Sleep mode | Records it as blocked, whether it went out before the night or during it, and never answers it: the pick is his |

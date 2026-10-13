@@ -6,7 +6,7 @@ description = "Put one card to the owner: what is wrong, what is out of the Comm
 notes = """
 **The only way a Commander reaches the owner**, and offered to no other caller: the door lists it to a Job's Commander alone, and Helm, which talks to him already, is not offered it. It is the Commander's answer to a problem whose fix is out of its reach (skip or edit a Check, edit the Manifest, pass a gate, attest, merge, push), or one it has tried and cannot move. #2166.
 
-**A Drone's question, not a held tool call.** The card is written to `commander_cards` and the call answers 200 at once with the card as it stands. It waits until he answers, however long, and a Fleet that restarts still has it. Helm's ask is the other shape, a call held open that dies at five minutes, and a Commander's silence is never a refusal.
+**A Drone's question, not a held tool call.** The card is written to `commander_cards` and the call answers 200 at once with the card as it stands. It waits until he answers, however long, and a Fleet that restarts still has it. Helm's ask is the other shape, a call held open that dies at fourteen minutes, and a Commander's silence is never a refusal.
 
 The body is `text` (what is wrong), `reach` (what is out of its reach), `question`, and `options`, two to four labels with none blank or alike. Fleet numbers the options from one and an answer names the number. A blank line, or too few or too many options, does not decode. There is no field for prose in the answer: a person who needs to say more writes to the Commander.
 
