@@ -222,9 +222,9 @@ agent), found by working directory and never outside the slot. This process and
 its ancestors are spared. Fleet holds no pid for a Check run its CLI makes, so
 that is how a run's process ends; the run itself is marked failed. A server
 Fleet holds for the slot's checkout is stopped, and the session's open walk is
-ended, which Bridge reads as its window closing. **A park the pool refuses is
-said on Fleet's log with the session, the slot and the reason, and the ledger's
-slot row stays standing**, since a row given back over a held slot is how one is
+ended, which Bridge reads as its window closing. **A park the pool refuses
+leaves the ledger's slot and branch rows standing**, so `who_owns` still names the
+session as holding the slot, since a row given back over a held slot is how one is
 stranded with nothing saying so. Fleet parks it again at boot, and again when a
 repository is added, for any slot the pool holds under the id of a session that
 has ended.

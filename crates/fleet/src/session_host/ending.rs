@@ -91,12 +91,6 @@ where
                     ) if tokio::time::Instant::now() < until => {
                         tokio::time::sleep(PARK_EVERY).await;
                     }
-                    // Still held for it, and said: a holder that outlived the wait is somebody
-                    // else's, and is left alone without a word.
-                    Err(why) if why.holds_still() => {
-                        eprintln!("session {session}: slot-{slot} stays held, it was not parked: {}", why.said());
-                        break;
-                    }
                     _ => break,
                 }
             }

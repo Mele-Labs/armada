@@ -97,9 +97,8 @@ where
     /// good. Committed to the branch each is on, pushed nowhere, with what
     /// still runs in it ended first (`Vcs::park_hosted_slot`).
     ///
-    /// **Returns the slots the pool still holds for the session**, each said on
-    /// Fleet's log with why. The caller leaves those slots' ledger rows
-    /// standing: a row given back over a held slot is how one gets stranded.
+    /// **Returns the slots the pool still holds for the session**, with why.
+    /// The caller leaves those slots' ledger rows standing: a row given back over a held slot is how one gets stranded.
     pub(super) async fn park_every_slot_of(
         &self,
         id: &str,
@@ -142,9 +141,6 @@ where
         })
         .await
         .unwrap_or_default();
-        for (slot, why) in &refused {
-            eprintln!("session {id}: slot-{slot} stays held, it was not parked: {}", why.said());
-        }
         refused
     }
 
@@ -189,7 +185,6 @@ where
             for kind in ["slot", "branch"] {
                 let _ = store.give_back(&Keeper::session(&id), Some(kind), &now);
             }
-            eprintln!("session {id}: the slots it held after it ended were parked");
         }
     }
 
