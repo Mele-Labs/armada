@@ -265,6 +265,8 @@ export type SessionFact =
     }
   | { kind: "measured"; usage: SessionUsage }
   | { kind: "turn_completed" }
+  /** Files written, relative to the session's `cwd`. Since 23.81. */
+  | { kind: "touched"; paths: string[] }
   | { kind: "wrote" }
   | { kind: "ended"; reason: string };
 
@@ -283,6 +285,8 @@ export type SessionCheckCall = {
   act: "start" | "end";
   cwd: string;
   name: string;
+  /** What the run was narrowed to: the test filter, or `--changed ` and the packages reached. `end` may tell it when `start` could not. */
+  target?: string;
   run?: number;
   outcome?: "passed" | "failed";
   took_ms?: number;

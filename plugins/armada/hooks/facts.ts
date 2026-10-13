@@ -8,7 +8,7 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.12'
+export const MOD_VERSION = '0.3.13'
 
 /** The `answers` map a question's answered input carries, keyed by question text. */
 export function answersIn(input: unknown): Record<string, string> {
@@ -227,6 +227,21 @@ export function artifactOf(
     return { form: 'doc', target, title: typeof name === 'string' ? name : undefined }
   }
   return undefined
+}
+
+/**
+ * The file a write tool changed, named from the session's directory, for Fleet's check of who else
+ * writes it. **A path and nothing else**: never the content, and nothing outside the directory.
+ * `cwd` is where the session stands; an absolute path under it is made relative, and a path that
+ * climbs out of it, or lies elsewhere, is not told.
+ */
+export function touchedOf(cwd: string, input: Record<string, unknown>): string | undefined {
+  const named = input.file_path ?? input.notebook_path
+  if (typeof named !== 'string' || named === '') return undefined
+  const root = cwd.replace(/\/+$/, '')
+  const relative = named.startsWith('/') ? (named.startsWith(`${root}/`) ? named.slice(root.length + 1) : undefined) : named
+  if (relative === undefined || relative === '' || relative.split('/').includes('..')) return undefined
+  return relative.replace(/^\.\//, '')
 }
 
 const MODELS = ['haiku', 'sonnet', 'opus']

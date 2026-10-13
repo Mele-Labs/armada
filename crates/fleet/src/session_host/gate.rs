@@ -13,7 +13,7 @@ use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::following::Standing;
-use super::places::{place_of, written_by, Place};
+use super::places::{place_of, worked_in, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
 use crate::daemon::Fleet;
@@ -29,7 +29,7 @@ enum Touch {
 fn touch(gate: &SessionGate) -> Touch {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
-        "Write" | "Edit" | "NotebookEdit" => match text("file_path").or(text("notebook_path")) {
+        "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => match text("file_path").or(text("notebook_path")) {
             Some(path) => Touch::File(path.to_string()),
             None => Touch::Nothing,
         },
@@ -87,7 +87,11 @@ where
         if let (Some(slot), true) = (own, self.hosts().of(&id).state().moving.is_some()) {
             return GateAnswer::deny(waiting_to_move(slot, &directory));
         }
-        match touching {
+        let written = match &touching {
+            Touch::File(path) => Some(path.clone()),
+            _ => None,
+        };
+        let answer = match touching {
             Touch::Nothing => GateAnswer::pass(),
             Touch::File(path) => match (lands(&path), own) {
                 (Place::Elsewhere, _) => GateAnswer::pass(),
@@ -115,12 +119,35 @@ where
                         Place::Slot(slot) if !held(slot) => Some(not_held(&path, slot)),
                         _ => None,
                     });
+                // A `cd` moves every relative write after it, so the directory it ends in is judged.
+                let hit = hit.or_else(|| {
+                    worked_in(&command, &gate.cwd)
+                        .into_iter()
+                        .find_map(|entered| match lands(&entered) {
+                            Place::Main => Some(format!(
+                                "That command works in {entered}, in the main checkout. This \
+                                 session writes in its own slot at {directory}: work there."
+                            )),
+                            Place::Slot(slot) if !held(slot) => Some(not_held(&entered, slot)),
+                            _ => None,
+                        })
+                });
                 match hit {
                     Some(why) => GateAnswer::deny(why),
                     None => GateAnswer::pass(),
                 }
             }
+        };
+        // A write let through inside the session's own slot is a file it has written, for the
+        // check of who else writes it. `docs/concepts/fleet.md`, *Write clashes*.
+        if let (Some(path), Some(_), GateAnswer::Pass {}) = (written, own, &answer) {
+            let inside = crate::edit_calls::repository_relative(&path, &directory, &self.host().home);
+            if !inside.starts_with('/') {
+                let who = crate::clashing::Who::Session(id.clone());
+                self.writes().wrote(&who, served.manifest().id().as_str(), [inside], &self.now());
+            }
         }
+        answer
     }
 
     /// Lease a slot for the session and cut its branch. **One at a time**, so

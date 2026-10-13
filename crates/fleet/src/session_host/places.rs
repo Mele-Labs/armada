@@ -112,6 +112,42 @@ pub(super) fn written_by(line: &str) -> Vec<String> {
     found
 }
 
+/// The absolute directories a shell line `cd`s or `pushd`s into and then runs something that is
+/// not a read in, where `cwd` is the directory the call started in. **A `cd` moves every relative
+/// write after it**, which no path in the line names. A target built from a variable, a `~` or a
+/// substitution is not followed, and neither is a subshell's end.
+pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    let mut here: Option<String> = None;
+    for segment in line
+        .replace("&&", ";")
+        .replace("||", ";")
+        .split([';', '|', '\n'])
+    {
+        let segment = segment.trim().trim_start_matches(['(', '{']).trim();
+        let words: Vec<&str> = segment
+            .split_whitespace()
+            .map(|word| word.trim_matches(|c| c == '\'' || c == '"'))
+            .collect();
+        if matches!(words.first().copied(), Some("cd" | "pushd")) {
+            let target = words.iter().skip(1).find(|word| !word.starts_with('-'));
+            here = match target {
+                Some(word) if word.contains(['$', '`', '~']) => None,
+                Some(word) if word.starts_with('/') => Some(normalised(word)),
+                Some(word) if cwd.starts_with('/') => {
+                    Some(normalised(&format!("{}/{word}", cwd.trim_end_matches('/'))))
+                }
+                _ => None,
+            };
+        } else if let Some(directory) = &here {
+            if !adapters::reads_only(segment) && !found.contains(directory) {
+                found.push(directory.clone());
+            }
+        }
+    }
+    found
+}
+
 const GIT_READS: &[&str] = &[
     "status",
     "log",

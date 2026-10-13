@@ -316,6 +316,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         self.session_checks_ended(&id).await;
+        self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.published_hosted(&id).await
     }
 
@@ -974,6 +975,10 @@ where
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
                     resuming: hosting.ran && self.has_a_conversation(id).await,
                     forking: hosting.fork_of.clone(),
+                    fork_note: match &hosting.fork_of {
+                        Some(old) => self.fork_note_of(id, old).await,
+                        None => None,
+                    },
                     fork_cut: match hosting.fork_of {
                         Some(_) => self.fork_cut_of(id).await,
                         None => None,

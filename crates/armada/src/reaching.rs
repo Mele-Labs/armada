@@ -90,6 +90,28 @@ pub fn reading(
     reached(check, changed)
 }
 
+/// What a Session's thread row says a `--changed` run was narrowed to: the values the narrowing
+/// resolved to, after this. Absent where it resolved to none.
+const CHANGED: &str = "--changed ";
+
+/// The values `to` names, read back through the narrowing's `each`, so `-p fleet -p ipc` under
+/// `-p {}` is `fleet, ipc`. `None` where the Check declares no narrowing or `to` names none.
+pub fn target_of(check: &config::Check, to: &str) -> Option<String> {
+    let words = |text: &str| {
+        let (program, args) = checks_runner::split(text)?;
+        Some([vec![program], args].concat())
+    };
+    let each = words(check.narrow()?.each())?;
+    let at = each.iter().position(|word| word.contains("{}"))?;
+    let (before, after) = each[at].split_once("{}")?;
+    let named = words(to)?;
+    let values: Vec<&str> = named
+        .chunks(each.len())
+        .filter_map(|chunk| chunk.get(at)?.strip_prefix(before)?.strip_suffix(after))
+        .collect();
+    (!values.is_empty()).then(|| format!("{CHANGED}{}", values.join(", ")))
+}
+
 /// A Check with nothing to run, passed without running.
 pub fn ran_nothing(name: &str) -> Ran {
     ran_nothing_because(name, Reached::Nothing)
@@ -108,5 +130,6 @@ pub fn ran_nothing_because(name: &str, because: Reached) -> Ran {
             output: Default::default(),
         },
         narrowed: Some(because),
+        target: None,
     }
 }

@@ -187,6 +187,12 @@ pub async fn execute(
     let width = CheckWidth::read(usize::try_from(jobs).unwrap_or(1))
         .narrowed_to(manifest.check(name).and_then(config::Check::width));
     let command = resolve_width(&command, width);
+    let target = match (test, &narrowed, manifest.check(name)) {
+        (Some(test), _, _) => Some(test.to_string()),
+        (None, Some(Reached::To(to)), Some(check)) => crate::reaching::target_of(check, to),
+        (None, Some(Reached::Touched(said)), _) => Some(said.clone()),
+        _ => None,
+    };
 
     // **A Check's prerequisites run here too**, for this module's own reason: a
     // Check a person runs is the Check a Drone is measured by. Skipping one
@@ -242,6 +248,7 @@ pub async fn execute(
             required,
             attempt: blocked,
             narrowed,
+            target,
         });
     }
 
@@ -254,6 +261,7 @@ pub async fn execute(
         required,
         attempt,
         narrowed,
+        target,
     })
 }
 
@@ -367,6 +375,9 @@ pub struct Ran {
     pub attempt: Attempt,
     /// What a changed set came to. `None` where none was asked.
     pub narrowed: Option<Reached>,
+    /// What a Session's thread row says the run was narrowed to: the filter verbatim, or
+    /// `--changed ` and what the change reached. `None` where it ran whole.
+    pub target: Option<String>,
 }
 
 impl Ran {

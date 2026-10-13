@@ -409,6 +409,61 @@ export const RetroInTheThread: Story = {
   },
 };
 
+const REPEATED: SessionThreadRow[] = [
+  { id: "f1", at: "14:30:01", kind: "check", name: "test", run: 40, state: "failed", target: "crates/store" },
+  { id: "f2", at: "14:30:44", kind: "check", name: "test", run: 41, state: "passed" },
+  { id: "f3", at: "14:31:20", kind: "check", name: "test", run: 42, state: "passed", target: "crates/clock" },
+  { id: "f4", at: "14:31:50", kind: "check", name: "lint", run: 43, state: "passed", target: "web" },
+  { id: "f5", at: "14:32:10", kind: "check", name: "test", run: 44, state: "running", target: "crates/net" },
+];
+
+/**
+ * Runs of one Check side by side are one closed row, named for the Check and marked with the latest
+ * run, never counted. A different Check between them splits the fold; a lone run is not a fold and
+ * shows its target. Opened, each run is a line with its target and time, and a press opens that run.
+ */
+export const RepeatedCheckRunsFold: Story = {
+  args: { rows: REPEATED, onOpenCheck: fn() },
+  play: async ({ canvas, args }) => {
+    // Three adjacent `test` runs are one fold, labelled with the latest state (passed, after a failed first run).
+    const fold = canvas.getByLabelText("Check test, latest passed");
+    await expect(canvas.getAllByLabelText(/^Check test, latest /)).toHaveLength(1);
+    const details = fold.closest("details") as HTMLElement;
+    await expect(details).not.toHaveAttribute("open");
+    await expect(canvas.getByRole("button", { name: "Check test crates/store, failed" })).not.toBeVisible();
+
+    // `lint` between them splits the fold: the runs on either side are not one row.
+    const lint = canvas.getByRole("button", { name: "Check lint web, passed" });
+    await expect(lint.closest("details")).toBeNull();
+    const lone = canvas.getByRole("button", { name: "Check test crates/net, running" });
+    await expect(lone.closest("details")).toBeNull();
+    await expect(within(lone).getByText("crates/net")).toBeVisible();
+
+    // No count is drawn: the closed row is the mark's state word and the Check's name, and no digit.
+    await expect(fold.textContent).not.toMatch(/\d/);
+    await expect(canvas.queryByText(/×|\b3\b|\(3\)/)).toBeNull();
+
+    // Opened, each run is a line with its target and time; a run with no target draws none.
+    await userEvent.click(fold);
+    await expect(details).toHaveAttribute("open");
+    const first = within(details).getByRole("button", { name: "Check test crates/store, failed" });
+    await expect(within(first).getByText("crates/store")).toBeVisible();
+    await expect(within(first).getByText("14:30:01")).toBeVisible();
+    const whole = within(details).getByRole("button", { name: "Check test, passed" });
+    await expect(whole.textContent?.replaceAll("passed", "")).toBe("14:30:44");
+    await expect(within(details).getByRole("button", { name: "Check test crates/clock, passed" })).toBeVisible();
+    await expect(fold.textContent).not.toMatch(/\d/);
+
+    // Pressing a run reports that run's number.
+    await userEvent.click(first);
+    await expect(args.onOpenCheck).toHaveBeenLastCalledWith(40);
+    await userEvent.click(whole);
+    await expect(args.onOpenCheck).toHaveBeenLastCalledWith(41);
+    await userEvent.click(lone);
+    await expect(args.onOpenCheck).toHaveBeenLastCalledWith(44);
+  },
+};
+
 /** A Session this one's agent started, or forked itself into, is a press in the thread that opens it. */
 export const StartedSessionOpens: Story = {
   args: {
