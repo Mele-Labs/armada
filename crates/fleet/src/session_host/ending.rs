@@ -77,8 +77,11 @@ where
         let pool = crate::leasing::pool_of(&served);
         let vcs = Arc::clone(self.vcs());
         let queue = Arc::clone(self.hosts().slot_queue());
+        let servers = self.servers().clone();
+        let path = adapter_traits::slot_path(served.root(), slot);
         let session = session.to_string();
         tokio::spawn(async move {
+            crate::servers::stopped_in(servers, &path).await;
             let until = tokio::time::Instant::now() + PARK_WITHIN;
             loop {
                 match vcs.park_ended_session_slot(&pool, slot, &session) {
@@ -88,11 +91,28 @@ where
                     ) if tokio::time::Instant::now() < until => {
                         tokio::time::sleep(PARK_EVERY).await;
                     }
+                    // Still held for it, and said: a holder that outlived the wait is somebody
+                    // else's, and is left alone without a word.
+                    Err(why) if why.holds_still() => {
+                        eprintln!("session {session}: slot-{slot} stays held, it was not parked: {}", why.said());
+                        break;
+                    }
                     _ => break,
                 }
             }
             queue.freed();
         });
+    }
+
+    /// What a session that ended leaves in Fleet's hands: the Check runs it
+    /// still had out, and the walk it had open. Its slot's processes and
+    /// servers are ended by the park (`Vcs::park_hosted_slot`), and a run's
+    /// process is among them, since Fleet holds no pid for a run its CLI makes.
+    pub(crate) async fn session_wound_up(&self, session: &str) {
+        self.session_checks_ended(session).await;
+        if let Some(url) = self.walk_open(session).await {
+            self.walk_ended(session, &url).await;
+        }
     }
 
     /// A mod too old to run an end is unreachable for it: the same code, and

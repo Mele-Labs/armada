@@ -35,7 +35,7 @@ fn started(pid: u32) -> String {
     String::from_utf8_lossy(&said.stdout).trim().to_string()
 }
 
-async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
+pub(super) async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
     let rig = rig_placing(Some(Arc::clone(peers)));
     let id = rig.start().await;
     rig.send(&id, "change a file").await;
@@ -214,7 +214,7 @@ struct Quoted<'a> {
     command: &'a str,
 }
 
-async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
+pub(super) async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
     rig.fleet
         .store()
         .lock()
