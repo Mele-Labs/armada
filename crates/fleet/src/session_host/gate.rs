@@ -13,7 +13,7 @@ use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::following::Standing;
-use super::places::{place_of, written_by, Place};
+use super::places::{place_of, worked_in, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
 use crate::daemon::Fleet;
@@ -119,6 +119,19 @@ where
                         Place::Slot(slot) if !held(slot) => Some(not_held(&path, slot)),
                         _ => None,
                     });
+                // A `cd` moves every relative write after it, so the directory it ends in is judged.
+                let hit = hit.or_else(|| {
+                    worked_in(&command, &gate.cwd)
+                        .into_iter()
+                        .find_map(|entered| match lands(&entered) {
+                            Place::Main => Some(format!(
+                                "That command works in {entered}, in the main checkout. This \
+                                 session writes in its own slot at {directory}: work there."
+                            )),
+                            Place::Slot(slot) if !held(slot) => Some(not_held(&entered, slot)),
+                            _ => None,
+                        })
+                });
                 match hit {
                     Some(why) => GateAnswer::deny(why),
                     None => GateAnswer::pass(),

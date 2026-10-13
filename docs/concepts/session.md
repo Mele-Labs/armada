@@ -162,11 +162,14 @@ is placed. A shell line is also held when it **obviously names a path in the
 main checkout or in a slot the session does not hold**: a redirect (`>`, `>>`,
 `2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`,
 `chmod`, `truncate`, `dd`, `sed -i` and `perl -i` with an absolute path
-argument, and `git -C <path>` with any subcommand that is not a read. **Not
-covered**: a relative path (the session's directory is the slot, so it lands
-there), a path built from a variable or a substitution, a `cd` into the
-checkout and then a relative write, and anything a script or a build writes by
-itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
+argument, and `git -C <path>` with any subcommand that is not a read. **A `cd`
+or `pushd` moves what follows it**: a line that goes into the main checkout or
+a slot the session does not hold, by an absolute path or one relative to where
+the call started, and then runs anything that is not a read, is held. `cd
+<slot> && git status` is a read and runs. **Not covered**: a relative path
+with no `cd` (the session's directory is the slot, so it lands there), a path
+or a `cd` target built from a variable or a substitution, and anything a script
+or a build writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slot and `/tmp` it runs, rewrites its own branch, pushes and reaches
@@ -369,6 +372,7 @@ A session that is **ended or dead** offers Fork, in place of its message box. `s
 | The fork | Its own id, ledger and slot. It takes the old title unless one is given, starts in the repository's main checkout, and leases a slot at its first write like any other session. It holds none of the old session's slot, branch or pull requests |
 | First process | Resumes the old id as a fork under the new one, so the conversation is copied and the new id is Fleet's. Once it has run, the session resumes by its own id |
 | Ledger | A `forked_from` row on the fork and a `forked_to` row on the old session, both `spent` |
+| Told | **Every process of a fork has a note in its system prompt** (`--append-system-prompt`): forked from <title> (<id>) at <time>, that session is live or has ended, and nothing it started is the fork's. Its subagents, background tasks and shells, slots, branches, windows, pull requests and peer sessions stay its own, and a task-notification about its background work is not acted on, relaunched or reported. A fork launch cannot be built without the note (`HostedLaunch::forking` takes it) |
 
 > **Rule.** The whole of a session is forked only once it is ended or dead. A live one is forked at a message, below.
 > Why: a copy of the whole of a conversation still being written is two sessions racing to the same next message, and a session that can still be spoken to needs no copy.
@@ -385,6 +389,8 @@ A session that is **ended or dead** offers Fork, in place of its message box. `s
 | The line | A terminal session's row ids are its transcript lines' `uuid`s (`<uuid>.<n>` for a later row of one line), so the cut is the row id without its suffix. **A hosted session's rows carry no `uuid`**: Fleet minted their ids and the `Said` events the stream is read into drop the line's. Fleet lays the thread's messages over the transcript's from the end, matching the agent's by its words and a person's by being inside the line Fleet wrote (it adds a mention line and attachment paths), and the cut is where `at` lands. A message with no words, or none that lands, is refused: it is not guessed |
 
 The agent side is spike 30. A cut at a message the agent is part way through a tool call on is repaired by the CLI.
+
+**Why a note, and not a cleaner copy.** The CLI copies the conversation, and the conversation says the old session launched subagents, shells and a slot; the CLI then replays a notification for each of them that had not finished ("didn't finish before the previous session ended", "failed", "stopped") into the fork. Stripping the notifications from a copy of the transcript would leave the launches that caused them in the words the fork reads, and the copy would be a file Fleet writes into the CLI's own folder in a format Fleet does not own. The fork is told instead, in the one place it cannot read past. Found 13 Oct 2026: a fork of a live session relaunched the old session's builder into the old session's slot, and showed the owner the old session's windows as its own.
 
 **Bridge** keeps every session that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal session that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
 
