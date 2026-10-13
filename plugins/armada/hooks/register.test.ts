@@ -484,6 +484,26 @@ test('a page, a new document and a Docs document are told as artifacts, and a co
   ])
 })
 
+test('a file written is told as its path from the session directory, and never its content', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/a.rs', old_string: 'secret', new_string: 'more' })
+  await $.tool.call({ tool: 'MultiEdit', file_path: '/repos/armada/src/b.rs', edits: [] })
+  await $.tool.call({ tool: 'Write', file_path: '/etc/hosts', content: 'x' })
+  await clock.settle()
+
+  const touched = facts(posts.slice(before)).filter(fact => fact.kind === 'touched')
+  expect(touched).toEqual([
+    { kind: 'touched', paths: ['src/a.rs'] },
+    { kind: 'touched', paths: ['src/b.rs'] },
+  ])
+  expect(JSON.stringify(posts)).not.toContain('secret')
+})
+
 test('the model is told its Armada session id, and a Drone is not', async ($, on) => {
   world(on)
   const out = await $.prompt.context({ blocks: [] })

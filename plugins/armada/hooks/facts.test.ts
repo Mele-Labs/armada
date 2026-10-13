@@ -15,6 +15,7 @@ import {
   senderOf,
   customTitleIn,
   titleOf,
+  touchedOf,
   transcriptPath,
 } from './facts'
 
@@ -180,4 +181,14 @@ test('a Claude Docs document made or edited is an artifact, and reading one is n
   expect(artifactOf('mcp__claude_ai_Claude_Docs__read', edited, 'ok', false)).toBeUndefined()
   expect(artifactOf('mcp__claude_ai_Claude_Docs__guide', {}, 'ok', false)).toBeUndefined()
   expect(artifactOf('mcp__claude_ai_Claude_Docs__create', {}, 'no link', false)).toBeUndefined()
+})
+
+test('a written file is named from the session directory, and one outside it is not told', () => {
+  expect(touchedOf('/repos/armada', { file_path: '/repos/armada/src/a.rs' })).toBe('src/a.rs')
+  expect(touchedOf('/repos/armada/', { file_path: './src/a.rs' })).toBe('src/a.rs')
+  expect(touchedOf('/repos/armada', { notebook_path: '/repos/armada/n.ipynb' })).toBe('n.ipynb')
+  expect(touchedOf('/repos/armada', { file_path: '/repos/armada-other/a.rs' })).toBeUndefined()
+  expect(touchedOf('/repos/armada', { file_path: '/etc/hosts' })).toBeUndefined()
+  expect(touchedOf('/repos/armada', { file_path: '../x/a.rs' })).toBeUndefined()
+  expect(touchedOf('/repos/armada', { content: 'x' })).toBeUndefined()
 })

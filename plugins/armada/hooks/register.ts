@@ -8,7 +8,8 @@
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
-// or came from, and how many.
+// or came from, and how many. A file a session wrote is reported as its path from the session's directory,
+// and never its content.
 //
 // The helpers are top-level because the engine follows `$` only into a function
 // declared at the top of a file, and refuses the module otherwise.
@@ -18,6 +19,7 @@ import type { Engine, Register } from 'claude-code'
 import {
   answersIn,
   artifactOf,
+  touchedOf,
   customTitleIn,
   ghAct,
   isDispatch,
@@ -549,6 +551,12 @@ async function made(
   say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
 }
 
+async function wrote($: Dollar, input: Record<string, unknown>): Promise<void> {
+  const [id, one] = await current($)
+  const path = touchedOf(one.cwd, input)
+  if (path !== undefined) say($, id, { kind: 'touched', paths: [path] })
+}
+
 async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
   const [id, one] = await current($)
   const target = `${direction === 'sent' ? 'to' : 'from'}:${who}`
@@ -706,6 +714,17 @@ export const register: Register = on => {
       if (ran.deny === undefined && ran.isError !== true) {
         const created = tool === 'Write' && (ran.result as { type?: string } | undefined)?.type === 'create'
         void made($, tool, e as Record<string, unknown>, ran.text ?? '', created).catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
+  // Which files this session writes, for Fleet's check of who else writes them. A path, never content.
+  for (const tool of ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny === undefined && ran.isError !== true) {
+        void wrote($, e as Record<string, unknown>).catch(() => undefined)
       }
       return ran
     })
