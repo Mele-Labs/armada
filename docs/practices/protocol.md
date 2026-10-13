@@ -3662,8 +3662,12 @@ them. The window is cut by `at` and never by `id`, which only says what a client
 **Kept thirty days**, pruned on the next write, as `check_runs` is. The row is the fact as it read then,
 so a forgotten Job keeps its history.
 
-**Not entered, deliberately.** A Session's turns (a row replaced for every sentence), a Check's start (its
-result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
+**A Session's turn is entered once, where it ends**, and the fact is its length (`session.turn`, "Turn took
+2m 14s"), from the start Fleet heard to the end it heard. Never on the rows between, and not on the end of a
+turn held for a slot, which resumes in it as one turn. A turn reattached after a restart has no start heard,
+so it enters nothing.
+
+**Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
 anything before this shipped. A Session already live when Fleet starts is entered as started the first time
 its row changes.
 

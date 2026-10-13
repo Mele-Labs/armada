@@ -21,6 +21,7 @@ export type TimelineKind =
   | "session.started"
   | "session.asked"
   | "session.answered"
+  | "session.turn"
   | "session.ended"
   | "slot.leased"
   | "slot.released"

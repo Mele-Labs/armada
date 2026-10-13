@@ -5,7 +5,7 @@ use crate::{
     StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
-const ALL: [TimelineKind; 23] = [
+const ALL: [TimelineKind; 24] = [
     TimelineKind::JobCreated,
     TimelineKind::JobQueued,
     TimelineKind::JobStarted,
@@ -20,6 +20,7 @@ const ALL: [TimelineKind; 23] = [
     TimelineKind::SessionStarted,
     TimelineKind::SessionAsked,
     TimelineKind::SessionAnswered,
+    TimelineKind::SessionTurn,
     TimelineKind::SessionEnded,
     TimelineKind::SlotLeased,
     TimelineKind::SlotReleased,
@@ -41,7 +42,7 @@ fn every_kind_is_kept_under_its_dotted_name_and_reads_back() {
         [
             "job.created", "job.queued", "job.started", "job.step", "job.check", "job.judged",
             "job.files", "job.asked", "job.answered", "job.landed", "job.failed",
-            "session.started", "session.asked", "session.answered", "session.ended",
+            "session.started", "session.asked", "session.answered", "session.turn", "session.ended",
             "slot.leased", "slot.released", "pr.opened", "pr.checks", "pr.queued", "pr.merged",
             "main.red", "main.green",
         ]

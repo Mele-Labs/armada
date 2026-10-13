@@ -334,6 +334,34 @@ where
         );
     }
 
+    /// A Session's turn ended, `began` to `ended`, both by Fleet's clock. **Nothing is entered
+    /// without a start**: a turn reattached after a restart has none, and a length guessed is not a
+    /// fact.
+    pub(crate) fn session_turn(
+        &self,
+        id: &str,
+        (title, manifest): (Option<String>, Option<String>),
+        began: Option<&str>,
+        ended: &str,
+    ) {
+        let took = |at: &str| core_model::Timestamp::from_rfc3339(at).epoch_millis();
+        let (Some(began), Some(ended_ms)) = (began.and_then(took), took(ended)) else {
+            return;
+        };
+        self.timeline().note(
+            Fact::new(
+                ended,
+                TimelineKind::SessionTurn,
+                Subject::Session(id.to_string()),
+                TimelineTone::Idle,
+                format!("Turn took {}", lasted((ended_ms - began).max(0))),
+            )
+            .titled(title)
+            .in_repository(manifest)
+            .live(),
+        );
+    }
+
     /// A Job was given a pool slot, or gave it back.
     pub(crate) fn job_slot(&self, job: &core_model::Job, slot: u32, leased: bool) {
         self.timeline().note(slot_fact(
@@ -383,6 +411,17 @@ fn slot_fact(
         .titled(title)
         .detail(Some(format!("slot-{slot}")))
         .in_repository(manifest)
+}
+
+/// A length of time in milliseconds, as a person reads one: `42s`, `2m 14s`, `1h 5m`.
+pub(crate) fn lasted(millis: i64) -> String {
+    let seconds = millis / 1000;
+    match seconds {
+        0 => "under 1s".to_string(),
+        1..=59 => format!("{seconds}s"),
+        60..=3599 => format!("{}m {}s", seconds / 60, seconds % 60),
+        _ => format!("{}h {}m", seconds / 3600, seconds % 3600 / 60),
+    }
 }
 
 /// What a person's answer to a Drone's question reads as.

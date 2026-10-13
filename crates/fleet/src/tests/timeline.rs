@@ -424,3 +424,91 @@ async fn the_window_is_cut_by_instant_and_limit() {
     assert_eq!(none.events.len(), 1, "a limit of nothing is raised to one");
     assert_eq!(TimelineKind::from_wire("job.started"), Some(newest.events[0].kind));
 }
+
+/// A hosted Session's turn is entered once, where it ends, and the fact is how long it took: the
+/// tools and sentences between its start and its end enter nothing, and a second turn is a second
+/// entry.
+#[tokio::test]
+async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
+    use crate::tests::planted::Held;
+    use crate::tests::session_host::{eventually, Shared, StandIn};
+    use adapter_traits::{CallDetail, DroneEvent, Speaker};
+    use api::HostedSessions;
+
+    let home = TempDir::new();
+    let stand_in = Arc::new(StandIn::default());
+    let clock = Arc::new(Held::started());
+    let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
+    fittings.clock = clock.clone();
+    let fleet = Arc::new(
+        crate::Fleet::assembled(fittings)
+            .hosting_sessions_on(Arc::new(Shared(Arc::clone(&stand_in))), std::time::Duration::from_secs(600)),
+    );
+    keep_timeline(Arc::clone(&fleet));
+    let manifest = fleet.repositories().first().expect("a repository").manifest().id().as_str().to_string();
+    let started = Arc::clone(&fleet)
+        .start_session(ipc::StartSession {
+            manifest_id: ipc::ManifestId::carried(&manifest),
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            pilot: None,
+            fork: None,
+        })
+        .await
+        .expect("started");
+    let say = |text: &str| ipc::SendSessionMessage {
+        session_id: started.id.clone(),
+        text: text.into(),
+        attachments: Vec::new(),
+        mentions: Vec::new(),
+    };
+    let working = || async {
+        let thread = Arc::clone(&fleet).get_session(started.id.clone()).await;
+        thread.is_ok_and(|one| one.session.hosted.is_some_and(|hosted| hosted.turn == ipc::SessionTurn::Idle))
+    };
+
+    Arc::clone(&fleet).send_session_message(say("fix the login")).await.expect("taken");
+    stand_in.init(0);
+    // Heard, not merely sent: the turn's start is taken when the process says it began.
+    eventually(|| async { fleet.hosts().of(started.id.as_str()).state().turn_began.is_some() }).await;
+    clock.on(134);
+    stand_in.says(
+        0,
+        vec![
+            DroneEvent::Called { tool: "Bash".into(), call: "c1".into(), detail: CallDetail::of("cargo test") },
+            DroneEvent::Said { text: "reading".into(), by: Speaker::Drone },
+            DroneEvent::Called { tool: "Read".into(), call: "c2".into(), detail: CallDetail::of("a.rs") },
+        ],
+    );
+    stand_in.finishes(0, "done");
+    eventually(|| async { working().await }).await;
+
+    let events = read(&fleet).await;
+    let turns: Vec<_> = events.iter().filter(|one| one.kind == TimelineKind::SessionTurn).collect();
+    assert_eq!(turns.len(), 1, "one turn, however many rows it wrote: {:?}", kinds(&events));
+    assert!(turns[0].says.starts_with("Turn took 2m "), "{}", turns[0].says);
+    assert_eq!(turns[0].title.as_deref(), Some("fix the login"));
+    assert_eq!(turns[0].manifest_id.as_ref().map(|id| id.as_str()), Some(manifest.as_str()));
+    assert!(turns[0].live && !turns[0].over);
+
+    Arc::clone(&fleet).send_session_message(say("and the logout")).await.expect("taken");
+    stand_in.init(0);
+    stand_in.finishes(0, "done again");
+    eventually(|| async {
+        fleet.timeline().settled().await;
+        read(&fleet).await.iter().filter(|one| one.kind == TimelineKind::SessionTurn).count() == 2
+    })
+    .await;
+}
+
+/// How a turn's length reads.
+#[test]
+fn a_length_reads_as_a_person_says_it() {
+    use crate::timeline::lasted;
+    assert_eq!(lasted(400), "under 1s");
+    assert_eq!(lasted(42_000), "42s");
+    assert_eq!(lasted(134_000), "2m 14s");
+    assert_eq!(lasted(3_900_000), "1h 5m");
+}

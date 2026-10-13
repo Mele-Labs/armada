@@ -150,8 +150,10 @@ where
             DroneEvent::Started { .. } => {
                 // A turn begun again is work the agent had said was over.
                 self.done_cleared(id).await;
+                let began = self.now().as_str().to_string();
                 {
                     let mut state = runtime.state();
+                    state.turn_began = Some(began);
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
                         state.queued -= 1;
@@ -225,21 +227,28 @@ where
 
     async fn turn_ended(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, cost_micros: u64) {
         let now = self.now().as_str().to_string();
+        let mut named = (None, None);
         {
             let mut store = self.store().lock().await;
             if let Ok(Some(mut session)) = store.session(id) {
+                named = (session.title.clone(), session.manifest_id.clone());
                 session.last_turn_at = Some(now.clone());
-                session.last_seen_at = now;
+                session.last_seen_at = now.clone();
                 let before = session.figures.cost_micros.unwrap_or(0);
                 session.figures.cost_micros = Some(before.max(cost_micros));
                 let _ = store.keep_session(&session);
             }
         }
-        let (moving, restart) = {
+        let (moving, restart, began) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
-            (state.moving.take(), state.restart_after_turn)
+            (state.moving.take(), state.restart_after_turn, state.turn_began.take())
         };
+        // **Once, where the turn ends**, never on the rows between. A turn held for a slot and
+        // resumed in it is one turn to the person, so that move's end is not entered.
+        if moving.is_none() {
+            self.session_turn(id, named, began.as_deref(), &now);
+        }
         if let Some(moving) = moving {
             self.moved_into(id, moving).await;
             return;

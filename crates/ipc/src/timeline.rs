@@ -65,6 +65,9 @@ pub enum TimelineKind {
     /// A person's answer to a Session's ask or waiting item.
     #[serde(rename = "session.answered")]
     SessionAnswered,
+    /// A Session's turn ended. The fact is how long it took.
+    #[serde(rename = "session.turn")]
+    SessionTurn,
     /// A Session went from live to ended.
     #[serde(rename = "session.ended")]
     SessionEnded,
