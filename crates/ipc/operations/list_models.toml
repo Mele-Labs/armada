@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"
-description = "The models a Job may name, and the one it gets when it names none"
+description = "The models a Job may name, the one a Job gets when it names none, and the one a Session gets"
 notes = """
 Added with the model picker. `crates/config/settings.toml` carries two rows that should answer this — `kit-level-allowed-default-models-list` and `default-model-per-job-type` — and neither has a `default` value, so nothing configured names a model. The values served are the adapter's, which is the boundary allowed to know a vendor's spellings; that is a stand-in and the settings rows are the answer.
 
-**`default` is `models.default` as it stands when asked.** The setting is live, so the plan's step down (`docs/concepts/machine.md`, *Quota*) moves it without a restart; `models` is the roster as Fleet started, and `default` is always a member of it.
+**`default` is `models.default` as it stands when asked, and `session` is `models.session`.** Both are live, so the plan's step down (`docs/concepts/machine.md`, *Quota*), which moves `session`, reaches them without a restart; `models` is the roster as Fleet started, and each of the two is always a member of it. `session` is required.
 
 Helm may reach it for the same reason it may reach the other queries: knowing what a model may be named is not choosing one.
 """

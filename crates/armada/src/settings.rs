@@ -38,6 +38,7 @@ pub fn supplied() -> Supplied {
         .words(keys::HARNESS_BINARY_PATH, HeadlessAgent::on_path().program())
         .list(keys::MODELS_ROSTER, HeadlessAgent::models())
         .words(keys::MODELS_DEFAULT, HeadlessAgent::default_model())
+        .words(keys::MODELS_SESSION, HeadlessAgent::session_model())
         .words(keys::MODELS_JUDGE, HeadlessAgent::judge_model())
         .words(keys::MODELS_PROPOSER, HeadlessAgent::proposer_model())
         .words(keys::MODELS_RETRO, HeadlessAgent::retro_model())

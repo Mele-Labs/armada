@@ -191,20 +191,20 @@ with `Continue` then (`session.md`, *A session that hit the plan's limit*). Disp
 still does not wait on any percentage: no floor is held against the figure, and a
 Drone started into a spent window is held when it is refused.
 
-### The default model steps down
+### The Session model steps down
 
-**The weekly window nearing its end offers the lower model as the default, and the owner decides.** The offer is made when the `seven_day` window is at or over `plan.downshiftAt` (80 percent), once for each window. Accepting writes `models.default` as `plan.downshiftTo`, so Drones, Jobs and Sessions all take it; the five-hour window never offers one. Nothing is switched without the press.
+**The weekly window nearing its end offers the lower model as the Session default, and the owner decides.** The offer is made when the `seven_day` window is at or over `plan.downshiftAt` (80 percent), once for each window. Accepting writes `models.session` as `plan.downshiftTo`, so Sessions started afterwards take it; Drones and Jobs keep `models.default`. The five-hour window never offers one. Nothing is switched without the press.
 
 | Phase | How it is reached | What the owner can do |
 | --- | --- | --- |
 | none | Nothing offered, or this window was settled | |
-| `offered` | The weekly reading crosses the line while `models.default` is not already the lower model | Accept, or set the default by hand, which settles the window |
-| `shifted` | Accepted: `models.default` is the lower model until the window's `resets_at` | Restore |
+| `offered` | The weekly reading crosses the line while `models.session` is not already the lower model | Accept, or set the Session model by hand, which settles the window |
+| `shifted` | Accepted: `models.session` is the lower model until the window's `resets_at` | Restore |
 | `reset` | A reading carries a different `resets_at` while shifted | Restore, or keep the lower model |
 
-**The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one. Accepting records what settings.json held for `models.default`; a default that was not saved is removed again on restore, so the shipped one is back rather than a copy of it. A hand edit of `models.default` away from what the phase expects settles it. `get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The default model steps down*.
+**The state is Fleet's, and it is kept.** Plan readings are memory only, but the phase and the window an offer was last made for are one row in the store, so a restart does not forget a lowered default and an empty reading never clears one. Accepting records what settings.json held for `models.session`; a value that was not saved is removed again on restore, so the shipped one is back rather than a copy of it. A hand edit of `models.session` away from what the phase expects settles it. `get_model_downshift` and `model_downshift.changed` serve it; `docs/practices/protocol.md`, *The Session model steps down*.
 
-**What follows `models.default`.** It is live. A Job proposed after the change and a Session process started after it take the new default; a Job already proposed keeps the model it was given, and a Session process already running keeps its own until it ends and the next message starts another. `ARMADA_MODEL` still wins, and no offer is made while it is set.
+**What follows `models.session`.** It is live. A Session process started after the change takes it, and a process already running keeps its own until it ends and the next message starts another. A model chosen for one Session wins, and a terminal Session reports its own. `models.default` is the Drone's and a Job's and is never moved by the step down; `ARMADA_MODEL` names that one, and `models.session` has no variable.
 
 ## Init
 

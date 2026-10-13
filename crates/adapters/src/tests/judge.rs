@@ -159,6 +159,17 @@ fn the_default_judge_model_is_the_value_the_settings_row_carries() {
     assert_ne!(HeadlessAgent::judge_model(), HeadlessAgent::default_model());
 }
 
+/// A Session with no model chosen runs on the strongest on the roster, as
+/// `session-model` decided on 13 Oct 2026. **The derivation is pinned**, as the
+/// judge's is: `session_model` takes the first entry on the assumption that the
+/// roster runs strongest first, so a reordered roster costs a red test.
+#[test]
+fn the_default_session_model_is_the_strongest_on_the_roster_and_not_a_drones() {
+    assert_eq!(HeadlessAgent::session_model(), "opus");
+    assert_eq!(HeadlessAgent::models().first().copied(), Some(HeadlessAgent::session_model()));
+    assert_ne!(HeadlessAgent::session_model(), HeadlessAgent::default_model());
+}
+
 /// A flag is read again by a model on the roster and stronger than the one that
 /// raised it, or the second reading is the first look asked twice.
 #[test]

@@ -393,7 +393,7 @@ export class WiredStore {
       return store.inputs?.holds.models?.models ?? NONE;
     },
     get defaultModel() {
-      return store.inputs?.holds.models?.default;
+      return store.inputs?.holds.models?.session;
     },
     efforts: EFFORTS,
     get commands() {
