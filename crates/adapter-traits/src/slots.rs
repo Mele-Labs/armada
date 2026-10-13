@@ -106,6 +106,9 @@ pub struct SlotReading {
     pub kept: Option<String>,
     /// The Job holding it completed, and holds it until a person clears it.
     pub completed: bool,
+    /// For a stranded slot, the Session whose process tree held it last, where
+    /// Fleet saw that while the process lived.
+    pub last_session: Option<String>,
     /// What it holds, for the slots that show work: [`SlotReading::with_work`]
     /// says which. Read with the slot's state, so asking for it costs no
     /// second look at the checkout.

@@ -4,8 +4,11 @@
 // work as the grid and the map do. What moves is what is still working: nothing here does.
 
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { LoaderCircle, Plane } from "lucide-react";
-import { Button, ClashMark, StopCard, Tooltip } from "@armada/components";
+import { LoaderCircle, Plane, Unplug } from "lucide-react";
+import { Button, ClashMark, ReleaseConfirm, StopCard, Tooltip } from "@armada/components";
+import { releaseHolder } from "@armada/protocol";
+import type { Outcome } from "@armada/protocol";
+import { releaseRefusal } from "@armada/screens/src/releasing";
 
 import type { BaysRead } from "./bays";
 import { MAIN, REVIEW, STATIONS, metroOf, type Act, type Card, type Line, type LineHolder, type Metro, type Tone } from "./metro";
@@ -77,8 +80,10 @@ function Holder({ holder, onOpen }: { holder: LineHolder; onOpen: (act: Act) => 
   );
 }
 
-function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, nextUp = false }: {
+function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, onRelease, nextUp = false }: {
   line: Line;
+  /** Asks to release the bay this line holds, where an agent session does and the window can send it. */
+  onRelease?: (() => void) | undefined;
   /** The stations drawn, each with its place on the line: Review only while some line has one. */
   stations: readonly (readonly [string, number])[];
   selected: boolean;
@@ -119,6 +124,13 @@ function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, next
         )}
       </button>
       {line.open?.kind === "job" || line.open?.kind === "session" ? <ClashMark kind={line.open.kind} id={line.open.id} /> : null}
+      {onRelease === undefined ? null : (
+        <Tooltip label="Release">
+          <button type="button" className="armada-metro__release" aria-label={`Release bay ${two(line.bay ?? 0)}`} onClick={onRelease}>
+            <Unplug size={12} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      )}
       </span>
       {!nextUp ? null : (
         <span className="armada-metro__station" data-next-up data-state={line.nextUp === undefined ? "ahead" : "now"}>
@@ -161,7 +173,10 @@ function Row({ line, stations, selected, onSelect, onOpen, onCard, onLeave, next
   );
 }
 
-export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpenSession, onOpenLink, autopilot }: {
+/** The release open on a bay's line: its confirm, then what Fleet refused. */
+type Releasing = { key: string; sending: boolean; refused?: string; session?: string };
+
+export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpenSession, onOpenLink, onReleaseSlot, autopilot }: {
   read: BaysRead;
   /** Drawn only while an Autopilot is on: the Next up station, its marks and its sidings. */
   autopilot?: BaysAutopilot | undefined;
@@ -174,6 +189,8 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
   onOpenJob: (id: string) => void;
   onOpenSession: (id: string) => void;
   onOpenLink: (address: string) => void;
+  /** Releases a slot an agent session holds. Absent, a line offers no Release. */
+  onReleaseSlot?: ((manifestId: string, slot: number, holder: string) => Promise<Outcome>) | undefined;
 }) {
   const metro = useMemo(() => (autopilot === undefined ? metroOf(read, now) : autopilot.mark(metroOf(read, now))), [read, now, autopilot]);
   const nextUp = autopilot !== undefined;
@@ -228,6 +245,45 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
     setAbove(open.top + one.offsetHeight > base.clientHeight - 8);
   }, [open]);
 
+  const [releasing, setReleasing] = useState<Releasing>();
+  const release = async (line: Line) => {
+    const slot = line.release;
+    const holder = slot === undefined ? undefined : releaseHolder(slot);
+    if (slot === undefined || holder === undefined || onReleaseSlot === undefined) return;
+    setReleasing({ key: line.key, sending: true });
+    const outcome = await onReleaseSlot(slot.manifest_id, slot.slot, holder);
+    if (outcome.ok) return setReleasing(undefined);
+    const refusal = releaseRefusal(outcome);
+    setReleasing({ key: line.key, sending: false, refused: refusal.said, ...(refusal.working ? { session: holder } : {}) });
+  };
+  /** The line's Release, and under it the confirm or the refusal it opened. */
+  const releases = (line: Line): { onRelease?: () => void; under: ReactNode } => {
+    if (line.release === undefined || onReleaseSlot === undefined) return { under: null };
+    const open = releasing?.key === line.key ? releasing : undefined;
+    return {
+      onRelease: () => setReleasing({ key: line.key, sending: false }),
+      under:
+        open === undefined ? null : (
+          <li className="armada-metro__confirm">
+            {open.refused === undefined ? (
+              <ReleaseConfirm row={{ slot: line.release }} onSend={() => void release(line)} onCancel={() => setReleasing(undefined)} />
+            ) : (
+              <>
+                <p className="armada-metro__refused" role="alert">
+                  {open.refused}
+                </p>
+                {open.session === undefined ? null : (
+                  <Button variant="secondary" size="sm" onClick={() => onOpenSession(open.session!)}>
+                    Open Session
+                  </Button>
+                )}
+              </>
+            )}
+          </li>
+        ),
+    };
+  };
+
   const act = (one: Act) => {
     setOpen(undefined);
     if (one.kind === "job") onOpenJob(one.id);
@@ -265,9 +321,15 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
         {metro.harbours.map((harbour) => (
           <ol key={harbour.manifest} className="armada-metro__block" aria-label={named ? `${harbour.name} bays` : "Bays"}>
             {named ? <li className="armada-metro__part">{harbour.name}</li> : null}
-            {harbour.lines.map((line) => (
-              <Row key={line.key} line={line} stations={stations} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
-            ))}
+            {harbour.lines.map((line) => {
+              const { onRelease, under } = releases(line);
+              return (
+                <Fragment key={line.key}>
+                  <Row line={line} stations={stations} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} onRelease={onRelease} />
+                  {under}
+                </Fragment>
+              );
+            })}
           </ol>
         ))}
         {metro.harbours.map((harbour) =>

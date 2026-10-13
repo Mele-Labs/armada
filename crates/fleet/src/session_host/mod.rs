@@ -27,6 +27,7 @@ pub(crate) use pilot_words::{
 mod places;
 mod process;
 pub mod queueing;
+pub(crate) mod releasing;
 mod rows;
 pub(crate) use rows::{mention_line, UserLine};
 mod serving;

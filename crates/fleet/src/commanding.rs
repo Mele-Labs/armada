@@ -705,7 +705,7 @@ where
         change: ipc::ChangeSlotPool,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::SlotPoolChanged, Refusal> {
-        let changed = Fleet::change_slot_pool(self, change, manifest_id.as_ref())?;
+        let changed = self.slot_pool_changed(change, manifest_id.as_ref()).await?;
         self.worktrees_changed().await;
         Ok(changed)
     }

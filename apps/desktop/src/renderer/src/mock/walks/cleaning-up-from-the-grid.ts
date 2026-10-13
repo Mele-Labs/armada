@@ -3,7 +3,7 @@
 // is released after a confirm that says its uncommitted files are committed to
 // the Job's branch as a WIP commit; a worktree outside the pool is committed to
 // the same way and then removed; the Job's own Clear says the same; a slot an
-// agent session holds is released, with its files committed first or with none; a running Job's
+// agent session holds, in a terminal or hosted, is released, with its files committed first or with none, and refused while a hosted one is working; a running Job's
 // holds the tree and offers nothing; two worktrees outside the pool sit after
 // the bays, one with a branch to delete; a stranded bay is rescued and a closed
 // one reopened. The old list below the bays, and its bulk press, are gone.
@@ -70,6 +70,17 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { press: inside(role("group", "Release slot-6", { exact: true }), role("button", "Release", { exact: true })), say: "Sent" },
   { look: inside(PANEL(6), role("status")), say: "Slot released" },
   { press: SHUT(6), say: "Back to the grid" },
+  { press: TILE(9), say: "A bay a hosted Session holds, between turns" },
+  { press: IN_PANEL(9, "button", "Release"), say: "Release asks first, as it does for a terminal's" },
+  { press: inside(role("group", "Release slot-9", { exact: true }), role("button", "Release", { exact: true })), say: "Sent" },
+  { look: inside(PANEL(9), role("status")), say: "Slot released" },
+  { press: SHUT(9), say: "Back to the grid" },
+  { press: TILE(10), say: "A bay a hosted Session holds, mid-turn" },
+  { press: IN_PANEL(10, "button", "Release"), say: "Release asks first" },
+  { press: inside(role("group", "Release slot-10", { exact: true }), role("button", "Release", { exact: true })), say: "Sent" },
+  { look: inside(PANEL(10), role("alert")), say: "Refused: the Session is working" },
+  { look: IN_PANEL(10, "button", "Open Session"), say: "Open Session goes to it" },
+  { press: SHUT(10), say: "Back to the grid" },
   { press: TILE(4), say: "A stranded bay" },
   { press: IN_PANEL(4, "button", "Rescue"), say: "Rescue sends a Scout to read it" },
   { look: IN_PANEL(4, "heading", "Unfinished"), say: "Its Finding is in the same panel" },

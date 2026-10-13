@@ -236,6 +236,24 @@ test("Bays is a filter of its own: each piece of work in a bay, and each waiting
   await expect.poll(() => page.getByRole("tab", { name: "Bays" }).query()).toBeNull();
 });
 
+test("a bay a hosted Session holds is released from its line: the idle one frees, the one mid-turn is refused and opens", async () => {
+  await dashboard();
+  await page.getByRole("tab", { name: "Bays" }).click();
+  await selected("Bays");
+  const confirm = (slot: string) => page.getByRole("group", { name: `Release ${slot}`, exact: true });
+
+  await page.getByRole("button", { name: "Release bay 14" }).click();
+  await expect.element(confirm("slot-14").getByText("Held by Theme token audit, on branch fix/theme-token-audit")).toBeVisible();
+  await confirm("slot-14").getByRole("button", { name: "Release", exact: true }).click();
+  await expect.poll(() => page.getByRole("button", { name: "Release bay 14" }).query()).toBeNull();
+  expect(page.getByRole("button", { name: /^Bay 14:/ }).query()).toBeNull();
+
+  await page.getByRole("button", { name: "Release bay 03" }).click();
+  await confirm("slot-3").getByRole("button", { name: "Release", exact: true }).click();
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Slot not released: Flaky store test is working");
+  await expect.element(page.getByRole("button", { name: "Open Session" })).toBeVisible();
+});
+
 test("the call deck is not drawn over the timeline, and the Your move tab says a call waits", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Active" }).click();

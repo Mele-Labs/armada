@@ -319,6 +319,12 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__who[data-opens] { cursor: pointer; }
 .armada-metro__who[data-opens]:hover .armada-metro__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }
 .armada-metro__who:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-metro__release { display: inline-flex; padding: 0; border: 0; background: none; color: var(--fg-subtle); cursor: pointer; }
+.armada-metro__release:hover { color: var(--fg-default); }
+.armada-metro__release:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+/* A release asked for under its line: the confirm, or what Fleet refused. */
+.armada-metro__confirm { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); max-width: calc(var(--space-12) * 8); padding: var(--space-2) var(--space-4) var(--space-3); }
+.armada-metro__refused { margin: 0; padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--slot-stranded); border-radius: var(--radius-sm); font-size: var(--text-sm); }
 .armada-metro__bay { flex: none; width: 2.5ch; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
 /* A pull request outside a bay: its number where a bay's sits, under whoever owns it. */
 .armada-metro__bay[data-pull] { width: 6ch; }

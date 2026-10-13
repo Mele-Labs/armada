@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Show the person a web page in a window of Bridge's own, which opens by itself and which a note taken in is answered by a message to this session. While he walks it, AskUserQuestion is refused: ask a question about the page with ask_in_window, put any other in waiting_for, and end your turn, so his notes reach you. To offer several takes of one change, pass variations, a list of {name, url}, with url the first's: he swaps between them on the window's bar and a note or an Approve names the take. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files"
 notes = """
-`POST /sessions/window`, body `ShowWindow`: `url`, an optional `title`, an optional `session_id` and optional `variations`. Answered with the `SessionRecord`.
+`POST /sessions/window`, body `ShowWindow`: `url`, an optional `title`, an optional `session_id` and optional `variations`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id`, `window` (the address), `title` where one was given and `takes` (their names) where there are any, because the row grows with every attachment and an agent keeps each answer.
 
 **Any `http` or `https` address**; any other scheme is refused with 422 and nothing written. **The session is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a session in a terminal, whose connection Fleet cannot place; the mod tells the model its own id at the start of the conversation (`prompt.context`), and the model passes it. A call that places no session and names none is refused.
 
