@@ -762,6 +762,7 @@
 
 .armada-tile__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .armada-tile__mark { display: inline-flex; color: var(--hue); }
+.armada-tile__flags { display: inline-flex; align-items: center; gap: var(--space-2); }
 .armada-tile__kind { display: inline-flex; color: var(--fg-subtle); }
 
 .armada-tile__mark[data-spin] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
