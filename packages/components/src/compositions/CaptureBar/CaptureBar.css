@@ -66,6 +66,25 @@
   color: var(--hue);
 }
 
+/* Approved: the walk is settled, so the bar takes a finished Job's hue, lit more than ready is. */
+.armada-capture-bar[data-approved] {
+  --hue: var(--status-completed-success);
+  border-bottom: calc(2 * var(--border-width)) solid var(--hue);
+}
+
+.armada-capture-bar[data-approved] .armada-capture-bar__row:first-child {
+  background: color-mix(in srgb, var(--hue) 22%, var(--bg-sunken));
+}
+
+.armada-capture-bar__approved {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--hue);
+  font-weight: var(--weight-medium);
+}
+
 /* The takes of one change, a row under the bar's own: the one on screen is filled. Each scrolls
    into reach rather than wrapping, so the row keeps the bar's height. */
 .armada-capture-bar__takes {

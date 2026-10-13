@@ -183,6 +183,7 @@ export function hasASecondRow(
 export function CaptureBar(props: CaptureBarProps) {
   const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness, walk } = props;
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
+  const approved = approval?.state === "approved";
   const owner = job ?? session;
   const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
   const aim =
@@ -205,11 +206,20 @@ export function CaptureBar(props: CaptureBarProps) {
     <div
       className="armada-capture-bar"
       data-armed={armed ? "" : undefined}
-      data-readiness={readiness}
+      // Approved outranks ready: the walk is settled, and the bar says so in its own hue.
+      data-readiness={approved ? undefined : readiness}
+      data-approved={approved ? "" : undefined}
       {...(walk === undefined ? {} : { onKeyDown: (event: KeyboardEvent<HTMLElement>) => walkKey(event, walk) })}
     >
       <div className="armada-capture-bar__row">
-        {readiness === undefined ? null : <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />}
+        {approved ? (
+          <span className="armada-capture-bar__approved">
+            <Check size={14} strokeWidth={2.5} aria-hidden />
+            {`Approved${taking}`}
+          </span>
+        ) : readiness === undefined ? null : (
+          <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />
+        )}
         {run === undefined ? null : (
           <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
             {run}
