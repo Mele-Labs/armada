@@ -1,0 +1,7 @@
+[icons.key]
+  means = "A plain key: a credential this machine has to hold itself"
+  group = "Shared home"
+  size = "12px"
+  status = "Proposed"
+  reserved = "An MCP server whose key is not on this machine. Never a worktree slot, which is `key-round`, and never a permission."
+  notes = "Minted 13 Oct 2026 for the walk `shared-home`. A server travels through the shared home as a name and a host, never its credential, so the key stays to be set on each machine. `key-round` is reserved to a leased slot and says so; a plain key is a different silhouette. Tooltip `Needs its key on this machine`."

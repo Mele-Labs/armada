@@ -270,3 +270,51 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
+
+/* ---- Against a shared home ------------------------------------------------------------------ */
+
+/* A row with its marks in a column of its own at the line's end, the same width on every row so the
+   marks stand in one line down a tile. The name and where it came from keep the first line, what it
+   says the second, and the act a row offers a third. */
+.armada-kit-setup__item[data-sync] {
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) var(--space-8);
+  /* A row beside a taller one keeps its own lines together rather than spreading them. */
+  align-content: start;
+}
+
+.armada-kit-setup__item[data-sync] > .armada-sync-marks {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.armada-kit-setup__item[data-sync] > .armada-kit-setup__item-says,
+.armada-kit-setup__item[data-sync] > .armada-kit-setup__item-from {
+  grid-column: 1 / 3;
+}
+
+.armada-kit-setup__item-act {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  justify-self: start;
+}
+
+/* A tile holding a row the person has to pick a side for takes the amber on its frame, as a
+   stranded bay does: the state is the frame's, and the row's own mark says which. */
+.armada-kit-setup__kind:has([data-sync="differs"]) {
+  --hue: var(--status-awaiting-review);
+}
+
+.armada-kit-setup__item[data-sync="differs"] > .armada-kit-setup__item-name {
+  font-weight: var(--weight-heading);
+}
+
+/* Settled rows recede, so the ones still to settle are the ones that read. */
+.armada-kit-setup__item[data-sync="same"] > .armada-kit-setup__item-name {
+  color: var(--fg-muted);
+}
+
+/* The band's third group: the account and Sync. */
+.armada-kit-setup__head > .armada-shared-bar {
+  margin-inline-start: auto;
+}

@@ -1,6 +1,9 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
+import { SharedHomeBar, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "./SharedHome";
+import type { SharedHome, SharedRow } from "./SharedHome";
 
 /**
  * The setup a person already works with, read from their agent harness's own
@@ -52,7 +55,11 @@ export type KitSetupKindWord =
   | "commands"
   | "mcp_servers"
   | "allowlist"
-  | "models";
+  | "models"
+  // The three the shared home carries that fleet's read does not: they are drawn only against a home.
+  | "workflows"
+  | "global_instructions"
+  | "memory";
 
 export type KitSetupKind = {
   kind: KitSetupKindWord;
@@ -83,6 +90,9 @@ const KIND_LABEL: Record<KitSetupKindWord, string> = {
   mcp_servers: "MCP servers",
   allowlist: "Allowlist",
   models: "Models",
+  workflows: "Workflows",
+  global_instructions: "Global instructions",
+  memory: "Memory",
 };
 
 /**
@@ -105,11 +115,35 @@ const KIND_NONE: Record<KitSetupKindWord, string> = {
   mcp_servers: "No servers connected",
   allowlist: "Nothing always-allowed",
   models: "No models named",
+  workflows: "No workflows",
+  global_instructions: "No global instructions",
+  memory: "No memory",
 };
 
+/**
+ * Against a shared home the read gains Workflows, Memory and Global instructions, and Global
+ * instructions stands where the agent file did: it is that file.
+ */
+function withHomeKinds(kinds: KitSetupKind[], rows: SharedRow[]): KitSetupKind[] {
+  const tile = (kind: KitSetupKindWord): KitSetupKind[] => {
+    const here = rows.filter((row) => row.kind === kind);
+    return here.length === 0 ? [] : [{ kind, read: { what: "read", items: [], unreadable: [] } }];
+  };
+  return kinds.flatMap((one) => {
+    if (one.kind === "agent_file") return tile("global_instructions");
+    if (one.kind === "commands") return [one, ...tile("workflows")];
+    if (one.kind === "allowlist") return [one, ...tile("memory")];
+    return [one];
+  });
+}
+
 export function KitSetup({ setup, onRemoveAllowed }: KitSetupProps) {
+  const shared = useSharedHome();
+  // The row whose two versions are open beside the page.
+  const [comparing, setComparing] = useState<SharedRow | null>(null);
   // Before the read answers there is nothing yet to say.
   if (setup === undefined) return null;
+  const kinds = shared === undefined ? setup.kinds : withHomeKinds(setup.kinds, shared.rows);
   return (
     <section className="armada-kit-setup" aria-label="What you already have">
       <header className="armada-kit-setup__head">
@@ -118,26 +152,51 @@ export function KitSetup({ setup, onRemoveAllowed }: KitSetupProps) {
           {setup.harness}
           <span className="armada-kit-setup__home">{setup.home}</span>
         </p>
+        {shared === undefined ? null : <SharedHomeBar home={shared} />}
       </header>
 
       {/* The glass the kinds stand on, each a tile. */}
       <div className="armada-kit-setup__glass">
-        {setup.kinds.map((kind) => (
-          <Kind key={kind.kind} home={setup.home} onRemoveAllowed={onRemoveAllowed} {...kind} />
+        {kinds.map((kind) => (
+          <Kind key={kind.kind} home={setup.home} shared={shared} onCompare={setComparing} onRemoveAllowed={onRemoveAllowed} {...kind} />
         ))}
       </div>
+      {shared === undefined || comparing === null ? null : (
+        <SyncSheet row={comparing} kindLabel={KIND_LABEL[comparing.kind as KitSetupKindWord]} acts={shared} onClose={() => setComparing(null)} />
+      )}
     </section>
   );
+}
+
+/** One row as the tile draws it: the thing read, or the thing only the home has, and how it stands against the home. */
+type Line = { item: KitSetupItem; row?: SharedRow | undefined };
+
+/** What is read, then what only the home has. Where a kind has no home, every line is just what was read. */
+function linesOf(kind: KitSetupKindWord, items: KitSetupItem[], shared: SharedHome | undefined): Line[] {
+  const rows = shared?.rows.filter((row) => row.kind === kind) ?? [];
+  const read = items.map((item) => ({ item, row: rows.find((row) => row.name === item.name) }));
+  const apart = rows
+    .filter((row) => !items.some((item) => item.name === row.name))
+    .map((row) => ({ item: { name: row.name, ...(row.says === undefined ? {} : { says: row.says }), source: row.source ?? "" }, row }));
+  return [...read, ...apart];
 }
 
 function Kind({
   kind,
   read,
   home,
+  shared,
+  onCompare,
   onRemoveAllowed,
-}: KitSetupKind & { home: string; onRemoveAllowed?: ((run: string) => void) | undefined }) {
+}: KitSetupKind & {
+  home: string;
+  shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
+  onRemoveAllowed?: ((run: string) => void) | undefined;
+}) {
+  const lines = read.what === "read" ? linesOf(kind, read.items, shared) : [];
   // The allowlist draws no count: a count beside the list it counts is design-system hard rule 7.
-  const counted = read.what === "read" && kind !== "allowlist" ? read.items.length : undefined;
+  const counted = read.what === "read" && kind !== "allowlist" && shared === undefined ? read.items.length : undefined;
   return (
     // A tile on the glass: focusable, so a reading with no control in it is still reached by the keys.
     <section className="armada-kit-setup__kind" aria-label={KIND_LABEL[kind]} tabIndex={0} data-kit-tile="">
@@ -152,9 +211,9 @@ function Kind({
         /* Named as not read, never drawn as empty. */
         <p className="armada-kit-setup__not-read">Not read yet — {read.why}</p>
       ) : kind === "allowlist" ? (
-        <Allowed items={read.items} onRemove={onRemoveAllowed} />
+        <Allowed lines={lines} shared={shared} onCompare={onCompare} onRemove={onRemoveAllowed} />
       ) : (
-        <Items kind={kind} home={home} items={read.items} unreadable={read.unreadable} />
+        <Items kind={kind} home={home} lines={lines} shared={shared} onCompare={onCompare} unreadable={read.unreadable} />
       )}
     </section>
   );
@@ -178,20 +237,25 @@ function sourceWords(source: string): string {
  * name where there are none**: an empty list says so by being empty.
  */
 function Allowed({
-  items,
+  lines,
+  shared,
+  onCompare,
   onRemove,
 }: {
-  items: KitSetupItem[];
+  lines: Line[];
+  shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
   onRemove?: ((run: string) => void) | undefined;
 }) {
-  if (items.length === 0) return null;
+  if (lines.length === 0) return null;
   return (
     <ul className="armada-kit-setup__items">
-      {items.map((item) => (
-        <li className="armada-kit-setup__item" key={item.name}>
+      {lines.map(({ item, row }) => (
+        <li className="armada-kit-setup__item" key={item.name} data-sync={row?.state}>
           <span className="armada-kit-setup__item-name mono">{item.name}</span>
-          <span className="armada-kit-setup__item-from">{sourceWords(item.source)}</span>
-          {onRemove === undefined ? null : (
+          {item.source === "" ? null : <span className="armada-kit-setup__item-from">{sourceWords(item.source)}</span>}
+          <Synced row={row} shared={shared} onCompare={onCompare} />
+          {onRemove === undefined || row?.state === "home" ? null : (
             <Button
               variant="ghost"
               size="sm"
@@ -219,25 +283,52 @@ function under(source: string, home: string): string {
   return source.startsWith(`${home}/`) ? source.slice(home.length + 1) : source;
 }
 
+/** A row's marks and the act it offers, where a home is given and says anything of the row. */
+function Synced({
+  row,
+  shared,
+  onCompare,
+}: {
+  row: SharedRow | undefined;
+  shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
+}) {
+  if (row === undefined || shared === undefined) return null;
+  return (
+    <>
+      <SyncMarks row={row} onCompare={onCompare} />
+      {row.state === "here" || row.state === "home" ? (
+        <span className="armada-kit-setup__item-act">
+          <SyncAct row={row} acts={shared} />
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 function Items({
   kind,
   home,
-  items,
+  lines,
+  shared,
+  onCompare,
   unreadable,
 }: {
   kind: KitSetupKindWord;
   home: string;
-  items: KitSetupItem[];
+  lines: Line[];
+  shared: SharedHome | undefined;
+  onCompare: (row: SharedRow) => void;
   unreadable: KitSetupUnreadable[];
 }) {
   return (
     <>
-      {items.length === 0 && unreadable.length === 0 ? (
+      {lines.length === 0 && unreadable.length === 0 ? (
         <p className="armada-kit-setup__none">{KIND_NONE[kind]}</p>
       ) : (
         <ul className="armada-kit-setup__items">
-          {items.map((item) => (
-            <li className="armada-kit-setup__item" key={`${item.source}/${item.name}`}>
+          {lines.map(({ item, row }) => (
+            <li className="armada-kit-setup__item" key={`${item.source}/${item.name}`} data-sync={row?.state}>
               <span className="armada-kit-setup__item-name">{item.name}</span>
               {item.says === undefined ? null : (
                 /* One line, and the whole of it on hover: twenty-one rows each
@@ -246,9 +337,12 @@ function Items({
                   {item.says}
                 </span>
               )}
-              <span className="armada-kit-setup__item-source" title={item.source}>
-                {under(item.source, home)}
-              </span>
+              {item.source === "" ? null : (
+                <span className="armada-kit-setup__item-source" title={item.source}>
+                  {under(item.source, home)}
+                </span>
+              )}
+              <Synced row={row} shared={shared} onCompare={onCompare} />
             </li>
           ))}
         </ul>

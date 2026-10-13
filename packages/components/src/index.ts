@@ -296,6 +296,8 @@ export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 export * from "./compositions/JobSettings/JobSettings";
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
+// Kit against the shared home: how each row stands, and the two versions of one that differs.
+export * from "./compositions/KitSetup/SharedHome";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.

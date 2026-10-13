@@ -4,3 +4,10 @@
   size = "12 and 16px"
   status = "Specified"
   notes = "Bare checkmark, nothing is more legible small. Check means yes in both places, which is the point."
+
+[[icons.check.usage]]
+  means = "A row that is the same on this machine and in the shared home"
+  group = "Shared home"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 13 Oct 2026 for the walk `shared-home`. Check means yes in both places, and here both places are literal. Draws --fg-muted, receded, so the rows that need a look are the ones that stand out. Tooltip `Same as the home`."
