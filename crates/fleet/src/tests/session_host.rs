@@ -162,6 +162,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -594,6 +595,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

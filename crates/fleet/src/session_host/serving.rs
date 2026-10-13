@@ -91,14 +91,26 @@ where
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
-        let served = self.served_named(Some(&start.manifest_id))?;
+        let (manifest, cwd) = match start.root.take() {
+            Some(root) => {
+                let repository = self.repository_named(Some(&root))?;
+                let manifest = repository
+                    .manifest()
+                    .map(|one| one.id().as_str().to_string());
+                (manifest, repository.root().to_string())
+            }
+            None => {
+                let served = self.served_named(Some(&start.manifest_id))?;
+                let manifest = served.manifest().id().as_str().to_string();
+                (Some(manifest), served.root().to_string())
+            }
+        };
         let id = new_id();
         let now = self.now().as_str().to_string();
         let title = start
             .title
             .map(|title| title.trim().to_string())
             .filter(|title| !title.is_empty());
-        let manifest = served.manifest().id().as_str().to_string();
         {
             let mut store = self.store().lock().await;
             store
@@ -106,8 +118,8 @@ where
                     id: id.clone(),
                     harness: String::from(adapters::HOSTED_HARNESS),
                     origin: String::from("bridge"),
-                    manifest_id: Some(manifest.clone()),
-                    cwd: served.root().to_string(),
+                    manifest_id: manifest.clone(),
+                    cwd,
                     title,
                     state: store::SessionState::Live,
                     started_at: now.clone(),
@@ -122,7 +134,8 @@ where
             store
                 .keep_hosting(&KeptHosting {
                     session_id: id.clone(),
-                    manifest_id: manifest,
+                    // Empty is Setup's session, which has no Manifest to name.
+                    manifest_id: manifest.unwrap_or_default(),
                     model: start.model.filter(|model| !model.trim().is_empty()),
                     effort: start.effort.filter(|effort| !effort.trim().is_empty()),
                     mode: mode_text(start.mode.unwrap_or_default()).to_string(),
@@ -527,6 +540,20 @@ where
         }
     }
 
+    /// Where Setup's session runs, which has no Manifest and so no slot: the
+    /// root it was started in. `None` for any other session.
+    pub(crate) async fn unset_up_directory(
+        &self,
+        id: &str,
+        hosting: &KeptHosting,
+    ) -> Option<String> {
+        if !hosting.manifest_id.is_empty() {
+            return None;
+        }
+        let session = self.store().lock().await.session(id).ok().flatten()?;
+        Some(session.cwd)
+    }
+
     /// Where a session's process runs: the slot once it has leased one, the
     /// repository's root before.
     pub(crate) fn directory_of(served: &Served, hosting: &KeptHosting) -> String {
@@ -873,20 +900,23 @@ where
                     Some("Fleet came back and took the session's process again"),
                 )
                 .await;
-                (
-                    process,
-                    served
-                        .as_ref()
-                        .map(|served| Self::directory_of(served, hosting))
+                let directory = match &served {
+                    Ok(served) => Self::directory_of(served, hosting),
+                    Err(_) => self
+                        .unset_up_directory(id, hosting)
+                        .await
                         .unwrap_or_default(),
-                )
+                };
+                (process, directory)
             }
             None if !may_start => return Ok(false),
             None => {
-                let served = served.map_err(|_| {
-                    format!("the repository {} is no longer served", hosting.manifest_id)
-                })?;
-                let directory = Self::directory_of(&served, hosting);
+                let directory = match &served {
+                    Ok(served) => Self::directory_of(served, hosting),
+                    Err(_) => self.unset_up_directory(id, hosting).await.ok_or_else(|| {
+                        format!("the repository {} is no longer served", hosting.manifest_id)
+                    })?,
+                };
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),

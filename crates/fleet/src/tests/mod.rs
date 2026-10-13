@@ -240,6 +240,7 @@ mod session_done;
 mod session_host;
 mod session_keeper;
 mod session_piloting;
+mod session_setup;
 mod session_queue;
 mod session_question;
 mod session_retro;

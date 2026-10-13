@@ -85,7 +85,18 @@ where
             }
         }
         let (session, hosting) = self.session_and_hosting(id).await?;
-        let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
+        let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
+        let (held, root) = match served {
+            Ok(served) => (
+                self.held_directories(id, &served, &hosting),
+                served.root().to_string(),
+            ),
+            // Setup's session holds no slot: the root it was started in is where it works.
+            Err(_) if hosting.manifest_id.is_empty() => {
+                (vec![session.cwd.clone()], session.cwd.clone())
+            }
+            Err(why) => return Err(why),
+        };
         let mode = mode_of(&hosting.mode);
         // A question is for the person whatever the mode: nothing else can
         // answer it, and the agent is told what they chose.
@@ -99,7 +110,6 @@ where
             || match mode {
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
                 SessionMode::Auto | SessionMode::Plan => {
-                    let held = self.held_directories(id, &served, &hosting);
                     let held: Vec<&str> = held.iter().map(String::as_str).collect();
                     match because_in_a_session(&asking, &held) {
                         Some(Because::ReachesOutside) => {
@@ -150,7 +160,7 @@ where
                     HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     HelmCallAnswer::Refuse => SessionAskState::Refused,
                     HelmCallAnswer::AllowAndRemember => {
-                        let at = adapters::personal_settings(served.root());
+                        let at = adapters::personal_settings(&root);
                         // A settings file that will not be written is not a
                         // refusal: the person said yes.
                         let _ = adapters::remember_the_rule(&at, &waiting.rule);

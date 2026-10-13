@@ -66,6 +66,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: Some(PilotFrom {
                     job_id: ipc::JobId::from(job),
                     outcome: PilotOutcome::TakeOver,
@@ -416,6 +417,7 @@ async fn the_commands_an_agent_names_reach_the_session_and_every_other() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

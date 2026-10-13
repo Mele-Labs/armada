@@ -211,6 +211,7 @@ fn a_fleet_restart_leaves_the_agent_running_and_the_thread_continues() {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -370,6 +371,7 @@ fn a_message_after_the_process_was_let_go_starts_a_new_one() {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -415,6 +417,7 @@ fn a_subagents_words_are_not_in_the_sessions_thread() {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -452,6 +455,7 @@ fn a_process_that_dies_says_why_in_the_thread() {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -508,6 +512,7 @@ fn a_message_to_an_agent_that_died_unattended_starts_another_and_is_not_lost() {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -608,6 +613,7 @@ fn a_reattached_session_called_busy_that_goes_quiet_is_idle() {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
