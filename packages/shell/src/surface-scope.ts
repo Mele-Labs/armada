@@ -14,12 +14,12 @@ import { SURFACE } from "./surfaces";
 export type SurfaceScope = "repository" | "machine";
 
 // Kit is not here: its second tier is a repository's, and it reads the pick.
+// Nor is Worktree Slots: the owner moved it to the pick on 13 Oct 2026.
 const MACHINE: ReadonlySet<string> = new Set([
   SURFACE.settings,
   SURFACE.guides,
   SURFACE.mods,
   SURFACE.doctor,
-  SURFACE.worktrees,
 ]);
 
 export function surfaceScope(surface: string): SurfaceScope {

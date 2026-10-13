@@ -1,8 +1,8 @@
 // One dispatch panel over one draft, from either bar. The Cockpit's bar grows into it where it stands,
 // and the title bar's one bar grows it down from its own field once something is chosen to dispatch.
 // A Job, a Session and an Autopilot are the panel's kinds, switched in its band or with Tab. The
-// repository is a chip read from the words, asked inline when a Job or an Autopilot has none, and
-// optional for a Session. Autopilot reads its settings in the panel and starts from it. Over
+// repository is a chip read from the words, and asked inline when the send has none, whatever its
+// kind. Autopilot reads its settings in the panel and starts from it. Over
 // `dispatch-panel-from-either-bar`.
 
 import { button, dialog, inside, region, role, tab, walk } from "../walk";
@@ -29,12 +29,14 @@ const dispatchPanelFromEitherBar = walk("dispatch-panel-from-either-bar", [
   { press: act("Dispatch"), say: "Dispatch sends the request to armada" },
   { look: request, say: "The panel is the bar again, the request empty" },
 
-  // (b) A Session: the repository is optional.
+  // (b) A Session on All: it starts in a repository, so one naming none asks, as a Job does.
   { type: "Check the migration order", into: request, say: "Words that name no repository" },
   { key: "Tab", on: request, say: "Press Tab" },
   { look: kind("Session"), say: "A Session is chosen" },
-  { look: chip("Repository, not found"), say: "The chip is an empty outline, and nothing asks for it" },
-  { press: act("Start"), say: "Start opens the Session without a repository" },
+  { look: chip("Repository, not found"), say: "The chip is an empty outline" },
+  { press: act("Start"), say: "Start asks where the Session starts" },
+  { look: choices, say: "The panel asks in place, listing the set-up repositories" },
+  { press: inside(choices, role("option", /storefront/)), say: "Picking one starts the Session there" },
   { look: role("textbox", "Message"), say: "The Session started and opened, holding what was typed" },
 
   // (c) The title bar: search first, dispatch from the same words.

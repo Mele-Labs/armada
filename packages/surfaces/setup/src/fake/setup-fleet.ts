@@ -144,12 +144,25 @@ function textOf(one: ManifestProposal): string {
   return `${lines.join("\n")}\n`;
 }
 
-/** `more` packages beside the storefront's own four, each proposing the apps' three Checks. */
-function widened(base: ManifestProposals, more: number): { scan: RepositoryScan; proposals: ManifestProposals } {
+/**
+ * `more` packages beside the storefront's own four, each proposing the apps' three Checks, and
+ * `unreadable` workspaces Scan could not follow, which propose nothing.
+ */
+function widened(base: ManifestProposals, more: number, unreadable: readonly string[] = []): { scan: RepositoryScan; proposals: ManifestProposals } {
   const dirs = Array.from({ length: more }, (_, at) => `packages/pkg-${String(at + 1).padStart(2, "0")}`);
   return {
-    scan: { ...SCAN, workspaces: [...SCAN.workspaces, ...dirs.map((dir) => workspace(dir, "strong", [`${dir}/package.json`]))] },
-    proposals: { ...base, proposals: [...base.proposals, ...dirs.map((dir) => proposal(dir, ["test", "lint", "typecheck"]))] },
+    scan: {
+      ...SCAN,
+      workspaces: [
+        ...SCAN.workspaces,
+        ...dirs.map((dir) => workspace(dir, "strong", [`${dir}/package.json`])),
+        ...unreadable.map((dir) => workspace(dir, "not_followed", [])),
+      ],
+    },
+    proposals: {
+      ...base,
+      proposals: [...base.proposals, ...dirs.map((dir) => proposal(dir, ["test", "lint", "typecheck"])), ...unreadable.map((dir) => proposal(dir, []))],
+    },
   };
 }
 
@@ -207,6 +220,8 @@ export type SettingUp = {
   rootSetUp?: boolean;
   /** Workspaces beyond the storefront's four, for a batch taller than the window. */
   more?: number;
+  /** Workspaces Scan found and could not read, after the rest. */
+  unreadable?: string[];
   /** The Verify sheet Fleet holds for the picked repository. */
   sheet?: CheckoutRunSheetRead;
   /** What the rail lists, the first picked. */
@@ -258,7 +273,7 @@ function behaviour(
     const known = held.get(root);
     if (known !== undefined) return known;
     const one = listed().find((repo) => repo.root === root);
-    const fresh = widened(options.rootSetUp && one?.manifest !== undefined ? PROPOSALS : NO_ROOT_FILE, options.more).proposals;
+    const fresh = widened(options.rootSetUp && one?.manifest !== undefined ? PROPOSALS : NO_ROOT_FILE, options.more, options.unreadable).proposals;
     held.set(root, fresh);
     return fresh;
   };
@@ -275,12 +290,12 @@ function behaviour(
     if (!listed().some((repo) => repo.root === root)) {
       fleet.publish({ holds: { ...fleet.state().holds, repositories: [...listed(), one] } });
     }
-    held.set(root, widened(NO_ROOT_FILE, options.more).proposals);
+    held.set(root, widened(NO_ROOT_FILE, options.more, options.unreadable).proposals);
     if (cloned) fleet.publish({ located: { repository: one, at: Date.now() } });
     return { state: "located", repository: one };
   };
   return {
-    readRepositoryScan: async () => ({ ok: true, scan: widened(proposalsOf(fleet.state().repository ?? ""), options.more).scan }),
+    readRepositoryScan: async () => ({ ok: true, scan: widened(proposalsOf(fleet.state().repository ?? ""), options.more, options.unreadable).scan }),
     readManifestProposals: async () => ({ ok: true, proposals: proposalsOf(fleet.state().repository ?? "") }),
     editManifestProposal: async (body) => answer(body.dir, (one) => applied(one, body)),
     writeManifestProposal: async ({ dir }) => {

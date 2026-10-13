@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { BellRing, LoaderCircle, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -56,7 +57,13 @@ export type SessionListProps = {
   query: string;
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
-  onStart: () => void;
+  /** Starts a Session, in the repository chosen from `startIn` where it offers one. */
+  onStart: (root?: string) => void;
+  /**
+   * Where a new Session may start, on All with more than one repository: New Session asks which.
+   * Absent, or one, it starts where the window is.
+   */
+  startIn?: readonly { root: string; name: string }[];
   /** Writes a Session's retro. Absent where nothing serves it, and the press is left off. */
   onRetro?: (id: string) => void;
   /** The views of the list as filled tabs, no figure on any. The host holds which headings each one has. */
@@ -219,7 +226,7 @@ function MoreRows({ onMore }: { onMore: () => void }) {
   );
 }
 
-export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
+export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the glass, the arrows across it. j and k are the surface's, which opens the next Session with them.
   useTileGrid(list, { tile: ".armada-session-list__row", cursor: ".armada-session-list__open", steps: false });
@@ -232,9 +239,17 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
     <section className="armada-session-list" aria-label="Sessions" ref={list}>
       <div className="armada-session-list__head">
         <h2 className="armada-session-list__title-bar">Sessions</h2>
-        <Button size="sm" variant="secondary" onClick={onStart}>
-          New Session
-        </Button>
+        {startIn !== undefined && startIn.length > 1 ? (
+          <DropdownMenu
+            triggerLabel="New Session"
+            entries={[{ kind: "label", id: "in", label: "Start it in" }, ...startIn.map((one) => ({ kind: "item" as const, id: one.root, label: one.name }))]}
+            onSelect={onStart}
+          />
+        ) : (
+          <Button size="sm" variant="secondary" onClick={() => onStart(startIn?.[0]?.root)}>
+            New Session
+          </Button>
+        )}
       </div>
       <div className="armada-session-list__controls">
         <Input
