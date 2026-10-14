@@ -1,7 +1,7 @@
 // Steps a walk over the Dashboard shares. Not a walk: it lives beside `walk.ts`, since `walks/`
 // is read as a list of walks.
 
-import { region, role, tab } from "./walk";
+import { button, region, role, tab } from "./walk";
 import type { Step, Target } from "./walk";
 
 /** The Dashboard's one panel. */
@@ -16,8 +16,8 @@ export function putOff(calls: number): Step[] {
   return Array.from({ length: calls }, (): Step => ({ key: "l", on: dashboard, say: "Put it off for later" }));
 }
 
-/** A tile picked on Active, its detail and acts in the pane beside the grid. */
+/** A tile picked on Active, in the grid since the Cockpit opens on its timeline, its detail and acts in the pane beside it. */
 export function pick(title: RegExp | string, say: string): Step[] {
   const tile: Target = role("option", title);
-  return [{ press: tab("Active"), say: "Active" }, { press: tile, say }];
+  return [{ press: tab("Active"), say: "Active" }, { press: button("Grid"), say: "Grid, the tiles view" }, { press: tile, say }];
 }
