@@ -23,6 +23,8 @@ import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
+import { createFleetAccount } from "./fleet-account";
+import { AccountFromFleet } from "./account-fleet";
 import { ClashesFromFleet } from "./clashes";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
@@ -60,6 +62,8 @@ const DOWNSHIFT = createFleetDownshift(window.armada);
 const TIMELINE = createFleetTimeline(window.armada);
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(window.armada);
+/** The title menu's account entry: the profiles and the sign-in, over Fleet. */
+const ACCOUNT = createFleetAccount(window.armada);
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -89,9 +93,11 @@ function Root() {
                     <DownshiftSourceProvider value={DOWNSHIFT}>
                       <WiredSessions>
                         <ClashesFromFleet source={CLASHES}>
-                          <FleetEventsOver source={TIMELINE}>
-                            <App />
-                          </FleetEventsOver>
+                          <AccountFromFleet source={ACCOUNT}>
+                            <FleetEventsOver source={TIMELINE}>
+                              <App />
+                            </FleetEventsOver>
+                          </AccountFromFleet>
                         </ClashesFromFleet>
                       </WiredSessions>
                     </DownshiftSourceProvider>

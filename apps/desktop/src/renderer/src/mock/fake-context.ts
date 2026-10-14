@@ -57,6 +57,7 @@ export type SliceName =
   | "jobs"
   | "sessions"
   | "sleep"
+  | "accounts"
   | "planUsage"
   | "modelDownshift"
   | "clashes"
