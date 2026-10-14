@@ -84,6 +84,7 @@ export const Shell: Story = { args: shell, render: inWindow };
  * nothing else does, Fleet's panel, opens from the title row's dot.
  */
 export const WithoutTheRail: Story = {
+  name: "With rail={false} the shell draws no rail and full-width content",
   args: {
     ...shell,
     rail: false,
@@ -125,6 +126,7 @@ export const WithoutTheRail: Story = {
 
 /** The default is the rail: the column, its handle where a width is remembered, and a dot that is only a graphic. */
 export const WithTheRailByDefault: Story = {
+  name: "The default draws the rail",
   args: { ...shell, onResizeLeft: () => {} },
   render: inWindow,
   play: async ({ canvas }) => {

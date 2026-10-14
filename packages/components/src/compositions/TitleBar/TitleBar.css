@@ -153,7 +153,7 @@
   border-color: var(--border-glass);
   border-radius: calc(var(--radius-lg) * 2);
   background: var(--bg-glass);
-  box-shadow: inset 0 1px 0 var(--border-highlight);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight);
   color: var(--fg-muted);
 }
 

@@ -325,6 +325,52 @@ export function panelSurfaces(panel: (typeof RAIL_PANELS)[number]): PaletteSurfa
 }
 
 /**
+ * The Cockpit window's four tabs, and the surface each opens. **The Cockpit window is the one with no rail**
+ * (`TheShell`'s `rail={false}`), where these tabs are how a person moves about and `⌘1` to `⌘4` reach them.
+ *
+ * System has no surface of its own: it opens the first of the strip's pages, Kit, and the strip under the
+ * title row lists them all.
+ */
+export const DECK_TABS = [
+  { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
+  { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
+  { id: "sessions", label: "Sessions", surface: SURFACE.sessions },
+  { id: "system", label: "System", surface: SURFACE.kit },
+] as const;
+
+export type DeckTabId = (typeof DECK_TABS)[number]["id"];
+
+/**
+ * The pages under System, in the order the strip draws them. **The names are the roster's**, read from
+ * `SURFACES`, so a page renamed there is renamed here.
+ */
+export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
+  SURFACE.kit,
+  SURFACE.mods,
+  SURFACE.settings,
+  SURFACE.guides,
+  SURFACE.workflows,
+  SURFACE.doctor,
+  SURFACE.studios,
+  SURFACE.lessons,
+].map((surface) => ({ surface, label: SURFACES.find((one) => one.id === surface)?.label ?? surface }));
+
+/** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */
+export function deckTabOf(showing: string): DeckTabId | undefined {
+  const own = DECK_TABS.find((tab) => tab.id !== "system" && tab.surface === showing);
+  if (own !== undefined) return own.id;
+  return SYSTEM_PAGES.some((page) => page.surface === showing) ? "system" : undefined;
+}
+
+/**
+ * What `⌘<digit>` reaches in the Cockpit window: the tab's surface for `⌘1` to `⌘4`, and nothing for any
+ * other digit or with the rail on, where the digits are the rail's and `useSurfaceKeys` reads them.
+ */
+export function deckSurfaceOfDigit(digit: number, deckTabs: boolean): string | undefined {
+  return deckTabs ? DECK_TABS[digit - 1]?.surface : undefined;
+}
+
+/**
  * `⌘1`…`⌘n`, bound to the rail in rail order.
  *
  * **The binding the contract already publishes, finally answered.** Every
@@ -341,18 +387,29 @@ export function panelSurfaces(panel: (typeof RAIL_PANELS)[number]): PaletteSurfa
  * while a text input holds focus precisely so that typing cannot act, and the
  * whole point of the modifier is that it still works from inside one.
  */
-export function useSurfaceKeys(onSurface: (surfaceId: string) => void): void {
+export function useSurfaceKeys(onSurface: (surfaceId: string) => void, deckTabs = false): void {
   // **Bound once, and the handler is read through a ref.** The app rebuilds
   // its `goTo` every render, and a listener re-registered on every render is
   // one that has to be right about removal every time — `useCommandPalette`
   // avoids the question by depending on nothing, and this does the same.
   const latest = useRef(onSurface);
   latest.current = onSurface;
+  // **With the rail off, `⌘1` to `⌘4` are the Cockpit window's tabs**; `⌘5` to `⌘9` stay the rail's. The palette
+  // still draws the rail's digits beside the destinations: that disagreement is for the window that sets this
+  // to resolve (#2301).
+  const tabs = useRef(deckTabs);
+  tabs.current = deckTabs;
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
       const digit = pressedDigit("bridge_surfaces", event);
       if (digit === null) return;
+      const tab = deckSurfaceOfDigit(digit, tabs.current);
+      if (tab !== undefined) {
+        event.preventDefault();
+        latest.current(tab);
+        return;
+      }
       const key = digitKeyFor("bridge_surfaces", digit);
       const surface = SURFACES.find((one) => one.shortcut !== undefined && one.shortcut === key);
       if (surface === undefined) return;
