@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { CAP, fold, openingOf, start, type Place } from "./history";
+import { CAP, collapse, fold, openingOf, start, type Place } from "./history";
 
 const at = (surface: string, job: string | null = null, tab: Place["tab"] = null, item: string | null = null): Place => ({ surface, job, tab, item, session: null, studio: null, studioNode: null });
 const visit = (h: ReturnType<typeof start>, place: Place) => fold(h, { kind: "visited", place });
@@ -98,4 +98,33 @@ test("an item opens by the kind its tab holds", () => {
   expect(openingOf(at("b", "j", "record", "7"))).toEqual({ tab: "record", row: "7" });
   expect(openingOf(at("b", "j", "plan"))).toEqual({ tab: "plan" });
   expect(openingOf(at("b", "j"))).toEqual({});
+});
+
+// The flight deck opens pages as layers over the Cockpit. A press on the Cockpit tab, or on a sibling page's, replaces
+// the layers rather than stacking on them, so Back lands on the Cockpit and not on the last layer.
+const cockpit = at("overview");
+
+test("Back from a sibling returns to the Cockpit", () => {
+  const layered = visit(visit(start(cockpit), at("jobs")), at("jobs", "j"));
+  const sibling = collapse(layered, at("sessions"));
+  expect(sibling).toEqual({ back: [cockpit], at: at("sessions"), forward: [] });
+  expect(fold(sibling, { kind: "back" }).at).toEqual(cockpit);
+});
+
+test("a press on the Cockpit drops the layers over it and keeps what was behind it", () => {
+  let h = visit(start(at("x")), cockpit);
+  h = visit(visit(h, at("jobs")), at("jobs", "j"));
+  const forward = fold(h, { kind: "back" });
+  expect(forward.forward).toHaveLength(1);
+  expect(collapse(forward, cockpit)).toEqual({ back: [at("x")], at: cockpit, forward: [] });
+});
+
+test("a press made on the Cockpit itself keeps it behind the sibling", () => {
+  const h = visit(start(at("x")), cockpit);
+  expect(collapse(h, at("sessions"))).toEqual({ back: [at("x"), cockpit], at: at("sessions"), forward: [] });
+});
+
+test("with no Cockpit visit anywhere a collapse is a plain visit that forgets forward", () => {
+  const h = fold(visit(visit(start(at("a")), at("b")), at("c")), { kind: "back" });
+  expect(collapse(h, at("d"))).toEqual({ back: [at("a"), at("b")], at: at("d"), forward: [] });
 });

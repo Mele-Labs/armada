@@ -73,17 +73,39 @@ export function openingOf(place: Place): { tab?: DetailTab; task?: string; step?
 }
 
 /**
+ * The place replacing the layers over the Cockpit: what is behind the last Cockpit visit stays, the layers after it
+ * go, and `place` stands where they were, so Back from a sibling place returns to the Cockpit and not to the last one.
+ * The place being left counts as a visit, so a press made on the Cockpit itself keeps it behind. With no Cockpit
+ * anywhere in the trail it is an ordinary visit.
+ */
+export function collapse(history: History, place: Place): History {
+  const cockpit = (one: Place) => one.surface === "overview" && one.job === null;
+  const trail = [...history.back, history.at];
+  let at = trail.length - 1;
+  while (at >= 0 && !cockpit(trail[at]!)) at -= 1;
+  if (at < 0) return fold(history, { kind: "visited", place });
+  return { back: trail.slice(0, cockpit(place) ? at : at + 1), at: place, forward: [] };
+}
+
+/**
  * Record `current` as it changes — by observation, so every way of getting
  * somewhere is a visit — and bind `⌘[`, `⌘]`, the mouse buttons and the OS swipe to `restore`. A place `valid`
- * refuses (its Job is gone) is stepped over.
+ * refuses (its Job is gone) is stepped over. It hands back `back`, and `replaceNext`, which makes the next place
+ * visited replace the layers over the Cockpit (`collapse`) instead of stacking on them.
  */
-export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): void {
+export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): { back: () => void; replaceNext: () => void } {
   const held = useRef<History>(start(current));
   const latest = useRef({ restore, valid });
   latest.current = { restore, valid };
 
   // Restoring sets `held.at` first, so the render it causes finds `current` equal to it.
+  const replacing = useRef(false);
   useEffect(() => {
+    if (replacing.current) {
+      replacing.current = false;
+      held.current = collapse(held.current, current);
+      return;
+    }
     held.current = fold(held.current, { kind: "visited", place: current });
   }, [current.surface, current.job, current.tab, current.item, current.session, current.studio, current.studioNode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -100,4 +122,12 @@ export function useHistory(current: Place, restore: (place: Place) => void, vali
   useHistoryKeys(() => go("back"), () => go("forward"));
   // A swipe or browser key only main hears.
   useEffect(() => window.armada.onHistory((step) => go(step)), []); // eslint-disable-line react-hooks/exhaustive-deps
+  return {
+    back: () => go("back"),
+    // A press that goes nowhere lets go of it, so the next visit that is not this press's stacks as it always did.
+    replaceNext: () => {
+      replacing.current = true;
+      window.setTimeout(() => (replacing.current = false), 200);
+    },
+  };
 }
