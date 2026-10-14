@@ -135,6 +135,42 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// How the session's last turn ended, while nothing has followed it: when, and the first line of
+    /// what the agent last said. RFC3339.
+    pub fn turn_end(&self, session_id: &str) -> Result<Option<(String, String)>, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT ended_at, said FROM session_turn_end WHERE session_id = ?1",
+                [session_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(fault("reading how a session's turn ended"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep that a turn ended at `ended_at` on `said`, in place of any earlier one.
+    pub fn keep_turn_end(&mut self, session_id: &str, ended_at: &str, said: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO session_turn_end (session_id, ended_at, said) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (session_id) DO UPDATE SET ended_at = ?2, said = ?3",
+                params![session_id, ended_at, said],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping how a session's turn ended"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Forget how the last turn ended: the person spoke or another turn began. Whether there was anything.
+    pub fn clear_turn_end(&mut self, session_id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("DELETE FROM session_turn_end WHERE session_id = ?1", [session_id])
+            .map(|gone| gone > 0)
+            .map_err(fault("forgetting how a session's turn ended"))
+            .map_err(WriteError::Database)
+    }
+
     /// Dismiss an item for good: its id is kept, and the agent's item under it is removed.
     pub fn dismiss_waiting(&mut self, session_id: &str, item_id: &str) -> Result<(), WriteError> {
         let doing = "dismissing what a session waits on";

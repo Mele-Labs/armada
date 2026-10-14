@@ -205,7 +205,7 @@ async fn a_window_is_working_from_the_sessions_own_write_or_a_note_and_ready_whe
 
     told(SessionFact::Wrote).await;
     assert!(working().await, "the session wrote a file: it is changing the page");
-    told(SessionFact::TurnCompleted).await;
+    told(SessionFact::TurnCompleted { said: None }).await;
     assert!(!working().await, "its turn ended");
 
     told(SessionFact::Wrote).await;

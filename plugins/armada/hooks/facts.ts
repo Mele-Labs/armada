@@ -4,13 +4,14 @@
 import type { SessionContextBreakdown } from 'claude-code'
 
 const TITLE_MOST = 80
+const SAID_MOST = 200
 
 /**
  * The version this mod reports to Fleet, so Bridge can mark a session whose mod is older than the
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.19'
+export const MOD_VERSION = '0.3.20'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -128,6 +129,20 @@ export function titleOf(prompt: string): string | undefined {
   if (line === undefined || line.startsWith('/')) return undefined
   const flat = line.replace(/\s+/g, ' ')
   return flat.length > TITLE_MOST ? `${flat.slice(0, TITLE_MOST - 1)}…` : flat
+}
+
+/**
+ * The first line of what a turn ended on, which Fleet shows as the reply: the first line of real text,
+ * flattened to one line and no longer than a card's line holds. Nothing for a turn that said nothing.
+ */
+export function saidOf(answer: string): string | undefined {
+  const line = answer
+    .split('\n')
+    .map(one => one.trim())
+    .find(one => one !== '')
+  if (line === undefined) return undefined
+  const flat = line.replace(/\s+/g, ' ')
+  return flat.length > SAID_MOST ? `${flat.slice(0, SAID_MOST - 1)}…` : flat
 }
 
 /** The name a `/rename` gave, from a transcript: its last `custom-title` entry. */

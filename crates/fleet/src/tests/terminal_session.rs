@@ -393,7 +393,7 @@ async fn a_session_whose_mod_is_older_than_the_repositorys_is_marked() {
     assert!(!record().await.mod_out_of_date);
 
     // A fact that carries no version leaves the one kept.
-    rig.reports(SessionFact::TurnCompleted).await;
+    rig.reports(SessionFact::TurnCompleted { said: None }).await;
     assert!(!record().await.mod_out_of_date);
 }
 

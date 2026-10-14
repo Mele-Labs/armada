@@ -6,7 +6,7 @@
 // grid. What it draws is Fleet's timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, LoaderCircle, SquareTerminal } from "lucide-react";
+import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, LoaderCircle, Power, Reply, SquareTerminal } from "lucide-react";
 import { Button, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { JobSummary } from "@armada/protocol";
@@ -14,6 +14,7 @@ import type { MergeLineView } from "@armada/screens";
 import { titleOf as plainTitle } from "@armada/screens";
 
 import { useSessions } from "../sessions-draft";
+import { stateOf } from "../session-state";
 import { timelineOwner } from "./owner";
 import { STANDINGS, ageOf, fromWire, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
@@ -124,13 +125,15 @@ const STANDING_MARK: Record<Standing, { icon: typeof Clock; said: string }> = {
 
 /** How a subject stands now: the one live mark, which turns only while it is working. */
 function Stand({ lane, now }: { lane: Lane; now: number }) {
-  const { icon: Icon, said } = STANDING_MARK[lane.standing];
+  // A Session that replied or is done is in Needs you with its own mark, the one the Sessions list wears.
+  const { icon: Icon, said } = lane.session === "replied" ? { icon: Reply, said: "Replied" } : lane.session === "done" ? { icon: Power, said: "Done" } : STANDING_MARK[lane.standing];
   const failed = lane.standing === "done" && lane.head.tone === "bad";
   const Shown = failed ? CircleX : Icon;
   const tone: EventTone = failed ? "bad" : lane.standing === "run" ? "run" : lane.standing === "ask" ? "ask" : lane.standing === "bad" ? "bad" : lane.standing === "done" ? "ok" : "idle";
+  const label = lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said;
   return (
-    <Tooltip label={lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said}>
-      <span className="armada-tl__standing" data-standing={lane.standing} style={toneOf(tone)}>
+    <Tooltip label={label}>
+      <span className="armada-tl__standing" role="img" aria-label={label} data-standing={lane.standing} style={toneOf(tone)}>
         <Shown size={12} aria-hidden="true" />
       </span>
     </Tooltip>
@@ -353,7 +356,17 @@ export function Timeline({
       return drawn === undefined ? [] : [drawn];
     });
   }, [wire, jobs, views, sessions]);
-  const lanes = useMemo(() => lanesFor(lanesOf(events, now), filter), [events, now, filter]);
+  const lanes = useMemo(
+    () =>
+      lanesFor(
+        lanesOf(events, now, (id) => {
+          const held = sessions.find((one) => one.id === id);
+          return held === undefined ? undefined : stateOf(held).state;
+        }),
+        filter,
+      ),
+    [events, now, filter, sessions],
+  );
   // Lanes open at now, the right-hand end; the older hour is a scroll back.
   const body = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {

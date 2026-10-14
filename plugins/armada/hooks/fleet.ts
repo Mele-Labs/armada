@@ -50,7 +50,8 @@ export type Fact =
       commands?: { name: string; says: string }[]
       mod_version?: string
     }
-  | { kind: 'turn_completed' }
+  | { kind: 'turn_started' }
+  | { kind: 'turn_completed'; said?: string }
   | { kind: 'limited'; resets_at: string }
   | { kind: 'touched'; paths: string[] }
   | { kind: 'wrote' }

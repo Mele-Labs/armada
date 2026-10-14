@@ -75,6 +75,8 @@ where
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
             let (merge, issue) = fleet.read_landings().await;
+            // A turn that went quiet is stuck by time passing, which no event says: published when it does.
+            fleet.standing_checked().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
             // What is owed on the issues Jobs came from, every interval. #91.

@@ -35,6 +35,8 @@ pub(crate) use rows::UserLine;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
 mod serving;
+pub(crate) mod standing;
+mod standing_tick;
 mod thread_cache;
 pub(crate) use agent_starting::UNSENT_ITEM;
 pub(crate) use serving::{mode_of, MESSAGE_EMPTY, NO_SUCH_SESSION};
@@ -65,6 +67,11 @@ pub const SHIPPED_QUIET_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 pub struct Hosts {
     processes: Arc<dyn Processes>,
     quiet: Duration,
+    /// How long a running turn may be heard nothing from before the Session reads as stuck.
+    stuck_after: Mutex<Duration>,
+    /// The Sessions last published as stuck, so a Session that goes quiet, or is heard from again, is
+    /// published when it does and not only when something else moves. Memory only.
+    stuck: Mutex<std::collections::HashSet<String>>,
     asks: Asks,
     runtime: Mutex<HashMap<String, Arc<Runtime>>>,
     minted: AtomicU64,
@@ -88,6 +95,8 @@ impl Hosts {
         Hosts {
             processes,
             quiet,
+            stuck_after: Mutex::new(standing::STUCK_AFTER),
+            stuck: Mutex::new(std::collections::HashSet::new()),
             asks: Asks::holding_for(hold),
             runtime: Mutex::new(HashMap::new()),
             minted: AtomicU64::new(0),
@@ -98,6 +107,54 @@ impl Hosts {
             slot_queue: Arc::default(),
             helm_starting: tokio::sync::Mutex::new(()),
         }
+    }
+
+    /// Where a test plants the bound a running turn is stuck past, so it need not outlive ten minutes.
+    #[cfg(test)]
+    pub(crate) fn plant_stuck_after(&self, stuck_after: Duration) {
+        *self.stuck_after.lock().expect("held across no panic") = stuck_after;
+    }
+
+    pub(crate) fn stuck_after(&self) -> Duration {
+        *self.stuck_after.lock().expect("held across no panic")
+    }
+
+    /// Every Session with a turn running and how long nothing has been heard from it. A turn held on
+    /// a question or a permission is left out: it waits on the person, which is not stuck.
+    pub(crate) fn turns_quiet(&self) -> Vec<(String, Duration)> {
+        let hosted: Vec<(String, Arc<Runtime>)> = self
+            .runtime
+            .lock()
+            .expect("held across no panic")
+            .iter()
+            .map(|(id, runtime)| (id.clone(), Arc::clone(runtime)))
+            .collect();
+        let mut quiet: Vec<(String, Duration)> = hosted
+            .into_iter()
+            .filter_map(|(id, runtime)| {
+                let state = runtime.state();
+                (matches!(state.turn, SessionTurn::Working { .. }) && state.asked.is_none())
+                    .then(|| (id, state.last_active.elapsed()))
+            })
+            .collect();
+        let asking: Vec<String> = self
+            .terminals
+            .running_quiet()
+            .into_iter()
+            .map(|(id, _)| id)
+            .filter(|id| self.of(id).state().asked.is_some())
+            .collect();
+        quiet.extend(self.terminals.running_quiet().into_iter().filter(|(id, _)| !asking.contains(id)));
+        quiet
+    }
+
+    /// The Sessions whose stuck standing moved since the last look, given the ones stuck now: those
+    /// that went quiet past the bound and those that were heard from again.
+    pub(crate) fn stuck_moved(&self, now: std::collections::HashSet<String>) -> Vec<String> {
+        let mut was = self.stuck.lock().expect("held across no panic");
+        let moved = was.symmetric_difference(&now).cloned().collect();
+        *was = now;
+        moved
     }
 
     pub(crate) fn helm_starting(&self) -> &tokio::sync::Mutex<()> {
@@ -271,6 +328,9 @@ pub(crate) struct State {
     /// When the turn running now began, by Fleet's clock, for the timeline's account of how long it
     /// took. Set when the process says a turn started and taken when one ends.
     pub turn_began: Option<String>,
+    /// The last thing the agent said to the person in the turn running now, so the turn's end can say
+    /// how it ended. Cleared when a turn starts. In memory.
+    pub said: Option<String>,
     /// This is a repository's Helm Session: its door is Helm's, which places its calls.
     pub helm: bool,
     /// What its last `get_events_since` was answered, kept for Helm's debug record. In memory.
@@ -309,6 +369,7 @@ impl State {
             cut_off: Vec::new(),
             reattached_busy: false,
             turn_began: None,
+            said: None,
             helm: false,
             polled: None,
         }
