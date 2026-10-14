@@ -1,12 +1,18 @@
 // What state a Session is in, as one answer for every surface that draws it: the Sessions list and its
 // head, the Cockpit's tiles and calls, and the timeline's lanes. **Read from what Fleet derived**
 // (`Session.standing`, from the turn, the thread and `done_since`) and never from an event's flag or
-// its age, and never from whether the agent called a tool. Pure.
+// its age, and never from whether the agent called a tool. A reply is unread until he has been in the
+// Session since it ended (`cockpit/viewed.ts`), and then the Session stands as it would without one.
 
 import { limitHeldSaid } from "@armada/components";
 import type { SessionState } from "@armada/components";
 import { attachmentsOf, isBlank, owesOf, standingOf } from "@armada/screens/src/draft/sessions";
 import type { Session } from "@armada/screens/src/draft/sessions";
+
+import { viewedAt } from "./cockpit/viewed";
+
+/** Whether he has been in the Session since its turn ended on a reply. */
+const readSince = (session: Session): boolean => session.lastTurnAt !== undefined && viewedAt(session.id) >= Date.parse(session.lastTurnAt);
 
 export function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.dead === "ended") return { state: "ended", said: "Ended" };
@@ -22,7 +28,7 @@ export function stateOf(session: Session): { state: SessionState; said: string }
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   if (owesOf(session).length > 0) return { state: "waiting", said: "Waiting on you" };
-  if (standing === "replied") return { state: "replied", said: "Replied" };
+  if (standing === "replied" && !readSince(session)) return { state: "replied", said: "Unread reply" };
   if (standing === "done") return { state: "done", said: "Done" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };

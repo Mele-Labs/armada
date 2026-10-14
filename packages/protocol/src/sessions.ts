@@ -209,9 +209,10 @@ export type PullRequestClaimed = { number: number; branch: string; url: string; 
 
 /**
  * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
- * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
+ * it (`ask:`, `perm:`, `walk:`) or the agent stated it. Nothing is sent to the agent, except for an item
+ * the agent stated: it is told `Owner removed "<item text>"`, with `reason` after it where the person gave one.
  */
-export type DismissWaiting = { session_id: string; item_id: string };
+export type DismissWaiting = { session_id: string; item_id: string; reason?: string };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };

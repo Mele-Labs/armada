@@ -83,7 +83,7 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState,
       settled(paced, settle);
       return taken(session_id);
     },
-    dismissWaiting: async ({ session_id, item_id }) => {
+    dismissWaiting: async ({ session_id, item_id, reason }) => {
       const paced = sessions.pace ?? INSTANT;
       await answered(paced);
       const refusal = REFUSES.get(item_id);
@@ -92,7 +92,7 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState,
       if (session === undefined || !waitingOf(session).some((one) => one.id === item_id)) {
         return refused("fleet.session_waiting_unheld", "nothing is waiting under that item. It was settled already, or the session stopped waiting");
       }
-      settled(paced, () => sessions.drop(session_id, item_id));
+      settled(paced, () => sessions.drop(session_id, item_id, reason));
       return taken(session_id);
     },
     claimPullRequest: async ({ number, session_id, job_id }) => {

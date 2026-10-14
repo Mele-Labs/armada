@@ -3,6 +3,10 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { forgetAllKept } from "@armada/components";
+
+import { forgetDismissals } from "../cockpit/dismissed";
+import { forgetViewed } from "../cockpit/viewed";
 import { annotatesWith } from "./annotating";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
@@ -23,8 +27,12 @@ if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
 
-// A walk starts from the window its test starts from, so what it shows is what CI ran.
+// A walk starts from the window its test starts from, so what it shows is what CI ran. A replay in the
+// same browser must not inherit the Sessions the last one viewed, the calls it dismissed or the drafts it left.
 if (script !== undefined) {
+  forgetViewed();
+  forgetDismissals();
+  forgetAllKept();
   forgetHowItWasRead();
   meetEveryGuide();
 }
