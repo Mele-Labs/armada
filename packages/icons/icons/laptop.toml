@@ -3,7 +3,7 @@
   group = "Shared home"
   size = "12 and 16px"
   status = "Proposed"
-  reserved = "This machine, as against the shared home. Never Fleet, which is `server`, and never a worktree's disk, which is `hard-drive`."
+  reserved = "This machine: where a thing is, and for private scope that it stays only here. Never Fleet, which is `server`, and never a worktree's disk, which is `hard-drive`."
   notes = "Minted 13 Oct 2026 for the walk `shared-home`. The counterpart of `house`: a row that is only on this machine, tooltip `Only on this machine`, and the head of the machine's side of a differing row."
   [[icons.laptop.usage]]
     means = "This machine, on a pull request's registered owner"
@@ -11,3 +11,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walk `pr-owners`. The same meaning as above, drawn past the divider of the owner chip where the Session or Job is on this machine, tooltip `This machine`. Another machine is `monitor`."
+
+  [[icons.laptop.usage]]
+    means = "Private scope: a synced item that stays on this machine and never syncs"
+    group = "Shared home"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. One of the three scope marks on a synced item in What syncs, tooltip `Private`. The glyph has one meaning, this machine, and private scope is its strict reading: the item is here and nowhere else. The other uses say where a thing is, which another machine could also be; this one says it never leaves. The tooltip `Private` carries that difference, and the two readings never share a surface."

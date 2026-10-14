@@ -7,11 +7,14 @@ import type { ReactNode } from "react";
 import { SharedHomeProvider } from "@armada/components";
 import type { SharedHome, SharedRow } from "@armada/components";
 
+import { useSignedIn } from "./account";
 import type { MockDraft } from "./moment";
 
 const SYNCING_MS = 1400;
 
 function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; children: ReactNode }) {
+  // Against an account that has not signed in yet there is no home to draw.
+  const signedIn = useSignedIn();
   const [rows, setRows] = useState<readonly SharedRow[]>(home.rows);
   const [syncing, setSyncing] = useState(false);
   useEffect(() => {
@@ -38,7 +41,7 @@ function Held({ home, children }: { home: NonNullable<MockDraft["sharedHome"]>; 
     };
   }, [home, rows, syncing]);
 
-  return <SharedHomeProvider value={value}>{children}</SharedHomeProvider>;
+  return <SharedHomeProvider value={signedIn ? value : undefined}>{children}</SharedHomeProvider>;
 }
 
 /** Hands the window the home a scenario carries. Nothing carried, nothing is drawn. */

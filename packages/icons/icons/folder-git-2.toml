@@ -25,3 +25,17 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 9 Oct 2026 for the walk `dispatch-panel-from-the-title-bar`. The mark on the dispatch panel's repository chip and on each row of its inline list. Found, picked or the rail's, it precedes the repository's name in mono; none found, it stands alone on a dashed outline with the tooltip `No repository found`. The same meaning it has everywhere else: the repository."
+
+  [[icons.folder-git-2.usage]]
+    means = "Repository scope: a synced item that belongs to one named repository"
+    group = "Shared home"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. One of the three scope marks on a synced item in What syncs, tooltip `Repository`, the repository's name in mono beside it. The same meaning it has everywhere else: the repository."
+
+  [[icons.folder-git-2.usage]]
+    means = "The repository picker in the collapsed rail: the picked repository as one glyph"
+    group = "Git and config"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walk `title-bar-menu`. The panel at the top of the left column draws the repository's name with a chevron, and at the 48px rail this glyph stands for it, the name in the tooltip. The same meaning it has everywhere else: the repository."

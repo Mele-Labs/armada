@@ -19,3 +19,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator. A step that stops for a person, which is the glyph's own `actor=human`."
+
+  [[icons.user-check.usage]]
+    means = "The signed-in GitHub account, as the account chip and the identity row"
+    group = "Account"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Leads the login in mono on the title bar's account chip, a profile chip and the identity row of the set-up list, tooltip `Identity`. The glyph already means you, and an account is who you are. `Active` on a profile is a bare check beside it."

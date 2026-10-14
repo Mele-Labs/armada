@@ -3,5 +3,12 @@
   group = "Sleep mode"
   size = "16px"
   status = "Specified"
-  reserved = "Sleep mode, the toggle in the title row, and nothing else. Never a dark theme."
+  reserved = "Sleep mode: its entry in the title row's menu and the mark that menu's button carries while it is on, and nothing else. Never a dark theme."
   notes = "Approved 9 Oct 2026 with sleep mode."
+
+  [[icons.moon.usage]]
+    means = "Sleep mode is on: the mark on the title row's menu button, and the Sleep entry's glyph"
+    group = "Sleep mode"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walk `title-bar-menu`. The toggle moved from the row into its menu, so while Sleep is on the moon rides on the menu button at 12px in a filled `--accent` disc, tooltip `Menu, sleep mode on`, and off the row shows none. The entry keeps the filled moon in a filled chip, which is how the toggle read in the row. Still Sleep mode and nothing else."

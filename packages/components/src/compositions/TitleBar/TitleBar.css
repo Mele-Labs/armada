@@ -41,7 +41,7 @@
 .armada-title-bar__picker,
 .armada-title-bar__search,
 .armada-title-bar__helm,
-.armada-title-bar__sleep,
+.armada-title-bar__menu,
 .armada-title-bar__usage,
 /* Not interactive, but it opts out for the same reason the rest do: a drag
    region swallows the pointer, and a `title` tooltip inside one never opens.
@@ -322,17 +322,11 @@
   display: none;
 }
 
-/* The menu, and the panel it opens: drawn always, shown only when narrow. */
+/* The menu, and the panel it opens: drawn at every width. */
 .armada-title-bar__menu {
-  display: none;
+  display: flex;
   flex: none;
   -webkit-app-region: no-drag;
-}
-
-.armada-title-bar__menu-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
 }
 
 /* The repositories, then a rule, then the row's own acts. */
@@ -436,7 +430,7 @@
   }
 
   .armada-title-bar__mark,
-  .armada-title-bar__menu {
+  .armada-title-menu__narrow {
     display: flex;
   }
 
@@ -444,26 +438,4 @@
   .armada-title-bar__end {
     grid-column: 1 / -1;
   }
-}
-
-/* Sleep mode, beside Helm. Pressed is the state: on, the button is a filled
-   --accent chip around a filled moon, the loudest thing on the row; off, it
-   rests as a quiet outline moon. Specificity matches the toggle rule in
-   Button.css so this fill wins over its --accent-muted. */
-.armada-title-bar__sleep {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.armada-title-bar__sleep .armada-button[aria-pressed="true"]:not(:disabled):not([data-pending]) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--fg-inverse);
-}
-
-.armada-title-bar__sleep .armada-button[aria-pressed="true"]:hover:not(:disabled):not([data-pending]) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
 }

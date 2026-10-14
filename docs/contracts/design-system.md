@@ -930,9 +930,11 @@ breakpoint.
 ### Window chrome
 
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
-the **title row** — the bar across the window's top carrying the repository
-picker, the one bar and Helm's reopen control (#1087 moved them off the left
-column and into this row), and Fleet's status dot. **The one bar searches and
+the **title row** — the bar across the window's top carrying the one bar,
+the plan's limits, Helm's reopen control, Fleet's status dot and one menu
+holding the account, Sleep and Settings. The repository picker is the left
+column's first panel, above Work. The menu button carries a moon while Sleep is on and an
+amber dot while signed out. **The one bar searches and
 dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
 the palette offers what was typed as the work too, so the row draws no
 Dispatch button. Dispatching grows a panel, down from the bar's field (`docs/journeys/dispatch-a-job.md`);
@@ -959,7 +961,7 @@ holds where the work is read; Machine holds what this machine has and is.
 > and a surface in no panel has no rail row while staying reachable by every
 > other route.
 > Why: the roster is every destination Bridge can reach and the palette lists
-> all of them. Manifest is reached from the title row's picker rather than from
+> all of them. Manifest is reached from the rail's picker rather than from
 > a row (#1595), and a rail derived from the roster could not express that
 > without deleting the destination.
 
@@ -1209,7 +1211,7 @@ table is shorter by a column.
 
 The last column is a client and not a window width. A desktop window under
 768px keeps the < 1100px column's layout, with the floor tier's flush sheets,
-and each surface that crowds there fits itself: under about 924px the title row goes behind one menu.
+and each surface that crowds there fits itself: under about 924px the title row's other controls are listed in its one menu.
 
 The stacked row is the status grammar's own shape: headline sentence on
 line one (`Job 12 stalled at step 3`), labelled field run on line two
@@ -1615,7 +1617,7 @@ numbers.
 them.** Every digit behind it moved up one, and Guides took `⌘9` — the
 first it has ever carried, since it had been the tenth row and the
 contract publishes nine. A rail row is not what a digit follows: Manifest
-keeps `⌘5` with no row at all, because it is reached from the title row's
+keeps `⌘5` with no row at all, because it is reached from the rail's
 picker (#1595) and the order it sits in is unchanged.
 
 **Helm moved from `⌘6` to `⌘J` on 2026-09-13**, when it left the rail
@@ -3147,7 +3149,7 @@ value and no merge, so no Manifest is party to it.
 **Fleet**, present in the left column on every surface, reads "Fleet running"
 when idle, and pid, port, protocol and up as rows under it; it carries neither
 spend nor quota, which left the shell chrome entirely with the status bar
-Bridge/1088 replaced. The title bar draws the plan's limits as two fill meters, beside Sleep and not in Fleet.
+Bridge/1088 replaced. The title bar draws the plan's limits as two fill meters in the title row and not in Fleet.
 
 **Two separate fields, not one.** These do different jobs and a reader
 should not have to guess which.

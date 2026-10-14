@@ -29,11 +29,15 @@ export type TheShellProps = {
    *  the rail to carry something else. */
   railHeader?: ReactNode;
   /**
-   * The repository picker, in the title row. **Moved out of the rail by
-   * #1087** — the row that used to be macOS's grey bar now carries it beside
-   * the traffic lights. Absent draws none.
+   * The repository picker, in a small panel at the top of the left column, above
+   * Navigation. **It was in the title row from #1087 until the owner decluttered the row
+   * on 14 Oct 2026.** Absent draws no panel.
    */
   repositoryPicker?: ReactNode;
+  /** What the panel draws at the 48px rail: the repository as one glyph, its name in a tooltip. */
+  repositoryPickerCollapsed?: ReactNode;
+  /** What the title row's one menu opens besides the account and Sleep. */
+  menu?: TitleBarProps["menu"];
   /** The picker's entries, for the title row's narrow menu. */
   repositoryMenu?: TitleBarProps["repositoryMenu"];
   /** Opens the command palette from the title row's search field. Absent draws no field. */
@@ -161,6 +165,8 @@ export type TheShellDock = {
 export function TheShell({
   railHeader,
   repositoryPicker,
+  repositoryPickerCollapsed,
+  menu,
   repositoryMenu,
   onSearch,
   onDispatch,
@@ -187,7 +193,7 @@ export function TheShell({
     <ShortcutRevealProvider>
       <div className="armada-shell">
         <TitleBar
-          repositoryPicker={repositoryPicker}
+          {...(menu === undefined ? {} : { menu })}
           {...(repositoryMenu === undefined ? {} : { repositoryMenu })}
           onSearch={onSearch}
           onDispatch={onDispatch}
@@ -205,6 +211,11 @@ export function TheShell({
             className="armada-shell__left"
             style={collapsed || leftWidth === undefined ? undefined : { width: `${leftWidthValue}px` }}
           >
+            {repositoryPicker === undefined ? null : (
+              <section className="armada-shell__repository" aria-label="Repository" data-collapsed={collapsed || undefined}>
+                {collapsed ? (repositoryPickerCollapsed ?? null) : repositoryPicker}
+              </section>
+            )}
             {panels.map((panel, at) => (
               <Sidebar
                 key={panel.id}

@@ -56,7 +56,7 @@ export function useSleepDecided(): readonly MorningDecided[] {
 
 /**
  * The title row's control. **Sleep turns itself off at the first use of Bridge** after it was turned
- * on: the first key or press anywhere in the window. The press on the moon itself is the owner's own
+ * on: the first key or press anywhere in the window. The press on the toggle itself is the owner's own
  * toggle, so it is left to do what it says.
  */
 export function useSleepMode(): { sleep: TheShellProps["sleep"] } {
@@ -67,7 +67,8 @@ export function useSleepMode(): { sleep: TheShellProps["sleep"] } {
   useEffect(() => {
     if (!on || toggle === undefined) return;
     const used = (event: Event) => {
-      if (event.target instanceof Element && event.target.closest('[aria-label="Sleep mode"]') !== null) return;
+      // The menu holding the toggle is the owner's own: nothing pressed inside it is the first use.
+      if (event.target instanceof Element && event.target.closest('[aria-label="Sleep mode"], [data-keeps-sleep]') !== null) return;
       stop();
       toggle();
     };
