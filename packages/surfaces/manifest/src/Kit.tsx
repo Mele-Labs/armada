@@ -58,9 +58,9 @@ export function Kit(props: KitProps) {
     <div className="armada-screen__pane">
       <div className="armada-kit" ref={tiles}>
         <KitSetup setup={kit.setup} onRemoveAllowed={kit.onRemoveAllowed} />
-        <section className="armada-kit__own" aria-label="What Armada holds">
+        <section className="armada-kit__own" aria-label="Armada">
           <header className="armada-kit__head">
-            <h3 className="armada-kit__title">What Armada holds</h3>
+            <h3 className="armada-kit__title">Armada</h3>
             <p className="armada-kit__where">
               Armada&rsquo;s own, and changed here. The setup above is edited where it lives.
             </p>

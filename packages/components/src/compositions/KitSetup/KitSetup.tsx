@@ -145,11 +145,10 @@ export function KitSetup({ setup, onRemoveAllowed }: KitSetupProps) {
   if (setup === undefined) return null;
   const kinds = shared === undefined ? setup.kinds : withHomeKinds(setup.kinds, shared.rows);
   return (
-    <section className="armada-kit-setup" aria-label="What you already have">
+    <section className="armada-kit-setup" aria-label={setup.harness}>
       <header className="armada-kit-setup__head">
-        <h3 className="armada-kit-setup__title">What you already have</h3>
+        <h3 className="armada-kit-setup__title">{setup.harness}</h3>
         <p className="armada-kit-setup__where">
-          {setup.harness}
           <span className="armada-kit-setup__home">{setup.home}</span>
         </p>
         {shared === undefined ? null : <SharedHomeBar home={shared} />}

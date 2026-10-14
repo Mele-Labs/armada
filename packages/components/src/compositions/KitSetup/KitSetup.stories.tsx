@@ -156,7 +156,7 @@ export const NothingThereYet: Story = {
   args: { setup: { ...FULL, present: false, kinds: [] } },
   play: async ({ canvasElement }) => {
     const kit = within(canvasElement);
-    await expect(kit.getByRole("heading", { name: "What you already have" })).toBeVisible();
+    await expect(kit.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
     await expect(kit.queryByText(/Nothing is there yet/)).toBeNull();
   },
 };

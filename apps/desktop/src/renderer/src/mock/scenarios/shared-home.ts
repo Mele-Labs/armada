@@ -14,6 +14,7 @@ const SERVERS = "/Users/user/.agent.json";
 
 const INVENTORY: KitInventory = {
   ...KIT_INVENTORY,
+  harness: "Claude",
   kinds: KIT_INVENTORY.kinds.map((one) => {
     if (one.kind === "skills" && one.read.what === "read") return { ...one, read: { ...one.read, unreadable: [] } };
     if (one.kind === "mcp_servers") {
