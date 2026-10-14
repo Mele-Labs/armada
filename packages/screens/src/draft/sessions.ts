@@ -114,7 +114,11 @@ export type SessionPullRequestState = "draft" | "open" | "merged";
 /** What a person can do to a pull request without leaving Bridge. */
 export type PullRequestAct = "ready" | "merge" | "auto_merge" | "review";
 
-export type SessionChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string };
+/**
+ * `failed` is the required check red. `red` on the other two names a check that is red and not required:
+ * on `pending` while the run goes on, on `passed` after the required checks passed.
+ */
+export type SessionChecks = { state: "pending"; red?: string } | { state: "passed"; red?: string } | { state: "failed"; failing: string };
 
 /** `piloted` is a Job the person is working in this Session, its Drone stopped. */
 export type SessionJobState = "running" | "review" | "landed" | "escalated" | "piloted" | "superseded";

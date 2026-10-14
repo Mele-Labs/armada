@@ -112,11 +112,17 @@ function stateOf(session: Session): { state: SessionState; said: string } {
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
 
-const checksSaid = (checks: Checks) =>
-  checks.state === "failed" ? `Checks failed: ${checks.failing}` : checks.state === "pending" ? "Checks running" : "Checks passed";
+const checksSaid = (checks: Checks) => {
+  if (checks.state === "failed") return `Checks failed: ${checks.failing}`;
+  const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
+  return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
+};
+
+const redOf = (checks: Checks): { red?: "running" | "advisory" } =>
+  checks.state === "failed" || checks.red === undefined ? {} : { red: checks.state === "pending" ? "running" : "advisory" };
 
 const pullRequestsOf = (session: Session) =>
-  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks) }));
+  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks) }));
 
 function summaryOf(session: Session): OwnerSummary {
   return {
@@ -423,7 +429,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), state: one.state })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
