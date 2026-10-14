@@ -22,7 +22,8 @@ const questionDeck = walk("session-many-questions", [
   { look: inside(ask, role("group", "Answered")), say: "What is answered sits above; press one to change it" },
   { press: inside(ask, role("radio", "Approve all")), say: "The last one" },
   { press: inside(ask, button("Answer")), say: "Sends them all" },
-  { look: inside(thread, text("Are the five proposed icons right?: Approve all")), say: "What was chosen is a message of yours in the thread, a line a question, not a collapsed tool line" },
+  { look: inside(thread, text("Are the five proposed icons right?")), say: "What was chosen is a message of yours in the thread: each question in bold, your answer under it" },
+  { look: inside(thread, text("Approve all")), say: "The answer sits under its question" },
 ]);
 
 export { questionDeck };

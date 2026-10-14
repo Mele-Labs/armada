@@ -161,7 +161,7 @@ async fn a_question_waits_for_the_person_in_every_mode_and_its_answers_go_into_t
         .collect();
     assert_eq!(
         spoken,
-        vec!["Which toppings?: cheese, ham\nWhich size?: Medium, if you have it".to_string()]
+        vec!["**Which toppings?**\ncheese, ham\n\n**Which size?**\nMedium, if you have it".to_string()]
     );
 }
 

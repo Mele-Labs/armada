@@ -32,7 +32,8 @@ pub(crate) const POLL_LAPSE: Duration = Duration::from_secs(180);
 /// A kept terminal question that would not encode or read back.
 const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
 
-/// A line a question, `question: what was chosen`, for an answer that allowed it. Nothing where
+/// A block a question, the question in bold and what was chosen under it, for an answer that
+/// allowed it. Nothing where
 /// the call was a permission, which carries no answers, or was refused.
 fn answers_text(said: &Said) -> Option<String> {
     if said.answer != HelmCallAnswer::AllowOnce || said.answers.is_empty() {
@@ -41,9 +42,9 @@ fn answers_text(said: &Said) -> Option<String> {
     let lines: Vec<String> = said
         .answers
         .iter()
-        .map(|one| format!("{}: {}", one.question, one.chosen.join(", ")))
+        .map(|one| format!("**{}**\n{}", one.question, one.chosen.join(", ")))
         .collect();
-    Some(lines.join("\n"))
+    Some(lines.join("\n\n"))
 }
 
 impl<H, V, W> Fleet<H, V, W>
