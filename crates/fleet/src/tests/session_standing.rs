@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use std::sync::Arc;
 
+use adapter_traits::DroneEvent;
 use api::{HostedSessions, Sessions};
 use ipc::{CloseSession, DismissWaiting, Event, SessionFact, SessionId, SessionRecord, SessionReport, SessionStanding, WaitingSource};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
@@ -160,6 +161,8 @@ async fn a_reply_goes_when_the_person_messages_the_session() {
     let row = record(&rig, &id).await;
     assert!(replied(&row).is_none(), "{:?}", row.waiting_for);
     assert_ne!(row.standing, Some(SessionStanding::Replied));
+    // And it is forgotten, not only hidden: a clock that ran backwards cannot bring it back.
+    assert_eq!(rig.fleet.store().lock().await.turn_end(id.as_str()).unwrap(), None);
 }
 
 /// A turn that begins by another route, a wake or the terminal, ends the reply too: nobody sent it from Bridge.
@@ -174,6 +177,11 @@ async fn a_reply_goes_when_a_new_turn_starts_by_another_route() {
 
     rig.stand_in.init(0);
     eventually(|| async { record(&rig, &id).await.standing == Some(SessionStanding::Working) }).await;
+    assert!(replied(&record(&rig, &id).await).is_none());
+
+    // That turn ends on tools alone, with nothing said: the earlier reply does not come back.
+    rig.stand_in.says(0, vec![DroneEvent::Ended { turns: 1, cost_micros: 5_000, refusals: 0 }]);
+    eventually(|| async { record(&rig, &id).await.standing == Some(SessionStanding::Idle) }).await;
     assert!(replied(&record(&rig, &id).await).is_none());
 }
 
