@@ -4,6 +4,7 @@
 // left column through a portal.
 
 import { annotatesWith } from "./annotating";
+import { installDirection } from "./cockpit-directions/install";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
@@ -31,6 +32,9 @@ if (script !== undefined) {
 
 // `?step=<n>` starts a walk on step n, the steps before it run straight through: what Back does.
 const startStep = (of: number) => Math.min(Math.max(Number(query.get("step") ?? 1) || 1, 1), of) - 1;
+
+// A Cockpit body prototype, chosen by its walk or `?direction=`: the seam is inert where nothing sets it.
+installDirection(walking, query.get("direction"));
 
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");

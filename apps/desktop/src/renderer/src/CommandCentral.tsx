@@ -8,6 +8,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import type { DashboardTab } from "@armada/overview";
 
 import type { BridgeState } from "../../shared/bridge";
+import { cockpitBody } from "./cockpit/body-seam";
 import { Cockpit } from "./cockpit/Cockpit";
 import type { Hosts } from "./Dashboard";
 
@@ -22,5 +23,6 @@ export function CommandCentral(props: Hosts & {
   bring?: { key: string; at: number } | null | undefined;
   onBrought?: (() => void) | undefined;
 }) {
-  return <Cockpit {...props} />;
+  const Body = cockpitBody.current ?? Cockpit;
+  return <Body {...props} />;
 }
