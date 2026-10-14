@@ -1,0 +1,7 @@
+[icons.laptop]
+  means = "A laptop: this machine"
+  group = "Shared home"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "This machine, as against the shared home. Never Fleet, which is `server`, and never a worktree's disk, which is `hard-drive`."
+  notes = "Minted 13 Oct 2026 for the walk `shared-home`. The counterpart of `house`: a row that is only on this machine, tooltip `Only on this machine`, and the head of the machine's side of a differing row."

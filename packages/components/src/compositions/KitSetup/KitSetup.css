@@ -108,21 +108,6 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* A long set takes the glass's whole width and lays its rows out in columns of their own, so one
-   tile twenty rows deep never stretches a row of empty ones beside it. */
-.armada-kit-setup__kind:has(.armada-kit-setup__items > li:nth-child(5)) {
-  grid-column: 1 / -1;
-}
-
-.armada-kit-setup__kind:has(.armada-kit-setup__items > li:nth-child(5)) .armada-kit-setup__items {
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(calc(var(--space-12) * 6), 1fr)
-  );
-  column-gap: var(--space-4);
-}
-
 /* Holding nothing, or not read: still on the glass, receded. */
 .armada-kit-setup__kind:not(:has(li)) {
   border-style: dashed;
@@ -269,4 +254,77 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
+}
+
+/* ---- Against a shared home ------------------------------------------------------------------ */
+
+/* A row against a home, in the same lines as the tiles' rows without one: the name and where it
+   came from on the first line, what it says on the second. The marks and the act stand in two
+   columns at the right, the same width on every row so they line up down a tile, and the first
+   line is as tall as a button so a row with an act and one without are the same height. */
+.armada-kit-setup__item[data-sync] {
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) var(--space-12) var(--space-8);
+  grid-template-rows: var(--h-control-sm) auto;
+  align-items: center;
+  /* A row beside a taller one keeps its own lines together rather than spreading them. */
+  align-content: start;
+}
+
+.armada-kit-setup__item[data-sync] > .armada-sync-marks {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.armada-kit-setup__item[data-sync] > .armada-kit-setup__item-says,
+.armada-kit-setup__item[data-sync] > .armada-kit-setup__item-from {
+  grid-column: 1 / -1;
+  /* Close under the name: the first line is a button tall, and the second is its caption. */
+  margin-top: calc(var(--space-1) * -1);
+}
+
+.armada-kit-setup__item-act {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: end;
+}
+
+/* Remove keeps its act and recedes: muted, a step down from the name. A row that has one gives the
+   name the rest of the line and Remove its own width, in the column the source takes elsewhere. */
+.armada-kit-setup__item[data-sync]:has(> .armada-button) {
+  grid-template-columns: minmax(0, 1fr) auto var(--space-12) var(--space-8);
+}
+
+.armada-kit-setup__item[data-sync] > .armada-button {
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+}
+
+/* A tile holding a row the person has to pick a side for takes the amber on its frame, as a
+   stranded bay does: the state is the frame's, and the row's own mark says which. */
+.armada-kit-setup__kind:has([data-sync="differs"]) {
+  --hue: var(--status-awaiting-review);
+}
+
+.armada-kit-setup__item[data-sync="differs"] > .armada-kit-setup__item-name {
+  font-weight: var(--weight-heading);
+}
+
+/* The band's third group: the account and Sync. */
+.armada-kit-setup__head > .armada-shared-bar {
+  margin-inline-start: auto;
+}
+
+/* ---- A tile's list scrolls inside it ------------------------------------------------------------ */
+
+/* About eight rows, and the rest behind a scroll that sits in the tile: the page is as long with
+   fifty rows as with five, and the tile's name stays above. The scrollbar is `ScrollArea`'s. */
+.armada-kit-setup__scroll {
+  min-width: 0;
+  max-height: calc(var(--space-12) * 8);
+}
+
+.armada-kit-setup__scroll:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
 }
