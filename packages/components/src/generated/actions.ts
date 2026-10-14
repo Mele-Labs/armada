@@ -41,12 +41,14 @@ export type ActionScope =
   | "anywhere"
   | "call"
   | "dashboard"
+  | "deck"
   | "detail"
   | "dispatch card"
   | "list"
   | "list and detail"
   | "open studio"
-  | "piloted job";
+  | "piloted job"
+  | "rail";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
 export type IconAbsence = "undecided" | "by design";
@@ -98,7 +100,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "by design",
     shortcut: "⌘1–⌘9",
-    scope: "anywhere",
+    scope: "rail",
     destructive: false,
     confirms: false,
     unbuilt: null,
@@ -761,7 +763,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "l b c q f a",
-    scope: "dashboard",
+    scope: "deck",
     destructive: false,
     confirms: false,
     unbuilt: "#2301",
@@ -774,7 +776,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "1–6",
-    scope: "dashboard",
+    scope: "deck",
     destructive: false,
     confirms: false,
     unbuilt: "#2301",
@@ -787,7 +789,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "v",
-    scope: "dashboard",
+    scope: "deck",
     destructive: false,
     confirms: false,
     unbuilt: "#2301",
@@ -800,7 +802,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "t",
-    scope: "dashboard",
+    scope: "deck",
     destructive: false,
     confirms: false,
     unbuilt: "#2301",
@@ -813,7 +815,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "g",
-    scope: "dashboard",
+    scope: "deck",
     destructive: false,
     confirms: false,
     unbuilt: "#2301",
@@ -826,7 +828,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌘1–⌘4",
-    scope: "dashboard",
+    scope: "deck",
     destructive: false,
     confirms: false,
     unbuilt: "#2301",

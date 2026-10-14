@@ -370,14 +370,23 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "call"],
-  list: ["board", "dashboard"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "rail", "call"],
+  // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
+  // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
+  list: ["board", "dashboard", "deck"],
   "list and detail": ["board", "detail", "dashboard"],
   detail: ["detail"],
   "dispatch card": ["detail"],
   "piloted job": ["detail"],
   "open studio": ["studio"],
-  dashboard: ["dashboard"],
+  // `w` and `?` are the Dashboard's and the deck reads them too.
+  dashboard: ["dashboard", "deck"],
+  // The deck's own panel, tile and page keys. A call pane in front takes the bare digits and letters it
+  // names while it is up, and the deck's handlers stand down for it: that is a state of the deck, which
+  // the keymap's places do not hold, so `call` and `deck` do not overlap here.
+  deck: ["deck"],
+  // The rail's digits listen only while the rail is drawn, and the deck is a window without one.
+  rail: ["rail"],
   call: ["call"],
 };
 
@@ -422,10 +431,10 @@ export type KeymapGroup = { readonly title: string; readonly scopes: readonly Ac
 
 /** Where a person finds an act: by the place they would be standing when they press it. */
 export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
-  { title: "Anywhere", scopes: ["anywhere"] },
+  { title: "Anywhere", scopes: ["anywhere", "rail"] },
   { title: "Lists", scopes: ["list", "list and detail"] },
   { title: "A Job", scopes: ["detail", "dispatch card", "piloted job"] },
-  { title: "Dashboard", scopes: ["dashboard"] },
+  { title: "Dashboard", scopes: ["dashboard", "deck"] },
   { title: "Calls", scopes: ["call"] },
   { title: "Studios", scopes: ["open studio"] },
 ];
