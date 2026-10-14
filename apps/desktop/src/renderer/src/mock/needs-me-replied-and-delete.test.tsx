@@ -7,7 +7,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { forgetDismissals } from "../cockpit/dismissed";
-import { DONE_ITEM, REPLIED_ITEM } from "./scenarios/needs-me-replied-and-delete";
+import { DONE_ITEM, REPLIED_ITEM } from "./needs-me-ids";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();

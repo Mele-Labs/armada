@@ -10,6 +10,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";
+import { DONE_AT, DONE_ITEM, REPLIED_AT, REPLIED_ITEM } from "../needs-me-ids";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
 
@@ -27,14 +28,6 @@ const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read
 
 const said = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
 const asked = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
-
-/** Its turn ended on a message to him, 6 minutes ago. */
-const REPLIED_AT = ago(6);
-/** The ids Fleet gives the reply and the done as items, for a test that dismisses them. */
-export const REPLIED_ITEM = `replied:${REPLIED_AT}`;
-/** It said nothing is left, 4 minutes ago. */
-const DONE_AT = ago(4);
-export const DONE_ITEM = `done:${DONE_AT}`;
 
 const replied: Session = {
   id: "r1",
