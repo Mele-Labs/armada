@@ -181,7 +181,7 @@ export function LessonsReview({
 
   if (made.state === "loading" || (made.state === "ready" && lessons === undefined)) return <LessonReviewWait />;
   if (made.state === "failed") {
-    return <LessonReviewWait failure={said(made.outcome)} onRetry={again} />;
+    return <LessonReviewWait failure={refusalWords(made.outcome)} onRetry={again} />;
   }
 
   // How old the review is and the way to make it again, over whichever of the three endings below is drawn.
@@ -239,7 +239,7 @@ export function LessonsReview({
       answer.ok
         ? { ...was, pending: false, turns: [...was.turns, { role: "fleet", text: answer.answer.answer }] }
         : // A refused question is not part of the thread: it goes back to the field to be fixed or sent again.
-          { turns: was.turns.slice(0, -1), draft: question, pending: false, failure: said(answer.outcome) },
+          { turns: was.turns.slice(0, -1), draft: question, pending: false, failure: refusalWords(answer.outcome) },
     );
   }
 
