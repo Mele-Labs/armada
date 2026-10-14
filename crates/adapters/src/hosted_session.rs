@@ -470,11 +470,34 @@ fn git_lists(segment: &str) -> bool {
     }
 }
 
+/// Whether a `sed` only prints lines: `-n` and a script that is an address and `p`, such as
+/// `sed -n 10,40p file`. Any other script can write a file (`w`) or run one (`e`).
+fn sed_reads(segment: &str) -> bool {
+    let words: Vec<&str> = segment.split_whitespace().skip(1).collect();
+    let script = words.iter().find(|word| !word.starts_with('-'));
+    let quiet = words.contains(&"-n");
+    let only_flags = words
+        .iter()
+        .filter(|word| word.starts_with('-'))
+        .all(|word| *word == "-n");
+    quiet
+        && only_flags
+        && script.is_some_and(|script| {
+            let script = script.trim_matches(['\'', '"']);
+            script.strip_suffix('p').is_some_and(|address| {
+                !address.is_empty() && address.chars().all(|c| c.is_ascii_digit() || c == ',' || c == '$')
+            })
+        })
+}
+
 /// One segment of a line.
 fn reads(segment: &str) -> bool {
     let segment = &*plain_git(segment);
     if segment.starts_with("gh api ") {
         return api_reads(segment);
+    }
+    if segment.starts_with("sed ") {
+        return sed_reads(segment);
     }
     let named = |read: &&str| {
         segment == *read

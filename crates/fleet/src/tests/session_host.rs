@@ -543,6 +543,38 @@ async fn a_message_to_a_session_whose_process_ended_resumes_it() {
 }
 
 #[tokio::test]
+async fn a_session_resumed_with_no_slot_is_leased_one_before_its_process_starts() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "ready");
+    eventually(|| async { rig.turn(&id).await == SessionTurn::Idle }).await;
+    rig.fleet
+        .tune_session(TuneSession {
+            session_id: id.clone(),
+            model: None,
+            effort: None,
+            mode: SessionMode::Auto,
+        })
+        .await
+        .unwrap();
+
+    rig.send(&id, "carry on").await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    let slot = adapter_traits::slot_path(&rig.root, 1);
+    let resumed = &rig.stand_in.starts()[1];
+    assert!(resumed.resuming);
+    assert_eq!(resumed.directory, slot);
+
+    // Its first call is not the one that moves it: a write in the slot passes, and no
+    // second process is started.
+    let write = format!(r#"{{"file_path":"{slot}/src/lib.rs"}}"#);
+    assert!(!denied(&rig.gate(&id, "Edit", &write).await));
+    assert_eq!(rig.stand_in.starts().len(), 2);
+}
+
+#[tokio::test]
 async fn tuning_ends_an_idle_process_and_the_next_message_resumes_on_the_new_settings() {
     let rig = rig();
     let id = rig.start().await;

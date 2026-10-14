@@ -152,9 +152,11 @@ engine with a note and a few more tools, one per repository.
 > mod reporting its end, which is a process stopping.
 
 > **Rule.** A hosted session starts with no slot and leases one on its first
-> write.
+> write, and one resumed with no slot is leased one before its process starts.
 > Why: most conversations never write, and a slot held by a conversation that
-> only reads is one a Job cannot have.
+> only reads is one a Job cannot have. A resumed session has already worked, and
+> a resume that waited for its first call to move it lost that call and a turn
+> (s-34c7f2c2, three times on 13 Oct 2026).
 
 ```
  start ─▶ a row: no process, no slot, no branch
@@ -165,7 +167,8 @@ engine with a note and a few more tools, one per repository.
  first write, pool full ─▶ the session is queued, told its place, and stops its
                 turn; Fleet leases it a slot when one frees and resumes it there
  later writes ─▶ held to the slot
- quiet for a while ─▶ the process is ended; the next message resumes it
+ quiet for a while ─▶ the process is ended; the next message resumes it, leased a
+                slot first if it holds none and the line ahead of it is empty
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
@@ -184,7 +187,8 @@ holds a slot; after it, a file tool naming a path in the main checkout is
 refused with the slot's path. A shell line is read by its words, so one Fleet
 does not recognise as a read leases first. `|`, `;` and `&` inside quotes do not cut
 a line, and a redirect to `/dev/null` or onto another descriptor (`2>&1`) writes nothing;
-any other `>`, a `$(` or a backtick, or a quote left open is a write.
+any other `>`, a `$(` or a backtick, or a quote left open is a write. `sed -n` with an
+address and `p` (`sed -n 10,40p file`) reads; every other `sed` is a write.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
 **A full pool queues the session rather than telling it to try again.** Every
