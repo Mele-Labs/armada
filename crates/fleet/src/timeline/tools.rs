@@ -2,7 +2,8 @@
 //!
 //! **A tool call is a fact an agent makes hundreds of times an hour**, so each is counted here and
 //! the count is entered once the burst is over: `Read 14 files`, `Edited 3 files`, `Ran 5 commands`,
-//! each with the latest path or command as its detail. A burst is one subject's run of one act; it
+//! each with the latest path or command as its detail and the newest [`ipc::MOST_TIMELINE_ITEMS`] of
+//! them as the items it opens to, the detail first. A burst is one subject's run of one act; it
 //! ends when that subject has done none of it for [`QUIET`], when its turn ends, or [`MOST`] after
 //! it began, so a long run shows as it goes. **The entry is dated by the burst's first call** and is
 //! written when it closes, which is why a client orders by `at` and not by `id`.
@@ -17,7 +18,7 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, DroneEvent, ToolUse};
 use ipc::{Saw, TimelineKind, TimelineTone, Voice};
 
-use super::{Fact, Subject, Timeline};
+use super::{bare, Fact, Subject, Timeline, DETAIL};
 use crate::transcript::Tap;
 
 /// A burst is over when its subject has done none of that act for this long, in milliseconds.
@@ -72,7 +73,8 @@ struct Burst {
     began: i64,
     last: i64,
     count: usize,
-    detail: Option<String>,
+    /// What it named, newest first and without repeats, cut to a line each: the burst's `detail` is the first.
+    items: Vec<String>,
 }
 
 /// The bursts open now, by subject and act.
@@ -89,12 +91,15 @@ impl Bursts {
             began: ms,
             last: ms,
             count: 0,
-            detail: None,
+            items: Vec::new(),
         });
         burst.count += count;
         burst.last = ms;
-        if detail.is_some() {
-            burst.detail = detail;
+        // What a repeat names moves to the front rather than listing twice, so the list holds distinct files.
+        if let Some(item) = detail.map(|one| bare(&one, DETAIL)).filter(|one| !one.is_empty()) {
+            burst.items.retain(|held| *held != item);
+            burst.items.insert(0, item);
+            burst.items.truncate(ipc::MOST_TIMELINE_ITEMS);
         }
     }
 
@@ -142,7 +147,8 @@ fn fact(act: Act, burst: Burst) -> Option<Fact> {
     Some(
         Fact::new(burst.began_at, kind, burst.doer.subject, TimelineTone::Run, says)
             .titled(burst.doer.title)
-            .detail(burst.detail)
+            .detail(burst.items.first().cloned())
+            .items(burst.items)
             .in_repository(burst.doer.manifest)
             .live(),
     )
@@ -367,6 +373,39 @@ mod tests {
         let entered = bursts.due(ms(130));
         assert_eq!(entered.len(), 1);
         assert_eq!(entered[0].says(), "Ran 131 commands");
+    }
+
+    /// The burst keeps what it named, newest first and without repeats, to the cap, and the detail is the first.
+    #[test]
+    fn a_burst_lists_what_it_named_newest_first_to_the_cap() {
+        let mut bursts = Bursts::default();
+        for n in 0..40 {
+            note(&mut bursts, who("s1"), Act::Read, n, &format!("src/{n}.rs"));
+        }
+        note(&mut bursts, who("s1"), Act::Read, 40, "src/30.rs");
+        let entered = bursts.due(ms(40 + 15));
+        let items = entered[0].item_texts();
+        assert_eq!(entered[0].says(), "Read 41 files", "the count is the whole burst's");
+        assert_eq!(items.len(), ipc::MOST_TIMELINE_ITEMS);
+        assert_eq!(items[..3], ["src/30.rs", "src/39.rs", "src/38.rs"], "a repeat moves to the front");
+        assert_eq!(entered[0].detail_text(), items.first().map(String::as_str));
+        assert_eq!(items.iter().filter(|one| *one == "src/30.rs").count(), 1);
+    }
+
+    /// An item is cut to a line as the detail is, and one with nothing in it is not listed.
+    #[test]
+    fn an_item_is_one_line_and_never_empty() {
+        let mut bursts = Bursts::default();
+        note(&mut bursts, who("s1"), Act::Ran, 0, "echo   one\ntwo");
+        note(&mut bursts, who("s1"), Act::Ran, 1, "  ");
+        note(&mut bursts, who("s1"), Act::Ran, 2, &"x".repeat(300));
+        let entered = bursts.due(ms(2 + 15));
+        let items = entered[0].item_texts();
+        assert_eq!(entered[0].says(), "Ran 3 commands");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[1], "echo one two");
+        assert_eq!(items[0].chars().count(), 120);
+        assert_eq!(entered[0].detail_text(), Some(items[0].as_str()));
     }
 
     /// The end of a turn closes one subject's bursts and nobody else's.

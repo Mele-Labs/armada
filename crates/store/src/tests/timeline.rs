@@ -15,6 +15,7 @@ fn entry(at: &str, kind: &str) -> TimelineEntry {
         tone: "run".to_string(),
         says: "Started".to_string(),
         detail: None,
+        items: Vec::new(),
         live: true,
         over: false,
     }
@@ -44,6 +45,22 @@ fn an_entry_is_kept_whole_and_numbered() {
     assert!(!window.cut);
     assert_eq!(window.events[0].entry, asked);
     assert_eq!(window.events[0].seq, first);
+}
+
+/// What a burst counted comes back in the order it went in, and an entry with none comes back with none.
+#[test]
+fn the_items_a_burst_counted_are_kept_in_order() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut read = entry("2026-10-12T10:00:00.000Z", "session.read");
+    read.says = "Read 3 files".to_string();
+    read.items = vec!["src/c.rs".to_string(), "src/b.rs".to_string(), "src/a.rs".to_string()];
+    read.detail = Some("src/c.rs".to_string());
+    store.append_timeline(&read).expect("kept");
+    store.append_timeline(&entry("2026-10-12T10:01:00.000Z", "job.started")).expect("kept");
+    let window = store.timeline_between(None, None, 10).expect("read");
+    assert_eq!(window.events[0].entry, read);
+    assert!(window.events[1].entry.items.is_empty());
 }
 
 /// `since` is inclusive and `until` is not, so two adjacent windows share no entry.

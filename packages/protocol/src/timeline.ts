@@ -80,6 +80,12 @@ export type TimelineEvent = {
   says: string;
   /** What it opens to: a Check's name, a branch, a command. */
   detail?: string;
+  /**
+   * What a burst named: the files or commands behind `Read 14 files` or `Ran 5 commands`, newest first,
+   * without repeats, at most 25, each cut and hidden as `detail` is. The first is `detail`; the count in `says`
+   * is the whole burst's. Absent for every other kind, and for an entry written before Fleet kept them.
+   */
+  items?: string[];
   /** The repository it belongs to. Absent where Fleet could not place it. */
   manifest_id?: string;
   /** The subject is still working after this. Absent is false. */

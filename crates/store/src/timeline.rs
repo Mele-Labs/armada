@@ -34,6 +34,9 @@ pub struct TimelineEntry {
     pub tone: String,
     pub says: String,
     pub detail: Option<String>,
+    /// What a burst counted, newest first: the files or commands behind `says`. **Each is one line**, which
+    /// is what lets the column hold them joined by a newline.
+    pub items: Vec<String>,
     pub live: bool,
     pub over: bool,
 }
@@ -61,8 +64,8 @@ impl Store {
         let kept = self.conn.transaction().map_err(failed)?;
         kept.execute(
             "INSERT INTO timeline_events (at, kind, subject_kind, subject_id, subject_url, title,
-                 repo, tone, says, detail, live, over)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 repo, tone, says, detail, items, live, over)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             rusqlite::params![
                 entry.at,
                 entry.kind,
@@ -74,6 +77,7 @@ impl Store {
                 entry.tone,
                 entry.says,
                 entry.detail,
+                (!entry.items.is_empty()).then(|| entry.items.join("\n")),
                 entry.live,
                 entry.over,
             ],
@@ -104,7 +108,7 @@ impl Store {
             .conn
             .prepare(
                 "SELECT seq, at, kind, subject_kind, subject_id, subject_url, title, repo, tone, says,
-                        detail, live, over
+                        detail, items, live, over
                  FROM timeline_events
                  WHERE (?1 IS NULL OR at >= ?1) AND (?2 IS NULL OR at < ?2)
                  ORDER BY at DESC, seq DESC
@@ -136,8 +140,9 @@ fn kept(row: &Row<'_>) -> rusqlite::Result<KeptTimeline> {
             tone: row.get(8)?,
             says: row.get(9)?,
             detail: row.get(10)?,
-            live: row.get(11)?,
-            over: row.get(12)?,
+            items: row.get::<_, Option<String>>(11)?.map_or_else(Vec::new, |joined| joined.lines().map(str::to_string).collect()),
+            live: row.get(12)?,
+            over: row.get(13)?,
         },
     })
 }

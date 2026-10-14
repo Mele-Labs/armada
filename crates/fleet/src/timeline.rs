@@ -48,6 +48,7 @@ pub(crate) struct Fact {
     tone: TimelineTone,
     says: String,
     detail: Option<String>,
+    items: Vec<String>,
     manifest: Option<String>,
     live: bool,
     over: bool,
@@ -69,6 +70,7 @@ impl Fact {
             tone,
             says: says.into(),
             detail: None,
+            items: Vec::new(),
             manifest: None,
             live: false,
             over: false,
@@ -82,6 +84,13 @@ impl Fact {
 
     pub(crate) fn detail(mut self, detail: Option<String>) -> Fact {
         self.detail = detail.map(|detail| bare(&detail, DETAIL)).filter(|detail| !detail.is_empty());
+        self
+    }
+
+    /// What a burst counted, newest first. **The caller has already cut each to a line** and the list to
+    /// [`ipc::MOST_TIMELINE_ITEMS`], and the first is the `detail`.
+    pub(crate) fn items(mut self, items: Vec<String>) -> Fact {
+        self.items = items;
         self
     }
 
@@ -127,6 +136,11 @@ impl Fact {
         self.detail.as_deref()
     }
 
+    #[cfg(test)]
+    pub(crate) fn item_texts(&self) -> &[String] {
+        &self.items
+    }
+
     fn entry(self) -> store::TimelineEntry {
         let (subject_kind, subject_id, subject_url) = match self.subject {
             Subject::Job(id) => ("job", id, None),
@@ -145,6 +159,7 @@ impl Fact {
             tone: self.tone.as_wire(),
             says: bare(&self.says, SAYS),
             detail: self.detail,
+            items: self.items,
             live: self.live,
             over: self.over,
         }
@@ -525,6 +540,7 @@ pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
         tone: TimelineTone::from_wire(&entry.tone)?,
         says: entry.says.clone(),
         detail: entry.detail.clone(),
+        items: entry.items.clone(),
         manifest_id: entry.repo.as_deref().map(ipc::ManifestId::carried),
         live: entry.live,
         over: entry.over,

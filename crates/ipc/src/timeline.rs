@@ -220,6 +220,11 @@ pub struct TimelineEvent {
     /// What it opens to: a Check's name, a branch, a command.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// What a burst counted: the files or commands behind `Read 14 files` or `Ran 5 commands`, newest
+    /// first, at most [`MOST_TIMELINE_ITEMS`], each a line cut to the length of `detail`. **Its first is
+    /// `detail`.** Absent for every other kind, and for an entry written before Fleet kept them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<String>,
     /// The repository it belongs to. Absent where Fleet could not place it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<ManifestId>,
@@ -260,6 +265,11 @@ pub const DEFAULT_TIMELINE_LIMIT: u32 = 500;
 
 /// The most one ask is given.
 pub const MOST_TIMELINE_LIMIT: u32 = 2000;
+
+/// The most files or commands an entry lists, the newest. 25 lines of 120 characters bound an entry at
+/// about 3 KB, so a window of 2000 stays within a few MB if every one were a burst, and the list opens
+/// to about a screen. The count in `says` is the whole burst's.
+pub const MOST_TIMELINE_ITEMS: usize = 25;
 
 /// `get_fleet_timeline`: the window, oldest first.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

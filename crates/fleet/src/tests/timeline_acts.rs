@@ -138,6 +138,7 @@ async fn a_jobs_reads_and_commands_are_entered_and_its_edits_are_left_to_its_fil
         called(testkit::READS, "src/a.rs"),
         called(testkit::READS, "src/b.rs"),
         called(testkit::RUNS, "cargo build"),
+        called(testkit::RUNS, "API_TOKEN=abc123 deploy now"),
         called(testkit::EDITS, "src/a.rs +3 -1"),
         called("another_tool", "anything"),
     ]);
@@ -147,7 +148,10 @@ async fn a_jobs_reads_and_commands_are_entered_and_its_edits_are_left_to_its_fil
     assert_eq!(kinds(&events), ["job.read", "job.ran"]);
     assert_eq!((events[0].says.as_str(), events[0].detail.as_deref()), ("Read 2 files", Some("src/b.rs")));
     assert_eq!(events[0].title.as_deref(), Some("job-7"));
-    assert_eq!(events[1].says, "Ran 1 command");
+    assert_eq!(events[1].says, "Ran 2 commands");
+    assert_eq!(events[0].items, ["src/b.rs", "src/a.rs"], "newest first, kept through the store");
+    assert_eq!(events[1].items, ["API_TOKEN=*** deploy now", "cargo build"], "a command is hidden as its detail is");
+    assert_eq!(events[1].detail.as_deref(), events[1].items.first().map(String::as_str));
 }
 
 /// A Session whose agent starts another, or forks its own, is the subject of the entry.

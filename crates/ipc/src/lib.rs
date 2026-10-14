@@ -336,7 +336,7 @@ pub use thought::{
 };
 pub use timeline::{
     FleetTimeline, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
-    DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_LIMIT,
+    DEFAULT_TIMELINE_LIMIT, MOST_TIMELINE_ITEMS, MOST_TIMELINE_LIMIT,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,

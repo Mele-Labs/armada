@@ -76,6 +76,7 @@ fn a_main_red() -> TimelineEvent {
         tone: TimelineTone::Bad,
         says: "Main red".to_string(),
         detail: None,
+        items: Vec::new(),
         manifest_id: None,
         live: false,
         over: false,
@@ -87,7 +88,7 @@ fn a_main_red() -> TimelineEvent {
 fn what_an_entry_does_not_carry_is_left_out_not_sent_as_null() {
     let json = encode(&a_main_red()).expect("plain data");
     assert!(!json.contains("null"), "{json}");
-    for left_out in ["title", "detail", "manifest_id", "live", "over"] {
+    for left_out in ["title", "detail", "items", "manifest_id", "live", "over"] {
         assert!(!json.contains(&format!("\"{left_out}\"")), "{left_out}: {json}");
     }
     assert!(json.contains(r#""subject":{"kind":"main"}"#), "{json}");
