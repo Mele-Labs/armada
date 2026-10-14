@@ -1,7 +1,6 @@
-// The dispatch panel: one bar grown into the place work is described. It grows in place from the
-// Cockpit's bar, and down from the title bar's field when the one bar chose to dispatch. One frame
-// holds both: the line (prompt, request, the key that switches kind) never moves, and a drawer under
-// it opens for the band (kind, repository, the act) and a body that depends on the kind: a Job's
+// The dispatch panel: the place work is described, grown down from the title bar's field when the one
+// bar chose to dispatch. One frame holds it: the line (prompt, request, the key that switches kind)
+// never moves, and a drawer under it opens for the band (kind, repository, the act) and a body that depends on the kind: a Job's
 // Settings, an Autopilot's read settings, nothing for a Session. The request is one textarea that is
 // never remounted, so what was typed and the caret stay where they were while the frame grows.
 //
@@ -13,7 +12,6 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { FolderGit2, LoaderCircle } from "lucide-react";
 import { Button, Kbd, SendKbd, Tabs, Tooltip, sendsOn, type DispatchKind } from "@armada/components";
 
-import { DispatchedStrip, type SentView } from "./DispatchedStrip";
 import { KIND_ICON, KIND_LABEL } from "./kinds";
 import "./dispatch-panel.css";
 
@@ -42,13 +40,9 @@ const WHAT: Record<PanelReading["state"], { name: string; tip: string }> = {
 };
 
 export type PanelProps = {
-  /** In the Cockpit's slot, or grown down from the title bar's field. */
-  layout: "docked" | "anchored";
-  /** The box the anchored frame hangs from: a selector, read when the panel opens. */
+  /** The box the frame hangs from: a selector, read when the panel opens. */
   anchor?: string;
-  /** Docked, but the title bar's panel holds the draft: the bar keeps its place and is not drawn. */
-  away?: boolean;
-  /** The frame grown. Closed it is the bar. */
+  /** The frame grown. Closed it is the line alone. */
   open: boolean;
   words: string;
   onWords: (words: string) => void;
@@ -68,29 +62,21 @@ export type PanelProps = {
   /** The act pressed and held until the repository is read, or until Fleet answers. */
   sending: boolean;
   onAct: () => void;
-  /** The frame was pressed while closed. */
-  onOpen: () => void;
-  /** Esc, or a press outside a docked frame. The draft stays. */
+  /** Esc. The draft stays. */
   onCollapse: () => void;
-  /** A press on the scrim of the anchored layer. */
+  /** A press on the scrim. */
   onDismiss?: () => void;
   /** The host's keys on the request: Tab's kind and a Session's Enter. */
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Under the band: a Job's Settings, an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
-  /** The latest send from this bar: the frame is a strip holding it until the next draft or a dismiss. */
-  sent?: SentView;
-  onOpenSent?: () => void;
-  onDismissSent?: () => void;
   fieldRef?: Ref<HTMLTextAreaElement>;
   autoFocus?: boolean;
   disabled?: boolean;
 };
 
 export function DispatchPanel({
-  layout,
   anchor,
-  away = false,
   open,
   words,
   onWords,
@@ -106,23 +92,18 @@ export function DispatchPanel({
   act,
   sending,
   onAct,
-  onOpen,
   onCollapse,
   onDismiss,
   onFieldKeyDown,
   body,
-  sent,
-  onOpenSent,
-  onDismissSent,
   fieldRef,
   autoFocus = false,
   disabled = false,
 }: PanelProps) {
-  const frame = useRef<HTMLElement>(null);
   const field = useRef<HTMLTextAreaElement | null>(null);
   const list = useRef<HTMLUListElement>(null);
   const asked = useRef(false);
-  const place = useHung(layout === "anchored", anchor);
+  const place = useHung(true, anchor);
 
   // The list takes the keys when it opens and gives them back to the request when it closes.
   useEffect(() => {
@@ -130,22 +111,6 @@ export function DispatchPanel({
     else if (asked.current) field.current?.focus();
     asked.current = asking;
   }, [asking]);
-
-  // The cursor goes back to the request after a send, so ↵ opens what was sent and typing starts the next one.
-  useEffect(() => {
-    if (sent !== undefined) field.current?.focus();
-  }, [sent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // A docked frame is over the Cockpit, whose tiles are under it: a press out there puts it back.
-  useEffect(() => {
-    if (layout !== "docked" || !open) return;
-    const away = (event: MouseEvent) => {
-      if (event.target instanceof Node && frame.current?.contains(event.target)) return;
-      onCollapse();
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [layout, open, onCollapse]);
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
@@ -190,18 +155,14 @@ export function DispatchPanel({
 
   const frameOf = (
     <section
-      ref={frame}
       className="armada-dispatch-panel__frame"
       aria-label="Dispatch"
       data-open={open || undefined}
       data-kind={kind}
       data-reading={reading.state}
       data-asking={asking || undefined}
-      data-sent={sent === undefined ? undefined : ""}
-      data-refused={sent?.refused === undefined ? undefined : ""}
       style={place}
       onKeyDown={keys}
-      onClick={() => open || onOpen()}
     >
       <div className="armada-dispatch-panel__line">
         <Tooltip label={KIND_LABEL[kind]}>
@@ -217,7 +178,6 @@ export function DispatchPanel({
           }}
           aria-label="Request"
           className="armada-dispatch-panel__field"
-          data-layout={layout}
           rows={1}
           autoFocus={autoFocus}
           value={words}
@@ -239,8 +199,6 @@ export function DispatchPanel({
           <Kbd>N</Kbd>
         </Tooltip>
       </div>
-
-      {sent === undefined ? null : <DispatchedStrip sent={sent} layout="docked" onOpen={() => onOpenSent?.()} onDismiss={() => onDismissSent?.()} />}
 
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
@@ -284,17 +242,9 @@ export function DispatchPanel({
     </section>
   );
 
-  if (layout === "docked") {
-    return (
-      <div className="armada-dispatch-panel" data-layout="docked" data-away={away || undefined} inert={away} data-settles>
-        {frameOf}
-      </div>
-    );
-  }
   return (
     <div
       className="armada-dispatch-panel"
-      data-layout="anchored"
       data-settles
       role="dialog"
       aria-modal="true"

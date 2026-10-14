@@ -10,16 +10,18 @@
 // **A claim names what a person sees, never a component**, which is
 // `arc.test.tsx`'s own rule.
 
-import { expect, test, describe } from "vitest";
+import { beforeEach, expect, test, describe } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { JobDetail, JobSummary, ProposalSettled } from "@armada/protocol";
 import { filled } from "./index";
 
-import { listed, mount, rows, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";
+import { listed, mount, rememberingTheGrid, rows, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";
 import type { FleetHandle } from "@armada/desktop/mock";
 
 unmountAfterEach();
+// The Cockpit opens on its timeline; these read and pick the Board's tiles, so they start from the grid.
+beforeEach(rememberingTheGrid);
 
 // Core and Jobs only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "jobs"] } as const;
