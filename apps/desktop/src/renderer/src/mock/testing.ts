@@ -52,6 +52,8 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.dashboard-tab");
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
+  // And the flight deck's: the switch, its view and its filters.
+  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters"]) localStorage.removeItem(`armada.bridge.${key}`);
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";

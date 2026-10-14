@@ -37,6 +37,7 @@ export function CallAlerts({
   picked,
   nowViews,
   onCockpit,
+  onDeck = false,
   onShow,
 }: {
   state: BridgeState;
@@ -44,6 +45,8 @@ export function CallAlerts({
   nowViews: Readonly<Record<string, CallView>> | undefined;
   /** The cockpit is what is on screen. Its card is in front only where it is on Your move: the deck is drawn nowhere else. */
   onCockpit: boolean;
+  /** The Cockpit is the flight deck, whose Incoming calls are always drawn: its card is in front on whatever filter the classic Cockpit last had. */
+  onDeck?: boolean;
   /** Bring this call forward on the cockpit. */
   onShow: (key: string) => void;
 }) {
@@ -53,7 +56,7 @@ export function CallAlerts({
   const first = useRef<number | null>(null);
   // **Wherever he is, a new call speaks**: only the deck on Your move already shows it.
   const [tab] = useDashboardTab();
-  const deckShown = onCockpit && tab === "command-central";
+  const deckShown = onCockpit && (onDeck || tab === "command-central");
   const here = useRef(deckShown);
   here.current = deckShown;
 

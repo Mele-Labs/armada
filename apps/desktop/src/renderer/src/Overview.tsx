@@ -20,6 +20,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { Nows, type Hosts } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
 import { KeySheet, useDashboardKeys } from "./cockpit/keys";
+import { useDeckPreview } from "./cockpit/deck/preview";
 import { proposeRequest } from "./dispatch";
 
 import { usePanelOpen } from "./panel-open";
@@ -56,6 +57,8 @@ export function Overview({
   onBrought,
   onWantHeld,
   onReleaseSlot,
+  onRescueSlot,
+  onMergeJob,
   onPickRepository,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
@@ -110,6 +113,8 @@ export function Overview({
   /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
   onWantHeld?: (want: boolean) => void;
   onReleaseSlot?: Hosts["onReleaseSlot"];
+  onRescueSlot?: Hosts["onRescueSlot"];
+  onMergeJob?: Hosts["onMergeJob"];
   /** Picks a repository, as the title row's picker does: Autopilot's control asks for one on All. */
   onPickRepository?: Hosts["onPickRepository"];
 }) {
@@ -178,7 +183,9 @@ export function Overview({
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
 
   // `[` `]` and Option with a digit switch filters, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
-  const keys = useDashboardKeys(tab, setTab, !fault);
+  // The deck has its own keys and its own sheet: the Dashboard's `[ ]`, `⌥1` to `⌥3` and `?` listen only while it is the classic Cockpit.
+  const deck = useDeckPreview();
+  const keys = useDashboardKeys(tab, setTab, !fault && !deck);
 
   return (
     <Boundary region="the overview" {...guarded}>
@@ -232,10 +239,12 @@ export function Overview({
             onCursor={onCursor}
             onWantHeld={onWantHeld}
             onReleaseSlot={onReleaseSlot}
+            onRescueSlot={onRescueSlot}
+            onMergeJob={onMergeJob}
             onPickRepository={onPickRepository}
           />
         )}
-        <KeySheet open={keys.sheet} onClose={keys.closeSheet} />
+        {deck ? null : <KeySheet open={keys.sheet} onClose={keys.closeSheet} />}
       </div>
       </Nows.Provider>
     </Boundary>

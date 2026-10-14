@@ -9,6 +9,8 @@ import type { DashboardTab } from "@armada/overview";
 
 import type { BridgeState } from "../../shared/bridge";
 import { Cockpit } from "./cockpit/Cockpit";
+import { DeckBody } from "./cockpit/deck/Deck";
+import { useDeckPreview } from "./cockpit/deck/preview";
 import type { Hosts } from "./Dashboard";
 
 export function CommandCentral(props: Hosts & {
@@ -22,5 +24,6 @@ export function CommandCentral(props: Hosts & {
   bring?: { key: string; at: number } | null | undefined;
   onBrought?: (() => void) | undefined;
 }) {
-  return <Cockpit {...props} />;
+  // The preview switch is the mount: the deck in place of the classic Cockpit, and nothing of it mounted while it is off.
+  return useDeckPreview() ? <DeckBody {...props} /> : <Cockpit {...props} />;
 }

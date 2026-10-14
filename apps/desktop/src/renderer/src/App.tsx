@@ -40,6 +40,8 @@ import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
 import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } from "./app-effects";
 import { CallAlerts } from "./cockpit/CallAlerts";
+import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
+import { previewLabel, setDeckPreview, useDeckPreview } from "./cockpit/deck/preview";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -348,7 +350,9 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo);
+  // The preview switch: with it on the window has no rail and `⌘1` to `⌘4` are the title bar's four tabs.
+  const deck = useDeckPreview();
+  useSurfaceKeys(goTo, deck);
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -611,9 +615,10 @@ export function App({ draft }: AppProps = {}) {
   // Helm's dock lists every repository's questions, whatever the pick. `questions` is the dock's own block; `asks` is Helm's.
   const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, now, commands);
   const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }) === SURFACE.overview; // Its call is already in front.
+  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
-  useHistory(
+  const { back, replaceNext } = useHistory(
     { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
@@ -627,6 +632,8 @@ export function App({ draft }: AppProps = {}) {
   const busy = live ? (commands.sweeping === null ? undefined : "waiting on Fleet") : FLEET_DOWN;
   const boardRows = [
     { id: "reports", label: "Reported" },
+    // The preview switch: the flight deck in place of the classic Cockpit and the rail, and back.
+    { id: "deck", label: previewLabel(deck) },
     ...sweepsOf(boardJobs).map((one) => ({
       ...one,
       ...(one.id === "forget" ? { destructive: true } : {}),
@@ -654,6 +661,13 @@ export function App({ draft }: AppProps = {}) {
           onCompose={() => setComposing(true)}
           onSearch={palette.onOpen}
           {...titleRow}
+          {...(deck
+            ? {
+                rail: false,
+                wordmark: "Armada",
+                places: <DeckPlaces state={state} picked={pickedRepository} nowViews={nowing.feed.calls} showing={showingNow} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />,
+              }
+            : {})}
           questions={questions}
           asking={asks.length}
           helm={
@@ -723,6 +737,7 @@ export function App({ draft }: AppProps = {}) {
               this app, so the class that bounds this box lives in the app's own
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
+          {deck ? <DeckSystem showing={showingNow} onGoTo={goTo} /> : null}
           <div className="armada-screen__mounted">
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
@@ -1142,6 +1157,8 @@ export function App({ draft }: AppProps = {}) {
                   onWantHeld={readHeld}
                   onPickRepository={pick}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
+                  onRescueSlot={slotActs.onRescueSlot}
+                  onMergeJob={(jobId) => commands.mergeProps(jobId).onMergePullRequest(jobId)}
                   nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />
 
@@ -1226,6 +1243,7 @@ export function App({ draft }: AppProps = {}) {
             openSetting: (id) => openSettingsAt(id, () => goTo(SURFACE.settings)),
             refresh: () => void commands.refresh(),
             board: (id) => {
+              if (id === "deck") return setDeckPreview(!deck);
               if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");
               // Reports close back to Overview, so that is where they open over.
               goTo(SURFACE.overview);
@@ -1246,7 +1264,8 @@ export function App({ draft }: AppProps = {}) {
           onCopied={setCopied}
         >
           <DownshiftAlert choose={openModelSetting} />
-          <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
+          {deck ? <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} onGoTo={goTo} /> : null}
+          <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onDeck={deck} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>
         </SessionsOwnership>
