@@ -6,8 +6,8 @@
 // in exactly the view that was left. Under the bar every tab draws one title line, and the Cockpit's holds the
 // roll call. The calls wait in a row above the page, never over it. Mock only. proto/cockpit-three-directions.
 
-import { useEffect, useMemo, useRef } from "react";
-import { ChevronRight, ExternalLink, Hammer, Reply, Square, Terminal, X as Close } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ExternalLink, Hammer, Reply, Square, Terminal, X as Close } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 import { SURFACE } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
@@ -15,10 +15,11 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { AppSeamProps } from "../../cockpit/app-seam";
 import type { CockpitProps } from "../../cockpit/body-seam";
+import { Horizon } from "../../cockpit/Cockpit";
 import { useSessions } from "../../sessions-draft";
 import { useCalls } from "./calls";
 import { FixAct, IconAct, KeySheet, MarkGlyph, PeekPop, PrChip, STATION_GLYPH, StepsBar, useShipActs, useShipUi, type Acts, type ShipUi } from "./shared";
-import { useShip, type Main, type Pr, type Ship, type Subject } from "./ship";
+import { useShip, type Ship, type Subject } from "./ship";
 import {
   CHORD,
   PINNED,
@@ -268,6 +269,7 @@ export function TabsChrome(props: AppSeamProps) {
     if (aimed?.dataset.unit !== undefined) return ship.subjects.find((one) => one.pr?.key === aimed.dataset.unit);
     return current;
   };
+  const hot = pointed ?? current?.pr?.number;
   const reply = (subject: Subject) => {
     ui.select(subject.key);
     ui.setReplying(undefined);
@@ -442,7 +444,7 @@ function restoreScroll(id: string): void {
 // ---- The Cockpit tab -------------------------------------------------------------------------------
 
 /** One Job or Session on one line: its mark, name, where it is, and the acts it carries, in place. */
-function Row({ subject, selected, ui, acts, onReply }: { subject: Subject; selected: boolean; ui: ShipUi; acts: Acts; onReply: (subject: Subject) => void }) {
+function Row({ subject, selected, hot, onHot, ui, acts, onReply }: { subject: Subject; selected: boolean; hot: boolean; onHot: (number: number | undefined) => void; ui: ShipUi; acts: Acts; onReply: (subject: Subject) => void }) {
   const tone = toneOf(subject);
   const peek = ui.peeking === subject.key;
   return (
@@ -450,11 +452,15 @@ function Row({ subject, selected, ui, acts, onReply }: { subject: Subject; selec
       className="tabs-row"
       data-subject={subject.key}
       data-tone={tone}
+      data-unit={subject.pr?.key}
       data-selected={selected || undefined}
+      data-hot={hot || undefined}
       aria-label={subject.title}
       tabIndex={0}
       onFocus={() => ui.select(subject.key)}
       onClick={() => ui.select(subject.key)}
+      onPointerEnter={() => onHot(subject.pr?.number)}
+      onPointerLeave={() => onHot(undefined)}
     >
       <MarkGlyph mark={{ ...subject.mark, tone }} />
       <span className="tabs-row__title">{subject.title}</span>
@@ -480,44 +486,49 @@ function Row({ subject, selected, ui, acts, onReply }: { subject: Subject; selec
   );
 }
 
-/** The merge line: one plain rail along the foot, pull requests passing left to right, ending at main. */
-const STAGES = [
-  { id: "open", said: "Open" },
-  { id: "checking", said: "Checking" },
-  { id: "queue", said: "In queue" },
-] as const;
-const stageOf = (pr: Pr) => (pr.stage === "landed" ? "main" : pr.stage === "queued" || pr.stage === "ready" ? "queue" : pr.ci === "waiting_on_main" ? "open" : "checking");
+/**
+ * The merge line, as the Cockpit's own horizon draws it: the dots, nearest main first, ending at main's light.
+ * What is added is main's Fix beside the light, and the join to the strips above: the pull request a dot is and
+ * the pull request a strip carries light each other up, by hover, focus or selection. The dots are the
+ * Cockpit's, so what a dot is, and what its card says, is exactly what it is on main.
+ */
+const numberOf = (element: Element): number | undefined => {
+  const said = /^#(\d+)/.exec(element.getAttribute("aria-label") ?? "");
+  return said === null ? undefined : Number(said[1]);
+};
 
-function Unit({ ship, pr, ui, acts }: { ship: Ship; pr: Pr; ui: ShipUi; acts: Acts }) {
-  const owner = ship.subjects.find((one) => one.pr?.key === pr.key);
-  const title = pr.owner?.title ?? pr.title;
+function Foot({ props, ship, hot, onHot, acts, ui }: { props: CockpitProps; ship: Ship; hot: number | undefined; onHot: (number: number | undefined) => void; acts: Acts; ui: ShipUi }) {
+  const sessions = useSessions();
+  const foot = useRef<HTMLDivElement>(null);
+  const main = ship.main;
+  // A dot is drawn by the Cockpit and knows nothing of this page: how loud it is and which one is lit are said on it here.
+  useEffect(() => {
+    for (const dot of foot.current?.querySelectorAll<HTMLElement>(".armada-view__dot") ?? []) {
+      const number = numberOf(dot);
+      const owner = number === undefined ? undefined : ship.subjects.find((one) => one.kind !== "pr" && one.pr?.number === number);
+      const tone = owner === undefined ? "calm" : toneOf(owner) !== "calm" ? toneOf(owner) : owner.mergeable ? "ask" : "calm";
+      dot.dataset.tone = tone;
+      if (number !== undefined && number === hot) dot.dataset.hot = "";
+      else delete dot.dataset.hot;
+    }
+  });
+  const named = (event: { target: EventTarget }) => (event.target instanceof Element ? numberOf(event.target.closest(".armada-view__dot") ?? event.target) : undefined);
   return (
-    <li className="tabs-unit" data-unit={pr.key} data-stage={pr.stage} aria-label={`#${pr.number} ${pr.title}`} tabIndex={0} onFocus={() => ui.select(`unit:${pr.key}`)}>
-      <PrChip pr={pr} />
-      {owner === undefined || owner.kind === "pr" ? (
-        <span className="tabs-unit__title">{title}</span>
-      ) : (
-        <button type="button" className="tabs-unit__title" onClick={() => acts.open(owner)}>
-          {title}
-        </button>
-      )}
-      {owner?.mergeable === true ? (
-        <Button variant="secondary" size="sm" aria-label={`Merge #${pr.number}`} onClick={() => acts.merge(owner)}>
-          Merge
-        </Button>
-      ) : null}
-    </li>
-  );
-}
-
-function MainMarker({ main, ship, ui, acts, roll }: { main: Main | undefined; ship: Ship; ui: ShipUi; acts: Acts; roll: Roll }) {
-  const landed = ship.prs.filter((pr) => pr.stage === "landed" && ship.subjects.some((one) => one.pr?.key === pr.key && one.kind !== "pr"));
-  return (
-    <div className="tabs-main" data-main data-state={main?.state ?? "unknown"} data-selected={ui.selected === "main" || undefined}>
-      <RollMark roll={roll} />
-      <span className="tabs-main__name">Main</span>
+    <div
+      ref={foot}
+      className="tabs-foot"
+      data-main
+      data-state={main?.state ?? "unknown"}
+      data-fixing={main?.fixing || undefined}
+      data-selected={ui.selected === "main" || undefined}
+      onPointerOver={(event) => onHot(named(event))}
+      onPointerOut={() => onHot(undefined)}
+      onFocus={(event) => onHot(named(event))}
+      onBlur={() => onHot(undefined)}
+    >
+      <Horizon state={props.state} sessions={sessions} hosts={props} />
       {main === undefined || main.state !== "red" ? null : (
-        <>
+        <span className="tabs-foot__main">
           <span className="tabs-main__check">{main.check}</span>
           {main.fixing ? (
             <Tooltip label="Fixing main">
@@ -528,38 +539,9 @@ function MainMarker({ main, ship, ui, acts, roll }: { main: Main | undefined; sh
           ) : (
             <FixAct main={main} acts={acts} />
           )}
-        </>
+        </span>
       )}
-      {landed.map((pr) => (
-        <PrChip key={pr.key} pr={pr} />
-      ))}
     </div>
-  );
-}
-
-function Rail({ ship, ui, acts }: { ship: Ship; ui: ShipUi; acts: Acts }) {
-  const units = (stage: string) =>
-    ship.prs.flatMap((pr) => {
-      const owner = ship.subjects.find((one) => one.pr?.key === pr.key);
-      return owner === undefined || stageOf(pr) !== stage ? [] : [<Unit key={pr.key} ship={ship} pr={pr} ui={ui} acts={acts} />];
-    });
-  const main = rollOf(ship).find((one) => one.id === "main")!;
-  return (
-    <section className="tabs-rail" aria-label="Merge line">
-      <div className="tabs-rail__line">
-        <span className="tabs-rail__label">Merge line</span>
-        {STAGES.flatMap((stage) => [
-          <div key={stage.id} className="tabs-rail__stage">
-            <span className="tabs-rail__name">{stage.said}</span>
-            <ul className="tabs-rail__units" aria-label={stage.said}>
-              {units(stage.id)}
-            </ul>
-          </div>,
-          <ChevronRight key={`${stage.id}:to`} size={14} aria-hidden className="tabs-rail__to" />,
-        ])}
-        <MainMarker main={ship.main} ship={ship} ui={ui} acts={acts} roll={main} />
-      </div>
-    </section>
   );
 }
 
@@ -571,6 +553,8 @@ export function TabsBody(props: CockpitProps) {
   const tabs = useTabs();
   const groups = groupedOf(ship);
   const order = groups.flatMap((one) => one.rows);
+  // The pull request lit on both the strip and its dot: the one under the pointer, else the selected strip's.
+  const [pointed, setPointed] = useState<number | undefined>(undefined);
   const current = order.find((one) => one.key === ui.selected) ?? (ui.selected === undefined ? order[0] : undefined);
   const reply = (subject: Subject) => {
     ui.select(subject.key);
@@ -581,7 +565,7 @@ export function TabsBody(props: CockpitProps) {
   useEffect(() => {
     const key = tabs.focusing;
     if (key === undefined) return;
-    const found = key === "main" ? document.querySelector<HTMLElement>("[data-main] button, [data-main]") : document.querySelector<HTMLElement>(key.startsWith("unit:") ? `[data-unit="${key.slice(5)}"]` : `[data-subject="${key}"]`);
+    const found = key === "main" ? document.querySelector<HTMLElement>(".tabs-foot__main button, [data-main]") : document.querySelector<HTMLElement>(key.startsWith("unit:") ? `[data-unit="${key.slice(5)}"]` : `[data-subject="${key}"]`);
     if (found === null) return;
     found.focus();
     found.scrollIntoView({ block: "nearest" });
@@ -596,13 +580,13 @@ export function TabsBody(props: CockpitProps) {
               <header className="tabs-band">{group.name}</header>
               <ul className="tabs-group__rows" aria-label={group.name}>
                 {rows.map((one) => (
-                  <Row key={one.key} subject={one} selected={current?.key === one.key} ui={ui} acts={acts} onReply={reply} />
+                  <Row key={one.key} subject={one} selected={current?.key === one.key} hot={hot !== undefined && one.pr?.number === hot} onHot={setPointed} ui={ui} acts={acts} onReply={reply} />
                 ))}
               </ul>
             </section>
           ))}
         </div>
-        <Rail ship={ship} ui={ui} acts={acts} />
+        <Foot props={props} ship={ship} hot={hot} onHot={setPointed} acts={acts} ui={ui} />
       </section>
     </div>
   );

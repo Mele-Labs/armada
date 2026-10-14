@@ -87,7 +87,7 @@ function DotCard({ dot }: { dot: Dot }) {
  * by its state, solid where a queue holds it and a ring where it is open, and only a running one
  * pulses. Hovering or focusing one opens its card; pressing it opens the pull request or the Job.
  */
-function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: readonly Session[]; hosts: Hosts }) {
+export function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: readonly Session[]; hosts: Hosts }) {
   const views = viewsOf(state);
   if (views.length === 0) return null;
   return (
