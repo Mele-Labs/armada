@@ -1,8 +1,7 @@
 {
   "regions": {
     "dashboard.tabs": { "ordered": true, "firstable": true, "entries": [
-      { "id": "command-central", "hideable": false },
-      { "id": "running", "hideable": true },
+      { "id": "running", "hideable": false },
       { "id": "done", "hideable": true },
       { "id": "bays", "hideable": true }
     ] },

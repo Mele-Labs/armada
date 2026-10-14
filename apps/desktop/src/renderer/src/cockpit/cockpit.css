@@ -271,6 +271,31 @@ span.armada-view__dot { cursor: default; }
 .armada-tray .armada-stack { height: calc(var(--lift) * var(--behind) + var(--space-4)); pointer-events: auto; }
 .armada-tray .armada-behind { border-radius: var(--radius-md); }
 
+/* Who the call is about, after its title. */
+.armada-behind > .armada-behind__where { flex: none; max-width: 40%; color: var(--fg-muted); font-family: var(--font-mono); }
+
+/* A call that has come in hails him: the strip slides up into the tray and rings out in its hue twice,
+   then waits, still. One put off was seen already, so it does neither. */
+.armada-tray .armada-behind:not([data-deferred]) {
+  border-width: calc(var(--border-width) * 2);
+  animation:
+    armada-hail-in var(--duration-travel) var(--ease),
+    armada-hail-ring var(--duration-pulse) var(--ease) var(--duration-travel) 2;
+}
+
+@keyframes armada-hail-in {
+  from { opacity: 0; transform: translateY(var(--space-8)); }
+}
+
+@keyframes armada-hail-ring {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent); }
+  to { box-shadow: 0 0 0 var(--space-4) transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-tray .armada-behind:not([data-deferred]) { animation: none; }
+}
+
 /* A card made only of acts: the decision on the left, the quiet ghosts on the right, one row that wraps as a pair. */
 .armada-callcard__acts[data-split] { justify-content: space-between; row-gap: var(--space-2); }
 .armada-callcard__decide,

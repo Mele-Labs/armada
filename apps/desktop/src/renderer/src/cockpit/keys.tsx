@@ -49,7 +49,7 @@ function groups(): readonly Group[] {
         { keys: [down, up, "←", "→", upArrow, downArrow].filter((one): one is string => one !== undefined && one !== ""), does: actionOf("move_focus").verb },
         { keys: [...capsOf("open_focused"), ...capsOf("open")], does: actionOf("open").verb },
         { keys: capsOf("kill"), does: actionOf("kill").verb },
-        { keys: capsOf("call_recall"), does: actionOf("call_recall").verb },
+        { keys: capsOf("call_open"), does: actionOf("call_open").verb },
         { keys: ["Esc", "↓"], does: "Leave the request field" },
       ],
     },

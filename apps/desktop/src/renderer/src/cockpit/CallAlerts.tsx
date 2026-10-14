@@ -1,6 +1,6 @@
 // The toast that says a call has come for the owner while he is somewhere else in Bridge, and takes
-// him to it. A call the cockpit deals is what the Cockpit draws as a card over the glass; this is the
-// same set read from outside, so an alert and the card it opens are one fact and cannot disagree.
+// him to it. A call the cockpit deals is what the Cockpit draws as a transmission in its tray; this is
+// the same set read from outside, so an alert and the card it opens are one fact and cannot disagree.
 // Mock only, as the Dashboard is.
 
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +10,6 @@ import type { CallView } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { useItems, type Hosts } from "../Dashboard";
-import { useDashboardTab } from "../remembered-views";
 import { alertOf, arrived, type Alert, type Held } from "./arrivals";
 
 /** How long an alert stands unpressed. A call is still there on the glass when it goes. */
@@ -42,20 +41,18 @@ export function CallAlerts({
   state: BridgeState;
   picked: RepositorySummary | null;
   nowViews: Readonly<Record<string, CallView>> | undefined;
-  /** The cockpit is what is on screen. Its card is in front only where it is on Your move: the deck is drawn nowhere else. */
+  /** The cockpit is what is on screen. Its tray shows a new call on every filter, so it speaks there already. */
   onCockpit: boolean;
   /** Bring this call forward on the cockpit. */
   onShow: (key: string) => void;
 }) {
-  const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
+  const calls = useItems("calls", state, picked, nowViews, NO_HOSTS, NONE);
   const [standing, setStanding] = useState<readonly Standing[]>([]);
   const held = useRef<Held>(null);
   const first = useRef<number | null>(null);
-  // **Wherever he is, a new call speaks**: only the deck on Your move already shows it.
-  const [tab] = useDashboardTab();
-  const deckShown = onCockpit && tab === "command-central";
-  const here = useRef(deckShown);
-  here.current = deckShown;
+  // **Wherever he is, a new call speaks**: only the Cockpit's tray already shows it.
+  const here = useRef(onCockpit);
+  here.current = onCockpit;
 
   // **Not before Fleet has answered once**: Bridge publishes state before it is connected to anything, and
   // seeding off an empty one would make the first real reading look like every call arriving at once.
@@ -75,10 +72,10 @@ export function CallAlerts({
     });
   }, [calls, state.readAt]);
 
-  // The cockpit coming up puts the card in front, which is what an alert was pointing at.
+  // The cockpit coming up puts the call in its tray, which is what an alert was pointing at.
   useEffect(() => {
-    if (deckShown) setStanding([]);
-  }, [deckShown]);
+    if (onCockpit) setStanding([]);
+  }, [onCockpit]);
 
   useEffect(() => {
     if (standing.length === 0) return;

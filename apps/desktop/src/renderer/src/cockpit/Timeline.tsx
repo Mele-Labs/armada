@@ -316,7 +316,7 @@ export function Timeline({
   now: number;
   /** The Board's Jobs, for the name of a Job Fleet gave an entry no title for. */
   jobs: readonly JobSummary[];
-  /** The Cockpit's filter: what needs him, what is not over, what is. */
+  /** The Cockpit's filter: what is not over, what is. */
   filter: DashboardTab;
   /** A call is in front, and the glass is dimmed behind it. */
   recessed: boolean;

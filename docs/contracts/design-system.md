@@ -1522,7 +1522,7 @@ R              run                  (open studio only)
 [ ]            previous and next filter   (dashboard only)
 m              switch between grid and timeline   (dashboard only)
 ?              show the keys   (dashboard only)
-w              bring a waiting call back   (dashboard only)
+w              open the call   (dashboard only)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
@@ -1540,8 +1540,8 @@ back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
 never on a call Fleet raises about a state. On a Job's question they answer with
 `mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told. The panel's `[ ]` and `⌥1–3`
-move between its filters, `m` flips grid and timeline, `w` brings a waiting call
-back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
+move between its filters, `m` flips grid and timeline, `w` opens the call waiting in the
+tray and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
 
 **This is the map, not a pattern.** It was settled by drawing the Job
 Board and the command palette together, which is what forced the two

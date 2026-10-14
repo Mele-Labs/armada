@@ -10,7 +10,6 @@ import {
   Activity,
   Bot,
   CircleCheck,
-  CircleDot,
   GitMerge,
   LayoutDashboard,
   ListTodo,
@@ -57,8 +56,7 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     ordered: true,
     firstable: true,
     entries: [
-      { id: "command-central", label: "Your move", icon: CircleDot, hideable: false },
-      { id: "running", label: "Active", icon: LoaderCircle, hideable: true },
+      { id: "running", label: "Active", icon: LoaderCircle, hideable: false },
       { id: "done", label: "Done", icon: CircleCheck, hideable: true },
       { id: "bays", label: "Bays", icon: Rows3, hideable: true },
     ],

@@ -1,8 +1,8 @@
-// The Dashboard's panel as a cockpit: a top bar with three filters (Your move, Active, Done) and the
+// The Dashboard's panel as a cockpit: a top bar with three filters (Active, Done, Bays) and the
 // way to read them, a grid of tiles or a timeline of what Fleet did, and a pane for the one picked. A call that
-// needs the owner comes forward over the panel whatever the filter, centred and answerable from the
-// keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back and `d`
-// dismisses it for good.
+// needs the owner arrives in a tray along the foot of the panel, whatever the filter, and covers nothing
+// until he opens it. Opened, it is centred over the panel and answerable from the keyboard, the calls
+// behind it stacked like a deck; `l` puts the one in front at the back and `d` dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, SquareTerminal } from "lucide-react";
@@ -127,9 +127,9 @@ function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: rea
 }
 
 /**
- * The calls behind the one in front, stacked like a deck: each a strip a little higher, narrower and
- * dimmer than the one before, its title readable. A call put off is dashed and at the back. Pressing
- * one brings it forward.
+ * The calls waiting to be opened, stacked like a deck along the foot of the panel: each a strip a little
+ * higher, narrower and dimmer than the one before, its title and who it is about readable. A call put
+ * off is dashed and at the back. Pressing one opens it.
  */
 function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly string[]; recall: (key: string) => void }) {
   return (
@@ -149,7 +149,8 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
           >
             <Icon size={12} aria-hidden="true" />
             <span>{one.title}</span>
-            {index === 0 ? <Kbd>{keyFor("call_recall")}</Kbd> : null}
+            {one.where === "" ? null : <span className="armada-behind__where">{one.where}</span>}
+            {index === 0 ? <Kbd>{keyFor("call_open")}</Kbd> : null}
           </button>
         );
       })}
@@ -205,7 +206,7 @@ export function Cockpit({
   const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
   const autopilot = useAutopilotLane({ picked, state, now });
-  const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
+  const carriedCalls = useItems("calls", state, picked, nowViews, hosts, NONE);
   const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
   const carriedOver = useItems("done", state, picked, nowViews, hosts, NONE);
   const calls = useMemo(() => carriedCalls.filter((one) => !holds.has(one.key)), [carriedCalls, holds]);
@@ -247,11 +248,10 @@ export function Cockpit({
       }),
     [state, sessions, everything, picked],
   );
-  // Your move is what needs the owner; Active leads with that, then what runs, a call standing in for
-  // the Job or Session it is about; Done is what is over, and what landed on the merge line is no tile.
-  // Bays is the work in the bays, down each hull, then what waits for one: the order the keys step in.
+  // Active leads with what needs the owner, a call standing in for the Job or Session it is about, then
+  // what runs; Done is what is over, and what landed on the merge line is no tile. Bays is the work in
+  // the bays, down each hull, then what waits for one: the order the keys step in.
   const instruments = useMemo(() => {
-    if (filter === "command-central") return [...calls, ...autopilot.asides];
     if (filter === "bays") return orderOf(metroOf(bays, now));
     if (filter === "done") return over.filter((one) => !one.key.startsWith("line:"));
     const read = overviewListsOf(state.jobs, picked);
@@ -259,7 +259,7 @@ export function Cockpit({
       (job): Item => ({ key: job.id, owner: job.id, job, icon: CircleDashed, kind: job.status, title: titleOf(job), fact: job.status, hue: "queued", where: job.handle, body: [["Status", job.status]], acts: () => null }),
     );
     const owned = new Set(calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
-    return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
+    return [...calls, ...autopilot.asides, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
   }, [filter, state, picked, calls, running, over, bays, now, autopilot.asides]);
   const [view, setView] = useCockpitView();
   const [field] = useState({ width: 900, height: 560 });
@@ -299,18 +299,17 @@ export function Cockpit({
     return id === undefined ? undefined : nowPanelOf(nows?.[id], nowHost(id));
   };
 
-  // Calls put off for later, in the order they were; and one brought back to the front by choice.
+  // Calls put off for later, in the order they were; and the one he has opened, which is in front.
   const [put, setPut] = useState<readonly string[]>([]);
   const [forward, setForward] = useState<string>();
   const [leaving, setLeaving] = useState<"later" | "sent">();
   const held = new Set(calls.map((one) => one.key));
   const waiting = put.filter((key) => key !== forward && held.has(key));
   const ahead = calls.filter((one) => !waiting.includes(one.key));
-  // **The deck is drawn on Your move and nowhere else**: the other filters show tiles and lines only,
-  // a Job or Session with a call being its ordinary tile there.
-  const deck = filter === "command-central";
-  const front = deck ? (ahead.find((one) => one.key === forward) ?? ahead[0]) : undefined;
-  const edge: Item[] = deck ? [...ahead.filter((one) => one !== front), ...waiting.map((key) => calls.find((one) => one.key === key)!)] : [];
+  // **A call is in front only once he has opened it**; until then it waits in the tray, whatever the filter,
+  // and covers nothing. One that goes (answered elsewhere) leaves the tray without bringing the next forward.
+  const front = forward === undefined ? undefined : ahead.find((one) => one.key === forward);
+  const edge: Item[] = [...ahead.filter((one) => one !== front), ...waiting.map((key) => calls.find((one) => one.key === key)!)];
 
   /** Keys pressed while a card is leaving, said again once it has gone. */
   const typed = useRef<KeyboardEventInit[]>([]);
@@ -344,10 +343,9 @@ export function Cockpit({
     setForward(key);
   };
 
-  // An alert's press: the call it spoke of comes to the front, out of the back if it was put off.
+  // An alert's press: the call it spoke of opens, out of the back if it was put off.
   useEffect(() => {
     if (bring === undefined || bring === null) return;
-    onFilter("command-central");
     recall(bring.key);
     onBrought?.();
     // `at` alone: the same call pressed twice is two landings.
@@ -442,7 +440,7 @@ export function Cockpit({
           return claim(), to(-cols);
       }
     }
-    if (isPressed("call_recall", event)) return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
+    if (isPressed("call_open", event)) return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
   });
 
   // Calls that have stood behind another: when one comes to the front it slides up from there.
@@ -451,15 +449,14 @@ export function Cockpit({
   const frame = front?.hue ?? edge[0]?.hue;
 
   const panel =
-    filter === "command-central" || current === undefined || current.decisions !== undefined
+    current === undefined || current.decisions !== undefined
       ? undefined
       : current.job === undefined
         ? undefined
         : nowPanelOf(nowsHeld?.[current.job.id], nowHost(current.job.id));
   // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
-  const pane = filter !== "command-central" && filter !== "bays" && view !== "map" && current !== undefined;
-  // Your move carries a dot while anything needs him: no figure, since a count is not what it says.
-  const filters = useFilters(filter).map((one) => (one.id === "command-central" && calls.length > 0 ? { ...one, alert: "Needs you" } : one));
+  const pane = filter !== "bays" && view !== "map" && current !== undefined;
+  const filters = useFilters(filter);
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
   return (
@@ -528,7 +525,7 @@ export function Cockpit({
           {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
-                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={nowOf(front)} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_open")} />} item={front} now={now} nowing={nowOf(front)} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

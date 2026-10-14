@@ -141,9 +141,8 @@ export function lanesOf(events: readonly FleetEvent[], now: number): Lane[] {
   return lanes.sort((a, b) => rank(a) - rank(b) || b.last - a.last);
 }
 
-/** The lanes the Cockpit's filter shows: what needs him, what is not over, what is. */
+/** The lanes the Cockpit's filter shows: what is not over, what is. */
 export function lanesFor(lanes: readonly Lane[], filter: DashboardTab): Lane[] {
-  if (filter === "command-central") return lanes.filter((one) => one.standing === "ask" || one.standing === "bad" || one.standing === "stuck");
   if (filter === "done") return lanes.filter((one) => one.standing === "done");
   return lanes.filter((one) => one.standing !== "done");
 }

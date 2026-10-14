@@ -38,7 +38,7 @@ import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
 import type { NowActed } from "@armada/jobs";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { overviewListsOf, type DashboardTab } from "@armada/overview";
+import { overviewListsOf } from "@armada/overview";
 import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
 import { boardPressOf } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
@@ -474,13 +474,16 @@ function sleepItem(one: MorningDecided): Item {
   };
 }
 
+/** What a read of the Board draws: the calls that need the owner, what runs, what is over. Active shows the first two. */
+export type Reading = "calls" | "running" | "done";
+
 /** `rehearsed` is the mock, where a Drone's look at a pull request plays out in place on a timer. */
-function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearsed: boolean): Item[] {
+function lineItems(state: BridgeState, tab: Reading, hosts: Hosts, rehearsed: boolean): Item[] {
   const items: Item[] = [];
   for (const view of viewsOf(state)) {
     const where = view.name ?? "Merge line";
     const main = view.hub?.main;
-    if (tab === "command-central") {
+    if (tab === "calls") {
       if (main?.state === "red" && main.taken === undefined && (main.checking ?? []).length === 0) {
         items.push({
           key: `main:${view.root}`,
@@ -556,7 +559,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
 }
 
 export function useItems(
-  tab: DashboardTab,
+  tab: Reading,
   state: BridgeState,
   picked: RepositorySummary | null,
   nowViews: Readonly<Record<string, CallView>> | undefined,
@@ -569,12 +572,12 @@ export function useItems(
   const slept = useSleepDecided();
   const walking = useOpenWalks();
   const viewed = useViewedVersion();
-  const calls = tab === "command-central";
+  const calls = tab === "calls";
   const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
     const of = (ids: readonly string[]) => read.sections.filter((one) => ids.includes(one.id)).flatMap((one) => one.jobs);
     const items: Item[] = [];
-    if (tab === "command-central") {
+    if (tab === "calls") {
       for (const job of of(["needs-you", "running", "queued", "other"])) {
         const asked = jobItems(job, nowViews?.[job.id], hosts);
         if (asked.length > 0) items.push(...asked);
@@ -648,7 +651,7 @@ export function useItems(
     );
     // A Job's pips come from its workflow and its icon from the first thing active on it.
     const drawn = items.map((item): Item => {
-      if (item.job === undefined || tab === "command-central") return item;
+      if (item.job === undefined || tab === "calls") return item;
       const job = item.job;
       const steps = (state.holds.workflows.find((one) => one.id === job.workflow_id)?.steps ?? []).map((step) => ({ id: step.step_id, label: step.label }));
       const at = tab === "done" && item.hue !== "bad" ? steps.length : Math.max(0, steps.findIndex((step) => step.id === job.current_step_id));

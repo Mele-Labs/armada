@@ -581,7 +581,7 @@ shortcut = "v"
 scope = "call"
 destructive = false
 confirms = false
-notes = "Opens the walk a Session is waiting on the owner's approval of, from the call in front, where `o` opens the Session. Only a call whose waiting item acts on a walk offers it. Opening the walk does not clear the call; Approve still does. `w` is `call_recall` and stays so, and `v` is Observe on a Job detail, a different scope. Added 9 Oct 2026 on the owner's *\"Where there is a walk waiting for my approval, the card should give me the option to open the walk, not just the session.\"*"
+notes = "Opens the walk a Session is waiting on the owner's approval of, from the call in front, where `o` opens the Session. Only a call whose waiting item acts on a walk offers it. Opening the walk does not clear the call; Approve still does. `w` is `call_open` and stays so, and `v` is Observe on a Job detail, a different scope. Added 9 Oct 2026 on the owner's *\"Where there is a walk waiting for my approval, the card should give me the option to open the walk, not just the session.\"*"
 
 [actions.call_best]
 kind = "Action"
@@ -607,17 +607,17 @@ destructive = false
 confirms = false
 notes = "The other standing answer, on the same calls as `b`: take the quickest reasonable path and keep moving; on a Session's permission, run the command if it is reasonable. Needs a Fleet command: an answer to the ask carrying `mode: "quick"`."
 
-[actions.call_recall]
+[actions.call_open]
 kind = "Action"
 tier = "Contextual"
-verb = "Bring a waiting call back"
+verb = "Open the call"
 icon = ""
 icon_absent = "undecided"
 shortcut = "w"
 scope = "dashboard"
 destructive = false
 confirms = false
-notes = "Brings the nearest of the waiting calls to the front, when none is in front. A press on the strip does the same."
+notes = "Opens the nearest call waiting in the tray along the foot of the Cockpit, on any filter. A call arrives there and stays until it is opened; a press on it does the same. Replaces `call_recall`, which brought a put-off call back and stood only on Your move, and keeps its key. Added 13 Oct 2026 on the owner's *\"Maybe call cards initially come in like a game as if I am receiving communications from something. i can click on it (or use keyboard shortcut) to open them and review the cards.\"*"
 
 [actions.dashboard_filters]
 kind = "Action"
@@ -629,7 +629,7 @@ shortcut = "[ ]"
 scope = "dashboard"
 destructive = false
 confirms = false
-notes = "Steps the Dashboard panel's filter (Your move, Active, Done) back and forward, round. The chips beside the filter draw it. Bare brackets: `⌘[ ⌘]` is back and forward through places, and a field keeps both."
+notes = "Steps the Dashboard panel's filter (Active, Done, Bays) back and forward, round. The chips beside the filter draw it. Bare brackets: `⌘[ ⌘]` is back and forward through places, and a field keeps both."
 
 [actions.dashboard_view]
 kind = "Action"

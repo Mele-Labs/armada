@@ -689,10 +689,10 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "call_recall",
+    id: "call_open",
     kind: "Action",
     tier: "Contextual",
-    verb: "Bring a waiting call back",
+    verb: "Open the call",
     icon: null,
     iconAbsent: "undecided",
     shortcut: "w",
