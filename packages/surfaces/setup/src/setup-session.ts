@@ -19,6 +19,8 @@ const INSTRUCTION = [
   "- Ask me one question at a time, and wait for my answer before the next.",
   "- Say where every guess came from: the file and the key it was read from.",
   "- Write nothing before I confirm it. Show me the whole file first.",
+  "- Write armada.yml here, at the repository's root, where this Session starts.",
+  "- Before writing it, ask me whether to add armada.yml to this repository's .gitignore, and do what I answer. Tell me with the question that an ignored armada.yml is missing from the worktrees Jobs and Sessions work in, so `armada check` and `armada run` fail there, while Fleet's own Checks still run.",
   "- End on a real run, never a claim. Run `armada check <name>` for each Check you wrote, from the directory its armada.yml is in, and show me what each said. Not done until they pass.",
 ].join("\n");
 

@@ -460,6 +460,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

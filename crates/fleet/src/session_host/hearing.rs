@@ -260,15 +260,23 @@ where
     async fn turn_ended(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, cost_micros: u64) {
         let now = self.now().as_str().to_string();
         let mut named = (None, None);
+        let mut cwd = None;
         {
             let mut store = self.store().lock().await;
             if let Ok(Some(mut session)) = store.session(id) {
                 named = (session.title.clone(), session.manifest_id.clone());
+                cwd = Some(session.cwd.clone());
                 session.last_turn_at = Some(now.clone());
                 session.last_seen_at = now.clone();
                 let before = session.figures.cost_micros.unwrap_or(0);
                 session.figures.cost_micros = Some(before.max(cost_micros));
                 let _ = store.keep_session(&session);
+            }
+        }
+        // Setup's session may have written its root's armada.yml this turn: load it, as Write does.
+        if let (None, Some(cwd)) = (&named.1, &cwd) {
+            if let Some(repository) = self.repositories().at(cwd) {
+                self.set_up_after_write(&repository);
             }
         }
         let (moving, restart, began, said) = {

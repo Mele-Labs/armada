@@ -82,6 +82,7 @@ where
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -110,6 +111,7 @@ where
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: Some(ForkFrom {
                     session_id: ipc::SessionId::carried(&me),

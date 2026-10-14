@@ -120,6 +120,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })

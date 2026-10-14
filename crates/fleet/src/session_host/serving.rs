@@ -487,17 +487,29 @@ where
     /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
     pub(crate) async fn started_hosted(
         &self,
-        start: StartSession,
+        mut start: StartSession,
         helm: bool,
     ) -> Result<SessionRecord, Refusal> {
-        let served = self.served_named(Some(&start.manifest_id))?;
+        let (manifest, cwd) = match start.root.take() {
+            Some(root) => {
+                let repository = self.repository_named(Some(&root))?;
+                let manifest = repository
+                    .manifest()
+                    .map(|one| one.id().as_str().to_string());
+                (manifest, repository.root().to_string())
+            }
+            None => {
+                let served = self.served_named(Some(&start.manifest_id))?;
+                let manifest = served.manifest().id().as_str().to_string();
+                (Some(manifest), served.root().to_string())
+            }
+        };
         let id = new_id();
         let now = self.now().as_str().to_string();
         let title = start
             .title
             .map(|title| title.trim().to_string())
             .filter(|title| !title.is_empty());
-        let manifest = served.manifest().id().as_str().to_string();
         {
             let mut store = self.store().lock().await;
             store
@@ -505,8 +517,8 @@ where
                     id: id.clone(),
                     harness: String::from(adapters::HOSTED_HARNESS),
                     origin: String::from("bridge"),
-                    manifest_id: Some(manifest.clone()),
-                    cwd: served.root().to_string(),
+                    manifest_id: manifest.clone(),
+                    cwd,
                     title,
                     state: store::SessionState::Live,
                     started_at: now.clone(),
@@ -521,7 +533,8 @@ where
             store
                 .keep_hosting(&KeptHosting {
                     session_id: id.clone(),
-                    manifest_id: manifest,
+                    // Empty is Setup's session, which has no Manifest to name.
+                    manifest_id: manifest.unwrap_or_default(),
                     model: start.model.filter(|model| !model.trim().is_empty()),
                     effort: start.effort.filter(|effort| !effort.trim().is_empty()),
                     mode: mode_text(start.mode.unwrap_or_default()).to_string(),
@@ -597,6 +610,20 @@ where
                 &format!("no session Fleet hosts is named {id}"),
             )),
         }
+    }
+
+    /// Where Setup's session runs, which has no Manifest and so no slot: the
+    /// root it was started in. `None` for any other session.
+    pub(crate) async fn unset_up_directory(
+        &self,
+        id: &str,
+        hosting: &KeptHosting,
+    ) -> Option<String> {
+        if !hosting.manifest_id.is_empty() {
+            return None;
+        }
+        let session = self.store().lock().await.session(id).ok().flatten()?;
+        Some(session.cwd)
     }
 
     /// Where a session's process runs: the slot once it has leased one, the
@@ -1002,28 +1029,39 @@ where
                     Some("Fleet came back and took the session's process again"),
                 )
                 .await;
-                (
-                    process,
-                    served
-                        .as_ref()
-                        .map(|served| Self::directory_of(served, hosting))
+                let directory = match &served {
+                    Ok(served) => Self::directory_of(served, hosting),
+                    Err(_) => self
+                        .unset_up_directory(id, hosting)
+                        .await
                         .unwrap_or_default(),
-                )
+                };
+                (process, directory)
             }
             None if !may_start => return Ok(false),
             None => {
-                let served = served.map_err(|_| {
-                    format!("the repository {} is no longer served", hosting.manifest_id)
-                })?;
-                // **A session that has run is leased its slot before its process starts**, so no
-                // tool call of the first turn is the one that moves it.
-                let resuming = hosting.ran && self.has_a_conversation(id).await;
-                let resumed = match resuming {
-                    true => self.leased_for_resume(&served, hosting).await,
-                    false => hosting.clone(),
+                let (directory, resuming, resumed, served) = match served {
+                    Ok(served) => {
+                        // **A session that has run is leased its slot before its process starts**, so no
+                        // tool call of the first turn is the one that moves it.
+                        let resuming = hosting.ran && self.has_a_conversation(id).await;
+                        let resumed = match resuming {
+                            true => self.leased_for_resume(&served, hosting).await,
+                            false => hosting.clone(),
+                        };
+                        let directory = Self::directory_of(&served, &resumed);
+                        (directory, resuming, resumed, Some(served))
+                    }
+                    // Setup's session has no Manifest and so no slot: it runs in the root it started in.
+                    Err(_) => {
+                        let directory = self.unset_up_directory(id, hosting).await.ok_or_else(|| {
+                            format!("the repository {} is no longer served", hosting.manifest_id)
+                        })?;
+                        let resuming = hosting.ran && self.has_a_conversation(id).await;
+                        (directory, resuming, hosting.clone(), None)
+                    }
                 };
                 let hosting = &resumed;
-                let directory = Self::directory_of(&served, hosting);
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),
@@ -1042,9 +1080,9 @@ where
                         None => None,
                     },
                     // Read at each start, so an edit to the note reaches the next process.
-                    note: match hosting.helm {
-                        true => Some(self.helm_note_of(&served)),
-                        false => None,
+                    note: match (hosting.helm, &served) {
+                        (true, Some(served)) => Some(self.helm_note_of(served)),
+                        _ => None,
                     },
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.

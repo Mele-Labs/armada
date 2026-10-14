@@ -54,6 +54,14 @@ describe("the first message", () => {
     expect(message).toContain("`armada check <name>`");
   });
 
+  it("asks before writing whether to ignore armada.yml, saying what ignoring it costs Jobs", () => {
+    const asks = message.split("\n").find((line) => line.includes(".gitignore")) ?? "";
+    expect(asks).toContain("Before writing it, ask me whether to add armada.yml to this repository's .gitignore");
+    expect(asks).toContain("do what I answer");
+    expect(asks).toContain("missing from the worktrees Jobs and Sessions work in");
+    expect(message.indexOf(".gitignore")).toBeLessThan(message.indexOf("End on a real run"));
+  });
+
   it("carries each workspace's reading on a line of its own", () => {
     expect(message).toContain(
       "- `packages/web` (read packages/web/package.json): ready to write. Checks: test `yarn test` (packages/web/package.json scripts.test, read); lint `yarn lint` (packages/web/package.json scripts.lint, read).",
