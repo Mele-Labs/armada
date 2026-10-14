@@ -143,6 +143,7 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
             className="armada-behind"
             data-hue={one.hue}
             data-deferred={put.includes(one.key) || undefined}
+            data-first={index === 0 || undefined}
             style={{ ["--i" as string]: index + 1 }}
             aria-label={`${one.kind}: ${one.title}`}
             onClick={() => recall(one.key)}

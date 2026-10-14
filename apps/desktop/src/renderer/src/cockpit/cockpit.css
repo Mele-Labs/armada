@@ -274,13 +274,22 @@ span.armada-view__dot { cursor: default; }
 /* What the call is, before its title. */
 .armada-behind > .armada-behind__kind { flex: none; max-width: 30%; color: var(--fg-muted); font-family: var(--font-mono); }
 
-/* A call that has come in hails him: the strip slides up into the tray and rings out in its hue twice,
-   then waits, still. One put off was seen already, so it does neither. */
+/* A call that has come in hails him: the strip slides up into the tray, and the front one keeps ringing
+   out in its hue, slowly, with its icon breathing, until he opens it. One put off was seen already, so it
+   stays still. The tray goes when the card opens, which ends the loop. */
 .armada-tray .armada-behind:not([data-deferred]) {
   border-width: calc(var(--border-width) * 2);
+  animation: armada-hail-in var(--duration-travel) var(--ease);
+}
+
+.armada-tray .armada-behind[data-first]:not([data-deferred]) {
   animation:
     armada-hail-in var(--duration-travel) var(--ease),
-    armada-hail-ring var(--duration-pulse) var(--ease) var(--duration-travel) 2;
+    armada-hail-ring calc(var(--duration-pulse) * 1.6) ease-out var(--duration-travel) infinite;
+}
+
+.armada-tray .armada-behind[data-first]:not([data-deferred]) > svg {
+  animation: armada-hail-icon calc(var(--duration-pulse) * 1.6) ease-in-out var(--duration-travel) infinite;
 }
 
 @keyframes armada-hail-in {
@@ -288,12 +297,24 @@ span.armada-view__dot { cursor: default; }
 }
 
 @keyframes armada-hail-ring {
-  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent); }
-  to { box-shadow: 0 0 0 var(--space-4) transparent; }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent), 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 var(--space-4) transparent, 0 0 var(--space-3) transparent; }
 }
 
+@keyframes armada-hail-icon {
+  50% { transform: scale(1.35); }
+}
+
+/* No motion: the same call reads as waiting by a heavier hue edge and a filled hue ground. */
 @media (prefers-reduced-motion: reduce) {
-  .armada-tray .armada-behind:not([data-deferred]) { animation: none; }
+  .armada-tray .armada-behind:not([data-deferred]),
+  .armada-tray .armada-behind[data-first]:not([data-deferred]),
+  .armada-tray .armada-behind[data-first]:not([data-deferred]) > svg { animation: none; }
+  .armada-tray .armada-behind[data-first]:not([data-deferred]) {
+    border-width: calc(var(--border-width) * 3);
+    background: color-mix(in srgb, var(--hue) 40%, var(--bg-overlay));
+    box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--hue) 45%, transparent);
+  }
 }
 
 /* A card made only of acts: the decision on the left, the quiet ghosts on the right, one row that wraps as a pair. */
