@@ -24,6 +24,7 @@
 //! drew that line through the transport, and the trait was the one place in
 //! this crate that did not follow it. Each module below states its own half.
 
+mod accounts;
 mod admitting;
 mod authoring;
 mod commander;
@@ -44,6 +45,7 @@ mod settings;
 mod studios;
 mod tools;
 
+pub use accounts::Accounts;
 pub use admitting::{offerable, offerable_to_a_commander, Admitting, HelmReach, Redirector, Steerer};
 pub use commander::{CommanderReach, ALLOWED as COMMANDER_ALLOWED};
 pub use authoring::Authoring;
@@ -100,7 +102,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Needs`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`].
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] beside them.
 pub trait Daemon:
     Queries
     + Commands
@@ -121,6 +123,7 @@ pub trait Daemon:
     + Rehearsing
     + Mods
     + Settings
+    + Accounts
 {
 }
 
@@ -143,7 +146,8 @@ impl<
             + Piloting
             + Rehearsing
             + Mods
-            + Settings,
+            + Settings
+            + Accounts,
     > Daemon for D
 {
 }

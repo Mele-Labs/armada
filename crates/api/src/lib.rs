@@ -27,6 +27,8 @@
 /// A form's edits to `armada.yml`, as edits rather than as a file.
 /// Which door a request came through, named before a handler sees it.
 mod acting;
+/// The account a machine is signed in to: its profiles, signing in and out.
+mod accounting;
 mod added_steps;
 mod amending;
 mod answers;
@@ -127,7 +129,7 @@ pub use conversing::{
     ObservedCommander, Spoken, HELM_BACKLOG,
 };
 pub use daemon::{
-    offerable, offerable_to_a_commander, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
+    offerable, offerable_to_a_commander, Accounts, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios, Tools, COMMANDER_ALLOWED,

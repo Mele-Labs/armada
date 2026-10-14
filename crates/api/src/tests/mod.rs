@@ -30,6 +30,7 @@ mod helm_tells;
 mod hosted_sessions;
 mod door_receipts;
 mod journal;
+mod accounts;
 mod building;
 mod limits;
 mod settings;

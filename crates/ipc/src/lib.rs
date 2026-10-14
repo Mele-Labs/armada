@@ -24,6 +24,8 @@
 //! every operation; the types here serve what M1 needs, and a command adds a
 //! type only where a Job is not what it answers with.
 
+/// The account a machine is signed in to, its profiles, and the sign-in in flight.
+mod accounts;
 /// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
 /// holds, never stored** — which is why nothing publishes `alert.raised`.
 mod alerts;
@@ -505,6 +507,10 @@ pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, Cont
 pub use session_activity::{SessionActivity, SessionTodo, SessionTodoState};
 pub use model_downshift::{ModelDownshift, ModelDownshiftState};
 pub use plan_usage::{PlanUsage, PlanWindow};
+pub use accounts::{
+    AccountFlow, Accounts, Profile, SetActiveAccount, SetUpState, SetUpSteps, SignInEnded, SignInOutcome,
+    SignOut, SignedOut,
+};
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
