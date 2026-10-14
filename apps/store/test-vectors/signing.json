@@ -1,0 +1,13 @@
+{
+  "note": "A test-only P-256 key. signature_hex is one valid ECDSA signature over signed_text, raw r||s as hex; ECDSA signs differently each time, so a side checks it by verifying, not by comparing a fresh signature to it.",
+  "private_key_pkcs8_base64": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgStJSwIzgHShQepMma/tpoFregTLNGGzAVW6DIyp7g22hRANCAAQFf4DzeuBgDxOXUPi2I4qySiExeuhkRLuuzfD04Ls8A98lOH1gdIypeE0YGWbka49J3ZjIsdqW1p1dmmznb2Rz",
+  "public_key_spki_base64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBX+A83rgYA8Tl1D4tiOKskohMXroZES7rs3w9OC7PAPfJTh9YHSMqXhNGBlm5GuPSd2YyLHaltadXZps529kcw==",
+  "method": "POST",
+  "path_and_query": "/v1/claims",
+  "time": "1760450000",
+  "nonce": "0123456789abcdef0123456789abcdef",
+  "body": "{\"repo\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"red\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"holder\":{\"kind\":\"job\",\"id\":\"j-2041\",\"machine\":\"studio\",\"since\":1760449990}}",
+  "body_sha256_hex": "5e43c3d97318ebca531206b936ecc595509924c4d30d5b7d7da17d304a2ff283",
+  "signed_text": "POST/v1/claims17604500000123456789abcdef0123456789abcdef5e43c3d97318ebca531206b936ecc595509924c4d30d5b7d7da17d304a2ff283",
+  "signature_hex": "82067f54ea795cc56f90def6546b9beb54db24915f15b9bf3cf1082427d32e105ae1cf7da65fad1036ab1fe061da174453841883c51a6ae33d2580126252730d"
+}

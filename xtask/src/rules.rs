@@ -225,6 +225,7 @@ const SIGN_IN_FILES: &[&str] = &[
     "packages/components/src/compositions/Account/Account.tsx",
     "packages/components/src/compositions/TitleBar/TitleBar.stories.tsx",
     "packages/components/src/compositions/TitleBar/TitleMenu.tsx",
+    "apps/store/src/enrol.ts",
 ];
 
 /// `lower` with every identifier imported from `lucide-react` blanked out.
