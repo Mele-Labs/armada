@@ -209,6 +209,34 @@ async fn a_cd_into_a_slot_somebody_else_holds_holds_what_runs_after_it() {
     }
 }
 
+/// A relative `cd` after another is read from where the first left the line, not from where the
+/// call began: `cd src && cd ../docs` ends in the slot's `docs`, never beside the slot.
+#[tokio::test]
+async fn a_chain_of_cds_is_read_from_where_the_last_one_left_it() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    let parent = std::os::unix::process::parent_id();
+    lease(&rig, 5, parent, &started(parent));
+    let line = |command: &str| {
+        let rig = &rig;
+        let id = &id;
+        let own = &own;
+        let encoded = ipc::encode(&Quoted { command }).expect("a line");
+        async move { rig.gate_in(own, id, "Bash", &encoded).await }
+    };
+    for fine in [
+        "cd src && cd ../docs && touch f",
+        "cd src && cp a ../b",
+        "cd src && cd .. && cargo build",
+    ] {
+        assert!(!denied(&line(fine).await), "{fine} should run");
+    }
+    let held = line("cd src && cd ../../slot-5 && touch f").await;
+    assert!(denied(&held));
+    assert!(reason(&held).contains("slot 5"), "{}", reason(&held));
+}
+
 #[derive(serde::Serialize)]
 pub(super) struct Quoted<'a> {
     pub(super) command: &'a str,
