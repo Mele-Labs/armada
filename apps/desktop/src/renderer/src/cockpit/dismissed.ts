@@ -88,9 +88,13 @@ export function dismissCall(item: Pick<Item, "key" | "fact">): void {
 /** Dismissed, or nothing held it any more (quietly the same), or Fleet refused in these words. */
 export type WaitingDismissed = { kind: "dismissed" } | { kind: "refused"; said: string };
 
-/** Dismiss one thing a Session waits on, on Fleet, which also takes it off every other window and the phone. */
-export async function dismissWaiting(sessionId: string, itemId: string): Promise<WaitingDismissed> {
-  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId });
+/**
+ * Dismiss one thing a Session waits on, on Fleet, which also takes it off every other window and the phone.
+ * `reason` is what the person said on removing an item the agent stated; Fleet tells the agent, and an empty one is none.
+ */
+export async function dismissWaiting(sessionId: string, itemId: string, reason?: string): Promise<WaitingDismissed> {
+  const said = reason?.trim();
+  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId, ...(said === undefined || said === "" ? {} : { reason: said }) });
   if (done.ok) return { kind: "dismissed" };
   const outcome = done.outcome;
   // An item nothing holds is already gone, which is what was asked.
@@ -99,10 +103,10 @@ export async function dismissWaiting(sessionId: string, itemId: string): Promise
 }
 
 /** Dismiss the call in front for good, by whichever way it is kept. A refusal comes back in Fleet's words. */
-export async function dismissItem(item: Pick<Item, "key" | "fact" | "waiting">): Promise<WaitingDismissed> {
+export async function dismissItem(item: Pick<Item, "key" | "fact" | "waiting">, reason?: string): Promise<WaitingDismissed> {
   if (item.waiting === undefined) {
     dismissCall(item);
     return { kind: "dismissed" };
   }
-  return dismissWaiting(item.waiting.sessionId, item.waiting.item.id);
+  return dismissWaiting(item.waiting.sessionId, item.waiting.item.id, reason);
 }
