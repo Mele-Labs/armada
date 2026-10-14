@@ -11,7 +11,7 @@ import type { Pr, Ship, Subject } from "./ship";
 import { orderOf, toneOf } from "./tabs-model";
 
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
-export type Sel = { kind: "job" | "session" | "slot" | "pr" | "call" | "checks" | "autopilot"; key: string };
+export type Sel = { kind: "job" | "session" | "slot" | "pr" | "call" | "autopilot"; key: string };
 export type DeckView = "map" | "timeline";
 export type Only = "jobs" | "sessions";
 
@@ -129,11 +129,8 @@ export const stopReplay = () => set({ replay: undefined, focus: undefined });
 
 export const toggleOnly = (only: Only) => set({ only: state.only === only ? undefined : only });
 export const toggleNeeds = () => set({ needs: !state.needs });
-/** The Checks tile is a filter and opens the running Checks in the area; pressed again it is put away. */
-export const toggleChecks = () => {
-  const on = !state.checks;
-  set({ checks: on, sel: on ? { kind: "checks", key: "checks" } : state.sel?.kind === "checks" ? undefined : state.sel });
-};
+/** The Checks tile is a plain filter, as Jobs only and Sessions only are: what is not running a Check dims, and the list and the feed narrow to the rest. */
+export const toggleChecks = () => set({ checks: !state.checks });
 export const setHere = (here: boolean) => {
   if (state.here !== here) set({ here });
 };

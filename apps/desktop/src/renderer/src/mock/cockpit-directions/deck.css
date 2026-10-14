@@ -419,38 +419,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   }
 }
 
-/* ---- Checks ----------------------------------------------------------------------------------------------- */
-
-.deck-checks { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; overflow-y: auto; }
-.deck-checks__group > .deck-band { border-top: var(--border-width) solid var(--border-default); }
-.deck-checks__group:first-child > .deck-band { border-top: 0; }
-.deck-checks__rows { margin: 0; padding: 0; list-style: none; }
-.deck-check {
-  display: grid;
-  grid-template-columns: var(--space-4) minmax(0, auto) minmax(0, 1fr);
-  align-items: center;
-  column-gap: var(--space-3);
-  width: 100%;
-  min-height: var(--h-control-sm);
-  padding: 0 var(--space-4);
-  border: 0;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: none;
-  color: var(--fg-default);
-  font: inherit;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  text-align: left;
-  cursor: pointer;
-}
-.deck-check:hover { background: var(--bg-hover); }
-.deck-check:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.deck-check__name { font-family: var(--font-mono); font-weight: var(--weight-medium); }
-.deck-check__where { min-width: 0; overflow: hidden; color: var(--fg-muted); text-overflow: ellipsis; white-space: nowrap; }
-.deck-check[data-state="failed"] .deck-check__name { color: var(--status-completed-failed); }
-/* Running and passed are gray: only a Check that failed is a colour. */
-.deck-check[data-state="running"] .armada-step-mark,
-.deck-check[data-state="passed"] .armada-step-mark { color: var(--fg-subtle); }
 
 /* ---- A call's strip: its own answers, over the Job or Session it is about ----------------------------- */
 

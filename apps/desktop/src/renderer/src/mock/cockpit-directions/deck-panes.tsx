@@ -4,8 +4,8 @@
 // proto/cockpit-flight-deck.
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import { Box, ExternalLink, GitPullRequest, Rows3, ShieldCheck, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, NowPanel, StepActivityMark, Tooltip, isPressed, pressedDigit } from "@armada/components";
+import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
+import { Button, NowPanel, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
@@ -24,7 +24,7 @@ import { SessionMini } from "../../sessions";
 import { useSessions } from "../../sessions-draft";
 import { answered, leaveAutopilot, select, useDeck } from "./deck-model";
 import { MarkGlyph, PrChip, StepsBar, type Acts } from "./shared";
-import type { Pr, Ship, Subject } from "./ship";
+import type { Pr, Subject } from "./ship";
 import { toneOf } from "./tabs-model";
 
 /** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
@@ -327,54 +327,6 @@ export function CallPane({ item, props }: { item: Item; props: CockpitProps }) {
         <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
           <CallCard key={item.key} item={item} now={props.now} nowing={nowing} state={props.state} hosts={props} finish={finish} later={later} dismiss={finish} leaving={undefined} from={undefined} answering={answering} />
         </div>
-      </div>
-    </section>
-  );
-}
-
-// ---- Checks --------------------------------------------------------------------------------------------
-
-type CheckRow = { key: string; name: string; where: string; state: "running" | "passed" | "failed"; open: () => void };
-
-/** The Checks the ship has going or just done: those a Job's Drone is running, and a pull request's ci while it runs. */
-function checksOf(props: CockpitProps, ship: Ship): CheckRow[] {
-  const ofJobs = ship.subjects.flatMap((subject) =>
-    subject.kind !== "job"
-      ? []
-      : (props.nows?.[subject.id]?.running ?? []).flatMap((one) => (one.of === "check" ? [{ key: `${subject.key}:${one.key}`, name: one.name, where: subject.title, state: one.state, open: () => select({ kind: "job" as const, key: subject.key }) }] : [])),
-  );
-  const ofPrs = ship.prs.filter((pr) => pr.stage === "checking").map((pr): CheckRow => ({ key: `${pr.key}:ci`, name: "ci", where: `#${pr.number} ${pr.title}`, state: "running", open: () => select({ kind: "pr", key: pr.key }) }));
-  return [...ofJobs, ...ofPrs];
-}
-
-const CHECK_SAID = { running: "Running", passed: "Passed", failed: "Failed" } as const;
-const CHECK_ACTIVITY = { running: "running", passed: "advanced", failed: "failed" } as const;
-
-export function ChecksPane({ props, ship }: { props: CockpitProps; ship: Ship }) {
-  const rows = checksOf(props, ship);
-  const group = (name: string, list: readonly CheckRow[]) =>
-    list.length === 0 ? null : (
-      <section className="deck-checks__group" aria-label={name}>
-        <header className="deck-band">{name}</header>
-        <ul className="deck-checks__rows">
-          {list.map((one) => (
-            <li key={one.key}>
-              <button type="button" className="deck-check" data-state={one.state} aria-label={`${one.name}, ${one.where}, ${CHECK_SAID[one.state]}`} onClick={one.open}>
-                <StepActivityMark activity={CHECK_ACTIVITY[one.state]} label={CHECK_SAID[one.state]} says={`${one.name}, ${CHECK_SAID[one.state].toLowerCase()}`} pulsing={one.state === "running"} />
-                <span className="deck-check__name">{one.name}</span>
-                <span className="deck-check__where">{one.where}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  return (
-    <section className="deck-pane" aria-label="Checks">
-      <PaneHead glyph={ShieldCheck} kind="Checks" title="Checks" />
-      <div className="deck-checks">
-        {group("Running", rows.filter((one) => one.state === "running"))}
-        {group("Finished", rows.filter((one) => one.state !== "running"))}
       </div>
     </section>
   );

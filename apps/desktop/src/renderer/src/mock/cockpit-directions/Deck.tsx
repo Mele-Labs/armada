@@ -25,7 +25,7 @@ import { MOST_PLAYING, droneOf, droneOfEvent, playOfEvent, playsOf, trailsOf, ty
 import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
 import { viewsOf } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
-import { CallPane, ChecksPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./deck-panes";
+import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./deck-panes";
 import {
   arrivedLate,
   callTrail,
@@ -661,9 +661,8 @@ function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; 
   const pr = sel?.kind === "pr" ? ship.prs.find((one) => one.key === sel.key) : undefined;
   const call = sel?.kind === "call" ? ship.calls.find((one) => one.key === sel.key) : undefined;
   // What was picked is gone (a Job ended, a call was answered elsewhere): back to the map.
-  const checks = sel?.kind === "checks";
   const lane = sel?.kind === "autopilot";
-  const gone = sel !== undefined && !checks && !lane && subject === undefined && slot === undefined && pr === undefined && call === undefined;
+  const gone = sel !== undefined && !lane && subject === undefined && slot === undefined && pr === undefined && call === undefined;
   useEffect(() => {
     if (gone) select(undefined);
   }, [gone]);
@@ -675,7 +674,6 @@ function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; 
   if (slot !== undefined) return <SlotPane slot={slot} repo={repoNameOf(props, slot.manifest_id)} now={props.now} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
-  if (checks) return <ChecksPane props={props} ship={ship} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
   return deck.view === "map" ? <MapView props={props} ship={ship} listed={listed} cursor={deck.cursor} /> : <TimelineView props={props} ship={ship} listed={listed} />;
 }
