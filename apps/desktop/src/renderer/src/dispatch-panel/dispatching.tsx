@@ -64,6 +64,8 @@ export type Dispatching = {
   /** The one bar chose to dispatch: the panel grows down from its field holding these words. */
   openTitled: (words: string) => void;
   closeTitled: () => void;
+  /** Words left in the draft by a panel put away: bring the panel back holding them. False where there are none. */
+  reopenDraft: () => boolean;
   panel: () => EntryProps;
   /** The latest send, as the strip draws it. */
   sent: SentView | undefined;
@@ -366,6 +368,11 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       setTitled(true);
     },
     closeTitled: collapse,
+    reopenDraft: () => {
+      if (words.trim() === "") return false;
+      setTitled(true);
+      return true;
+    },
     panel,
     sent: sentView,
     openSent,

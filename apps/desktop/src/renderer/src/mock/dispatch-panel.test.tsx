@@ -217,7 +217,7 @@ test("Escape lets the strip go, and typing starts a new draft over it", async ()
   await expect.element(request()).toHaveValue("x");
 });
 
-test("Escape puts the panel away, and the field opens empty after a send", async () => {
+test("Escape puts the panel away and N brings the draft back, and a send clears it", async () => {
   await cockpit();
   await request().fill(NAMING_NOTHING);
   await expect.element(act("Dispatch")).toBeVisible();
@@ -225,7 +225,18 @@ test("Escape puts the panel away, and the field opens empty after a send", async
   expect(frame().query()).toBeNull();
   expect(request().query()).toBeNull();
 
-  await dispatchFromTheTitleBar(NAMING_BRIDGE);
+  // The words were kept: the title bar's key opens the panel holding them, not the empty field.
+  await userEvent.keyboard("n");
+  await expect.element(request()).toHaveValue(NAMING_NOTHING);
+  expect(palette().query()).toBeNull();
+  await userEvent.keyboard("{Escape}");
+  expect(frame().query()).toBeNull();
+
+  // Typing over them and sending leaves nothing behind.
+  await userEvent.keyboard("n");
+  await expect.element(request()).toHaveValue(NAMING_NOTHING);
+
+  await request().fill(NAMING_BRIDGE);
   await expect.element(chip("Repository armada")).toBeVisible();
   await act("Dispatch").click();
   await expect.element(strip()).toBeVisible();
@@ -233,4 +244,5 @@ test("Escape puts the panel away, and the field opens empty after a send", async
   expect(strip().query()).toBeNull();
   await userEvent.keyboard("n");
   await expect.element(palette().getByRole("combobox")).toHaveValue("");
+  expect(request().query()).toBeNull();
 });

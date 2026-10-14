@@ -26,7 +26,7 @@ export function useOneBar({
   compose: (words: string) => void;
   dispatching: Dispatching;
 }): PaletteDispatch {
-  const [leads, setLeads] = useOpenedToDispatch(palette, live);
+  const [leads, setLeads] = useOpenedToDispatch(palette, live, dispatching.reopenDraft);
 
   useEffect(() => void (palette.open || setLeads(false)), [palette.open, setLeads]);
 
@@ -43,15 +43,17 @@ export function useOneBar({
 /**
  * `n` and ⌘N open the one bar with its dispatch row leading, from every surface. Read in the capture
  * phase, so the surface under it never hears the key. `n` leaves a field alone; ⌘N does not. Neither
- * acts over an open dialog, which owns the keyboard.
+ * acts over an open dialog, which owns the keyboard. Where a panel was put away holding words, they are the
+ * draft and the key brings that panel back instead.
  */
 function useOpenedToDispatch(
   palette: { open: boolean; onOpen: () => void },
   live: boolean,
+  reopenDraft: () => boolean,
 ): [boolean, (leads: boolean) => void] {
   const [leads, setLeads] = useState(false);
-  const held = useRef({ palette, live });
-  held.current = { palette, live };
+  const held = useRef({ palette, live, reopenDraft });
+  held.current = { palette, live, reopenDraft };
   useEffect(() => {
     function press(event: KeyboardEvent): void {
       if (event.repeat || event.defaultPrevented || !held.current.live) return;
@@ -63,6 +65,8 @@ function useOpenedToDispatch(
       if ((!chord && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
       event.preventDefault();
       event.stopPropagation();
+      // Words left in a panel put away are the draft: the key brings the panel back holding them.
+      if (held.current.reopenDraft()) return;
       setLeads(true);
       held.current.palette.onOpen();
     }
