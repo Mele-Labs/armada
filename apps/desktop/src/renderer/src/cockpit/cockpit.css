@@ -184,9 +184,20 @@ span.armada-view__dot { cursor: default; }
 .armada-view__body[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 .armada-view__pane { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
 
-.armada-view__stage { position: relative; display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+/* The glass: a faint ruled grid, so the instruments read as standing on something. It is the stage's, edge to
+   edge under the tiles, the pane, the timeline, the bays and the tray, so it never ends at a box. */
+.armada-view__stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+  background-size: var(--space-6) var(--space-6);
+}
 
-/* The glass: a faint ruled grid, so the instruments read as standing on something. */
 .armada-tiles.armada-view__grid {
   flex: 1 1 auto;
   display: grid;
@@ -201,10 +212,6 @@ span.armada-view__dot { cursor: default; }
   padding: var(--space-4);
   list-style: none;
   outline: none;
-  background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
-  background-size: var(--space-6) var(--space-6);
 }
 
 /* A call is in front: the glass is dimmed behind it, and still. */
