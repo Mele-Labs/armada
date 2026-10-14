@@ -322,6 +322,7 @@ function CheckLogPanel({
       about={<span className="mono">{entry.name}</span>}
       live={live}
       grows={rows.length}
+      bleed
       wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
       bands={bands}
       floor={floor}

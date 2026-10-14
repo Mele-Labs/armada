@@ -152,9 +152,11 @@ engine with a note and a few more tools, one per repository.
 > mod reporting its end, which is a process stopping.
 
 > **Rule.** A hosted session starts with no slot and leases one on its first
-> write.
+> write, and one resumed with no slot is leased one before its process starts.
 > Why: most conversations never write, and a slot held by a conversation that
-> only reads is one a Job cannot have.
+> only reads is one a Job cannot have. A resumed session has already worked, and
+> a resume that waited for its first call to move it lost that call and a turn
+> (s-34c7f2c2, three times on 13 Oct 2026).
 
 ```
  start ─▶ a row: no process, no slot, no branch
@@ -165,7 +167,8 @@ engine with a note and a few more tools, one per repository.
  first write, pool full ─▶ the session is queued, told its place, and stops its
                 turn; Fleet leases it a slot when one frees and resumes it there
  later writes ─▶ held to the slot
- quiet for a while ─▶ the process is ended; the next message resumes it
+ quiet for a while ─▶ the process is ended; the next message resumes it, leased a
+                slot first if it holds none and the line ahead of it is empty
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
@@ -184,7 +187,8 @@ holds a slot; after it, a file tool naming a path in the main checkout is
 refused with the slot's path. A shell line is read by its words, so one Fleet
 does not recognise as a read leases first. `|`, `;` and `&` inside quotes do not cut
 a line, and a redirect to `/dev/null` or onto another descriptor (`2>&1`) writes nothing;
-any other `>`, a `$(` or a backtick, or a quote left open is a write.
+any other `>`, a `$(` or a backtick, or a quote left open is a write. `sed -n` with an
+address and `p` (`sed -n 10,40p file`) reads; every other `sed` is a write.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
 **A full pool queues the session rather than telling it to try again.** Every
@@ -235,7 +239,10 @@ The same slots decide for **every write path alike**:
 a session's calls**: a line that goes into the main checkout or a slot the session does
 not hold, and a line that goes nowhere while the call already stands in a slot it does not
 hold, is held if it then runs anything that is not a read. `cd <slot> && git status` is a
-read and runs. **Not covered**: a path or a `cd` target built from a variable or a
+read and runs. **A relative `cd` after another is read from where the first left the line**,
+and so is a `..` path after it, never from where the call began. Every part of a line is told
+read from write before the slot rule applies, and `git worktree list`, `git stash list`,
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
 substitution, a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
@@ -243,7 +250,11 @@ writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-q
 overwrites something outside the slots the session holds and `/tmp`: **every** slot the
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
-written at all is the gate's.
+written at all is the gate's. **What the session started or made is its own to remove**
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
+branch and the branches of slots it holds, once the base holds every commit on them, and
+`rm` under `$TMPDIR` as under `/tmp`.
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
@@ -360,6 +371,16 @@ so the next message starts a new keeper instead of reattaching to an agent that
 is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
 "process ended" row.
+
+**A process Fleet replaces takes its subagents with it.** A subagent runs inside
+its agent's process, so the keeper only carries it across a Fleet restart. A tune,
+a quiet spell, the move into a slot at the first write and a lost keeper each end
+the process, and the one that resumes has never heard of the subagents that were
+working. When Fleet starts a process for a session that has run, every `subagent`
+row still `standing` whose transcript shows no finished turn was cut off. Fleet
+gives those rows back, keeps their type, description and id in the restart's
+note (so the retro lists them), and puts the same list ahead of the agent's next
+turn, once, so it can start again what it still needs.
 
 **Not covered**: a keeper's own death (the agent loses its pipes and exits), and
 an agent whose hooks name a Fleet port that changed.

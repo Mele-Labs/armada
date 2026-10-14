@@ -466,6 +466,11 @@ pub trait Vcs {
     /// `false` where it was gone already.
     fn delete_merged_branch(&self, pool: &SlotPool, branch: &str) -> Result<bool, BranchKept>;
 
+    /// Whether the base already holds every commit on a local branch. **What lets a session
+    /// delete its own branch by hand**: the read half of [`Vcs::delete_merged_branch`], which
+    /// deletes nothing.
+    fn branch_is_merged(&self, pool: &SlotPool, branch: &str) -> bool;
+
     /// Write on the slot this Job holds that the Job completed, so
     /// `armada worktree --status` reads it as held until a person clears the
     /// Job. Best-effort: it changes what the status says and nothing else.

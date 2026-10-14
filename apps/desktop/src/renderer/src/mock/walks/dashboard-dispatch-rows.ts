@@ -26,6 +26,7 @@ const dashboardDispatchRows = walk("dashboard-dispatch-rows", [
   { look: bar, say: "The one bar again, Session still chosen" },
   { key: "Escape", on: bar, say: "Press Escape" },
   { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back to the Cockpit" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { press: tab("Done"), say: "Done" },
   { look: tiles, say: "Done is tiles too, Jobs and Sessions that are over; what landed in the merge line is not one" },
   { press: tab("Active"), say: "Active" },

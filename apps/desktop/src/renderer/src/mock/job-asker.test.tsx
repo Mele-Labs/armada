@@ -19,7 +19,7 @@ async function settled(): Promise<void> {
 
 const leave = () => page.getByRole("heading", { name: "Now" }).hover();
 
-// One name, so the whole file runs as one Check: `armada check app_smoke "job asker"`.
+// One name, so the whole file runs as one Check: `pnpm exec vitest run --project \'smoke*\' -t "job asker"`.
 describe("job asker", () => {
   test("a Drone question with no sketch shows the Drone: its output, what it changed and the file it asks about", async () => {
     mount("job-asker-drone");

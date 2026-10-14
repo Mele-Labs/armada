@@ -1,30 +1,14 @@
 /* The dispatch panel, in the Cockpit's own glass: a sunken frame, a raised band under the request,
-   a mono body. At rest it is the dispatch bar, one slim line; open, the drawer under the line
+   a mono body. At rest it is one slim line; open, the drawer under the line
    grows and nothing above it moves. State is the frame's edge and hue and the chip's icon, never
    a phrase: accent while the repository is read, the awaiting hue (as a Cockpit call that needs
    the owner) while Dispatch is waiting on the owner to name one. Tokens only. */
 
 /* ---- Where the frame sits ------------------------------------------------------------------ */
 
-/* Docked, the slot keeps the bar's height and the frame is laid over what follows it, so growing
-   reflows nothing under it. Over a hovered card, under Helm's dock. */
-.armada-dispatch-panel[data-layout="docked"] {
-  position: relative;
-  z-index: calc(var(--z-dock) - 1);
-  min-height: calc(var(--h-row) * 2);
-}
-
-.armada-dispatch-panel[data-layout="docked"] > .armada-dispatch-panel__frame {
-  position: absolute;
-  inset: 0 0 auto 0;
-}
-
-/* The bar is not drawn while the title bar's panel holds the draft, but it keeps its place so the Cockpit does not reflow. */
-.armada-dispatch-panel[data-layout="docked"][data-away] { visibility: hidden; }
-
-/* Anchored: grown down from the title bar's field, which is where the one bar's palette opens, so the
+/* Grown down from the title bar's field, which is where the one bar's palette opens, so the
    frame hangs from that field's top edge and never centres. A scrim holds the rest of the window. */
-.armada-dispatch-panel[data-layout="anchored"] {
+.armada-dispatch-panel {
   position: fixed;
   inset: 0;
   z-index: var(--z-palette);
@@ -32,7 +16,7 @@
   animation: armada-dispatch-panel-in var(--duration-base) var(--ease);
 }
 
-.armada-dispatch-panel[data-layout="anchored"] > .armada-dispatch-panel__frame {
+.armada-dispatch-panel > .armada-dispatch-panel__frame {
   position: absolute;
   top: var(--hung-top, 20vh);
   left: var(--hung-left, 50%);
@@ -40,7 +24,7 @@
   max-width: calc(100vw - var(--space-6));
 }
 
-.armada-dispatch-panel[data-layout="anchored"] > .armada-dispatch-panel__frame:not([style]) {
+.armada-dispatch-panel > .armada-dispatch-panel__frame:not([style]) {
   left: 50%;
   width: min(calc(var(--palette-width) * 1.25), calc(100vw - var(--space-6)));
   transform: translateX(-50%);
@@ -84,29 +68,13 @@
 }
 
 /* Dispatch is waiting on the owner for a repository: the frame takes the call's hue, lit at its edge, as a Cockpit call does. */
-.armada-dispatch-panel__frame[data-asking],
-.armada-dispatch-panel__frame[data-refused] {
+.armada-dispatch-panel__frame[data-asking] {
   border-color: var(--hue);
   box-shadow:
     inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--hue) 16%, transparent),
     0 0 var(--space-6) color-mix(in srgb, var(--hue) 16%, transparent),
     var(--shadow-overlay);
 }
-
-/* A send leaves the strip (dispatch-strip.css) where the line was. The request stays mounted and keeps the cursor, so
-   ↵ opens what was sent and typing starts the next draft; it is only taken out of sight. */
-.armada-dispatch-panel__frame[data-sent] { min-height: 0; }
-
-.armada-dispatch-panel__frame[data-sent] > .armada-dispatch-panel__line {
-  position: absolute;
-  width: var(--border-width);
-  height: var(--border-width);
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.armada-dispatch-panel__frame[data-refused] { --hue: var(--status-completed-failed); }
 
 /* ---- The line: the bar, which never moves --------------------------------------------------- */
 

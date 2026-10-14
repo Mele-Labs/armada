@@ -832,6 +832,10 @@ impl Vcs for FakeVcs {
         Ok(true)
     }
 
+    fn branch_is_merged(&self, _pool: &SlotPool, _branch: &str) -> bool {
+        true
+    }
+
     fn park_hosted_slot(
         &self,
         pool: &SlotPool,

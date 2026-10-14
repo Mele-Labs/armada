@@ -2,7 +2,7 @@
 // being settled. Over `cockpit-pending`, where Fleet is slow to answer and slower to stop carrying what
 // it answered.
 
-import { inside, region, role, tab, text, walk } from "../walk";
+import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const cockpit = region("Dashboard");
 const glass = role("listbox", "Tiles");
@@ -27,6 +27,7 @@ const cockpitPending = walk("cockpit-pending", [
   { look: inside(question, role("radio", /Raise it to five/)), say: "Nothing is held now: the answer can be pressed again" },
   { key: "Escape", on: cockpit, say: "Esc puts the card off, and the Active filter shows the rest" },
   { key: "]", on: cockpit, say: "] steps to Active" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: inside(glass, role("img", "Workflow, still being settled")), say: "A Job whose workflow is still being settled holds the steps' place with a blinking caret. No step stands in for it" },
   { hover: inside(glass, role("img", "Workflow, still being settled")), say: "The tooltip names it" },
   { later: cockpit, say: "The proposer settles the workflow" },

@@ -83,7 +83,7 @@ export function useDashboardTab(first: DashboardTab = "command-central"): [Dashb
 
 export type DispatchKind = "job" | "session";
 
-/** What the Dashboard's dispatch bar starts: the last choice, a Job where nothing is stored. */
+/** What the dispatch panel starts: the last choice, a Job where nothing is stored. */
 export function useDispatchKind(): [DispatchKind, (kind: DispatchKind) => void] {
   return remembered(DISPATCH_KEY, (value): DispatchKind => (value === "session" ? "session" : "job"));
 }

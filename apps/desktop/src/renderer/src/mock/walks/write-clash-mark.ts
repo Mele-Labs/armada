@@ -11,6 +11,7 @@ const work = role("navigation", "Work");
 
 const writeClashMark = walk("write-clash-mark", [
   { press: tab("Active"), say: "Active, Jobs and Sessions as tiles" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: mark(/^Migration notes/, /Conflicts with Release script/), say: "Two Sessions whose changes conflict: the mark on this one" },
   { look: mark(/^Release script/, /Conflicts with Migration notes/), say: "And on the other" },
   { look: tile(/^Changelog tidy/), say: "Changelog tidy and Release notes draft edit one file and do not conflict: no mark on either" },

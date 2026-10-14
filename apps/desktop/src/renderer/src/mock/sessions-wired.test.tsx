@@ -3,7 +3,7 @@
 // walks (`walks/sessions.ts`) prove what the screens draw from fixtures; this proves the same screens
 // are drawn from, and act on, what Fleet serves.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
@@ -11,9 +11,11 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
+import { mount, onScreen, putOffEveryCall, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+// The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
+beforeEach(rememberingTheGrid);
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 

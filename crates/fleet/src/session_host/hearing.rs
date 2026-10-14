@@ -340,6 +340,7 @@ where
             moving.directory, moving.branch
         );
         let started = self.ensure_process(id, &hosting).await;
+        let arrived = super::cut_off::told(&mut runtime.state(), arrived);
         let line = ipc::encode(&UserLine::of(arrived, Vec::new()));
         match (started, line) {
             (Ok(()), Ok(line)) => {
@@ -420,6 +421,7 @@ where
         if self.ensure_process(&target, &hosting).await.is_err() {
             return;
         }
+        let said = super::cut_off::told(&mut runtime.state(), said);
         if let Ok(line) = ipc::encode(&UserLine::of(said, Vec::new())) {
             if let Some(process) = &runtime.state().process {
                 process.send(line);

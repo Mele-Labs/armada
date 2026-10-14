@@ -1,18 +1,11 @@
-// The two ways into the dispatch panel. Each draws the one panel over the one draft
-// (`dispatching.tsx`) and puts it in its own place.
+// The way into the dispatch panel: the one panel over the one draft (`dispatching.tsx`), grown down
+// from the title bar's field, and the strip a send leaves over that field.
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { DispatchPanel, useHung } from "./DispatchPanel";
 import { DispatchedStrip } from "./DispatchedStrip";
 import { useDispatching } from "./dispatching";
-
-/** The Cockpit's dispatch bar: the line at rest, and typing grows it into the panel where it stands. */
-export function CockpitDispatchBar() {
-  const dispatching = useDispatching();
-  if (dispatching === undefined) return null;
-  return <DispatchPanel layout="docked" away={dispatching.titled} {...dispatching.panel("bar")} />;
-}
 
 /** The panel grown down from the title bar's field when the one bar chose to dispatch. */
 export function TitleDispatchPanel({ anchor }: { anchor: string }) {
@@ -29,7 +22,7 @@ export function TitleDispatchPanel({ anchor }: { anchor: string }) {
   }, [shown]);
 
   if (dispatching === undefined || !shown) return null;
-  return <DispatchPanel layout="anchored" anchor={anchor} fieldRef={field} onDismiss={dispatching.closeTitled} {...dispatching.panel("title")} />;
+  return <DispatchPanel anchor={anchor} fieldRef={field} onDismiss={dispatching.closeTitled} {...dispatching.panel()} />;
 }
 
 /**
@@ -40,7 +33,7 @@ export function TitleDispatchedStrip({ anchor }: { anchor: string }) {
   const dispatching = useDispatching();
   const root = useRef<HTMLDivElement>(null);
   const sent = dispatching?.sent;
-  const shown = sent !== undefined && sent.entry === "title" && dispatching?.titled === false;
+  const shown = sent !== undefined && dispatching?.titled === false;
   const place = useHung(shown, anchor);
 
   useEffect(() => {
@@ -65,7 +58,6 @@ export function TitleDispatchedStrip({ anchor }: { anchor: string }) {
   return (
     <DispatchedStrip
       sent={sent}
-      layout="anchored"
       rootRef={root}
       {...(place === undefined ? {} : { style: place })}
       onOpen={dispatching.openSent}
