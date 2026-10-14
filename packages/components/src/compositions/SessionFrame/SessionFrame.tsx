@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { BatteryLow, Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
+import { BatteryLow, Check, CircleDashed, CircleDot, Clock, Eye, Power, Reply, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -21,9 +21,18 @@ import { ModelChip } from "./ModelChip";
  * or its terminal stopped asking, and limited is held until the plan's limit resets. `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended" | "limited";
+export type SessionState = "blank" | "working" | "stuck" | "waiting" | "replied" | "done" | "failing" | "idle" | "quiet" | "ended" | "limited";
 
+/**
+ * `stuck` is a turn running that has been quiet, `replied` a turn that ended on the agent's message
+ * with no answer yet, and `done` an agent that said nothing is left. They are what Fleet reads a
+ * Session to be doing (`SessionStanding`), so the list and the Cockpit draw one answer.
+ * `[conventions.session_standing_marks]` in `packages/icons/` lends the glyphs.
+ */
 const MARK: Record<SessionState, LucideIcon> = {
+  stuck: Clock,
+  replied: Reply,
+  done: Power,
   blank: CircleDashed,
   working: CircleDot,
   waiting: Eye,
@@ -33,6 +42,9 @@ const MARK: Record<SessionState, LucideIcon> = {
   ended: Unplug,
   limited: BatteryLow,
 };
+
+/** The glyph a state wears, for a surface that draws the mark itself, as a tile does. */
+export const sessionGlyphOf = (state: SessionState): LucideIcon => MARK[state];
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */
 export function SessionMark({ state, said }: { state: SessionState; said: string }) {

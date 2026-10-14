@@ -826,6 +826,37 @@ test('a measurement off a subscription names no plan', async ($, on) => {
   expect('plan' in measured).toBe(false)
 })
 
+test('a turn that ends is told with the first line of what it said, and the agent is never asked', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: 'The cap is five.\nThe backoff stops there.', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'turn_completed', said: 'The cap is five.' })
+  expect(JSON.stringify(posts)).not.toContain('backoff')
+})
+
+test('a turn that said nothing is told as over and carries no line', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: '  ', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'turn_completed' })
+})
+
+test('a prompt going in tells Fleet a turn began, and a slash command is not a turn', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: '/compact', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  expect(kinds(posts)).not.toContain('turn_started')
+
+  await $.prompt.submit({ text: 'fix the ledger', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  expect(facts(posts)).toContainEqual({ kind: 'turn_started' })
+})
+
 test('a turn that failed on the plan limit tells Fleet when the full window opens, and is not a finished turn', async ($, on) => {
   const { posts, clock } = world(on, {
     limits: [

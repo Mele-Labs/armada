@@ -56,6 +56,14 @@ pub(crate) struct WaitingReads {
     dismissed: Vec<String>,
     /// When the agent said it was done, if that still stands.
     pub(crate) done: Option<String>,
+    /// How the last turn ended while nothing has followed it: when, and the first line of what the agent said.
+    turn_end: Option<(String, String)>,
+}
+
+/// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
+pub(crate) struct Waited {
+    pub items: Vec<WaitingItem>,
+    pub standing: ipc::SessionStanding,
 }
 
 pub(crate) fn waiting_reads(
@@ -67,6 +75,7 @@ pub(crate) fn waiting_reads(
         rows: store.session_rows(&session.id)?,
         dismissed: store.dismissed_waiting(&session.id)?,
         done: store.done_since(&session.id)?,
+        turn_end: store.turn_end(&session.id)?,
     })
 }
 
@@ -238,8 +247,8 @@ where
         reads: WaitingReads,
         session: &KeptSession,
         attachments: &[ipc::Attachment],
-    ) -> Vec<WaitingItem> {
-        let WaitingReads { kept, rows, dismissed, .. } = reads;
+    ) -> Waited {
+        let WaitingReads { kept, rows, dismissed, done, turn_end } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -275,6 +284,7 @@ where
             _ => None,
         });
         let last_spoke = spoke.max();
+        let spoke_at = last_spoke.map(|at| at.as_str().to_string());
         let newest = attachments
             .iter()
             .filter(|one| {
@@ -306,6 +316,31 @@ where
             .collect();
         let ended = session.state == store::SessionState::Ended;
         let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
+        // What Fleet saw of the turn: running or not, and how the last one ended.
+        let (helm, running) = {
+            let runtime = self.hosts().of(&session.id);
+            let state = runtime.state();
+            let running = if session.origin == "bridge" {
+                matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.last_active.elapsed())
+            } else {
+                self.hosts().terminals().quiet_for(&session.id)
+            };
+            (state.helm, running)
+        };
+        let seen = super::standing::Seen {
+            helm,
+            running,
+            held: asked.is_some(),
+            turn_end: turn_end.as_ref().map(|(at, said)| (at.as_str(), said.as_str())),
+            spoke: spoke_at.as_deref(),
+            done: done.as_deref(),
+            dismissed: &dismissed,
+        };
+        let standing = if ended {
+            ipc::SessionStanding::Idle
+        } else {
+            super::standing::standing(&seen, self.hosts().stuck_after())
+        };
         if !ended {
             // The first message another Session's agent wrote for the person, until he sends it.
             let id = format!("{UNSENT_ITEM}{}", session.id);
@@ -354,8 +389,12 @@ where
                 }
                 _ => None,
             }));
+            // The reply and the done are read off the turn, so a Session whose agent never called a
+            // tool still reaches the person. The reply stands aside where something else is owed.
+            let others = !items.is_empty();
+            items.extend(super::standing::derived(&seen, others));
         }
-        items
+        Waited { items, standing }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -462,6 +501,21 @@ where
     /// The agent's word that it was done no longer stands. Whether it had stood.
     pub(crate) async fn done_cleared(&self, id: &str) -> bool {
         self.store().lock().await.clear_done(id).unwrap_or(false)
+    }
+
+    /// A turn ended at `at`, on `said` where the agent said something to the person: kept, so the Session
+    /// reads as having replied. A turn that ended on tools alone leaves what stood as it was: the turn that
+    /// began it already forgot the reply before.
+    pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>) {
+        let line = said.map(super::standing::first_line).filter(|line| !line.is_empty());
+        if let Some(line) = line {
+            let _ = self.store().lock().await.keep_turn_end(id, at, &line);
+        }
+    }
+
+    /// The reply the last turn left no longer stands: he wrote, or another turn began. Whether it had.
+    pub(crate) async fn turn_end_cleared(&self, id: &str) -> bool {
+        self.store().lock().await.clear_turn_end(id).unwrap_or(false)
     }
 
     /// `answer_waiting`: route the answer by where the item came from.
@@ -599,6 +653,12 @@ where
                 Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
                 // Delivered, so the item goes now: a failed send above leaves it standing.
                 self.drop_answered(&id, &item.id).await
+            }
+            // Derived from the turn and `done_since`, never kept: the person's words are a message to
+            // the Session, which is what makes either stop standing, so there is nothing to drop.
+            WaitingSource::Replied | WaitingSource::Done => {
+                let body = both.clone().unwrap_or_default();
+                self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,

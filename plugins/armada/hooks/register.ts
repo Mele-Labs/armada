@@ -7,7 +7,7 @@
 // `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
+// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, and a question put to Bridge.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
@@ -34,6 +34,8 @@ import {
   pullRequestsIn,
   senderOf,
   titleOf,
+  saidOf,
+  withoutMarkup,
   effortOf,
   modeOf,
   modelName,
@@ -633,6 +635,23 @@ async function titled($: Dollar, prompt: string): Promise<void> {
 }
 
 /**
+ * A turn began, so Fleet has the session working and the reply the turn before left is over. **Fleet
+ * reads this from the prompt going in and never from the model.** A slash command is not a turn:
+ * most of them end without one, so they would leave the session working with nothing to end it.
+ */
+async function turnBegan($: Dollar, prompt: string): Promise<void> {
+  if (withoutMarkup(prompt).trim().startsWith('/')) return
+  const [id] = await current($)
+  say($, id, { kind: 'turn_started' })
+}
+
+/** A turn ended: Fleet has the first line of what it ended on as the reply, with no call from the model. */
+function turnEnd(answer: string): Fact {
+  const said = saidOf(answer)
+  return said === undefined ? { kind: 'turn_completed' } : { kind: 'turn_completed', said }
+}
+
+/**
  * A `/rename` in the terminal. **The name is what was typed**; a bare `/rename` has Claude Code
  * make one up, which is read from the transcript it writes the entry to. It replaces any title
  * and is told as `named`, so the first prompt's line never takes it back.
@@ -692,6 +711,7 @@ export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     const out = await next(e)
     void titled($, e.text).catch(() => undefined)
+    void turnBegan($, e.text).catch(() => undefined)
     return out
   })
 
@@ -858,7 +878,7 @@ export const register: Register = on => {
     const out = await next(e)
     if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
-        .then(([id]) => say($, id, { kind: 'turn_completed' }))
+        .then(([id]) => say($, id, turnEnd(e.answer)))
         .catch(() => undefined)
     }
     return out

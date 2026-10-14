@@ -24,7 +24,7 @@ import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
-import { dismissItem } from "./dismissed";
+import { dismissItem, dismissWaiting } from "./dismissed";
 import { fixJob, type JobFix } from "./fix-job";
 import { ownerOfCall, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
@@ -335,6 +335,18 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
       if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
+      // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
+      if (given.source === "done") {
+        return [
+          oneTap("End session", () => (draft?.close?.(waiting.sessionId), finish())),
+          oneTap("Keep going", () =>
+            wait("Keep going", async (): Promise<Told> => {
+              const kept = await dismissWaiting(waiting.sessionId, given.id);
+              return kept.kind === "dismissed" ? { kind: "dismissed" } : kept;
+            }, dismissed),
+          ),
+        ];
+      }
       if (given.options !== undefined && given.options.length > 0) {
         return given.options.map((option, at) =>
           answer(plainLabel(option.label), (words) => sendWaiting(plainLabel(option.label), { choice: at, ...(words === undefined || words === "" ? {} : { text: words }) }), {

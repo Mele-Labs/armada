@@ -111,11 +111,46 @@ pub struct Terminals {
     polled: Mutex<HashMap<String, Instant>>,
     /// Rung when a question is answered or closed, for the polls holding on it.
     pub(crate) rung: tokio::sync::Notify,
+    /// The terminal Sessions with a turn running, and when anything was last heard from each. Memory
+    /// only: a Fleet that restarts does not know a turn is running until the mod says something.
+    running: Mutex<HashMap<String, Instant>>,
     /// The threads Bridge has opened, kept drawn.
     threads: Arc<ThreadCache>,
 }
 
 impl Terminals {
+    /// A turn began in this terminal Session.
+    pub(crate) fn turn_began(&self, session: &str) {
+        self.running.lock().expect("held across no panic").insert(session.to_string(), Instant::now());
+    }
+
+    /// The mod said something about this Session: a running turn is not quiet.
+    pub(crate) fn turn_heard(&self, session: &str) {
+        if let Some(at) = self.running.lock().expect("held across no panic").get_mut(session) {
+            *at = Instant::now();
+        }
+    }
+
+    /// The turn is over, or the Session is.
+    pub(crate) fn turn_over(&self, session: &str) {
+        self.running.lock().expect("held across no panic").remove(session);
+    }
+
+    /// Every terminal Session with a turn running and how long it has been quiet.
+    pub(crate) fn running_quiet(&self) -> Vec<(String, Duration)> {
+        self.running
+            .lock()
+            .expect("held across no panic")
+            .iter()
+            .map(|(id, at)| (id.clone(), at.elapsed()))
+            .collect()
+    }
+
+    /// How long the running turn has been quiet, where one is running.
+    pub(crate) fn quiet_for(&self, session: &str) -> Option<Duration> {
+        self.running.lock().expect("held across no panic").get(session).map(Instant::elapsed)
+    }
+
     /// The mod asked: it is listening now, and takes what was held.
     fn asked(&self, session: &str) -> MessagesHeld {
         let mut table = self.listening.lock().expect("held across no panic");
