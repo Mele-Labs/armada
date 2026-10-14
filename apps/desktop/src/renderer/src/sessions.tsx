@@ -38,6 +38,7 @@ import type {
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
+  SessionBand,
   SessionGroup,
   SessionRowView,
   SketchBox,
@@ -400,8 +401,14 @@ function useOpenRetro(session: Session): (retro: number) => void {
   return useCallback((n) => askToOpenRetro({ id, n, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) }), [id, title]);
 }
 
+/** A repository a band is drawn for, by the Manifest id its Sessions carry. */
+export type BandBy = { manifestId: string; name: string };
+
+/** The band for a Session whose repository is not one of those listed, or that has none. */
+const OTHER_BAND = "Other";
+
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
-export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[] }) {
+export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[]; bandsBy?: readonly BandBy[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
@@ -431,11 +438,22 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
-  const groups: SessionGroup[] = HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  const groupsOf = (rows: readonly SessionRowView[]): SessionGroup[] => HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: rows.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  const groups = groupsOf(views);
+  // On All, a band for each repository in the listing's order, and a last one for Sessions with no listed repository.
+  const repositoryOf = new Map(sessions.map((one) => [one.id, one.manifestId]));
+  const known = new Set((bandsBy ?? []).map((one) => one.manifestId));
+  const bands: SessionBand[] | undefined =
+    bandsBy === undefined
+      ? undefined
+      : [
+          ...bandsBy.map((one) => ({ label: one.name, groups: groupsOf(views.filter((row) => repositoryOf.get(row.id) === one.manifestId)) })),
+          { label: OTHER_BAND, groups: groupsOf(views.filter((row) => !known.has(repositoryOf.get(row.id) ?? ""))) },
+        ].filter((band) => band.groups.length > 0);
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
+      <SessionList groups={groups} {...(bands === undefined ? {} : { bands })} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }
@@ -1203,6 +1221,7 @@ export function SessionsSurface({
   lines = null,
   settings = null,
   startIn,
+  bandsBy,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1214,6 +1233,8 @@ export function SessionsSurface({
   settings?: SettingsList | null;
   /** Where New Session may start, on All: it asks which. */
   startIn?: readonly { root: string; name: string }[];
+  /** On All with more than one repository: the list is drawn in a band for each, in this order. */
+  bandsBy?: readonly BandBy[];
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1236,7 +1257,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }
