@@ -1207,7 +1207,10 @@ export function App({ draft }: AppProps = {}) {
           failing={failing}
           live={live}
           board={boardRows}
+          repositories={repositories.map((one) => ({ root: one.root, label: repositoryLabel(one, repositories) }))}
+          picked={state.repository}
           acts={{
+            pickRepository: pick,
             openJob: setOpenJob,
             closeJob: close,
             compose: () => setComposing(true),
