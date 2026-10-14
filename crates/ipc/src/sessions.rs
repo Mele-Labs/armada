@@ -168,7 +168,16 @@ pub enum SessionFact {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mod_version: Option<String>,
     },
-    TurnCompleted,
+    /// A turn ended. `said` is the first line of the last thing the agent said to the person, which
+    /// is how Fleet reads a terminal session as having replied without the agent being asked to say
+    /// so; absent where the turn ended on tools alone, and from a mod that predates it. Since 23.86.
+    TurnCompleted {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        said: Option<String>,
+    },
+    /// A turn began: the person sent a prompt in the terminal, or something woke the session. It ends
+    /// any reply or done Fleet read off the turn before. Since 23.86.
+    TurnStarted,
     /// A turn ended on the plan's limit, which resets at `resets_at`. Fleet holds the session
     /// and wakes it then (`SessionRecord::held_until`).
     Limited {

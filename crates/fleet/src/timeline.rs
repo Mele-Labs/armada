@@ -334,7 +334,9 @@ where
         );
     }
 
-    /// A Session's turn ended, `began` to `ended`, both by Fleet's clock. **Nothing is entered
+    /// A Session's turn ended, `began` to `ended`, both by Fleet's clock. **It is not live**: the turn is
+    /// over, and whether the Session is moving, replied, done or stuck is what Fleet derives from the
+    /// turn (`SessionRecord::standing`), never what an event's flag says. **Nothing is entered
     /// without a start**: a turn reattached after a restart has none, and a length guessed is not a
     /// fact.
     pub(crate) fn session_turn(
@@ -357,8 +359,7 @@ where
                 format!("Turn took {}", lasted((ended_ms - began).max(0))),
             )
             .titled(title)
-            .in_repository(manifest)
-            .live(),
+            .in_repository(manifest),
         );
     }
 

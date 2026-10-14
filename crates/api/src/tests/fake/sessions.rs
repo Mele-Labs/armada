@@ -162,7 +162,7 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: ask.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
-            fact: ipc::SessionFact::TurnCompleted,
+            fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await
     }
@@ -217,7 +217,7 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: done.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
-            fact: ipc::SessionFact::TurnCompleted,
+            fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await
     }

@@ -168,10 +168,13 @@ where
                 // is not: the agent has nothing new to do, and does not call `all_done` again.
                 if !noticed {
                     self.done_cleared(id).await;
+                    // And it ends the reply the turn before left.
+                    self.turn_end_cleared(id).await;
                 }
                 {
                     let mut state = runtime.state();
                     state.turn_began = Some(began);
+                    state.said = None;
                     state.resolved_model = (!model.is_empty()).then_some(model);
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
@@ -197,6 +200,7 @@ where
                 if runtime.state().moving.is_some() || text.trim().is_empty() {
                     return;
                 }
+                runtime.state().said = Some(text.clone());
                 self.row_put(
                     id,
                     SessionRow::Message {
@@ -258,11 +262,16 @@ where
                 let _ = store.keep_session(&session);
             }
         }
-        let (moving, restart, began) = {
+        let (moving, restart, began, said) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
-            (state.moving.take(), state.restart_after_turn, state.turn_began.take())
+            (state.moving.take(), state.restart_after_turn, state.turn_began.take(), state.said.take())
         };
+        // How the turn ended, read off what the agent said and never off a tool it called. A turn held
+        // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
+        if moving.is_none() {
+            self.turn_end_kept(id, &now, said.as_deref()).await;
+        }
         // **Once, where the turn ends**, never on the rows between. A turn held for a slot and
         // resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {

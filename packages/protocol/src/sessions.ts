@@ -292,7 +292,10 @@ export type SessionFact =
       state: AttachmentState;
     }
   | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
-  | { kind: "turn_completed" }
+  /** `said` is the first line of the last thing the agent said to the person. Since 23.86. */
+  | { kind: "turn_completed"; said?: string }
+  /** A turn began. Since 23.86. */
+  | { kind: "turn_started" }
   /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
   | { kind: "limited"; resets_at: string }
   /** Files written, relative to the session's `cwd`. Since 23.81. */
