@@ -8,7 +8,7 @@ use std::time::Duration;
 use api::{HostedSessions, Next, Subscription};
 use ipc::{CloseSession, Event, SessionActivity, SessionGate, SessionId, SessionRecord, SessionTodo, SessionTodoState};
 
-use super::session_host::{rig_placing, Rig};
+use super::session_host::{eventually, rig_placing, Rig};
 use crate::session_host::activity::now_of;
 
 fn call(tool: &str, input: &str) -> SessionGate {
@@ -148,7 +148,7 @@ async fn a_shell_call_and_an_edit_set_now_and_the_time_of_the_call() {
 #[tokio::test]
 async fn quick_changes_publish_the_first_and_one_trailing_and_a_repeat_publishes_nothing() {
     let rig = rig_placing(None);
-    rig.fleet.hosts().publish_activity_every(Duration::from_millis(400));
+    rig.fleet.hosts().publish_activity_every(Duration::from_millis(400), Duration::from_secs(60));
     let id = rig.start().await;
     let mut watching = rig.fleet.events().subscribe();
 
@@ -181,4 +181,66 @@ async fn an_ended_session_has_no_activity_and_a_late_call_records_none() {
     rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/b.rs"}"#).await;
     assert_eq!(activity(&rig, &id).await, None, "the gate passes an ended session without noting it");
     assert_eq!(rig.fleet.activity_of(id.as_str()), None, "nor is it kept behind the row");
+}
+
+/// **A turn that begins is a new turn.** What the last one was doing goes at once, and the agent's list,
+/// which is still true, stays. A turn Fleet's own notice begins clears it the same.
+#[tokio::test]
+async fn a_turn_starting_clears_now_and_the_call_time_and_keeps_the_list_and_publishes() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    rig.stand_in.init(0);
+    eventually(|| async { rig.turn(&id).await != ipc::SessionTurn::Idle }).await;
+
+    rig.gate(&id, "TodoWrite", r#"{"todos":[{"content":"Write the docs","status":"in_progress","activeForm":"x"}]}"#).await;
+    rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/a.rs"}"#).await;
+    let busy = activity(&rig, &id).await.expect("a turn's calls");
+    assert!(busy.now.is_some() && busy.last_call_at.is_some());
+
+    for by_fleet in [false, true] {
+        rig.stand_in.finishes(0, "done");
+        eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+        rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/b.rs"}"#).await;
+        assert!(activity(&rig, &id).await.expect("held").now.is_some());
+        rig.send(&id, "again").await;
+        if by_fleet {
+            rig.fleet.hosts().of(id.as_str()).state().fleet_told += 1;
+        }
+        let mut watching = rig.fleet.events().subscribe();
+        rig.stand_in.init(0);
+
+        let rows = published(&mut watching, &id, Duration::from_millis(500)).await;
+        let began = rows.iter().rev().find_map(|one| one.activity.clone()).expect("a row for the turn carries the list");
+        assert_eq!((began.now, began.last_call_at), (None, None), "nothing of the last turn's calls (by fleet: {by_fleet})");
+        assert_eq!(began.todos.len(), 1, "the list stays");
+        assert_eq!(activity(&rig, &id).await.expect("held").now, None);
+    }
+}
+
+/// **A run of identical calls moves neither word**, so only the age of the call time on the last row
+/// says they are still coming.
+#[tokio::test]
+async fn identical_calls_publish_again_once_the_published_call_time_is_old_and_not_before() {
+    let rig = rig_placing(None);
+    rig.fleet.hosts().publish_activity_every(Duration::from_millis(100), Duration::from_millis(800));
+    let id = rig.start().await;
+    let mut watching = rig.fleet.events().subscribe();
+    let search = r#"{"pattern":"x"}"#;
+    let quiet = Duration::from_millis(300);
+
+    rig.gate(&id, "Grep", search).await;
+    assert_eq!(published(&mut watching, &id, quiet).await.len(), 1, "the first change");
+
+    rig.gate(&id, "Grep", search).await;
+    assert!(published(&mut watching, &id, quiet).await.is_empty(), "the call time on the row is young");
+
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    rig.gate(&id, "Grep", search).await;
+    let renewed = published(&mut watching, &id, quiet).await;
+    assert_eq!(renewed.len(), 1, "the call time on the row is old: {renewed:?}");
+    assert_eq!(renewed[0].activity.as_ref().and_then(|one| one.now.as_deref()), Some("Searching"));
+
+    rig.gate(&id, "Grep", search).await;
+    assert!(published(&mut watching, &id, quiet).await.is_empty(), "and young again once it went out");
 }

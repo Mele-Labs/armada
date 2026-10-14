@@ -3940,7 +3940,7 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 
 **`state` is a plain enum Bridge matches on**, as `WaitingMode` is, because no registry declares the set. **The gate that detects it is `gate_session_call`**, and its route is unchanged: Fleet notes the call before it decides it.
 
-**Publishing is coalesced.** A change to `now` or `todos` publishes `session.changed` at once when none went out for the Session's activity within two seconds, and otherwise once, when the two seconds are up. A call that changes neither publishes nothing, so `last_call_at` is as fresh as the last row, never fresher. A Fleet restart starts the field empty.
+**Publishing is coalesced.** A change to `now` or `todos` publishes `session.changed` at once when none went out for the Session's activity within two seconds, and otherwise once, when the two seconds are up. A call that changes neither publishes nothing unless the call time on the last row to go out is a minute old, so `last_call_at` is as fresh as the last row, never fresher, and is at most a minute behind a Session that keeps calling. A turn starting clears `now` and `last_call_at` on the row that announces it and keeps `todos`. A Fleet restart starts the field empty.
 
 **Skew.** A Bridge that predates this ignores an `activity` it does not read. A Fleet that predates it sends none, and Bridge treats that as no activity. The same change moves `HostedSessions::gate_session_call` to `self: Arc<Self>` in `crates/api`, which is Rust only and not on the wire.
 

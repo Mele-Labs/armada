@@ -35,9 +35,9 @@ pub struct SessionActivity {
     /// The agent's own list as its last `TodoWrite` left it. Empty is no list.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<SessionTodo>,
-    /// When the Session last made any tool call. **It does not move the row**: it rides whatever
-    /// publish the next change to `now` or `todos` causes, so it can be older than the Session's
-    /// latest call by a quiet spell, and a reader treats it as no fresher than the row it is on.
+    /// When the Session last made any tool call. **It rides the row** and moves it only when the one
+    /// last published is a minute old, so it can trail the Session's latest call by about that, and a
+    /// reader treats it as no fresher than the row it is on. Cleared when a turn begins.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_call_at: Option<Instant>,
 }

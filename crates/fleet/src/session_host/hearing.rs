@@ -171,6 +171,8 @@ where
                 }
                 {
                     let mut state = runtime.state();
+                    // A turn Fleet's own notice began is a new turn all the same.
+                    state.activity.turn_began();
                     state.turn_began = Some(began);
                     state.resolved_model = (!model.is_empty()).then_some(model);
                     state.last_active = std::time::Instant::now();
