@@ -39,6 +39,9 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
   { id: "limits", label: "Limits", palette: "Fleet limits", schema: true, settings: [["Drones at once", "concurrency", "parallel", "memory", "disk", "checks at once", "cost cap", "turn cap", "ports"]] },
   { id: "timeouts", label: "Timeouts", palette: "Timeouts", schema: true, settings: [["Timeouts", "time limit", "seconds", "wait", "reconnect"]] },
   { id: "retention", label: "Retention", palette: "Retention", schema: true, settings: [["Retention", "keep", "days", "history", "clean up"]] },
+  { id: "machine", label: "Machine", palette: "Machine name", schema: true, settings: [["Machine name", "host", "computer", "name"]] },
+  { id: "account", label: "Account", palette: "Sign-in app", schema: true, settings: [["Sign-in app", "account", "sign in", "client id", "oauth", "forge"]] },
+  { id: "store", label: "Store", palette: "Store address", schema: true, settings: [["Store address", "store", "central store", "sign in", "url"]] },
   { id: "harness", label: "Harness", palette: "Harness", schema: true, settings: [["Harness", "agent", "program", "binary", "path"]] },
   { id: "model", label: "Model", palette: "Models", schema: true, settings: [["Models", "model", "roster", "opus", "sonnet", "haiku"]] },
   { id: "effort", label: "Effort", palette: "Effort", schema: true, settings: [["Effort", "reasoning", "low", "medium", "high"]] },
@@ -106,7 +109,7 @@ export type SettingsGroup = { id: string; label: string; sections: readonly Sett
 const SHIPPED_GROUPS: readonly { id: string; label: string; sections: readonly string[] }[] = [
   { id: "agents", label: "Agents", sections: ["harness", "model", "effort", "plan"] },
   { id: "prompts", label: "Prompts", sections: ["prompts"] },
-  { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention"] },
+  { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention", "machine", "account", "store"] },
   { id: "features", label: "Features", sections: ["features"] },
   { id: "tools", label: "Tools", sections: ["editor", "terminal", "links"] },
   { id: "appearance", label: "Appearance", sections: ["theme", "layout", "keyboard"] },
