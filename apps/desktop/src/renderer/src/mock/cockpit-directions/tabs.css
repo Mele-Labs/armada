@@ -5,10 +5,36 @@
 body:has(.tabs-chrome) .armada-shell__left > nav[aria-label="Work"] { display: none; }
 .armada-screen__mounted:has(> .proto-app-overlay) { position: relative; }
 
+/* The title line is the only head. A page's own title is drawn away here, never in the page: the control
+   that shared its band (New Job, New Session, Check again, Hold to kill) stays, and so does anything that
+   is a state or a group rather than the page's name. */
+body:has(.tabs-chrome) .armada-jobs-page__title-bar,
+body:has(.tabs-chrome) .armada-session-list__title-bar,
+body:has(.tabs-chrome) .armada-job-head__here,
+body:has(.tabs-chrome) .armada-doctor .armada-doctor__title,
+body:has(.tabs-chrome) .armada-doctor .armada-view__band > svg { display: none; }
+body:has(.tabs-chrome) .armada-jobs-page__head,
+body:has(.tabs-chrome) .armada-session-list__head {
+  justify-content: flex-end;
+  min-height: 0;
+  padding: var(--space-2) var(--space-3) 0;
+  border-bottom: 0;
+  background: transparent;
+}
+/* A repository's band reads "Merge line armada": the words are the page's, the repository is the group's. */
+body:has(.tabs-chrome) .armada-merge-line__heading { font-size: 0; }
+body:has(.tabs-chrome) .armada-merge-line__heading > .armada-merge-line__repository {
+  margin-left: 0;
+  font-size: var(--text-xs);
+}
+
 /* The calls' card and the key sheet float over everything, and nothing behind them stops being pressable. */
 .proto-app-overlay { position: absolute; inset: 0; z-index: 3; min-height: 0; pointer-events: none; }
 .proto-app-overlay .proto-sheet { width: calc(var(--space-12) * 9); pointer-events: auto; }
 .proto-app-overlay .proto-sheet__row { grid-template-columns: calc(var(--space-12) * 3) 1fr; }
+
+/* No box and no words: the status above is for what reads the page. */
+.tabs-quiet { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 /* ---- The chrome: tab bar, title line, calls ------------------------------------------------------------ */
 

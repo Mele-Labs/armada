@@ -2,7 +2,7 @@
 // a Session opens as a tab of its own, and closing it returns to the tab it was reached from, as it was left.
 // A throwaway prototype on proto/cockpit-three-directions.
 
-import { button, inside, region, role, tab, walk } from "../walk";
+import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const bar = role("tablist", "Open tabs");
 const tabIn = (name: string | RegExp) => inside(bar, tab(name));
@@ -19,6 +19,7 @@ const cockpitDirectionTabs = walk("cockpit-ship-tabs", [
   { press: button(/Cache key/), say: "The Session that replied opens as a tab" },
   { look: tabIn(/Cache key/), say: "Its own tab, to the right, with its state mark" },
   { type: "Hash. It survives a move.\n", into: role("textbox"), say: "Answered in the thread" },
+  { look: text(/Hash\. It survives a move\./), say: "Sent: it is in the thread" },
   { key: "x", on: bar, say: "Sent where the page sends it. x closes the tab" },
   { look: all, say: "Back on Sessions as he left it: the All filter is still on" },
   { key: "1", on: bar, say: "1 is the Cockpit" },
@@ -28,6 +29,7 @@ const cockpitDirectionTabs = walk("cockpit-ship-tabs", [
   { look: button(/Pin the store clock/), say: "Its call waits in a row above the page, not over it" },
   { key: "w", on: bar, say: "w opens it over this tab" },
   { type: "Good. Merge it.\n", into: inside(region(/^Session: Pin the store clock/), role("textbox", "Message")), say: "Answered" },
+  { look: role("status", "Call card closed"), say: "Sent. The card has closed" },
   { key: "Meta+w", on: tabIn(/Add the pause marker column/), say: "Back on the Job's tab. Command W closes it, back to the Cockpit" },
   { key: "5", on: bar, say: "5 is the Merge line: the real page, which has no Merge" },
   { press: inside(title, button("Merge #1890")), say: "A ready pull request is merged from the title line" },

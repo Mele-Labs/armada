@@ -399,6 +399,8 @@ export function TabsChrome(props: AppSeamProps) {
         <TabBar tabs={views} active={place} onPick={go} onClose={close} />
         <TitleLine props={props} ship={ship} active={place} subject={active?.subject} titleOf={titleOf} onGo={go} acts={acts} jump={() => needs(1)} />
         {calls.tray}
+        {/* Said to a screen reader and read by the walk: with no card open a key is heard by the window again. */}
+        <span role="status" aria-label={calls.open ? "Call card open" : "Call card closed"} className="tabs-quiet" />
       </div>
       <div className="armada-cockpit proto-app-overlay" data-layer>
         {calls.card}
