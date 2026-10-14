@@ -446,12 +446,11 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 ## Working on
 
-**A hosted Session shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `todos[]`, `last_call_at?`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Session Fleet hosts. No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026). The one thing the agent does say is its own to-do list, and Fleet reads that off the call too.
+**A hosted Session shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `todos[]`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Session Fleet hosts. No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026). The one thing the agent does say is its own to-do list, and Fleet reads that off the call too.
 
 | Field | Where it comes from | What it is |
 | --- | --- | --- |
 | `now` | Detected, from the call's tool and input | One short fact for the latest call Fleet can name. A call it cannot name leaves it as it was |
-| `last_call_at` | Detected, from any call | When the Session last made a tool call |
 | `todos` | Reported, as the agent's own `TodoWrite` list | Each `TodoWrite` replaces the whole list. `text` is the item's `content`, and `completed`, `in_progress` and `pending` are `done`, `doing` and `todo`. An empty list clears it. A `TodoWrite` never changes `now` |
 
 `now` reads in one of these forms, with no counts and no narration:
@@ -467,11 +466,13 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 **It is kept with the rest of a Session's runtime state, in memory.** It is not in the store, a Fleet restart starts it empty, and it is dropped when the Session ends. The gate notes a call only for a Session that is hosted and open, after the check that already passes an unknown or ended one, and does so whatever the gate then decides about the call.
 
-**A call does not publish a row.** The row is large and goes out whole with every `session.changed`, and a busy Session makes many calls. A change to `now` or `todos` publishes at once when the Session's row has not gone out for what it is doing within the last two seconds. Otherwise one publish follows when those two seconds are up, carrying the latest, so the last change is never lost and a burst costs two rows. `last_call_at` rides the next row, and a reader takes it as no fresher than the row it is on. It causes a publish only when the call time on the last row to go out is a minute old, so a long run of identical calls, which moves neither `now` nor `todos`, still keeps the time on the row from reading as a quiet Session. That row goes through the same two seconds, and costs at most one a minute. The gate takes a lock for a moment and awaits nothing, and the publish is a task of its own, so the answer to the call is not held for it.
+**A call does not publish a row.** The row is large and goes out whole with every `session.changed`, and a busy Session makes many calls. A change to `now` or `todos` publishes at once when the Session's row has not gone out for what it is doing within the last two seconds. Otherwise one publish follows when those two seconds are up, carrying the latest, so the last change is never lost and a burst costs two rows. A call that changes neither publishes nothing, so a long run of identical calls costs no rows. The gate takes a lock for a moment and awaits nothing, and the publish is a task of its own, so the answer to the call is not held for it.
 
-**A turn starting clears `now` and `last_call_at` and keeps `todos`.** The line of the last turn is not the new turn's, and the agent's list is still true across turns. It is the same moment `done_since` stands down, and a turn Fleet's own notice begins counts: a new turn is a new turn. The row that announces the turn carries the clear. A turn ending clears nothing.
+**A turn starting clears `now` and keeps `todos`.** The line of the last turn is not the new turn's, and the agent's list is still true across turns. It is the same moment `done_since` stands down, and a turn Fleet's own notice begins counts: a new turn is a new turn. The row that announces the turn carries the clear. A turn ending clears nothing.
 
-**Bridge draws nothing for a Session whose turn is not running.** Whether a line, a band or a quiet mark is drawn is Bridge's rule, read off `hosted.turn` and these fields.
+**Bridge draws nothing for a Session whose turn is not running.** Whether a line or a band is drawn is Bridge's rule, read off `hosted.turn` and these fields.
+
+**Silence is not here.** A running turn nothing has been heard from is the `stuck` state, from the activity of the process Fleet hears, whatever it calls. `activity` says what a Session is doing, and carries no time to read a silence from.
 
 **Only a hosted Session is covered.** A Session run in a terminal makes its tool calls in a process Fleet does not host. Its mod reports a few tools through `report_session` and does not call the gate, so such a row carries no `activity`.
 
@@ -633,9 +634,9 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
 | The context figure | The header reads `context_tokens` and `context_window` from `usage` as live tokens and the percent, `53.8k · 5%`, coloured normal below 80, warning from 80, danger from 95. Where `context_breakdown` is held it is a button: hover or focus opens a card, a press keeps it open, Esc or a press outside closes it. The card is the Bays view's stop card: a pill `5% used`, the tokens over the window, a slim bar of the categories in the window, one fact a category, then the three heaviest memory files and MCP servers (a server's tools summed). Where none is held it is a figure with a tooltip and no button |
-| A running Session's line in the list | `activity.now`, one line under the title. Nothing is drawn for a Session whose turn is not running, however old its last `now` is. At the line's end, a `clock` (12px) when `last_call_at` is ten minutes old or more, with the tooltip `No tool call since 2:14 PM`. The ten minutes is `QUIET_AFTER_MS` in `session-activity.ts` |
-| The thread's Working on band | `activity.todos`, over the message box, in the order doing, to do, done. Folded, a task mark a todo, each named on hover with its words (`TaskMark`'s); a press opens the rows. The same `clock` and tooltip at the band's end. Left off when the Session says it is done, and when the list is empty |
-| A Cockpit tile's line | The todo being done, else `activity.now`. The same `clock` and tooltip at its end |
+| A running Session's line in the list | `activity.now`, one line under the title. Nothing is drawn for a Session whose turn is not running, however old its last `now` is |
+| The thread's Working on band | `activity.todos`, over the message box, in the order doing, to do, done. Folded, a task mark a todo, each named on hover with its words (`TaskMark`'s); a press opens the rows. Left off when the Session says it is done, and when the list is empty |
+| A Cockpit tile's line | The todo being done, else `activity.now` |
 | A session held for the plan's limit | `held_until` draws `battery-low` in place of the live state mark, on its list row, its Cockpit tile and its header, with the tooltip `Limit reached · resumes 6:40 PM`. Nothing animates. A Job Fleet holds the same way carries it as `paused.until` and draws the same mark beside its status, in place of the pause mark |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
 

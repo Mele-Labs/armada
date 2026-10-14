@@ -1,6 +1,6 @@
 import { useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, Clock, GitBranch, GitPullRequest, KeyRound, Layers, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -150,10 +150,9 @@ export type SessionThreadProps = {
   waiting?: readonly LedgerEntry[];
   /**
    * What the agent reports it is working on, from its own todo list: a band of one glyph per todo over
-   * the box, the one being done first, which a press opens to the rows. `quiet` is the clock at the
-   * band's end, its tooltip. Empty or absent draws none.
+   * the box, the one being done first, which a press opens to the rows. Empty or absent draws none.
    */
-  workingOn?: { todos: readonly WorkingTodo[]; quiet?: string };
+  workingOn?: { todos: readonly WorkingTodo[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -791,7 +790,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
           />
         </Card>
       )}
-      {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} {...(workingOn.quiet === undefined ? {} : { quiet: workingOn.quiet })} />}
+      {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
       {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
@@ -894,7 +893,7 @@ function TodoMark({ todo, tone }: { todo: WorkingTodo; tone?: true }) {
 }
 
 /** Folded, the band shows a glyph per todo, named on hover; a press on the band opens the rows. Nothing is drawn for a list that is empty. */
-function WorkingOn({ todos, quiet }: { todos: readonly WorkingTodo[]; quiet?: string }) {
+function WorkingOn({ todos }: { todos: readonly WorkingTodo[] }) {
   const [open, setOpen] = useState(false);
   const Fold = open ? ChevronDown : ChevronUp;
   return (
@@ -907,13 +906,6 @@ function WorkingOn({ todos, quiet }: { todos: readonly WorkingTodo[]; quiet?: st
               <TodoMark key={todo.key} todo={todo} />
             ))}
           </span>
-        )}
-        {quiet === undefined ? null : (
-          <Tooltip label={quiet}>
-            <span className="armada-session-mark armada-session-working__quiet" role="img" aria-label={quiet}>
-              <Clock size={12} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
         )}
         <Fold className="armada-session-working__fold" size={12} strokeWidth={2} aria-hidden />
       </button>

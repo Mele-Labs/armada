@@ -219,7 +219,7 @@
   line-height: var(--leading-xs);
 }
 
-/* What the Session is doing, detected: mono, one line, in the tile's hue; a clock at its end when the turn has gone quiet. */
+/* What the Session is doing, detected: mono, one line, in the tile's hue. */
 .armada-session-list__now {
   position: relative;
   z-index: 1;
@@ -243,9 +243,6 @@
 
 .armada-session-list__row[data-state="ended"] .armada-session-list__now,
 .armada-session-list__row[data-state="quiet"] .armada-session-list__now { color: var(--fg-muted); }
-
-/* Gone quiet is the grey of a thing not acting, not a failure: the clock takes the not-started hue. */
-.armada-session-list__row[data-state] .armada-session-mark.armada-session-list__quiet { flex: none; color: var(--status-not-started); }
 
 /* The open items are one line that never wraps, ruled off at the tile's foot; the ghost is the same items measured, unseen. */
 .armada-session-list__chips {

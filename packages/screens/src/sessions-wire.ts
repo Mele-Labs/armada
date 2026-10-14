@@ -442,17 +442,15 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
 
 /**
  * What Fleet detected a Session doing, as the view-model draws it. **Whole every time**: a row's activity
- * replaces the last one, so a todo the agent dropped does not outlive its list. Nothing to say is `undefined`,
- * and `last_call_at` is the same RFC 3339 instant `quietSince` is read as.
+ * replaces the last one, so a todo the agent dropped does not outlive its list. Nothing to say is `undefined`.
  */
 export function activityOf(wire: WireActivity | undefined): SessionActivity | undefined {
   if (wire === undefined) return undefined;
   const todos = wire.todos ?? [];
-  if (wire.now === undefined && todos.length === 0 && wire.last_call_at === undefined) return undefined;
+  if (wire.now === undefined && todos.length === 0) return undefined;
   return {
     ...(wire.now === undefined ? {} : { now: wire.now }),
     ...(todos.length === 0 ? {} : { todos }),
-    ...(wire.last_call_at === undefined ? {} : { quietSince: wire.last_call_at }),
   };
 }
 

@@ -35,7 +35,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
     }
 }
 
-/// **The row carries the three fields under the names a wire field has**, and a reader that
+/// **The row carries the two fields under the names a wire field has**, and a reader that
 /// does not know them reads a row without them, so the field is additive.
 #[test]
 fn activity_round_trips_under_the_names_the_wire_gives_it() {
@@ -46,11 +46,9 @@ fn activity_round_trips_under_the_names_the_wire_gives_it() {
             SessionTodo { text: "Detect in the gate".to_string(), state: SessionTodoState::Doing },
             SessionTodo { text: "Write the docs".to_string(), state: SessionTodoState::Todo },
         ],
-        last_call_at: Some(Instant::carried("2026-10-14T09:30:00.000Z")),
     };
     let sent = encode(&row(Some(activity.clone()))).unwrap();
     assert!(sent.contains(r#""now":"Editing gate.rs""#), "{sent}");
-    assert!(sent.contains(r#""last_call_at":"2026-10-14T09:30:00.000Z""#), "{sent}");
     assert!(sent.contains(r#""state":"doing""#), "{sent}");
     let read: SessionRecord = decode("a session", sent.as_bytes()).unwrap();
     assert_eq!(read.activity, Some(activity));
@@ -65,7 +63,7 @@ fn what_is_absent_is_left_out_and_reads_back_absent() {
 
     let only_now = SessionActivity { now: Some("Searching".to_string()), ..SessionActivity::default() };
     let sent = encode(&row(Some(only_now.clone()))).unwrap();
-    assert!(!sent.contains("todos") && !sent.contains("last_call_at"), "an empty list and a missing time are left out: {sent}");
+    assert!(!sent.contains("todos"), "an empty list is left out: {sent}");
     let list: SessionList = decode("sessions", encode(&SessionList { sessions: vec![row(Some(only_now.clone()))] }).unwrap().as_bytes()).unwrap();
     assert_eq!(list.sessions[0].activity, Some(only_now));
 }

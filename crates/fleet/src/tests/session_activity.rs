@@ -126,20 +126,17 @@ async fn a_todo_write_replaces_the_list_and_leaves_now_alone() {
 }
 
 #[tokio::test]
-async fn a_shell_call_and_an_edit_set_now_and_the_time_of_the_call() {
+async fn a_shell_call_and_an_edit_set_now() {
     let rig = rig_placing(None);
     let id = rig.start().await;
 
     rig.gate(&id, "Bash", r#"{"command":"git status --short"}"#).await;
     let first = activity(&rig, &id).await.expect("a call was made");
     assert_eq!(first.now.as_deref(), Some("Running git status"));
-    let at = first.last_call_at.expect("the call is dated");
 
-    tokio::time::sleep(Duration::from_millis(1100)).await;
     rig.gate(&id, "Edit", r#"{"file_path":"/elsewhere/gate.rs"}"#).await;
     let second = activity(&rig, &id).await.expect("a call was made");
     assert_eq!(second.now.as_deref(), Some("Editing gate.rs"));
-    assert!(second.last_call_at.expect("dated") > at, "every call moves the time");
 
     rig.gate(&id, "mcp__somewhere__tool", "{}").await;
     assert_eq!(activity(&rig, &id).await.expect("kept").now.as_deref(), Some("Editing gate.rs"));
@@ -148,7 +145,7 @@ async fn a_shell_call_and_an_edit_set_now_and_the_time_of_the_call() {
 #[tokio::test]
 async fn quick_changes_publish_the_first_and_one_trailing_and_a_repeat_publishes_nothing() {
     let rig = rig_placing(None);
-    rig.fleet.hosts().publish_activity_every(Duration::from_millis(400), Duration::from_secs(60));
+    rig.fleet.hosts().publish_activity_every(Duration::from_millis(400));
     let id = rig.start().await;
     let mut watching = rig.fleet.events().subscribe();
 
@@ -162,9 +159,7 @@ async fn quick_changes_publish_the_first_and_one_trailing_and_a_repeat_publishes
 
     rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/c.rs"}"#).await;
     let none = published(&mut watching, &id, Duration::from_millis(900)).await;
-    assert!(none.is_empty(), "a call that changes nothing rides the next row: {none:?}");
-    let kept = activity(&rig, &id).await.expect("kept");
-    assert!(kept.last_call_at.expect("dated") > last.last_call_at.expect("dated"), "and the time is read from it");
+    assert!(none.is_empty(), "a call that changes nothing publishes nothing: {none:?}");
 }
 
 #[tokio::test]
@@ -186,7 +181,7 @@ async fn an_ended_session_has_no_activity_and_a_late_call_records_none() {
 /// **A turn that begins is a new turn.** What the last one was doing goes at once, and the agent's list,
 /// which is still true, stays. A turn Fleet's own notice begins clears it the same.
 #[tokio::test]
-async fn a_turn_starting_clears_now_and_the_call_time_and_keeps_the_list_and_publishes() {
+async fn a_turn_starting_clears_now_and_keeps_the_list_and_publishes() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.send(&id, "go").await;
@@ -196,7 +191,7 @@ async fn a_turn_starting_clears_now_and_the_call_time_and_keeps_the_list_and_pub
     rig.gate(&id, "TodoWrite", r#"{"todos":[{"content":"Write the docs","status":"in_progress","activeForm":"x"}]}"#).await;
     rig.gate(&id, "Read", r#"{"file_path":"/elsewhere/a.rs"}"#).await;
     let busy = activity(&rig, &id).await.expect("a turn's calls");
-    assert!(busy.now.is_some() && busy.last_call_at.is_some());
+    assert!(busy.now.is_some());
 
     for by_fleet in [false, true] {
         rig.stand_in.finishes(0, "done");
@@ -212,35 +207,8 @@ async fn a_turn_starting_clears_now_and_the_call_time_and_keeps_the_list_and_pub
 
         let rows = published(&mut watching, &id, Duration::from_millis(500)).await;
         let began = rows.iter().rev().find_map(|one| one.activity.clone()).expect("a row for the turn carries the list");
-        assert_eq!((began.now, began.last_call_at), (None, None), "nothing of the last turn's calls (by fleet: {by_fleet})");
+        assert_eq!(began.now, None, "nothing of the last turn's calls (by fleet: {by_fleet})");
         assert_eq!(began.todos.len(), 1, "the list stays");
         assert_eq!(activity(&rig, &id).await.expect("held").now, None);
     }
-}
-
-/// **A run of identical calls moves neither word**, so only the age of the call time on the last row
-/// says they are still coming.
-#[tokio::test]
-async fn identical_calls_publish_again_once_the_published_call_time_is_old_and_not_before() {
-    let rig = rig_placing(None);
-    rig.fleet.hosts().publish_activity_every(Duration::from_millis(100), Duration::from_millis(800));
-    let id = rig.start().await;
-    let mut watching = rig.fleet.events().subscribe();
-    let search = r#"{"pattern":"x"}"#;
-    let quiet = Duration::from_millis(300);
-
-    rig.gate(&id, "Grep", search).await;
-    assert_eq!(published(&mut watching, &id, quiet).await.len(), 1, "the first change");
-
-    rig.gate(&id, "Grep", search).await;
-    assert!(published(&mut watching, &id, quiet).await.is_empty(), "the call time on the row is young");
-
-    tokio::time::sleep(Duration::from_millis(400)).await;
-    rig.gate(&id, "Grep", search).await;
-    let renewed = published(&mut watching, &id, quiet).await;
-    assert_eq!(renewed.len(), 1, "the call time on the row is old: {renewed:?}");
-    assert_eq!(renewed[0].activity.as_ref().and_then(|one| one.now.as_deref()), Some("Searching"));
-
-    rig.gate(&id, "Grep", search).await;
-    assert!(published(&mut watching, &id, quiet).await.is_empty(), "and young again once it went out");
 }

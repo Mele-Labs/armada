@@ -200,10 +200,10 @@ export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
 
 /**
  * What a Session is doing, from Fleet's PreToolUse gate: `now` is the last tool call as a short
- * action, `quietSince` when it was made, and `todos` the agent's list where it keeps one. Todos are
- * detail on top of `now`, never a plan the Session is held to.
+ * action, and `todos` the agent's list where it keeps one. Todos are detail on top of `now`, never a
+ * plan the Session is held to.
  */
-export type SessionActivity = { now?: string; todos?: readonly SessionTodo[]; quietSince?: string };
+export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };

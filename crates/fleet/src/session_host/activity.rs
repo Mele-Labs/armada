@@ -7,9 +7,8 @@
 //!
 //! **The row is large and every publish sends it whole**, so a call is not a row of its own. A
 //! change to `now` or `todos` publishes at once if the row has not gone out within [`PUBLISH_EVERY`],
-//! and otherwise once, when that time is up. `last_call_at` rides the next publish, and is the cause of
-//! one only when the last to carry it is [`RENEW_EVERY`] old. A turn starting clears `now` and
-//! `last_call_at` and keeps `todos`.
+//! and otherwise once, when that time is up. A call that changes neither publishes nothing. A turn
+//! starting clears `now` and keeps `todos`.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -22,18 +21,6 @@ use crate::daemon::Fleet;
 /// The most often a session's row is published for what it is doing.
 pub(crate) const PUBLISH_EVERY: Duration = Duration::from_secs(2);
 
-/// How old the call time on the last published row may get before a call publishes a new one, though
-/// nothing it says changed. A run of identical calls moves neither `now` nor `todos`, and Bridge reads
-/// a call time ten minutes old as a quiet Session.
-pub(crate) const RENEW_EVERY: Duration = Duration::from_secs(60);
-
-/// The two waits, held on [`Hosts`](super::Hosts) so a test can shorten them.
-#[derive(Clone, Copy)]
-pub(crate) struct Pace {
-    pub(crate) every: Duration,
-    pub(crate) renew: Duration,
-}
-
 /// The longest word `now` carries from a command or a file name, and the longest todo.
 const WORD_AT_MOST: usize = 40;
 const NAME_AT_MOST: usize = 80;
@@ -44,11 +31,8 @@ const TODO_AT_MOST: usize = 200;
 pub(crate) struct Activity {
     now: Option<String>,
     todos: Vec<SessionTodo>,
-    last_call_at: Option<String>,
     /// When the row last went out, or was scheduled to by this.
     sent_at: Option<Instant>,
-    /// When the last row to go out carried a call time. None since the turn began.
-    call_sent_at: Option<Instant>,
     /// A change not yet on a published row.
     unsent: bool,
     /// A task is waiting to publish `unsent`. At most one.
@@ -64,9 +48,8 @@ pub(crate) enum Publish {
 }
 
 impl Activity {
-    /// Take one call. `at` is when Fleet's clock says it was made.
-    pub(crate) fn saw(&mut self, gate: &SessionGate, at: String, pace: Pace) -> Publish {
-        self.last_call_at = Some(at);
+    /// Take one call. `every` is the most often a row goes out for it.
+    pub(crate) fn saw(&mut self, gate: &SessionGate, every: Duration) -> Publish {
         let changed = match gate.tool_name.as_str() {
             "TodoWrite" => match todos_of(gate) {
                 Some(todos) if todos != self.todos => {
@@ -83,9 +66,7 @@ impl Activity {
                 _ => false,
             },
         };
-        // A call time that has gone out, and then not for a minute, is worth a row though no word moved.
-        let renewed = self.call_sent_at.is_none_or(|sent| sent.elapsed() >= pace.renew);
-        if !changed && !renewed {
+        if !changed {
             return Publish::Not;
         }
         self.unsent = true;
@@ -93,9 +74,9 @@ impl Activity {
             return Publish::Not;
         }
         match self.sent_at.map(|sent| sent.elapsed()) {
-            Some(since) if since < pace.every => {
+            Some(since) if since < every => {
                 self.trailing = true;
-                Publish::After(pace.every - since)
+                Publish::After(every - since)
             }
             _ => {
                 self.went_out();
@@ -118,17 +99,14 @@ impl Activity {
     fn went_out(&mut self) {
         self.unsent = false;
         self.sent_at = Some(Instant::now());
-        self.call_sent_at = Some(Instant::now());
     }
 
     /// A turn began, and Fleet publishes the row at once. What the last turn was doing is not what
-    /// this one is: `now` and the call time go, and the agent's list stays, true across turns.
+    /// this one is: `now` goes, and the agent's list stays, true across turns.
     pub(crate) fn turn_began(&mut self) {
         self.now = None;
-        self.last_call_at = None;
         self.unsent = false;
         self.sent_at = Some(Instant::now());
-        self.call_sent_at = None;
     }
 
     /// The session ended: nothing is kept, and a waiting task finds nothing owed.
@@ -141,7 +119,6 @@ impl Activity {
         let held = SessionActivity {
             now: self.now.clone(),
             todos: self.todos.clone(),
-            last_call_at: self.last_call_at.clone().map(ipc::Instant::carried),
         };
         (held != SessionActivity::default()).then_some(held)
     }
@@ -309,8 +286,7 @@ where
     pub(super) fn call_seen(self: &Arc<Self>, gate: &SessionGate) {
         let id = gate.session_id.as_str();
         let runtime = self.hosts().of(id);
-        let at = self.clock().now().as_str().to_string();
-        let step = runtime.state().activity.saw(gate, at, self.hosts().activity_pace());
+        let step = runtime.state().activity.saw(gate, self.hosts().activity_every());
         let (fleet, id) = (Arc::clone(self), id.to_string());
         match step {
             Publish::Not => {}

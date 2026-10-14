@@ -2,22 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { QUIET_AFTER_MS, lineOf, nowOf, quietOf, todosOf } from "./session-activity";
-
-const NOW = Date.parse("2026-10-14T14:00:00Z");
-const ago = (ms: number) => new Date(NOW - ms).toISOString();
+import { lineOf, nowOf, todosOf } from "./session-activity";
 
 const session = (change: Partial<Session> = {}): Session =>
   ({ id: "a", attachments: [], rows: [], turn: { state: "working" }, ...change }) as Session;
-
-describe("a running turn that has made no tool call for a while", () => {
-  it("is marked from ten minutes, and not before", () => {
-    const under = session({ activity: { quietSince: ago(QUIET_AFTER_MS - 1) } });
-    const over = session({ activity: { quietSince: ago(QUIET_AFTER_MS) } });
-    expect(quietOf(under, NOW)).toBeUndefined();
-    expect(quietOf(over, NOW)).toMatch(/^No tool call since \d{1,2}:\d{2} [AP]M$/);
-  });
-});
 
 describe("the todos", () => {
   it("come in the order the band draws them: doing, then to do, then done", () => {
@@ -38,13 +26,12 @@ describe("the todos", () => {
 });
 
 describe("a Session whose turn is not running", () => {
-  const activity = { now: "Editing gate.rs", quietSince: ago(QUIET_AFTER_MS * 4), todos: [{ text: "Run it", state: "doing" as const }] };
+  const activity = { now: "Editing gate.rs", todos: [{ text: "Run it", state: "doing" as const }] };
 
   it.each([
     ["idle", session({ activity, turn: { state: "idle" } })],
     ["ended", session({ activity, dead: "ended" })],
   ])("draws nothing when it is %s", (_, one) => {
-    expect(quietOf(one, NOW)).toBeUndefined();
     expect(todosOf(one)).toEqual([]);
     expect(nowOf(one)).toBeUndefined();
     expect(lineOf(one)).toBeUndefined();

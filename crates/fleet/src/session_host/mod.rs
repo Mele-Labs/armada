@@ -90,10 +90,8 @@ pub struct Hosts {
     slot_queue: Arc<queueing::SlotQueue>,
     /// Held while a repository's Helm Session is looked for and made, so two first messages make one.
     helm_starting: tokio::sync::Mutex<()>,
-    /// The most often a session's row goes out for what it is doing, and how old its call time may
-    /// get on a row before a call renews it, in milliseconds.
+    /// The most often a session's row goes out for what it is doing, in milliseconds.
     activity_every: AtomicU64,
-    activity_renews: AtomicU64,
 }
 
 impl Hosts {
@@ -113,22 +111,17 @@ impl Hosts {
             slot_queue: Arc::default(),
             helm_starting: tokio::sync::Mutex::new(()),
             activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
-            activity_renews: AtomicU64::new(activity::RENEW_EVERY.as_millis() as u64),
         }
     }
 
-    pub(crate) fn activity_pace(&self) -> activity::Pace {
-        activity::Pace {
-            every: Duration::from_millis(self.activity_every.load(Ordering::Relaxed)),
-            renew: Duration::from_millis(self.activity_renews.load(Ordering::Relaxed)),
-        }
+    pub(crate) fn activity_every(&self) -> Duration {
+        Duration::from_millis(self.activity_every.load(Ordering::Relaxed))
     }
 
-    /// Shorter waits than the shipped ones, so a test does not sit through them.
+    /// A shorter wait than the shipped one, so a test does not sit through it.
     #[cfg(test)]
-    pub(crate) fn publish_activity_every(&self, every: Duration, renew: Duration) {
+    pub(crate) fn publish_activity_every(&self, every: Duration) {
         self.activity_every.store(every.as_millis() as u64, Ordering::Relaxed);
-        self.activity_renews.store(renew.as_millis() as u64, Ordering::Relaxed);
     }
 
     /// Where a test plants the bound a running turn is stuck past, so it need not outlive ten minutes.

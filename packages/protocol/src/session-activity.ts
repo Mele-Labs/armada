@@ -16,10 +16,4 @@ export type SessionActivity = {
   now?: string;
   /** The agent's own list as its last `TodoWrite` left it. Absent is no list. */
   todos?: SessionTodo[];
-  /**
-   * When the session last made any tool call. It rides the row and moves it only when the one last
-   * published is a minute old, so read it as no fresher than the row it is on, and up to about a minute
-   * behind a session that keeps calling. Absent from the start of a turn until its first call.
-   */
-  last_call_at?: string;
 };

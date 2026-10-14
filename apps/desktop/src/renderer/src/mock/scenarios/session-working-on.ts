@@ -1,7 +1,6 @@
-// What each Session is doing, and what the person is waiting on it for. Five Sessions over the
-// `sessions` scenario: one working through a todo list, one working with no list, one whose turn has
-// made no tool call in forty minutes, one working that also waits on the person, and one that says it
-// is done. `now` is what Fleet detected from the last tool call; the todos are the agent's own report.
+// What each Session is doing, and what the person is waiting on it for. Four Sessions over the
+// `sessions` scenario: one working through a todo list, one working with no list, one working that also
+// waits on the person, and one that says it is done. `now` is what Fleet detected from the last tool call; the todos are the agent's own report.
 // Each `activity` is built from the wire's shape and read by the mapper a real record goes through.
 // The walk `session-working-on` plays it.
 
@@ -29,7 +28,6 @@ const gate: Session = {
   attachments: [{ kind: "slot", slot: 3 }, { kind: "branch", name: "fleet/gate-policy-every-run", slot: 3 }],
   activity: activityOf({
     now: "Editing gate.rs",
-    last_call_at: minutesAgo(1),
     todos: [
       { text: "Read the gate policy", state: "done" },
       { text: "Run the policy on every Job", state: "doing" },
@@ -51,29 +49,7 @@ const backfill: Session = {
     { id: "b3", at: "14:11:02", kind: "tool", text: "Bash cargo check -p store" },
   ],
   attachments: [],
-  activity: activityOf({ now: "Running cargo check", last_call_at: minutesAgo(1) }),
-};
-
-const gone: Session = {
-  id: "s43",
-  title: "Resize handler debounce",
-  turn: { state: "working" },
-  lastTurn: "13:31",
-  lastTurnAt: minutesAgo(42),
-  rows: [
-    ...asked("q1", "Debounce the Job Board's resize handler."),
-    { id: "q2", at: "13:30:20", kind: "tool", text: "Bash pnpm -C apps/desktop test resize" },
-  ],
-  attachments: [{ kind: "slot", slot: 5 }, { kind: "branch", name: "board/resize-debounce", slot: 5 }],
-  activity: activityOf({
-    now: "Running pnpm test",
-    last_call_at: minutesAgo(42),
-    todos: [
-      { text: "Find the observer", state: "done" },
-      { text: "Debounce the observer", state: "done" },
-      { text: "Run the resize tests", state: "doing" },
-    ],
-  }),
+  activity: activityOf({ now: "Running cargo check" }),
 };
 
 const both: Session = {
@@ -94,7 +70,6 @@ const both: Session = {
   ],
   activity: activityOf({
     now: "Editing store_test.rs",
-    last_call_at: minutesAgo(2),
     todos: [
       { text: "Pin the clock in the store tests", state: "done" },
       { text: "Open the pull request", state: "done" },
@@ -131,6 +106,6 @@ const finished: Session = {
 export const sessionWorkingOn: Scenario = {
   ...s200Sessions,
   name: "session-working-on",
-  says: "Five Sessions: a todo list under way, a turn with no list, a turn quiet for forty minutes, one that also waits on the person, and one that is done",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [gate, backfill, gone, both, finished]) },
+  says: "Four Sessions: a todo list under way, a turn with no list, one that also waits on the person, and one that is done",
+  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [gate, backfill, both, finished]) },
 };

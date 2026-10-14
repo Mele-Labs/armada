@@ -564,13 +564,12 @@ describe("what a session waits on", () => {
 });
 
 describe("what a session is doing", () => {
-  const wire = { now: "Editing gate.rs", todos: [{ text: "Read the gate", state: "done" as const }, { text: "Run it on every Job", state: "doing" as const }], last_call_at: AT };
+  const wire = { now: "Editing gate.rs", todos: [{ text: "Read the gate", state: "done" as const }, { text: "Run it on every Job", state: "doing" as const }] };
 
-  it("carries what Fleet detected onto the session, the last call as the instant it went quiet from", () => {
+  it("carries what Fleet detected onto the session", () => {
     expect(sessionOfRecord(record("a", { activity: wire }), undefined, beside()).activity).toEqual({
       now: "Editing gate.rs",
       todos: wire.todos,
-      quietSince: AT,
     });
   });
 
@@ -582,9 +581,9 @@ describe("what a session is doing", () => {
 
   it("is replaced by the next record, never merged: a dropped list and a cleared line do not come back", () => {
     const before = sessionOfRecord(record("a", { activity: wire }), undefined, beside());
-    const later = sessionOfRecord(record("a", { activity: { now: "Running cargo check", last_call_at: AT } }), undefined, beside());
+    const later = sessionOfRecord(record("a", { activity: { now: "Running cargo check" } }), undefined, beside());
     expect(before.activity?.todos).toHaveLength(2);
-    expect(later.activity).toEqual({ now: "Running cargo check", quietSince: AT });
+    expect(later.activity).toEqual({ now: "Running cargo check" });
     expect(sessionOfRecord(record("a"), undefined, beside()).activity).toBeUndefined();
   });
 });

@@ -6,18 +6,7 @@
 import type { WorkingTodo } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-/** How long a running turn may go with no tool call before it is marked. The mock's own figure. */
-export const QUIET_AFTER_MS = 10 * 60_000;
-
 const running = (session: Session): boolean => session.dead === undefined && session.turn.state === "working";
-
-/** The tooltip on a running turn that has gone quiet; nothing for one that has not. */
-export function quietOf(session: Session, now = Date.now()): string | undefined {
-  const since = session.activity?.quietSince;
-  if (!running(session) || since === undefined || now - Date.parse(since) < QUIET_AFTER_MS) return undefined;
-  const at = new Date(since).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `No tool call since ${at}`;
-}
 
 /** The todos in the order the band draws them: the one being done, then those still to do, then those done. */
 export function todosOf(session: Session): WorkingTodo[] {

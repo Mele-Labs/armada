@@ -49,7 +49,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { stateOf } from "./session-state";
 import { useSessions } from "./sessions-draft";
-import { lineOf, quietOf } from "./session-activity";
+import { lineOf } from "./session-activity";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
@@ -107,8 +107,6 @@ export type Item = {
   settling?: true;
   /** What a running Session is doing, for its tile: the todo being done, else its detected action. */
   line?: string;
-  /** A running Session that has gone a while with no tool call: a clock on the line, this its tooltip. */
-  quiet?: string;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
   /** What went wrong on the Job, where the call is that: the card shows it and offers the fixes. */
@@ -412,7 +410,6 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
   const line = lineOf(session);
-  const quiet = quietOf(session);
   const said = stuck ? "Stuck" : replied ? "Replied" : finished ? "Done" : working ? "Working" : "Idle";
   return {
     key: `session:${session.id}`,
@@ -424,7 +421,6 @@ function sessionItem(session: Session, hosts: Hosts): Item {
     state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : said,
     spark: sparkOf(session),
     ...(line === undefined ? {} : { line }),
-    ...(quiet === undefined ? {} : { quiet }),
     title: session.title ?? session.address ?? session.id,
     fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : said.toLowerCase(),
     at: session.lastTurnAt,

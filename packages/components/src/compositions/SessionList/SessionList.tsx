@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BellRing, Clock, LoaderCircle, MessageSquare, Search } from "lucide-react";
+import { BellRing, LoaderCircle, MessageSquare, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -48,8 +48,6 @@ export type SessionRowView = {
   waiting?: readonly string[];
   /** What it is doing, detected: its last tool call as a short action. One line under the title; absent draws none. */
   now?: string;
-  /** Its turn has gone a while with no tool call: a clock at the line's end, this its tooltip. */
-  quiet?: string;
   /** Its retro is being written. */
   retroWriting?: boolean;
   /** Helm's own Session for a repository, pinned to the dock: it carries Helm's mark, and opening it opens the dock. */
@@ -309,16 +307,9 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
                       )}
                       {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
                     </div>
-                    {row.now === undefined && row.quiet === undefined ? null : (
+                    {row.now === undefined ? null : (
                       <div className="armada-session-list__now">
                         <span className="armada-session-list__now-text">{row.now}</span>
-                        {row.quiet === undefined ? null : (
-                          <Tooltip label={row.quiet}>
-                            <span className="armada-session-mark armada-session-list__quiet" role="img" aria-label={row.quiet}>
-                              <Clock size={12} strokeWidth={2} aria-hidden />
-                            </span>
-                          </Tooltip>
-                        )}
                       </div>
                     )}
                     {items.length === 0 ? null : <OpenLine items={items} />}

@@ -4,10 +4,3 @@
   size = "12px"
   status = "Specified"
   notes = "Unambiguous now that hourglass is banned — no other badge is time-shaped. A Job scale glyph, and not lent to a rail row: it is not on [conventions.step_activity_borrowing] and is refused there rather than merely absent. A clock says nobody is acting, which is what grey says beside it; a step waiting on a person is the opposite claim and takes `eye`. #347."
-
-  [[icons.clock.usage]]
-    means = "A Session whose turn is running has made no tool call for a while: at the end of its row's line, its Working on band and its Cockpit tile"
-    group = "Session"
-    size = "12px"
-    status = "Proposed"
-    notes = "Proposed 14 Oct 2026 for the walk `session-working-on`, tooltip `No tool call since 2:14 PM`. A clock says nobody is acting, which is the claim: grey in `--status-not-started`, a thing neither failed nor asking. Drawn only on a running turn; an idle Session is quiet by nature and carries none."
