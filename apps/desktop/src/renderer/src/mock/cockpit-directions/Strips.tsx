@@ -75,7 +75,7 @@ function MainStrip({ main, acts }: { main: Main; acts: Acts }) {
   return (
     <li className="proto-strip" data-tone={main.fixing ? "calm" : "bad"} data-kind="main" aria-label={`Main is red in ${main.repo}`}>
       <div className="proto-strip__band">
-        <StationMark station={{ id: "main", name: "Main", vote: "nogo" }} />
+        <StationMark station={{ id: "main", name: "Main", vote: "nogo", why: [`${main.check ?? "Check"} failing`] }} />
         <span className="proto-strip__title">{main.check}</span>
       </div>
       <div className="proto-strip__body">

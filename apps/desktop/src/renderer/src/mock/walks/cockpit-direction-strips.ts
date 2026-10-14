@@ -13,7 +13,7 @@ const call = (title: RegExp) => region(title);
 const cockpitDirectionStrips = walk("cockpit-ship", [
   { look: glass, say: "The ship at rest. Gray, and lit only where he is owed something" },
   { look: column("Needs you"), say: "Needs you: a question, a done, a stuck Session, a red pull request, a review, a failed Check" },
-  { look: inside(glass, role("img", "Main, Go")), say: "Roll call: main, the merge line, the bays and Autopilot as marks" },
+  { look: inside(glass, role("img", "Main", { exact: true })), say: "Roll call: main, the merge line, the bays and Autopilot as marks" },
   { look: strip("Needs you", "Add the pause marker column"), say: "A Job awaiting review, its pull request a chip on it" },
   { later: glass, say: "A Session that was working replies" },
   { look: button(/Pin the store clock/), say: "It arrives as a transmission in the tray" },
@@ -33,7 +33,7 @@ const cockpitDirectionStrips = walk("cockpit-ship", [
   { press: button("Fix main in armada"), say: "Fix" },
   { look: inside(glass, role("img", "Fixing main")), say: "Handed to a Job" },
   { later: glass, say: "Its fix lands" },
-  { look: inside(glass, role("img", "Main, Go")), say: "Main is green again" },
+  { look: inside(glass, role("img", "Main", { exact: true })), say: "Main is green again" },
   { look: strip("Needs you", "Service worker audit"), say: "The stuck Session, found" },
   { key: "s", on: strip("Needs you", "Service worker audit"), say: "Stop" },
   { look: strip("Working", "Service worker audit"), say: "Stopped, and gray" },

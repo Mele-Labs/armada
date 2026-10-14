@@ -376,20 +376,33 @@ export const STATION_GLYPH: Record<StationId, LucideIcon> = {
   autopilot: Plane,
 };
 
-const VOTE: Record<Exclude<Vote, "off">, { Glyph: LucideIcon; said: string }> = {
-  go: { Glyph: Check, said: "Go" },
-  hold: { Glyph: Pause, said: "Hold" },
-  nogo: { Glyph: X, said: "No-go" },
+const VOTE: Record<Exclude<Vote, "off">, { Glyph: LucideIcon }> = {
+  go: { Glyph: Check },
+  hold: { Glyph: Pause },
+  nogo: { Glyph: X },
 };
 
-/** A station as one mark: its own glyph, and the go, hold or no-go it polled, named by a tooltip and no words. */
-export function StationMark({ station, size = 16 }: { station: Pick<Station, "id" | "name" | "vote">; size?: 12 | 16 | 20 }) {
+type Marked = Pick<Station, "id" | "name" | "vote"> & { why?: readonly string[] };
+
+/** What a station says of itself in words: its name while it is well, else one line per exception. Never the vote. */
+export const stationLines = (station: Marked): string[] => (station.why === undefined || station.why.length === 0 ? [station.name] : station.why.map((line) => `${station.name}: ${line}`));
+
+/** A station as one mark: its own glyph, and the check, pause or cross it polled beside it. The tooltip names why, in words. */
+export function StationMark({ station, size = 16 }: { station: Marked; size?: 12 | 16 | 20 }) {
   const Glyph = STATION_GLYPH[station.id];
   const vote = station.vote === "off" ? undefined : VOTE[station.vote];
-  const said = vote === undefined ? "Off" : vote.said;
+  const lines = stationLines(station);
   return (
-    <Tooltip label={`${station.name}: ${said}`}>
-      <span className="proto-station" data-vote={station.vote} role="img" aria-label={`${station.name}, ${said}`}>
+    <Tooltip
+      label={
+        <span className="proto-why">
+          {lines.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </span>
+      }
+    >
+      <span className="proto-station" data-vote={station.vote} role="img" aria-label={lines.join("; ")}>
         <Glyph size={size} strokeWidth={2} aria-hidden />
         {vote === undefined ? null : <vote.Glyph size={12} strokeWidth={2.5} aria-hidden className="proto-station__vote" />}
       </span>

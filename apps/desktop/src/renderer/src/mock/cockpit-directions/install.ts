@@ -8,9 +8,11 @@ import { cockpitBody } from "../../cockpit/body-seam";
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { forgetLocal } from "./ship";
 import { Strips } from "./Strips";
+import { Wall } from "./Wall";
 
 const BY_DIRECTION: Record<string, ComponentType<CockpitProps>> = {
   strips: Strips,
+  wall: Wall,
 };
 
 /** The walk that plays each direction, so `?walk=` alone chooses it. */

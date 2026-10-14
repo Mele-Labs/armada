@@ -419,7 +419,12 @@ export type Station = {
   vote: Vote;
   /** Only what is not well: the subjects that need him or are broken. */
   exceptions: readonly Subject[];
+  /** Why it is not well, in his terms: at most the worst three, empty while it is well. */
+  why: readonly string[];
 };
+
+/** One exception as a line: the pull request and its failing Check, or the subject and what it is doing. */
+const saidOf = (one: Subject) => (one.pr !== undefined && one.pr.stage === "red" ? `#${one.pr.number} failing Check` : `${one.title} ${one.mark.said.toLowerCase()}`);
 
 const worst = (subjects: readonly Subject[]): Vote => (subjects.some((one) => one.alarm || one.mark.tone === "bad") ? "nogo" : subjects.some((one) => one.needs) ? "hold" : "go");
 
@@ -432,12 +437,15 @@ export function stationsOf(ship: Ship): Station[] {
   // The merge line holds while a pull request is red with nobody at work on it, and stops while main is red.
   const lineTrouble = ship.subjects.filter((one) => one.pr !== undefined && one.pr.stage === "red" && one.alarm);
   const free = ship.bays.some((one) => one.state === "free");
+  const said = (list: readonly Subject[]) => list.slice(0, 3).map(saidOf);
+  const checks = ship.mains.filter((one) => one.state === "red").map((one) => `${one.check ?? "Check"} failing`);
+  const running = ship.mains.some((one) => one.state !== "green" && one.state !== "red");
   return [
-    { id: "sessions", name: "Sessions", vote: worst(sessions), exceptions: trouble(sessions) },
-    { id: "jobs", name: "Jobs", vote: worst(jobs), exceptions: trouble(jobs) },
-    { id: "merge", name: "Merge line", vote: red ? "nogo" : lineTrouble.length > 0 ? "hold" : "go", exceptions: lineTrouble },
-    { id: "main", name: "Main", vote: red ? "nogo" : ship.mains.some((one) => one.state !== "green") ? "hold" : "go", exceptions: [] },
-    { id: "bays", name: "Bays", vote: free ? "go" : "hold", exceptions: [] },
-    { id: "autopilot", name: "Autopilot", vote: ship.autopilot === "off" ? "off" : ship.autopilot === "paused" ? "hold" : "go", exceptions: [] },
+    { id: "sessions", name: "Sessions", vote: worst(sessions), exceptions: trouble(sessions), why: said(trouble(sessions)) },
+    { id: "jobs", name: "Jobs", vote: worst(jobs), exceptions: trouble(jobs), why: said(trouble(jobs)) },
+    { id: "merge", name: "Merge line", vote: red ? "nogo" : lineTrouble.length > 0 ? "hold" : "go", exceptions: lineTrouble, why: red ? ["Stopped for main"] : said(lineTrouble) },
+    { id: "main", name: "Main", vote: red ? "nogo" : running ? "hold" : "go", exceptions: [], why: red ? checks.slice(0, 3) : running ? ["Checks running"] : [] },
+    { id: "bays", name: "Bays", vote: free ? "go" : "hold", exceptions: [], why: free ? [] : ["None free"] },
+    { id: "autopilot", name: "Autopilot", vote: ship.autopilot === "off" ? "off" : ship.autopilot === "paused" ? "hold" : "go", exceptions: [], why: ship.autopilot === "off" ? ["Off"] : ship.autopilot === "paused" ? ["Paused"] : [] },
   ];
 }
