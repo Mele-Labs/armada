@@ -153,6 +153,9 @@ export type Territory = {
 
 export type Placed = { x: number; y: number; s: number; root: string };
 
+/** A pull request as the battlefield draws it: where it stands and which drone, if any, it belongs to. */
+export type PrIn = { key: string; number: number; stage: Pr["stage"]; root: string; owner?: string };
+
 export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas };
 
 /** The files a top directory is drawn for when it lists no directories inside it and Fleet has not counted. */
