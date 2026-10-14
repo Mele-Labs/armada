@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "The narrow title row's menu only, which holds the row's own controls. Never a drag handle, never a list or a Board view, and never a row's more-actions."
   notes = "Added 2026-09-30 when the owner put the narrow title row behind one menu, the way a mobile web app does. Three lines is the silhouette people already read as that menu, and nothing else in the set is three plain bars."
+
+  [[icons.menu.usage]]
+    means = "The title row's one menu at every width: the account, Sleep and Settings, and below the narrow bound the row's other controls"
+    group = "Navigation"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walk `title-bar-menu`. The reservation above is the same menu: the narrow row's menu is now the row's only one, so the glyph stands at every width. Tooltip `Menu`, with `sleep mode on` or `signed out` added where the button carries that state."

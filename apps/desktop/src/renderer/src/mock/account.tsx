@@ -12,7 +12,7 @@ import type { MockDraft } from "./moment";
 
 const STEP_MS = 600;
 const ADD_MS = 700;
-const PULL_MS = 1000;
+const PULL_MS = 450;
 
 const SignedIn = createContext(true);
 

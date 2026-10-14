@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Check, Database, FolderGit2, Globe, House, Laptop, Link as LinkGlyph, RotateCw, UserCheck } from "lucide-react";
 
@@ -141,99 +141,17 @@ function Turning({ said }: { said: string }) {
   );
 }
 
-/** The title bar's account spot: the one button when signed out, the account chip once signed in. */
-export function AccountSpot() {
-  const account = useAccount();
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const choosing = account?.syncs != null;
-
-  // The panel gives way to What syncs when that opens.
-  useEffect(() => {
-    if (choosing) setOpen(false);
-  }, [choosing]);
-
-  // The panel and What syncs share the trailing edge: opening the panel puts the sheet away.
-  const closeSyncs = useRef(account?.closeSyncs);
-  closeSyncs.current = account?.closeSyncs;
-  useEffect(() => {
-    if (open) closeSyncs.current?.();
-  }, [open]);
-
-  const dismiss = account?.dismiss;
-  useEffect(() => {
-    if (!open) return undefined;
-    const away = () => {
-      setOpen(false);
-      dismiss?.();
-    };
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      away();
-    }
-    function onDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) away();
-    }
-    window.addEventListener("keydown", onKey, true);
-    window.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("mousedown", onDown);
-    };
-  }, [open, dismiss]);
-
-  if (account === undefined) return null;
+/** The account's own content: the device code while signing in, what it set up, then the profiles. Absent where there is nothing to show. */
+export function AccountView({ account }: { account: Account }) {
   const here = account.profiles.find((one) => one.active) ?? account.profiles[0];
-  const content =
-    account.flow.phase === "code" ? (
-      <DeviceCode code={account.flow.code} account={account} />
-    ) : account.flow.phase === "setup" ? (
-      <SetUp flow={account.flow} />
-    ) : here === undefined ? null : (
-      <Profiles account={account} />
-    );
+  if (account.flow.phase === "code") return <DeviceCode code={account.flow.code} account={account} />;
+  if (account.flow.phase === "setup") return <SetUp flow={account.flow} />;
+  return here === undefined ? null : <Profiles account={account} />;
+}
 
-  return (
-    <div className="armada-popover armada-account" ref={root}>
-      <span className="armada-popover__trigger">
-        {here === undefined ? (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              account.signIn();
-              setOpen(true);
-            }}
-          >
-            Sign in with GitHub
-          </Button>
-        ) : (
-          <Tooltip label="Account">
-            <button
-              type="button"
-              className="armada-account__chip"
-              aria-label={`Account ${here.login}`}
-              aria-expanded={open}
-              onClick={() => {
-                if (open) account.dismiss();
-                setOpen(!open);
-              }}
-            >
-              <UserCheck size={12} strokeWidth={2} aria-hidden="true" />
-              <span>{here.login}</span>
-            </button>
-          </Tooltip>
-        )}
-      </span>
-      {open && content !== null ? (
-        <div className="armada-popover__panel armada-popover__panel--end armada-account__panel" role="dialog" aria-label={account.flow.phase === "idle" ? "Profiles" : "Sign in"}>
-          {content}
-        </div>
-      ) : null}
-    </div>
-  );
+/** The signed-in login the menu's account entry names. Undefined while signed out. */
+export function accountLogin(account: Account): string | undefined {
+  return (account.profiles.find((one) => one.active) ?? account.profiles[0])?.login;
 }
 
 /** The code, large, over the address it is typed at; the turn says Fleet is waiting. */

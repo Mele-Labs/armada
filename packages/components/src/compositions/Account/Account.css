@@ -1,16 +1,6 @@
-/* The account a machine is signed in to: the title bar's one button, the card of the device code, what
+/* The account a machine is signed in to: the card of the device code, what
    signing in set up, the profiles, and What syncs. Weighted like the pool's viewscreen: a sunken
    glass under a mono header band, state carried in the frame. Tokens only. */
-
-.armada-account {
-  -webkit-app-region: no-drag;
-}
-
-.armada-account__panel {
-  width: calc(var(--space-12) * 8);
-  max-width: none;
-  padding: var(--space-2);
-}
 
 .armada-account__card {
   display: flex;
