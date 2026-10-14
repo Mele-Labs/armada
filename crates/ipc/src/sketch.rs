@@ -35,9 +35,9 @@ pub const MOST_SCENE_BYTES: usize = 32 * 1024;
 pub const MOST_TITLE_CHARS: usize = 120;
 
 const TOP_FIELDS: [&str; 3] = ["nodes", "edges", "strokes"];
-const NODE_FIELDS: [&str; 12] =
+pub(crate) const NODE_FIELDS: [&str; 12] =
     ["id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "step"];
-const EDGE_FIELDS: [&str; 5] = ["id", "from", "to", "label", "flow"];
+pub(crate) const EDGE_FIELDS: [&str; 6] = ["id", "from", "to", "label", "flow", "step"];
 const STROKE_FIELDS: [&str; 2] = ["id", "points"];
 const POINT_FIELDS: [&str; 2] = ["x", "y"];
 
@@ -61,6 +61,10 @@ pub struct ShowSketch {
     /// `ShowWindow`'s is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// The title of an earlier sketch of this session, which the owner reads this one as a change
+    /// to. Fleet keeps that scene whole at the call, so a later replacement does not move the diff.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub against: Option<String>,
 }
 
 /// A sketch that passed every rule, in the form the ledger keeps it.
@@ -71,9 +75,41 @@ pub struct Sketch {
     pub scene: String,
     pub nodes: usize,
     pub edges: usize,
+    /// The earlier scene it is read against, as `{"title", "scene"}` written out, with `scene` the
+    /// earlier scene's JSON text. Absent where the call named none.
+    pub against: Option<String>,
+}
+
+impl Sketch {
+    /// This sketch read against `earlier`, the scene text of the sketch titled `title`. **The two
+    /// are counted together in [`MOST_SCENE_BYTES`]**, because both ride on the record.
+    pub fn read_against(mut self, title: &str, earlier: &str) -> Result<Sketch, String> {
+        let kept = crate::encode(&serde_json::json!({ "title": title, "scene": earlier }))
+            .map_err(|why| refusal(&[why.to_string()]))?;
+        let weight = self.scene.len() + kept.len();
+        if weight > MOST_SCENE_BYTES {
+            return Err(refusal(&[format!(
+                "the scene and the sketch `{title}` it is drawn against weigh {weight} bytes together \
+                 and a sketch holds at most {MOST_SCENE_BYTES}. Draw less per sketch, or leave \
+                 `against` out"
+            )]));
+        }
+        self.against = Some(kept);
+        Ok(self)
+    }
 }
 
 impl ShowSketch {
+    /// The title of the sketch this one is read against, trimmed. A blank one is refused rather than
+    /// taken for none, because the agent meant something.
+    pub fn against_title(&self) -> Result<Option<String>, String> {
+        match self.against.as_deref().map(str::trim) {
+            None => Ok(None),
+            Some("") => Err(refusal(&[String::from("`against` is blank. Name the sketch to read this one against, or leave it out")])),
+            Some(title) => Ok(Some(title.to_string())),
+        }
+    }
+
     /// The sketch, or every reason it is refused in one message an agent can act on.
     pub fn checked(&self) -> Result<Sketch, String> {
         let mut problems = Vec::new();
@@ -96,7 +132,7 @@ impl ShowSketch {
                 scene.len()
             )]));
         }
-        Ok(Sketch { title, scene, nodes, edges })
+        Ok(Sketch { title, scene, nodes, edges, against: None })
     }
 }
 
@@ -234,6 +270,7 @@ fn edge_problems(edges: &[Value], nodes: &[String], problems: &mut Vec<String>) 
             }
         }
         text(fields.get("label"), "label", &here, problems);
+        number(fields.get("step"), "step", false, &here, problems);
         if let Some(flow) = fields.get("flow") {
             if !flow.is_boolean() {
                 problems.push(format!("{here}: `flow` is {}. It must be true or false", seen(Some(flow))));

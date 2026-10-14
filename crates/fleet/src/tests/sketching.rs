@@ -110,3 +110,92 @@ async fn a_call_that_places_no_session_is_refused() {
         panic!("a session Fleet does not know is refused");
     };
 }
+
+fn drawn_against(id: &SessionId, title: &str, scene: &str, against: &str) -> ShowSketch {
+    ipc::decode(
+        "a sketch to show",
+        format!(r#"{{"title":"{title}","session_id":"{}","scene":{scene},"against":"{against}"}}"#, id.as_str()).as_bytes(),
+    )
+    .unwrap()
+}
+
+#[derive(serde::Deserialize)]
+struct Against {
+    title: String,
+    scene: String,
+}
+
+#[tokio::test]
+async fn a_sketch_drawn_against_another_keeps_the_earlier_scene_whole_and_a_later_replacement_does_not_move_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Before", &scene("Fleet"))).await.unwrap();
+    let record = rig.fleet.show_sketch(None, drawn_against(&id, "After", &scene("Daemon"), " Before ")).await.unwrap();
+
+    let after = sketches(&record).into_iter().find(|one| one.detail["title"] == "After").unwrap();
+    let kept: Against = ipc::decode("an against", after.detail["against"].as_bytes()).unwrap();
+    assert_eq!(kept.title, "Before");
+    same(&kept.scene, &scene("Fleet"));
+    same(&after.detail["scene"], &scene("Daemon"));
+    let before = sketches(&record).into_iter().find(|one| one.detail["title"] == "Before").unwrap();
+    assert!(!before.detail.contains_key("against"), "a sketch with no against has none");
+
+    // Replacing the earlier sketch afterwards leaves the diff where it was.
+    let record = rig.fleet.show_sketch(None, drawn(&id, "Before", &scene("Store"))).await.unwrap();
+    let after = sketches(&record).into_iter().find(|one| one.detail["title"] == "After").unwrap();
+    let kept: Against = ipc::decode("an against", after.detail["against"].as_bytes()).unwrap();
+    same(&kept.scene, &scene("Fleet"));
+}
+
+#[tokio::test]
+async fn a_sketch_may_be_redrawn_against_the_one_it_replaces() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Flow", &scene("Fleet"))).await.unwrap();
+    let record = rig.fleet.show_sketch(None, drawn_against(&id, "Flow", &scene("Daemon"), "Flow")).await.unwrap();
+
+    let kept = sketches(&record);
+    assert_eq!(kept.len(), 1);
+    same(&kept[0].detail["scene"], &scene("Daemon"));
+    let against: Against = ipc::decode("an against", kept[0].detail["against"].as_bytes()).unwrap();
+    same(&against.scene, &scene("Fleet"));
+}
+
+#[tokio::test]
+async fn an_against_the_session_holds_no_sketch_of_is_refused_naming_the_titles_it_does_hold() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let Err(Refusal::Unacceptable(none)) =
+        rig.fleet.show_sketch(None, drawn_against(&id, "After", &scene("Daemon"), "Before")).await
+    else {
+        panic!("an earlier sketch that does not exist is refused");
+    };
+    assert_eq!(none.code, "fleet.sketch_against_unknown");
+    assert!(none.message.contains("holds no sketch titled `Before`") && none.message.contains("Sketches it holds: none"), "{}", none.message);
+
+    rig.fleet.show_sketch(None, drawn(&id, "Storage", &scene("Store"))).await.unwrap();
+    let Err(Refusal::Unacceptable(some)) =
+        rig.fleet.show_sketch(None, drawn_against(&id, "After", &scene("Daemon"), "Before")).await
+    else {
+        panic!("still refused");
+    };
+    assert!(some.message.contains("Sketches it holds: Storage"), "{}", some.message);
+    let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
+    assert_eq!(sketches(listed.iter().find(|one| one.id == id).unwrap()).len(), 1, "nothing was kept");
+}
+
+#[tokio::test]
+async fn a_sketch_of_another_artifact_form_is_not_an_earlier_sketch() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet
+        .show_window(None, ipc::ShowWindow { url: "http://localhost:5173/".into(), title: Some("Before".into()), session_id: Some(id.clone()), variations: Vec::new() })
+        .await
+        .unwrap();
+    let Err(Refusal::Unacceptable(refused)) =
+        rig.fleet.show_sketch(None, drawn_against(&id, "After", &scene("Daemon"), "Before")).await
+    else {
+        panic!("a window titled Before is not a sketch");
+    };
+    assert_eq!(refused.code, "fleet.sketch_against_unknown");
+}

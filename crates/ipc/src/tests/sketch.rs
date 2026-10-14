@@ -5,7 +5,7 @@
 use serde_json::json;
 
 use crate::sketch::{
-    MOST_EDGES, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_ICONS, SCENE_KINDS, WIRE_PARTS,
+    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_ICONS, SCENE_KINDS, WIRE_PARTS,
 };
 use crate::ShowSketch;
 
@@ -45,6 +45,96 @@ fn the_lists_the_checker_allows_are_the_lists_scene_ts_parses() {
     assert_eq!(listed_in_scene_ts("SCENE_KINDS"), SCENE_KINDS);
     assert_eq!(listed_in_scene_ts("WIRE_PARTS"), WIRE_PARTS);
     assert_eq!(listed_in_scene_ts("SCENE_ICONS"), SCENE_ICONS);
+}
+
+/// The field names of `export type <name> = { ... };` in `scene.ts`.
+fn fields_in_scene_ts(name: &str) -> Vec<String> {
+    let start = SCENE_TS
+        .find(&format!("export type {name} = {{"))
+        .unwrap_or_else(|| panic!("scene.ts no longer exports type {name}"));
+    let rest = &SCENE_TS[start..];
+    let mut body = rest[rest.find('{').unwrap() + 1..[rest.find("\n};"), rest.find(" };")].into_iter().flatten().min().unwrap()].to_string();
+    while let Some(open) = body.find("/*") {
+        let close = body[open..].find("*/").expect("a comment closes") + open + 2;
+        body.replace_range(open..close, "");
+    }
+    body.split(';')
+        .filter_map(|part| part.split_once(':'))
+        .map(|(field, _)| field.trim().trim_end_matches('?').to_string())
+        .filter(|field| !field.is_empty())
+        .collect()
+}
+
+/// Edge `step` is taken here before `scene.ts` has it; remove this when the type carries it.
+const AHEAD_OF_SCENE_TS: [&str; 1] = ["step"];
+
+#[test]
+fn the_fields_the_checker_takes_are_the_fields_scene_ts_types() {
+    let mut node = fields_in_scene_ts("SceneNode");
+    node.sort();
+    let mut ours: Vec<&str> = NODE_FIELDS.to_vec();
+    ours.sort_unstable();
+    assert_eq!(node, ours);
+
+    let mut edge = fields_in_scene_ts("SceneEdge");
+    edge.extend(AHEAD_OF_SCENE_TS.iter().map(|one| one.to_string()));
+    edge.sort();
+    edge.dedup();
+    let mut ours: Vec<&str> = EDGE_FIELDS.to_vec();
+    ours.sort_unstable();
+    assert_eq!(edge, ours);
+}
+
+#[test]
+fn a_step_is_a_number_on_a_node_and_on_an_edge() {
+    let mut scene = two_boxes();
+    scene["nodes"][0]["step"] = json!(1);
+    scene["edges"][0]["step"] = json!(1.5);
+    sent("Flow", scene.clone()).checked().unwrap();
+    scene["edges"][0]["step"] = json!("second");
+    let said = refused(scene.clone());
+    assert!(said.contains("edges[0] `e1`: `step` is `second`. It must be a number"), "{said}");
+    scene["edges"][0]["step"] = json!(null);
+    assert!(refused(scene).contains("edges[0] `e1`: `step` is null"));
+}
+
+#[test]
+fn the_description_says_how_steps_and_against_work() {
+    for phrase in [
+        "nodes and edges share one numbering",
+        "plays together, in ascending order",
+        "from `from` to `to`",
+        "never pulses",
+        "group nodes as lifelines",
+        "label nodes as points",
+        "against is the title of an earlier sketch",
+    ] {
+        assert!(OPERATION.contains(phrase), "show_sketch.toml does not say `{phrase}`");
+    }
+}
+
+#[test]
+fn against_is_trimmed_and_a_blank_one_is_refused_rather_than_taken_for_none() {
+    let mut call = sent("Flow", two_boxes());
+    assert_eq!(call.against_title(), Ok(None));
+    call.against = Some("  Before ".into());
+    assert_eq!(call.against_title(), Ok(Some("Before".into())));
+    call.against = Some("  ".into());
+    assert!(call.against_title().unwrap_err().contains("`against` is blank"));
+}
+
+#[test]
+fn the_earlier_scene_is_kept_whole_beside_its_title_and_counted_in_the_cap() {
+    let earlier = sent("Before", two_boxes()).checked().unwrap().scene;
+    let kept = sent("Flow", two_boxes()).checked().unwrap().read_against("Before", &earlier).unwrap();
+    let against: serde_json::Value = serde_json::from_str(&kept.against.expect("kept")).unwrap();
+    assert_eq!(against["title"], "Before");
+    assert_eq!(against["scene"], earlier.as_str());
+
+    let heavy = "x".repeat(MOST_SCENE_BYTES);
+    let said = sent("Flow", two_boxes()).checked().unwrap().read_against("Before", &heavy).unwrap_err();
+    assert!(said.contains("the sketch `Before` it is drawn against weigh"), "{said}");
+    assert!(said.contains("together and a sketch holds at most 32768"), "{said}");
 }
 
 #[test]
