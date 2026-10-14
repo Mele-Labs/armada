@@ -1,0 +1,18 @@
+{
+  "name": "@armada/store",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The central store: claims and pull request owners, one Durable Object per account.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.3.7",
+    "@cloudflare/workers-types": "5.20261010.1",
+    "typescript": "^5.9.0",
+    "vitest": "4.1.11",
+    "wrangler": "4.148.0"
+  }
+}

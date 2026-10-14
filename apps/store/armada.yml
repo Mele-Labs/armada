@@ -1,0 +1,28 @@
+# The central store, a Worker and one Durable Object per account, tested in workerd
+# through miniflare. Commands run here, in this directory.
+# `docs/concepts/manifest.md`, *Workspace gating*.
+version: 1
+id: armada-store
+
+# Nothing here imports another package. A change to the install or the lockfile
+# can move workerd or the test plugin, so those run every Check below.
+depends_on:
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+
+setup:
+  requires:
+    - bootstrap
+
+checks:
+  typecheck:
+    # `--noEmit`, no `narrow`: `tsc` reads whatever its tsconfig includes.
+    run: pnpm typecheck
+
+  store_test:
+    run: pnpm exec vitest run --maxWorkers=${width}
+    runner:
+      name: vitest
+    one_test:
+      run: pnpm exec vitest run --maxWorkers=1 -t {}

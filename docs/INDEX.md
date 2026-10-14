@@ -103,6 +103,10 @@ not override, **spec** is a designed artifact, **reference** is lookup material.
 - [`contracts/testkit-fixtures.md`](contracts/testkit-fixtures.md) — *spec.*
   The fixtures reproducing each known Drone failure mode, read by whoever
   builds verification.
+- [`contracts/central-store.md`](contracts/central-store.md) — *contract.* The
+  Worker that holds an account's red main claims and pull request owners: its
+  wire, how a request is signed, what a row may hold, and what Fleet does when
+  it does not answer. `apps/store` is the Worker.
 
 ## Pasted elsewhere
 
