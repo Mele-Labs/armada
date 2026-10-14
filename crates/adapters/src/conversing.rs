@@ -15,8 +15,8 @@ use std::error::Error;
 use std::fmt;
 
 use adapter_traits::{
-    DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt, SpawnConfigRefused, Toolbelt,
-    Worktree,
+    DroneSpawnConfig, Environment, Launch, McpConfig, Model, Prompt, SpawnConfigRefused, ToolUse,
+    Toolbelt, Worktree,
 };
 
 use crate::harness::HeadlessAgent;
@@ -53,6 +53,17 @@ pub const CHANGES_THE_CHECKOUT: &[&str] = &["Edit", "MultiEdit", "Write", "Noteb
 /// read one, and nothing in the stream says which.
 pub fn wrote_the_checkout(tool: &str) -> bool {
     CHANGES_THE_CHECKOUT.contains(&tool)
+}
+
+/// A file read or a shell command run, out of the detail [`crate::transcript`] composed for the call:
+/// the path, and the command as the call carried it.
+pub fn tool_use(tool: &str, detail: &str) -> Option<ToolUse> {
+    let said = detail.trim();
+    match tool {
+        "Read" if !said.is_empty() => Some(ToolUse::Read(said.to_string())),
+        "Bash" if !said.is_empty() => Some(ToolUse::Ran(said.to_string())),
+        _ => None,
+    }
 }
 
 /// The file a write call named, out of the detail [`crate::transcript`] composed

@@ -188,6 +188,16 @@ pub enum SessionFact {
     Touched {
         paths: Vec<String>,
     },
+    /// A file the session read, relative to its `cwd`. **A path and nothing else**, and only one under
+    /// it. Counted for the Fleet's timeline (`docs/practices/protocol.md`, *The Fleet's timeline*).
+    Read {
+        path: String,
+    },
+    /// A shell command the session ran, as it was typed. Fleet hides what looks like a secret in it,
+    /// cuts it, and counts it for the timeline; it is kept nowhere else.
+    Ran {
+        command: String,
+    },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
     Ended {

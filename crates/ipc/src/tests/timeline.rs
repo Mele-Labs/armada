@@ -2,10 +2,10 @@
 
 use crate::{
     decode, encode, Delivered, Event, FleetTimeline, Instant, JobId, ManifestId, SessionId,
-    StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
+    SessionFact, StreamMessage, TimelineAppended, TimelineAsk, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
-const ALL: [TimelineKind; 24] = [
+const ALL: [TimelineKind; 33] = [
     TimelineKind::JobCreated,
     TimelineKind::JobQueued,
     TimelineKind::JobStarted,
@@ -13,6 +13,8 @@ const ALL: [TimelineKind; 24] = [
     TimelineKind::JobCheck,
     TimelineKind::JobJudged,
     TimelineKind::JobFiles,
+    TimelineKind::JobRead,
+    TimelineKind::JobRan,
     TimelineKind::JobAsked,
     TimelineKind::JobAnswered,
     TimelineKind::JobLanded,
@@ -21,6 +23,13 @@ const ALL: [TimelineKind; 24] = [
     TimelineKind::SessionAsked,
     TimelineKind::SessionAnswered,
     TimelineKind::SessionTurn,
+    TimelineKind::SessionEdited,
+    TimelineKind::SessionRead,
+    TimelineKind::SessionRan,
+    TimelineKind::SessionSubagent,
+    TimelineKind::SessionWaiting,
+    TimelineKind::SessionResolved,
+    TimelineKind::SessionSpawned,
     TimelineKind::SessionEnded,
     TimelineKind::SlotLeased,
     TimelineKind::SlotReleased,
@@ -41,8 +50,10 @@ fn every_kind_is_kept_under_its_dotted_name_and_reads_back() {
         names,
         [
             "job.created", "job.queued", "job.started", "job.step", "job.check", "job.judged",
-            "job.files", "job.asked", "job.answered", "job.landed", "job.failed",
-            "session.started", "session.asked", "session.answered", "session.turn", "session.ended",
+            "job.files", "job.read", "job.ran", "job.asked", "job.answered", "job.landed", "job.failed",
+            "session.started", "session.asked", "session.answered", "session.turn", "session.edited",
+            "session.read", "session.ran", "session.subagent", "session.waiting", "session.resolved",
+            "session.spawned", "session.ended",
             "slot.leased", "slot.released", "pr.opened", "pr.checks", "pr.queued", "pr.merged",
             "main.red", "main.green",
         ]
@@ -115,4 +126,13 @@ fn an_appended_entry_travels_as_an_event_and_round_trips() {
         decode::<StreamMessage>("stream message", json.as_bytes()).expect("it round-trips"),
         message
     );
+}
+
+/// The mod's two facts the timeline counts, as `plugins/armada/hooks/fleet.ts` spells them.
+#[test]
+fn a_read_and_a_command_are_told_as_the_mod_spells_them() {
+    let read: SessionFact = decode("a fact", br#"{"kind":"read","path":"src/a.rs"}"#).expect("a read");
+    let ran: SessionFact = decode("a fact", br#"{"kind":"ran","command":"cargo test"}"#).expect("a command");
+    assert_eq!(read, SessionFact::Read { path: "src/a.rs".to_string() });
+    assert_eq!(ran, SessionFact::Ran { command: "cargo test".to_string() });
 }

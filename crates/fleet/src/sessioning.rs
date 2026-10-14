@@ -22,6 +22,7 @@ use crate::adrift::Adrift;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
 use crate::slot_holders::{pool_backs, stand_in_slot};
+use crate::timeline::{Act, Doer};
 
 /// What a session's row reads from the store, taken under the lock.
 pub(crate) struct LedgerReads {
@@ -471,6 +472,7 @@ where
                 session.last_turn_at = Some(now.clone());
                 if terminal {
                     self.hosts().terminals().turn_over(&id);
+                    self.timeline().close_bursts_of(&Doer::of_session(&session));
                     if let Some(line) = said.as_deref().map(crate::session_host::standing::first_line).filter(|line| !line.is_empty()) {
                         store.keep_turn_end(&id, &now, &line).map_err(fault)?;
                     }
@@ -492,12 +494,24 @@ where
             // For the check of who else writes these files; nothing on the ledger changes.
             SessionFact::Touched { paths } => {
                 self.session_wrote(&session, &roots, &paths);
+                // A hosted session is heard from its own process, which enters the same acts.
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
+                }
             }
+            SessionFact::Read { path } if terminal => {
+                self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+            }
+            SessionFact::Ran { command } if terminal => {
+                self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+            }
+            SessionFact::Read { .. } | SessionFact::Ran { .. } => {}
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
             SessionFact::Ended { reason } => {
                 ended = true;
+                self.timeline().close_bursts_of(&Doer::of_session(&session));
                 changed |= session.state != store::SessionState::Ended;
                 session.state = store::SessionState::Ended;
                 session.ended_at = Some(now.clone());

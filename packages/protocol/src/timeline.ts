@@ -5,7 +5,18 @@
 // each `timeline.appended`. The header rules in `protocol.ts` hold here: hand-written, and the sets
 // Fleet closes are written out.
 
-/** What happened. Each names the fact it is read from, in `crates/ipc/src/timeline.rs`. */
+/**
+ * What happened. Each names the fact it is read from, in `crates/ipc/src/timeline.rs`.
+ *
+ * `job.read`, `job.ran`, `session.edited`, `session.read` and `session.ran` are **one entry for a burst**:
+ * `says` carries the count (`Read 14 files`, `Edited 3 files`, `Ran 5 commands`) and `detail` the latest
+ * path or command (a command cut, with what looks like a secret hidden). Fleet writes the entry when the
+ * burst closes but dates it by the first call, so order by `at` and not by `id`. A Job's edits stay
+ * `job.files`. `session.waiting` and `session.resolved` are an item the agent put on, and took off, its
+ * `waiting_for` list; `session.asked` is what Fleet raised (a question or permission card, a reply to
+ * read). `session.subagent` says `Subagent started` or `Subagent finished` with `Type: description` as its
+ * detail; `session.spawned` is the Session whose agent started another (`detail` its title) or forked itself.
+ */
 export type TimelineKind =
   | "job.created"
   | "job.queued"
@@ -14,6 +25,8 @@ export type TimelineKind =
   | "job.check"
   | "job.judged"
   | "job.files"
+  | "job.read"
+  | "job.ran"
   | "job.asked"
   | "job.answered"
   | "job.landed"
@@ -22,6 +35,13 @@ export type TimelineKind =
   | "session.asked"
   | "session.answered"
   | "session.turn"
+  | "session.edited"
+  | "session.read"
+  | "session.ran"
+  | "session.subagent"
+  | "session.waiting"
+  | "session.resolved"
+  | "session.spawned"
   | "session.ended"
   | "slot.leased"
   | "slot.released"

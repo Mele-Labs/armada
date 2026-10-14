@@ -20,6 +20,7 @@ import {
   saidOf,
   touchedOf,
   transcriptPath,
+  usedFact,
 } from './facts'
 
 test('a title is the first line of a prompt, cut, and never a command', () => {
@@ -230,4 +231,14 @@ test('a written file is named from the session directory, and one outside it is 
   expect(touchedOf('/repos/armada', { file_path: '/etc/hosts' })).toBeUndefined()
   expect(touchedOf('/repos/armada', { file_path: '../x/a.rs' })).toBeUndefined()
   expect(touchedOf('/repos/armada', { content: 'x' })).toBeUndefined()
+})
+
+test('a read is told as a path, a command as its first line, and a write as before', () => {
+  expect(usedFact('read', '/repos/armada', { file_path: '/repos/armada/src/a.rs' })).toEqual({ kind: 'read', path: 'src/a.rs' })
+  expect(usedFact('read', '/repos/armada', { file_path: '/etc/hosts' })).toBeUndefined()
+  expect(usedFact('touched', '/repos/armada', { file_path: '/repos/armada/src/a.rs' })).toEqual({ kind: 'touched', paths: ['src/a.rs'] })
+  expect(usedFact('ran', '/repos/armada', { command: '\n cargo test\nand more' })).toEqual({ kind: 'ran', command: 'cargo test' })
+  expect(usedFact('ran', '/repos/armada', { command: 'x'.repeat(500) })).toEqual({ kind: 'ran', command: 'x'.repeat(300) })
+  expect(usedFact('ran', '/repos/armada', { command: '  ' })).toBeUndefined()
+  expect(usedFact('ran', '/repos/armada', {})).toBeUndefined()
 })

@@ -44,6 +44,12 @@ pub enum TimelineKind {
     /// `job.files_changed`.
     #[serde(rename = "job.files")]
     JobFiles,
+    /// A Job's Drone read files. **One entry for a burst**, `says` the count: `Read 14 files`.
+    #[serde(rename = "job.read")]
+    JobRead,
+    /// A Job's Drone ran shell commands. One entry for a burst, as `job.read` is.
+    #[serde(rename = "job.ran")]
+    JobRan,
     /// `job.asking`, when a Drone asks.
     #[serde(rename = "job.asked")]
     JobAsked,
@@ -59,7 +65,8 @@ pub enum TimelineKind {
     /// A Session row seen for the first time.
     #[serde(rename = "session.started")]
     SessionStarted,
-    /// A Session began waiting on the person.
+    /// A Session began waiting on the person for something Fleet raised: a question or permission card, a
+    /// question in a walk window, a reply or a done to read. What the agent listed itself is `session.waiting`.
     #[serde(rename = "session.asked")]
     SessionAsked,
     /// A person's answer to a Session's ask or waiting item.
@@ -68,6 +75,29 @@ pub enum TimelineKind {
     /// A Session's turn ended. The fact is how long it took.
     #[serde(rename = "session.turn")]
     SessionTurn,
+    /// A Session wrote files, whichever tool did: `Edited 3 files`. **One entry for a burst**, `detail`
+    /// the latest path, and never content.
+    #[serde(rename = "session.edited")]
+    SessionEdited,
+    /// A Session read files: `Read 14 files`. One entry for a burst, as `session.edited` is.
+    #[serde(rename = "session.read")]
+    SessionRead,
+    /// A Session ran shell commands: `Ran 5 commands`. One entry for a burst, `detail` the latest
+    /// command, cut and with what looks like a secret hidden.
+    #[serde(rename = "session.ran")]
+    SessionRan,
+    /// A subagent of a Session started, or finished.
+    #[serde(rename = "session.subagent")]
+    SessionSubagent,
+    /// An item the Session's agent put on its `waiting_for` list.
+    #[serde(rename = "session.waiting")]
+    SessionWaiting,
+    /// An item left the Session's `waiting_for` list, answered or cleared.
+    #[serde(rename = "session.resolved")]
+    SessionResolved,
+    /// A Session's agent started another Session, or forked its own.
+    #[serde(rename = "session.spawned")]
+    SessionSpawned,
     /// A Session went from live to ended.
     #[serde(rename = "session.ended")]
     SessionEnded,

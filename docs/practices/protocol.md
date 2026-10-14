@@ -3184,7 +3184,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3887,6 +3887,18 @@ so a forgotten Job keeps its history.
 2m 14s"), from the start Fleet heard to the end it heard. Never on the rows between, and not on the end of a
 turn held for a slot, which resumes in it as one turn. A turn reattached after a restart has no start heard,
 so it enters nothing.
+
+**Reads, edits and commands are entered one to a burst**, because an agent makes hundreds of tool calls an hour and a row for each would bury the turns. `session.read`, `session.edited`, `session.ran`, `job.read` and `job.ran` count what one Session or Job did of one act: `Read 14 files`, `Edited 3 files`, `Ran 5 commands`, with the latest path or command as `detail`. A burst ends when its subject has done none of it for fifteen seconds, when the Session's turn or life ends, or two minutes after it began, so a long run still shows as it goes (`QUIET` and `MOST` in `timeline/tools.rs`). **The entry is written when the burst closes and dated by its first call**, so a client orders a window by `at` and not by `id`. Only a path is kept of a file, and a command is cut to the line and has the value of a `NAME=`, a `--flag` or a query pair whose name says secret, what follows `Authorization:` or `Bearer`, a password in an address and any long token-shaped word hidden: it errs toward hiding.
+
+| Source | Where it is heard |
+|---|---|
+| A terminal Session | The mod's `touched`, `read` and `ran` facts (`sessioning.rs`), counted when the Session's origin is a terminal |
+| A Session Bridge hosts | Its own process's calls (`session_host::hearing`), through the harness's `edited` and `used`, so the mod's facts for it are not counted twice |
+| A Job's Drone | A tap on its stream (`JobToolsSeen`). A Job's edits stay `job.files` |
+
+**The agent's own list is `session.waiting` and `session.resolved`**: an item put on the `waiting_for` list is a wait, dated by its `since`, and one gone from it while the Session lives is resolved, dated by the row that dropped it. What Fleet raised (a question or permission card, a question in a walk window, a reply to read) stays `session.asked`, and a person's answer stays `session.answered`. A Session ending clears its list, which resolves nothing. `session.subagent` is a subagent attached to the row (`Subagent started`) or spent (`Subagent finished`), with `Type: description` as the detail; a Session already holding one when Fleet first saw it enters nothing for it. `session.spawned` is entered under the Session whose agent started another, or forked itself (`start_another_session`, `fork_this_session`), with the new Session's title as the detail.
+
+**A pull request is entered whether or not anyone is shown it**, but Bridge draws it only on the track of the Job or Session that owns it, and leaves out one it cannot attribute (`fromWire` in `cockpit/fleet-events.tsx`).
 
 **Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
 anything before this shipped. A Session already live when Fleet starts is entered as started the first time

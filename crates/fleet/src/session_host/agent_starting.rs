@@ -173,6 +173,8 @@ where
             },
         )
         .await;
+        let named = self.store().lock().await.session(caller).ok().flatten();
+        self.session_spawned(caller, named.map(|one| (one.title, one.manifest_id)).unwrap_or_default(), &words.title, fork);
         let _ = self.published_hosted(caller).await;
         self.published_hosted(&new).await?;
         Ok(SessionHeld { session_id: made.id, title: words.title, fork })

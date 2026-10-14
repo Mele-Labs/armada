@@ -286,6 +286,7 @@ mod work_plan;
 // fixture here already uses, rather than a second one invented beside it.
 pub(crate) mod tmp;
 mod timeline;
+mod timeline_acts;
 mod tools;
 mod transcript;
 mod tuning;

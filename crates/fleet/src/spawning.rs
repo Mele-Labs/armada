@@ -469,6 +469,16 @@ where
             Arc::clone(self.clock()),
             self.turns().feeding(&ipc::JobId::from(job.id())),
         )?;
+        // What it reads and runs, counted for the timeline.
+        let taps = taps.also(Arc::new(crate::timeline::JobToolsSeen {
+            harness: Arc::clone(self.harness()),
+            timeline: self.timeline().clone(),
+            doer: crate::timeline::Doer::job(
+                job.id().as_str(),
+                Some(job.handle()),
+                Some(served.manifest().id().as_str().to_string()),
+            ),
+        }));
         // The files its edit calls name, for the check of who else writes them.
         Ok(match self.tree_spec(&served, job) {
             Some(spec) => taps.also(Arc::new(crate::clashing::WritesSeen {
