@@ -476,7 +476,7 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 ## Working on
 
-**A hosted Session shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `todos[]`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Session Fleet hosts. No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026). The one thing the agent does say is its own to-do list, and Fleet reads that off the call too.
+**A hosted Session shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `todos[]`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Session Fleet hosts: the hook's matcher is `*`. Until 14 Oct 2026 the matcher named only the five tools a lease is taken on, so a read, a search, a subagent or a `TodoWrite` never reached Fleet and `now` and `todos` stayed empty for a Session that was not writing. A call to any other tool is noted and let through before the pool or the Manifest is read. No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026). The one thing the agent does say is its own to-do list, and Fleet reads that off the call too.
 
 | Field | Where it comes from | What it is |
 | --- | --- | --- |

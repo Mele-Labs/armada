@@ -38,9 +38,10 @@ pub const MOD_INSTALLED_MANIFEST: &str = "armada/.claude-plugin/plugin.json";
 /// version the mod should be at.
 pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
 
-/// The tools a hosted session's first write is held on. **`Bash` is among
-/// them** and a line is told read from write by [`reads_only`].
-const GATED_TOOLS: &str = "Write|Edit|MultiEdit|NotebookEdit|Bash";
+/// The tools the gate hook runs before: **all of them**, since Fleet notes every call for the row's
+/// `activity`. Only a write or a `Bash` line is held on a lease, and a line is told read from write
+/// by [`reads_only`]; the gate lets every other call through.
+const GATED_TOOLS: &str = "*";
 
 /// Everything one process of a hosted session is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]
