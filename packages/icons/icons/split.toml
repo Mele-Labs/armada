@@ -25,3 +25,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 13 Oct 2026 for the walk `shared-home`. One line becoming two is what a version that diverged is. `diff` says differs too but is reserved to a criterion's origin, and `arrow-up-down` is sort. Draws in the awaiting review hue, because the owner picks a side. Tooltip `Differs from the home`."
+
+[[icons.split.usage]]
+  means = "A Session's subagent started or finished: a row on the Cockpit's timeline"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Subagent`. The same meaning as the ledger row above, here as an event. A finished subagent draws still in the passed hue; one that has not finished draws `loader-circle` in its place."

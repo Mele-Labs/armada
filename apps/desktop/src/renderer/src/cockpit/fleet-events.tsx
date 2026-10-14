@@ -22,29 +22,14 @@ export type Subject = { kind: "job"; id: string; title: string } | { kind: "sess
 /** The pull request an event is about, where it is drawn on its owner's track. */
 export type Pull = { number: number; title: string; url?: string };
 
-/**
- * What a Session did that is not a turn or an ask. Spelled here until `packages/protocol/src/timeline.ts`
- * lists them (Fleet's `fleet/timeline-tool-events`); the mock hands them over a cast.
- */
-export type ActivityKind = "session.edited" | "session.read" | "session.ran" | "session.subagent" | "session.waiting" | "session.resolved" | "session.spawned";
-
-export type EventKind = TimelineKind | ActivityKind;
-
 /** The coalesced kinds: a burst of work Fleet counted into one row. They draw quieter than a turn, an ask or a pull request. */
-export const QUIET_KINDS: ReadonlySet<EventKind> = new Set<EventKind>(["session.read", "session.edited", "session.ran"]);
-
-/**
- * How the quiet rows sit in the feed. `rows`: each burst its own dim row. `folded`: the bursts a
- * Session ran between two louder events are one row of glyphs, opened for the rows inside. Mock only
- * while the two are weighed.
- */
-export type QuietAs = "rows" | "folded";
+export const QUIET_KINDS: ReadonlySet<TimelineKind> = new Set<TimelineKind>(["session.read", "session.edited", "session.ran", "job.read", "job.ran"]);
 
 export type FleetEvent = {
   id: string;
   /** When it happened. */
   at: string;
-  kind: EventKind;
+  kind: TimelineKind;
   subject: Subject;
   tone: EventTone;
   /** The fact, bare. */
@@ -59,29 +44,19 @@ export type FleetEvent = {
   over?: boolean;
   /** Set where the event is a pull request's: it sits on the track of the Job or Session that owns it. */
   pull?: Pull;
-  /** The files or commands a coalesced row counts, newest first, where the wire carries them. The first is `detail`. */
+  /** The files or commands a coalesced row counts, newest first. The first is `detail`. Absent where Fleet kept none, and the row then opens to nothing. */
   items?: readonly string[];
 };
-
-/** An entry as the mock hands it over: the wire's, and the list a coalesced row opens to. */
-export type WiredEvent = TimelineEvent & { items?: readonly string[] };
 
 const NOTHING: readonly TimelineEvent[] = [];
 const NO_SOURCE: TimelineSource = { get: () => NOTHING, subscribe: () => () => undefined };
 const Held = createContext<TimelineSource>(NO_SOURCE);
-const Quiet = createContext<QuietAs>("rows");
 
 /** Hand a moment's events to the window, fixed. The mock's own mount is the one caller. */
-export function FleetEventsFrom({ events, quiet = "rows", children }: { events: readonly TimelineEvent[] | undefined; quiet?: QuietAs; children: ReactNode }) {
+export function FleetEventsFrom({ events, children }: { events: readonly TimelineEvent[] | undefined; children: ReactNode }) {
   const source = useMemo<TimelineSource>(() => ({ get: () => events ?? NOTHING, subscribe: () => () => undefined }), [events]);
-  return (
-    <Held.Provider value={source}>
-      <Quiet.Provider value={quiet}>{children}</Quiet.Provider>
-    </Held.Provider>
-  );
+  return <Held.Provider value={source}>{children}</Held.Provider>;
 }
-
-export const useQuietAs = (): QuietAs => useContext(Quiet);
 
 /** Hand the window what Fleet serves. Nothing is read until a timeline is on screen to subscribe. */
 export function FleetEventsOver({ source, children }: { source: TimelineSource; children: ReactNode }) {
@@ -107,7 +82,7 @@ export type Names = {
  * request's entry takes its owner's subject and keeps the pull request in `pull`, with its number leading
  * the detail; one nobody owns is undefined.
  */
-export function fromWire(event: WiredEvent, names: Names): FleetEvent | undefined {
+export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undefined {
   const { subject } = event;
   let pull: Pull | undefined;
   let drawn: Subject;
@@ -135,7 +110,7 @@ export function fromWire(event: WiredEvent, names: Names): FleetEvent | undefine
     ...(event.live === true ? { live: true } : {}),
     ...(event.over === true ? { over: true } : {}),
     ...(pull === undefined ? {} : { pull }),
-    ...(event.items === undefined ? {} : { items: event.items }),
+    ...(event.items === undefined || event.items.length === 0 ? {} : { items: event.items }),
   };
 }
 

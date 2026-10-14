@@ -1,4 +1,4 @@
-// The Cockpit's timeline, first take of the quiet kinds: a Session's reads, edits and commands are one dim
+// The Cockpit's timeline with the quiet kinds: a Session's reads, edits and commands are one dim
 // row each, shorter than a turn, an ask or a pull request, a glyph in the spine where they have a dot, and
 // open to the files or commands they count. Over `feed-more-kinds`.
 

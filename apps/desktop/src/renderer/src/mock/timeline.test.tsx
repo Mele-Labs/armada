@@ -182,3 +182,35 @@ test("an entry Fleet appends is drawn at once, in the lane of its subject, and a
   await expect.element(page.getByRole("button", { name: /^Implement started/ })).toBeVisible();
   await expect.element(page.getByText("Pin the clock")).toBeVisible();
 });
+
+test("a burst opens to the files or commands Fleet kept for it, and one kept none opens to nothing", async () => {
+  const session = { kind: "session", id: "s-live" } as const;
+  const held: readonly TimelineEvent[] = [
+    entry(1, "Read 3 files", { kind: "session.read", subject: session, title: "Flaky store", detail: "src/c.rs", items: ["src/c.rs", "src/b.rs", "src/a.rs"] }),
+    entry(2, "Ran 2 commands", { kind: "job.ran", detail: "cargo test", items: ["cargo test", "cargo build"] }),
+    entry(3, "Edited 4 files", { kind: "session.edited", subject: session, title: "Flaky store", detail: "src/d.rs" }),
+  ];
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  off = () => {
+    root.unmount();
+    host.remove();
+  };
+  root.render(
+    <FleetEventsOver source={{ get: () => held, subscribe: () => () => undefined }}>
+      <Timeline now={Date.now()} jobs={[]} filter="running" recessed={false} onOpenJob={() => {}} onOpenSession={() => {}} onOpenLink={() => {}} />
+    </FleetEventsOver>,
+  );
+  await page.getByRole("tab", { name: "Feed" }).click();
+
+  expect(page.getByText("src/b.rs").query()).toBeNull();
+  await page.getByRole("button", { name: /Read 3 files/ }).click();
+  await expect.element(page.getByText("src/b.rs")).toBeVisible();
+  await expect.element(page.getByText("src/a.rs")).toBeVisible();
+  await page.getByRole("button", { name: /Ran 2 commands/ }).click();
+  await expect.element(page.getByText("cargo build")).toBeVisible();
+  // No list was kept for the edit, so there is nothing to press.
+  await expect.element(page.getByText("Edited 4 files")).toBeVisible();
+  expect(page.getByRole("button", { name: /Edited 4 files/ }).query()).toBeNull();
+});

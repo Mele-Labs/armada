@@ -139,7 +139,7 @@ export function mountApp(
                     <NumberedFrom held={mockNumbered}>
                       <PlanUsageSourceProvider value={planUsage}>
                         <DownshiftSourceProvider value={downshift}>
-                          <FleetEventsFrom events={chosen.draft?.events} quiet={chosen.draft?.quiet}>
+                          <FleetEventsFrom events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                 <SharedHomeFrom home={chosen.draft?.sharedHome}>

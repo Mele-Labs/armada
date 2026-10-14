@@ -1,13 +1,11 @@
 // The Cockpit's timeline with what a Session does between its turns: reads, edits and commands Fleet
 // counted into one row each, a subagent that starts and finishes, a waiting item and its resolution, a
 // Session started by another, and a pull request that opens, goes red and goes green. Three Sessions
-// work through the last fifteen minutes over `fleet-timeline`'s two hours. Mock only: the kinds are
-// spelled as Fleet's `fleet/timeline-tool-events` will list them, and a row carries the `items` it opens to.
-// The walk `cockpit-feed-more-kinds` plays it with each burst its own row.
+// work through the last fifteen minutes over `fleet-timeline`'s two hours. A burst's row carries the
+// `items` Fleet keeps for it, newest first. The walk `cockpit-feed-more-kinds` plays it.
 
 import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
 
-import type { ActivityKind } from "../../cockpit/fleet-events";
 import type { Scenario } from "../moment";
 import { s207FleetTimeline as base } from "./fleet-timeline";
 
@@ -26,15 +24,15 @@ const PULL = pull(1896, "Wait on the channel, not the sleep");
 
 // Ids above every entry the base numbers.
 let count = 2000;
-function entry(minutes: number, who: Who, kind: TimelineEvent["kind"] | ActivityKind, tone: TimelineEvent["tone"], says: string, rest: { detail?: string; live?: boolean; items?: readonly string[] } = {}) {
+function entry(minutes: number, who: Who, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, rest: { detail?: string; live?: boolean; items?: string[] } = {}): TimelineEvent {
   count += 1;
   return { id: count, at: ago(minutes), kind, subject: who.subject, title: who.title, tone, says, manifest_id: "armada", ...rest };
 }
 
 const files = (n: number) => `${n} ${n === 1 ? "file" : "files"}`;
-const read = (minutes: number, who: Who, items: readonly string[]) => entry(minutes, who, "session.read", "run", `Read ${files(items.length)}`, { detail: items[0]!, live: true, items });
-const edited = (minutes: number, who: Who, items: readonly string[]) => entry(minutes, who, "session.edited", "run", `Edited ${files(items.length)}`, { detail: items[0]!, live: true, items });
-const ran = (minutes: number, who: Who, items: readonly string[]) =>
+const read = (minutes: number, who: Who, items: string[]) => entry(minutes, who, "session.read", "run", `Read ${files(items.length)}`, { detail: items[0]!, live: true, items });
+const edited = (minutes: number, who: Who, items: string[]) => entry(minutes, who, "session.edited", "run", `Edited ${files(items.length)}`, { detail: items[0]!, live: true, items });
+const ran = (minutes: number, who: Who, items: string[]) =>
   entry(minutes, who, "session.ran", "run", `Ran ${items.length} ${items.length === 1 ? "command" : "commands"}`, { detail: items[0]!, live: true, items });
 
 const under = (dir: string, names: string) => names.split(" ").map((name) => `${dir}/${name}`);
@@ -92,6 +90,5 @@ export const s243FeedMoreKinds: Scenario = {
   ...base,
   name: "feed-more-kinds",
   says: "The Cockpit's timeline with reads, edits and commands, a subagent, a waiting item and its resolution, and a Session started by another",
-  // Cast: the wire's kind list does not hold the seven activity kinds until Fleet's branch lands.
-  draft: { ...base.draft, events: [...(base.draft?.events ?? []), ...(MORE as unknown as TimelineEvent[])] },
+  draft: { ...base.draft, events: [...(base.draft?.events ?? []), ...MORE] },
 };

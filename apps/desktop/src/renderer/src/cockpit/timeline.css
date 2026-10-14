@@ -83,7 +83,6 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 .armada-tl__kind[data-quiet] { color: var(--fg-subtle); }
 .armada-tl__event[data-weight="quiet"] { min-height: var(--space-6); color: var(--fg-muted); }
 .armada-tl__event[data-weight="quiet"] .armada-tl__who { color: var(--fg-muted); }
-.armada-tl__event[data-weight="quiet"] .armada-tl__mark[data-quiet] { width: var(--space-1); height: var(--space-1); background: var(--fg-subtle); box-shadow: none; }
 
 /* A row that opens to its files or commands is a press from its chevron to the end of the line. */
 .armada-tl__opens { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

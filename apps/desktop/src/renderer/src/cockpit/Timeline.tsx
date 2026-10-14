@@ -5,18 +5,18 @@
 // or Session that owns it, and one nobody owns is left out. The filter above narrows it as it narrows the
 // grid. What it draws is Fleet's timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BellRing, Box, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock, FilePenLine, GitMerge, LoaderCircle, Power, Reply, ScrollText, Split as SplitLine, SquareTerminal, Terminal } from "lucide-react";
 import { Button, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
-import type { JobSummary } from "@armada/protocol";
+import type { JobSummary, TimelineKind } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
 import { titleOf as plainTitle } from "@armada/screens";
 
 import { useSessions } from "../sessions-draft";
 import { stateOf } from "../session-state";
 import { timelineOwner } from "./owner";
-import { QUIET_KINDS, STANDINGS, ageOf, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, useQuietAs, type EventKind, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
+import { QUIET_KINDS, STANDINGS, ageOf, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
 
 type Take = "feed" | "lanes" | "split";
@@ -156,13 +156,16 @@ const bucketOf = (event: FleetEvent, now: number): string => {
 };
 
 /**
- * The kinds that wear a glyph in the spine where the rest wear a dot: a Session's coalesced work and its
- * subagents. A waiting, a resolution and a Session started by another keep the Session's dot in their tone.
+ * The kinds that wear a glyph in the spine where the rest wear a dot: the coalesced work of a Session or a
+ * Job's Drone, and a Session's subagents. A waiting, a resolution and a Session started by another keep the
+ * Session's dot in their tone.
  */
-const KIND_MARK: Partial<Record<EventKind, { icon: typeof Clock; said: string }>> = {
+const KIND_MARK: Partial<Record<TimelineKind, { icon: typeof Clock; said: string }>> = {
   "session.read": { icon: ScrollText, said: "Read" },
   "session.edited": { icon: FilePenLine, said: "Edited" },
   "session.ran": { icon: Terminal, said: "Ran" },
+  "job.read": { icon: ScrollText, said: "Read" },
+  "job.ran": { icon: Terminal, said: "Ran" },
   "session.subagent": { icon: SplitLine, said: "Subagent" },
 };
 
@@ -181,7 +184,7 @@ function Mark({ event, running }: { event: FleetEvent; running: boolean }) {
 }
 
 /** What a coalesced row opens to, named for the act: files for a read or an edit, commands for a run. */
-const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" ? "commands" : "files");
+const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" || event.kind === "job.ran" ? "commands" : "files");
 
 function Row({ event, now, open, current, running, opened, onToggle }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
   const says = (
@@ -224,41 +227,6 @@ function Row({ event, now, open, current, running, opened, onToggle }: { event: 
   );
 }
 
-/** What the feed draws for a run of quiet rows the folded take gathered: one row of glyphs, the rows inside when it is opened. */
-function Fold({ events, now, open, current, opened, onToggle, rows }: { events: readonly FleetEvent[]; now: number; open: Open; current: Standing | undefined; opened: boolean; onToggle: () => void; rows: (event: FleetEvent) => ReactNode }) {
-  const newest = events[0]!;
-  const said = [...events].reverse().map((one) => one.says).join(", ");
-  return (
-    <>
-      <li className="armada-tl__event" data-weight="quiet" data-current={current} style={toneOf("idle")}>
-        <Age event={newest} now={now} />
-        <span className="armada-tl__spine">
-          <i className="armada-tl__mark" data-shape="session" data-quiet />
-        </span>
-        <Who subject={newest.subject} open={open} />
-        <button type="button" className="armada-tl__opens" aria-expanded={opened} aria-label={said} onClick={onToggle}>
-          <Tooltip label={opened ? "Hide" : "Show"}>
-            <span className="armada-tl__kind" data-quiet>
-              {opened ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
-            </span>
-          </Tooltip>
-          {[...events].reverse().map((one) => {
-            const Icon = KIND_MARK[one.kind]!.icon;
-            return (
-              <Tooltip key={one.id} label={one.says}>
-                <span className="armada-tl__kind" data-quiet>
-                  <Icon size={12} aria-hidden="true" />
-                </span>
-              </Tooltip>
-            );
-          })}
-        </button>
-      </li>
-      {opened ? events.map((one) => <Fragment key={one.id}>{rows(one)}</Fragment>) : null}
-    </>
-  );
-}
-
 /** A subagent that started and has not finished, by the id of its newest event: the pair is the Session and the work it was given. */
 function unfinished(events: readonly FleetEvent[]): Set<string> {
   const newest = new Map<string, FleetEvent>();
@@ -271,56 +239,28 @@ function unfinished(events: readonly FleetEvent[]): Set<string> {
   return new Set([...newest.values()].filter((one) => one.tone === "run").map((one) => one.id));
 }
 
-/** What the feed lists in order: an event, or the run of quiet events of one subject the folded take gathered, newest first. */
-type Entry = { at: number; events: FleetEvent[] };
-
-function entriesOf(lanes: readonly Lane[], folded: boolean): Entry[] {
-  const entries: Entry[] = [];
-  for (const lane of lanes) {
-    let run: FleetEvent[] = [];
-    const close = () => {
-      if (run.length > 0) entries.push({ at: Date.parse(run[0]!.at), events: run });
-      run = [];
-    };
-    for (const event of lane.events) {
-      if (folded && QUIET_KINDS.has(event.kind)) {
-        run.push(event);
-        continue;
-      }
-      close();
-      entries.push({ at: Date.parse(event.at), events: [event] });
-    }
-    close();
-  }
-  return entries.sort((a, b) => b.at - a.at);
-}
-
 /** Every event of `lanes`, newest first, in blocks by how long ago; the newest of each subject carries how it stands. */
 function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open: Open }) {
-  const folded = useQuietAs() === "folded";
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) => setOpened((held) => (held.has(id) ? new Set([...held].filter((one) => one !== id)) : new Set([...held, id])));
   const standing = new Map(lanes.map((lane) => [lane.events[0]!.id, lane.standing]));
   const running = unfinished(lanes.flatMap((lane) => lane.events));
-  const blocks: { said: string; rows: Entry[] }[] = [];
-  for (const entry of entriesOf(lanes, folded)) {
-    const said = bucketOf(entry.events[0]!, now);
+  const events = lanes.flatMap((lane) => lane.events).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const blocks: { said: string; rows: FleetEvent[] }[] = [];
+  for (const event of events) {
+    const said = bucketOf(event, now);
     const last = blocks[blocks.length - 1];
-    if (last?.said === said) last.rows.push(entry);
-    else blocks.push({ said, rows: [entry] });
+    if (last?.said === said) last.rows.push(event);
+    else blocks.push({ said, rows: [event] });
   }
-  const row = (event: FleetEvent) => <Row key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} />;
   return (
     <>
       {blocks.map((block) => (
         <ol key={block.said} className="armada-tl__block" aria-label={block.said}>
           <li className="armada-tl__part">{block.said}</li>
-          {block.rows.map((entry) => {
-            const [first] = entry.events;
-            if (entry.events.length === 1) return row(first!);
-            const id = `fold:${first!.id}`;
-            return <Fold key={id} events={entry.events} now={now} open={open} current={entry.events.map((one) => standing.get(one.id)).find((one) => one !== undefined)} opened={opened.has(id)} onToggle={() => toggle(id)} rows={row} />;
-          })}
+          {block.rows.map((event) => (
+            <Row key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} />
+          ))}
         </ol>
       ))}
     </>

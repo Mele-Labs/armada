@@ -32,3 +32,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 12 Oct 2026 for the walk `route-a-thought`, tooltip `Finding where this goes`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
+
+  [[icons.loader-circle.usage]]
+    means = "A Session's subagent that has not finished, in place of `split` on its row of the Cockpit's timeline"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Subagent working`. An open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
