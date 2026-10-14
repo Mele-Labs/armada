@@ -4,8 +4,8 @@
     armada covers < paths | plan.py      JSON on stdout, exit 1 on a key nothing runs
 
 A root Check is a bare name and has a static job in checks.yml. A workspace
-Check is `<dir>:<name>`: the desktop smoke tests run in a sharded macOS job, the
-desktop tests that read no surface in one Linux job, and the other Node Checks
+Check is `<dir>:<name>`: the desktop tests that read no surface run in one Linux
+job, and the other Node Checks
 run in one matrix job that calls `armada check <key>`. A key that is
 neither run nor named in EXCLUDED fails the plan, so a Check added to a manifest
 is never skipped for want of a line here. docs/practices/ci.md, *How a Check is
@@ -16,10 +16,6 @@ import sys
 
 # Bare names with a static job in checks.yml.
 ROOT = {"build", "test", "acceptance", "typecheck", "hooks_test", "preview_test", "sync_mod_test"}
-
-# Run by the macOS shard job, which cannot go through `armada check`: that has
-# no `--shard`.
-SHARDED = {"apps/desktop:app_smoke"}
 
 # Run by the Linux job that runs vitest directly, outside the matrix so that
 # `desktop_test` reports it with the shards and `ci` does not wait on it.
@@ -46,7 +42,7 @@ def plan(keys):
             excluded.append(key)
         elif ":" not in key and key in ROOT:
             run.append(key)
-        elif key in SHARDED or key in DESKTOP or key in RUST:
+        elif key in DESKTOP or key in RUST:
             run.append(key)
         elif ":" in key and name in MATRIX:
             run.append(key)
