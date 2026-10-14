@@ -110,6 +110,40 @@ async fn a_turn_fleets_news_starts_leaves_it_standing_and_a_request_clears_it() 
 }
 
 #[tokio::test]
+async fn a_session_goes_idle_after_a_turn_fleets_news_started() {
+    for news in [true, false] {
+        let rig = rig_placing(None);
+        let id = rig.start().await;
+        rig.send(&id, "do the thing").await;
+        rig.stand_in.init(0);
+        rig.stand_in.finishes(0, "done");
+        eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+
+        let told = if news {
+            Arc::clone(&rig.fleet).told_news_by_fleet(id.as_str(), "#1 merged into main.").await
+        } else {
+            Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "#1 merged into main.").await
+        };
+        assert!(told.unwrap());
+        rig.stand_in.init(0);
+        rig.stand_in.finishes(0, "noted");
+        eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    }
+}
+
+/// Two lines reach the process together and it answers them in one turn.
+#[tokio::test]
+async fn a_session_whose_two_lines_ran_as_one_turn_does_not_stay_working() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "first").await;
+    rig.send(&id, "second").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "both");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+}
+
+#[tokio::test]
 async fn an_ended_session_is_refused() {
     let rig = rig_placing(None);
     let id = rig.start().await;
