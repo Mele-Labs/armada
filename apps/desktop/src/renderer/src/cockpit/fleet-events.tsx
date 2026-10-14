@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
+import type { SessionState } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { TimelineEvent, TimelineKind, TimelineTone } from "@armada/protocol";
 
@@ -108,7 +109,7 @@ export const STANDINGS: readonly { id: Standing; said: string }[] = [
   { id: "done", said: "Finished" },
 ];
 
-/** A subject working and silent this long is stuck. */
+/** A Job working and silent this long is stuck. A Session is not read this way: Fleet says whether it is (`session-state.ts`). */
 export const STUCK_MS = 10 * 60_000;
 
 export type Lane = {
@@ -118,14 +119,41 @@ export type Lane = {
   /** Newest first. */
   events: FleetEvent[];
   standing: Standing;
+  /** A Session's state as the Sessions list reads it, where the window holds the Session. */
+  session?: SessionState;
   /** When its newest event happened, in ms. */
   last: number;
 };
 
 const when = (event: FleetEvent): number => Date.parse(event.at);
 
-/** One lane per subject, grouped by standing then newest first. */
-export function lanesOf(events: readonly FleetEvent[], now: number): Lane[] {
+/**
+ * Where a Session's lane goes, from its state alone. **Never an event's `live` flag or its age**: a
+ * Session that finished a turn is not moving, and one that is quiet is stuck only when Fleet says so.
+ */
+function sessionStanding(state: SessionState): Standing {
+  switch (state) {
+    case "waiting":
+    case "replied":
+    case "done":
+      return "ask";
+    case "stuck":
+      return "stuck";
+    case "working":
+      return "run";
+    case "ended":
+      return "done";
+    default:
+      return "idle";
+  }
+}
+
+/**
+ * One lane per subject, grouped by standing then newest first. `reading` is the state of a Session the
+ * window holds, as the Sessions list reads it; a Session it does not hold stands by its newest event's
+ * tone and is never moving or stuck.
+ */
+export function lanesOf(events: readonly FleetEvent[], now: number, reading: (sessionId: string) => SessionState | undefined = () => undefined): Lane[] {
   const by = new Map<string, FleetEvent[]>();
   for (const event of events) {
     const key = keyOf(event.subject);
@@ -134,8 +162,22 @@ export function lanesOf(events: readonly FleetEvent[], now: number): Lane[] {
   const lanes = [...by].map(([key, own]): Lane => {
     const newest = own.sort((a, b) => when(b) - when(a));
     const head = newest[0]!;
-    const standing: Standing = head.over === true ? "done" : head.tone === "ask" ? "ask" : head.tone === "bad" ? "bad" : head.live === true ? (now - when(head) > STUCK_MS ? "stuck" : "run") : "idle";
-    return { key, subject: head.subject, repo: head.repo, events: newest, standing, last: when(head) };
+    const read = head.subject.kind === "session" ? reading(head.subject.id) : undefined;
+    const standing: Standing =
+      head.over === true
+        ? "done"
+        : read !== undefined
+          ? sessionStanding(read)
+          : head.tone === "ask"
+            ? "ask"
+            : head.tone === "bad"
+              ? "bad"
+              : head.subject.kind !== "session" && head.live === true
+                ? now - when(head) > STUCK_MS
+                  ? "stuck"
+                  : "run"
+                : "idle";
+    return { key, subject: head.subject, repo: head.repo, events: newest, standing, ...(read === undefined ? {} : { session: read }), last: when(head) };
   });
   const rank = (lane: Lane) => STANDINGS.findIndex((one) => one.id === lane.standing);
   return lanes.sort((a, b) => rank(a) - rank(b) || b.last - a.last);
