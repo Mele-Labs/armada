@@ -305,6 +305,30 @@ function useView(): [ViewId, (next: ViewId) => void] {
   ];
 }
 
+const ONLY_HERE_KEY = "armada.bridge.sessions-only-here";
+
+/** Whether the list shows only this machine's Sessions. Remembered across relaunches as the view is; both machines by default. */
+function useOnlyHere(): [boolean, (next: boolean) => void] {
+  const [only, set] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(ONLY_HERE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    only,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem(ONLY_HERE_KEY, next ? "1" : "0");
+      } catch {
+        // Not kept: the choice stands until the window closes.
+      }
+    },
+  ];
+}
+
 /** What Fleet refused the last act on a Session, in the words it gave. */
 function Refused() {
   const said = useSessionsSaid();
@@ -416,6 +440,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
   const [view, setView] = useView();
   const retro = useRetroPress();
   const other = useOtherMachine();
+  const [onlyHere, setOnlyHere] = useOnlyHere();
   if (draft === undefined) return null;
   const own: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -439,7 +464,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
   });
   // Another machine's Sessions stand beside this one's, the quiet machine's last, each read off a summary and nothing more.
   const asked = query.trim().toLowerCase();
-  const there: SessionRowView[] = (other?.sessions ?? [])
+  const there: SessionRowView[] = (onlyHere ? [] : (other?.sessions ?? []))
     .filter((one) => asked === "" || [one.title, one.repository, other!.name].some((word) => word.toLowerCase().includes(asked)))
     .map((one) => ({
       id: `${other!.name}:${one.id}`,
@@ -458,7 +483,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} {...(other === undefined ? {} : { onlyHere, onOnlyHere: setOnlyHere })} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }

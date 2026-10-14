@@ -2,7 +2,7 @@
 // the other's, the state and what it waits on as it published them, and nothing to press. One changes
 // state where it stands, then the whole machine goes quiet. Over `other-machine-sessions`.
 
-import { inside, region, role, text, walk } from "../walk";
+import { button, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const sessions = region("Sessions");
@@ -17,6 +17,9 @@ const otherMachineSessions = walk("other-machine-sessions", [
   { look: row("Pin the CI toolchain"), say: "Running there" },
   { look: row("Trim the changelog"), say: "Done there" },
   { look: inside(row("Port the sync adapter"), text("harbor-sync")), say: "A repository this machine does not have" },
+  { press: button("Only this machine"), say: "Only this machine" },
+  { look: row("Release notes script"), say: "The other machine's rows are not drawn: this machine's three" },
+  { press: button("Only this machine"), say: "Both machines again" },
   { later: inside(row("Pin the CI toolchain"), role("img", "Working")), say: "It changes state on the other machine" },
   { look: inside(row("Pin the CI toolchain"), text("Allow the toolchain download?")), say: "Running became waiting, in place" },
   { later: inside(row("Pin the CI toolchain"), role("img", MACHINE)), say: "The other machine stops being heard from" },

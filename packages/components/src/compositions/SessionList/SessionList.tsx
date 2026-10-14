@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BellRing, LoaderCircle, MessageSquare, Search } from "lucide-react";
+import { BellRing, Laptop, LoaderCircle, MessageSquare, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -78,6 +78,9 @@ export type SessionListProps = {
   views?: readonly TabsItem[];
   view?: string;
   onView?: (view: string) => void;
+  /** Another machine's Sessions are listed: the toggle that shows only this machine's, pressed while it does. Absent draws none. */
+  onlyHere?: boolean;
+  onOnlyHere?: (next: boolean) => void;
   /** The moment times are counted from; the clock, unless a story fixes it. */
   now?: number;
 };
@@ -269,7 +272,7 @@ function RemoteRow({ row, now }: { row: SessionRowView; now: number }) {
   );
 }
 
-export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
+export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, onlyHere, onOnlyHere, now = Date.now() }: SessionListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the glass, the arrows across it. j and k are the surface's, which opens the next Session with them.
   useTileGrid(list, { tile: ".armada-session-list__row", cursor: ".armada-session-list__open", steps: false });
@@ -303,7 +306,16 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
           onChange={(event) => onQuery(event.target.value)}
           trailing={<Search size={12} strokeWidth={2} aria-hidden />}
         />
-        {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
+        <div className="armada-session-list__filters">
+          {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
+          {onlyHere === undefined || onOnlyHere === undefined ? null : (
+            <Tooltip label="Only this machine">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Only this machine" aria-pressed={onlyHere} onClick={() => onOnlyHere(!onlyHere)}>
+                <Laptop size={16} aria-hidden="true" />
+              </Button>
+            </Tooltip>
+          )}
+        </div>
       </div>
       <div className="armada-session-list__glass">
         {drawn.map((group) => (

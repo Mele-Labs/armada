@@ -1,7 +1,7 @@
 [icons.laptop]
   means = "A laptop: a machine"
   group = "Machines"
-  size = "12px"
+  size = "12 and 16px"
   status = "Proposed"
-  reserved = "A machine other than the one the window is on. Never Fleet, which is `server`, and never a worktree's disk, which is `hard-drive`."
-  notes = "Minted 13 Oct 2026 for the walk `other-machine-sessions`, for the owner to rule on. A row on the Sessions page that another machine under the same login published, tooltip the machine's name. This machine's rows carry no mark. The walk `shared-home` on `bridge/shared-home-mock` also mints `laptop`, for a Kit row that is only on this machine: the two readings are to be settled when both land."
+  reserved = "A machine as against the one the window is on. Never Fleet, which is `server`, and never a worktree's disk, which is `hard-drive`."
+  notes = "Minted 13 Oct 2026 for the walk `other-machine-sessions`, for the owner to rule on. At 12px, a row on the Sessions page that another machine under the same login published, and the same machine's waiting items on Your move, tooltip the machine's name. This machine's rows carry no mark. At 16px, the Sessions page's toggle that shows only this machine's Sessions, pressed while it does, tooltip Only this machine. The walk `shared-home` on `bridge/shared-home-mock` also mints `laptop`, for a Kit row that is only on this machine: the readings are to be settled when both land."

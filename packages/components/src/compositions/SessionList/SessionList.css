@@ -272,6 +272,9 @@
 
 /* ---- Another machine's Session: presence only, nothing to press ------------------------------- */
 
+/* The views and the machine toggle on one line, the toggle at the far edge as the Cockpit's view toggle is. */
+.armada-session-list__filters { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+
 /* No press, so no hover and no pointer; the open row is only its mark and its title. */
 .armada-session-list__row--remote:hover { background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
 .armada-session-list__row--remote[data-state="waiting"]:hover { background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised)); }
