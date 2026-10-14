@@ -3184,7 +3184,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_completed`, `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3519,14 +3519,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 ## Protocol 23.86: a Session's standing, and the replied and done items
 
-`docs/concepts/session.md`. **Additive only**: one optional field, one enum, two `WaitingSource` values. No new operation. **Nothing the owner sees may depend on an agent making a tool call**: Fleet reads what a Session is doing from the turn, the thread and `done_since`, and the agent's own `waiting_for` and `all_done` only add detail.
+`docs/concepts/session.md`. **Additive only**: one optional field, one enum, two `WaitingSource` values, one new `SessionFact` and one optional field on another. No new operation. **Nothing the owner sees may depend on an agent making a tool call**: Fleet reads what a Session is doing from the turn, the thread and `done_since`, and the agent's own `waiting_for` and `all_done` only add detail.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
 | `SessionRecord.standing?` | `SessionStanding`: `working`, `stuck`, `replied`, `done`, `idle` | The one answer the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not say, and Bridge then reads the turn alone |
+| `SessionFact::TurnStarted` (`report_session`) | nothing | The terminal mod tells a prompt went in. Fleet has the Session working and forgets the reply the turn before left. Never sent for a slash command. A Fleet before 23.86 refuses the fact, which the IDs make moot |
+| `SessionFact::TurnCompleted.said?` | The first line of what the turn ended on, at most 200 characters | Left out when the turn said nothing, never sent as `null`. Fleet keeps it with the turn's end in `session_turn_end` (store migration `20261014T1000Z`) and serves it as the `replied` item's `text` |
 | `WaitingItem.source` | `replied`, `done` | Derived on every read, never kept. Ids `replied:<turn end>` and `done:<done_since>`; `since` is that instant. `replied` carries the first line of the agent's last message as `text` and is answered with words, which reach the Session as a message. `done` carries `Done`; Bridge offers End session (`close_session`) and Keep going (`dismiss_waiting`). Both are dismissable, and a dismissed id never returns |
 
-**Skew.** A Fleet before 23.86 serves neither, and Bridge reads a Session as before. The IDs differ, so the two are refused regardless, and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest. **Declared here and not yet served**: the field and the two sources are on the wire, and Fleet's derivation of them is the next piece.
+**Skew.** A Fleet before 23.86 serves neither, and Bridge reads a Session as before. The IDs differ, so the two are refused regardless, and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest. **Served.** Fleet derives `standing` and both items from observed facts on every read (`session_host/standing.rs`), for hosted and terminal Sessions, and none of it needs the agent to call a tool. A running turn nothing is heard from for ten minutes reads `stuck`, which no event says, so the notice loop's tick republishes the Session when that moves: a `session.changed` per move, in both directions, and no other new traffic. `Timeline::session_turn` no longer marks its entry `live`, since a finished turn is not moving. A Helm Session has no `replied` or `done` item and is never stuck. A terminal turn's running state is kept in memory, so a Fleet restart reads it as idle until the next `turn_started`; a mod older than `0.3.20` reports no `turn_started` or `said`, so its Session is never read as working or stuck and has no reply, and its `done` still stands.
 
 ## Protocol 23.85: the model a hosted Session resolved
 

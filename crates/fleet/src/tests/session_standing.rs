@@ -147,6 +147,26 @@ async fn a_hosted_turn_that_ends_on_a_message_replies_with_no_waiting_for_call()
     assert!(item.id.starts_with("replied:"), "{}", item.id);
 }
 
+/// `all_done` is the agent adding detail: Fleet reads the done off `done_since` and serves it as an item
+/// and a standing, and the person's message takes it away.
+#[tokio::test]
+async fn a_done_since_is_served_as_a_done_item_and_standing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let said = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()) }).await.unwrap();
+    let since = said.done_since.expect("when").as_str().to_string();
+
+    let row = record(&rig, &id).await;
+    assert_eq!(row.standing, Some(SessionStanding::Done));
+    let item = row.waiting_for.iter().find(|one| one.source == WaitingSource::Done).expect("a done item");
+    assert_eq!(item.id, format!("done:{since}"));
+
+    rig.send(&id, "one more thing").await;
+    let after = record(&rig, &id).await;
+    assert!(after.waiting_for.iter().all(|one| one.source != WaitingSource::Done));
+    assert_ne!(after.standing, Some(SessionStanding::Done));
+}
+
 /// The person writing to the Session ends the reply, on the same read.
 #[tokio::test]
 async fn a_reply_goes_when_the_person_messages_the_session() {
