@@ -395,23 +395,25 @@ function Stage({ props, ship, listed, acts }: { props: CockpitProps; ship: Ship;
   return deck.view === "map" ? <MapView props={props} ship={ship} listed={listed} cursor={deck.cursor} /> : <TimelineView props={props} ship={ship} listed={listed} />;
 }
 
-/** The merge queue: one dot for each pull request, nearest main first, ending at main's light. No count. */
+/** The merge queue: one row, one dot for each pull request, each repository's nearest main first, ending at one light for main. No count. */
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
   const views = viewsOf(props.state);
   if (views.length === 0) return null;
+  const red = views.filter((view) => view.hub?.main?.state === "red").map((view) => ship.repos.find((one) => one.root === view.root)?.name ?? view.root);
   return (
     <section className="deck-panel deck-queue armada-view__horizon" aria-label="Merge queue">
-      {views.map((view) => (
-        <div key={view.root} className="armada-view__line">
-          <GitMerge size={16} aria-hidden="true" />
-          <ol className="armada-view__belt">
-            {dotsOf(view, props.state.mergeLines, views, sessions).map((dot) => {
+      <div className="armada-view__line">
+        <GitMerge size={16} aria-hidden="true" />
+        <ol className="armada-view__belt">
+          {views.flatMap((view, at) => [
+            ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
+            ...dotsOf(view, props.state.mergeLines, views, sessions).map((dot) => {
               const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
               const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
               const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
               return (
-                <li key={dot.key} className="armada-view__dot-item">
+                <li key={`${view.root}:${dot.key}`} className="armada-view__dot-item">
                   <Tooltip label={dot.tip} asChild>
                     {pr === undefined ? (
                       <span className="armada-view__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} role="img" aria-label={dot.tip} />
@@ -421,13 +423,13 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
                   </Tooltip>
                 </li>
               );
-            })}
-          </ol>
-          <Tooltip label={view.hub?.main?.state === "red" ? "Main is red" : "Main is green"}>
-            <span className="armada-view__main" data-red={view.hub?.main?.state === "red" || undefined} />
-          </Tooltip>
-        </div>
-      ))}
+            }),
+          ])}
+        </ol>
+        <Tooltip label={red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}>
+          <span className="armada-view__main" data-red={red.length > 0 || undefined} />
+        </Tooltip>
+      </div>
     </section>
   );
 }

@@ -376,3 +376,6 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 /* Running and passed are gray: only a Check that failed is a colour. */
 .deck-check[data-state="running"] .armada-step-mark,
 .deck-check[data-state="passed"] .armada-step-mark { color: var(--fg-subtle); }
+
+/* The one row's seam between two repositories: a thin gap, no mark. */
+.deck-queue__gap { flex: none; width: var(--space-4); }

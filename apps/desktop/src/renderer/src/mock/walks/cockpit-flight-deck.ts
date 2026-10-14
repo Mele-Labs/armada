@@ -29,7 +29,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { look: inside(stage(/^Session: Migration notes/), role("textbox", "Message")), say: "Its thread and its box, as the Session's page has them" },
   { press: inside(region("Bays"), button(/^slot-2/)), say: "A bay" },
   { look: stage("Bay: slot-2"), say: "What holds it, and since when" },
-  { press: inside(region("Merge queue"), button(/^#1896/)), say: "A dot on the merge queue is a pull request" },
+  { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row: a dot for each pull request, one light for main" },
   { look: stage("Pull request #1896"), say: "What the forge says about it" },
   { press: inside(controls, button("Checks")), say: "Checks, from the flight controls" },
   { look: inside(stage("Checks"), region("Running")), say: "What is running now is in one band, what has finished under it" },
