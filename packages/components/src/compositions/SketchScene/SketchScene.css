@@ -12,6 +12,15 @@
   overflow: hidden;
 }
 
+/* A preview is the same drawing in a card's box: the card's glass is its ground and the card is the press. */
+.armada-sketch[data-preview] {
+  block-size: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
 .armada-sketch:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);

@@ -1,4 +1,4 @@
-import { BaseEdge, Handle, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
+import { BaseEdge, Handle, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
   Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, Scale,
   ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
@@ -39,6 +39,11 @@ export type SketchSceneProps = {
    */
   marks?: SceneMarks;
   onMarks?: (marks: SceneMarks) => void;
+  /**
+   * The same drawing shrunk into whatever box it is given, for a card: no rail, no keys, no steps, no
+   * asking, and nothing in it to press or tab to. It is fitted again when its box changes size.
+   */
+  preview?: boolean;
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -187,18 +192,21 @@ const PAN = 80;
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const STEP_MS = 1400;
 
-function Capture({ into, extent }: { into: { current: ReactFlowInstance | null }; extent: string }) {
+function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance | null }; extent: string; preview: boolean }) {
   const flow = useReactFlow();
+  // A preview sits in a box that changes size as the window and its neighbours do, and keeps fitting it.
+  const box = useStore((state) => (preview ? `${String(state.width)}x${String(state.height)}` : ""));
   // Fitted once the nodes are measured, because a fit made before them frames boxes of no size, and
   // again when the Drone's own scene grows or shrinks. The owner's boxes never move the view.
   const measured = useNodesInitialized();
   const seen = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!measured || seen.current === extent) return;
+    const wanted = `${extent}|${box}`;
+    if (!measured || seen.current === wanted) return;
     const first = seen.current === undefined;
-    seen.current = extent;
-    void flow.fitView({ ...FIT, duration: first || reduced() ? 0 : 250 });
-  }, [measured, extent, flow]);
+    seen.current = wanted;
+    void flow.fitView({ ...(preview ? { padding: 0.04 } : FIT), duration: first || preview || reduced() ? 0 : 250 });
+  }, [measured, extent, box, preview, flow]);
   useEffect(() => {
     into.current = flow;
     return () => {
@@ -220,7 +228,7 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 }
 const JOINS_THE_PICK = ["Meta", "Control"];
 
-export function SketchScene({ scene: given, against, onAsk, marks, onMarks }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, onAsk, marks, onMarks, preview = false }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -307,7 +315,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks }: Sk
     });
   }, [shown, diff, current, asked, composed]);
 
-  if (shown === undefined || base === undefined) return <figure className="armada-sketch" role="group" aria-label="Sketch" />;
+  if (shown === undefined || base === undefined) return <figure className="armada-sketch" data-preview={preview || undefined} role="group" aria-label="Sketch" />;
 
   const strokes = [...(shown.strokes ?? []), ...mark.strokes];
   const draw = (points: readonly SketchPoint[]) => edit({ ...mark, strokes: [...mark.strokes, { id: `i${String(mark.strokes.length + 1)}`, points }] });
@@ -392,8 +400,15 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks }: Sk
   const lifted = picked.length > 0 && picked.every((id) => composed?.struck.has(id));
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the keys below act on the canvas it holds
-    <figure ref={figure} className="armada-sketch" role="group" aria-label="Sketch" aria-keyshortcuts="+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} onKeyDown={onKeyDown}>
+    <figure
+      ref={figure}
+      className="armada-sketch"
+      role="group"
+      aria-label="Sketch"
+      {...(preview
+        ? { "data-preview": true, inert: true }
+        : { "aria-keyshortcuts": "+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown", tabIndex: 0, onKeyDown })}
+    >
       <GraphCanvas<SceneRfNode, SceneRfEdge>
         surface="armada-sketch-scene"
         label="Drawing"
@@ -402,16 +417,21 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks }: Sk
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         onNodesChange={onNodesChange}
-        fitViewOptions={FIT}
-        minZoom={0.2}
+        fitViewOptions={preview ? { padding: 0.04 } : FIT}
+        minZoom={preview ? 0.02 : 0.2}
         multiSelectionKeyCode={JOINS_THE_PICK}
         onSelectionChange={setPicked}
-        onNodePress={press}
-        onPanePress={() => {
-          setAsked(undefined);
-          setJoining(undefined);
-        }}
-        rail={<GraphCanvasRailGroup label="What you can do with the sketch" acts={acts} />}
+        still={preview}
+        {...(preview
+          ? {}
+          : {
+              onNodePress: press,
+              onPanePress: () => {
+                setAsked(undefined);
+                setJoining(undefined);
+              },
+              rail: <GraphCanvasRailGroup label="What you can do with the sketch" acts={acts} />,
+            })}
         aside={
           part === undefined || onAsk === undefined ? undefined : (
             <AskBox
@@ -432,7 +452,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks }: Sk
           )
         }
       >
-        <Capture into={flow} extent={extent} />
+        <Capture into={flow} extent={extent} preview={preview} />
         <Ink strokes={strokes} pen={pen && onMarks !== undefined} onDraw={draw} />
         {onMarks === undefined || pen || picked.length === 0 ? null : (
           <GraphCanvasNodeBar label="What you can do with what you picked" nodeIds={picked}>

@@ -18,8 +18,16 @@ export function upTo<T extends { id: string }>(rows: readonly T[], at: string | 
 export function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
   // A sketch card is replaced where a later card holds the same sketch.
   const last = new Map(rows.flatMap((row) => (row.kind === "sketch" ? [[row.sketch, row.id] as const] : [])));
-  return rows.map((row): SessionThreadRow => {
-    if (row.kind === "sketch") return last.get(row.sketch) === row.id ? row : { ...row, replaced: true };
+  return rows.map((row, at): SessionThreadRow => {
+    if (row.kind === "sketch") {
+      // What it was drawn against is the latest card before it with that title, as it was drawn then.
+      const before = row.against === undefined ? undefined : rows.slice(0, at).reverse().find((one) => one.kind === "sketch" && one.title === row.against);
+      return {
+        ...row,
+        ...(before?.kind === "sketch" ? { againstScene: before.drawing } : {}),
+        ...(last.get(row.sketch) === row.id ? {} : { replaced: true as const }),
+      };
+    }
     if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" ||row.kind === "check" || row.kind === "retro") return row;
     if (row.kind === "sent") {
       const { files, sketches, tags, ...rest } = row;

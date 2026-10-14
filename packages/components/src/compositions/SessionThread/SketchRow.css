@@ -66,8 +66,8 @@
 .armada-session-sketch__glass {
   display: block;
   box-sizing: border-box;
-  block-size: calc(var(--h-row) * 5);
-  padding: var(--space-3);
+  block-size: calc(var(--h-row) * 8);
+  padding: var(--space-2);
 }
 
 .armada-session-sketch[data-replaced] .armada-session-sketch__press {
