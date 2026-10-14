@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -248,10 +248,11 @@ function Allowed({
 }) {
   if (lines.length === 0) return null;
   return (
+    <Scrolling>
     <ul className="armada-kit-setup__items">
       {lines.map(({ item, row }) => (
         <li className="armada-kit-setup__item" key={item.name} data-sync={row?.state}>
-          <span className="armada-kit-setup__item-name mono">{item.name}</span>
+          <span className="armada-kit-setup__item-name mono" title={item.name}>{item.name}</span>
           {item.source === "" ? null : <span className="armada-kit-setup__item-from">{sourceWords(item.source)}</span>}
           <Synced row={row} shared={shared} onCompare={onCompare} />
           {onRemove === undefined || row?.state === "home" ? null : (
@@ -267,6 +268,7 @@ function Allowed({
         </li>
       ))}
     </ul>
+    </Scrolling>
   );
 }
 
@@ -280,6 +282,35 @@ function Note({ children }: { children?: ReactNode }) {
  */
 function under(source: string, home: string): string {
   return source.startsWith(`${home}/`) ? source.slice(home.length + 1) : source;
+}
+
+/**
+ * A tile's list, about eight rows tall and scrolling inside the tile past that. **It is a Tab stop
+ * only while it overflows**, and takes the arrows then (`data-scrolls`, `tile-grid.ts`); a list
+ * that fits has nothing to scroll and nothing to stop at.
+ */
+function Scrolling({ children }: { children: ReactNode }) {
+  const area = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    const element = area.current;
+    if (element === null) return undefined;
+    const measure = () => setOverflows(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(element);
+    return () => watch.disconnect();
+  }, []);
+  return (
+    // `ScrollArea`'s own class, for its scrollbar drawn from the tokens, on a div this can measure.
+    <div
+      ref={area}
+      className="armada-scroll-area armada-kit-setup__scroll"
+      {...(overflows ? { tabIndex: 0, "data-scrolls": "" } : {})}
+    >
+      {children}
+    </div>
+  );
 }
 
 /** A row's marks and the act it offers, where a home is given and says anything of the row. */
@@ -325,6 +356,7 @@ function Items({
       {lines.length === 0 && unreadable.length === 0 ? (
         <p className="armada-kit-setup__none">{KIND_NONE[kind]}</p>
       ) : (
+        <Scrolling>
         <ul className="armada-kit-setup__items">
           {lines.map(({ item, row }) => (
             <li className="armada-kit-setup__item" key={`${item.source}/${item.name}`} data-sync={row?.state}>
@@ -345,6 +377,7 @@ function Items({
             </li>
           ))}
         </ul>
+        </Scrolling>
       )}
       {unreadable.length === 0 ? null : (
         /* A file Armada could not describe is still one the person has, so it

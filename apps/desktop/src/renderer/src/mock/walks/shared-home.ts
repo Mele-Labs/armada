@@ -8,6 +8,7 @@ const MARK = (kind: string, said: string) => inside(region(kind), role("img", sa
 
 const sharedHome = walk("shared-home", [
   { press: button("Kit", { exact: true }), say: "Kit" },
+  { look: region("Skills"), say: "A long list scrolls inside its tile" },
   { look: text("nickmele"), say: "The GitHub account the home belongs to, and Sync beside it" },
   { hover: text("nickmele"), say: "The home" },
   { look: MARK("Workflows", "Same as the home"), say: "The workflows match: a mark that recedes" },

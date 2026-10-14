@@ -12,11 +12,15 @@ import type { Scenario } from "../moment";
 
 const SERVERS = "/Users/user/.agent.json";
 
+/** Fifty more skills, so a tile's list is long enough to scroll. */
+const GENERATED_NAMES = Array.from({ length: 50 }, (_, at) => `skill-${String(at + 1).padStart(2, "0")}`);
+const GENERATED = GENERATED_NAMES.map((name) => ({ name, source: `/Users/user/.agent/skills/${name}` }));
+
 const INVENTORY: KitInventory = {
   ...KIT_INVENTORY,
   harness: "Claude",
   kinds: KIT_INVENTORY.kinds.map((one) => {
-    if (one.kind === "skills" && one.read.what === "read") return { ...one, read: { ...one.read, unreadable: [] } };
+    if (one.kind === "skills" && one.read.what === "read") return { ...one, read: { ...one.read, items: [...one.read.items, ...GENERATED], unreadable: [] } };
     if (one.kind === "mcp_servers") {
       return {
         kind: "mcp_servers",
@@ -90,6 +94,7 @@ const row = (kind: string, name: string, state: SharedRow["state"], more: Partia
 const ROWS: SharedRow[] = [
   row("skills", "humanizer", "same"),
   row("skills", "impact-analysis", "same"),
+  ...GENERATED_NAMES.map((name) => row("skills", name, "same")),
   row("plugins", "code-simplifier@official", "same"),
   row("global_instructions", "AGENTS.md", "differs", {
     says: "21 lines, opening # Global Instructions",
