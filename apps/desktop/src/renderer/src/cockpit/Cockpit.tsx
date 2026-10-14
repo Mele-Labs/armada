@@ -128,8 +128,8 @@ function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: rea
 
 /**
  * The calls waiting to be opened, stacked like a deck along the foot of the panel: each a strip a little
- * higher, narrower and dimmer than the one before, its title and who it is about readable. A call put
- * off is dashed and at the back. Pressing one opens it.
+ * higher, narrower and dimmer than the one before, its kind and title readable. A call put off is dashed
+ * and at the back. Pressing one opens it.
  */
 function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly string[]; recall: (key: string) => void }) {
   return (
@@ -148,8 +148,8 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
             onClick={() => recall(one.key)}
           >
             <Icon size={12} aria-hidden="true" />
+            <span className="armada-behind__kind">{one.kind}</span>
             <span>{one.title}</span>
-            {one.where === "" ? null : <span className="armada-behind__where">{one.where}</span>}
             {index === 0 ? <Kbd>{keyFor("call_open")}</Kbd> : null}
           </button>
         );

@@ -271,8 +271,8 @@ span.armada-view__dot { cursor: default; }
 .armada-tray .armada-stack { height: calc(var(--lift) * var(--behind) + var(--space-4)); pointer-events: auto; }
 .armada-tray .armada-behind { border-radius: var(--radius-md); }
 
-/* Who the call is about, after its title. */
-.armada-behind > .armada-behind__where { flex: none; max-width: 40%; color: var(--fg-muted); font-family: var(--font-mono); }
+/* What the call is, before its title. */
+.armada-behind > .armada-behind__kind { flex: none; max-width: 30%; color: var(--fg-muted); font-family: var(--font-mono); }
 
 /* A call that has come in hails him: the strip slides up into the tray and rings out in its hue twice,
    then waits, still. One put off was seen already, so it does neither. */

@@ -1,6 +1,6 @@
-// The Dashboard's one panel: the cockpit. Its top bar filters Your move, Active and Done; what needs the
-// owner comes forward over it as a call whatever the filter, and waits behind when put off. `cockpit/`
-// holds the parts. Mock only, as the Dashboard is.
+// The Dashboard's one panel: the cockpit. Its top bar filters Active, Done and Bays; what needs the
+// owner arrives in a tray along its foot as a call whatever the filter, and opens over it when he asks.
+// `cockpit/` holds the parts. Mock only, as the Dashboard is.
 
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";

@@ -602,7 +602,7 @@ the types and `packages/protocol/src/commander.ts` is Bridge's half.
 
 **Counted as the Job waiting on the owner.** While a card is out
 `JobSummary.asking` reads `true` and `JobDetail.commander_card` carries it, which
-is what puts the Job in Your move and in `list_alerts`' blocked list. Nothing
+is what makes the Job a call in the Cockpit and puts it in `list_alerts`' blocked list. Nothing
 else moves: a running Job keeps running, and an escalated one stays escalated
 with the card beside it. `commander.card` on `/events` is `job.asking`'s shape,
 two messages per card: the card going out, and none coming back.

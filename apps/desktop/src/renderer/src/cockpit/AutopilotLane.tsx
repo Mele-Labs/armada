@@ -1,6 +1,6 @@
 // Autopilot's lane on the Cockpit, #2092: what Fleet holds of each repository's Autopilot, kept current
 // by `autopilot.changed`, and the three places it is drawn — the bar above the glass on every filter,
-// its marks and sidings on the Bays metro, and each set-aside pick as a tile in Your move. One hook, so
+// its marks and sidings on the Bays metro, and each set-aside pick as a tile in Active. One hook, so
 // `Cockpit.tsx` adds a line where each is drawn and nothing else.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -68,7 +68,7 @@ export type AutopilotLane = {
   bar: ReactNode;
   /** The metro's Autopilot parts, while one is on. */
   bays: BaysAutopilot | undefined;
-  /** Each set-aside pick, as a tile in Your move. */
+  /** Each set-aside pick, as a tile in Active. */
   asides: Item[];
 };
 
