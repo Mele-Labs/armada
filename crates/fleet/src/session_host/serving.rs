@@ -659,6 +659,7 @@ where
             id: FLEET_NAME.to_lowercase(),
             title: FLEET_NAME.to_string(),
         };
+        self.hosts().of(session).state().fleet_told += 1;
         Arc::clone(self).send_hosted(sent, from).await.map(|_| true)
     }
 
