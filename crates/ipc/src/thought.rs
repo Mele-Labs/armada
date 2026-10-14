@@ -4,14 +4,15 @@
 //! **Three operations, the first two Bridge's.** `read_thought` takes the words a person typed into
 //! Helm's box and answers whether they are a question for Helm or a thought for other running
 //! work, and which. `record_thought_sent` is said after Bridge delivered the words to that work: Fleet
-//! keeps a row in Helm's thread and publishes `helm.thought_routed`. Neither sends anything to a
-//! Session, a Job or Helm's own session: delivery is the acts that already exist. `tell_session` is
-//! Helm's own delivery to a live Session, for the words that reach Helm as a request, and it
-//! keeps the same row and the same event itself.
+//! keeps a `sent` row in the Helm Session's thread (`SessionRow::Sent`) and publishes
+//! `helm.thought_routed`. Neither sends anything to a Session, a Job or Helm's own process:
+//! delivery is the acts that already exist. `tell_session` is Helm's own delivery to a live
+//! Session, for the words that reach Helm as a request, and it keeps the same row and the same
+//! event itself.
 
 use serde::{Deserialize, Serialize};
 
-use crate::hosted_sessions::{SentFile, SessionTag, SessionUpload};
+use crate::hosted_sessions::{SessionTag, SessionUpload};
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::SessionId;
 
@@ -60,13 +61,13 @@ pub enum ThoughtReading {
 }
 
 /// `record_thought_sent` (`POST /helm/thought_sent?manifest_id=`): the words were delivered. The
-/// manifest is the Helm conversation whose thread keeps the row, as `ask_helm`'s is.
+/// manifest names the Helm Session whose thread keeps the row, as `ask_helm`'s does.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ThoughtSent {
     pub text: String,
     pub target: ThoughtTarget,
-    /// What was sent to the Session with the words. Fleet keeps it in Helm's own directory, as an
-    /// ask's, so the row can draw it after a restart.
+    /// What was sent to the Session with the words. Fleet keeps it with the Helm Session's own
+    /// uploads, as a message's, so the row can draw it after a restart.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<SessionUpload>,
     /// The Sessions, Jobs, pull requests, issues and branches the words named.
@@ -85,26 +86,12 @@ pub struct TellSession {
     pub text: String,
 }
 
-/// A thread row: these words went to a Session or a Job and never to Helm's session. A message on
-/// `observe_helm`'s socket, `message: "sent"`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HelmSent {
-    pub ts: Instant,
-    pub text: String,
-    pub target: ThoughtTarget,
-    /// The files and pictures that went with the words, read back with `get_helm_file`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub files: Vec<SentFile>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tags: Vec<SessionTag>,
-}
-
 /// `helm.thought_routed`: Helm's reading sent a person's words to running work. **Helm's act as
-/// its own event type**, beside `helm.changed_checkout`. It names where and never the words,
+/// its own event type**, beside `studio.helm_acted`. It names where and never the words,
 /// which are the thread's.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelmThoughtRouted {
-    /// The conversation whose thread holds the words.
+    /// The Helm Session whose thread holds the words, by its repository.
     pub manifest_id: ManifestId,
     pub to: ThoughtKind,
     /// The Session's id, or the Job's.

@@ -79,7 +79,7 @@ proposal that reintroduces one of them is answering a question already settled.
 |---|---|---|
 | Skills in a repository | Worked, but was not portable to other projects | The Manifest. A repository carries its own setup, and one Fleet serves every repository a person adds rather than being configured per project |
 | A CLI | Did not surface the information he needed | Bridge, and why it is a board that is scanned rather than output that is read |
-| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's Evidence, a `helm.changed_checkout` — never a transcript read as a claim. Helm is a conversation with the tools of a terminal session, and the structure is what survives it |
+| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's Evidence, a Session's branch — never a transcript read as a claim. Helm is a conversation with the tools of a terminal session, and the structure is what survives it |
 | Armada v1 | Close | This |
 
 **The third one explains more of the design than it looks like.** Evidence is
@@ -116,7 +116,7 @@ The flag stays, and Kit does not weaken it: `#1275` lets a person connect an MCP
 
 **It is a Drone's and not Helm's.** A Drone is unattended, and the flag is what
 stops one reaching an operator's accounts with nobody watching. Helm is that
-operator, in their own checkout, reading the reply as it is written — so a Helm
+operator, in a Session of their own, reading the reply as it is written — so a Helm
 session comes up holding what they hold, measured at nineteen servers on this
 machine in
 [spike 18](spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md).
@@ -140,7 +140,7 @@ not bring it.
 passes on a non-empty diff and the Judge alone — an empty Check registry expands
 to nothing in `crates/config/src/resolve.rs` — and #847 is what tells a person so.
 
-**A conversation is not a record.** Helm holds what a terminal session holds and edits the checkout on your ask (`#1373`), so it does real work in conversation — and what persists is the Studio's typed graph, the event that names each write, and the Jobs it drafted. Nothing downstream reads the thread. See the third attempt: what was rejected was reading a transcript as a claim, not talking.
+**A conversation is not a record.** Helm is a hosted Session and holds what a terminal session holds, writing in a slot on a branch like any Session, so it does real work in conversation — and what persists is the Studio's typed graph, the branch, and the Jobs it drafted. Nothing downstream reads the thread. See the third attempt: what was rejected was reading a transcript as a claim, not talking.
 
 **It is not about throughput.** Running more agents was never the problem.
 

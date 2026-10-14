@@ -15,7 +15,7 @@
 // arm's own read-and-publish, used nowhere else the switch is not.
 
 import { connectedTo, PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
-import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
+import type { Connection, JobSummary, ModelChoices, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
 import { questionsJob } from "@armada/screens/src/outstanding";
 import type { BridgeState } from "../shared/bridge";
@@ -122,6 +122,17 @@ export async function readLimits(port: number, publish: (change: Partial<BridgeS
 export async function readPreferences(port: number, publish: (change: Partial<BridgeState>) => void): Promise<void> {
   const read = await preferencesOf(port);
   if (read !== null) publish({ preferences: read });
+}
+
+/**
+ * The models Fleet holds, read into `holds.models` alone. **A failed read keeps what was held**,
+ * `holdingsOf`'s rule. The held `holds` is taken after the answer, so a listing published while
+ * this was out is not written over.
+ */
+export async function readModels(port: number, host: Pick<ArrivalHost, "current" | "publish">): Promise<void> {
+  const answer = await ask(port, "GET", "/models");
+  if (answer.ok !== true) return;
+  host.publish({ holds: { ...host.current().holds, models: answer.body as ModelChoices } });
 }
 
 /** What a `proposal.moved` has settled, on the row it names and on its detail where that Job is open. */
@@ -512,6 +523,9 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     publishSettings(list, host.publish);
     // The limits and preferences are read off the same file now, and the count follows the limits.
     for (const read of [readLimits, readPreferences, readCapacity]) void read(fleet.port, host.publish);
+    // And the models: `models.default` and `models.session` live in the same file, and the Session
+    // composer's empty Model option reads the second off `holds`.
+    void readModels(fleet.port, host);
     return;
   }
   if (event.kind === "merge_lines.changed") {
@@ -559,6 +573,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...state } = event;
     host.modelDownshift.changed(state);
+    // An accept or a restore moves `models.session`, which `holds.models` read once and would keep.
+    void readModels(fleet.port, host);
     return;
   }
   if (event.kind === "timeline.appended") {

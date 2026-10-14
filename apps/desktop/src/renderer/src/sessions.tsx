@@ -58,6 +58,7 @@ import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
+import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
@@ -428,6 +429,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
       ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
       ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
+      ...(session.helm === true ? { helm: true } : {}),
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
@@ -449,9 +451,9 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
-type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
+export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
 
-const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
+export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
   open === undefined
     ? undefined
     : session.attachments.find((one) =>
@@ -460,7 +462,7 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
 
-function ReadingSheet({
+export function ReadingSheet({
   sessionId,
   readSubagent,
   one,
@@ -607,7 +609,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
 
-function entriesOf(
+export function entriesOf(
   session: Session,
   goes: LedgerGoes,
   read: (one: Reading) => void,
@@ -645,7 +647,14 @@ function entriesOf(
       ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
-        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, { choice: at }) })) }),
+        : {
+            options: one.options.map((option, at) => ({
+              label: option.label,
+              ...(option.description === undefined ? {} : { description: option.description }),
+              onPick: () => answerWaiting(one.id, { choice: at }),
+            })),
+            onOther: (text: string) => answerWaiting(one.id, { text }),
+          }),
       ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
@@ -783,6 +792,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
+  // The lapsed question answered from here, hidden until Fleet's thread shows the message that settles it.
+  const [answeredLapse, setAnsweredLapse] = useState<string | undefined>();
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
   const threadRows = useThreadRows(session);
@@ -985,6 +996,18 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                   },
                 })}
             onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+            {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
+              ? {}
+              : {
+                  lapsed: {
+                    id: session.lapsed.id,
+                    questions: session.lapsed.questions,
+                    onAnswer: (answers) => {
+                      const lapse = session.lapsed!.id;
+                      void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
+                    },
+                  },
+                })}
             onOpenSession={onOpen}
           />
           {session.dead !== undefined ? null : (
@@ -1152,7 +1175,8 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
 /** The rail surface: the list, or the Session open on it. */
 /** Sessions in the order the list draws them: under each heading in turn. */
 export function listed(sessions: readonly Session[]): string[] {
-  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true).map((one) => one.id));
+  // Helm's Session opens the dock and no page, so j and k pass it by.
+  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true && one.helm !== true).map((one) => one.id));
 }
 
 /** Whether a key press belongs to a field, which j and k must leave alone. */

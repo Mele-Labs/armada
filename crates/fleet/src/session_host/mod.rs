@@ -29,11 +29,13 @@ mod process;
 pub mod queueing;
 pub(crate) mod releasing;
 mod rows;
-pub(crate) use rows::{mention_line, UserLine};
+pub(crate) use rows::UserLine;
+#[cfg(test)]
+pub(crate) use rows::mention_line;
 mod serving;
 mod thread_cache;
 pub(crate) use agent_starting::UNSENT_ITEM;
-pub(crate) use serving::NO_SUCH_SESSION;
+pub(crate) use serving::{mode_of, MESSAGE_EMPTY, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
@@ -75,6 +77,8 @@ pub struct Hosts {
     plan: Mutex<ipc::PlanUsage>,
     /// Sessions refused a slot because the pool was full, and waiting for one.
     slot_queue: Arc<queueing::SlotQueue>,
+    /// Held while a repository's Helm Session is looked for and made, so two first messages make one.
+    helm_starting: tokio::sync::Mutex<()>,
 }
 
 impl Hosts {
@@ -90,7 +94,12 @@ impl Hosts {
             terminals: Terminals::default(),
             plan: Mutex::new(ipc::PlanUsage::default()),
             slot_queue: Arc::default(),
+            helm_starting: tokio::sync::Mutex::new(()),
         }
+    }
+
+    pub(crate) fn helm_starting(&self) -> &tokio::sync::Mutex<()> {
+        &self.helm_starting
     }
 
     pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
@@ -255,6 +264,10 @@ pub(crate) struct State {
     /// When the turn running now began, by Fleet's clock, for the timeline's account of how long it
     /// took. Set when the process says a turn started and taken when one ends.
     pub turn_began: Option<String>,
+    /// This is a repository's Helm Session: its door is Helm's, which places its calls.
+    pub helm: bool,
+    /// What its last `get_events_since` was answered, kept for Helm's debug record. In memory.
+    pub polled: Option<ipc::EventsSince>,
 }
 
 impl State {
@@ -287,6 +300,8 @@ impl State {
             retried: false,
             reattached_busy: false,
             turn_began: None,
+            helm: false,
+            polled: None,
         }
     }
 }

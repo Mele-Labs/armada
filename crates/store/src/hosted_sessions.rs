@@ -26,9 +26,12 @@ pub struct KeptHosting {
     /// The session whose conversation this one began as a copy of. Read until
     /// the process has run, after which the session resumes its own.
     pub fork_of: Option<String>,
+    /// This is the repository's Helm: told Helm's note, and found by the dock.
+    pub helm: bool,
 }
 
-const COLUMNS: &str = "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of";
+const COLUMNS: &str =
+    "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, helm";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -41,6 +44,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         lease_slot: row.get::<_, Option<i64>>(6)?.map(|slot| slot as u32),
         lease_branch: row.get(7)?,
         fork_of: row.get(8)?,
+        helm: row.get::<_, i64>(9)? != 0,
     })
 }
 
@@ -50,7 +54,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
                 ),
                 params![
                     hosting.session_id,
@@ -62,6 +66,7 @@ impl Store {
                     hosting.lease_slot.map(i64::from),
                     hosting.lease_branch,
                     hosting.fork_of,
+                    i64::from(hosting.helm),
                 ],
             )
             .map(|_| ())
@@ -78,6 +83,39 @@ impl Store {
             )
             .optional()
             .map_err(fault("reading a hosted session"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The live Helm Session of a repository, if it has one. At most one is ever kept live.
+    pub fn live_helm_of(&self, manifest_id: &str) -> Result<Option<KeptHosting>, WriteError> {
+        self.helm_hosting(manifest_id, true)
+    }
+
+    /// The newest Helm Session of a repository, live or ended, so the next one starts on what the
+    /// last was tuned to.
+    pub fn latest_helm_of(&self, manifest_id: &str) -> Result<Option<KeptHosting>, WriteError> {
+        self.helm_hosting(manifest_id, false)
+    }
+
+    fn helm_hosting(&self, manifest_id: &str, live: bool) -> Result<Option<KeptHosting>, WriteError> {
+        let columns = COLUMNS
+            .split(", ")
+            .map(|column| format!("h.{column}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let wanted = if live { "AND s.state = 'live'" } else { "" };
+        self.conn
+            .query_row(
+                &format!(
+                    "SELECT {columns} FROM hosted_sessions h JOIN sessions s ON s.id = h.session_id
+                     WHERE h.helm = 1 AND h.manifest_id = ?1 {wanted}
+                     ORDER BY s.started_at DESC, s.id DESC LIMIT 1"
+                ),
+                [manifest_id],
+                kept,
+            )
+            .optional()
+            .map_err(fault("reading a repository's Helm session"))
             .map_err(WriteError::Database)
     }
 

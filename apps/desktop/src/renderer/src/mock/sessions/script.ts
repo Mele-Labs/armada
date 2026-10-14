@@ -16,6 +16,8 @@ export type SessionsStore = SessionsDraft & {
   dispose: () => void;
   attach: (id: string, attachment: SessionAttachment) => void;
   drop: (id: string, itemId: string) => void;
+  /** Changes a Session as it stands, for a scenario that scripts one Session of its own. */
+  edit: (id: string, change: (one: Session) => Session) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
   pace?: Pace;
 };
@@ -510,9 +512,10 @@ export function sessionsStore(
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
       edit(id, (one) => {
-        const { pendingTags, done, ...rest } = one;
+        const { pendingTags, done, lapsed, ...rest } = one;
         void pendingTags;
         void done;
+        void lapsed;
         const looking = taggedJobs
           .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
           .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));
@@ -736,6 +739,7 @@ export function sessionsStore(
       closeWalkWindow();
     },
     attach: (id, attachment) => addTo(id, [], [attachment]),
+    edit,
     // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
     drop: (id, itemId) =>
       edit(id, (one) => {

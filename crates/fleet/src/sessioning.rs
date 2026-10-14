@@ -223,6 +223,7 @@ where
             };
             record.mod_out_of_date = self.mod_out_of_date(session);
         }
+        record.helm = reads.hosting.as_ref().is_some_and(|hosting| hosting.helm);
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
@@ -892,5 +893,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         done_since: None,
         held_until: None,
         context_breakdown: None,
+        helm: false,
     }
 }

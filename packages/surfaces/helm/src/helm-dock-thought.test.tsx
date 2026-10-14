@@ -1,12 +1,14 @@
 // What Helm's dock does with a thought typed in its box, mounted on its own: the card's keys act only
 // while the box is empty, a question or a failed read is asked of Helm at once, and the row for words
-// sent on is the thread's, drawn when it arrives and not when Send is pressed.
+// sent on is the Helm Session's thread, drawn when it arrives and not when Send is pressed.
 
 import { useState } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { HelmContext, HelmThreadItem } from "@armada/protocol";
+import { SessionThread } from "@armada/components";
+import type { SessionThreadRow } from "@armada/components";
+import type { HelmContext } from "@armada/protocol";
 import { mount, unmount } from "@armada/screens/src/mounted";
 import { MANIFEST_ID, MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
 import { HelmDock } from "./HelmDock";
@@ -32,23 +34,23 @@ const sentChip = () => page.getByRole("button", { name: /^Sent to / });
 
 type Wiring = {
   read?: ThoughtRouting["read"];
-  send?: (target: RouteTarget, text: string, deliver: (item: HelmThreadItem) => void) => Promise<boolean>;
-  items?: HelmThreadItem[];
+  send?: (target: RouteTarget, text: string, deliver: (row: SessionThreadRow) => void) => Promise<boolean>;
+  rows?: SessionThreadRow[];
 };
 
 /** Where a test plays Fleet: the dock hands this the way to put a row into the thread it holds. */
-type Thread = { deliver?: (item: HelmThreadItem) => void };
+type Thread = { deliver?: (row: SessionThreadRow) => void };
 
-/** The dock over a thread it holds. */
-function Dock({ items: first, thread, onAsk, routing }: { items: HelmThreadItem[]; thread: Thread; onAsk: (text: string, context: HelmContext) => void; routing: ThoughtRouting }) {
-  const [items, setItems] = useState<HelmThreadItem[]>(first);
-  thread.deliver = (item) => setItems((was) => [...was, item]);
+/** The dock over the Helm Session's thread, which it holds. */
+function Dock({ rows: first, thread, onAsk, routing, onOpenSent }: { rows: SessionThreadRow[]; thread: Thread; onAsk: (text: string, context: HelmContext) => void; routing: ThoughtRouting; onOpenSent: (target: { kind: "session" | "job"; id: string }) => void }) {
+  const [rows, setRows] = useState<SessionThreadRow[]>(first);
+  thread.deliver = (row) => setRows((was) => [...was, row]);
   return (
     <HelmDock
-      helm={{ state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items, facts: {} }}
+      helm={{ state: "pointed", manifestId: MANIFEST_ID }}
+      hosted={{ working: false, thread: <SessionThread sessionId="helm-armada" rows={rows} agentName="Helm" onOpenSent={onOpenSent} onAnswer={() => {}} onOpenSession={() => {}} /> }}
       repositories={[repository()]}
       jobs={[]}
-      workflows={[]}
       live
       context={CONTEXT}
       onAsk={onAsk}
@@ -56,7 +58,6 @@ function Dock({ items: first, thread, onAsk, routing }: { items: HelmThreadItem[
       onReadRecord={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
       onCopied={() => {}}
       onSaid={() => {}}
-      onApprove={async () => ({ ok: true })}
       routing={routing}
     />
   );
@@ -77,7 +78,7 @@ function dock(wiring: Wiring = {}) {
     open,
     startNew,
   };
-  mount(<Dock items={wiring.items ?? []} thread={thread} onAsk={onAsk} routing={routing} />);
+  mount(<Dock rows={wiring.rows ?? []} thread={thread} onAsk={onAsk} routing={routing} onOpenSent={(target) => open({ ...MATCH, ...target })} />);
   return { onAsk, send, open, startNew };
 }
 
@@ -251,7 +252,7 @@ test("a refused send draws no row and leaves the card, then the row is drawn whe
   const { send } = dock({
     send: async (target, text, deliver) => {
       if (refuse) return false;
-      deliver({ kind: "sent", id: "1", ts: "2026-10-12T10:00:00.000Z", text, target: { kind: target.kind, id: target.id, title: target.title, manifest_id: MANIFEST_ID, slot: 3 } });
+      deliver({ kind: "sent", id: "1", at: "10:00:00", text, target: { kind: target.kind, id: target.id, title: target.title, repository: MANIFEST_NAME, slot: 3 } });
       return true;
     },
   });
@@ -270,15 +271,15 @@ test("a refused send draws no row and leaves the card, then the row is drawn whe
   expect(send).toHaveBeenCalledTimes(2);
 });
 
-test("a sent row in the thread names the repository as the picker does, and opens the target", async () => {
-  const item: HelmThreadItem = {
-    kind: "sent",
+test("a sent row in the thread names the repository, and opens the target", async () => {
+  const row: SessionThreadRow = {
     id: "4",
-    ts: "2026-10-12T10:00:00.000Z",
+    at: "10:00:00",
+    kind: "sent",
     text: WORDS,
-    target: { kind: "session", id: "01SESSION", title: "Sessions list views", manifest_id: MANIFEST_ID, slot: 3 },
+    target: { kind: "session", id: "01SESSION", title: "Sessions list views", repository: MANIFEST_NAME, slot: 3 },
   };
-  const { open } = dock({ items: [item] });
+  const { open } = dock({ rows: [row] });
 
   // Drawn from the thread alone: nothing was sent from this dock.
   await expect.element(page.getByText(WORDS)).toBeVisible();
@@ -286,18 +287,6 @@ test("a sent row in the thread names the repository as the picker does, and open
   await expect.element(chip).toHaveTextContent(MANIFEST_NAME);
   await chip.click();
   expect(open).toHaveBeenCalledExactlyOnceWith(MATCH);
-});
-
-test("a sent row for a repository Fleet does not serve falls back to its id", async () => {
-  const item: HelmThreadItem = {
-    kind: "sent",
-    id: "4",
-    ts: "2026-10-12T10:00:00.000Z",
-    text: "retries should back off",
-    target: { kind: "job", id: "01JOB", title: "Retry failed charges", manifest_id: "billing" },
-  };
-  dock({ items: [item] });
-  await expect.element(page.getByRole("button", { name: "Sent to Job Retry failed charges" })).toHaveTextContent("billing");
 });
 
 const FIRST = "retries should back off longer after the third failed charge";

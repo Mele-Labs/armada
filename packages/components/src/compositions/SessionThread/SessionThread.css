@@ -552,6 +552,11 @@
 .armada-question-deck__pip[data-done] { opacity: 0.6; }
 
 .armada-question-deck__body[hidden] { display: none; }
+
+/* Inside the Needs you panel the panel is the frame: the deck is its question and answers, nothing around them. */
+.armada-question-deck[data-flat] .armada-question-deck__card { border: 0; border-radius: 0; background: transparent; box-shadow: none; animation: none; }
+.armada-question-deck[data-flat] .armada-question-deck__band { display: none; }
+.armada-question-deck[data-flat] .armada-question-deck__body { padding: 0; }
 .armada-question-deck__body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
 
 .armada-question-deck__ask {

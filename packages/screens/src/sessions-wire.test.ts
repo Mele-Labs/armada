@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -182,6 +182,24 @@ describe("the thread", () => {
     expect(JSON.stringify(drawn[0]).match(/"src"/g)).toHaveLength(1);
   });
 
+  it("draws words Helm sent on as a row of their own, with where they went and the repository's name", () => {
+    const sent: SessionRow = {
+      kind: "sent",
+      id: "7",
+      at: AT,
+      text: "wait for the merge",
+      target: { kind: "session", id: "s-9", title: "Sessions list views", manifest_id: "storefront" },
+      files: [{ id: "f9", name: "shot.png", media_type: "image/png" }],
+    };
+    const [drawn] = rowsOfThread("a", [sent], () => "blob:nine", (manifest) => (manifest === "storefront" ? "Storefront" : (manifest ?? "")));
+    expect(drawn).toMatchObject({
+      kind: "sent",
+      text: "wait for the merge",
+      target: { kind: "session", id: "s-9", repository: "Storefront" },
+      files: [{ id: "f9", name: "shot.png", src: "blob:nine" }],
+    });
+  });
+
   it("keeps a command and a compaction as the rows they are, never a message", () => {
     const drawn = rowsOfThread(
       "a",
@@ -340,6 +358,11 @@ describe("a session's trail", () => {
 });
 
 describe("a session", () => {
+  it("carries Helm's mark from the record", () => {
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ01", { helm: true }), undefined, beside())).toMatchObject({ helm: true });
+    expect(sessionOfRecord(record("01ABCDEFGHJKMNPQRSTVWXYZ02"), undefined, beside()).helm).toBeUndefined();
+  });
+
   it("carries its turn, ask, tuning and address", () => {
     const session = sessionOfRecord(
       record("01ABCDEFGHJKMNPQRSTVWXYZ00", {
@@ -582,5 +605,40 @@ describe("a session its agent was started by another to hold", () => {
   it("keeps the Session the agent started as a row in its thread", () => {
     const row: SessionRow = { kind: "started", id: "st1", at: AT, session: { id: "n", title: "Port the clock" }, fork: true };
     expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "st1", kind: "started", session: { id: "n", title: "Port the clock" }, fork: true }]);
+  });
+});
+
+describe("a question that lapsed", () => {
+  const questions = [{ question: "Which night?", header: "Night", multi_select: false, options: [{ label: "Friday", description: "" }] }];
+  const ask = (id: string, state: "unanswered" | "waiting" | "allowed_once", asked = questions): SessionRow => ({
+    kind: "ask",
+    id,
+    at: AT,
+    state,
+    ask: { call: id, manifest_id: "armada", asked_at: AT, tool: "AskUserQuestion", detail: "", truncated: false, rule: "r", offers: ["refuse"], holding_for_seconds: 60, questions: asked },
+  });
+  const said = (id: string): SessionRow => ({ kind: "message", id, at: AT, from: { kind: "you" }, text: "ok" });
+
+  it("is the last unanswered ask that carried questions", () => {
+    expect(lapsedOf([said("1"), ask("2", "unanswered")])).toEqual({ id: "2", questions });
+  });
+
+  it("is gone once the person has said anything after it", () => {
+    expect(lapsedOf([ask("1", "unanswered"), said("2")])).toBeUndefined();
+  });
+
+  it("is superseded by a newer ask that carried questions", () => {
+    expect(lapsedOf([ask("1", "unanswered"), ask("2", "allowed_once")])).toBeUndefined();
+    expect(lapsedOf([ask("1", "unanswered"), ask("2", "waiting")])).toBeUndefined();
+  });
+
+  it("is not a permission that lapsed", () => {
+    expect(lapsedOf([ask("1", "unanswered", [])])).toBeUndefined();
+  });
+
+  it("goes back to the agent a line a question", () => {
+    expect(lapsedAnswerText([{ question: "Which night?", chosen: ["Friday", "Sat"] }, { question: "Where?", chosen: ["Home"] }])).toBe(
+      'Answering your earlier question "Which night?": Friday, Sat\nAnswering your earlier question "Where?": Home',
+    );
   });
 });

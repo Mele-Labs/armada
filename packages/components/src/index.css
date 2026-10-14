@@ -251,6 +251,7 @@
 /* Helm's own conversation, under the dock's questions. */
 @import "./compositions/HelmThread/HelmThread.css";
 @import "./compositions/HelmComposer/HelmComposer.css";
+@import "./compositions/HelmHolds/HelmHolds.css";
 
 /* Every import stays above the rule below and not after it: an `@import`
    that follows a rule is dropped by the browser. */
@@ -416,6 +417,21 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+}
+
+/* Helm as a Session: the thread scrolls in the room between the chips and the box, as a Session's does. */
+.armada-helm-dock[data-hosted] {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The first write's row in the dock's width: the chips keep their words and the row wraps. */
+.armada-helm-dock .armada-session-lease {
+  flex-wrap: wrap;
+}
+
+.armada-helm-dock .armada-session-lease__chip {
+  white-space: nowrap;
 }
 @import "./compositions/RunNode/RunNode.css";
 @import "./compositions/MainHead/MainHead.css";

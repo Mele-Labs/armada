@@ -34,13 +34,6 @@ function prose(text: HelmDebugText): string {
   return `${text.text}… (showing ${shown} of ${text.of} characters)`;
 }
 
-/** `$0.0243 · 3 turns · 1 refused`, the caption the dock's own thread draws. */
-function ended(cost_micros: number, turns: number, refusals: number): string {
-  const dollars = `$${(cost_micros / 1_000_000).toFixed(4)}`;
-  const turned = `${turns} ${turns === 1 ? "turn" : "turns"}`;
-  return refusals === 0 ? `${dollars} · ${turned}` : `${dollars} · ${turned} · ${refusals} refused`;
-}
-
 /**
  * One line of the thread: when, who, and what.
  *
@@ -58,15 +51,8 @@ function line(said: HelmDebugLine): [string, string] {
       return [`${at}  helm`, said.detail === "" ? `called ${said.tool}` : `called ${said.tool} · ${said.detail}`];
     case "refused":
       return [`${at}  helm`, `refused ${said.tool} · ${said.because}`];
-    case "ended":
-      return [`${at}  turn`, ended(said.cost_micros, said.turns, said.refusals)];
-    case "fresh":
-      return [`${at}  fleet`, "the stored session was gone, so this reply started a new one"];
-    // Fleet's sentence whole. The `fleet` column already says who is
-    // speaking, and the lead-in that used to sit here doubled the
-    // reply-budget timeout — `crates/fleet/src/helm/unanswered.rs`.
-    case "unanswered":
-      return [`${at}  fleet`, said.why];
+    case "sent":
+      return [`${at}  you`, `to ${said.to} · ${prose(said.text)}`];
   }
 }
 
@@ -98,7 +84,7 @@ function threadHeading(kept: number, cut: number): string {
  * The record, as the text that goes on the clipboard and onto the screen.
  *
  * Order is fixed and is the order it is read in: what the session is, the
- * brief that bounds it, the roster it held, what was said, and what it had
+ * note that bounds it, the roster it held, what was said, and what it had
  * polled. A caller cannot reorder it — two records that differ in row order
  * are two artifacts nobody can diff.
  */
@@ -110,13 +96,10 @@ export function helmRecord(record: HelmDebugInfo): string {
     ["model", record.model],
   ];
   if (record.session !== undefined) head.push(["session", record.session]);
-  if (record.servers !== undefined) {
-    head.push(["mcp servers", `${record.servers}, as this session came up`]);
-  }
 
   const blocks: string[][] = [["armada helm session"], aligned(head, "")];
 
-  blocks.push(["brief", ...record.brief.split("\n").map((said) => `${INDENT}${said}`)]);
+  blocks.push(["note", ...record.note.split("\n").map((said) => `${INDENT}${said}`)]);
 
   blocks.push([
     `tools — ${record.tools.length} on the ${record.door} door, each called as ${record.door}__<name>`,
@@ -175,5 +158,5 @@ export function copyHelmRecord(record: HelmDebugInfo, onCopied?: (what: string) 
  * disk.
  */
 export const HELM_SAFETY =
-  "This holds the brief, the tool roster, your own messages, Helm's replies and the checkout's path on this machine. " +
+  "This holds the note, the tool roster, your own messages, Helm's replies and the checkout's path on this machine. " +
   "Nothing bounds what any of that says — read it before you send it.";
