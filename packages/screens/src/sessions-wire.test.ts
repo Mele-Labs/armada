@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, activityOf, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -560,6 +560,32 @@ describe("what a session waits on", () => {
   it("carries none for a session with an empty list or one that ended", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).waitingFor).toBeUndefined();
     expect(sessionOfRecord(record("a", { state: "ended", waiting_for: items }), undefined, beside()).waitingFor).toBeUndefined();
+  });
+});
+
+describe("what a session is doing", () => {
+  const wire = { now: "Editing gate.rs", todos: [{ text: "Read the gate", state: "done" as const }, { text: "Run it on every Job", state: "doing" as const }], last_call_at: AT };
+
+  it("carries what Fleet detected onto the session, the last call as the instant it went quiet from", () => {
+    expect(sessionOfRecord(record("a", { activity: wire }), undefined, beside()).activity).toEqual({
+      now: "Editing gate.rs",
+      todos: wire.todos,
+      quietSince: AT,
+    });
+  });
+
+  it("carries none for a record without it, or one with nothing in it", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).activity).toBeUndefined();
+    expect(activityOf({})).toBeUndefined();
+    expect(activityOf({ todos: [] })).toBeUndefined();
+  });
+
+  it("is replaced by the next record, never merged: a dropped list and a cleared line do not come back", () => {
+    const before = sessionOfRecord(record("a", { activity: wire }), undefined, beside());
+    const later = sessionOfRecord(record("a", { activity: { now: "Running cargo check", last_call_at: AT } }), undefined, beside());
+    expect(before.activity?.todos).toHaveLength(2);
+    expect(later.activity).toEqual({ now: "Running cargo check", quietSince: AT });
+    expect(sessionOfRecord(record("a"), undefined, beside()).activity).toBeUndefined();
   });
 });
 

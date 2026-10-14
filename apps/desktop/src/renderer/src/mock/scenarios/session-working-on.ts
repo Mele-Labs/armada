@@ -2,9 +2,11 @@
 // `sessions` scenario: one working through a todo list, one working with no list, one whose turn has
 // made no tool call in forty minutes, one working that also waits on the person, and one that says it
 // is done. `now` is what Fleet detected from the last tool call; the todos are the agent's own report.
+// Each `activity` is built from the wire's shape and read by the mapper a real record goes through.
 // The walk `session-working-on` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
+import { activityOf } from "@armada/screens/src/sessions-wire";
 
 import type { Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
@@ -25,16 +27,16 @@ const gate: Session = {
     { id: "g3", at: "14:11:48", kind: "tool", text: "Edit crates/fleet/src/gate.rs" },
   ],
   attachments: [{ kind: "slot", slot: 3 }, { kind: "branch", name: "fleet/gate-policy-every-run", slot: 3 }],
-  activity: {
+  activity: activityOf({
     now: "Editing gate.rs",
-    quietSince: minutesAgo(1),
+    last_call_at: minutesAgo(1),
     todos: [
       { text: "Read the gate policy", state: "done" },
       { text: "Run the policy on every Job", state: "doing" },
       { text: "Cover a second run in the gate tests", state: "todo" },
       { text: "Update the gate contract", state: "todo" },
     ],
-  },
+  }),
 };
 
 const backfill: Session = {
@@ -49,7 +51,7 @@ const backfill: Session = {
     { id: "b3", at: "14:11:02", kind: "tool", text: "Bash cargo check -p store" },
   ],
   attachments: [],
-  activity: { now: "Running cargo check", quietSince: minutesAgo(1) },
+  activity: activityOf({ now: "Running cargo check", last_call_at: minutesAgo(1) }),
 };
 
 const gone: Session = {
@@ -63,15 +65,15 @@ const gone: Session = {
     { id: "q2", at: "13:30:20", kind: "tool", text: "Bash pnpm -C apps/desktop test resize" },
   ],
   attachments: [{ kind: "slot", slot: 5 }, { kind: "branch", name: "board/resize-debounce", slot: 5 }],
-  activity: {
+  activity: activityOf({
     now: "Running pnpm test",
-    quietSince: minutesAgo(42),
+    last_call_at: minutesAgo(42),
     todos: [
       { text: "Find the observer", state: "done" },
       { text: "Debounce the observer", state: "done" },
       { text: "Run the resize tests", state: "doing" },
     ],
-  },
+  }),
 };
 
 const both: Session = {
@@ -90,16 +92,16 @@ const both: Session = {
     { kind: "branch", name: "fix/pin-store-clock", slot: 4 },
     { kind: "pull_request", number: 1843, title: "Pin the store clock", branch: "fix/pin-store-clock", address: "https://example.com/pull/1843", checks: { state: "passed" }, state: "open", auto: false },
   ],
-  activity: {
+  activity: activityOf({
     now: "Editing store_test.rs",
-    quietSince: minutesAgo(2),
+    last_call_at: minutesAgo(2),
     todos: [
       { text: "Pin the clock in the store tests", state: "done" },
       { text: "Open the pull request", state: "done" },
       { text: "Replace the second fixture", state: "doing" },
       { text: "Rerun the store tests", state: "todo" },
     ],
-  },
+  }),
   waitingFor: [
     { id: "a1", text: "Approve #1843", since: minutesAgo(2), source: "agent", act: { kind: "approve_pr", target: "1843" } },
     { id: "a2", text: "Keep the old fixture or drop it?", since: minutesAgo(2), source: "agent" },
@@ -117,12 +119,12 @@ const finished: Session = {
     { id: "f2", at: "13:58:11", kind: "message", from: { kind: "agent" }, text: "The migrations apply in order and each is recorded once." },
   ],
   attachments: [{ kind: "pull_request", number: 1839, title: "Order the store migrations", branch: "store/order-migrations", address: "https://example.com/pull/1839", checks: { state: "passed" }, state: "merged", auto: false }],
-  activity: {
+  activity: activityOf({
     todos: [
       { text: "Number the migrations", state: "done" },
       { text: "Record each once", state: "done" },
     ],
-  },
+  }),
   done: { since: minutesAgo(15) },
 };
 
