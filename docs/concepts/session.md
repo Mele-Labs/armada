@@ -361,6 +361,16 @@ is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
 "process ended" row.
 
+**A process Fleet replaces takes its subagents with it.** A subagent runs inside
+its agent's process, so the keeper only carries it across a Fleet restart. A tune,
+a quiet spell, the move into a slot at the first write and a lost keeper each end
+the process, and the one that resumes has never heard of the subagents that were
+working. When Fleet starts a process for a session that has run, every `subagent`
+row still `standing` whose transcript shows no finished turn was cut off. Fleet
+gives those rows back, keeps their type, description and id in the restart's
+note (so the retro lists them), and puts the same list ahead of the agent's next
+turn, once, so it can start again what it still needs.
+
 **Not covered**: a keeper's own death (the agent loses its pipes and exits), and
 an agent whose hooks name a Fleet port that changed.
 

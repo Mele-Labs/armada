@@ -738,6 +738,10 @@ where
             self.first_message_sent(&id).await;
         }
 
+        let runtime = self.hosts().of(&id);
+        self.ensure_process(&id, &hosting)
+            .await
+            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         let mut turn = String::new();
         if !hosting.ran {
             if let Some(preface) = self.handoff_preface(&id).await {
@@ -757,13 +761,10 @@ where
         for path in &kept.paths {
             turn.push_str(&format!("\n\nAttached file: {path}"));
         }
+        let turn = super::cut_off::told(&mut runtime.state(), turn);
         let line = ipc::encode(&UserLine::of(turn, kept.pictures))
             .map_err(|why| self.hosted_refusal(SESSION_UNSTARTED, &why.to_string()))?;
 
-        let runtime = self.hosts().of(&id);
-        self.ensure_process(&id, &hosting)
-            .await
-            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         {
             let mut state = runtime.state();
             state.turn = SessionTurn::Working { woken_by: None };
@@ -1044,7 +1045,10 @@ where
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {
-                    self.kept_restart(id, "resumed", None).await;
+                    let cut = self.cut_off_subagents(id).await;
+                    self.kept_restart(id, "resumed", super::cut_off::cut_off_said(&cut).as_deref())
+                        .await;
+                    runtime.state().cut_off = cut;
                 }
                 (process, directory)
             }
