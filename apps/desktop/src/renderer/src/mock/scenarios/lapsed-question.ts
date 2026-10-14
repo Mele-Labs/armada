@@ -38,6 +38,33 @@ const lapsed: Session = {
   },
 };
 
+const skipped: Session = {
+  id: "s52",
+  title: "Pick the venue",
+  turn: { state: "idle" },
+  lastTurn: "19:20",
+  lastTurnAt: minutesAgo(8),
+  rows: [
+    { id: "v1", at: "19:15:00", kind: "message", from: { kind: "you" }, text: "Find a venue for Friday." },
+    { id: "v2", at: "19:20:41", kind: "tool", text: "AskUserQuestion: refused" },
+  ],
+  attachments: [],
+  lapsed: {
+    id: "v2",
+    questions: [
+      {
+        question: "Which part of town?",
+        header: "Place",
+        multi_select: false,
+        options: [
+          { label: "Harbour", description: "Close to the station" },
+          { label: "Old town", description: "Quieter, further out" },
+        ],
+      },
+    ],
+  },
+};
+
 const options: Session = {
   id: "s51",
   title: "Tidy the fixtures",
@@ -67,5 +94,5 @@ export const s241LapsedQuestion: Scenario = {
   ...s200Sessions,
   name: "lapsed-question",
   says: "A question that lapsed, still answerable under the thread, and a waiting item with choices drawn as a deck",
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [lapsed, options]) },
+  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [lapsed, skipped, options]) },
 };
