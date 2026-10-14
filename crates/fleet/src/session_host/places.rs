@@ -66,6 +66,9 @@ pub(super) fn place_of(path: &str, root: &str) -> Place {
 pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut interpreted = false;
+    // Where the line stands: `cwd` until a `cd`, then where the `cd` left it. A place this cannot
+    // follow is empty, and a relative path is read against nothing.
+    let mut cwd = cwd.to_string();
     for segment in line
         .replace("&&", ";")
         .replace("||", ";")
@@ -75,7 +78,19 @@ pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
             .split_whitespace()
             .map(|word| word.trim_matches(|c| c == '\'' || c == '"').to_string())
             .collect();
-        redirects(&words, cwd, &mut found);
+        let bare: Vec<&str> = words
+            .iter()
+            .enumerate()
+            .map(|(at, word)| match at {
+                0 => word.trim_start_matches(['(', '{']),
+                _ => word.as_str(),
+            })
+            .collect();
+        if matches!(bare.first().copied(), Some("cd" | "pushd")) {
+            cwd = after_cd(&bare, Some(&cwd)).unwrap_or_default();
+            continue;
+        }
+        redirects(&words, &cwd, &mut found);
         let mut rest = words
             .iter()
             .skip_while(|word| word.contains('=') || *word == "env" || *word == "command");
@@ -87,7 +102,7 @@ pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
             found.extend(
                 from.iter()
                     .filter(|word| !word.starts_with('-'))
-                    .filter_map(|word| resolved(word, cwd)),
+                    .filter_map(|word| resolved(word, &cwd)),
             )
         };
         match program {
@@ -100,8 +115,8 @@ pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
             {
                 absolute(&mut found, &arguments)
             }
-            "armada" => found.extend(released_by(&arguments, cwd)),
-            "git" => found.extend(git_writes_in(&arguments, cwd)),
+            "armada" => found.extend(released_by(&arguments, &cwd)),
+            "git" => found.extend(git_writes_in(&arguments, &cwd)),
             _ => {}
         }
     }
@@ -192,14 +207,31 @@ fn released_by(arguments: &[&String], cwd: &str) -> Option<String> {
     }
 }
 
+/// Where a `cd` or `pushd` leaves a line that stood in `from`: an absolute target as it is, a
+/// relative one read against `from`, so `cd a && cd b` ends in `a/b`. `None` when the target is
+/// built from a variable, a `~` or a substitution, is `-` or is missing, or is relative and
+/// `from` is not known; a line that has lost its place reads nothing relative after.
+fn after_cd(words: &[&str], from: Option<&str>) -> Option<String> {
+    let target = words.iter().skip(1).find(|word| !word.starts_with('-'))?;
+    match target {
+        word if word.contains(['$', '`', '~']) => None,
+        word if word.starts_with('/') => Some(normalised(word)),
+        word => from
+            .filter(|base| base.starts_with('/'))
+            .map(|base| normalised(&format!("{}/{word}", base.trim_end_matches('/')))),
+    }
+}
+
 /// The absolute directories a shell line `cd`s or `pushd`s into and then runs something that is
 /// not a read in, where `cwd` is the directory the call started in. **A `cd` moves every relative
-/// write after it**, which no path in the line names. A target built from a variable, a `~` or a
+/// write after it**, which no path in the line names, and a relative `cd` after another is read
+/// from where the first left the line. A target built from a variable, a `~` or a
 /// substitution is not followed, and neither is a subshell's end. A bare `armada worktree
 /// release` with no `cd` before it gives back `cwd`.
 pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
-    let mut here: Option<String> = None;
+    let mut here = Some(cwd.to_string());
+    let mut moved = false;
     for segment in line
         .replace("&&", ";")
         .replace("||", ";")
@@ -211,18 +243,13 @@ pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
             .map(|word| word.trim_matches(|c| c == '\'' || c == '"'))
             .collect();
         if matches!(words.first().copied(), Some("cd" | "pushd")) {
-            let target = words.iter().skip(1).find(|word| !word.starts_with('-'));
-            here = match target {
-                Some(word) if word.contains(['$', '`', '~']) => None,
-                Some(word) if word.starts_with('/') => Some(normalised(word)),
-                Some(word) if cwd.starts_with('/') => {
-                    Some(normalised(&format!("{}/{word}", cwd.trim_end_matches('/'))))
+            here = after_cd(&words, here.as_deref());
+            moved = true;
+        } else if moved {
+            if let Some(directory) = &here {
+                if !adapters::reads_only(segment) && !found.contains(directory) {
+                    found.push(directory.clone());
                 }
-                _ => None,
-            };
-        } else if let Some(directory) = &here {
-            if !adapters::reads_only(segment) && !found.contains(directory) {
-                found.push(directory.clone());
             }
         } else if words.starts_with(&["armada", "worktree", "release"]) && words.len() == 3 {
             // Giving back the directory the call started in.

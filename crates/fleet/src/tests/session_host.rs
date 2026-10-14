@@ -332,6 +332,11 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
     // Reads and a write outside the repository never lease.
     let read = rig.gate(&id, "Bash", r#"{"command":"git status"}"#).await;
     assert!(!denied(&read));
+    let chain = format!(
+        r#"{{"command":"cd {} && ls .claude/hooks/ && cat a.json | head -80 && git worktree list | head -20"}}"#,
+        rig.root
+    );
+    assert!(!denied(&rig.gate(&id, "Bash", &chain).await));
     let scratch = rig
         .gate(&id, "Write", r#"{"file_path":"/tmp/notes.txt"}"#)
         .await;

@@ -235,7 +235,10 @@ The same slots decide for **every write path alike**:
 a session's calls**: a line that goes into the main checkout or a slot the session does
 not hold, and a line that goes nowhere while the call already stands in a slot it does not
 hold, is held if it then runs anything that is not a read. `cd <slot> && git status` is a
-read and runs. **Not covered**: a path or a `cd` target built from a variable or a
+read and runs. **A relative `cd` after another is read from where the first left the line**,
+and so is a `..` path after it, never from where the call began. Every part of a line is told
+read from write before the slot rule applies, and `git worktree list`, `git stash list`,
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
 substitution, a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 

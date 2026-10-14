@@ -456,6 +456,20 @@ fn api_reads(segment: &str) -> bool {
     })
 }
 
+/// A `git` subcommand that reads only when its first argument says so, or when it has none:
+/// `git worktree list` reads and `git worktree add` does not.
+fn git_lists(segment: &str) -> bool {
+    let mut words = segment.split_whitespace().skip(1);
+    match (words.next(), words.next()) {
+        (Some("worktree" | "stash"), Some("list")) => true,
+        (Some("tag"), Some("-l" | "--list")) => true,
+        (Some("tag" | "remote"), None) => true,
+        (Some("remote"), Some("get-url" | "show")) => true,
+        (Some("config"), Some("--get" | "--get-all" | "--list" | "-l")) => true,
+        _ => false,
+    }
+}
+
 /// One segment of a line.
 fn reads(segment: &str) -> bool {
     let segment = &*plain_git(segment);
@@ -473,6 +487,9 @@ fn reads(segment: &str) -> bool {
             .iter()
             .any(|flag| segment.starts_with(&format!("git branch {flag}")))
     {
+        return true;
+    }
+    if git_lists(segment) {
         return true;
     }
     if segment.starts_with("find ") && (segment.contains("-delete") || segment.contains("-exec")) {
@@ -507,6 +524,15 @@ const READS: &[&str] = &[
     "sort",
     "uniq",
     "cut",
+    "tr",
+    "jq",
+    "du",
+    "df",
+    "uname",
+    "basename",
+    "dirname",
+    "realpath",
+    "readlink",
     "date",
     "whoami",
     "printenv",
@@ -526,6 +552,17 @@ const READS: &[&str] = &[
     "git fetch",
     "git merge-base",
     "git remote -v",
+    "git for-each-ref",
+    "git ls-tree",
+    "git cat-file",
+    "git grep",
+    "git shortlog",
+    "git rev-list",
+    "git show-ref",
+    "git name-rev",
+    "git ls-remote",
+    "git diff-tree",
+    "git check-ignore",
     "gh pr view",
     "gh pr list",
     "gh pr diff",
