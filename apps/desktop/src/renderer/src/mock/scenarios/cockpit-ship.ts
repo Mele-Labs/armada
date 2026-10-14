@@ -349,6 +349,7 @@ const NOWS: Record<string, NowView> = {
     running: [
       { key: "d", of: "drone", name: "Drone on Fix", line: "Editing manifest-read.ts", step: { id: "fix", name: "Fix" }, state: "running", tail: ["Read crates/manifest/src/read.rs", "Edit crates/manifest/src/read.rs: key the cache on the hash", "cargo test -p manifest read_again"] },
       { key: "c", of: "check", name: "manifest_test", state: "running" },
+      { key: "l", of: "check", name: "lint", state: "running" },
     ],
   },
   [reconnect.job.id]: {

@@ -1,0 +1,378 @@
+/* The flight deck. Gray is the baseline: amber is what he is owed, red is a Check failing now, and nothing else
+   is a colour. Where he is, the raised tab and the selected thing, is the blue accent and says nothing else. Each
+   panel is a header band over a mono body, as the pool's. Tokens only. proto/cockpit-flight-deck. */
+
+/* ---- The window, rebuilt around the deck: no rail, and the title bar carries the places ------------------- */
+
+body:has(.deck-chrome) .armada-shell__left,
+body:has(.deck-chrome) .armada-shell__left-handle,
+body:has(.deck-chrome) .armada-title-bar__picker,
+body:has(.deck-chrome) .armada-title-bar__search,
+body:has(.deck-chrome) .armada-title-bar__helm,
+body:has(.deck-chrome) .armada-title-bar__sleep,
+body:has(.deck-chrome) .armada-title-bar__lockup,
+body:has(.deck-chrome) .armada-title-bar__mark { display: none; }
+body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
+
+.deck-wordmark {
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.deck-places { display: flex; align-items: center; -webkit-app-region: no-drag; }
+/* The raised tab: filled with the accent's muted ground and weighed, the rest quiet. */
+.deck-places .armada-tabs__tab { color: var(--fg-muted); }
+.deck-places .armada-tabs__tab--active { color: var(--fg-default); font-weight: var(--weight-heading); box-shadow: inset 0 calc(var(--border-width) * -3) 0 var(--accent); }
+
+.deck-chrome:empty { display: none; }
+.deck-chrome { flex: none; margin: 0 var(--space-4) var(--space-3); }
+.deck-system { display: flex; }
+
+/* ---- The page ------------------------------------------------------------------------------------------- */
+
+.deck {
+  --hue: var(--status-awaiting-review);
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  margin: 0 var(--space-4) var(--space-4);
+  gap: var(--space-3);
+}
+.deck [data-hue="ask"],
+.deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }
+.deck [data-hue="bad"] { --hue: var(--status-completed-failed); }
+.deck [data-hue="ok"],
+.deck [data-hue="running"],
+.deck [data-hue="queued"] { --hue: var(--fg-subtle); }
+
+.deck-grid {
+  display: grid;
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-columns: calc(var(--space-12) * 6) minmax(0, 1fr) calc(var(--space-12) * 5);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+}
+.deck-left,
+.deck-centre { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
+.deck-foot { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); }
+
+.deck-panel,
+.deck-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.deck-centre > .deck-pane { flex: 1 1 0; }
+.deck-list { flex: 1 1 0; }
+
+/* A header band over a mono body, as the pool's: raised, caps, one line. */
+.deck-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--h-row-header);
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.deck-band .armada-kbd { margin-left: auto; }
+
+/* ---- The list ------------------------------------------------------------------------------------------- */
+
+.deck-list__rows { flex: 1 1 0; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+.deck-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-4);
+  align-items: center;
+  column-gap: var(--space-3);
+  width: 100%;
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-row:hover { background: var(--bg-hover); }
+.deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+.deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
+/* How loud a row is: an edge on its leading side, and nothing else. */
+.deck-row[data-tone="ask"]::before,
+.deck-row[data-tone="bad"]::before { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--border-width) * 3); }
+.deck-row[data-tone="ask"]::before { background: var(--status-awaiting-review); }
+.deck-row[data-tone="bad"]::before { background: var(--status-completed-failed); }
+/* Where the arrow keys are: a ring. What is open: filled, with the accent along the trailing edge. */
+.deck-row[data-cursor] { box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); }
+.deck-row[data-selected] { background: var(--accent-muted); box-shadow: inset calc(var(--border-width) * -3) 0 0 var(--accent); }
+.deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
+
+/* ---- Usage ---------------------------------------------------------------------------------------------- */
+
+.deck-usage { flex: none; }
+.deck-usage__bars { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.deck-meter { display: grid; grid-template-columns: calc(var(--space-12) / 2) minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.deck-meter__label { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.deck-meter__track { display: block; height: var(--space-2); border-radius: var(--radius-sm); background: var(--bg-raised); overflow: hidden; }
+.deck-meter__fill { display: block; height: 100%; background: var(--fg-subtle); }
+.deck-meter[data-level="warning"] .deck-meter__fill { background: var(--status-awaiting-review); }
+.deck-meter[data-level="danger"] .deck-meter__fill { background: var(--status-completed-failed); }
+
+/* ---- A pane: one head, then its body -------------------------------------------------------------------- */
+
+.deck-pane__head { min-width: 0; }
+.deck-pane__kind { display: inline-flex; color: var(--fg-subtle); }
+.deck-pane__title { min-width: 0; margin: 0; overflow: hidden; color: var(--fg-default); font: inherit; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.deck-pane__where { flex: none; color: var(--fg-subtle); text-transform: none; letter-spacing: 0; }
+.deck-pane__acts { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: auto; text-transform: none; letter-spacing: 0; }
+.deck-pane__body { flex: 1 1 0; min-height: 0; padding: var(--space-3) var(--space-4); overflow-y: auto; }
+.deck-pane__state { color: var(--fg-muted); }
+
+.deck-facts { display: flex; flex-direction: column; margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-facts__row { display: grid; grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-2) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+.deck-facts dt { color: var(--fg-subtle); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-caps); font-size: var(--text-2xs); }
+.deck-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--fg-default); }
+.deck-facts dd[data-mono] { font-family: var(--font-mono); }
+.deck-pane__body[data-tone="bad"] .deck-facts__row:first-child dd { color: var(--status-completed-failed); }
+
+.deck-link { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
+.deck-link:hover { text-decoration: underline; }
+.deck-link:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* A Job: its canvas, and what it is doing now beside it. */
+.deck-job { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.deck-job__canvas { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); padding: var(--space-3); border-right: var(--border-width) solid var(--border-default); overflow-y: auto; }
+.deck-job__steps { flex: none; }
+.deck-job__run { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
+
+/* A Session: its own thread, and the box to answer it. */
+.deck-session { display: flex; flex: 1 1 0; min-height: 0; padding: var(--space-3); }
+.deck-session > * { flex: 1 1 auto; min-width: 0; }
+
+/* A call: the real card, in this area and not over the window. */
+.deck-call.armada-cockpit__scrim { position: static; flex: 1 1 0; min-height: 0; background: none; pointer-events: auto; padding: var(--space-3); }
+
+/* ---- The map -------------------------------------------------------------------------------------------- */
+
+.deck-map,
+.deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
+.deck-timeline > * { flex: 1 1 auto; min-width: 0; }
+
+.armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.armada-map__field { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
+.armada-map__field:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-map__dust { fill: var(--fg-subtle); opacity: 0.35; }
+.armada-map__cluster circle { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
+.armada-map__cluster text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-map__link { stroke: var(--fg-subtle); stroke-width: 1; opacity: 0.55; }
+.armada-map__link[data-kind="dispatched"] { stroke: var(--fg-muted); stroke-width: 1.5; opacity: 0.85; }
+.armada-map__link[data-kind="waits"] { stroke-dasharray: 5 4; }
+.armada-map__link[data-kind="works"] { stroke: var(--fg-subtle); opacity: 0.55; }
+.armada-map__link[data-kind="line"] { stroke: var(--fg-subtle); stroke-dasharray: 1 5; stroke-linecap: round; opacity: 0.7; }
+
+/* A star: gray, and amber or red only where he is owed or a Check is failing. The glow is how much it wants him. */
+.armada-star { cursor: pointer; }
+.armada-star__core { fill: var(--hue); }
+.armada-star__halo { fill: var(--hue); opacity: 0.14; }
+.armada-star__halo[data-inner] { opacity: 0.24; }
+.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 2; }
+.armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); pointer-events: none; }
+.armada-star[data-lit] .armada-star__label,
+.armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
+.armada-star:hover .armada-star__core { stroke: var(--fg-default); stroke-width: 1; }
+.armada-map__landmark text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.armada-map__main { fill: var(--fg-subtle); }
+.armada-map__landmark[data-red] .armada-map__main { fill: var(--status-completed-failed); }
+.armada-map__branch { fill: var(--fg-subtle); }
+.armada-map__tip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, calc(-100% - var(--space-2)));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.armada-map__tip span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
+.armada-map__key { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
+
+/* ---- The merge queue: the Cockpit's own horizon, in gray ---------------------------------------------- */
+
+.deck-queue { flex: none; min-height: var(--h-control); justify-content: center; border-top: var(--border-width) solid var(--border-default); }
+.deck-queue .armada-view__dot[data-state] { --dot: var(--fg-subtle); }
+.deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
+.deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
+.deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
+.deck-queue .armada-view__main { background: var(--fg-subtle); }
+.deck-queue .armada-view__main[data-red] { background: var(--status-completed-failed); }
+
+/* ---- Bays ----------------------------------------------------------------------------------------------- */
+
+.deck-bays__rows { flex: 1 1 0; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; }
+.deck-bay {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, auto) minmax(0, 1fr);
+  grid-template-areas: "state name repo" ". holder holder";
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 0;
+  width: 100%;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-bay:hover { background: var(--bg-hover); }
+.deck-bay:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-bay[data-selected] { background: var(--accent-muted); box-shadow: inset calc(var(--border-width) * -3) 0 0 var(--accent); }
+.deck-bay__state { grid-area: state; display: inline-flex; color: var(--fg-subtle); }
+.deck-bay[data-bay="stranded"] .deck-bay__state,
+.deck-bay[data-bay="closed"] .deck-bay__state { color: var(--status-completed-failed); }
+.deck-bay__name { grid-area: name; font-weight: var(--weight-medium); }
+.deck-bay__repo { grid-area: repo; min-width: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.deck-bay__holder { grid-area: holder; min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.deck-bay__holder:empty { display: none; }
+
+/* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
+
+.deck-controls__row { display: flex; align-items: center; gap: var(--space-4); min-height: calc(var(--h-control) + var(--space-3)); padding: var(--space-2) var(--space-3); }
+.deck-controls__group { display: inline-flex; align-items: center; gap: var(--space-1); }
+.deck-controls__group + .deck-controls__group,
+.deck-controls__row > span + .deck-controls__group { padding-left: var(--space-4); border-left: var(--border-width) solid var(--border-subtle); }
+.deck-controls [aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--accent); }
+
+.deck-incoming__cards { display: flex; align-items: stretch; gap: var(--space-3); min-height: calc(var(--h-control) + var(--space-3)); margin: 0; padding: var(--space-2) var(--space-3); list-style: none; overflow: hidden; }
+.deck-incoming__cards > li { display: flex; min-width: 0; flex: 0 1 calc(var(--space-12) * 6); }
+
+/* A call that has come in: a card, edged in its hue. The front one rings, slowly, until he opens it. A card that
+   turns up after the first frame slides in. Answered or opened, it is gone. */
+.deck-hail {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--hue);
+  border-left-width: calc(var(--border-width) * 3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-hail:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-hail__kind { display: inline-flex; flex: none; color: var(--hue); }
+.deck-hail__title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.deck-hail__age { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.deck-hail[data-arrived] { animation: deck-hail-in var(--duration-travel) var(--ease); }
+.deck-hail[data-first] { animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite; }
+.deck-hail[data-first][data-arrived] {
+  animation:
+    deck-hail-in var(--duration-travel) var(--ease),
+    deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out var(--duration-travel) infinite;
+}
+.deck-hail[data-first] .deck-hail__kind { animation: deck-hail-icon calc(var(--duration-pulse) * 1.6) ease-in-out infinite; }
+
+@keyframes deck-hail-in {
+  from { opacity: 0; transform: translateY(var(--space-8)); }
+}
+@keyframes deck-hail-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent), 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 var(--space-4) transparent, 0 0 var(--space-3) transparent; }
+}
+@keyframes deck-hail-icon {
+  50% { transform: scale(1.35); }
+}
+
+/* No motion: the front call reads as waiting by a heavier edge and a filled ground. */
+@media (prefers-reduced-motion: reduce) {
+  .deck-hail[data-arrived],
+  .deck-hail[data-first],
+  .deck-hail[data-first][data-arrived],
+  .deck-hail[data-first] .deck-hail__kind { animation: none; }
+  .deck-hail[data-first] {
+    border-width: calc(var(--border-width) * 3);
+    background: color-mix(in srgb, var(--hue) 22%, var(--bg-raised));
+  }
+}
+
+/* ---- Checks ----------------------------------------------------------------------------------------------- */
+
+.deck-checks { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; overflow-y: auto; }
+.deck-checks__group > .deck-band { border-top: var(--border-width) solid var(--border-default); }
+.deck-checks__group:first-child > .deck-band { border-top: 0; }
+.deck-checks__rows { margin: 0; padding: 0; list-style: none; }
+.deck-check {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  width: 100%;
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-check:hover { background: var(--bg-hover); }
+.deck-check:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-check__name { font-family: var(--font-mono); font-weight: var(--weight-medium); }
+.deck-check__where { min-width: 0; overflow: hidden; color: var(--fg-muted); text-overflow: ellipsis; white-space: nowrap; }
+.deck-check[data-state="failed"] .deck-check__name { color: var(--status-completed-failed); }
+/* Running and passed are gray: only a Check that failed is a colour. */
+.deck-check[data-state="running"] .armada-step-mark,
+.deck-check[data-state="passed"] .armada-step-mark { color: var(--fg-subtle); }

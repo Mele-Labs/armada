@@ -8,6 +8,8 @@ import { cockpitBody } from "../../cockpit/body-seam";
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { appSeam } from "../../cockpit/app-seam";
 import { AppBody, AppChrome } from "./App";
+import { DeckBody, DeckChrome } from "./Deck";
+import { forgetDeck } from "./deck-model";
 import { forgetUi } from "./shared";
 import { forgetLocal } from "./ship";
 import { Strips } from "./Strips";
@@ -20,6 +22,7 @@ const BY_DIRECTION: Record<string, ComponentType<CockpitProps>> = {
   wall: Wall,
   app: AppBody,
   tabs: TabsBody,
+  flightdeck: DeckBody,
 };
 
 /** The walk that plays each direction, so `?walk=` alone chooses it. */
@@ -29,6 +32,7 @@ const BY_WALK: Record<string, string> = {
   cockpitDirectionMap: "map",
   cockpitDirectionApp: "app",
   cockpitDirectionTabs: "tabs",
+  cockpitFlightDeck: "flightdeck",
 };
 
 /** Drafts a prototype keeps in a text box, which a walk must start without. */
@@ -41,8 +45,9 @@ export function installDirection(walk: string | null, direction: string | null):
   forgetLocal();
   forgetUi();
   forgetTabs();
+  forgetDeck();
   cockpitBody.current = BY_DIRECTION[chosen];
   // The app models also take the shell: a bar over every page, the calls over all of them, the Work group off the rail.
-  appSeam.current = chosen === "app" ? AppChrome : chosen === "tabs" ? TabsChrome : undefined;
+  appSeam.current = chosen === "app" ? AppChrome : chosen === "tabs" ? TabsChrome : chosen === "flightdeck" ? DeckChrome : undefined;
   appSeam.hideWork = chosen === "app" || chosen === "tabs";
 }
