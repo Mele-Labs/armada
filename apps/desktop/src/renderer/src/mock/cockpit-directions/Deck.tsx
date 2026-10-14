@@ -7,8 +7,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Box, ChartNoAxesGantt, ChevronLeft, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, Button, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
+import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Badge, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
@@ -143,6 +143,8 @@ export function DeckChrome(props: AppSeamProps) {
   }, [deck.held, ship.calls]);
 
   const go = (id: string) => {
+    // On a page opened from the deck the Cockpit tab is already the place: it goes back, to the deck as it was left.
+    if (id === "cockpit" && place === "cockpit" && !here) return props.back();
     if (id === place) return;
     if (id === "cockpit") props.goTo(SURFACE.overview);
     else if (id === "jobs") props.goTo(SURFACE.jobs);
@@ -333,17 +335,6 @@ export function DeckChrome(props: AppSeamProps) {
           )}
       <DeckKeySheet open={keySheet} onClose={() => setKeySheet(false)} />
       <div className="deck-chrome">
-        {here || place !== "cockpit" ? null : (
-          <div className="deck-layer">
-            <Tooltip label="Back to the Cockpit">
-              <Button variant="secondary" size="sm" aria-label="Back to the Cockpit" onClick={() => props.back()}>
-                <ChevronLeft size={14} aria-hidden />
-                Cockpit
-                <Kbd>Esc</Kbd>
-              </Button>
-            </Tooltip>
-          </div>
-        )}
         {place !== "system" ? null : (
           <nav className="deck-system" aria-label="System">
             <Tabs items={SYSTEM} value={props.showing} onChange={(id) => props.goTo(id)} />
