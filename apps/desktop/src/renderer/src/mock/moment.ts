@@ -11,7 +11,7 @@ import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/pro
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
-import type { RegisteredOwnerRow, SharedRow } from "@armada/components";
+import type { RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -38,6 +38,15 @@ export type MockDraft = ArcDraft & {
   clashes?: readonly WriteClash[];
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */
   sharedHome?: { account: string; repository: string; rows: readonly SharedRow[] };
+  /**
+   * The machine starts signed out. Signing in as `signIn.login` shows `signIn.code` and sets up the
+   * shared home `repository`; `add` is the second login a profile adds, with the items each of its
+   * kinds would sync. Mock only.
+   */
+  account?: {
+    signIn: { login: string; code: string; repository: string };
+    add?: { login: string; code: string; items: Partial<Record<SyncKindWord, readonly SyncItem[]>> };
+  };
   /**
    * The owners registered to pull requests, as the central store holds them, and which repositories
    * register at all, by root and by `owner/name`. Mock only: Fleet serves neither.

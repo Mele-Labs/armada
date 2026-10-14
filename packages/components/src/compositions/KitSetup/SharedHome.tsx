@@ -59,7 +59,7 @@ export type SharedHome = SharedHomeRead & SharedHomeActs;
 
 const Held = createContext<SharedHome | undefined>(undefined);
 
-export function SharedHomeProvider({ value, children }: { value: SharedHome; children: ReactNode }) {
+export function SharedHomeProvider({ value, children }: { value: SharedHome | undefined; children: ReactNode }) {
   return <Held.Provider value={value}>{children}</Held.Provider>;
 }
 

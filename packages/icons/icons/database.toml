@@ -1,0 +1,7 @@
+[icons.database]
+  means = "A cylinder of stacked discs: the central store"
+  group = "Account"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The central store signing in sets up, which holds the pull request owner registry and red-main claims as opaque rows. Never a Fleet database, a worktree's disk (`hard-drive`) or a file."
+  notes = "Proposed 14 Oct 2026 for the walk `onboarding-home`, for the owner to rule on. No glyph in the registry means a store of rows: `server` is Fleet's, `hard-drive` is the Worktrees surface's, `archive` is a Job that landed outside its record, `package` is a compiled-in workflow. The row on the set-up list, tooltip `Store`."

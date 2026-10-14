@@ -1,0 +1,396 @@
+/* The account a machine is signed in to: the title bar's one button, the card of the device code, what
+   signing in set up, the profiles, and What syncs. Weighted like the pool's viewscreen: a sunken
+   glass under a mono header band, state carried in the frame. Tokens only. */
+
+.armada-account {
+  -webkit-app-region: no-drag;
+}
+
+.armada-account__panel {
+  width: calc(var(--space-12) * 8);
+  max-width: none;
+  padding: var(--space-2);
+}
+
+.armada-account__card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+/* ---- The account chip ----------------------------------------------------------------------- */
+
+.armada-account__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--h-control-sm);
+  padding: 0 var(--space-3);
+  border: calc(var(--border-width) * 2) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.armada-account__chip:hover {
+  background: var(--bg-hover);
+}
+
+.armada-account__chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-account__chip > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-account__chip--wide {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-account__chip--wide > span:first-of-type {
+  flex: 1;
+  text-align: left;
+}
+
+/* ---- The device code ------------------------------------------------------------------------ */
+
+.armada-account__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+}
+
+.armada-account__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-account__link:hover {
+  color: var(--accent-hover);
+}
+
+.armada-account__link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-account__link > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-account__code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+  background:
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+  background-size: var(--space-6) var(--space-6);
+}
+
+.armada-account__code-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-8);
+  height: calc(var(--space-12) + var(--space-2));
+  border: calc(var(--border-width) * 2) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  font-weight: var(--weight-heading);
+}
+
+.armada-account__code-gap {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-heading);
+}
+
+/* ---- The turn: the one motion ---------------------------------------------------------------- */
+
+.armada-account__turn {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-account__turn > svg {
+  animation: armada-account-turn var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-account-turn {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-account__turn > svg {
+    animation: none;
+  }
+}
+
+/* ---- Rows: what got set up, and the profiles ---------------------------------------------------- */
+
+.armada-account__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-account__row,
+.armada-account__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  border-left: calc(var(--border-width) * 2) solid transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-account__rows > li:last-child {
+  border-bottom: 0;
+}
+
+.armada-account__row[data-state="done"] {
+  border-left-color: var(--step-advanced);
+}
+
+.armada-account__row[data-state="working"] {
+  border-left-color: var(--border-strong);
+}
+
+.armada-account__glyph {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-account__row[data-state="waiting"] .armada-account__glyph,
+.armada-account__row[data-state="waiting"] .armada-account__name {
+  color: var(--fg-subtle);
+}
+
+.armada-account__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-account__repo {
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+}
+
+.armada-account__state {
+  display: inline-flex;
+  flex: none;
+  min-width: var(--space-4);
+}
+
+.armada-account__done {
+  display: inline-flex;
+  flex: none;
+  color: var(--step-advanced);
+}
+
+.armada-account__profile {
+  padding-left: var(--space-2);
+}
+
+.armada-account__profile[data-active] {
+  border-left-color: var(--accent);
+}
+
+.armada-account__foot {
+  display: flex;
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+.armada-account__foot[data-alone] {
+  border-top: 0;
+}
+
+/* ---- What syncs ---------------------------------------------------------------------------------- */
+
+.armada-account__login {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+}
+
+.armada-syncs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-syncs__kind {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  border-left: calc(var(--border-width) * 2) solid transparent;
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease);
+}
+
+.armada-syncs__kind:last-child {
+  border-bottom: 0;
+}
+
+/* A kind that is turned on: the frame takes the accent and the row lifts off the glass. */
+.armada-syncs__kind[data-on] {
+  border-left-color: var(--accent);
+  background: var(--bg-raised);
+}
+
+.armada-syncs__kind .armada-switch {
+  font-weight: var(--weight-medium);
+}
+
+.armada-syncs__pulling {
+  display: flex;
+  align-items: center;
+  min-height: var(--h-row);
+  padding-bottom: var(--space-2);
+}
+
+.armada-syncs__items {
+  max-height: calc(var(--h-row) * 6);
+  margin: 0;
+  padding: 0 0 var(--space-2);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.armada-syncs__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--h-row);
+  padding: 0 var(--space-1) 0 var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  animation: armada-syncs-fill var(--duration-base) var(--ease) both;
+  animation-delay: calc(var(--fill) * var(--duration-fast));
+}
+
+@keyframes armada-syncs-fill {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-1) * -1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-syncs__item {
+    animation: none;
+  }
+}
+
+.armada-syncs__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+}
+
+.armada-syncs__repo {
+  color: var(--fg-muted);
+}
+
+.armada-syncs__scope {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-syncs__scope:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-syncs__scope:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The one scope that leaves nothing behind: private stays on this machine. */
+.armada-syncs__scope[data-scope="private"] {
+  color: var(--fg-subtle);
+}

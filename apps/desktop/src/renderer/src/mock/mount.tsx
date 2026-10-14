@@ -37,6 +37,7 @@ import { DownshiftSourceProvider } from "../downshift";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
+import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
 import type { Scenario } from "./scenario";
@@ -142,11 +143,13 @@ export function mountApp(
                           <FleetEventsFrom events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
-                                <SharedHomeFrom home={chosen.draft?.sharedHome}>
-                                  <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                    <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                                  </PrOwnersFrom>
-                                </SharedHomeFrom>
+                                <AccountFrom account={chosen.draft?.account}>
+                                  <SharedHomeFrom home={chosen.draft?.sharedHome}>
+                                    <PrOwnersFrom owners={chosen.draft?.prOwners}>
+                                      <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                    </PrOwnersFrom>
+                                  </SharedHomeFrom>
+                                </AccountFrom>
                               </ClashesFrom>
                             </SessionsHere>
                           </FleetEventsFrom>

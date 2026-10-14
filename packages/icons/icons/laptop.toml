@@ -11,3 +11,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walk `pr-owners`. The same meaning as above, drawn past the divider of the owner chip where the Session or Job is on this machine, tooltip `This machine`. Another machine is `monitor`."
+
+  [[icons.laptop.usage]]
+    means = "Private scope: a synced item that stays on this machine and never syncs"
+    group = "Shared home"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. One of the three scope marks on a synced item in What syncs, tooltip `Private`. This machine is the only place the item lives, which is the glyph's own meaning against the shared home."

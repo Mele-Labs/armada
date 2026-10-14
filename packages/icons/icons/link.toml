@@ -18,3 +18,10 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The Queued reason already says something upstream is unfinished, which is what a dependent Job is. Tooltip `Another Job has not finished`."
+
+[[icons.link.usage]]
+  means = "The address a device code is typed at, github.com/login/device"
+  group = "Account"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Leads the address on the sign-in card; pressing it opens the page. An address a person kept is the glyph's Studio meaning, and this is an address. `external-link` stays Chrome's."

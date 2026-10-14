@@ -12,6 +12,7 @@ import { Popover } from "../../primitives/Popover/Popover";
 import { StopCard, useCardOpen, type StopCardRow } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
+import { AccountSpot } from "../Account/Account";
 
 /**
  * The title row — what used to be macOS's grey bar saying only "Armada".
@@ -234,6 +235,8 @@ export function TitleBar({
       </div>
 
       <div className="armada-title-bar__end">
+        <AccountSpot />
+
         {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
 
         {sleep === undefined ? null : (
