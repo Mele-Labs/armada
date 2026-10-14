@@ -433,6 +433,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/done",
     },
     Route {
+        operation: "finish_up",
+        method: "POST",
+        path: "/sessions/finish_up",
+    },
+    Route {
         operation: "answer_waiting",
         method: "POST",
         path: "/sessions/waiting/answer",

@@ -237,6 +237,7 @@ mod session_release_slot;
 mod session_gate;
 mod session_gate_leases;
 mod session_done;
+mod session_finish_up;
 mod session_host;
 mod session_keeper;
 mod session_piloting;
