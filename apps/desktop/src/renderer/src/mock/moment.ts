@@ -13,6 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { RegisteredOwnerRow, SharedRow } from "@armada/components";
 import type { CommanderStore } from "./commander-fleet";
+import type { QuietAs } from "../cockpit/fleet-events";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
 
@@ -34,6 +35,8 @@ export type MockDraft = ArcDraft & {
   commanding?: (fleet: Fleet) => CommanderStore;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
+  /** How the timeline sits its coalesced rows while two takes are weighed. Mock only. */
+  quiet?: QuietAs;
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */

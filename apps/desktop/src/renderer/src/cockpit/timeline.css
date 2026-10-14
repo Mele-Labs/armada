@@ -38,14 +38,14 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 /* How a subject stands: the one live mark. Only a subject that is working turns. */
 .armada-tl__standing { display: inline-flex; flex: none; color: var(--tone); }
 .armada-tl__standing[data-standing="stuck"] { color: var(--status-escalated); }
-.armada-tl__standing[data-standing="run"] svg { animation: armada-tl-turn var(--duration-pulse) linear infinite; }
+.armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: armada-tl-turn var(--duration-pulse) linear infinite; }
 
 @keyframes armada-tl-turn {
   to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-tl__standing[data-standing="run"] svg { animation: none; }
+  .armada-tl__standing[data-standing="run"] svg, .armada-tl__kind[data-running] svg { animation: none; }
 }
 
 .armada-tl__age { flex: none; width: 5ch; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; }
@@ -74,6 +74,26 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 .armada-tl__mark { position: relative; z-index: 1; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 calc(var(--space-1) * 0.75) color-mix(in srgb, var(--tone) 20%, transparent); }
 .armada-tl__mark[data-shape="session"] { border-radius: var(--radius-sm); transform: rotate(45deg); }
 .armada-tl__mark[data-shape="pull_request"], .armada-tl__mark[data-shape="main"] { border-radius: var(--radius-sm); }
+
+/* ---- What a Session did: weight by kind ----------------------------------------------------------
+   A coalesced burst (read, edited, ran) is the quietest row: shorter, muted, a glyph in the spine where a turn,
+   an ask or a pull request has a dot, and the row's colour left to the rows that mean something. */
+
+.armada-tl__kind { display: inline-flex; flex: none; color: var(--tone); }
+.armada-tl__kind[data-quiet] { color: var(--fg-subtle); }
+.armada-tl__event[data-weight="quiet"] { min-height: var(--space-6); color: var(--fg-muted); }
+.armada-tl__event[data-weight="quiet"] .armada-tl__who { color: var(--fg-muted); }
+.armada-tl__event[data-weight="quiet"] .armada-tl__mark[data-quiet] { width: var(--space-1); height: var(--space-1); background: var(--fg-subtle); box-shadow: none; }
+
+/* A row that opens to its files or commands is a press from its chevron to the end of the line. */
+.armada-tl__opens { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.armada-tl__opens:hover { color: var(--fg-default); }
+.armada-tl__opens:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-tl__opens > svg { flex: none; color: var(--fg-subtle); }
+
+/* The rows an open one counts: one a line, under it, in the same columns so the spine runs through. */
+.armada-tl__item { display: grid; grid-template-columns: 5ch var(--space-6) minmax(0, calc(var(--space-12) * 6)) minmax(0, 1fr); gap: 0 var(--space-2); min-height: calc(var(--space-4) + var(--space-1)); padding: 0 var(--space-4); align-items: center; }
+.armada-tl__item:last-child > .armada-tl__spine::before { bottom: 50%; }
 
 .armada-tl__says { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; overflow: hidden; white-space: nowrap; }
 .armada-tl__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--fg-subtle); font-size: var(--text-2xs); }
@@ -127,6 +147,7 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 .armada-tl__pip::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 calc(var(--border-width) * 2) var(--bg-sunken); }
 .armada-tl__pip[data-shape="session"]::before { border-radius: var(--radius-sm); transform: rotate(45deg); }
 .armada-tl__pip[data-shape="pull_request"]::before, .armada-tl__pip[data-shape="main"]::before { border-radius: var(--radius-sm); }
+.armada-tl__pip[data-weight="quiet"]::before { inset: calc(var(--space-1) / 2); background: var(--fg-subtle); }
 .armada-tl__pip:hover::before { outline: calc(var(--border-width) * 2) solid var(--fg-default); outline-offset: calc(var(--border-width) * 2); }
 
 /* ---- Split: the subjects beside their events --------------------------------------------------- */
@@ -143,7 +164,7 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 
 .armada-tl__events { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .armada-tl__picked { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: calc(var(--space-8) + var(--space-1)); padding: 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-subtle); background: var(--bg-raised); }
-.armada-tl__split .armada-tl__event { grid-template-columns: 5ch var(--space-6) minmax(0, calc(var(--space-12) * 4)) minmax(0, 1fr); }
+.armada-tl__split .armada-tl__event, .armada-tl__split .armada-tl__item { grid-template-columns: 5ch var(--space-6) minmax(0, calc(var(--space-12) * 4)) minmax(0, 1fr); }
 
 .armada-tl[data-take="split"] .armada-tl__body { overflow: hidden; }
 
