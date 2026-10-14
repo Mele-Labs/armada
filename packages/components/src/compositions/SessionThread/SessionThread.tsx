@@ -24,6 +24,8 @@ import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
 import { StartedRow } from "./StartedRow";
+import { SketchRow } from "./SketchRow";
+import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
@@ -80,6 +82,12 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /**
+   * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
+   * `replaced` is set by the host where a later card holds the same `sketch`, and `againstScene` where it finds the card
+   * `against` names, so the card draws the change as the panel does.
+   */
+  | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
@@ -159,6 +167,8 @@ export type SessionThreadProps = {
   onOpenSession: (sessionId: string) => void;
   /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
   onOpenWindow?: (url: string) => void;
+  /** Opens a sketch the agent drew, by its ledger id. Absent, its card is not a press. */
+  onOpenSketch?: (sketch: string) => void;
   /** Opens the Session or Job a row of Helm's sent words went to. Absent, that row's chip is not a press. */
   onOpenSent?: (target: { kind: "session" | "job"; id: string }) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
@@ -511,6 +521,7 @@ function Row({
   row,
   onOpenSession,
   onOpenWindow,
+  onOpenSketch,
   agentName = "Agent",
   onOpenRetro,
   onOpenSent,
@@ -520,6 +531,7 @@ function Row({
   forkable: boolean;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
+  onOpenSketch?: (sketch: string) => void;
   agentName?: string;
   onOpenRetro?: (retro: number) => void;
   onOpenSent?: (target: { kind: "session" | "job"; id: string }) => void;
@@ -565,6 +577,7 @@ function Row({
       </li>
     );
   }
+  if (row.kind === "sketch") return <SketchRow row={row} {...(onOpenSketch === undefined ? {} : { onOpen: onOpenSketch })} />;
   if (row.kind === "approval") {
     return (
       <li role="region" aria-label="Approval asked for">
@@ -691,7 +704,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -729,7 +742,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
             ) : item.kind === "checks" ? (
               <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

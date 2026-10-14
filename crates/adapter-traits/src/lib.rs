@@ -66,7 +66,7 @@ pub use delivery::{
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,
 };
-pub use event::{CallDetail, DroneEvent, Speaker};
+pub use event::{CallDetail, DroneEvent, Speaker, ToolUse};
 pub use harness::{
     AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
     Model, Prompt, Prompting, Repair, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
@@ -186,6 +186,11 @@ pub trait AgentHarness {
     /// harness's vocabulary, so the question is asked of it rather than
     /// answered from a list of names anywhere else.
     fn edited(&self, event: &DroneEvent) -> Option<alloc::string::String>;
+
+    /// A file read or a command run, where `event` is a call that did one. `None` for every other
+    /// event, an edit call included. **Which tools these are is the harness's vocabulary**, asked of
+    /// it for the reason `edited` is.
+    fn used(&self, event: &DroneEvent) -> Option<ToolUse>;
 }
 
 /// Version control, as Fleet uses it.

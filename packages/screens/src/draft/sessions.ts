@@ -9,6 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
+import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { PullRequestPage, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -62,8 +63,13 @@ export type SessionAttachment =
       pilotedElsewhere?: true;
     }
   | { kind: "studio"; id: string; title: string }
-  /** A sketch the agent published into the Session, or one the person shared with it. */
-  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
+  /**
+   * A sketch the agent published into the Session, or one the person shared with it.
+   * **The agent's is a scene, and a second one with the same title replaces the first under the same `id`.**
+   * Its thread card is derived from the `show_sketch` call's tool row (`sketchCallOf`), never a row of its own.
+   * `against` is the sketch it is read as a change to, held whole so a later replacement does not move it.
+   */
+  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
   /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside

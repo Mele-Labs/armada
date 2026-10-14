@@ -6,17 +6,17 @@
 // grid. What it draws is Fleet's timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, LoaderCircle, Power, Reply, SquareTerminal } from "lucide-react";
+import { BellRing, Box, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Clock, FilePenLine, GitMerge, LoaderCircle, Power, Reply, ScrollText, Split as SplitLine, SquareTerminal, Terminal } from "lucide-react";
 import { Button, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
-import type { JobSummary } from "@armada/protocol";
+import type { JobSummary, TimelineKind } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
 import { titleOf as plainTitle } from "@armada/screens";
 
 import { useSessions } from "../sessions-draft";
 import { stateOf } from "../session-state";
 import { timelineOwner } from "./owner";
-import { STANDINGS, ageOf, fromWire, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
+import { QUIET_KINDS, STANDINGS, ageOf, fromWire, keyOf, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
 
 type Take = "feed" | "lanes" | "split";
@@ -155,9 +155,96 @@ const bucketOf = (event: FleetEvent, now: number): string => {
   return minutes < 3 ? "Just now" : minutes < 15 ? "Last 15 minutes" : minutes < 60 ? "Last hour" : "Earlier";
 };
 
+/**
+ * The kinds that wear a glyph in the spine where the rest wear a dot: the coalesced work of a Session or a
+ * Job's Drone, and a Session's subagents. A waiting, a resolution and a Session started by another keep the
+ * Session's dot in their tone.
+ */
+const KIND_MARK: Partial<Record<TimelineKind, { icon: typeof Clock; said: string }>> = {
+  "session.read": { icon: ScrollText, said: "Read" },
+  "session.edited": { icon: FilePenLine, said: "Edited" },
+  "session.ran": { icon: Terminal, said: "Ran" },
+  "job.read": { icon: ScrollText, said: "Read" },
+  "job.ran": { icon: Terminal, said: "Ran" },
+  "session.subagent": { icon: SplitLine, said: "Subagent" },
+};
+
+/** The event's mark on the spine. A subagent that has not finished turns, as the lane's working mark does. */
+function Mark({ event, running }: { event: FleetEvent; running: boolean }) {
+  const kind = KIND_MARK[event.kind];
+  if (kind === undefined) return <i className="armada-tl__mark" data-shape={shapeOf(event)} />;
+  const Icon = running ? LoaderCircle : kind.icon;
+  return (
+    <Tooltip label={running ? "Subagent working" : kind.said}>
+      <span className="armada-tl__kind" data-quiet={QUIET_KINDS.has(event.kind) || undefined} data-running={running || undefined}>
+        <Icon size={12} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** What a coalesced row opens to, named for the act: files for a read or an edit, commands for a run. */
+const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" || event.kind === "job.ran" ? "commands" : "files");
+
+function Row({ event, now, open, current, running, opened, onToggle }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
+  const says = (
+    <>
+      {event.says}
+      {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
+    </>
+  );
+  const items = event.items ?? [];
+  return (
+    <>
+      <li className="armada-tl__event" data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} data-current={current} style={toneOf(event.tone)}>
+        <Age event={event} now={now} />
+        <span className="armada-tl__spine">
+          <Mark event={event} running={running} />
+        </span>
+        <Who subject={event.subject} open={open} />
+        {items.length === 0 ? (
+          <span className="armada-tl__says">{says}</span>
+        ) : (
+          <Tooltip label={`${opened ? "Hide" : "Show"} ${itemsOf(event)}`} asChild>
+            <button type="button" className="armada-tl__opens" aria-expanded={opened} onClick={onToggle}>
+              {opened ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
+              <span className="armada-tl__says">{says}</span>
+            </button>
+          </Tooltip>
+        )}
+      </li>
+      {opened
+        ? items.map((one) => (
+            <li key={one} className="armada-tl__item">
+              <span />
+              <span className="armada-tl__spine" />
+              <span />
+              <span className="armada-tl__detail">{one}</span>
+            </li>
+          ))
+        : null}
+    </>
+  );
+}
+
+/** A subagent that started and has not finished, by the id of its newest event: the pair is the Session and the work it was given. */
+function unfinished(events: readonly FleetEvent[]): Set<string> {
+  const newest = new Map<string, FleetEvent>();
+  for (const event of events) {
+    if (event.kind !== "session.subagent") continue;
+    const key = `${keyOf(event.subject)}|${event.detail ?? ""}`;
+    const held = newest.get(key);
+    if (held === undefined || Date.parse(event.at) > Date.parse(held.at)) newest.set(key, event);
+  }
+  return new Set([...newest.values()].filter((one) => one.tone === "run").map((one) => one.id));
+}
+
 /** Every event of `lanes`, newest first, in blocks by how long ago; the newest of each subject carries how it stands. */
 function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open: Open }) {
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) => setOpened((held) => (held.has(id) ? new Set([...held].filter((one) => one !== id)) : new Set([...held, id])));
   const standing = new Map(lanes.map((lane) => [lane.events[0]!.id, lane.standing]));
+  const running = unfinished(lanes.flatMap((lane) => lane.events));
   const events = lanes.flatMap((lane) => lane.events).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const blocks: { said: string; rows: FleetEvent[] }[] = [];
   for (const event of events) {
@@ -172,17 +259,7 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
         <ol key={block.said} className="armada-tl__block" aria-label={block.said}>
           <li className="armada-tl__part">{block.said}</li>
           {block.rows.map((event) => (
-            <li key={event.id} className="armada-tl__event" data-current={standing.get(event.id)} style={toneOf(event.tone)}>
-              <Age event={event} now={now} />
-              <span className="armada-tl__spine">
-                <i className="armada-tl__mark" data-shape={shapeOf(event)} />
-              </span>
-              <Who subject={event.subject} open={open} />
-              <span className="armada-tl__says">
-                {event.says}
-                {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
-              </span>
-            </li>
+            <Row key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} />
           ))}
         </ol>
       ))}
@@ -222,7 +299,7 @@ function Track({ lane, now, press }: { lane: Lane; now: number; press: (event: F
           );
           return (
             <Tooltip key={event.id} label={tip} card asChild>
-              <button type="button" className="armada-tl__pip" data-shape={shapeOf(event)} aria-label={said} style={{ ...toneOf(event.tone), left: `${at(Date.parse(event.at))}%` }} onClick={() => press(event)} />
+              <button type="button" className="armada-tl__pip" data-shape={shapeOf(event)} data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} aria-label={said} style={{ ...toneOf(event.tone), left: `${at(Date.parse(event.at))}%` }} onClick={() => press(event)} />
             </Tooltip>
           );
         })}

@@ -22,13 +22,14 @@ export type Subject = { kind: "job"; id: string; title: string } | { kind: "sess
 /** The pull request an event is about, where it is drawn on its owner's track. */
 export type Pull = { number: number; title: string; url?: string };
 
-export type EventKind = TimelineKind;
+/** The coalesced kinds: a burst of work Fleet counted into one row. They draw quieter than a turn, an ask or a pull request. */
+export const QUIET_KINDS: ReadonlySet<TimelineKind> = new Set<TimelineKind>(["session.read", "session.edited", "session.ran", "job.read", "job.ran"]);
 
 export type FleetEvent = {
   id: string;
   /** When it happened. */
   at: string;
-  kind: EventKind;
+  kind: TimelineKind;
   subject: Subject;
   tone: EventTone;
   /** The fact, bare. */
@@ -43,6 +44,8 @@ export type FleetEvent = {
   over?: boolean;
   /** Set where the event is a pull request's: it sits on the track of the Job or Session that owns it. */
   pull?: Pull;
+  /** The files or commands a coalesced row counts, newest first. The first is `detail`. Absent where Fleet kept none, and the row then opens to nothing. */
+  items?: readonly string[];
 };
 
 const NOTHING: readonly TimelineEvent[] = [];
@@ -107,6 +110,7 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undef
     ...(event.live === true ? { live: true } : {}),
     ...(event.over === true ? { over: true } : {}),
     ...(pull === undefined ? {} : { pull }),
+    ...(event.items === undefined || event.items.length === 0 ? {} : { items: event.items }),
   };
 }
 

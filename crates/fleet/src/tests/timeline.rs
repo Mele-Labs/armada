@@ -17,10 +17,10 @@ use crate::tests::serving::A_PROPOSAL;
 use crate::tests::tmp::TempDir;
 use crate::timeline::{keep_timeline, Between};
 
-type Fixture = crate::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = crate::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
 /// A Fleet whose timeline is being kept, and the router that serves it.
-fn kept(home: &TempDir) -> (Arc<Fixture>, axum::Router) {
+pub(super) fn kept(home: &TempDir) -> (Arc<Fixture>, axum::Router) {
     let fleet = Arc::new(a_fleet(home, FakeWorkProduct::changed(&["src/log.rs"])));
     assert!(keep_timeline(Arc::clone(&fleet)).is_some(), "started once");
     assert!(keep_timeline(Arc::clone(&fleet)).is_none(), "and not twice");
@@ -29,16 +29,16 @@ fn kept(home: &TempDir) -> (Arc<Fixture>, axum::Router) {
     (fleet, app)
 }
 
-async fn read(fleet: &Fixture) -> Vec<TimelineEvent> {
+pub(super) async fn read(fleet: &Fixture) -> Vec<TimelineEvent> {
     fleet.timeline().settled().await;
     fleet.fleet_timeline(TimelineAsk::default()).await.expect("a timeline").events
 }
 
-fn kinds(events: &[TimelineEvent]) -> Vec<String> {
+pub(super) fn kinds(events: &[TimelineEvent]) -> Vec<String> {
     events.iter().map(|one| one.kind.as_wire()).collect()
 }
 
-fn publish(fleet: &Fixture, json: &str) {
+pub(super) fn publish(fleet: &Fixture, json: &str) {
     let event: ipc::Event = ipc::decode("an event", json.as_bytes()).expect("an event");
     fleet.events().publish(event);
 }

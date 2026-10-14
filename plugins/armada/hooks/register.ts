@@ -7,8 +7,8 @@
 // `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, and a question put to Bridge.** A message is reported as who it went to
-// or came from, and how many. A file a session wrote is reported as its path from the session's directory,
+// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, and a question put to Bridge.** A message is reported as who it went to
+// or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
 // The helpers are top-level because the engine follows `$` only into a function
@@ -19,7 +19,7 @@ import type { Engine, Register } from 'claude-code'
 import {
   answersIn,
   artifactOf,
-  touchedOf,
+  usedFact,
   customTitleIn,
   ghAct,
   isDispatch,
@@ -569,10 +569,10 @@ async function made(
   say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
 }
 
-async function wrote($: Dollar, input: Record<string, unknown>): Promise<void> {
+async function used($: Dollar, act: 'touched' | 'read' | 'ran', input: Record<string, unknown>): Promise<void> {
   const [id, one] = await current($)
-  const path = touchedOf(one.cwd, input)
-  if (path !== undefined) say($, id, { kind: 'touched', paths: [path] })
+  const fact = usedFact(act, one.cwd, input)
+  if (fact !== undefined) say($, id, fact)
 }
 
 async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
@@ -729,6 +729,7 @@ export const register: Register = on => {
       return { deny: SHOWN_INSTEAD }
     }
     const ran = await next(e)
+    if (ran.deny === undefined) void used($, 'ran', e as Record<string, unknown>).catch(() => undefined)
     if (ran.deny === undefined && ran.isError !== true) {
       void afterBash($, e.command, ran.text ?? '').catch(() => undefined)
     }
@@ -783,6 +784,7 @@ export const register: Register = on => {
       if (ran.deny === undefined && ran.isError !== true) {
         const created = tool === 'Write' && (ran.result as { type?: string } | undefined)?.type === 'create'
         void made($, tool, e as Record<string, unknown>, ran.text ?? '', created).catch(() => undefined)
+        if (tool === 'Read') void used($, 'read', e as Record<string, unknown>).catch(() => undefined)
       }
       return ran
     })
@@ -793,7 +795,7 @@ export const register: Register = on => {
     on('tool.call', { tool }, async ($, e, next) => {
       const ran = await next(e)
       if (ran.deny === undefined && ran.isError !== true) {
-        void wrote($, e as Record<string, unknown>).catch(() => undefined)
+        void used($, 'touched', e as Record<string, unknown>).catch(() => undefined)
       }
       return ran
     })

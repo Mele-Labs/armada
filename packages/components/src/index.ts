@@ -444,6 +444,7 @@ export * from "./compositions/RetroSheet/RetroSheet";
 export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/PauseConfirm/PauseConfirm";
 export * from "./compositions/NowPanel/NowPanel";
+export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
 export * from "./compositions/AskerView/AskerView";

@@ -3,15 +3,18 @@
 
 import type { SessionContextBreakdown } from 'claude-code'
 
+import type { Fact } from './fleet'
+
 const TITLE_MOST = 80
 const SAID_MOST = 200
+const COMMAND_MOST = 300
 
 /**
  * The version this mod reports to Fleet, so Bridge can mark a session whose mod is older than the
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.20'
+export const MOD_VERSION = '0.3.21'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -326,6 +329,21 @@ export function touchedOf(cwd: string, input: Record<string, unknown>): string |
   const relative = named.startsWith('/') ? (named.startsWith(`${root}/`) ? named.slice(root.length + 1) : undefined) : named
   if (relative === undefined || relative === '' || relative.split('/').includes('..')) return undefined
   return relative.replace(/^\.\//, '')
+}
+
+/**
+ * What a tool call did that Fleet's timeline counts: a file it wrote or read, as a path from the
+ * session's directory, or a shell command, as its first line. **Never content.** Fleet cuts a command
+ * further and hides what looks like a secret in it (`crates/fleet/src/timeline/tools.rs`).
+ */
+export function usedFact(act: 'touched' | 'read' | 'ran', cwd: string, input: Record<string, unknown>): Fact | undefined {
+  if (act === 'ran') {
+    const line = typeof input.command === 'string' ? (input.command.trim().split('\n')[0] ?? '') : ''
+    return line === '' ? undefined : { kind: 'ran', command: line.slice(0, COMMAND_MOST) }
+  }
+  const path = touchedOf(cwd, input)
+  if (path === undefined) return undefined
+  return act === 'read' ? { kind: 'read', path } : { kind: 'touched', paths: [path] }
 }
 
 const MODELS = ['haiku', 'sonnet', 'opus']

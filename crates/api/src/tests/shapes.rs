@@ -845,6 +845,7 @@ pub fn fleet_timeline(ask: &ipc::TimelineAsk) -> ipc::FleetTimeline {
             tone: ipc::TimelineTone::Idle,
             says: "Started".to_string(),
             detail: None,
+            items: Vec::new(),
             manifest_id: None,
             live: false,
             over: false,

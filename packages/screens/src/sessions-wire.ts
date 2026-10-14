@@ -9,6 +9,8 @@
 import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
+import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
+import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import type {
@@ -97,6 +99,78 @@ function handedOf(detail: Record<string, string>, jobs: readonly JobSummary[]): 
   const id = /^job (.+)$/.exec(detail["handed"] ?? "")?.[1];
   const job = id === undefined ? undefined : jobs.find((row) => row.id === id);
   return job === undefined ? {} : { handed: { job: numberOf(job) } };
+}
+
+/** What a scene that does not validate is drawn as: nothing. Never a partial drawing, never a repaired one. */
+const NO_SCENE: Scene = { nodes: [], edges: [] };
+
+/** A scene as Fleet keeps it, JSON text, or already read. `undefined` is any that `parseScene` would not draw. */
+export function sceneOfWire(value: unknown): Scene | undefined {
+  if (typeof value !== "string") return parseScene(value);
+  try {
+    return parseScene(JSON.parse(value));
+  } catch {
+    return undefined;
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** `detail.against`: JSON text of `{ title, scene }`. `undefined` when it is absent or is not that. */
+function earlierOf(text: string | undefined): Record<string, unknown> | undefined {
+  if (text === undefined) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A sketch the ledger holds, an artifact of form `sketch` keyed `sketch:<title>`. The scene is JSON text in
+ * `detail`, and `against` the sketch it is read as a change to: a JSON string of `{ title, scene }`, the scene
+ * itself JSON text again, so it is decoded in two steps (`detail` holds strings only). **A scene
+ * that does not parse keeps its row and draws an empty frame**, so what the agent drew is still on the ledger.
+ */
+function sketchOf(one: Attachment): SessionAttachment {
+  const detail: Record<string, string | undefined> = one.detail ?? {};
+  const title = typeof detail["title"] === "string" && detail["title"] !== "" ? detail["title"] : one.target.replace(/^sketch:/, "");
+  const earlier = earlierOf(detail["against"]);
+  const earlierTitle = earlier !== undefined && typeof earlier["title"] === "string" ? earlier["title"] : undefined;
+  const earlierScene = earlier === undefined ? undefined : sceneOfWire(earlier["scene"]);
+  return {
+    kind: "sketch",
+    id: one.target,
+    title,
+    by: "agent",
+    drawing: sceneOfWire(detail["scene"]) ?? NO_SCENE,
+    ...(earlierTitle === undefined || earlierScene === undefined ? {} : { against: { title: earlierTitle, drawing: earlierScene } }),
+  };
+}
+
+/** The name `show_sketch` is called by, however the harness prefixes a tool of a server. */
+const SKETCH_CALL = /^(?:\S*__)?show_sketch\s+(\{[\s\S]*\})\s*$/;
+
+/**
+ * A `show_sketch` call as the thread's tool row carries it: the tool's name, then its arguments as JSON
+ * (`title`, `scene`, and `against`, the title of the sketch it is read against). **`undefined` for any row
+ * that is not one, and for one whose scene would not draw**, which stays the plain tool row it was.
+ */
+export function sketchCallOf(text: string): { title: string; scene: Scene; against?: string } | undefined {
+  const found = SKETCH_CALL.exec(text);
+  if (found === null) return undefined;
+  let args: unknown;
+  try {
+    args = JSON.parse(found[1]!);
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(args) || typeof args["title"] !== "string" || args["title"].trim() === "") return undefined;
+  const scene = sceneOfWire(args["scene"]);
+  if (scene === undefined) return undefined;
+  const against = args["against"];
+  return { title: args["title"].trim(), scene, ...(typeof against === "string" && against.trim() !== "" ? { against: against.trim() } : {}) };
 }
 
 /** A pull request the ledger holds, with what Fleet last read of it. A merged one is `spent`; a closed one is let go. */
@@ -188,6 +262,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         break;
       case "artifact": {
         const form = detail["form"];
+        if (form === "sketch") {
+          out.push(sketchOf(one));
+          break;
+        }
         if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "window") break;
         out.push({ kind: "artifact", form, id: one.target, title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1) });
         break;

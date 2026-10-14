@@ -32,7 +32,7 @@ use std::fmt;
 
 use adapter_traits::{
     AgentHarness, AmbientServers, DroneEvent, DroneSpawnConfig, Effort, Grant, Launch, Prompting,
-    Repair,
+    Repair, ToolUse,
 };
 
 use crate::git_guard;
@@ -330,6 +330,13 @@ impl AgentHarness for HeadlessAgent {
         let said = detail.whole().unwrap_or(detail.shown());
         let path = crate::conversing::path_written(said).trim();
         (!path.is_empty()).then(|| path.to_string())
+    }
+
+    fn used(&self, event: &DroneEvent) -> Option<ToolUse> {
+        let DroneEvent::Called { tool, detail, .. } = event else {
+            return None;
+        };
+        crate::conversing::tool_use(tool, detail.whole().unwrap_or(detail.shown()))
     }
 }
 
