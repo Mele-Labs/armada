@@ -151,11 +151,11 @@ export type WorkflowCanvasProps = {
    */
   downOnly?: boolean;
   /**
-   * Fit the whole run in the frame, however small. **A miniature**, for a surface that shows the run
-   * beside something else: the legibility floor that narrows a long run to the step at work is lifted
-   * to the furthest zoom out. Absent keeps the floor.
+   * The canvas's Fit control reaches the whole run, however long it is. The legibility floor that stops a
+   * fit at the readable scale stays for the open, which still lands on the step at work: this only lets
+   * the person who presses Fit see the whole run. Absent keeps the floor for both.
    */
-  wholeRun?: boolean;
+  fitsWhole?: boolean;
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
@@ -445,7 +445,7 @@ export function WorkflowCanvas({
   centred = false,
   downOnly = false,
   reveals = null,
-  wholeRun = false,
+  fitsWhole = false,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -506,9 +506,12 @@ export function WorkflowCanvas({
   }, [given, givenEdges, nodes, runsDown, downOnly]);
 
   const fitViewOptions = useMemo(
-    () => ({ maxZoom: 1, minZoom: wholeRun ? FURTHEST_OUT : SMALLEST_READABLE }),
-    [wholeRun],
+    () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),
+    [],
   );
+
+  // What the Fit control asks of the view: the same, or all the way out.
+  const fitControl = useMemo(() => (fitsWhole ? { ...fitViewOptions, minZoom: FURTHEST_OUT } : fitViewOptions), [fitsWhole, fitViewOptions]);
 
   // **Its own group under the view group, and not inside it.** A zoom acts
   // once; this hands the viewport over for as long as it is on — and it places
@@ -540,9 +543,9 @@ export function WorkflowCanvas({
       edgeTypes={EDGE_TYPES}
       minZoom={FURTHEST_OUT}
       railBelow={stay}
-      fitViewOptions={fitViewOptions}
+      fitViewOptions={fitControl}
     >
-      <FitsTheFrame options={fitViewOptions} opensOn={wholeRun ? undefined : opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
+      <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
       <Follows running={running} following={following} />
       <Reveals node={reveals} />
     </GraphCanvas>

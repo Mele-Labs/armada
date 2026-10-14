@@ -226,6 +226,14 @@ export function DeckChrome(props: AppSeamProps) {
       event.preventDefault();
       return TILES[Number(event.key) - 1]!.press();
     }
+    // In a Job's pane, 0 is the canvas's own Fit: the whole run in the frame, from the step at work it opens on.
+    if (event.key === "0" && !event.shiftKey && state.sel?.kind === "job") {
+      const fit = document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job:"] .deck-job__canvas button[aria-label="Fit"]');
+      if (fit !== null) {
+        event.preventDefault();
+        return fit.click();
+      }
+    }
     // Zoom is the map's wherever focus is, while the map is what is showing.
     if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && state.sel === undefined && state.view === "map") {
       const host = document.querySelector(".bf");

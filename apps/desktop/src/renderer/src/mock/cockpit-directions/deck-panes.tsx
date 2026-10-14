@@ -127,7 +127,6 @@ function RunCanvas({ subject, props }: { subject: Subject; props: CockpitProps }
       workflows={holds.workflows}
       manifest={holds.manifests.find((one) => one.id === whole.job.owner_manifest_id)}
       onOpenJob={props.onOpen}
-      wholeRun
     />
   );
 }

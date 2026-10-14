@@ -29,8 +29,6 @@ export type JobRunProps = {
   onOpenJob?: (jobId: string) => void;
   /** A step pressed. Absent opens the step's own card. */
   onOpenStep?: (stepId: string) => void;
-  /** The whole run in the frame, small, rather than the band round the step at work. */
-  wholeRun?: boolean;
 };
 
 /** Each step's line as the Workflow tab's card draws it, by step id. */
@@ -44,7 +42,7 @@ function linesOf(whole: JobWhole, drones: readonly DroneView[]): Record<string, 
   return lines;
 }
 
-export function JobRun({ whole, drones = [], board = [], now, workflows, manifest, machineCap = null, onOpenJob, onOpenStep, wholeRun }: JobRunProps) {
+export function JobRun({ whole, drones = [], board = [], now, workflows, manifest, machineCap = null, onOpenJob, onOpenStep }: JobRunProps) {
   return (
     <ApprovalCanvas
       whole={whole}
@@ -53,7 +51,7 @@ export function JobRun({ whole, drones = [], board = [], now, workflows, manifes
       life={lifeOf(whole, waveReadingOf(whole, undefined, board), linesOf(whole, drones), Date.now())}
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
       {...(onOpenStep === undefined ? {} : { onOpenStep })}
-      {...(wholeRun === true ? { wholeRun } : {})}
+      fitsWhole
       workflows={workflows}
       manifest={manifest}
       branches={null}
