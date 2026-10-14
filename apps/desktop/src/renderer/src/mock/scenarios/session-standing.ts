@@ -1,5 +1,5 @@
-// Five Sessions, each in the state Fleet read it to be in, and the Cockpit and the Sessions page
-// agreeing about every one. One replied to him and waits (not stuck), one said it is done (not stuck),
+// Six Sessions, each in the state Fleet read it to be in, and the Cockpit and the Sessions page
+// agreeing about every one. Two replied to him and wait, one in a terminal (not stuck), one said it is done (not stuck),
 // one went quiet mid-turn (stuck), one is at work, and one asked a question he will open. The
 // timeline's last event for the replied and the done is a live turn, the case that used to read as
 // moving and then as stuck. The walk `session-standing` plays it.
@@ -65,6 +65,24 @@ const done: Session = {
   waitingFor: [{ id: `done:${DONE_AT}`, text: "Done", since: DONE_AT, source: "done" }],
 };
 
+/** Replied 12 minutes ago in a terminal session; the person answers it there, which the Cockpit is never told. */
+const TERMINAL_AT = ago(12);
+const terminal: Session = {
+  id: "t1",
+  title: "Retry cap",
+  terminal: true,
+  turn: { state: "idle" },
+  lastTurn: "14:06",
+  lastTurnAt: TERMINAL_AT,
+  standing: "replied",
+  rows: [
+    asked("t1-u", "13:58:00", "Cap the retries at five."),
+    said("t1-a", "14:06:12", "The cap is five and the backoff stops there."),
+  ],
+  attachments: [],
+  waitingFor: [{ id: `replied:${TERMINAL_AT}`, text: "The cap is five and the backoff stops there.", since: TERMINAL_AT, source: "replied" }],
+};
+
 const stuck: Session = {
   id: "k1",
   title: "Theme token audit",
@@ -120,6 +138,8 @@ const EVENTS: TimelineEvent[] = [
   event(6, replied, "session.turn", "run", "Pinned the clock in the store tests", true),
   event(22, done, "session.started", "run", "Started", true),
   event(4, done, "session.turn", "run", "Merged the script", true),
+  event(30, terminal, "session.started", "run", "Started", true),
+  event(12, terminal, "session.turn", "run", "Capped the retries", true),
   event(40, stuck, "session.started", "run", "Started", true),
   event(25, stuck, "session.turn", "run", "Searching the tokens", true),
   event(8, working, "session.started", "run", "Started", true),
@@ -129,14 +149,21 @@ const EVENTS: TimelineEvent[] = [
 ];
 
 function build(): Scenario {
-  const base = holding("session-standing", "Five Sessions each in the state Fleet read them to be in: replied, done, stuck, working and asking", [cache]);
+  const base = holding("session-standing", "Six Sessions each in the state Fleet read them to be in: replied twice, done, stuck, working and asking", [cache]);
   return {
     ...base,
     state: { ...base.state, repository: null, jobs: [cache.job] },
-    later: [],
+    later: [{}],
     draft: {
       events: EVENTS,
-      sessions: (control) => sessionsStore([NONE, NONE], NONE, [], control, [], [replied, done, stuck, working, asking]),
+      sessions: (control) => {
+        const store = sessionsStore([NONE, NONE], NONE, [], control, [], [terminal, replied, done, stuck, working, asking]);
+        return {
+          ...store,
+          // He answers Retry cap in its terminal: its turn begins again, and Fleet reads it working and drops the reply.
+          later: () => store.edit("t1", (one) => ({ ...one, turn: { state: "working" }, lastTurnAt: new Date().toISOString(), standing: "working", waitingFor: [] })),
+        };
+      },
     },
   };
 }
