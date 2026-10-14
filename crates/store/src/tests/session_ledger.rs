@@ -424,6 +424,7 @@ fn hosting(session_id: &str, manifest: &str, helm: bool) -> crate::KeptHosting {
         lease_branch: None,
         fork_of: None,
         helm,
+        setup: false,
     }
 }
 

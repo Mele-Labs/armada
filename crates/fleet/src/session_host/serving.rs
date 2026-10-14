@@ -490,6 +490,7 @@ where
         mut start: StartSession,
         helm: bool,
     ) -> Result<SessionRecord, Refusal> {
+        let rooted = start.root.is_some();
         let (manifest, cwd) = match start.root.take() {
             Some(root) => {
                 let repository = self.repository_named(Some(&root))?;
@@ -504,6 +505,8 @@ where
                 (Some(manifest), served.root().to_string())
             }
         };
+        // A root that has a Manifest by now is a plain start on it, not Setup's.
+        let setup = rooted && manifest.is_none();
         let id = new_id();
         let now = self.now().as_str().to_string();
         let title = start
@@ -543,6 +546,7 @@ where
                     lease_branch: None,
                     fork_of: None,
                     helm,
+                    setup,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
