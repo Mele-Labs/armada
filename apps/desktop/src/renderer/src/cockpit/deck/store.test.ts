@@ -4,7 +4,8 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "../../Dashboard";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly } from "./store";
+import type { Ship, Subject } from "./ship";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly } from "./store";
 
 const kept = new Map<string, string>();
 
@@ -71,4 +72,29 @@ test("the calls to be opened come newest first by the Item's own arrival, the or
 test("a call that is answered or visited leaves the tray", () => {
   const calls = [call("a", "2026-10-14T09:00:00Z"), call("b", "2026-10-14T10:00:00Z"), call("c", "2026-10-14T11:00:00Z")];
   expect(incomingOf(calls, new Map([["c", 1]]), new Set(["b"])).map((one) => one.key)).toEqual(["a"]);
+});
+
+// ---- Checks, a plain filter ----------------------------------------------------------------------------
+
+const subject = (kind: "job" | "session", id: string): Subject =>
+  ({ key: `${kind}:${id}`, kind, id, title: id, root: "/r", repo: "r", mark: { Glyph: () => null, said: "", tone: "calm" }, phase: "working", needs: false, alarm: false, peek: [], stoppable: false, repliable: false, mergeable: false }) as unknown as Subject;
+const ship = (running: string[]): Ship => ({ subjects: [subject("job", "a"), subject("job", "b"), subject("session", "c")], running: new Set(running) }) as unknown as Ship;
+
+test("Checks narrows the list to the subjects with a Check running now, and the feed and the stage keep the same ones", () => {
+  toggleChecks();
+  const listed = listOf(ship(["job:b", "session:c"]), deckNow());
+  expect(listed.map((one) => one.key).sort()).toEqual(["job:b", "session:c"]);
+  const keep = keepOf(listed, deckNow());
+  expect(keep({ kind: "job", id: "b" })).toBe(true);
+  expect(keep({ kind: "job", id: "a" })).toBe(false);
+  expect(keep({ kind: "session", id: "c" })).toBe(true);
+  expect(keep({ kind: "main" })).toBe(false);
+});
+
+test("with no filter on, the feed and the stage keep every subject the list draws and main's events too", () => {
+  const listed = listOf(ship([]), deckNow());
+  expect(listed).toHaveLength(3);
+  const keep = keepOf(listed, deckNow());
+  expect(keep({ kind: "job", id: "a" })).toBe(true);
+  expect(keep({ kind: "main" })).toBe(true);
 });
