@@ -40,6 +40,12 @@
   min-height: 0;
 }
 
+/* With no rail the work is the only thing in the body: it takes the leading gutter the column's own padding
+   gave it, so the panel's frame has the same room on both sides. */
+.armada-shell__body[data-rail="off"] > .armada-shell__work {
+  margin-left: var(--space-4);
+}
+
 /* The panel's own trailing gutter, at every dock state. #1125 gave it one
    only while the panel was `:only-child`, because the dock and the handle
    were siblings in the flow supplying the gap themselves. **Nothing follows

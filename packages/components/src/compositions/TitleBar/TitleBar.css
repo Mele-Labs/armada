@@ -322,6 +322,22 @@
   padding: var(--space-1);
 }
 
+/* The dot as a button, where it opens Fleet's panel: the wrapper's padding is its target. */
+.armada-title-bar__fleet-button {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+.armada-title-bar__fleet-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 /* The same 6px circle the panel draws, in the same four tones — the map is
    `FLEET_DOT_TONE`, imported rather than retyped, so a hue can only change in
    one place. `--fg-muted` is the neutral the panel's own unknown takes. */

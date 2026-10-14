@@ -24,6 +24,17 @@ import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } f
  * the scrolling child is what stops the window growing instead.
  */
 export type TheShellProps = {
+  /**
+   * Whether the window draws the left column: the repository picker, the rail's panels and Fleet's panel.
+   * **Default true.** False draws none of it and gives the content the whole width, and Fleet's panel
+   * moves to a popover on the title row's dot, because nothing else would hold its restart, its build
+   * and its Doctor roll-up. `panels`, `activeId` and `onSelect` are then not read.
+   */
+  rail?: boolean;
+  /** The places the title row draws in its centre, before the search trigger. See `TitleBar`. */
+  places?: TitleBarProps["places"];
+  /** The word the title row draws at its start in place of the lockup. See `TitleBar`. */
+  wordmark?: TitleBarProps["wordmark"];
   /** Beneath the rail's own section label — nothing draws here since #1087
    *  moved the Manifest picker to the title row; kept for a caller that wants
    *  the rail to carry something else. */
@@ -163,6 +174,9 @@ export type TheShellDock = {
 };
 
 export function TheShell({
+  rail = true,
+  places,
+  wordmark,
   railHeader,
   repositoryPicker,
   repositoryPickerCollapsed,
@@ -201,12 +215,15 @@ export function TheShell({
           helm={helmButtonOf(dock)}
           {...(sleep === undefined ? {} : { sleep })}
           {...(planUsage === undefined ? {} : { planUsage })}
+          {...(places === undefined ? {} : { places })}
+          {...(wordmark === undefined ? {} : { wordmark })}
           // Every width. The panel carries the same state from the same two
           // fields; the owner settled the duplication on 18 Sep 2026 — keep
           // it, drawn always, rather than mounting chrome on a resize.
-          fleet={{ state: fleet.state, label: fleet.label }}
+          fleet={{ state: fleet.state, label: fleet.label, ...(rail ? {} : { panel: <FleetInAPopover {...fleet} /> }) }}
         />
-        <div className="armada-shell__body">
+        <div className="armada-shell__body" data-rail={rail ? undefined : "off"}>
+          {!rail ? null : (
           <div
             className="armada-shell__left"
             style={collapsed || leftWidth === undefined ? undefined : { width: `${leftWidthValue}px` }}
@@ -237,19 +254,26 @@ export function TheShell({
             ))}
             <FleetPanel {...fleet} narrow={collapsed} />
           </div>
-          {collapsed || onResizeLeft === undefined ? null : (
+          )}
+          {!rail || collapsed || onResizeLeft === undefined ? null : (
             <LeftHandle width={leftWidthValue} onResize={onResizeLeft} />
           )}
           <div className="armada-shell__work">
             <div className="armada-shell__panel">
               <div className="armada-shell__mount">{children}</div>
             </div>
-            {dock === undefined ? null : <Dock {...dock} leftWidth={leftWidthValue} />}
+            {dock === undefined ? null : <Dock {...dock} leftWidth={rail ? leftWidthValue : 0} />}
           </div>
         </div>
       </div>
     </ShortcutRevealProvider>
   );
+}
+
+/** Fleet's panel as the title row's dot opens it: its own open state, since nothing else holds one. */
+function FleetInAPopover(props: Omit<FleetPanelProps, "narrow" | "open" | "onOpenChange">) {
+  const [open, setOpen] = useState(true);
+  return <FleetPanel {...props} open={open} onOpenChange={setOpen} />;
 }
 
 const DOCK_TITLE = "Helm";

@@ -5,6 +5,7 @@ import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../Fl
 import { Button } from "../../primitives/Button/Button";
 import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
+import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
@@ -221,6 +222,12 @@ export type TitleBarProps = {
     state: FleetState;
     /** The panel's own word — "Running", "Not running". Read for the name and the tooltip. */
     label: string;
+    /**
+     * What the dot opens, in a popover on the bar: Fleet's panel, for a window that draws no rail to
+     * hold it. **Present makes the dot a button**; absent leaves it the graphic it was, because the panel
+     * is already on screen in the left column.
+     */
+    panel?: ReactNode;
   };
 };
 
@@ -306,27 +313,39 @@ export function TitleBar({
             17 Sep 2026. The dot is `--dot`, the same 6px the panel and the
             48px rail draw, so the three readings of one fact are one size as
             well as one colour. */}
-        <span
-          className="armada-title-bar__fleet"
-          // A graphic with a name, `StepBar`'s own pattern, rather than a live
-          // region: it would announce a state nobody asked about, and now that
-          // it never mounts on a resize there is nothing new to announce
-          // anyway — the label simply changes with Fleet.
-          role="img"
-          aria-label={fleetSaid(fleet.label)}
-          // `title`, not the `Tooltip` primitive: it is what this row already
-          // gives its Helm button, and a tooltip's own surface at `--z-tooltip`
-          // has nothing to anchor to on a 6px dot. The no-drag rule in
-          // `TitleBar.css` is what lets either open at all — the whole row is
-          // a drag region and a drag region swallows the pointer.
-          title={fleetSaid(fleet.label)}
-        >
-          {fleet.state === "starting" ? (
-            <FleetStarting className="armada-fleet-starting" />
-          ) : (
-            <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[fleet.state]} aria-hidden />
-          )}
-        </span>
+        {fleet.panel === undefined ? (
+          <span
+            className="armada-title-bar__fleet"
+            // A graphic with a name, `StepBar`'s own pattern, rather than a live
+            // region: it would announce a state nobody asked about, and now that
+            // it never mounts on a resize there is nothing new to announce
+            // anyway — the label simply changes with Fleet.
+            role="img"
+            aria-label={fleetSaid(fleet.label)}
+            // `title`, not the `Tooltip` primitive: it is what this row already
+            // gives its Helm button, and a tooltip's own surface at `--z-tooltip`
+            // has nothing to anchor to on a 6px dot. The no-drag rule in
+            // `TitleBar.css` is what lets either open at all — the whole row is
+            // a drag region and a drag region swallows the pointer.
+            title={fleetSaid(fleet.label)}
+          >
+            <FleetDot state={fleet.state} />
+          </span>
+        ) : (
+          <span className="armada-title-bar__fleet">
+            <Popover
+              align="end"
+              label="Fleet"
+              trigger={
+                <button type="button" className="armada-title-bar__fleet-button" aria-label={fleetSaid(fleet.label)} title={fleetSaid(fleet.label)}>
+                  <FleetDot state={fleet.state} />
+                </button>
+              }
+            >
+              {fleet.panel}
+            </Popover>
+          </span>
+        )}
 
         {/* The row's one menu, at every width: the account, Sleep and Settings, and under them, where the
             row is narrow, everything the row above carries. */}
@@ -363,6 +382,14 @@ export function TitleBar({
         />
       </div>
     </div>
+  );
+}
+
+function FleetDot({ state }: { state: FleetState }) {
+  return state === "starting" ? (
+    <FleetStarting className="armada-fleet-starting" />
+  ) : (
+    <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[state]} aria-hidden />
   );
 }
 

@@ -3,6 +3,7 @@ import { useState, type ComponentProps } from "react";
 import { expect, within } from "storybook/test";
 import { ClipboardList, FolderGit2, HardDrive, Megaphone, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
+import { Tabs } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ActiveJobsList } from "../ActiveJobsList/ActiveJobsList";
 import { DockQuestions } from "../DockQuestions/DockQuestions";
@@ -77,6 +78,61 @@ const inWindow = (args: ComponentProps<typeof TheShell>) => (
 );
 
 export const Shell: Story = { args: shell, render: inWindow };
+
+/**
+ * `rail={false}`: no left column, no handle, and the content from edge to edge. What the column held that
+ * nothing else does, Fleet's panel, opens from the title row's dot.
+ */
+export const WithoutTheRail: Story = {
+  args: {
+    ...shell,
+    rail: false,
+    onResizeLeft: () => {},
+    wordmark: "Armada",
+    places: (
+      <Tabs
+        items={[
+          { id: "cockpit", label: "Cockpit" },
+          { id: "jobs", label: "Jobs" },
+          { id: "sessions", label: "Sessions" },
+          { id: "system", label: "System" },
+        ]}
+        value="cockpit"
+      />
+    ),
+  },
+  render: inWindow,
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    await expect(canvas.queryByRole("navigation", { name: "Work" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("region", { name: "Repository" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("separator", { name: "Resize the left column" })).not.toBeInTheDocument();
+    await expect(canvas.getByText("The list mounts here — 1d")).toBeVisible();
+    // The content starts where the window does, less its own gutter.
+    const window = canvasElement.querySelector(".armada-screen__window")!.getBoundingClientRect();
+    const work = canvasElement.querySelector(".armada-shell__work")!.getBoundingClientRect();
+    await expect(work.left - window.left).toBeLessThan(window.width / 20);
+    // The dot opens Fleet's panel, with its Doctor row.
+    await userEvent.click(canvas.getByRole("button", { name: "Fleet — Running" }));
+    const panel = canvas.getByRole("dialog", { name: "Fleet" });
+    await expect(within(panel).getByText("Doctor")).toBeVisible();
+    // Below the dot, and inside the window.
+    const dot = canvas.getByRole("button", { name: "Fleet — Running" }).getBoundingClientRect();
+    const opened = panel.getBoundingClientRect();
+    await expect(opened.top).toBeGreaterThanOrEqual(dot.bottom);
+    await expect(opened.right).toBeLessThanOrEqual(window.right);
+  },
+};
+
+/** The default is the rail: the column, its handle where a width is remembered, and a dot that is only a graphic. */
+export const WithTheRailByDefault: Story = {
+  args: { ...shell, onResizeLeft: () => {} },
+  render: inWindow,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("navigation", { name: "Work" })).toBeVisible();
+    await expect(canvas.getByRole("separator", { name: "Resize the left column" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Fleet — Running" })).not.toBeInTheDocument();
+  },
+};
 
 /** The repository picker is the rail's first panel, above Work, and the title row carries none. */
 export const RepositoryPanel: Story = {

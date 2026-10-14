@@ -126,6 +126,16 @@ export type ShellProps = {
   sleep?: TheShellProps["sleep"];
   /** The plan's limits, in the title row. Absent draws none. */
   planUsage?: TheShellProps["planUsage"];
+  /**
+   * Whether the window draws the left column. **Default true**; false is `TheShell`'s `rail={false}`, the
+   * Cockpit's own window, whose tabs and system strip are passed as `places`. Only the app's preview
+   * switch sets it false (#2301).
+   */
+  rail?: TheShellProps["rail"];
+  /** The title row's centre, before the search trigger. See `TheShell`. */
+  places?: TheShellProps["places"];
+  /** The title row's word in place of the lockup. See `TheShell`. */
+  wordmark?: TheShellProps["wordmark"];
   /** Which surface is up, by its id in `surfaces.ts`. The rail marks it. */
   showing: string;
   /** Selecting a rail row goes to that surface, from wherever you are. The
@@ -176,6 +186,9 @@ export function Shell({
   onSearch,
   sleep,
   planUsage,
+  rail,
+  places,
+  wordmark,
   showing,
   onSurface,
   hidden = [],
@@ -223,6 +236,9 @@ export function Shell({
 
   return (
     <TheShell
+      {...(rail === undefined ? {} : { rail })}
+      {...(places === undefined ? {} : { places })}
+      {...(wordmark === undefined ? {} : { wordmark })}
       dock={{
         ...dock,
         // The breakpoint alone. The dock folds to its sheet where the title
