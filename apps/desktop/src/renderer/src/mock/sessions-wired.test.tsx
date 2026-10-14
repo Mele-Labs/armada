@@ -228,13 +228,14 @@ test("Sessions wired: red checks on a merged pull request do not put a Session u
   await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
 });
 
-test("Sessions wired: red checks on an open pull request put a Session under Needs you", async () => {
+test("Sessions wired: red checks on an open pull request leave a Session under Idle, not Needs you", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { checks: "failed", failing: "lint" })] }),
   ]);
   mount(served(fleet));
   await onSessions();
-  await expect.element(page.getByText("Needs you")).toBeVisible();
+  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
 });
 
 test("Sessions wired: Open in a Session on a stopped Job starts one with the Job in its first message's mentions", async () => {

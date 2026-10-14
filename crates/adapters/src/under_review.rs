@@ -22,10 +22,12 @@
 //! silence rather than a guess — `crate::landing::read`'s own rule.
 
 use adapter_traits::{
-    FromOutside, Remark, ReviewVerdict, ReviewedBy, UnderReview, WhatPeopleSaid, WhatTheForgeRan,
+    FailureWeight, FromOutside, Remark, ReviewVerdict, ReviewedBy, UnderReview, WhatPeopleSaid,
+    WhatTheForgeRan,
 };
 
 use crate::delivery::asked_lines;
+use crate::pull_watch::GATE;
 
 /// The fields one read of a pull request under review needs.
 ///
@@ -208,6 +210,8 @@ pub(crate) struct Checks {
     seen: usize,
     finished: usize,
     failed: Vec<FromOutside>,
+    /// The gate, where the repository has one: `Some(true)` once it has passed.
+    gate: Option<bool>,
 }
 
 impl Checks {
@@ -220,6 +224,9 @@ impl Checks {
     /// whether the forge says it has finished.
     pub(crate) fn saw(&mut self, name: &str, status: &str, conclusion: &str) {
         self.seen += 1;
+        if name == GATE {
+            self.gate = Some(matches!(conclusion, "SUCCESS" | "NEUTRAL" | "SKIPPED"));
+        }
         match conclusion {
             "SUCCESS" | "NEUTRAL" | "SKIPPED" => self.finished += 1,
             "FAILURE" | "ERROR" | "TIMED_OUT" | "CANCELLED" | "ACTION_REQUIRED"
@@ -249,9 +256,18 @@ impl Checks {
             return WhatTheForgeRan::NothingRan;
         }
         if !self.failed.is_empty() {
+            // Only the gate decides where there is one, so a failure beside a gate that has not
+            // failed is lighter. The refusal to merge does not read this.
+            let gate_failed = self.failed.iter().any(|one| one.as_written() == GATE);
+            let weight = match self.gate {
+                Some(true) if !gate_failed => FailureWeight::AfterRequired,
+                Some(false) if !gate_failed => FailureWeight::WhileRunning,
+                _ => FailureWeight::Required,
+            };
             return WhatTheForgeRan::SomeFailed {
                 failed: self.failed,
                 checks: self.seen,
+                weight,
             };
         }
         match self.finished == self.seen {

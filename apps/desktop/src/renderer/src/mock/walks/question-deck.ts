@@ -7,6 +7,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 
 const { rail } = kit(false);
 const ask = role("article", "Waiting on you");
+const thread = region("Thread");
 
 const questionDeck = walk("session-many-questions", [
   { press: rail("Sessions"), say: "The Sessions page" },
@@ -20,7 +21,9 @@ const questionDeck = walk("session-many-questions", [
   { press: inside(ask, role("radio", "Left of Helm")), say: "And the next" },
   { look: inside(ask, role("group", "Answered")), say: "What is answered sits above; press one to change it" },
   { press: inside(ask, role("radio", "Approve all")), say: "The last one" },
-  { look: inside(ask, button("Answer")), say: "Sends them all" },
+  { press: inside(ask, button("Answer")), say: "Sends them all" },
+  { look: inside(thread, text("Are the five proposed icons right?")), say: "What was chosen is a message of yours in the thread: each question in bold, your answer under it" },
+  { look: inside(thread, text("Approve all")), say: "The answer sits under its question" },
 ]);
 
 export { questionDeck };

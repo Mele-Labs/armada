@@ -110,6 +110,22 @@ The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`).
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
+### Which machine owned a pull request
+
+**A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub login can tell who had it.** It is a small central store keyed by the login, and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
+
+| Field | Holds |
+|---|---|
+| key | An opaque hash of the repository and the pull request number |
+| kind | `session` or `job` |
+| id | The holder's short id |
+| machine | The machine's name |
+| since | When the claim was made |
+
+**A row never holds a title, a repository name or code.** The machine that owns the pull request draws its title from its own ledger, and any other machine draws only the stored facts. A repository registers nothing until its Manifest turns it on, and the switch is off by default. With it off, the repository registers none and shows no owners at all, those another machine registered included.
+
+**Bridge draws a row as a chip.** The kind's glyph (`square-terminal` for a Session, `box` for a Job) and the short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name. A pull request with no row draws no chip, in the merge line's open pull requests and in the Pull request panel. The switch is *Pull request owners* in the Policy section of the Manifest form.
+
 ## What Fleet answers
 
 | Operation | Answers |
@@ -460,6 +476,8 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 > **Rule.** The ledger follows the forge through its own attach.
 > Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
+**Only a failed required check is `checks: failed`.** Where a repository names a gate (`ci`), a check outside it that is red while the gate runs reads `pending`, and one red after the gate passed reads `passed`, with its name still in `failing`. Bridge draws those two as a tinted chip and leaves the Session's row alone; only `failed` puts a Session under Idle with a red mark, and a Session that waits on the person is under Needs you whatever its checks say. Fleet refuses a merge on all three.
+
 **The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
 
 **A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
@@ -660,6 +678,8 @@ by the table above.
 **A terminal's question is an ask in its thread too.** The `armada` mod hooks `AskUserQuestion` (a Drone skips it) and posts the question once with `ask_from_terminal`, which Fleet keeps in its store as the same `ask` row a hosted session writes, so Bridge draws the same card, and answers with the call's id. The terminal's own prompt opens once Fleet has answered that post, or after a second and a half without an answer, and not at all where Fleet refused the question because a walk is open (*Showing a window*). The mod then polls the same route with `wait`, each poll held about 25 seconds, so no one request has to outlast the question: a poll that fails or times out is asked again, and a Fleet that restarts finds the question where it was. A person answering in Bridge has the answer kept until the mod's next poll collects it, and the mod returns it as the tool's result, which drops the terminal's prompt. A person answering in the terminal first makes the mod send `settled`, which closes the card. A card whose session ended, or whose mod has not polled for three minutes, is closed too, so Bridge never offers one that cannot be answered. Fleet out of reach leaves the terminal's prompt alone.
 
 ## Not built
+
+**No store holds a pull request's registered owner.** The chip and the Manifest switch run on mock data through `draft.prOwners`, nothing reads or writes a store, and Fleet does not serve the setting, so it is not a Manifest key yet.
 
 **The `/` list is empty until an agent has started.** `hosted.commands` is the names in the stream's `init` line, slash commands then skills, and a session whose own process has not started is given the last one any session read. It is held in memory, so after a Fleet restart it is empty until a process starts, and the harness says nothing of what each command does, so the list draws names only.
 

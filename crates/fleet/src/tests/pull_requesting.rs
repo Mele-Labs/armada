@@ -160,12 +160,14 @@ async fn failed_checks_are_named_and_a_repository_that_runs_nothing_is_pending()
         WhatTheForgeRan::SomeFailed {
             failed: vec![adapter_traits::FromOutside::verbatim("ci")],
             checks: 3,
+            weight: adapter_traits::FailureWeight::Required,
         },
     );
     assert_eq!(
         fleet.get_pull_request(id.clone(), 12).await.unwrap().checks,
         ForgeChecks::Failed {
-            failing: vec!["ci".into()]
+            failing: vec!["ci".into()],
+            weight: ipc::FailureWeight::Required,
         }
     );
 
@@ -223,6 +225,7 @@ async fn a_read_refreshes_the_detail_of_the_row_a_session_holds() {
         WhatTheForgeRan::SomeFailed {
             failed: vec![adapter_traits::FromOutside::verbatim("ci")],
             checks: 2,
+            weight: adapter_traits::FailureWeight::Required,
         },
     );
 
@@ -238,6 +241,37 @@ async fn a_read_refreshes_the_detail_of_the_row_a_session_holds() {
     assert_eq!(said("branch"), Some("fleet/pr-acts"));
     assert_eq!(said("address"), Some(ADDRESS));
     assert_eq!(said("title"), Some("Take a draft out"));
+}
+
+#[tokio::test]
+async fn a_failure_outside_the_gate_is_a_lighter_word_on_the_row_and_still_a_failure_to_a_merge() {
+    for (weight, said) in [
+        (adapter_traits::FailureWeight::WhileRunning, "pending"),
+        (adapter_traits::FailureWeight::AfterRequired, "passed"),
+    ] {
+        let home = TempDir::new();
+        let fleet = a_fleet(&home);
+        let (id, _) = manifest(&fleet);
+        a_session_holding_pull_request_12(&fleet, "s1").await;
+        fleet
+            .vcs()
+            .now_pull_request(Some(facts(PullRequestStanding::Open)));
+        forge_ran(
+            &fleet,
+            WhatTheForgeRan::SomeFailed {
+                failed: vec![adapter_traits::FromOutside::verbatim("app_smoke_shard (2)")],
+                checks: 4,
+                weight,
+            },
+        );
+
+        let read = fleet.get_pull_request(id, 12).await.expect("read");
+
+        assert!(matches!(read.checks, ForgeChecks::Failed { .. }), "a merge still reads it as failed");
+        let row = the_row(&fleet, "s1", "pr").await;
+        assert_eq!(row.detail.get("checks").map(String::as_str), Some(said));
+        assert_eq!(row.detail.get("failing").map(String::as_str), Some("app_smoke_shard (2)"));
+    }
 }
 
 #[tokio::test]
@@ -377,6 +411,7 @@ async fn a_merge_while_the_checks_have_not_passed_is_refused_before_it_writes() 
         WhatTheForgeRan::SomeFailed {
             failed: vec![adapter_traits::FromOutside::verbatim("clippy")],
             checks: 2,
+            weight: adapter_traits::FailureWeight::Required,
         },
     ] {
         let home = TempDir::new();
@@ -630,6 +665,7 @@ async fn auto_merge_is_refused_once_a_check_failed_and_on_a_draft() {
             WhatTheForgeRan::SomeFailed {
                 failed: vec![adapter_traits::FromOutside::verbatim("ci")],
                 checks: 1,
+                weight: adapter_traits::FailureWeight::Required,
             },
             "fleet.merge_checks_not_passed",
         ),

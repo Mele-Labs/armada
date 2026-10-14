@@ -446,6 +446,8 @@ export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
 export * from "./compositions/AskerView/AskerView";
 export * from "./compositions/OwnerChip/OwnerChip";
+// The owner a pull request was registered to, from any machine under one GitHub login.
+export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/CommanderPanel/CommanderPanel";
