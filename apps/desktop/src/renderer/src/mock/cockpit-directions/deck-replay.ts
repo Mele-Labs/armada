@@ -26,7 +26,7 @@ function asOf(base: DroneIn, last: TimelineEvent): DroneIn {
   const ask = last.tone === "ask";
   const bad = last.tone === "bad";
   const working = last.tone === "run" || (last.live === true && !ask && !bad);
-  return { ...base, said: last.says, hue: bad ? "bad" : ask ? "ask" : "calm", spin: working, hover: working || ask, ping: ask || bad, stuck: false, flare: bad };
+  return { ...base, said: last.says, hue: bad ? "bad" : ask ? "ask" : "calm", spin: working, hover: working || ask, ping: ask || bad, stuck: false, flare: bad, working: last.live === true && last.over !== true };
 }
 
 const stageOf = (last: TimelineEvent): PrIn["stage"] =>

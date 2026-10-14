@@ -15,7 +15,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";
 import { DraftedFrom } from "../drafted";
-import { FleetEventsFrom } from "../cockpit/fleet-events";
+import { FleetEventsFrom, FleetEventsOver } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
@@ -139,7 +139,7 @@ export function mountApp(
                     <NumberedFrom held={mockNumbered}>
                       <PlanUsageSourceProvider value={planUsage}>
                         <DownshiftSourceProvider value={downshift}>
-                          <FleetEventsFrom events={chosen.draft?.events}>
+                          <FleetEventsAs draft={chosen.draft}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                 <SharedHomeFrom home={chosen.draft?.sharedHome}>
@@ -149,7 +149,7 @@ export function mountApp(
                                 </SharedHomeFrom>
                               </ClashesFrom>
                             </SessionsHere>
-                          </FleetEventsFrom>
+                          </FleetEventsAs>
                         </DownshiftSourceProvider>
                       </PlanUsageSourceProvider>
                     </NumberedFrom>
@@ -173,4 +173,9 @@ export function mountApp(
       root.unmount();
     },
   };
+}
+
+/** What Fleet did, from a scenario: fixed entries, or a source that grows as the scenario's moments pass. */
+function FleetEventsAs({ draft, children }: { draft: Scenario["draft"]; children: ReactNode }) {
+  return draft?.timeline === undefined ? <FleetEventsFrom events={draft?.events}>{children}</FleetEventsFrom> : <FleetEventsOver source={draft.timeline}>{children}</FleetEventsOver>;
 }

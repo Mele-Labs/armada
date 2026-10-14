@@ -5,6 +5,7 @@
 
 import type { TimelineEvent, TimelineKind } from "@armada/protocol";
 
+import type { Check, Doing } from "./deck-doing";
 import type { Pr, Subject } from "./ship";
 
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -34,6 +35,14 @@ export type DroneIn = {
   stuck: boolean;
   /** A Check is failing. */
   flare: boolean;
+  /** At work: a Job or Session whose turn is running, stuck or failing ones included. Idle and waiting drones are not. */
+  working: boolean;
+  /** What a working drone's latest tool event says it is doing, over its plot. Set from the timeline, not here. */
+  doing?: Doing;
+  /** How its Check stands, while it is running tools. */
+  check?: Check;
+  /** The command or path of that tool event. */
+  via?: string;
   /** The Job it belongs to or was dispatched by. */
   parent?: string;
   /** The directories it is changing, and how much of its change is in each. */
@@ -61,6 +70,7 @@ export function droneOf(subject: Subject, owed: boolean, extra: { parent?: strin
     ping: ask || failing,
     stuck,
     flare: failing,
+    working,
     ...(extra.parent === undefined ? {} : { parent: extra.parent }),
     ...(extra.slot === undefined ? {} : { slot: extra.slot }),
     shown: extra.shown,
@@ -350,6 +360,9 @@ export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: rea
     const total = list.reduce((sum, one) => sum + one.w, 0) || 1;
     const state = drone.spin ? 1 : drone.hover ? 0.6 : 0.2;
     for (const { tile, w } of list) add(tile.path, state * (0.4 + 0.6 * (w / total)));
+    // The plot a drone is writing stands taller while it does.
+    const writing = drone.doing === "write" ? list[0] : undefined;
+    if (writing !== undefined) add(writing.tile.path, 0.5);
   }
   for (const play of plays) {
     if (play.key === undefined || (play.kind !== "sweep" && play.kind !== "tracer" && play.kind !== "launch")) continue;

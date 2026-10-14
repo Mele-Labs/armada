@@ -18,6 +18,7 @@ import { Crosshair, Minus, Plus, ShieldCheck, ShieldX } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
 import { camera } from "./deck-model";
+import { GLYPH as DOING_GLYPH, MOST_LOOPS, WORD as DOING_WORD } from "./deck-doing";
 import { Callout, type Anchor, type Glyph, type Tip } from "./Callout";
 import { STAGE } from "./shared";
 import { ALONG, CAM, FLAT, SLAB, STAGE_SAID, TRAIL_MS, alongOf, bigOf, heightsOf, layoutOf, rand, type DroneIn, type P3, type Placed, type Play, type Point, type RepoIn, type Size, type Territory, type Tile } from "./deck-field";
@@ -185,6 +186,7 @@ function Drone({
   dim,
   play,
   facts,
+  loop,
   onSelect,
   onTip,
 }: {
@@ -209,6 +211,8 @@ function Drone({
   dim: boolean;
   play: Play | undefined;
   facts: DroneFacts | undefined;
+  /** Its action runs as a loop, rather than as the still form. */
+  loop: boolean;
   onSelect: () => void;
   onTip: OnTip;
 }) {
@@ -221,6 +225,7 @@ function Drone({
         title: drone.title,
         hue: drone.hue,
         state: facts?.state ?? { Glyph: ShieldCheck, said: drone.said, tone: drone.hue },
+        ...(drone.doing === undefined ? {} : { doing: { Glyph: DOING_GLYPH[drone.doing], word: DOING_WORD[drone.doing], ...(drone.via === undefined ? {} : { via: drone.via }) } }),
         pills: pillsOf(drone),
         ...(facts?.bay === undefined ? {} : { bay: facts.bay }),
         ...(facts?.last === undefined ? {} : { last: facts.last }),
@@ -243,6 +248,9 @@ function Drone({
       data-hover={drone.hover || undefined}
       data-spin={drone.spin || undefined}
       data-stuck={drone.stuck || undefined}
+      data-doing={drone.doing}
+      data-check={drone.doing === "run" ? drone.check : undefined}
+      data-loop={(drone.doing !== undefined && loop) || undefined}
       data-ping={drone.ping || undefined}
       data-flare={drone.flare || undefined}
       data-selected={selected || undefined}
@@ -342,6 +350,7 @@ function Slab({
   clash,
   named,
   pulse,
+  writing,
   bump,
   room,
   onEnter,
@@ -354,6 +363,8 @@ function Slab({
   named: boolean;
   /** A picked event touched it: its edge glows. */
   pulse: boolean;
+  /** A drone is writing it: it stands taller, and rises with the laser while that is a loop. */
+  writing: "loop" | "still" | undefined;
   bump: { wait: number; amp: number } | undefined;
   room: number;
   onEnter: (event: ReactMouseEvent) => void;
@@ -367,6 +378,7 @@ function Slab({
       data-lit={lit || undefined}
       data-clash={clash || undefined}
       data-pulse={pulse || undefined}
+      data-writing={writing}
       data-bump={bump !== undefined || undefined}
       style={vars({ left: rect.x, top: rect.y * FLAT, width: rect.w, height: rect.h * FLAT, "--h": height.toFixed(2), "--tint": `${(5 + rand(tile.path, 1) * 3).toFixed(1)}%`, ...(bump === undefined ? {} : { "--wait": `${bump.wait}ms`, "--amp": bump.amp }) })}
       onMouseEnter={onEnter}
@@ -616,7 +628,8 @@ export function Battlefield({
     if (at === undefined) return 0;
     const reach = tiles.filter((t) => t.rect.x < at.x + 170 && t.rect.x + t.rect.w > at.x - 170 && t.rect.y < at.y + 90 && t.rect.y + t.rect.h > at.y - 60);
     const clear = Math.max(floorAt(at), ...reach.map((t) => heights.get(t.path) ?? 0));
-    return clear + FOOT + MARGIN + (drone.hover ? Math.round(18 * big) : 0);
+    // Reading, it dips toward the plot it is probing.
+    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0);
   };
   const droneBy = new Map(drones.map((one) => [one.key, one] as const));
   const flying = (drone: DroneIn): P3 | undefined => {
@@ -625,6 +638,21 @@ export function Battlefield({
   };
   const sorted = [...drones].sort((a, b) => (layout.at.get(a.key)?.y ?? 0) - (layout.at.get(b.key)?.y ?? 0));
   const playOf = (key: string, kind: Play["kind"]) => plays.find((one) => one.key === key && one.kind === kind);
+
+  // What the working drones are doing over their plots. Each aims at the biggest plot it touches; at most MOST_LOOPS of them run as a
+  // loop, the picked and the focused first, and the rest show the same form still.
+  const aimOf = (drone: DroneIn) => (drone.doing === undefined || !drone.shown ? undefined : layout.over.get(drone.key)?.[0]?.tile);
+  const doers = drones.filter((one) => aimOf(one) !== undefined && layout.at.has(one.key));
+  /** Where on its plot a drone's action lands: the point nearest the drone, kept far enough in that the scan plate stays on the plot. */
+  const aimPoint = (drone: DroneIn, tile: Tile): Point => {
+    const at = layout.at.get(drone.key)!;
+    const clamp = (n: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, n)));
+    const hw = Math.min(tile.rect.w, 150) * 0.43;
+    const hh = Math.min(tile.rect.h, 100 / FLAT) * 0.43;
+    return { x: clamp(at.x, tile.rect.x + hw, tile.rect.x + tile.rect.w - hw), y: clamp(at.y, tile.rect.y + hh, tile.rect.y + tile.rect.h - hh) };
+  };
+  /** How far out a circling drone flies from the centre of its ring. */
+  const orbit = 28 + 10 * big;
 
   // The camera: where it looks on the plane and how far it stands. The field's own framing is home; a pinch, the wheel, a drag or a
   // key moves it; lock-on and an arrival ease it, and a hand on it takes over. One state, one transform, drawn at most once a frame.
@@ -816,6 +844,14 @@ export function Battlefield({
 
   const [tip, setTip] = useState<{ tip: Tip; anchor: Anchor }>();
   const [hot, setHot] = useState<string>();
+  const loops = new Set(
+    [...doers]
+      .sort((a, b) => (a.key === focus ? 0 : a.key === selected ? 1 : a.key === hot ? 2 : 3) - (b.key === focus ? 0 : b.key === selected ? 1 : b.key === hot ? 2 : 3))
+      .slice(0, MOST_LOOPS)
+      .map((one) => one.key),
+  );
+  const writing = new Map<string, "loop" | "still">();
+  for (const one of doers) if (one.doing === "write") writing.set(aimOf(one)!.path, loops.has(one.key) || writing.get(aimOf(one)!.path) === "loop" ? "loop" : "still");
   const showTip: OnTip = (next, target, at) => {
     if (next === undefined || target === undefined) return setTip(undefined);
     setTip({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) } });
@@ -1019,6 +1055,7 @@ export function Battlefield({
                     clash={clash !== undefined}
                     named={named}
                     pulse={pulsing.has(tile.path)}
+                    writing={writing.get(tile.path)}
                     bump={bump.get(tile.path)}
                     room={room}
                     onEnter={(event) => {
@@ -1070,6 +1107,46 @@ export function Battlefield({
               ];
             })}
 
+            {/* What the working drones are doing, on the plot they aim at: a scan over it, the laser's impact and its sparks, the ring a drone circles. */}
+            {doers.map((drone) => {
+              const own = layout.at.get(drone.key)!;
+              const tile = aimOf(drone)!;
+              const loop = loops.has(drone.key);
+              if (drone.doing === "run") {
+                const centre = onPlane(own);
+                return (
+                  <div key={`${drone.key}:do`} className="bf-at bf-do" data-doing="run" data-check={drone.check} data-loop={loop || undefined} data-focus={focus === drone.key || undefined} style={{ transform: `translate3d(${px(centre.x)}, ${px(centre.y)}, ${px(floorAt(own) + 1.5)})`, ...vars({ "--ring": `${orbit.toFixed(1)}px` }) }} aria-hidden="true">
+                    <i className="bf-do__orbit" />
+                    <i className="bf-do__radar" />
+                  </div>
+                );
+              }
+              const at = onPlane(aimPoint(drone, tile));
+              // A plot that is being written rises under the laser by up to the slab's rise: the impact rides on top of it.
+              const z = (heights.get(tile.path) ?? 0) + (drone.doing === "write" ? 8.5 : 1.5);
+              const wide = Math.min(tile.rect.w, 150) * 0.86;
+              const deep = Math.min(tile.rect.h * FLAT, 100) * 0.86;
+              return (
+                <div key={`${drone.key}:do`} className="bf-at bf-do" data-doing={drone.doing} data-loop={loop || undefined} data-focus={focus === drone.key || undefined} style={{ transform: `translate3d(${px(at.x)}, ${px(at.y)}, ${px(z)})`, ...vars({ "--w": `${wide.toFixed(1)}px`, "--d": `${deep.toFixed(1)}px` }) }} aria-hidden="true">
+                  {drone.doing === "read" ? (
+                    <>
+                      <i className="bf-do__grid">
+                        <i className="bf-do__scan" />
+                      </i>
+                      <i className="bf-do__pulse" />
+                    </>
+                  ) : (
+                    <>
+                      <i className="bf-do__impact" />
+                      {[0, 1, 2, 3].map((i) => (
+                        <i key={i} className="bf-do__spark" style={vars({ "--i": i })} />
+                      ))}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
             {/* The lifted lines: what drones leave in the air, the tether to a bay it holds, the beams to the plots it changes, the formation, the clash, the routes. */}
             <svg className="bf-lift" data-easing={easing || undefined} width={plane.width} height={plane.height} style={{ transform: `translateZ(${LAYER}px)` }} aria-hidden="true">
               {drones.map((drone) => {
@@ -1098,6 +1175,33 @@ export function Battlefield({
                         </g>
                       );
                     })}
+                    {(() => {
+                      const tile = aimOf(drone);
+                      if (tile === undefined || (drone.doing !== "read" && drone.doing !== "write")) return null;
+                      const end = onPlane(aimPoint(drone, tile));
+                      const from = lifted(to);
+                      const hit = lifted({ ...end, z: (heights.get(tile.path) ?? 0) + (drone.doing === "write" ? 8 : 0) });
+                      const loop = loops.has(drone.key);
+                      if (drone.doing === "write") {
+                        return (
+                          <g className="bf-laser" data-loop={loop || undefined}>
+                            <line className="bf-laser__glow" x1={from.x} y1={from.y} x2={hit.x} y2={hit.y} />
+                            <line className="bf-laser__core" x1={from.x} y1={from.y} x2={hit.x} y2={hit.y} />
+                          </g>
+                        );
+                      }
+                      // The probe: a narrow cone from the drone to the plot, turning about the drone so its foot sweeps the plot's width.
+                      const length = Math.hypot(hit.x - from.x, hit.y - from.y) || 1;
+                      const across = (Math.min(tile.rect.w, 150) * 0.86) / 2;
+                      const sweep = Math.min(26, (Math.atan(across / length) * 180) / Math.PI);
+                      const nx = -(hit.y - from.y) / length;
+                      const ny = (hit.x - from.x) / length;
+                      return (
+                        <g className="bf-probe" data-loop={loop || undefined} style={{ transformOrigin: `${from.x.toFixed(1)}px ${from.y.toFixed(1)}px`, ...vars({ "--sweep": `${sweep.toFixed(1)}deg` }) }}>
+                          <polygon points={`${from.x.toFixed(1)},${from.y.toFixed(1)} ${(hit.x + nx * 6).toFixed(1)},${(hit.y + ny * 6).toFixed(1)} ${(hit.x - nx * 6).toFixed(1)},${(hit.y - ny * 6).toFixed(1)}`} />
+                        </g>
+                      );
+                    })()}
                   </g>
                 );
               })}
@@ -1169,8 +1273,12 @@ export function Battlefield({
               const floor = floorAt(at);
               const on = selected === drone.key;
               const asks = drone.hue !== "calm";
-              const here = onPlane(at);
-              return (
+              const centre = onPlane(at);
+              // Running tools or Checks, it flies round a ring about the place it hovers: its start is on the ring, and the wrapper turns.
+              const circling = drone.doing === "run" && aimOf(drone) !== undefined;
+              const here = circling ? { x: centre.x + orbit, y: centre.y } : centre;
+              const loop = loops.has(drone.key);
+              const body = (
                 <Drone
                   key={drone.key}
                   drone={drone}
@@ -1189,12 +1297,22 @@ export function Battlefield({
                   dim={focus !== undefined && focus !== drone.key}
                   play={launch}
                   facts={facts.get(drone.key)}
+                  loop={loop}
                   onSelect={() => onSelect(drone.key)}
                   onTip={(next, target) => {
                     setHot(next === undefined ? undefined : drone.key);
                     showTip(next, target);
                   }}
                 />
+              );
+              // Always wrapped, so a drone that starts or stops circling is the same element: the lap is a CSS turn of the wrapper, and a second
+              // turn the other way about the drone keeps it upright.
+              return (
+                <div key={drone.key} className="bf-orbit" data-circling={(circling && loop) || undefined} style={{ transformOrigin: `${px(centre.x)} ${px(centre.y)}` }}>
+                  <div className="bf-orbit__face" style={{ transformOrigin: `${px(here.x)} ${px(here.y)}` }}>
+                    {body}
+                  </div>
+                </div>
               );
             })}
 

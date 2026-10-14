@@ -471,6 +471,80 @@
   100% { opacity: 0; transform: rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(1); }
 }
 
+/* ---- What a working drone is doing over its plot --------------------------------------------------------- */
+/*
+ * Reading probes: it dips, a narrow cone sweeps the plot and a light scan line crosses it. Writing is a laser: a thin beam fires
+ * down in bursts (on for 1.2s, off for 0.8s) with an impact and a few sparks, and the plot rises under it. Running circles: a ring
+ * on the plane, the drone flying round it and its shadow after it, a radar sweep each lap, the ring amber while the Check runs,
+ * red when it fails, green when it passes. Only a working drone does any of it, at most eight loop at once (`data-loop`) and the
+ * rest wear the same form still, as does everything under reduced motion. Transform and opacity only.
+ */
+.bf-orbit,
+.bf-orbit__face { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; }
+.bf-orbit[data-circling] { animation: bf-lap 14s linear infinite; }
+.bf-orbit[data-circling] > .bf-orbit__face { animation: bf-unlap 14s linear infinite; }
+/* Banking a little into the turn. */
+.bf-drone[data-doing="run"] .bf-alt > .bf-bb:not(.bf-tag) .bf-sprite { rotate: -6deg; }
+
+.bf-do { --act: var(--status-running); }
+.bf-do[data-doing="write"] { --act: var(--status-escalated); }
+.bf-do[data-doing="run"] { --act: var(--status-awaiting-review); }
+.bf-do[data-check="bad"] { --act: var(--status-completed-failed); }
+.bf-do[data-check="ok"] { --act: var(--status-completed-success); }
+.bf-do[data-focus] { --glow: 1; }
+
+.bf-do .bf-do__grid {
+  left: calc(var(--w) / -2);
+  top: calc(var(--d) / -2);
+  width: var(--w);
+  height: var(--d);
+  overflow: hidden;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--act) 20%, transparent) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--act) 20%, transparent) 0 1px, transparent 1px 9px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--act) 40%, transparent);
+}
+.bf-do .bf-do__scan { left: 0; top: 0; width: 2px; height: 100%; border-radius: 0; background: var(--act); box-shadow: 0 0 8px var(--act); transform: translateX(calc(var(--w) * 0.5)); }
+.bf-do[data-loop] .bf-do__scan { animation: bf-scan 2.4s ease-in-out infinite alternate; }
+.bf-do .bf-do__pulse { left: -13px; top: -13px; width: 26px; height: 26px; border: 1.5px solid var(--act); opacity: 0.75; }
+.bf-do[data-loop] .bf-do__pulse { animation: bf-sensor 1.2s ease-out infinite; }
+.bf-probe polygon { fill: color-mix(in srgb, var(--status-running) 24%, transparent); stroke: color-mix(in srgb, var(--status-running) 65%, transparent); stroke-width: 1; stroke-linejoin: round; }
+.bf-probe[data-loop] { animation: bf-probe 2.4s ease-in-out infinite alternate; }
+
+.bf-laser__glow { stroke: color-mix(in srgb, var(--status-escalated) 38%, transparent); stroke-width: 7; stroke-linecap: round; }
+.bf-laser__core { stroke: color-mix(in srgb, var(--status-escalated) 40%, var(--fg-default)); stroke-width: 1.6; stroke-linecap: round; }
+.bf-laser[data-loop] { animation: bf-burst 2s step-end infinite; }
+.bf-do .bf-do__impact { left: -16px; top: -16px; width: 32px; height: 32px; background: radial-gradient(circle, color-mix(in srgb, var(--fg-default) 70%, var(--act)) 0, var(--act) 26%, transparent 70%); opacity: 0.9; }
+.bf-do[data-loop] .bf-do__impact { animation: bf-burst 2s step-end infinite; }
+.bf-do .bf-do__spark { left: -2px; top: -2px; width: 4px; height: 4px; background: var(--act); opacity: 0; display: none; }
+.bf-do[data-loop] .bf-do__spark { display: block; animation: bf-spark 2s ease-out infinite; animation-delay: calc(var(--i) * 140ms); }
+.bf-do .bf-do__spark:nth-of-type(2) { --sx: -16px; --sy: -9px; }
+.bf-do .bf-do__spark:nth-of-type(3) { --sx: 15px; --sy: -11px; }
+.bf-do .bf-do__spark:nth-of-type(4) { --sx: -11px; --sy: 8px; }
+.bf-do .bf-do__spark:nth-of-type(5) { --sx: 17px; --sy: 7px; }
+.bf-slab[data-writing="loop"] .bf-top { --amp: 7; animation: bf-rise-top 2s ease-in-out infinite; }
+.bf-slab[data-writing="loop"] .bf-face[data-side="south"] { --amp: 7; animation: bf-rise-south 2s ease-in-out infinite; }
+.bf-slab[data-writing="loop"] .bf-face[data-side="west"] { --amp: 7; animation: bf-rise-west 2s ease-in-out infinite; }
+
+.bf-do .bf-do__orbit { left: calc(var(--ring) * -1); top: calc(var(--ring) * -1); width: calc(var(--ring) * 2); height: calc(var(--ring) * 2); border: 1.5px dashed color-mix(in srgb, var(--act) 75%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--act) 25%, transparent); }
+.bf-do .bf-do__radar { display: none; left: calc(var(--ring) * -1); top: calc(var(--ring) * -1); width: calc(var(--ring) * 2); height: calc(var(--ring) * 2); background: conic-gradient(from 0deg, color-mix(in srgb, var(--act) 34%, transparent), transparent 70deg, transparent); }
+.bf-do[data-loop] .bf-do__radar { display: block; animation: bf-lap 14s linear infinite; }
+.bf-drone[data-doing="read"] .bf-pool { background: radial-gradient(circle, color-mix(in srgb, var(--status-running) 32%, transparent), transparent 68%); }
+.bf-drone[data-doing="write"] .bf-pool { background: radial-gradient(circle, color-mix(in srgb, var(--status-escalated) 34%, transparent), transparent 68%); }
+
+@keyframes bf-lap { to { transform: rotateZ(360deg); } }
+@keyframes bf-unlap { to { transform: rotateZ(-360deg); } }
+@keyframes bf-scan { from { transform: translateX(0); } to { transform: translateX(calc(var(--w) - 2px)); } }
+@keyframes bf-sensor { 0% { opacity: 0.85; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes bf-probe { from { transform: rotate(calc(var(--sweep) * -1)); } to { transform: rotate(var(--sweep)); } }
+@keyframes bf-burst { 0% { opacity: 1; } 60% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes bf-spark { 0% { opacity: 1; transform: translate(0, 0); } 26% { opacity: 0; transform: translate(var(--sx), var(--sy)); } 100% { opacity: 0; transform: translate(var(--sx), var(--sy)); } }
+
+/* The callout's line for it. */
+.bf-callout__doing { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.bf-callout__path { min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+
 /* No motion: a still pose. The plane keeps its tilt and the drones their altitude; the camera does not drift or ease, nothing
    bobs, and the effects of events do not play. States stay readable by shape: a calling drone keeps one ring and its lit tip,
    a stuck one its ring, a failing one its glow; rotors are still. */
@@ -499,7 +573,18 @@
   .bf-stall,
   .bf-glow,
   .bf-flare path,
-  .bf-goal[data-red] .bf-beacon { animation: none; }
+  .bf-goal[data-red] .bf-beacon,
+  .bf-orbit[data-circling],
+  .bf-orbit[data-circling] > .bf-orbit__face,
+  .bf-do[data-loop] .bf-do__scan,
+  .bf-do[data-loop] .bf-do__pulse,
+  .bf-do[data-loop] .bf-do__impact,
+  .bf-do[data-loop] .bf-do__radar,
+  .bf-probe[data-loop],
+  .bf-laser[data-loop],
+  .bf-slab[data-writing="loop"] .bf-top,
+  .bf-slab[data-writing="loop"] .bf-face[data-side="south"],
+  .bf-slab[data-writing="loop"] .bf-face[data-side="west"] { animation: none; }
   .bf-cam,
   .bf-bb,
   .bf-drone,
@@ -519,5 +604,7 @@
   .bf-ripple,
   .bf-flash,
   .bf-quake,
-  .bf-column { display: none; }
+  .bf-column,
+  .bf-do[data-loop] .bf-do__spark,
+  .bf-do[data-loop] .bf-do__radar { display: none; }
 }

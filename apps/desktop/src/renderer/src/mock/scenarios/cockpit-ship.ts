@@ -16,6 +16,7 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore, type SessionsStore } from "../sessions/script";
+import type { TimelineSource } from "../../fleet-timeline";
 
 const ARMADA = repository().manifest!.id;
 const POCKET = "pocket";
@@ -218,6 +219,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly S
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   const store = sessionsStore([none, none], none, [], control, [], list);
   let moment = 0;
+  timeline.reset();
   // The store carries the usual Sessions beside these; the ship holds only its own seven.
   const own = new Set(list.map((one) => one.id));
   let from: readonly Session[] | undefined;
@@ -246,6 +248,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly S
     },
     stop: (id) => store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", lastTurnAt: new Date().toISOString() })),
     later() {
+      timeline.later();
       moment += 1;
       if (moment !== 1) return;
       const at = new Date().toISOString();
@@ -393,7 +396,7 @@ function event(minutes: number, who: Who, kind: TimelineEvent["kind"], tone: Tim
   return { id: count, at: ago(minutes), kind, subject: who.subject, title: who.title, tone, says, manifest_id: repo ?? ARMADA, ...more };
 }
 
-const EVENTS: TimelineEvent[] = [
+const BASE_EVENTS: TimelineEvent[] = [
   event(19, jobWho(cache), "job.created", "idle", "Dispatched"),
   event(18, jobWho(cache), "job.started", "run", "Started", { live: true }),
   event(14, jobWho(cache), "job.step", "ok", "Scope passed", { live: true }),
@@ -427,6 +430,63 @@ const EVENTS: TimelineEvent[] = [
   event(25, sessionWho(stuck), "session.turn", "idle", "Quiet", { repo: POCKET }),
 ];
 
+/**
+ * What a tool did, as Fleet records it from the hooks that observe the tools: `session.read`, `session.edited`, `session.ran`,
+ * `job.read`, `job.files`, `job.ran`. The protocol's kind union does not carry them until that work lands, so the mock says them
+ * as strings. **A drone's doing is read from these and never from what an agent says about itself.**
+ */
+const toolEvent = (minutes: number, who: Who, kind: string, tone: TimelineEvent["tone"], says: string, detail: string): TimelineEvent => event(minutes, who, kind as TimelineEvent["kind"], tone, says, { detail, live: true });
+
+const EVENTS: TimelineEvent[] = [
+  ...BASE_EVENTS,
+  // At rest, one of each: Migration notes reads, Cache the manifest writes, Pin the store clock runs, Gate policy writes.
+  toolEvent(8, sessionWho(working), "session.read", "run", "Read 6 files", "crates/store/migrations"),
+  toolEvent(7, jobWho(cache), "job.files", "run", "Changed 2 files", "crates/fleet/src/manifest.rs"),
+  toolEvent(6, sessionWho(WORKING_REPLY), "session.ran", "run", "Ran 2 commands", "cargo test -p store"),
+  toolEvent(5, sessionWho(queuedOwner), "session.edited", "run", "Edited 3 files", "crates/fleet/src/gate.rs"),
+];
+
+/**
+ * What the tools do at each `later` moment, so the walk shows a drone go from probing to the laser to circling: Migration notes
+ * reads, then writes, then runs a failing test; Cache the manifest writes, runs, reads; Gate policy writes, then its tests pass.
+ */
+const MOMENTS: readonly (() => TimelineEvent[])[] = [
+  () => [
+    toolEvent(0, sessionWho(working), "session.edited", "run", "Edited 2 files", "crates/store/migrations/0044.sql"),
+    toolEvent(0, jobWho(cache), "job.ran", "run", "Ran 1 command", "cargo test -p fleet manifest"),
+    toolEvent(0, sessionWho(queuedOwner), "session.ran", "ok", "Ran 4 commands", "cargo test -p fleet gate"),
+  ],
+  () => [
+    toolEvent(0, sessionWho(working), "session.ran", "bad", "Ran 1 command", "cargo test -p store"),
+    toolEvent(0, jobWho(cache), "job.read", "run", "Read 9 files", "crates/fleet/src/manifest.rs"),
+    toolEvent(0, sessionWho(queuedOwner), "session.read", "run", "Read 3 files", "crates/fleet/src/gate.rs"),
+  ],
+];
+
+/** The timeline as a window holds it: the entries above, and each moment's tools appended as it comes. */
+const timeline = (() => {
+  let held: readonly TimelineEvent[] = EVENTS;
+  let moment = 0;
+  const listeners = new Set<() => void>();
+  const say = () => listeners.forEach((on) => on());
+  const source: TimelineSource = { get: () => held, subscribe: (on) => (listeners.add(on), () => void listeners.delete(on)) };
+  return {
+    source,
+    reset() {
+      moment = 0;
+      held = EVENTS;
+      say();
+    },
+    later() {
+      const more = MOMENTS[moment]?.();
+      moment += 1;
+      if (more === undefined) return;
+      held = [...held, ...more];
+      say();
+    },
+  };
+})();
+
 /** The plan's windows the title bar's meters read. */
 const PLAN = (): PlanUsage => ({
   windows: [
@@ -452,7 +512,7 @@ function build(variant: Variant = "rest"): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands.
     later: [{}, { mergeLines: lines("red"), ...(variant === "deck" ? { jobs: [...jobs, lease.job] } : {}) }, { mergeLines: lines("fixed"), ...(variant === "deck" ? { jobs: [...jobs, lease.job] } : {}) }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, tabs ? SESSIONS_TABS : SESSIONS), ...(variant === "deck" ? { events: EVENTS } : {}) },
+    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, tabs ? SESSIONS_TABS : SESSIONS), ...(variant === "deck" ? { events: EVENTS, timeline: timeline.source } : {}) },
     ...(variant === "deck" ? { behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }) } : {}),
   };
 }

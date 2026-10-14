@@ -124,7 +124,8 @@ export const startReplay = (from: number) => {
 export const changeReplay = (change: Partial<Replay>) => {
   if (state.replay !== undefined) set({ replay: { ...state.replay, ...change } });
 };
-export const stopReplay = () => set({ replay: undefined });
+/** Back to Live: plain, with no picked event left over it. */
+export const stopReplay = () => set({ replay: undefined, focus: undefined });
 
 export const toggleOnly = (only: Only) => set({ only: state.only === only ? undefined : only });
 export const toggleNeeds = () => set({ needs: !state.needs });

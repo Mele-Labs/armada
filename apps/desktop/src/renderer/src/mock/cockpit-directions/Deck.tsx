@@ -61,6 +61,7 @@ import { toneOf } from "./tabs-model";
 import { BARE, TREES, touchesOf } from "./deck-paths";
 import { Battlefield, type DroneFacts, type GoalIn, type PadIn, type PrIn } from "./Battlefield";
 import { DeckKeySheet, PANELS, PanelKey, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys, type PanelId } from "./deck-keys";
+import { doingOfEvent, withDoing } from "./deck-doing";
 import { claimsReplay, fieldAt, inOrder, useReplayDriver, useReplayKeys } from "./deck-replay";
 import { FocusChip, ReplayBar, ReplayMark } from "./deck-replay-bar";
 import "./deck.css";
@@ -523,11 +524,13 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
   const passed = replay === undefined ? 0 : ordered.filter((one) => Date.parse(one.at) <= replay.at).length;
   const before = useMemo(() => (replay === undefined ? ordered : ordered.filter((one) => Date.parse(one.at) <= replay.at)), [ordered, replay === undefined, passed]);
   const field = useMemo(() => (replay === undefined ? undefined : fieldAt(ordered, replay.at, drones, prs, ownerOf)), [ordered, replay === undefined, replay?.run, passed, drones, prs]);
-  const flying = field?.drones ?? drones;
-  const crates = field?.prs ?? prs;
-  const flightTrails = useMemo(() => (replay === undefined ? trails : trailsOf(before, replay.at, ownerOf)), [trails, replay === undefined, passed]);
   const picked = deck.focus === undefined ? undefined : ordered.find((one) => String(one.id) === deck.focus);
   const focusKey = picked === undefined ? undefined : droneOfEvent(picked, ownerOf);
+  // What each working drone is doing, from the tool events up to the playhead; a picked tool event shows its own action on its own drone.
+  const held = replay === undefined && picked !== undefined && focusKey !== undefined && doingOfEvent(picked) !== undefined ? { key: focusKey, event: picked } : undefined;
+  const flying = useMemo(() => withDoing(field?.drones ?? drones, before, Infinity, ownerOf, held), [field, drones, before, held?.event.id]);
+  const crates = field?.prs ?? prs;
+  const flightTrails = useMemo(() => (replay === undefined ? trails : trailsOf(before, replay.at, ownerOf)), [trails, replay === undefined, passed]);
   // The event's own effect, once, where it is picked.
   const focusPlays = useMemo(() => {
     const play = picked === undefined ? undefined : playOfEvent(picked, `focus:${picked.id}`, ownerOf, rootOfManifest);

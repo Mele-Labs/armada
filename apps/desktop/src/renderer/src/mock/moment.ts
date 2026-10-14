@@ -15,6 +15,7 @@ import type { RegisteredOwnerRow, SharedRow } from "@armada/components";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
+import type { TimelineSource } from "../fleet-timeline";
 
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
@@ -34,6 +35,8 @@ export type MockDraft = ArcDraft & {
   commanding?: (fleet: Fleet) => CommanderStore;
   /** What Fleet did, for the Cockpit's timeline: no wire serves it yet. */
   events?: readonly TimelineEvent[];
+  /** The same, as a source that grows as a scenario's moments pass, where the window should see entries arrive. Mock only. */
+  timeline?: TimelineSource;
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */

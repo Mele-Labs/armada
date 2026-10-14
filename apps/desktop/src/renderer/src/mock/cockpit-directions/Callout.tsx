@@ -15,6 +15,8 @@ export type Tip = {
   title: string;
   hue: TipHue;
   state?: { Glyph: Glyph; said: string; tone: "calm" | "ask" | "bad" | "good" };
+  /** What it is doing over its plot, as the tool events say: a glyph, the word, and the plot. */
+  doing?: { Glyph: Glyph; word: string; path?: string; via?: string };
   /** The directories it touches, the biggest two. */
   pills?: readonly string[];
   /** The bay it holds. */
@@ -112,6 +114,13 @@ export function Callout({ tip, anchor, host }: { tip: Tip; anchor: Anchor; host:
           <div className="bf-callout__state" data-tone={tip.state.tone}>
             <tip.state.Glyph size={16} strokeWidth={2} aria-hidden />
             {tip.state.said}
+          </div>
+        )}
+        {tip.doing === undefined ? null : (
+          <div className="bf-callout__doing">
+            <tip.doing.Glyph size={16} strokeWidth={2} aria-hidden />
+            {tip.doing.word}
+            {tip.doing.path === undefined ? null : <span className="bf-callout__path">{tip.doing.path}</span>}
           </div>
         )}
         {tip.lines === undefined ? null : tip.lines.map((one) => <div key={one} className="bf-callout__line">{one}</div>)}
