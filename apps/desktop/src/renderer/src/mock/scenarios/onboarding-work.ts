@@ -14,7 +14,6 @@ const SOURCE = "/Users/user/.agent/skills";
 
 const INVENTORY: KitInventory = {
   ...KIT_INVENTORY,
-  harness: "Claude",
   kinds: KIT_INVENTORY.kinds.map((one) => {
     if (one.kind === "skills") {
       return {

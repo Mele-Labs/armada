@@ -8,7 +8,9 @@ import type { Account, AccountFlow, Profile, Scope, SyncChoice, SyncItem } from 
  * The account a machine signs in to: the device code, what signing in set up, the profiles and What syncs.
  * Each story holds the state a Fleet would, so a press shows its result.
  */
-const meta: Meta = { title: "Compositions/Account" };
+const meta: Meta = {
+  title: "Compositions/Account",
+};
 export default meta;
 
 type Story = StoryObj;
