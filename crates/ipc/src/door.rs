@@ -467,8 +467,8 @@ fn instructions(scope: &str) -> String {
 /// What a session standing in no Manifest is told at the handshake.
 const WITHOUT_A_MANIFEST: &str = "This repository has no armada.yml yet, so nothing here is \
      answered inside a Manifest: no Jobs, Drones, runs or servers. This session's own acts are \
-     served — what it is waiting for, that it is done, and a page shown or asked about in the \
-     window — and those are the only tools listed.";
+     served — what it is waiting for, that it is done, a page shown or asked about in the \
+     window, and a sketch drawn — and those are the only tools listed.";
 
 /// One sentence added to an answer a relay is carrying through.
 ///

@@ -208,6 +208,7 @@ mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
 mod showing;
+mod sketch;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
 mod commander;
@@ -483,6 +484,7 @@ pub use session_checks::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState,
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
+pub use sketch::{RawScene, ShowSketch, Sketch};
 pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{

@@ -76,6 +76,7 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "waiting_for",
         "all_done",
         "show_window",
+        "show_sketch",
         "ask_in_window",
     ] {
         assert!(

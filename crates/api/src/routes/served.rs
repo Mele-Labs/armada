@@ -398,6 +398,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "show_sketch",
+        method: "POST",
+        path: "/sessions/sketch",
+    },
+    Route {
         operation: "report_session_check",
         method: "POST",
         path: "/sessions/checks",

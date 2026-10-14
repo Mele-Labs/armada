@@ -12,6 +12,7 @@ mod asking;
 mod cut_off;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
+pub(crate) mod sketching;
 pub(crate) mod following;
 mod finishing;
 mod fork_point;

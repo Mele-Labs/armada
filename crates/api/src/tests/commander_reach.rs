@@ -142,6 +142,7 @@ const ANSWERS_FOR_OR_REACHES_THE_PERSON: &[&str] = &[
     "ask_the_person",
     "show_window",
     "show_again",
+    "show_sketch",
     "ask_in_window",
     "waiting_for",
     "all_done",

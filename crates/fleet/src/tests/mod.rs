@@ -28,6 +28,7 @@ mod asked;
 mod asked_run;
 mod asking;
 mod asking_in_window;
+mod sketching;
 mod at_once;
 mod autopilot;
 mod attachments;

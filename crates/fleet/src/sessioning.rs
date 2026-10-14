@@ -641,6 +641,14 @@ where
         Ok(record)
     }
 
+    async fn show_sketch(
+        &self,
+        caller: Option<api::Caller>,
+        show: ipc::ShowSketch,
+    ) -> Result<SessionRecord, Refusal> {
+        self.sketch_shown(caller, show).await
+    }
+
     async fn ask_in_window(
         &self,
         caller: Option<api::Caller>,

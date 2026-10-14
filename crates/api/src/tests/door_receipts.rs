@@ -150,6 +150,7 @@ async fn on_the_route(app: &axum::Router, path: &str, body: &str) -> String {
 }
 
 const SHOW: &str = r#"{"url":"http://localhost:5173/","title":"The label"}"#;
+const SKETCH: &str = r#"{"title":" Request flow ","scene":{"nodes":[{"id":"a","kind":"box","x":0,"y":0}],"edges":[]}}"#;
 const ASK: &str = r#"{"question":"Is this the right label?","url":"http://localhost:5173/","selector":".label"}"#;
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
@@ -174,6 +175,14 @@ async fn show_window_answers_the_address_it_showed() {
         said,
         r#"{"session_id":"session-1","window":"http://localhost:5173/","title":"The label"}"#
     );
+}
+
+#[tokio::test]
+async fn show_sketch_answers_the_title_it_kept() {
+    let (app, _) = a_fleet();
+    let said = through_the_door(&app, "show_sketch", SKETCH).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","sketch":"Request flow"}"#);
 }
 
 #[tokio::test]
