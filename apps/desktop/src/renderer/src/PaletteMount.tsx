@@ -6,7 +6,7 @@
 // one. Ten props would be ten chances for a caller to wire one to the wrong
 // thing; the object is the shape that function already agrees on.
 
-import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
+import { Palette, type PaletteBoardRow, type PaletteRepository, type PaletteSurface } from "@armada/shell";
 import type { PaletteDispatch } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
@@ -38,6 +38,9 @@ export type PaletteMountProps = {
   live: boolean;
   /** Reported and the two bulk sweeps, as `App.tsx` worded them. */
   board: readonly PaletteBoardRow[];
+  /** The repositories the title row's picker lists, and the one picked: `null` is All. */
+  repositories: readonly PaletteRepository[];
+  picked: string | null;
   /**
    * Everything a choice can do, in `carryOut`'s own shape — but the Studio's
    * Run and Add, which this reaches itself: the rail takes the ask directly, so
@@ -68,6 +71,8 @@ export function PaletteMount({
   failing,
   live,
   board,
+  repositories,
+  picked,
   acts,
   onConfirmAct,
   dispatch,
@@ -104,6 +109,8 @@ export function PaletteMount({
       // answered, which is what `App.tsx`'s effect holds open.
       runnables={checkoutRunnablesOf(checkoutRunSheet)}
       board={board}
+      repositories={repositories}
+      picked={picked}
       jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than

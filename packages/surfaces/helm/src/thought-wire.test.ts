@@ -1,13 +1,12 @@
 // The wire `crates/ipc/src/thought.rs` writes, read as the TypeScript mirror types it: the exact JSON
-// each shape comes as, optional fields absent rather than null, and the socket's `sent` message folded.
+// each shape comes as, optional fields absent rather than null, and the `sent` row of the Helm Session's thread.
 //
 // **Held here and not in `packages/protocol`**, which has no test runner and whose sources are the
-// hashed wire; this package is the first to fold Helm's thread.
+// hashed wire.
 
 import { describe, expect, it } from "vitest";
 
-import { helmArrived, NO_HELM_ITEMS } from "@armada/protocol";
-import type { HelmMessage, HelmSent, ReadThought, ThoughtReading, ThoughtSent, ThoughtTarget } from "@armada/protocol";
+import type { ReadThought, SessionRow, ThoughtReading, ThoughtSent, ThoughtTarget } from "@armada/protocol";
 
 /** What Fleet's JSON decodes to, typed as the mirror says. */
 const decoded = <T>(json: string): T => JSON.parse(json) as T;
@@ -56,32 +55,15 @@ describe("record_thought_sent", () => {
   });
 });
 
-describe("the sent message on Helm's socket", () => {
+describe("the sent row of the Helm Session's thread", () => {
   const json =
-    '{"message":"sent","ts":"2026-10-12T10:00:00.000Z","text":"the words","target":{"kind":"session","id":"01S","title":"Sessions list views","slot":3}}';
+    '{"kind":"sent","id":"r5","at":"2026-10-12T10:00:00.000Z","text":"the words","target":{"kind":"session","id":"01S","title":"Sessions list views","slot":3}}';
 
-  it("decodes as a message and as the row's own type", () => {
-    const message = decoded<HelmMessage>(json);
-    expect(message.message).toBe("sent");
-    if (message.message !== "sent") throw new Error("a sent message");
-    const sent: HelmSent = message;
-    expect(sent.target).toEqual({ kind: "session", id: "01S", title: "Sessions list views", slot: 3 });
-    expect("manifest_id" in sent.target).toBe(false);
-  });
-
-  it("folds into an item and leaves a reply being written as it was", () => {
-    for (const replying of [true, false]) {
-      const next = helmArrived({ ...NO_HELM_ITEMS, replying }, decoded<HelmMessage>(json), 4);
-      expect(next).toMatchObject({ added: true, held: { replying } });
-      expect(next.held.items).toEqual([
-        {
-          kind: "sent",
-          id: "4",
-          ts: "2026-10-12T10:00:00.000Z",
-          text: "the words",
-          target: { kind: "session", id: "01S", title: "Sessions list views", slot: 3 },
-        },
-      ]);
-    }
+  it("decodes as a row whose target has the optional fields absent", () => {
+    const row = decoded<SessionRow>(json);
+    if (row.kind !== "sent") throw new Error("a sent row");
+    expect(row.target).toEqual({ kind: "session", id: "01S", title: "Sessions list views", slot: 3 });
+    expect("manifest_id" in row.target).toBe(false);
+    expect("files" in row).toBe(false);
   });
 });

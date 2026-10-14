@@ -161,6 +161,7 @@ const THE_PERSONS_OWN_TOOLS: &[&str] = &[
     "undo_run",
     "start_server",
     "stop_server",
+    "finish_up",
     "scaffold_mod",
 ];
 

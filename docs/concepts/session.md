@@ -19,7 +19,7 @@ You have five terminal sessions open across three repositories. One is in slot 3
 > **Rule.** Fleet never waits on a session and a terminal session never waits on Fleet.
 > Why: a terminal session is the person's own, and Fleet being down, slow or gone must cost it nothing. A session Fleet hosts is Fleet's to run, so its write waits on Fleet's hook, and what the CLI does with a hook Fleet does not answer was not measured.
 
-A session is not [Helm](helm.md), which is Armada's own conversation with Fleet, and not a [Drone](drone.md), which Fleet starts, places in a worktree and gates. A session started by a person was none of those, and until the ledger Fleet could not see it.
+A session is not a [Drone](drone.md), which Fleet starts, places in a worktree and gates. A session started by a person was none of those, and until the ledger Fleet could not see it. [Helm](helm.md) is one of these now: Armada's own conversation with Fleet is a hosted session per repository, marked `helm`.
 
 ## How a session gets in
 
@@ -43,7 +43,8 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?`; `plan?`: the plan's windows; `context_breakdown?`: what fills the window | Keeps what was reported. The breakdown is kept whole in `session_context`, one row a session, and replaced by the next; a report without one leaves it. The windows are the account's, so Fleet keeps the newest from any session as `get_plan_usage` (`machine.md`, *Quota*) and keeps nothing of them on the session |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
-| `turn_completed` | nothing | Stamps the last turn, and lets go a hold for the plan's limit. The mod does not tell a turn that died on an API error |
+| `turn_started` | nothing | A prompt went in (the mod, never for a slash command, which most of the time ends without a turn): the session is working, and the reply the turn before left is over (*What a Session is doing*) |
+| `turn_completed` | `said?`: the first line of what the turn ended on | Stamps the last turn, lets go a hold for the plan's limit, and keeps `said` as the reply (*What a Session is doing*). The mod does not tell a turn that died on an API error |
 | `limited` | `resets_at` | Holds the session until the plan's limit resets (*A session that hit the plan's limit*) |
 | `turn_completed` | nothing | Stamps the last turn, and marks every window the session showed ready |
 | `wrote` | nothing | The session itself wrote a file (the mod, never for a subagent): marks every window it showed as still changing |
@@ -51,7 +52,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
-The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title: the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
+The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title, and the first line of what a turn ended on, as the reply (*What a Session is doing*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
 
 ## What is kept
 
@@ -102,12 +103,29 @@ The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`).
 | The lease is written as the Session's | Credits the `slot`, its checked-out `branch`, and what is read from it |
 | The lease names no live Session: a person's own terminal, an older lease, a Session that ended (`/clear` starts a new id in the same terminal) | Credits it, as before the lease named anyone |
 | Held for another live Session or a Job, or free | Credits no `slot` and drops a `branch` or `pr` read from it |
+| Any of these, for a `pr` the mod reports with `created` in its `detail` | Credits it. The mod read its address off the session's own `gh pr create`, so no directory is being trusted, and a session that leased a second slot and left its first still owns what it opened |
 
 **A release is settled by the pull sweep, for hosted and terminal Sessions alike.** Each interval Fleet gives back the `slot` and `branch` rows of a live Session whose lease is no longer its own, by whatever road the slot went: its own `armada worktree release`, Bridge's release, a lease taken back from a gone holder. A hosted Session is also followed at its next tool call. **A `pr` row stays**: the Session that opened a pull request is still the one to tell after it leaves the slot, and the row settles when the pull request merges or closes.
 
 **One reading answers who holds a branch or a pull request.** A Session is confirmed on a branch when it is live, its `slot` row stands, the lease there is its own or names nobody live, the worktree exists, its `branch` row stands and that branch is checked out. The owner of a pull request, the holder of a need, the Sessions told which branches a build holds, the write-clash table and the attaching of a pull request nobody reported all ask it (`crate::slot_holders`). Where no Session is confirmed, the one whose standing row is oldest stands, and a branch a Session gave back is nobody's. A merge is attributed to whoever held the pull request or its branch in any state, since the question there is who made it.
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
+
+### Which machine owned a pull request
+
+**A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub account can tell who had it.** It is a small central store, set up by [signing in](account.md), and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
+
+| Field | Holds |
+|---|---|
+| key | An opaque hash of the repository and the pull request number |
+| kind | `session` or `job` |
+| id | The holder's short id |
+| machine | The machine's name |
+| since | When the claim was made |
+
+**A row never holds a title, a repository name or code.** The machine that owns the pull request draws its title from its own ledger, and any other machine draws only the stored facts. A repository registers nothing until its Manifest turns it on, and the switch is off by default. With it off, the repository registers none and shows no owners at all, those another machine registered included.
+
+**Bridge draws a row as a chip.** The kind's glyph (`square-terminal` for a Session, `box` for a Job) and the short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name. A pull request with no row draws no chip, in the merge line's open pull requests and in the Pull request panel. The switch is *Pull request owners* in the Policy section of the Manifest form.
 
 ## What Fleet answers
 
@@ -122,9 +140,9 @@ Both reads are on the agent's door, so a session can ask who else holds the bran
 ## A session Fleet hosts
 
 A person can start a session from Bridge. Fleet runs it, keeps its thread, and
-puts it on the same ledger with `origin` `bridge`. It is not [Helm](helm.md),
-which is unchanged, and it is not a [Drone](drone.md): it is the person at work,
-in their own configuration.
+puts it on the same ledger with `origin` `bridge`. It is not a [Drone](drone.md):
+it is the person at work, in their own configuration. [Helm](helm.md) is the same
+engine with a note and a few more tools, one per repository.
 
 > **Rule.** A hosted session holds what the person's terminal holds: their
 > servers, plugins, skills and settings, with no `--strict-mcp-config` and no
@@ -135,9 +153,11 @@ in their own configuration.
 > mod reporting its end, which is a process stopping.
 
 > **Rule.** A hosted session starts with no slot and leases one on its first
-> write.
+> write, and one resumed with no slot is leased one before its process starts.
 > Why: most conversations never write, and a slot held by a conversation that
-> only reads is one a Job cannot have.
+> only reads is one a Job cannot have. A resumed session has already worked, and
+> a resume that waited for its first call to move it lost that call and a turn
+> (s-34c7f2c2, three times on 13 Oct 2026).
 
 ```
  start ─▶ a row: no process, no slot, no branch
@@ -148,11 +168,12 @@ in their own configuration.
  first write, pool full ─▶ the session is queued, told its place, and stops its
                 turn; Fleet leases it a slot when one frees and resumes it there
  later writes ─▶ held to the slot
- quiet for a while ─▶ the process is ended; the next message resumes it
+ quiet for a while ─▶ the process is ended; the next message resumes it, leased a
+                slot first if it holds none and the line ahead of it is empty
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
-**One live process while it is open**, unlike Helm's one per message, because
+**One live process while it is open**, as Helm's now is (it was one per message), because
 another session's message wakes an idle one: `SendMessage` to a hosted session's
 address, `s-` and the first eight characters of its id, starts a turn in it. A
 turn that opens with no message of the person's outstanding is a wake, and the
@@ -167,7 +188,8 @@ holds a slot; after it, a file tool naming a path in the main checkout is
 refused with the slot's path. A shell line is read by its words, so one Fleet
 does not recognise as a read leases first. `|`, `;` and `&` inside quotes do not cut
 a line, and a redirect to `/dev/null` or onto another descriptor (`2>&1`) writes nothing;
-any other `>`, a `$(` or a backtick, or a quote left open is a write.
+any other `>`, a `$(` or a backtick, or a quote left open is a write. `sed -n` with an
+address and `p` (`sed -n 10,40p file`) reads; every other `sed` is a write.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
 **A full pool queues the session rather than telling it to try again.** Every
@@ -203,6 +225,12 @@ shell, and is the session's while that process is in its tree. A slot held by
 anything else, or by a holder that has gone, is refused. The main checkout stays
 refused, and a `..` is resolved by reading before the path is placed.
 
+**Setup's session is the one exception** (the owner, 13 Oct 2026). Started by `root` in a
+repository with no `armada.yml`, it has no pool to lease from, so until that root's
+Manifest is served it writes only `armada.yml` and `.gitignore` at the root and is
+refused anything else. Fleet loads the Manifest when one of its turns ends, and from its
+next write the session leases a slot like any other.
+
 The same slots decide for **every write path alike**:
 
 | Write | Placed by |
@@ -218,7 +246,10 @@ The same slots decide for **every write path alike**:
 a session's calls**: a line that goes into the main checkout or a slot the session does
 not hold, and a line that goes nowhere while the call already stands in a slot it does not
 hold, is held if it then runs anything that is not a read. `cd <slot> && git status` is a
-read and runs. **Not covered**: a path or a `cd` target built from a variable or a
+read and runs. **A relative `cd` after another is read from where the first left the line**,
+and so is a `..` path after it, never from where the call began. Every part of a line is told
+read from write before the slot rule applies, and `git worktree list`, `git stash list`,
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
 substitution, a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
@@ -226,7 +257,11 @@ writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-q
 overwrites something outside the slots the session holds and `/tmp`: **every** slot the
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
-written at all is the gate's.
+written at all is the gate's. **What the session started or made is its own to remove**
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
+branch and the branches of slots it holds, once the base holds every commit on them, and
+`rm` under `$TMPDIR` as under `/tmp`.
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
@@ -262,7 +297,7 @@ repository is added, for any slot the pool holds under the id of a session that
 has ended.
 
 **The person sets the mode, the model and the effort** for each session. `auto`
-is the default and means what it means for Helm: everything runs except what is
+is the default and means what it meant for Helm: everything runs except what is
 destructive, pushes code to a shared space or writes off this machine, which
 Fleet puts to the person on the session's own thread. The CLI's own auto mode is
 not reachable for a spawned session, so `auto` is `default` with that door.
@@ -298,8 +333,11 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 **What a message names is one line Fleet adds for the agent** and the thread
 keeps the person's words. A thread's rows are the person's messages, the agent's,
 another session's, one line for each tool call, the lease, and each ask with
-where it stands. **An ask is the session's own**: it never appears in Helm's
-dock and `answer_helm_call` does not find it.
+where it stands. A Helm Session's thread also has the `sent` row, the person's
+words routed on to another Session or a Job, with where they went. **An ask is
+the session's own**: it never appears in the old Helm dock's holds and
+`answer_helm_call` does not find it. Helm's own questions are asks of its
+Session, answered in its thread.
 
 ### What a restart does to a session
 
@@ -341,6 +379,16 @@ is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
 "process ended" row.
 
+**A process Fleet replaces takes its subagents with it.** A subagent runs inside
+its agent's process, so the keeper only carries it across a Fleet restart. A tune,
+a quiet spell, the move into a slot at the first write and a lost keeper each end
+the process, and the one that resumes has never heard of the subagents that were
+working. When Fleet starts a process for a session that has run, every `subagent`
+row still `standing` whose transcript shows no finished turn was cut off. Fleet
+gives those rows back, keeps their type, description and id in the restart's
+note (so the retro lists them), and puts the same list ahead of the agent's next
+turn, once, so it can start again what it still needs.
+
 **Not covered**: a keeper's own death (the agent loses its pipes and exits), and
 an agent whose hooks name a Fleet port that changed.
 
@@ -374,11 +422,31 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 
 Capture and Approve keep working while the card is open. The card folds into the bar so the page takes presses again, and the window keeps showing it until it is answered or dismissed.
 
+## What a Session is doing
+
+**Nothing the person sees depends on the agent making a tool call.** Fleet reads what a Session is doing from what it observed, and `waiting_for` and `all_done` only add detail to it. `SessionRecord.standing` says it, for a live Session; an ended one has none.
+
+| `standing` | Read from | Item in `waiting_for` |
+|---|---|---|
+| `working` | a turn is running and something was heard from it within the bound | none |
+| `stuck` | a turn is running, nothing has been heard from it for **ten minutes**, and it is not held on a question or a permission | none |
+| `done` | `done_since` stands (the agent said nothing is left) | `done:<done_since>`, text `Done` |
+| `replied` | the last turn ended on a message to the person, and he has not written since | `replied:<turn end>`, text the first line of what the turn said |
+| `idle` | none of the above | none |
+
+**The reply is read off the turn.** For a hosted Session the turn is on its stream: the last thing the agent said before the turn ended. For a terminal Session the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the first line of the last assistant message, when the turn ends; the agent is never asked to. Fleet keeps the turn's end and that line in `session_turn_end` (one row a Session), so a reply survives a restart. It stops standing when the person writes to the Session, when another turn begins by any route, when he dismisses it (`dismiss_waiting` keeps the id, so it never returns) and when the Session ends. A turn that ended on tools alone, with nothing said, leaves no reply, and a Session whose turn ended before Fleet observed this has none: nothing is read back from old turns. A Helm Session has no reply, since its replies are the dock's. Where something else is already owed (a question, a permission, a walk, an agent item) the reply is left off, since the agent said what it needs there; a `done` is always shown. A `done` outranks a reply.
+
+**Stuck is its own bound**, `STUCK_AFTER` in `session_host/standing.rs`, ten minutes of nothing heard from a running turn. It is not `settings.session-quiet-timeout`, which is how long an idle process is kept and says nothing about a turn that went quiet. A Session goes stuck by time passing, which no event says, so the notice loop's tick looks at every running turn and publishes the Sessions whose stuck state moved, in both directions (`standing_checked`). A terminal turn's running state is kept in memory only: a Fleet restart forgets it, and the Session reads as idle until its next turn starts. A mod from before `0.3.20` reports neither `turn_started` nor `said`, so its Session is never working or stuck by this reading and has no reply; a `done` still stands.
+
+**Bridge reads the state from `standing` and from nothing else**: not from an event's `live` flag or its age, and not from whether a tool was called. `Timeline::session_turn` marks no entry live, because a turn that finished is not moving. An answer sent from a card counts as him being in the Session, so the items he has answered stop being calls (*Waiting on the person*).
+
 ## Waiting on the person
 
-**A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*). Where an agent item names the same act and target as one of Fleet's, Fleet's stands, and an agent `walk` item for any address the session has shown in a window (trailing slash aside, approved or not) is left off: the window is the one record of that page. An ended session holds nothing. **Bridge shows the list at the foot of the thread**, over the composer, as a **Needs you** band folded to one glyph an item, named on hover; a press opens it to the rows, each a press that does its act. The owner, 12 Oct 2026: "when the session is not completed, the 'needs you' items in the right panel move to a panel in the thread like this that is locked to the bottom. Maybe it's collapsed by default?" A question or permission is left out of the band, since its own card shows it. Once the agent says it is done, the done callout takes that place and the items go back to the ledger's first section, **Waiting on you**. Bridge puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **The Cockpit raises a call for an item only while he has not been in the Session since it began waiting** (*Job Board*, the call deck): Bridge keeps when he last viewed each Session (`localStorage`, per id), his latest message counts as being in it, and an item whose `since` is older than the later of the two is no call, though it stays in the list. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session, and once that is delivered the item is dismissed as `dismiss_waiting` does, so it leaves the list without the agent restating it. A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. **`dismiss_waiting`** (`session_id`, `item_id`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, an agent item with it is removed and left off if the agent states it again, and nothing is sent to the agent. A nothing-held id is refused as for `answer_waiting`. **Only the newest walk window of a session waits**, and it stops waiting once the person has sent the session a message after it opened; closing the window does not settle it. The mod's first-message note tells the agent to keep the list current, to give each item an act, and never to list a page it showed with `show_window`, which waits by itself, and puts these tools ahead of the person's own rules for reporting actions and questions in a reply. An agent item with none, or with `answer` and no `options` while no question is open in the thread, gets a Reply glyph, and its press opens a box under the row whose text goes to `answer_waiting` as `text`.
+**A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*). Where an agent item names the same act and target as one of Fleet's, Fleet's stands, and an agent `walk` item for any address the session has shown in a window (trailing slash aside, approved or not) is left off: the window is the one record of that page. An ended session holds nothing. **Bridge shows the list at the foot of the thread**, over the composer, as a **Needs you** band folded to one glyph an item, named on hover; a press opens it to the rows, each a press that does its act. The owner, 12 Oct 2026: "when the session is not completed, the 'needs you' items in the right panel move to a panel in the thread like this that is locked to the bottom. Maybe it's collapsed by default?" A question or permission is left out of the band, since its own card shows it. Once the agent says it is done, the done callout takes that place and the items go back to the ledger's first section, **Waiting on you**. Bridge puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **The Cockpit raises a call for an item only while he has not been in the Session since it began waiting** (*Job Board*, the call deck): Bridge keeps when he last viewed each Session (`localStorage`, per id), his latest message counts as being in it, and an item whose `since` is older than the later of the two is no call, though it stays in the list. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session, and once that is delivered the item is dismissed as `dismiss_waiting` does, so it leaves the list without the agent restating it. A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. **`dismiss_waiting`** (`session_id`, `item_id`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, an agent item with it is removed and left off if the agent states it again, and nothing is sent to the agent. A nothing-held id is refused as for `answer_waiting`. **Only the newest walk window of a session waits**, and it stops waiting once the person has sent the session a message after it opened; closing the window does not settle it. The mod's first-message note tells the agent to keep the list current, to give each item an act, and never to list a page it showed with `show_window`, which waits by itself, and puts these tools ahead of the person's own rules for reporting actions and questions in a reply. It also says a decision is asked one way, in the prompt or in `waiting_for` and never both, that a shell command for the owner goes in a block tagged `bash` so Bridge draws its run button, and that a page is shown as a link and never a screenshot. An agent item with none, or with `answer` and no `options` while no question is open in the thread, gets a Reply glyph, and its press opens a box under the row whose text goes to `answer_waiting` as `text`.
 
-**A session says it has nothing left to work on with `all_done`** (`session_id` only; the hosted session holding the connection wins, as for `waiting_for`). Fleet stamps `SessionRecord.done_since`, keeps it in `session_done`, and publishes `SessionChanged`; a second call keeps the first instant, and an ended session is refused. It is a statement and ends nothing: Bridge draws a callout at the foot of the thread, **End session** (the ordinary close) or **Keep going** (local to Bridge, it hides that `done_since` only). `done_since` stops standing when the person sends the session a message (`send_session_message` or an `answer_waiting` that becomes one), when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again. A terminal session has no turn-start signal, so for one only the first two apply. The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
+**A session says it has nothing left to work on with `all_done`** (`session_id` only; the hosted session holding the connection wins, as for `waiting_for`). Fleet stamps `SessionRecord.done_since`, keeps it in `session_done`, and publishes `SessionChanged`; a second call keeps the first instant, and an ended session is refused. It is a statement and ends nothing: Bridge draws a callout at the foot of the thread, **End session** (the ordinary close) or **Keep going** (local to Bridge, it hides that `done_since` only). `done_since` stops standing when the person sends the session a message (`send_session_message` or an `answer_waiting` that becomes one), when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again, except a turn that Fleet's own news starts (`told_news_by_fleet`: a pull request merged, a build moved), which asks the agent for nothing. A word that asks for work, such as a failed check or a stranded slot, clears it. A terminal session's mod reports a prompt going in as `turn_started`, which is the same turn-start signal; a mod from before it has none, and for that one only the first two apply. The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
+
+**A session gives back what it is finished with using `finish_up`** (`session_id` only; the hosted session holding the connection wins). It releases each slot the pool holds for the session as `armada worktree release` does, which refuses a tree with uncommitted files or commits that neither its branch's remote nor the base has; stops the servers running in each slot it released; and deletes the local branches those slots were on, and the one the session was leased, where the base (the local branch or `origin`'s) already holds every commit. Answered with `released` (slot numbers), `deleted_branches` and `kept`, a sentence for each thing that stayed and why. It commits nothing for the agent. **It is a call on Fleet's door because a command cannot do the same:** once a slot is released the next write in the session takes a new lease, and the git guard refuses `git branch -D` and `kill`. A terminal session is refused; its slot is parked when its process ends. The mod's first-message note tells the agent to call it before `all_done`, and to start servers with `start_server` so it can stop them.
 
 **An agent that calls `show_window`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long session, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good. The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`), or `done` and `done_since`. It weighs the same on the first call and the thousandth. Bridge's routes and the mod's hook, which are not the door, are answered the row. Nothing reads these four answers today.
 
@@ -454,7 +522,9 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 > **Rule.** The ledger follows the forge through its own attach.
 > Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
-**The three writes are a person's ask, `pushes to shared`.** Helm asks first, as for `merge_pull_request`, and the operations are `Helm only`. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
+**Only a failed required check is `checks: failed`.** Where a repository names a gate (`ci`), a check outside it that is red while the gate runs reads `pending`, and one red after the gate passed reads `passed`, with its name still in `failing`. Bridge draws those two as a tinted chip and leaves the Session's row alone; only `failed` puts a Session under Idle with a red mark, and a Session that waits on the person is under Needs you whatever its checks say. Fleet refuses a merge on all three.
+
+**The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
 
 **A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
 
@@ -599,7 +669,7 @@ A fenced shell block in a Session's thread shows Run when the block is hovered o
 
 The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 
-**A block with no language is a shell block when it reads as one** (`readsAsShell`): every line opens like a command, after an optional `$ `, and none reads as code, JSON, prose or a diagram. A doubt is no Run. In a **terminal** Session, inline code that is exactly a command the terminal lists (`` `/update-armada` ``, `` `/model opus` ``) is pressable instead: it is run in the terminal as typed with `run_session_command` (`POST /sessions/command`), no output comes back, and a check says Sent. A Fleet-hosted Session has no terminal, so the code stays plain.
+**A block with no language is a shell block when it reads as one** (`readsAsShell`): every line opens like a command, after an optional `$ `, and none reads as code, JSON, prose or a diagram. A doubt is no Run. In a **terminal** Session, inline code that is exactly a command the terminal lists (`` `/update-armada` ``, `` `/model opus` ``) is pressable instead: it is run in the terminal as typed with `run_session_command` (`POST /sessions/command`), no output comes back, and a check says Sent. A Fleet-hosted Session has no terminal, so the code stays plain. A waiting item whose `run` target is such a command takes the same path: Run in the Needs-you list sends it to the terminal instead of a shell, and a Sent settles the item.
 
 ## A terminal session's thread
 
@@ -655,6 +725,8 @@ by the table above.
 
 ## Not built
 
+**No store holds a pull request's registered owner.** The chip and the Manifest switch run on mock data through `draft.prOwners`, nothing reads or writes a store, and Fleet does not serve the setting, so it is not a Manifest key yet.
+
 **The `/` list is empty until an agent has started.** `hosted.commands` is the names in the stream's `init` line, slash commands then skills, and a session whose own process has not started is given the last one any session read. It is held in memory, so after a Fleet restart it is empty until a process starts, and the harness says nothing of what each command does, so the list draws names only.
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.
@@ -672,7 +744,7 @@ Not measured.
 
 ## Sleep mode
 
-The owner turns on the moon in Bridge's title row before bed (`set_sleep`), and sessions and Jobs keep going until only he can unblock them. `get_sleep` reads the switch and the night's rows; turning it on starts a new night and clears the last one's rows.
+The owner turns on Sleep from the menu in Bridge's title row before bed (`set_sleep`), and the menu button carries the moon while it is on. Sessions and Jobs keep going until only he can unblock them. `get_sleep` reads the switch and the night's rows; turning it on starts a new night and clears the last one's rows.
 
 While it is on, a pass over every live session's waiting items (`crates/fleet/src/sleeping.rs`, riding the pull-request notice tick) works like this:
 

@@ -495,7 +495,26 @@ Feeds spike #3 (model-selection resolution). The one Manifest-only row still rel
 
 **The value lives in settings.json under `models.default`** (live; `ARMADA_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 
-**Live, so the plan's step down can move it** (`plan-downshift-line`): a Job proposed and a Session process started after a change take the new value, `list_models` serves it, and a Job already proposed keeps the model it was given. A Session already running keeps the process it has until that ends and the next message starts another.
+**Drones and Jobs only.** A Session has its own row, `session-model`; this one never reaches a Session. It is live: a Job proposed after a change takes the new value, `list_models` serves it, and a Job already proposed keeps the model it was given.
+"""
+
+[settings.session-model]
+name = "Session model"
+scope = "Machine"
+default = "opus"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 13 Oct 2026 (owner): the strongest tier on the roster. The model a hosted Session runs on when none is chosen, read when its process starts and not when the Session was made. Its own row rather than a reading of `default-model-per-job-type`: Drones ship on the middle tier, and a Session is where the owner works. The adapter derives the default as the first entry of the roster, which runs strongest first, and a test pins it.
+
+**Live, so the plan's step down can move it** (`plan-downshift-line`, which lowers this and not the Drone's): a Session process started after a change takes the new value, `list_models` serves it as `session`, and a running Session keeps its process until that ends and the next message starts another. A model chosen for one Session wins, and a terminal Session reports its own through the mod.
+
+No environment variable.
+
+**The value lives in settings.json under `models.session`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.model-selection-heuristic-parameters]
@@ -630,7 +649,7 @@ Helm acts on Tier 1 Redirect by default per the concept design; this is the swit
 [settings.helm-ask-hold]
 name = "Helm ask hold"
 scope = "Machine"
-default = "5 minutes"
+default = "14 minutes"
 lifetime = "Daemon start"
 merge_strategy = "n/a — single layer"
 peer_polarity = "n/a — single layer"
@@ -639,7 +658,7 @@ read_by = "fleet"
 notes = """
 How long one call a Helm session made is held open for a person to answer in the dock before Fleet answers `deny` for the session — `#1389`. Helm runs in the mode a terminal session runs and puts every call the person's own settings do not cover to them; this is how long that wait may last.
 
-**Five, and it is the smallest of three bounds rather than a preference.** A reply's whole process ends at `fleet::helm::hosting::REPLY_BUDGET`, fifteen minutes, so five leaves room for a reply that is asked about more than once; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a Helm session holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
+**Fourteen, and it is the smallest of three bounds rather than a preference.** A reply's whole process ends at `fleet::helm::hosting::REPLY_BUDGET`, fifteen minutes, so fourteen ends before the reply does; it was five until 13 Oct 2026, when a question lapsed before the owner came back to it; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a Helm session holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
 
 **Silence answers deny, never allow.** Resolved once at daemon start (`timeouts.helmAskHoldSeconds` in settings.json), and carried as `fleet::helm::HelmAskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
 
@@ -686,7 +705,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet, store"
 notes = """
-Session-per-topic model — how long closed Helm sessions are kept before cleanup. Same shape as Job retention / archival window, applied to Helm rather than to Jobs. Owner corrected from Helm to Fleet in the Aug 2026 spot-check: nothing in Helm sweeps expired sessions, and the reaper that does is the same one Job retention names. Helm is what the setting is about, which is provenance, not ownership.
+**Since 13 Oct 2026 this sweeps a Job's Commander conversation alone**: a repository's Helm Session is a hosted Session and stays until Start fresh (`docs/concepts/helm.md`). Session-per-topic model — how long closed Helm sessions are kept before cleanup. Same shape as Job retention / archival window, applied to Helm rather than to Jobs. Owner corrected from Helm to Fleet in the Aug 2026 spot-check: nothing in Helm sweeps expired sessions, and the reaper that does is the same one Job retention names. Helm is what the setting is about, which is provenance, not ownership.
 
 Read from `#943`: resolved once at daemon start (`retention.helmSessionDays` in settings.json, `Fleet::helm_session_retention` in `crates/fleet/src/daemon/seams.rs`) and swept by `Store::forget_stale_helm_sessions` (`crates/store/src/helm_sessions.rs`) on every Helm reply rather than on a timer — `crate::rehearsing::records::swept`'s reason: a conversation still in use refreshes `kept_at` on that same reply, so it is never the row being swept.
 
@@ -1019,7 +1038,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 13 Oct 2026 (owner): 80 percent of the weekly window. Reaching it offers `plan-downshift-model` as the default until the window resets. The weekly window alone: a five-hour window resets before a step down could matter. It is a whole percent from 1 to 100, and the offer is made once for each window.
+DECIDED 13 Oct 2026 (owner): 80 percent of the weekly window. Reaching it offers `plan-downshift-model` as the Session model until the window resets. The weekly window alone: a five-hour window resets before a step down could matter. It is a whole percent from 1 to 100, and the offer is made once for each window.
 
 **The value lives in settings.json under `plan.downshiftAt`** (live), `docs/concepts/machine.md`, *Quota*.
 """
@@ -1034,7 +1053,7 @@ peer_polarity = "Member of the Kit set"
 owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
-DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. What the default model becomes when the owner accepts the offer at `plan-downshift-line`. Its own row rather than a reading of another model: the step down is to a model that still works a Job, and a machine that lowers the Judge or the retro to save plan would lower the checking and not the spend. The adapter states the default and a test holds it to the roster and below its strongest end.
+DECIDED 13 Oct 2026 (owner): sonnet, the middle tier as `retro-model` ships it. What the Session model (`session-model`) becomes when the owner accepts the offer at `plan-downshift-line`. Its own row rather than a reading of another model: the step down is to a model that still works a Job, and a machine that lowers the Judge or the retro to save plan would lower the checking and not the spend. The adapter states the default and a test holds it to the roster and below its strongest end.
 
 **The value lives in settings.json under `plan.downshiftTo`** (live), `docs/concepts/machine.md`, *Quota*.
 """

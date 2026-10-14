@@ -399,6 +399,9 @@ where
         }
         let text = said(about, cause, read.as_deref().unwrap_or_default());
         let done = match owner {
+            Owner::Session(id) if matches!(cause, Cause::Merged) => {
+                matches!(self.told_news_by_fleet(id, &text).await, Ok(true))
+            }
             Owner::Session(id) => {
                 matches!(self.told_by_fleet(id, &text).await, Ok(true))
             }

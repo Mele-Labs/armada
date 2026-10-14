@@ -1,15 +1,16 @@
-//! One repository's Helm session as one quotable record. `#1367`.
+//! One repository's Helm Session as one quotable record. `#1367`.
 //!
 //! **What decides an answer, in one artifact**: the repository, the authority
-//! and the model; the brief as it was sent; the tools the door offered; the
-//! thread with each turn's cost; and what the last poll was told. A bad answer
+//! and the model; the note appended to its system prompt; the tools the door offered; the
+//! thread; and what the last poll was told. A bad answer
 //! could only be reported by retyping the conversation without any of it.
 //!
 //! **The roster is read from the same predicate the door enforces** — `may`
 //! over `api::offerable` — so the record cannot name a set the door does not.
 
 use ipc::{
-    HelmActionAuthority, HelmDebugLine, HelmDebugSaid, HelmDebugText, HelmMessage, Saw, Voice,
+    HelmActionAuthority, HelmDebugLine, HelmDebugSaid, HelmDebugText, SessionAskState, SessionRow,
+    SessionVoice,
 };
 
 use super::reach::{may, Authority};
@@ -41,72 +42,68 @@ pub(super) fn authority_on_the_wire(authority: Authority) -> HelmActionAuthority
 
 /// The thread's last [`LINES`] lines, and how many were left out.
 ///
-/// **What was cut is counted, never inferred.** `dropped` is the thread's own
-/// losses plus what this bound left behind, so a record that is short says by
-/// how much.
-pub(super) fn thread(messages: &[HelmMessage], dropped: u64) -> (Vec<HelmDebugLine>, u64) {
-    let lines: Vec<HelmDebugLine> = messages.iter().filter_map(line).collect();
+/// **What was cut is counted, never inferred.** The count is what this bound left behind, so a
+/// record that is short says by how much.
+pub(super) fn thread(rows: &[SessionRow]) -> (Vec<HelmDebugLine>, u64) {
+    let lines: Vec<HelmDebugLine> = rows.iter().filter_map(line).collect();
     let cut = lines.len().saturating_sub(LINES);
-    (lines.into_iter().skip(cut).collect(), dropped + cut as u64)
+    (lines.into_iter().skip(cut).collect(), cut as u64)
 }
 
-/// How many MCP servers the session came up with, as its own last `init` said.
-pub(super) fn servers(messages: &[HelmMessage]) -> Option<usize> {
-    messages.iter().rev().find_map(|message| match message {
-        HelmMessage::Row(shown) => match shown.row().saw {
-            Saw::Started { mcp_servers, .. } => Some(mcp_servers),
-            _ => None,
-        },
-        _ => None,
-    })
-}
-
-/// One thread message as the record holds it, or nothing where it holds none.
+/// One thread row as the record holds it, or nothing where it holds none.
 ///
-/// **Prose in Armada's own voice is dropped**: that is the brief coming back
-/// off the session's input channel, and the record carries the brief whole.
-fn line(message: &HelmMessage) -> Option<HelmDebugLine> {
-    let (at, said) = match message {
-        HelmMessage::Asked(asked) => (
-            asked.ts.clone(),
-            HelmDebugSaid::Asked {
-                text: HelmDebugText::bounded(&asked.text, MOST),
-            },
-        ),
-        HelmMessage::Fresh(fresh) => (fresh.ts.clone(), HelmDebugSaid::Fresh),
-        HelmMessage::Unanswered(unanswered) => (
-            unanswered.ts.clone(),
-            HelmDebugSaid::Unanswered {
-                why: unanswered.why.clone(),
-            },
-        ),
-        HelmMessage::Row(shown) => {
-            let row = shown.row();
-            let said = match &row.saw {
-                Saw::Said { text } if row.by == Voice::Drone => HelmDebugSaid::Said {
+/// **A Session that wrote to Helm is read as an ask**, under its own title, because it is a message
+/// Helm answered; everything the record has no word for (a lease, a window, a check) is left out.
+fn line(row: &SessionRow) -> Option<HelmDebugLine> {
+    let (at, said) = match row {
+        SessionRow::Message { at, from, text, .. } => {
+            let said = match from {
+                SessionVoice::You => HelmDebugSaid::Asked {
                     text: HelmDebugText::bounded(text, MOST),
                 },
-                Saw::Called { tool, detail, .. } => HelmDebugSaid::Called {
-                    tool: tool.clone(),
-                    detail: detail.clone(),
+                SessionVoice::Agent => HelmDebugSaid::Said {
+                    text: HelmDebugText::bounded(text, MOST),
                 },
-                Saw::Refused { tool, because, .. } => HelmDebugSaid::Refused {
-                    tool: tool.clone(),
-                    because: because.clone(),
+                SessionVoice::Session { title, .. } => HelmDebugSaid::Asked {
+                    text: HelmDebugText::bounded(&format!("{title}: {text}"), MOST),
                 },
-                Saw::Ended {
-                    turns,
-                    cost_micros,
-                    refusals,
-                } => HelmDebugSaid::Ended {
-                    turns: *turns,
-                    cost_micros: *cost_micros,
-                    refusals: *refusals,
+            };
+            (at.clone(), said)
+        }
+        SessionRow::Tool { at, text, .. } => {
+            let (tool, detail) = text.split_once(' ').unwrap_or((text.as_str(), ""));
+            (
+                at.clone(),
+                HelmDebugSaid::Called {
+                    tool: tool.to_string(),
+                    detail: detail.to_string(),
                 },
+            )
+        }
+        SessionRow::Ask { at, ask, state, .. } => {
+            let because = match state {
+                SessionAskState::Refused => "the call was refused",
+                SessionAskState::Unanswered => "nobody answered inside the hold",
+                SessionAskState::SessionGone => "the process went before the answer did",
                 _ => return None,
             };
-            (row.ts.clone(), said)
+            (
+                at.clone(),
+                HelmDebugSaid::Refused {
+                    tool: ask.tool.clone(),
+                    because: because.to_string(),
+                },
+            )
         }
+        SessionRow::Sent {
+            at, text, target, ..
+        } => (
+            at.clone(),
+            HelmDebugSaid::Sent {
+                text: HelmDebugText::bounded(text, MOST),
+                to: target.title.clone(),
+            },
+        ),
         _ => return None,
     };
     Some(HelmDebugLine { at, said })

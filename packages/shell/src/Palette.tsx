@@ -133,7 +133,12 @@ export type PaletteChoice =
   | { of: "run"; id: string }
   | { of: "setting"; id: string }
   | { of: "filter"; id: string }
-  | { of: "board"; id: string };
+  | { of: "board"; id: string }
+  /** `root` is `null` for All repositories. */
+  | { of: "repository"; root: string | null };
+
+/** A repository the palette can pick, as the title row's picker names it. */
+export type PaletteRepository = { root: string; label: string };
 
 export type PaletteProps = {
   open: boolean;
@@ -163,6 +168,12 @@ export type PaletteProps = {
   board?: readonly PaletteBoardRow[];
   jobs: readonly PaletteJob[];
   settings: readonly PaletteSetting[];
+  /**
+   * The repositories to pick between, and which one is picked (`null` is All). Absent or empty draws
+   * no block: with nothing to choose between, a row would only be a no-op.
+   */
+  repositories?: readonly PaletteRepository[];
+  picked?: string | null;
   /** Why an act cannot be chosen here, by action id. Absent means it can. */
   dormant?: Readonly<Record<string, string | undefined>>;
   /**
@@ -190,6 +201,10 @@ const NAVIGATION = "navigation";
 const RUN = "run";
 const JOBS = "jobs";
 const SETTINGS = "settings";
+const REPOSITORIES = "repositories";
+
+/** The row for All repositories. A root is an absolute path, so this id cannot be one. */
+const ALL_REPOSITORIES = "repo-all";
 
 /** The registry row the Board's filters stand in for. */
 const STATE_FILTER = "state_filter";
@@ -240,6 +255,8 @@ export function Palette({
   board = [],
   jobs,
   settings,
+  repositories = [],
+  picked = null,
   dormant = {},
   absent = [],
   onChoose,
@@ -256,6 +273,8 @@ export function Palette({
     // not a setting. It sits where it does because it is the one block scoped
     // to the surface showing — nearer the acts than the index of everything.
     ...(runnables.length === 0 ? [] : [{ id: RUN, title: "Run in the checkout" }]),
+    // Where the title row's picker is, from the keyboard: the same pick, over the same list.
+    ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
     { id: JOBS, title: "Jobs" },
     { id: SETTINGS, title: "Settings" },
   ];
@@ -314,6 +333,17 @@ export function Palette({
       // because it answers the same question: what this row currently is.
       value: runnable.value,
     })),
+    ...(repositories.length === 0
+      ? []
+      : [
+          { id: ALL_REPOSITORIES, section: REPOSITORIES, label: "All repositories", aliases: ["all"], ...(picked === null ? { value: "picked" } : {}) },
+          ...repositories.map((one) => ({
+            id: `repo:${one.root}`,
+            section: REPOSITORIES,
+            label: one.label,
+            ...(picked === one.root ? { value: "picked" } : {}),
+          })),
+        ]),
     ...jobs.map((job) => ({ id: `job:${job.id}`, section: JOBS, label: job.label })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
@@ -329,7 +359,7 @@ export function Palette({
       open={open}
       sections={sections}
       entries={entries}
-      searched={searchedSentence(jobs.length, settings.length, runnables.length)}
+      searched={searchedSentence(jobs.length, settings.length, runnables.length, repositories.length)}
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
       {...(anchor === undefined ? {} : { anchor })}
@@ -373,6 +403,8 @@ function bare(id: string): string {
 /** What a chosen row was, read off the prefix its section gave it. */
 function choiceOf(id: string): PaletteChoice {
   const rest = bare(id);
+  if (id === ALL_REPOSITORIES) return { of: "repository", root: null };
+  if (id.startsWith("repo:")) return { of: "repository", root: rest };
   if (id.startsWith("act:")) return { of: "act", id: rest };
   if (id.startsWith("nav:")) return { of: "surface", id: rest };
   if (id.startsWith("job:")) return { of: "job", id: rest };
@@ -391,11 +423,12 @@ function choiceOf(id: string): PaletteChoice {
  * sentence claiming settings on a build that indexes none would be the labelled
  * blank this app refuses everywhere else.
  */
-function searchedSentence(jobs: number, settings: number, runnables: number): string {
+function searchedSentence(jobs: number, settings: number, runnables: number, repositories: number): string {
   const held = [
     "every act available here",
     "every place in Bridge",
     runnables === 0 ? null : "every Check and Command this Manifest declares",
+    repositories === 0 ? null : "every repository",
     jobs === 0 ? null : "every job on this Manifest, at every status",
     settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);

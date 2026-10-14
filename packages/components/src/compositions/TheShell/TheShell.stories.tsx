@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ComponentProps } from "react";
-import { expect } from "storybook/test";
-import { ClipboardList, HardDrive, Megaphone, Settings as SettingsIcon } from "lucide-react";
+import { expect, within } from "storybook/test";
+import { ClipboardList, FolderGit2, HardDrive, Megaphone, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ActiveJobsList } from "../ActiveJobsList/ActiveJobsList";
 import { DockQuestions } from "../DockQuestions/DockQuestions";
 import { JobRowStacked } from "../JobRowStacked/JobRowStacked";
@@ -25,7 +26,7 @@ export default meta;
 type Story = StoryObj<typeof TheShell>;
 
 const shell: ComponentProps<typeof TheShell> = {
-  // The picker moved out of the rail and into the title row with #1087.
+  // The picker sits in the rail's own panel above Work, collapsed to a glyph with the rail.
   repositoryPicker: (
     <Select aria-label="Project">
       <option>armada</option>
@@ -76,6 +77,40 @@ const inWindow = (args: ComponentProps<typeof TheShell>) => (
 );
 
 export const Shell: Story = { args: shell, render: inWindow };
+
+/** The repository picker is the rail's first panel, above Work, and the title row carries none. */
+export const RepositoryPanel: Story = {
+  args: shell,
+  render: inWindow,
+  play: async ({ canvas }) => {
+    const panel = canvas.getByRole("region", { name: "Repository" });
+    await expect(within(panel).getByRole("combobox", { name: "Project" })).toBeVisible();
+    await expect(canvas.getByRole("region", { name: "Repository" }).compareDocumentPosition(canvas.getByRole("navigation", { name: "Work" }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  },
+};
+
+/** The rail collapsed: the panel is one glyph with a tooltip naming the repository, and no select. */
+export const RepositoryPanelCollapsed: Story = {
+  args: {
+    ...shell,
+    collapsed: true,
+    repositoryPickerCollapsed: (
+      <Tooltip label="armada">
+        <Button variant="ghost" iconOnly aria-label="armada">
+          <FolderGit2 size={16} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    ),
+  },
+  render: inWindow,
+  play: async ({ canvas }) => {
+    const panel = canvas.getByRole("region", { name: "Repository" });
+    await expect(within(panel).getByRole("button", { name: "armada" })).toBeVisible();
+    await expect(within(panel).queryByRole("combobox")).toBeNull();
+  },
+};
 
 /**
  * The 48px icon rail, below the layout breakpoint — where the dock has taken

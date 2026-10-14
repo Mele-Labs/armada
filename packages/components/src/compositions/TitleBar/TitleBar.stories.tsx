@@ -3,6 +3,7 @@ import { expect, fn, within } from "storybook/test";
 import { FLEET_DOT_TONE, type FleetState } from "../FleetPanel/FleetPanel";
 import { Select } from "../../primitives/Select/Select";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
+import { AccountProvider, type Account } from "../Account/Account";
 import { TitleBar } from "./TitleBar";
 
 /**
@@ -259,17 +260,27 @@ export const InASlimWindow: Story = {
   },
 };
 
-/** Wide, the row is all there and the menu is not. */
-export const WideHasNoMenu: Story = {
-  args: InASlimWindow.args,
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: /^Search, or describe work/ })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Menu", hidden: true })).not.toBeVisible();
+/** The menu's own entries, Sleep and Settings with its key. Pressing Settings opens it and puts the panel away. */
+export const MenuEntries: Story = {
+  args: {
+    ...Full.args,
+    sleep: { on: false, onToggle: fn() },
+    menu: { settings: { onOpen: fn(), shortcut: "⌘8" } },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    const panel = canvas.getByRole("dialog", { name: "Menu" });
+    await expect(within(panel).getByRole("button", { name: "Sleep mode" })).toBeVisible();
+    const settings = within(panel).getByRole("button", { name: "Settings" });
+    await expect(settings.querySelector("kbd")).toBeInTheDocument();
+    await userEvent.click(settings);
+    await expect(args.menu?.settings?.onOpen).toHaveBeenCalledTimes(1);
+    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
   },
 };
 
 /**
- * Sleep mode beside Helm: the moon is pressed while it is on.
+ * Sleep mode, an entry in the menu: the entry is pressed while it is on, and the moon rides on the menu button.
  */
 export const SleepModeToggle: Story = {
   args: {
@@ -280,11 +291,82 @@ export const SleepModeToggle: Story = {
     sleep: { on: false, onToggle: fn() },
   },
   play: async ({ args, canvas, userEvent }) => {
-    const moon = canvas.getByRole("button", { name: "Sleep mode" });
-    await expect(moon).toHaveAttribute("aria-pressed", "false");
-    await expect(moon).toHaveAttribute("title", "Sleep mode off");
-    await userEvent.click(moon);
+    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    const sleep = within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sleep mode" });
+    await expect(sleep).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(sleep);
     await expect(args.sleep?.onToggle).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Sleep is on: the menu button's tooltip says so, and its entry is pressed. */
+export const SleepModeOn: Story = {
+  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() } },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on");
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sleep mode" })).toHaveAttribute("aria-pressed", "true");
+  },
+};
+
+const noAct = () => undefined;
+/** An account a window is signed in to, or out of with no profiles; its acts do nothing. */
+const account = (logins: readonly string[], signIn: () => void = noAct): Account => ({
+  profiles: logins.map((login, at) => ({ login, active: at === 0, chosen: false })),
+  flow: { phase: "idle" },
+  syncs: null,
+  signIn,
+  openDevicePage: noAct,
+  addProfile: noAct,
+  dismiss: noAct,
+  switchTo: noAct,
+  choose: noAct,
+  closeSyncs: noAct,
+  setKind: noAct,
+  setScope: noAct,
+});
+
+const signIn = fn();
+
+/** Nothing signed in: the button's tooltip says so, and the first entry is Sign in with GitHub, which starts the flow. */
+export const SignedOut: Story = {
+  args: { ...SleepModeToggle.args },
+  render: (args) => (
+    <AccountProvider value={account([], signIn)}>
+      <TitleBar {...args} />
+    </AccountProvider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, signed out");
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sign in with GitHub" })).toBeVisible();
+    await userEvent.click(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sign in with GitHub" }));
+    await expect(signIn).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Signed in, the entry names the login and the button says nothing more than Menu. */
+export const SignedIn: Story = {
+  args: { ...SleepModeToggle.args },
+  render: (args) => (
+    <AccountProvider value={account(["nickmele"])}>
+      <TitleBar {...args} />
+    </AccountProvider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Account nickmele" })).toBeVisible();
+  },
+};
+
+/** Signed out with Sleep on: both marks ride on the button, and the tooltip names both. */
+export const SignedOutAsleep: Story = {
+  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() } },
+  render: SignedOut.render!,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on, signed out");
   },
 };
 

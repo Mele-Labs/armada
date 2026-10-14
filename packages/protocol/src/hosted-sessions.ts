@@ -9,6 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
+import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WindowPlace, WindowTake } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
@@ -36,6 +37,11 @@ export type StartSession = {
    * is left as it was. Refused 422 `fleet.fork_point_unwritten` where no message has that id.
    */
   fork?: { session_id: string; at?: string };
+  /**
+   * Start Setup's session in a served repository with no `armada.yml` yet. It runs in `root`, carries no
+   * Manifest, and `manifest_id` is not read. A root that has one by now starts as a plain start on it.
+   */
+  root?: string;
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
@@ -197,6 +203,19 @@ export type SessionRow =
       at: string;
       from: SessionVoice;
       text: string;
+      files?: SentFile[];
+      tags?: SessionTag[];
+    }
+  /**
+   * Words Helm's dock sent to a Session or a Job instead of asking Helm, from `tell_session` and
+   * `record_thought_sent`. Only a Helm Session's thread has them.
+   */
+  | {
+      kind: "sent";
+      id: string;
+      at: string;
+      text: string;
+      target: ThoughtTarget;
       files?: SentFile[];
       tags?: SessionTag[];
     }

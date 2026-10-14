@@ -95,8 +95,8 @@ pub use slots::{
     SlotStanding, StrandedWork, WorkShown,
 };
 pub use under_review::{
-    FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
-    WhatPeopleSaid, WhatTheForgeRan,
+    FailureWeight, FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy,
+    UnderReview, WhatPeopleSaid, WhatTheForgeRan,
 };
 pub use work_product::{
     BranchWork, Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured,
@@ -458,6 +458,18 @@ pub trait Vcs {
     /// slot still has it checked out, and the branch stays. `true` where it was
     /// deleted now and `false` where it was gone already.
     fn delete_repair_branch(&self, spec: &WorktreeSpec) -> Result<bool, BranchKept>;
+
+    /// Delete a local branch a session worked on, once the base holds every
+    /// commit on it. **Fleet's act at a session's `finish_up`, and nothing
+    /// else's**: a branch with commits the base lacks, or one a slot still has
+    /// checked out, is refused and stays. `true` where it was deleted now and
+    /// `false` where it was gone already.
+    fn delete_merged_branch(&self, pool: &SlotPool, branch: &str) -> Result<bool, BranchKept>;
+
+    /// Whether the base already holds every commit on a local branch. **What lets a session
+    /// delete its own branch by hand**: the read half of [`Vcs::delete_merged_branch`], which
+    /// deletes nothing.
+    fn branch_is_merged(&self, pool: &SlotPool, branch: &str) -> bool;
 
     /// Write on the slot this Job holds that the Job completed, so
     /// `armada worktree --status` reads it as held until a person clears the

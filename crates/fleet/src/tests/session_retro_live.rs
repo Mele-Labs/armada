@@ -384,6 +384,7 @@ async fn a_live_asking_of_the_agent_is_the_first_stage() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

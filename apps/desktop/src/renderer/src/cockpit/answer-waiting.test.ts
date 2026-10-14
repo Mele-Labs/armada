@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { answerWaiting } from "./answer-waiting";
+import { forgetViewed, viewedAt } from "./viewed";
 
 const refusal = (code: string, message: string) => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code, message, run_id: "", fields: {}, chain: [] } } });
 
@@ -11,6 +12,7 @@ function fleetAnswering(answer: unknown) {
   return route;
 }
 
+beforeEach(() => forgetViewed());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("answering what a Session waits on", () => {
@@ -35,5 +37,19 @@ describe("answering what a Session waits on", () => {
     fleetAnswering({ ok: false, outcome: { ok: false, why: "not_connected" } });
     const done = await answerWaiting({ session_id: "s1", item_id: "ask:q1", text: "yes" });
     expect(done.kind).toBe("refused");
+  });
+
+  test("an answer from a card is him being in the Session, and a refusal is not", async () => {
+    fleetAnswering({ ok: true, value: {} });
+    await answerWaiting({ session_id: "s1", item_id: "ask:q1", choice: 0 });
+    expect(viewedAt("s1")).toBeGreaterThan(0);
+
+    fleetAnswering(refusal("fleet.session_waiting_unheld", "nothing is waiting under that item."));
+    await answerWaiting({ session_id: "s2", item_id: "perm:c1", choice: 0 });
+    expect(viewedAt("s2")).toBeGreaterThan(0);
+
+    fleetAnswering(refusal("fleet.session_waiting_empty", "an answer needs a choice, words or a mode"));
+    await answerWaiting({ session_id: "s3", item_id: "ask:q1" });
+    expect(viewedAt("s3")).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-// The weekly window nearing its end, and the default model offered a step down until it resets. Behind a
+// The weekly window nearing its end, and the Session model offered a step down until it resets. Behind a
 // source the way Sleep's state and the plan's windows are, so a Bridge with none draws nothing: no bell on
 // the meter, no notification. Fleet's is `fleet-downshift.ts`; the mock has its own (`mock/downshift.ts`).
 
@@ -8,21 +8,21 @@ import type { LimitOffer, PlanUsage } from "@armada/components";
 
 /** Where the offer stands. Absent: none, or the owner has settled it for this window. */
 export type Downshift =
-  /** The weekly window is at or over the line, and the default, `was`, is not yet changed. */
+  /** The weekly window is at or over the line, and the Session model, `was`, is not yet changed. */
   | { phase: "offered"; percent: number; was: string; to: string }
-  /** The default is `to` until `until`, the window's reset; `was` is what it goes back to. */
+  /** The Session model is `to` until `until`, the window's reset; `was` is what it goes back to. */
   | { phase: "shifted"; was: string; to: string; until: string }
-  /** The window has reset and the default is still `to`. */
+  /** The window has reset and the Session model is still `to`. */
   | { phase: "reset"; was: string; to: string };
 
 export type DownshiftSource = {
   get(): Downshift | undefined;
   subscribe(on: () => void): () => void;
-  /** Default to the lower model until the window resets. */
+  /** Move the Session model to the lower one until the window resets. */
   accept(): void;
   /** Back to the model it was. */
   restore(): void;
-  /** Leave the lower model as the default. */
+  /** Leave the lower model as the Session model. */
   keep(): void;
   /** The owner sets it by hand: nothing more is offered in this window. */
   settle(): void;
@@ -58,7 +58,7 @@ function offerOf(state: Downshift, source: DownshiftSource, choose: () => void):
   };
 }
 
-/** The weekly row with the offer standing on it, where there is one. `choose` opens the Default model setting. */
+/** The weekly row with the offer standing on it, where there is one. `choose` opens the Session model setting. */
 export function useDownshiftOffer(usage: PlanUsage[] | undefined, choose: () => void): PlanUsage[] | undefined {
   const source = useContext(DownshiftContext);
   const state = useSyncExternalStore(source?.subscribe ?? NO_STATE.subscribe, source?.get ?? NO_STATE.get);

@@ -2,9 +2,9 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "The default model's step down changed, and this is where it stands now"
+description = "The Session model's step down changed, and this is where it stands now"
 notes = """
 Carries `ModelDownshiftState` itself, the answer to `get_model_downshift`, so a client replaces what it holds. An absent `downshift` is none, which is how a settled or restored state is told. Names no Job, Drone or session.
 
-Published when the state moves: an offer made or its percent moved a whole point, an accept, the window rolling over, a restore, keep or settle, and a hand edit of `models.default` that settles it. At most a few a week, bar the percent, which rides the same whole-percent moves `plan_usage.changed` does. A Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
+Published when the state moves: an offer made or its percent moved a whole point, an accept, the window rolling over, a restore, keep or settle, and a hand edit of `models.session` that settles it. At most a few a week, bar the percent, which rides the same whole-percent moves `plan_usage.changed` does. A Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
 """

@@ -7,6 +7,7 @@ import { button, card, dialog, inside, role, tab, text, walk } from "../walk";
 
 export const markdownFromTheProposer = walk("arc/proposing-done-when-landed", [
   { press: tab("Active"), say: "A Job the Proposer is still writing" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { press: role("option", /Say which of the two a clear gave back/), say: "Picked" },
   { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open the Job" },
   {

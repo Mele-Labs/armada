@@ -1,16 +1,16 @@
 # Helm
 
-**What it is:** A dock over the content on every Bridge surface, holding the questions waiting on you and one running conversation per repository — not a Drone.
+**What it is:** A dock over the content on every Bridge surface, holding the questions waiting on you and one [Session](session.md) per repository — not a Drone.
 
 ---
 
-**Kind:** Agent, Surface.
+**Kind:** Session, Surface. Why it is a Session: `.claude/decisions/2026-10-13-helm-is-a-session.md`.
 
 Companion to the main Armada brief.
 
 ## What it is
 
-Not a Drone. Drones execute code against a workflow inside a repo, one-shot, headless. Helm is a different agent type entirely: a **persistent conversational session** with tool access to query and act on Fleet state — Jobs, Drones, evidence, escalations — rather than a structured, single-run execution.
+Not a Drone. Drones execute code against a workflow inside a repo, one-shot, headless. **Helm is a hosted [Session](session.md)**, one per repository, marked `helm` on its record. It has everything a Session has — a live process under a keeper, Auto, a slot and a branch on its first write, `tune_session`, interrupt, subagents, questions, attachments and mentions — and what makes it Helm is a short note appended to its system prompt, a line before each message saying where you are in Bridge, and the door's `Helm only` rows. This page owns what Helm adds; [Session](session.md) owns the rest.
 
 Helm is additive to Bridge, not a replacement: Bridge is state-monitoring (what's happening), Helm is reasoning/synthesis across that state (why, and what to do about it).
 
@@ -33,29 +33,31 @@ Cross-Job reasoning covers every Job in the selected Manifest, not one Job at a 
 
 The dock's upper zone lists every question waiting on a person, from every repository Fleet serves — a Drone question, a held command, a Judge refusal — each card naming its own repository. Answering one there settles it on that Job's own detail too. The lower zone holds Helm's conversation.
 
-**One running conversation per repository, with Start fresh.** Which repository Helm answers for is set by the most recent explicit act — picking a repository, "Discuss with Helm" on a card, or the dock's own switch — never by the picker moving on its own. Helm is hosted by Fleet and resumed from the stored session when a message needs it; no process idles between messages. A conversation clears after 30 quiet days (`settings.helm-session-retention-expiry`, Machine-scoped).
+**One Helm Session per repository, with Start fresh.** Which repository Helm answers for is set by the most recent explicit act — picking a repository, "Discuss with Helm" on a card, or the dock's own switch — never by the picker moving on its own. **The first message the dock sends for a repository starts its Helm Session, and the next reuses it**; a second repository gets its own. At most one is live per Manifest, and Fleet finds or starts it under one lock, so two first messages cannot make two. It stays until Start fresh, which ends it (`close_session`, giving back any slot it held), and the next message starts a new one. Nothing sweeps it on a clock: the 30-day Helm retention (`settings.helm-session-retention-expiry`) now sweeps a Job's Commander alone.
 
-**Every ask names where the person is.** Bridge sends the screen, the picked repository, the open Job chipped above the message box, and the Board or Cockpit cursor row with each message; Fleet hands the session one line naming it ahead of what was typed, and the thread keeps only what the person wrote. `#1075`.
+**Every ask names where the person is.** Bridge sends the screen, the picked repository, the open Job chipped above the message box, and the Board or Cockpit cursor row with each message; Fleet puts one line naming it ahead of what was typed, and the thread keeps only what the person wrote. `#1075`.
 
 **Fleet-wide reasoning is not a Helm capability, with one exception.** Why: a conversation belongs to the repository it is pointed at, so a Fleet-wide Helm would be the only thing in the product ignoring that. The exception is the read that routes a thought (*Routing a thought*, below), which looks at every repository's live Sessions and running Jobs whatever repository Helm points at. The owner chose it on 12 Oct 2026, because the work a thought belongs to is often in another repository. It reads and answers where the words belong. It does not reason about them, and nothing else in Helm becomes Fleet-wide.
 
 Anything else that is genuinely cross-Manifest stays a Bridge job.
 
-**Built to change.** Conversations are looked up by a key that is a repository today, and Helm's host sits behind one interface — a key per topic, or a host inside Bridge instead of Fleet, is a switch on either, not a rebuild.
+**It is in the Sessions list too.** A Helm Session is a row of `list_sessions` under its repository with `helm: true`, which Bridge draws as Helm's, and opening it from there opens the dock. Helm's own `list_sessions` answers leave it out, and so does the thought reader: Helm is not a place to route a thought to.
+
+**Old Helm threads stay on disk, unread.** The files under `<records_root>/helm/` belonged to the host Helm no longer uses. Armada is pre-alpha, so nothing migrates them and nothing deletes them.
 
 ## The message box
 
-**Helm's box is a [Session](session.md)'s**, with the files and pictures, the sketch pad, `/`, `@` and `#`, the model and effort, and `Enter` to send with `⇧Enter` for a new line. It has no permission mode. What Helm may do is *Action authority* and *What Helm asks about*, and the person's own settings decide the rest, so a mode here would be a second answer to a question already answered. The look is the walk `helm-rich-composer`.
+**Helm's box is a [Session](session.md)'s**, with the files and pictures, the sketch pad, `/`, `@` and `#`, the model and effort, and `Enter` to send with `⇧Enter` for a new line. It has no permission mode: Helm runs in Auto like any Session. The look is the walk `helm-rich-composer`.
 
 | The box offers | Where it comes from |
 |---|---|
-| Files, pictures and sketches | Sent with the ask as `attachments`. Fleet keeps each under `attachments/helm/<repository>` outside every worktree, a picture reaches Helm's session as a picture and any other file as an `Attached file:` path line. A sketch goes as the picture it renders to |
-| `@` | Sessions, Jobs, pull requests and branches Bridge holds, sent as `mentions`. Fleet writes one `The person named:` line ahead of the words, as a Session's send does, and the thread keeps the person's words alone |
-| `#` | The repository's open issues (`list_issues`), its open pull requests (the merge line's `hub.pull_requests`) and, for a number that is neither, one read by number: `get_pull_request` first, then `get_issue`. A merged pull request or a closed issue still tags, and says so. An issue tags as `issue`, with its number, title and address |
-| `/` | The commands the agent named on its `init` line when Helm's own process started, by name. Until Helm has spoken the list is the last one any Session read, so a Fleet that has run no agent offers none |
-| Model and effort | Held by Fleet for the conversation (`tune_helm`) and passed at the launch of every message. Left alone they are the machine's own. Start fresh keeps them, since they are the person's choice and not the thread |
+| Files, pictures and sketches | Sent with the ask as `attachments` and kept as a Session keeps them (`uploads`), outside every worktree. A sketch goes as the picture it renders to |
+| `@` | Sessions, Jobs, pull requests and branches Bridge holds, sent as `mentions`. Fleet writes one `The person named:` line ahead of the words, as a Session's send does |
+| `#` | The repository's open issues, its open pull requests and, for a number that is neither, one read by number. An issue tags as `issue`, with its number, title and address |
+| `/` | The commands the agent named on its `init` line, as a Session's list. Until Helm's Session has started the list is the last one any Session read |
+| Model and effort | `AskHelm.model` and `effort` choose them on the message that starts the Session (422 `fleet.unacceptable_effort`); `tune_session` changes a live one. Start fresh keeps nothing: the next Session starts on the box's pick |
 
-**A sent row keeps what it carried.** The `asked` row of the thread, and the `sent` row of a thought routed to a Session, have the files and the tags beside the words, so a window opened after a restart draws the same row. Fleet serves a file back (`get_helm_file`) for a picture's thumbnail. A message may be only a file or a tag; blank words with nothing carried are refused. **Start fresh deletes the files with the thread**, since nothing would name them again. Helm's session reads them through an added directory, as a Session's does.
+**A message may be only a file or a tag; blank words with nothing carried are refused** with a Session's `fleet.session_message_empty`. **The thread is the Session's.** The dock reads it with `get_helm_session` and follows `session.row` and `session.changed` on `/events`, the rows a Session page draws. A person's message is a `message` row with the files and tags beside the words. Start fresh ends the Session and the next one has a new thread.
 
 **What the thread names is a link.** `#N`, `Job N`, a Job's handle or id, and a Session's id, address or exact title link in Helm's replies and in the person's own rows, and so do the `@` and `#` chips of a sent row. A pull request opens on its row of the Merge line, and with nothing highlighted where the Merge line has no row for it; an issue opens the composer's open issues; a Job and a Session open as they do elsewhere. Bridge reads only what its window holds, so a number that resolves to nothing stays text, and a number that is not open is read once by number, as `#` reads it.
 
@@ -69,13 +71,13 @@ Anything else that is genuinely cross-Manifest stays a Bridge job.
 
 **Send is the acts that already exist.** A Session gets a message as the composer sends one, and a Job a redirect to its Drone. A refusal, such as a terminal Session that is not listening, is said in Fleet's words and nothing is recorded, and the card stays for another try.
 
-**The thread keeps where the words went.** Once they arrived, Bridge says so (`record_thought_sent`) and Fleet appends a `sent` row to the conversation's thread, which draws as the person's words with a "Sent to" chip that opens the Session or Job. It is a row of the thread's file, so it outlives the window and a restart, and it is never fed to Helm's session: the session hears only what is asked of it. The audit trail has it as `helm.thought_routed`, naming where and never the words.
+**The thread keeps where the words went.** Once they arrived, Bridge says so (`record_thought_sent`) and Fleet appends a `sent` row (`SessionRow::Sent`) to the Helm Session's thread, which draws as the person's words with a "Sent to" chip that opens the Session or Job. It is a row of the Session's ledger, so it outlives the window and a restart, and it is never fed to Helm's process: the Session hears only what is asked of it. The answer is the Helm Session's record, started if the repository had none live. The audit trail has it as `helm.thought_routed`, naming where and never the words.
 
 **Words that reach Helm as a request are passed on by Helm.** "Send this to the Walk Variations session: ..." is a question as far as the reading goes, so it arrives in Helm's session, and `tell_session` is how Helm delivers it. It sends through the same path as the composer, so a terminal Session that is not listening is refused in the same words and Helm says so. On success Fleet keeps the same `sent` row and publishes the same `helm.thought_routed`, so the thread shows where the words went whichever way they got there. A refused send records neither. It runs on the person's ask with no card: it destroys nothing, pushes nothing and writes nothing off this machine.
 
 ## Tools
 
-**Helm holds what you hold in a terminal, and the Fleet MCP besides.** A session opens in the repository's own checkout and resolves what your Claude configuration resolves there — your MCP servers, your plugins, your skills, your agent files, and the ordinary built-in tools that read, search, edit, run a command and fetch. Nothing is withheld by a list Armada wrote. What Helm is told at session start — the selected Manifest, its resolved authority and Voice — is specified on `../contracts/agent-prompt.md`, section 2.
+**Helm holds what a Session holds, and the Fleet MCP besides.** The Helm Session opens in the repository and resolves what your Claude configuration resolves there — your MCP servers, plugins, skills, agent files, and the ordinary built-in tools. Nothing is withheld by a list Armada wrote. What Helm is told is a short note, `../contracts/agent-prompt.md` section 5a; it holds no workflow schema, sample or standing rule beyond the few the note names.
 
 **Kit is what should resolve that set, and Kit is not built (#1275).** Until it is, the set is whatever Claude Code itself resolves for this repository on this machine: your user-scoped configuration and the repository's own. Kit takes it over, and a Manifest tier arrives with it.
 
@@ -85,19 +87,17 @@ Helm's advantage is not more access than you have. It is reasoning over results 
 
 **Helm gets every query, and of the commands, every one but a person's own.** `../contracts/system-architecture.md`, section 6 carries the inventory of queries, commands and events. `fleet::helm::may` is the line: every read is Helm's, and a command is Helm's when the machine's authority setting allows acting at all and the act is not `undo_run`, the one command reserved to a person regardless of the ask. With action authority set to read-only, Helm is refused every command.
 
-**Helm authors a workflow with the schema in its brief and saves it through the door.** A session opens in a repository that does not carry Armada's own files, so the brief holds what a definition declares, read off `crates/core-model/domain/workflowdef-fields.toml`, and one definition that loads — `../contracts/agent-prompt.md`, section 5a. The write is `save_workflow` and not the built-in `Write`. Fleet checks the definition against this repository's Checks and this machine's models with the loader's own rules, refuses with the reason and writes nothing where it does not fit, and writes it where it does. The person chooses the place: the repository's own `.armada/workflows/`, or Kit's `~/.armada/workflows/` for every repository on the machine. It is an ordinary command on Helm's ask and has no unasked use. [Workflow](workflow.md), *Where a definition comes from*, owns which place wins.
+**Helm authors a workflow through the door, and the door teaches it.** The schema and sample left the prompt. `get_workflow` returns a definition to copy the shape from, and `save_workflow` checks one against this repository's Checks and this machine's models with the loader's own rules, refuses with the reason and writes nothing where it does not fit. The person chooses the place: the repository's own `.armada/workflows/`, or Kit's `~/.armada/workflows/` for every repository on the machine. [Workflow](workflow.md), *Where a definition comes from*, owns which place wins.
 
-**Helm passes words to a live Session with `tell_session`, on an ask.** It reads `Helm only` in the inventory, so no other agent's door session and no Drone is offered it, and the brief names it in one line (`../contracts/agent-prompt.md`, section 5a). *Routing a thought* has the rest.
+**Helm passes words to a live Session with `tell_session`, on an ask.** It reads `Helm only` in the inventory, so no other agent's door session and no Drone is offered it, and the note names it in one line (`../contracts/agent-prompt.md`, section 5a). *Routing a thought* has the rest. **The door is a Session's door plus Helm's extras**: `tell_session`, `ask_person_to_approve` and the other `Helm only` rows. Every operation the door offers is tagged, and a new one needs its decision in `crates/api/src/tests/commander_reach.rs`.
 
-**On a Studio, a few commands are Helm's without an ask**: adding a node that starts proposed, proposing an edge, and naming an untitled Studio — `fleet::helm::reach::UNASKED`, named in the brief. The door cannot tell an ask from its absence, so that line is drawn in the brief and not at the door. See [Studio](studio.md), Helm on a Studio.
+**On a Studio, a few commands are Helm's without an ask**: adding a node that starts proposed, proposing an edge, and naming an untitled Studio — `fleet::helm::reach::UNASKED`, named in the note. The door cannot tell an ask from its absence, so that line is drawn in the note and not at the door. It is the one standing rule the note keeps. See [Studio](studio.md), Helm on a Studio.
 
-**The 8 WebSocket events are Bridge-only.** Why: an agent cannot be interrupted mid-turn.
+**The WebSocket events are Bridge-only.** Why: an agent cannot be interrupted mid-turn. Helm may call `get_events_since(cursor)` for what happened since it last looked, a count plus one line per event kind, and is no longer told to at the start of every turn.
 
-**Helm polls instead.** `get_events_since(cursor)` runs at the start of each turn, returning a count plus one line per event kind rather than the events themselves. Helm is never more than one turn stale, and fetches detail through the other queries only when it bears on what was asked.
+**Fleet does not wake Helm.** Why: it would make Helm a second notification channel alongside Alerts. A Job's Commander is the exception, a conversation on the old host keyed by the Job that Fleet wakes on that Job's events (`.claude/decisions/2026-10-11-a-job-has-a-commander.md`).
 
-**Fleet never wakes the session.** Why: it would make Helm a second notification channel alongside Alerts. A Job's Commander is the exception, a conversation on Helm's host keyed by the Job that Fleet wakes on that Job's events (`.claude/decisions/2026-10-11-a-job-has-a-commander.md`).
-
-**The Commander exception is a different launch and not a different host.** It shares Helm's stored session, thread, process host and turn (`Fleet::turn_carried`), and differs where it must. It opens in the Job's worktree and not the owner's checkout. It is launched with `--strict-mcp-config` and its built-in write tools cut, because Helm edits a checkout when a person asks and answers each call it makes, and a Commander has no person to ask, so a write tool is not available to be asked about. Its turns run one at a time off a queue that never interrupts one. A test holds the three launches apart: Helm's, a Drone's and a Commander's. [Commander](commander.md) has the rest.
+**The Commander is a different launch and a different host.** It keeps the old Helm host: a stored conversation, a thread file, a process per turn (`Fleet::turn_carried`). It opens in the Job's worktree, is launched with `--strict-mcp-config` and its built-in write tools cut, and its turns run one at a time off a queue that never interrupts one. Helm's Session shares none of that. [Commander](commander.md) has the rest.
 
 **Every call is scoped to the selected Manifest, except Doctor, which Helm reads machine-wide.** Doctor's modules are machine-level by nature — the Fleet daemon, disk, Armada API reachability — and cannot be Manifest-scoped, so under strict scoping Helm could not answer whether the daemon is healthy.
 
@@ -107,37 +107,13 @@ What Helm may *do* rather than read is a separate limit — see Action authority
 
 ## Action authority
 
-Helm may call any command it is offered once you ask it to, in this conversation — the ask is the human gate itself, not a step before one. `undo_run` is the sole exception, a person's regardless of what is asked. This replaced a narrower rule keyed to the Intervention Ladder — what you do about a problem, ordered by how much you take over — which is now a description of the acts rather than a boundary on Helm.
+Helm may call any command it is offered, and the machine's authority setting decides whether it is offered any. **With action authority set to read-only, Helm is refused every command**, and its note says so (`prompts.helmReadOnly`). `undo_run` is the sole command reserved to a person, regardless of what is asked (`fleet::helm::reach::RESERVED`). This replaced a narrower rule keyed to the Intervention Ladder — what you do about a problem, ordered by how much you take over — which is now a description of the acts rather than a boundary on Helm.
 
-**Helm edits your checkout when you ask it to, with no worktree and no gate between the ask and the file.** A deliberate exception to "work happens in a Job", taken with the owner on 17 Sep 2026 because a terminal session does it and the app should. There is no Judge on the change, no branch, and no approval — the ask was the approval. Every write is `helm.changed_checkout`, below.
+**Helm writes in a slot, not in your checkout.** Its Session is a Session: the first write leases a slot and cuts a branch, as any Session's does (`session_host::gate`), and the thread gets the `lease` row. The change is reviewed the way a Session's is, on a branch. This reverses the 17 Sep 2026 exception that let Helm edit the main checkout with no branch, and `helm.changed_checkout` went with it. `.claude/decisions/2026-10-13-helm-is-a-session.md`.
 
-**Your settings decide what they decide, and Fleet decides the rest.** Helm runs in the mode a terminal session runs — `default` — with the door's own permission tool named, so a call your `allow` rules cover runs silently and a call your `deny` rules refuse is refused. Everything else reaches Fleet, which used to put all of it in front of you and now puts three classes of it: *What Helm asks about*, below. `../spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured the path, and `../spikes/018-what-can-a-helm-session-do-in-each-permission-mode.md` measured what the modes do without it.
+**Permission is the Session's Auto gate.** A call runs unless it reaches into your own files outside the slots the Session holds, or removes or overwrites something outside them and `/tmp`; those are refused with the reason, which the agent reads. A question the agent asks is put to you as a card, as a Session's is. **A push runs**: Auto does not classify it, so `git push` and `gh pr merge` are not stopped here. The three classes Helm used to ask about (destructive, pushes to a shared space, writes off this machine) and their card are gone for the dock, and so is the 5-minute silence that refused. A Commander still has no person to ask and keeps its own launch.
 
-## What Helm asks about
-
-**Three classes, and they are the owner's own words of 18 Sep 2026**: Helm runs *"in auto mode unless something is destructive, pushes code to a shared space, or writes something to something that is not on the local machine."* Everything else runs, and you are not asked.
-
-| Class | What it is | What it looks like |
-|---|---|---|
-| Destructive | It removes or overwrites something that does not come back | `rm`, `git reset --hard`, `git branch -D`, `kill`, a truncating `>`, overwriting a file that exists, `kill_job`, `kill_drone`, `kill_one_drone`, `kill_process`, `take_over`, `close_as_superseded`, `delete_branch`, `edit_manifest`, `save_workflow` where the call says `overwrite` |
-| Pushes to shared | It sends code where other people read it | `git push`, `gh pr merge`, `cargo publish`, `scp`, `merge_pull_request`, `merge_pull_request_by_number`, `ready_pull_request`, `enable_auto_merge`, `submit_for_verification`, `attest_complete`, `approve_dispatch` |
-| Writes off this machine | It writes to something that is not this machine | `curl -X POST`, `gh issue create`, `kubectl apply`, `file_finding_issue`, `clone_repository` |
-
-**`save_workflow` is destructive only where it replaces a definition.** Fleet refuses a save that would replace one unless the call carries `overwrite`, so the word is the whole line: a first save is not put to you, and a save that replaces one is. Replacing a definition that a Job has already frozen does not move that Job.
-
-**Auto *unless*, which is why there is no allowlist.** A command Armada does not recognise runs. An allowlist would put you back at a card the first time you ran something nobody had listed, which is the state this exists to end, and the safety is in recognising the risky set rather than enumerating the safe one.
-
-**A line Armada cannot read asks on that ground.** `eval`, a backtick and a command substitution each carry a command nothing here ever sees, and those are the lines worth getting right. Every chained segment is read on its own, so `cd crates && rm -rf target` asks on its second half.
-
-**Everything that runs unasked is on the record** as `ran_unasked`, in the same `helm.call_answered` that carries every answer you gave. That record is what catches a class drawn too wide, and it is the reason the classes can be this generous.
-
-**This reverses your ask of 17 Sep** — *"it should still respect my permission settings"* — which it did by asking about everything the settings did not name. It respects them still; they no longer decide what is worth interrupting you for.
-
-**Auto mode was asked for and is not reachable.** The CLI accepts `--permission-mode auto` for a spawned session, reports `default` on its `init` line and makes no classifier call: auto mode is the harness's rather than a session's. So the ask reaching a person is not a substitute for it — it is what a spawned session has instead, and it is the same answer arrived at by a person rather than by a classifier.
-
-**Helm asks before it edits, now.** Under `acceptEdits` a write to the checkout was silent, because nothing could be asked; under your own settings it is a call like any other. What the ask is worth is the *Action authority* paragraph above: the file still changes with no branch, no review and no undo once you allow it.
-
-**The card carries the tool, the one-line argument and the rule that would have to allow it, and it is drawn at the end of the conversation it stopped** — under the last message and over the box you type in, which is where you are looking when a reply goes quiet. A Drone's question and a Judge's stay in the block at the top of the dock: those belong to a Job and have no conversation to sit in, and a Helm ask has one. The folded strip still counts it, because it is waiting on you wherever it is drawn. Three answers: allow once, which writes nothing; allow and remember, which writes that one rule into this repository's own `settings.local.json`, under `.claude/` — yours, not committed, and the only settings file Armada ever writes; or refuse, with your words carried to the session. Nobody answering is a refusal at five minutes and never an allow: silence is not consent. See [Kit](kit.md) (#1275) for where the rules should eventually come from.
+**The acts that stay a person's are the door's, not the gate's.** `ask_person_to_approve` asks for a person's press and decides nothing. The dock draws the call as a card in the thread, built from the tool row and the Board: the Job's handle, its workflow and steps, Approve and Not now. Approve is the press on the Job's approval gate, and the card reads from the Board that it was answered, here or on the Job. The look is the walk `helm-approve-card`. Raising a cap is bounded by connection, below.
 
 | Rung | Action | Helm directly? |
 | --- | --- | --- |
@@ -147,6 +123,8 @@ Helm may call any command it is offered once you ask it to, in this conversation
 | — | Approve dispatch, on a Job Helm drafted or any other | **Yes**, on your ask, never as a silent follow-on to drafting |
 | — | Kill one process of a Job, or every one — `kill_process`, `kill_processes` | **Yes**, on your ask, the same reach as killing the Drone (owner, 2 Oct 2026). A child is not the Drone: killing one leaves the Drone working, and the Drone's own pid is `kill_drone`. Fleet refuses a pid outside the Job's tree |
 | 1, 2 | Redirect or kill one Drone of several a Job runs at once — `redirect_one_drone`, `kill_one_drone` | **Yes**, on your ask, the reach of the Job-wide acts they narrow. Fleet refuses a Drone that is not live |
+
+**"On your ask" is how Helm is meant to behave and not a gate.** The door never could tell an ask from its absence, and the note no longer states the rule in prose: a Session acts on what it is told, and Helm is told what the person said. The one place the line is still drawn is a Studio's unasked acts, in the note.
 
 Rung 3 carries no MCP operation for Helm to reach for, ladder or no. A Job Helm drafts still sits at the same approval gate every Job sits at; Helm may press it too, but only where you asked it to by name, exactly as it may take any other act.
 
@@ -164,27 +142,27 @@ Rung 3 carries no MCP operation for Helm to reach for, ladder or no. A Job Helm 
 
 **Helm may raise a Job's turn or cost cap to twice what its workflow allows, and a Job's Commander to three times; a person has no ceiling.** Fleet decides which of the three is asking from the connection the call arrived on, and never from the request: the body of `raise_cost_cap` and `raise_turn_cap` carries a figure and nothing that says who sent it. Why: the field used to be read from the body, so a Helm call that sent `person` was a person's raise and met no ceiling (#2165). The ceiling is a multiple of the cap the Job would inherit and not of the cap in force, so asking again reaches no further. Past it the call is refused with a line that names the ceiling.
 
-**A Helm write to your checkout is `helm.changed_checkout`**, naming the repository, the tool and the path, published as the session's stream says it happened. A person who finds a file changed and did not change it reads this to see that Helm did. It names writes Armada can name: a shell line Helm ran may have written something too and nothing says whether it did, so those calls are on the conversation's own thread and produce no event.
+**A Helm write is a Session's write**: the `lease` row and the branch say where it happened, and the acts a Helm connection took through the door are recorded as Helm's by the connection they arrived on (`HelmCalled`), never by a field in the request. `helm.changed_checkout` is retired.
 
 **Words Helm's reading sent to a Session or a Job are `helm.thought_routed`**, naming the repository whose thread holds them, the kind and the id it went to. A person who finds a message in a Session or a Job that they typed into Helm reads this to see where it was sent from. A person's press delivers it and Helm's reading chose the target.
 
-**Every ask and every answer is `helm.asking_to_run` and `helm.call_answered`**, naming the repository, the tool, the one-line argument and the rule. The second says which of the seven ends it was — ran unasked, allowed once, allowed and remembered, allowed where the rule would not write, refused, unanswered, or the session gone — so a person who finds a command was run can see that they allowed it, and a person who finds one was not can see that the hold ran out.
+**An answer to a Helm Session's question is `helm.call_answered`**, naming the repository, the tool and the end it came to. The Auto gate does not ask, so there are no `helm.asking_to_run` cards for the dock and no `ran_unasked` record; a Session's refusals are on its thread as a Session's are.
 
 **On a Studio, Helm's act is `studio.helm_acted`**, published beside the `studio.changed` every write publishes, naming the Studio, the act and what it added. A person's act on a Studio publishes `studio.changed` alone, so the two are told apart by kind rather than by a field someone has to remember to read. **The record keeps it too**: each node and edge carries `added_by` and a Studio its `named_by`, a person or Helm, so a client that was not connected when Helm acted reads who did what off `get_studio`.
 
 ## Reporting a bad answer
 
-**A session is carried as one record, with the same act every error carries.** *Copy debug info*, bound to `c`, one producer formatting exactly what is copied, and the expanded view rendering that same string — `../contracts/design-system.md`, *The debug payload*. On 17 Sep 2026 Helm refused a question and the only way to report it was retyping the conversation by hand, without the brief, the tools, the authority or the events that decided the answer.
+**A session is carried as one record, with the same act every error carries.** *Copy debug info*, bound to `c`, one producer formatting exactly what is copied, and the expanded view rendering that same string — `../contracts/design-system.md`, *The debug payload*. On 17 Sep 2026 Helm refused a question and the only way to report it was retyping the conversation by hand, without the note, the tools, the authority or the events that decided the answer.
 
-**One press copies it, and *Details* beside that opens the same artifact to read.** That is the banner form of the error treatment, and the dock is the standing surface it is for: Helm has just answered badly and the record is wanted now, so the reading is second rather than in the way. The disclosure takes the banner's own word, and the sheet it opens is titled *Session record*. `get_helm_debug_info` answers the repository, its authority and model; the brief as it was sent; the tools the door offered by name; the thread with each turn's cost, its calls and its refusals; what the last poll was answered; and the protocol Fleet speaks beside the Fleet process that answered.
+**One press copies it, and *Details* beside that opens the same artifact to read.** That is the banner form of the error treatment, and the dock is the standing surface it is for: Helm has just answered badly and the record is wanted now, so the reading is second rather than in the way. The disclosure takes the banner's own word, and the sheet it opens is titled *Session record*. `get_helm_debug_info` answers the repository, its authority and model; the note as it is sent; the tools the door offered by name; the thread's messages, calls, refusals and "Sent to" rows; what the last poll was answered; and the protocol Fleet speaks beside the Fleet process that answered. It carries no per-turn cost or "fresh" and "unanswered" lines: a Session's thread has none.
 
 **It says what it holds rather than promising what it does not.** A thread carries the person's own words and Helm's, and the checkout names a folder on their disk; nothing here is a structured field a type bounds, so the sentence under it states that and makes no claim about the rest.
 
-**One artifact taken at a moment, and not a second Observe.** `observe_helm` streams a live conversation to the dock; this is read once, when a person asks for it. A long session is bounded and the record says how many lines it left out, the way a log tail does.
+**One artifact taken at a moment, and not a second observe.** The Session's thread streams to the dock as `session.row`; this is read once, when a person asks for it. A long session is bounded and the record says how many lines it left out, the way a log tail does.
 
 ## Session model
 
-**One conversation per repository, not per topic.** See Placement above for how it is reached and retained. A session per topic would require deciding when a topic has ended — a judgement nobody wants to make mid-investigation — so the boundary is the repository, which already exists, rather than a question.
+**One Helm Session per repository, not per topic.** See Placement above for how it is reached and ended. A session per topic would require deciding when a topic has ended — a judgement nobody wants to make mid-investigation — so the boundary is the repository, which already exists, rather than a question.
 
 ## Budget & cost
 
@@ -198,6 +176,8 @@ The exception is deliberate, against the Known Risks "cost / rate-limit blowup" 
 ## Voice & conduct
 
 Helm is the only surface in Armada that speaks in first person. These are behavioural constraints, not styling. Source: `../contracts/design-system.md`.
+
+**The note no longer states these.** The old brief spelled out the one observation, the first person and the hedge; the note keeps the Machine Voice block and nothing else of them, on the reading that a Session needs saying what it is and where, and not how to write. They stay the standard Bridge and Fleet hold their own words to, and the standard a reply is read against. If Helm's replies drift from them, the fix is a line in the note, in `agent-prompt.md` section 5a first.
 
 **First person is Helm's alone, and only for what Helm itself did.** Bridge and Fleet never say "I". Helm says "I" for its own Redirects, its own reasoning and its own suggestions.
 
@@ -221,9 +201,9 @@ The following settings (see `../contracts/configuration.md`) directly affect thi
 | --- | --- |
 | Helm action authority (Tier 1 Redirect enabled vs. read-only) | Machine |
 | Helm budget soft-warning threshold | Machine |
-| Helm session retention / expiry | Machine |
+| Helm session retention / expiry (a Job's Commander only; a Helm Session stays until Start fresh) | Machine |
 | Voice/tone | Machine — may adjust length and formality, never override Voice & conduct |
 
 ## Open questions
 
-- **[helm-target-per-window]** Should each Bridge window keep its own Helm target, or does the most recent explicit act in any window set it for all? Today there is one conversation target for the whole Bridge: a pick or a "Discuss with Helm" in one window moves Helm in every open window, because since #1022 picks are per window while `HelmConnection` in `apps/desktop/src/main/helm.ts` holds one target. Two windows open at once is rare, and the rule as built is consistent with "the most recent explicit act wins". A per-window target would need one Helm socket per window in main, and the dock's switch and chip to read their own window's target.
+- **[helm-target-per-window]** Should each Bridge window keep its own Helm target, or does the most recent explicit act in any window set it for all? Today there is one conversation target for the whole Bridge: a pick or a "Discuss with Helm" in one window moves Helm in every open window, because since #1022 picks are per window while `HelmConnection` in `apps/desktop/src/main/helm.ts` holds one target. Two windows open at once is rare, and the rule as built is consistent with "the most recent explicit act wins". A per-window target would need `HelmConnection` to hold one aim per window in main, and the dock's switch and chip to read their own window's target.

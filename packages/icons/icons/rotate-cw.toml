@@ -46,3 +46,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 11 Oct 2026 with the Commander's act rows. Redispatch is this glyph's own meaning above, and a restarted task is a task dispatched again. Tooltip `Restarted task`."
+
+  [[icons.rotate-cw.usage]]
+    means = "Waiting on GitHub: Fleet is polling for the device code to be typed, then finishing the sign-in"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Every poll control is this glyph's. Turns while the poll runs, held still under reduced motion. Tooltip `Waiting for GitHub`. The same turn marks a set-up row in progress, tooltip `Setting up`, and a kind pulling on, tooltip `Pulling`."

@@ -20,16 +20,17 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open the Cockpit (scoped to a Manifest by the title row's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
+Open the Cockpit (scoped to a Manifest by the rail's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
 
 ## The dispatch panel
 
-A request is dispatched from a panel, not a screen. Two bars grow the same panel over one draft, so words typed in one are in the other and putting either away loses nothing:
+A request is dispatched from a panel, not a screen. The title row's one bar grows it over one draft, so putting it away loses nothing:
 
 | Entry | How it opens |
 | --- | --- |
-| The Cockpit's bar | Typing in the bar grows it into the panel where it stands |
 | The title row's one bar | `n` or `⌘N` opens the bar ready for the work, and `⌘↵` on a row that dispatches grows the panel down from the bar's field, holding the words |
+
+The Cockpit had a dispatch bar of its own that grew the same panel in place. The owner removed it on 13 Oct 2026. Autopilot's bar opens at that place, from a control in the Cockpit's header band, and is not drawn at rest.
 
 **The line never moves.** The request is one text field that is not remounted as the panel grows, so the words and the caret stay where they were. Under it a band holds the kind, the repository chip and the act, and a body that depends on the kind.
 
@@ -51,13 +52,13 @@ Tab steps through the kinds on offer, and Autopilot is chosen for one opening on
 
 **A Job or an Autopilot with no repository asks in the frame.** Pressing the act then lists the set-up repositories under the band, the one Fleet ranks first marked, and choosing one sends the request. Pressing the act while the read is still out waits for it. Pressing the chip lists the same repositories to change a pick.
 
-**A Job or an Autopilot sent leaves a strip where the bar was.** It holds the kind's mark, the Job's title or the Autopilot's repository, and Open. The mark turns until Fleet has named the Job the call is reading for, which it does from the call's first message, well before the proposer answers. `↵` or a press opens the Job, or the repository's Autopilot lane on the Cockpit. Esc or Dismiss lets it go, and typing starts a new draft over it. Only the latest send is held. A Session opens itself and leaves no strip. A refusal puts Fleet's words in the strip.
+**A Job or an Autopilot sent leaves a strip over the one bar's field.** It holds the kind's mark, the Job's title or the Autopilot's repository, and Open. The mark turns until Fleet has named the Job the call is reading for, which it does from the call's first message, well before the proposer answers. `↵` or a press opens the Job, or the repository's Autopilot lane on the Cockpit. Esc or Dismiss lets it go, and typing starts a new draft over it. Only the latest send is held. A Session opens itself and leaves no strip. A refusal puts Fleet's words in the strip.
 
-**The draft is kept.** Esc, or a press outside the Cockpit's panel, puts the panel back as the bar with the words still in it. A send clears the words, the pick and the settings.
+**The draft is kept.** Esc, or a press on the scrim, puts the panel away with the words still in it. A send clears the words, the pick and the settings.
 
 The full composer below is the way to say what a line cannot: `⇧↵` on the one bar opens it holding the words, and a Studio's Sketch opens it with the drawing attached.
 
-The code is `apps/desktop/src/renderer/src/dispatch-panel/`, and the mock walks are `dispatch-panel-from-either-bar` and `dispatched-strip-opens-it`.
+The code is `apps/desktop/src/renderer/src/dispatch-panel/`, and the mock walks are `dispatch-panel-from-the-title-bar` and `dispatched-strip-opens-it`.
 
 See [Job Board](../concepts/job-board.md) for the full board mechanics — what a row says, status states, origin tags. It is a concept rather than a page since 28 Sep 2026; Overview is where the list is read.
 

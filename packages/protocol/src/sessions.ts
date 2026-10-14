@@ -68,6 +68,8 @@ export type SessionRecord = {
   end_reason?: string;
   usage: SessionUsage;
   attachments: Attachment[];
+  /** This is its repository's Helm Session, which Bridge draws marked. Absent for every other. */
+  helm?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
@@ -84,6 +86,8 @@ export type SessionRecord = {
    * or has been given work since: the person's message, a non-empty `waiting_for`, a hosted turn starting.
    */
   done_since?: string;
+  /** What the Session is doing, derived by Fleet on every read. Absent from a Fleet before 23.86. */
+  standing?: SessionStanding;
   /**
    * The plan's limit stopped this session, and Fleet wakes it with `Continue` a minute after this
    * instant, when the limit has reset. Absent when it is not held: a turn, a message from the person,
@@ -104,9 +108,20 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
  * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: another
  * Session's agent started this one and the person has not sent its first message. A `first_message` item
- * has no reply and its `act` is a `message` on the Session, so a press opens it.
+ * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
+ * `replied` (id `replied:<turn end>`, text the first line of the agent's last message) and `done` (id
+ * `done:<done_since>`, text `Done`) from the turn, so a Session that ended its turn on a reply, or said
+ * it was done, is on the list whether or not the agent called a tool.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done";
+
+/**
+ * What a Session is doing, read by Fleet from what happened and never from what the agent said:
+ * `working` a turn runs, `stuck` a turn runs and has been quiet, `replied` the turn ended on the
+ * agent's message and the person has not answered, `done` the agent said nothing is left, `idle`
+ * nothing is owed. One answer for every surface that draws a Session. Since 23.86.
+ */
+export type SessionStanding = "working" | "stuck" | "replied" | "done" | "idle";
 
 /** One choice of an item or a question, with what choosing it means where the asker said. */
 export type WaitingOption = { label: string; description?: string };
@@ -277,7 +292,10 @@ export type SessionFact =
       state: AttachmentState;
     }
   | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[]; context_breakdown?: ContextBreakdown }
-  | { kind: "turn_completed" }
+  /** `said` is the first line of the last thing the agent said to the person. Since 23.86. */
+  | { kind: "turn_completed"; said?: string }
+  /** A turn began. Since 23.86. */
+  | { kind: "turn_started" }
   /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
   | { kind: "limited"; resets_at: string }
   /** Files written, relative to the session's `cwd`. Since 23.81. */

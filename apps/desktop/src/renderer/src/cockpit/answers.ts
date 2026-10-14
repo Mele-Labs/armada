@@ -16,7 +16,7 @@ import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
-import { buildChangeOf } from "../build-change";
+import { restartOf } from "../build-change";
 import { viewsOf } from "../merge-line";
 import { runnerOf } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -24,7 +24,7 @@ import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerJobAsk } from "./answer-job";
 import { answerWaiting } from "./answer-waiting";
-import { dismissItem } from "./dismissed";
+import { dismissItem, dismissWaiting } from "./dismissed";
 import { fixJob, type JobFix } from "./fix-job";
 import { ownerOfCall, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
@@ -226,7 +226,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   // A Session's call answers through Fleet.
   const waiting = item.waiting;
-  const restart = waiting?.item.act?.kind === "run" ? buildChangeOf(waiting.item.act.target) : undefined;
+  const restart = restartOf(waiting?.item.act);
   const sendWaiting = (id: string, body: Omit<AnswerWaiting, "session_id" | "item_id">, accepted?: () => void) => {
     if (waiting === undefined) return;
     wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
@@ -335,6 +335,18 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
       if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
+      // A Session that said it is done is ended, or kept: Keep going drops the call and leaves the Session as it is.
+      if (given.source === "done") {
+        return [
+          oneTap("End session", () => (draft?.close?.(waiting.sessionId), finish())),
+          oneTap("Keep going", () =>
+            wait("Keep going", async (): Promise<Told> => {
+              const kept = await dismissWaiting(waiting.sessionId, given.id);
+              return kept.kind === "dismissed" ? { kind: "dismissed" } : kept;
+            }, dismissed),
+          ),
+        ];
+      }
       if (given.options !== undefined && given.options.length > 0) {
         return given.options.map((option, at) =>
           answer(plainLabel(option.label), (words) => sendWaiting(plainLabel(option.label), { choice: at, ...(words === undefined || words === "" ? {} : { text: words }) }), {

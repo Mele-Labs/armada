@@ -201,6 +201,22 @@ pub(crate) async fn all_done<D: Sessions>(
     }
 }
 
+/// The agent gives back its slots, merged branches and servers. 200 with what went and what stayed; 422 for a call that places
+/// no session. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn finish_up<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let finish: ipc::FinishUp = match ipc::decode("that a session is finished", &body) {
+        Ok(finish) => finish,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().finish_up(crate::acting::asking(), finish).await {
+        Ok(finished) => answer(StatusCode::OK, &finished, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?manifest_id=`, `?q=`, `?state=` and `?view=` on `list_sessions`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {

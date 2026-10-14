@@ -6,7 +6,7 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SentFile, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { clock } from "./duration";
@@ -33,6 +33,8 @@ export type Beside = {
   sketches: readonly Extract<SessionAttachment, { kind: "sketch" }>[];
   /** Tags chosen and not yet sent. */
   pending: readonly SessionTag[];
+  /** A repository as the picker names it, for the place a `sent` row says words went. Absent, the id stands. */
+  repository?: (manifestId: string | undefined) => string;
 };
 
 /** What other sessions call a session: `s-` and the first eight characters of its id. */
@@ -69,13 +71,15 @@ export function jobStateOf(status: string): SessionJobState {
 
 function checksOf(detail: Record<string, string>): SessionChecks {
   const failing = detail["failing"] ?? "";
+  // Fleet words a failure outside the gate as `pending` or `passed` with the names still in `failing`.
+  const red = failing === "" ? {} : { red: failing };
   switch (detail["checks"]) {
     case "passed":
-      return { state: "passed" };
+      return { state: "passed", ...red };
     case "failed":
       return { state: "failed", failing };
     default:
-      return { state: "pending" };
+      return { state: "pending", ...red };
   }
 }
 
@@ -225,6 +229,24 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
   };
 }
 
+/**
+ * The last ask with questions in it that nobody answered in time or that was skipped, while nothing the
+ * person said and no newer question came after it. Reading back from the end, the first of those stops the search.
+ */
+export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
+  for (let at = rows.length - 1; at >= 0; at -= 1) {
+    const row = rows[at]!;
+    if (row.kind === "message" && row.from.kind === "you") return undefined;
+    if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0) continue;
+    return row.state === "unanswered" || row.state === "refused" ? { id: row.id, questions: row.ask.questions } : undefined;
+  }
+  return undefined;
+}
+
+/** What the person says to the agent in place of the answer it did not wait for, a line a question. */
+export const lapsedAnswerText = (answers: readonly { question: string; chosen: readonly string[] }[]): string =>
+  answers.map((one) => `Answering your earlier question "${one.question}": ${one.chosen.join(", ")}`).join("\n");
+
 const SETTLED: Record<string, string> = {
   ran_unasked: "ran without asking",
   allowed_once: "allowed once",
@@ -241,8 +263,16 @@ const linesOf = (text: string): string[] =>
     .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s+/, "").trim())
     .filter((line) => line !== "");
 
+/** The files a message carried, each with its picture where it is one and has been read. */
+function filesOf(sessionId: string, files: readonly SentFile[], picture: Beside["picture"]) {
+  return files.map((file) => {
+    const src = file.media_type.startsWith("image/") ? picture(sessionId, file.id) : undefined;
+    return { id: file.id, name: file.name, ...(src === undefined ? {} : { src }) };
+  });
+}
+
 /** The thread, row by row. **A waiting ask is the card under the thread, so it is no row**; one answered is a line of what was decided. */
-export function rowsOfThread(sessionId: string, rows: readonly WireRow[], picture: Beside["picture"]): SessionRow[] {
+export function rowsOfThread(sessionId: string, rows: readonly WireRow[], picture: Beside["picture"], repository: NonNullable<Beside["repository"]> = (id) => id ?? ""): SessionRow[] {
   const out: SessionRow[] = [];
   for (const row of rows) {
     const at = clock(row.at);
@@ -255,14 +285,19 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
           kind: "message",
           from: row.from,
           text: row.text,
-          ...(row.files === undefined || row.files.length === 0
-            ? {}
-            : {
-                files: row.files.map((file) => {
-                  const src = file.media_type.startsWith("image/") ? picture(sessionId, file.id) : undefined;
-                  return { id: file.id, name: file.name, ...(src === undefined ? {} : { src }) };
-                }),
-              }),
+          ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
+          ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
+        });
+        break;
+      case "sent":
+        // Words Helm's dock sent on to a Session or a Job: the person's own, with the place they went.
+        out.push({
+          id: row.id,
+          at,
+          kind: "sent",
+          text: row.text,
+          target: { ...row.target, repository: repository(row.target.manifest_id) },
+          ...(row.files === undefined || row.files.length === 0 ? {} : { files: filesOf(sessionId, row.files, picture) }),
           ...(row.tags === undefined || row.tags.length === 0 ? {} : { tags: row.tags.map(tagOf) }),
         });
         break;
@@ -361,13 +396,15 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
-  const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
+  const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture, beside.repository);
+  const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   return {
     id: record.id,
     address: addressOf(record.id),
     ...(title === undefined ? {} : { title }),
     ...(record.manifest_id === undefined ? {} : { manifestId: record.manifest_id }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
+    ...(record.helm === true ? { helm: true as const } : {}),
     ...(dead === undefined ? {} : { dead }),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
@@ -380,6 +417,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
         : { state: "idle" },
     ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, ""), lastTurnAt: record.last_turn_at }),
     ...(asked === undefined ? {} : { asked: askOf(asked) }),
+    ...(lapsed === undefined ? {} : { lapsed }),
     pendingTags: beside.pending,
     ...(model === undefined ? {} : { model }),
     ...(hosted?.resolved_model === undefined ? {} : { resolvedModel: hosted.resolved_model }),
@@ -395,6 +433,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
+    ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
   };
 }
 

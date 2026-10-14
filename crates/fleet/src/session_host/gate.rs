@@ -5,8 +5,10 @@
 //! in place (spike 24 measured the built-in worktree tool refusing a permission
 //! door). The hook leases the slot, denies the write, and the turn ends;
 //! `hearing::moved_into` then resumes the session with the slot as its
-//! directory. **A line the hook cannot read as a read is a write**, so a shell
-//! line it does not know leases a slot rather than touching the checkout.
+//! directory. A session resumed with no slot is leased one before its process
+//! starts ([`Fleet::leased_for_resume`]), so no first call moves it. **A line the
+//! hook cannot read as a read is a write**, so a shell line it does not know
+//! leases a slot rather than touching the checkout.
 //!
 //! **A full pool queues the session** (`queueing`) rather than telling it to try
 //! again: it is denied, told its place and told to stop, and Fleet leases and moves
@@ -14,7 +16,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec};
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
-use store::{AttachmentState, Holder, KeptAttachment};
+use store::{AttachmentState, Holder, KeptAttachment, KeptHosting};
 
 use super::following::Standing;
 use super::places::{normalised, place_of, run_from, worked_in, written_by, Place};
@@ -58,7 +60,7 @@ where
 {
     pub(crate) async fn gated(&self, gate: SessionGate) -> GateAnswer {
         let id = gate.session_id.clone();
-        let Ok((session, hosting)) = self.session_and_hosting(&id).await else {
+        let Ok((session, mut hosting)) = self.session_and_hosting(&id).await else {
             return GateAnswer::pass();
         };
         if session.state == store::SessionState::Ended
@@ -66,8 +68,17 @@ where
         {
             return GateAnswer::pass();
         }
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) else {
-            return GateAnswer::pass();
+        let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
+            Ok(served) => served,
+            // Setup's session, until its root's Manifest is served (the owner, 13 Oct 2026).
+            Err(_) if hosting.manifest_id.is_empty() => {
+                let root = session.cwd.clone();
+                match self.set_up_since(session, &mut hosting).await {
+                    Some(served) => served,
+                    None => return setting_up(&gate, &root),
+                }
+            }
+            Err(_) => return GateAnswer::pass(),
         };
         let root = served.root().trim_end_matches('/').to_string();
         // The pool is read here, so the ledger's slot is the pool's before it decides.
@@ -175,6 +186,31 @@ where
         answer
     }
 
+    /// Setup's session once its root's Manifest is served: bound to it from here
+    /// on, so it leases a slot like any other. `None` while there is none.
+    async fn set_up_since(
+        &self,
+        mut session: store::KeptSession,
+        hosting: &mut store::KeptHosting,
+    ) -> Option<Served> {
+        let manifest = self
+            .repositories()
+            .at(&session.cwd)?
+            .manifest()?
+            .id()
+            .clone();
+        let served = self.repositories().serving(manifest.as_str())?;
+        hosting.manifest_id = manifest.as_str().to_string();
+        session.manifest_id = Some(hosting.manifest_id.clone());
+        {
+            let mut store = self.store().lock().await;
+            let _ = store.keep_hosting(hosting);
+            let _ = store.keep_session(&session);
+        }
+        let _ = self.published_hosted(&session.id).await;
+        Some(served)
+    }
+
     /// A first write into the checkout. **Behind everyone already waiting**, so a slot
     /// freed between two of them is not taken by the newer. When the pool is full the
     /// session is queued, and `queueing` leases it a slot when one frees.
@@ -209,6 +245,37 @@ where
                     moving.slot, moving.branch, moving.directory
                 ))
             }
+        }
+    }
+
+    /// A session about to be resumed with no slot is given one first, and its process starts in
+    /// it. **A resumed session otherwise starts in the main checkout and is moved by whatever its
+    /// first tool call is**, which cost it that call and a turn. A full pool, or a line of
+    /// sessions already waiting, leaves the hosting as it was and the first write queues as before.
+    pub(crate) async fn leased_for_resume(
+        &self,
+        served: &Served,
+        hosting: &KeptHosting,
+    ) -> KeptHosting {
+        let id = hosting.session_id.as_str();
+        let queue = self.hosts().slot_queue();
+        let unleased = hosting.lease_slot.is_none()
+            && !hosting.helm
+            && mode_of(&hosting.mode) != SessionMode::Plan
+            && queue.ahead_of(served.manifest().id().as_str(), id) == 0;
+        if !unleased {
+            return hosting.clone();
+        }
+        match self.take_lease(id, served).await {
+            // No process runs yet, so there is nothing to move.
+            Taken::Moving(_) => self.hosts().of(id).state().moving = None,
+            Taken::Held { .. } => {}
+            Taken::Full | Taken::Refused(_) | Taken::Gone => return hosting.clone(),
+        }
+        queue.leave(id);
+        match self.session_and_hosting(id).await {
+            Ok((_, leased)) => leased,
+            Err(_) => hosting.clone(),
         }
     }
 
@@ -312,6 +379,33 @@ pub(super) enum Taken {
     Refused(String),
     /// The session is ended or unreadable, and has no use for a slot.
     Gone,
+}
+
+/// The files Setup's session may write at its root, and nothing else, until the
+/// Manifest it writes is served (the owner, 13 Oct 2026).
+const SETUP_WRITES: [&str; 2] = ["armada.yml", ".gitignore"];
+
+/// Setup's session's call, before `root` has a Manifest. A relative path is read
+/// against where the call stands.
+fn setting_up(gate: &SessionGate, root: &str) -> GateAnswer {
+    let root = root.trim_end_matches('/');
+    let allowed = |path: &str| {
+        let at = match path.starts_with('/') {
+            true => normalised(path),
+            false => normalised(&format!("{}/{path}", gate.cwd.trim_end_matches('/'))),
+        };
+        SETUP_WRITES
+            .iter()
+            .any(|file| at == format!("{root}/{file}"))
+    };
+    match touch(gate) {
+        Touch::Nothing => GateAnswer::pass(),
+        Touch::File(path) if allowed(&path) => GateAnswer::pass(),
+        Touch::File(_) | Touch::Shell(_) => GateAnswer::deny(format!(
+            "Until this repository's armada.yml is served, this session writes only {root}/armada.yml \
+             and {root}/.gitignore, with the Write or Edit tool. Nothing else is written here."
+        )),
+    }
 }
 
 fn not_held(path: &str, slot: u32) -> String {

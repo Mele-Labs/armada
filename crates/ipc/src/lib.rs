@@ -327,12 +327,11 @@ pub use commander::{
     CommanderState, CommanderWoke,
 };
 pub use helm::{
-    AskHelm, Blank, Freshness, HelmAsked, HelmBoxFacts, HelmChangedCheckout, HelmClosed,
-    HelmContext, HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence,
-    HelmText, HelmUnanswered, TuneHelm,
+    AskHelm, Blank, Freshness, HelmAsked, HelmContext, HelmFresh, HelmScreen, HelmSession,
+    HelmText, HelmUnanswered,
 };
 pub use thought::{
-    HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
     ThoughtSent, ThoughtTarget,
 };
 pub use timeline::{
@@ -422,7 +421,7 @@ pub use proposing::{
     StopProposal,
 };
 pub use pull_requests::{
-    ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
+    FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
     PullRequestFile, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
     PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
@@ -489,8 +488,8 @@ pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, Ses
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
-    SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
-    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
+    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed,
 };

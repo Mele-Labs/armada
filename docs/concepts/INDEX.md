@@ -14,6 +14,7 @@ assuming it is restated here.
 
 | Concept | What it is |
 |---|---|
+| [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [commander.md](commander.md) | The agent that steers one Job: Helm's conversation hosted by the Job, woken on trouble and by the owner, claiming nothing |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid and the first-run hard gate |

@@ -1,12 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { RunnableBlock, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
+import { RunnableBlock, useCodeRun, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
+import { QuestionDeck } from "../SessionThread/QuestionDeck";
 
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
@@ -96,8 +97,9 @@ export type LedgerEntry = {
   finished?: boolean;
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
-  /** A `waiting` row for a question with choices: each a numbered press under the row. */
-  options?: readonly { label: string; onPick: () => void }[];
+  /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
+  options?: readonly { label: string; description?: string; onPick: () => void }[];
+  onOther?: (text: string) => void;
   /**
    * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
@@ -105,6 +107,12 @@ export type LedgerEntry = {
   onReply?: (text: string) => void;
   /** A `waiting` row whose act is `run`, where the Session can run it: the row is the command's block with Run, as in the thread. */
   run?: { command: string; runner: CodeRunner };
+  /**
+   * A `waiting` row whose act is a restart onto a build (`buildChangeOf`): the row is one key that
+   * switches it, with nothing to copy and no command to read. `command` is its tooltip. Without a
+   * `runner` the key does nothing.
+   */
+  restart?: { command: string; runner?: CodeRunner };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
   onOpen: () => void;
@@ -303,6 +311,7 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
   return (
     <ul className="armada-session-ledger__rows">
       {rows.map((row) => {
+        if (kind === "waiting" && row.restart !== undefined) return <RestartRow key={row.key} row={row} restart={row.restart} />;
         if (kind === "waiting" && row.act === "run" && row.run !== undefined) {
           const block = (
             <div>
@@ -316,6 +325,25 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
           return (
             <li key={row.key} className="armada-session-ledger__run" aria-label={row.name}>
               {row.card === undefined ? block : <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>{block}</Tooltip>}
+            </li>
+          );
+        }
+        if (kind === "waiting" && row.options !== undefined) {
+          const { options } = row;
+          return (
+            <li key={row.key} aria-label={row.name}>
+              <QuestionDeck
+                questions={[{ question: row.name, header: "", multi_select: false, options: options.map((one) => ({ label: one.label, description: one.description ?? "" })) }]}
+                canSkip={false}
+                flat
+                onAnswer={(_, answers) => {
+                  const chosen = answers?.[0]?.chosen[0];
+                  if (chosen === undefined) return;
+                  const at = options.findIndex((one) => one.label === chosen);
+                  if (at >= 0) options[at]!.onPick();
+                  else row.onOther?.(chosen);
+                }}
+              />
             </li>
           );
         }
@@ -396,15 +424,6 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               </Tooltip>
             )}
             {row.exits}
-            {row.options === undefined ? null : (
-              <div className="armada-session-ledger__options" role="group" aria-label={`Choices for ${row.name}`}>
-                {row.options.map((one, at) => (
-                  <Button key={one.label} variant="secondary" size="sm" aria-label={`Choice ${at + 1} ${one.label}`} onClick={one.onPick}>
-                    {at + 1} {one.label}
-                  </Button>
-                ))}
-              </div>
-            )}
             {replies && replying === row.key && row.onReply !== undefined ? (
               <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
             ) : null}
@@ -412,6 +431,42 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * A restart's row: its label and one mark, the press the key. Nothing starts it again while it runs or
+ * once it has passed and the row is about to go; a failure leaves the key to press again.
+ */
+function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<LedgerEntry["restart"]> }) {
+  const run = useCodeRun(restart.runner);
+  const { phase } = run;
+  const held = restart.runner === undefined || phase.state === "running" || (phase.state === "ended" && phase.code === 0);
+  const mark =
+    phase.state === "running"
+      ? { Glyph: LoaderCircle, said: "Running", state: "running" }
+      : phase.state === "ended"
+        ? phase.code === 0
+          ? { Glyph: CircleCheck, said: "Passed", state: "passed" }
+          : { Glyph: CircleX, said: phase.code === null ? "Stopped" : `Exit ${phase.code}`, state: "failed" }
+        : { Glyph: RotateCw, said: restart.command, state: undefined };
+  return (
+    <li className="armada-session-ledger__row" aria-label={row.name}>
+      <Tooltip label={mark.said} asChild>
+        <button
+          type="button"
+          className="armada-session-ledger__open"
+          aria-label={row.name}
+          aria-disabled={held || undefined}
+          onClick={() => (held ? undefined : run.start(restart.command))}
+        >
+          <span className="armada-session-mark" data-restart={mark.state} role="img" aria-label={mark.said}>
+            <mark.Glyph size={12} strokeWidth={2} aria-hidden />
+          </span>
+          <span className="armada-session-ledger__text">{row.text}</span>
+        </button>
+      </Tooltip>
+    </li>
   );
 }
 

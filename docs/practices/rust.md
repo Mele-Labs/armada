@@ -355,7 +355,9 @@ against `anthropic`, `claude`, `openai`, `gpt-4`, `gemini`, `copilot`,
 not the plan's, and adding a vendor to it is a deliberate one-line change to
 `xtask/src/rules.rs`, not an incidental one. It scans comments along with
 code, which is the point: the boundary leaks in a comment before it leaks in
-a type.
+a type. Two exceptions, both by name in `xtask/src/rules.rs`: the unbuilt-routes
+registry, and the sign-in files, which may say `github` and no other vendor,
+because the account a person signs in with is one.
 
 ## 8. Build and test time, measured on v1
 

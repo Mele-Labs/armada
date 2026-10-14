@@ -171,7 +171,7 @@ impl Prompts {
             })
     }
 
-    /// Helm's brief for `authority`: one template where it acts, another where it reads.
+    /// Helm's note for `authority`: one template where it acts, another where it reads.
     pub(crate) fn helm(&self, authority: Authority) -> &str {
         match authority {
             Authority::Acting => self.get(keys::PROMPT_HELM),

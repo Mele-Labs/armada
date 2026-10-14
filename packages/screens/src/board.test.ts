@@ -93,6 +93,14 @@ describe("which Sessions and held worktrees the pick lists", () => {
     expect(sessionsOfPicked([ours, loose], {})).toEqual([]);
   });
 
+  it("lists Setup's Session, which has no Manifest, on the repository whose root it stands in", () => {
+    const setup = { ...session("setup"), cwd: "/r/new" } as unknown as SessionRecord;
+    expect(sessionsOfPicked([ours, loose, setup], { root: "/r/new" })).toEqual([setup]);
+    expect(sessionsOfPicked([setup], { root: "/r/other" })).toEqual([]);
+    expect(sessionsOfPicked([setup], { ...armada, root: "/r/new" })).toEqual([setup]);
+    expect(sessionsOfPicked([setup], armada)).toEqual([]);
+  });
+
   const slot = (manifest_id: string, n: number) => ({ manifest_id, slot: n }) as unknown as WorktreeSlot;
   const worktree = (job_id: string) => ({ job_id }) as unknown as WorktreeHeld;
   const jobs = [job({ id: "j-ours", owner_manifest_id: "armada" }), job({ id: "j-theirs", owner_manifest_id: "ynap" })];

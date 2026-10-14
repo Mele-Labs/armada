@@ -164,7 +164,26 @@ Two mechanisms, both carried over from the v1 prototype:
 - Git-repo push/pull, for continuous cross-machine portability.
 - One-off file export/import, for a simple copy.
 
-**Your Kit travels, the Machine does not.**
+**Your Kit travels, the Machine does not.** Import / Export is #1449.
+
+### The shared home
+
+**The git-repo mechanism is a private repository on the person's own GitHub account, `<gh login>/armada-home`, and every machine signed in to that account reads and writes it.** Signing in, the identity and the profiles a machine joins are [Account](account.md); Armada holds no account of its own. It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement for either: each machine keeps its own `~/.claude` and `~/.armada`, and the repository is what they are compared against.
+
+| Carried | Not carried |
+| --- | --- |
+| Kit definitions, Workflows, the allowlist | A credential of any kind: a key, a token, an environment value |
+| Memory for a repository, matched by the repository's name | A server's arguments, its query string, its userinfo |
+| Global instructions | |
+| An MCP server as its name and host | |
+
+**A row that differs is never merged silently.** Where a kind's row is on both sides and the two disagree, Kit shows both versions side by side and the person picks one. A row on one side only is added to the other by the person's act, in either direction. A server whose key is not on this machine is marked as needing one; the home does not carry the key, so adding it here is the person's.
+
+**Where the two new kinds sit.** Global instructions is drawn beside Agent file, as the same file held in the home. Memory is drawn after the allowlist. Both, and Workflows, are tiles of the Kit page only against a shared home; with none, the page is as it was.
+
+**Built: the Kit page, on mock data.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key). A bar names the repository and offers Sync. A differing row opens a compare sheet with both versions and a button for each. A row on one side only offers an icon act, *Add to the home* or *Add to this machine*. Every Kit tile is one column that scrolls inside its tile when the list is long. The state comes from `draft.sharedHome` in the mock Fleet.
+
+**Not built: everything behind it.** Nothing creates, reads or writes the repository, no Fleet route carries a row's state, and Sync, Add and the compare choice change the mock's state alone. The marks use Proposed glyphs, `packages/icons/icons/house.toml` for the home and `packages/icons/icons/laptop.toml` for this machine among them.
 
 ### Upgrade
 

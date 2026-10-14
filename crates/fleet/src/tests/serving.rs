@@ -522,6 +522,7 @@ async fn what_fleet_holds_is_what_a_proposal_may_name() {
         models.models.contains(&models.default),
         "the default is a member, so a picker can select it without a lookup that misses"
     );
+    assert!(models.models.contains(&models.session), "so is the Session's");
 }
 
 /// A proposal with the `model` key absent altogether. **The ordinary case** —

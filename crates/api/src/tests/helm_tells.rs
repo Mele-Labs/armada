@@ -1,7 +1,7 @@
 //! Helm passing words to a live Session, through the agent door: `tell_session` is offered to a
-//! Helm session alone, and a call reaches the route Fleet keeps the thread's row behind.
+//! Helm session alone, and a call reaches the route Fleet keeps the Helm Session's row behind.
 //!
-//! **What a send is, is Fleet's** (`fleet::tests::helm_telling`): the fake here keeps the row, so
+//! **What a send is, is Fleet's** (`fleet::tests::helm_telling`): the fake here keeps the words, so
 //! this holds who is offered the tool and that a call arrives where it should.
 
 use std::net::SocketAddr;
@@ -12,12 +12,11 @@ use axum::http::Request;
 use axum::Router;
 use http_body_util::BodyExt;
 use ipc::door::Reachable;
-use ipc::HelmMessage;
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
 use crate::tests::shapes::run_id;
-use crate::{router, Broadcaster, HelmSeen, Served, DOOR_PATH, MCP_PATH};
+use crate::{router, Broadcaster, Served, DOOR_PATH, MCP_PATH};
 
 /// The port a planted Helm session calls from, and one nobody placed.
 const HELM: u16 = 52000;
@@ -81,25 +80,23 @@ async fn helm_is_offered_the_tool_and_no_other_agent_or_drone_is() {
 #[tokio::test]
 async fn helms_call_reaches_the_route_and_leaves_a_row_and_anyone_elses_is_refused() {
     let (daemon, app) = helm_on(acting);
-    let mut watching = daemon.helm.watch();
 
     let refused = posted(&app, DOOR_PATH, ANYONE, TELLING).await;
     assert!(refused.contains("is not a tool this Fleet offers"), "{refused}");
     assert!(
-        tokio::time::timeout(std::time::Duration::from_millis(50), watching.next())
-            .await
-            .is_err(),
+        daemon.helm_sent.lock().expect("not poisoned").is_empty(),
         "another agent's call reached nothing"
     );
 
     let told = posted(&app, DOOR_PATH, HELM, TELLING).await;
     assert!(told.contains("\"isError\":false"), "{told}");
     assert!(told.contains("01SESSION000000000000000001"), "it says where the words went: {told}");
-    let Some(HelmSeen::Message(HelmMessage::Sent(row))) = watching.next().await else {
-        panic!("the thread kept a sent row");
+    let sent = daemon.helm_sent.lock().expect("not poisoned").clone();
+    let [(text, target)] = sent.as_slice() else {
+        panic!("the call reached the route once: {sent:?}");
     };
-    assert_eq!(row.text, "make the take names shorter");
-    assert_eq!(row.target.id, "01SESSION000000000000000001");
+    assert_eq!(text, "make the take names shorter");
+    assert_eq!(target.id, "01SESSION000000000000000001");
 }
 
 #[tokio::test]

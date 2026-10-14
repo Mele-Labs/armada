@@ -76,13 +76,14 @@ export type MainState =
   | { state: "red"; red: MainRed; taken?: HubJob; checking?: readonly MainChecking[] };
 
 /**
- * What the owner chose: a new Job with this brief, an earlier Job to send the work back to, or a
- * Session to send it to as a message.
+ * What the owner chose: a new Job with this brief, an earlier Job to send the work back to, a
+ * Session to send it to as a message, or a new Session, which the Dispatch panel starts from this brief.
  */
 export type FixChoice =
   | { kind: "new"; request: string }
   | { kind: "back"; job: string }
-  | { kind: "session"; session: string; message: string };
+  | { kind: "session"; session: string; message: string }
+  | { kind: "newSession"; request: string };
 
 const MARK = 16;
 const SMALL = 12;
@@ -196,6 +197,9 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job
+              </Button>
+              <Button variant="secondary" size="sm" ground="sunken" onClick={() => onFix?.({ kind: "newSession", request: briefOf(red) })}>
+                Dispatch a new Session
               </Button>
               {red.merge !== undefined ? null : (
                 <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>

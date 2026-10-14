@@ -259,15 +259,6 @@ path.armada-session-ledger__picture-later {
   outline-offset: var(--focus-ring-offset);
 }
 
-/* A waiting question's choices, numbered, wrapped under its row. */
-.armada-session-ledger__options {
-  display: flex;
-  flex-basis: 100%;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-2);
-}
-
 /* The reply box under a waiting row with no act: the field, and Send at its end. */
 .armada-session-ledger__reply {
   display: flex;
@@ -342,4 +333,23 @@ path.armada-session-ledger__picture-later {
 /* A command waiting to be run is its block, as in the thread, with Run always shown: the row is there to be run. */
 .armada-session-ledger__run .armada-prose__run-acts {
   opacity: 1;
+}
+
+/* A restart's mark: in its state's hue, and turning while the switch runs. */
+.armada-session-mark[data-restart="running"] { color: var(--status-running); }
+.armada-session-mark[data-restart="passed"] { color: var(--status-completed-success); }
+.armada-session-mark[data-restart="failed"] { color: var(--status-completed-failed); }
+
+.armada-session-mark[data-restart="running"] > svg {
+  animation: armada-session-ledger-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-session-ledger-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-mark[data-restart="running"] > svg {
+    animation: none;
+  }
 }

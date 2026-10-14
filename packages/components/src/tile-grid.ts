@@ -28,8 +28,8 @@ export type TileGridOptions = {
 type Arrow = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 const ARROWS: readonly string[] = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
 const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]';
-/** What is a control by what it is, rather than by a `tabindex` given to it. */
-const NATIVE = 'a[href], button, input, select, textarea, summary, [contenteditable="true"]';
+/** What is a control by what it is, rather than by a `tabindex` given to it. A list that scrolls is one: it is how the keys reach what is past its edge. */
+const NATIVE = 'a[href], button, input, select, textarea, summary, [contenteditable="true"], [data-scrolls]';
 /** Set on what this file took out of the Tab order, holding the `tabindex` it had, so it can be given back. */
 const ROVED = "data-roved";
 
@@ -164,6 +164,13 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
       const cursor = cursorOf(tile);
       const onCursor = target === cursor;
 
+      // A list that scrolls inside its tile (`data-scrolls`) keeps Up and Down while it has more that way;
+      // at its end they go on to the next tile. Page keys, Home and End are never taken here.
+      const scroller = target.closest<HTMLElement>("[data-scrolls]");
+      if (scroller !== null && (arrow === "ArrowDown" || arrow === "ArrowUp")) {
+        const more = arrow === "ArrowDown" ? scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1 : scroller.scrollTop > 0;
+        if (more) return;
+      }
       if (arrow !== undefined) return claim(cursorOf(tileToward(tile, peersOf(level), arrow) ?? tile));
       const step = pressedSlot("move_focus", event);
       if (steps && (step === 0 || step === 1)) {

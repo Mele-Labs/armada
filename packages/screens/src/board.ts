@@ -111,13 +111,21 @@ export function ofPicked(
   return jobs.filter((job) => job.owner_manifest_id === picked.manifest?.id);
 }
 
-/** The Sessions the pick names, as `ofPicked` for Jobs. One with no Manifest of its own is on All alone. */
+/**
+ * The Sessions the pick names, as `ofPicked` for Jobs. One with no Manifest of its own is on All alone,
+ * **except Setup's, which stands in the root of the repository being set up**: that repository has no
+ * Manifest either, so the root is what places it, before the file it writes is loaded and after.
+ */
 export function sessionsOfPicked(
   sessions: readonly SessionRecord[],
-  picked: { manifest?: { id: string } } | null,
+  picked: { root?: string; manifest?: { id: string } } | null,
 ): readonly SessionRecord[] {
   if (picked === null) return sessions;
-  return sessions.filter((one) => one.manifest_id !== undefined && one.manifest_id === picked.manifest?.id);
+  return sessions.filter((one) =>
+    one.manifest_id === undefined
+      ? picked.root !== undefined && one.cwd === picked.root
+      : one.manifest_id === picked.manifest?.id,
+  );
 }
 
 /**

@@ -13,6 +13,7 @@ const session = region(/^Session: Cap the retry ceiling/);
 const cockpitConsoles = walk("cockpit-consoles", [
   { look: inside(tab("Your move"), role("img", "Needs you")), say: "Your move carries a dot while anything needs him, and never a figure" },
   { press: tab("Active"), say: "Active" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: role("listbox", "Tiles"), say: "Tiles and lines only: no deck of calls here, though a Job with a call is still its tile" },
   { hover: tab("Done"), say: "Done and Bays draw no deck either" },
   { later: cockpit, say: "Time passes, and nothing is new" },

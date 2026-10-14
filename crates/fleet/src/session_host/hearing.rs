@@ -15,6 +15,14 @@ use super::rows::UserLine;
 use super::{address_of, Move, Runtime};
 use crate::daemon::Fleet;
 
+/// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
+/// queued line at once, so a longer wait is a line it folded into the turn that just ended.
+const NEXT_TURN_WITHIN: std::time::Duration = if cfg!(test) {
+    std::time::Duration::from_millis(300)
+} else {
+    std::time::Duration::from_secs(10)
+};
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -148,13 +156,25 @@ where
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         match event {
             DroneEvent::Started { model, .. } => {
-                // A turn begun again is work the agent had said was over.
-                self.done_cleared(id).await;
                 self.limit_cleared(id).await;
                 let began = self.now().as_str().to_string();
+                let noticed = {
+                    let mut state = runtime.state();
+                    let noticed = state.fleet_told > 0;
+                    state.fleet_told = state.fleet_told.saturating_sub(1);
+                    noticed
+                };
+                // A turn begun again is work the agent had said was over. Fleet's own notice
+                // is not: the agent has nothing new to do, and does not call `all_done` again.
+                if !noticed {
+                    self.done_cleared(id).await;
+                    // And it ends the reply the turn before left.
+                    self.turn_end_cleared(id).await;
+                }
                 {
                     let mut state = runtime.state();
                     state.turn_began = Some(began);
+                    state.said = None;
                     state.resolved_model = (!model.is_empty()).then_some(model);
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
@@ -180,6 +200,7 @@ where
                 if runtime.state().moving.is_some() || text.trim().is_empty() {
                     return;
                 }
+                runtime.state().said = Some(text.clone());
                 self.row_put(
                     id,
                     SessionRow::Message {
@@ -230,10 +251,12 @@ where
     async fn turn_ended(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, cost_micros: u64) {
         let now = self.now().as_str().to_string();
         let mut named = (None, None);
+        let mut cwd = None;
         {
             let mut store = self.store().lock().await;
             if let Ok(Some(mut session)) = store.session(id) {
                 named = (session.title.clone(), session.manifest_id.clone());
+                cwd = Some(session.cwd.clone());
                 session.last_turn_at = Some(now.clone());
                 session.last_seen_at = now.clone();
                 let before = session.figures.cost_micros.unwrap_or(0);
@@ -241,11 +264,22 @@ where
                 let _ = store.keep_session(&session);
             }
         }
-        let (moving, restart, began) = {
+        // Setup's session may have written its root's armada.yml this turn: load it, as Write does.
+        if let (None, Some(cwd)) = (&named.1, &cwd) {
+            if let Some(repository) = self.repositories().at(cwd) {
+                self.set_up_after_write(&repository);
+            }
+        }
+        let (moving, restart, began, said) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
-            (state.moving.take(), state.restart_after_turn, state.turn_began.take())
+            (state.moving.take(), state.restart_after_turn, state.turn_began.take(), state.said.take())
         };
+        // How the turn ended, read off what the agent said and never off a tool it called. A turn held
+        // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
+        if moving.is_none() {
+            self.turn_end_kept(id, &now, said.as_deref()).await;
+        }
         // **Once, where the turn ends**, never on the rows between. A turn held for a slot and
         // resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
@@ -278,6 +312,35 @@ where
             return;
         }
         let _ = self.published_hosted(id).await;
+        if runtime.state().queued > 0 {
+            self.next_turn_awaited(id, runtime);
+        }
+    }
+
+    /// A turn ended with lines Fleet wrote still uncounted by a start. The process folds lines that
+    /// reach it together into one turn, so Fleet's count can sit above its turns for good, and the
+    /// session would read as working with nothing running. **If no turn has begun within
+    /// [`NEXT_TURN_WITHIN`], the count is wrong and the session is idle.**
+    fn next_turn_awaited(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>) {
+        let (fleet, id, runtime) = (Arc::clone(self), id.to_string(), Arc::clone(runtime));
+        tokio::spawn(async move {
+            tokio::time::sleep(NEXT_TURN_WITHIN).await;
+            let missed = {
+                let mut state = runtime.state();
+                let missed = state.queued > 0
+                    && state.turn_began.is_none()
+                    && matches!(state.turn, SessionTurn::Working { .. });
+                if missed {
+                    state.queued = 0;
+                    state.unstarted.clear();
+                    state.turn = SessionTurn::Idle;
+                }
+                missed
+            };
+            if missed {
+                let _ = fleet.published_hosted(&id).await;
+            }
+        });
     }
 
     /// The turn that held a write is over: end the process and resume the
@@ -294,6 +357,7 @@ where
             moving.directory, moving.branch
         );
         let started = self.ensure_process(id, &hosting).await;
+        let arrived = super::cut_off::told(&mut runtime.state(), arrived);
         let line = ipc::encode(&UserLine::of(arrived, Vec::new()));
         match (started, line) {
             (Ok(()), Ok(line)) => {
@@ -374,6 +438,7 @@ where
         if self.ensure_process(&target, &hosting).await.is_err() {
             return;
         }
+        let said = super::cut_off::told(&mut runtime.state(), said);
         if let Ok(line) = ipc::encode(&UserLine::of(said, Vec::new())) {
             if let Some(process) = &runtime.state().process {
                 process.send(line);

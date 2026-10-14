@@ -211,6 +211,8 @@ export type PaletteHands = {
   refresh: () => void;
   /** A row about every Job at once, by the id `PaletteBoardRow` was given. */
   board: (id: string) => void;
+  /** Pick a repository, as the title row's picker does; `null` is All repositories. */
+  pickRepository: (root: string | null) => void;
   /** Open the open Studio's Run menu on its rail, as a press on Run does. */
   studioRun: () => void;
   /** Arm a kind on the open Studio's rail, as its key does. */
@@ -253,6 +255,9 @@ export function carryOut(choice: PaletteChoice, job: string | null, hands: Palet
       return;
     case "board":
       hands.board(choice.id);
+      return;
+    case "repository":
+      hands.pickRepository(choice.root);
       return;
     case "act":
       act(choice.id, job, hands);

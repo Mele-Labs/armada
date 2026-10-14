@@ -460,6 +460,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })
@@ -498,7 +499,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
     assert!(turns[0].says.starts_with("Turn took 2m "), "{}", turns[0].says);
     assert_eq!(turns[0].title.as_deref(), Some("fix the login"));
     assert_eq!(turns[0].manifest_id.as_ref().map(|id| id.as_str()), Some(manifest.as_str()));
-    assert!(turns[0].live && !turns[0].over);
+    assert!(!turns[0].live && !turns[0].over, "a finished turn is never live");
 
     Arc::clone(&fleet).send_session_message(say("and the logout")).await.expect("taken");
     stand_in.init(0);

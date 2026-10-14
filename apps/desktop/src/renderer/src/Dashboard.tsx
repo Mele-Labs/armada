@@ -23,6 +23,8 @@ import {
   MessageSquare,
   Moon,
   OctagonAlert,
+  Power,
+  Reply,
   Scale,
   ShieldCheck,
   ShieldX,
@@ -45,6 +47,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
+import { stateOf } from "./session-state";
 import { useSessions } from "./sessions-draft";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
@@ -188,6 +191,8 @@ export type Hosts = {
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
+  /** Picks a repository, as the title row's picker does. */
+  onPickRepository?: ((root: string) => void) | undefined;
 };
 
 /**
@@ -392,28 +397,34 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
 function sessionItem(session: Session, hosts: Hosts): Item {
   const last = [...session.rows].reverse().find((row) => row.kind === "message");
   const open = () => hosts.onOpenSession(session.id);
-  const ended = session.dead === "ended";
-  const working = session.turn.state === "working";
-  const waiting = session.asked !== undefined && !ended && !working;
+  // The state is the one the Sessions list reads (`session-state.ts`), so a tile never disagrees with its row.
+  const read = stateOf(session).state;
+  const ended = read === "ended";
+  const stuck = read === "stuck";
+  const replied = read === "replied";
+  const finished = read === "done";
+  const working = read === "working" || stuck;
+  const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
+  const said = stuck ? "Stuck" : replied ? "Replied" : finished ? "Done" : working ? "Working" : "Idle";
   return {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Session",
     session: true,
-    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : working ? CircleDot : Check,
-    state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
+    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : stuck ? Clock : working ? CircleDot : replied ? Reply : finished ? Power : Check,
+    state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : said,
     spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
-    fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
+    fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : said.toLowerCase(),
     at: session.lastTurnAt,
-    hue: waiting ? "ask" : ended ? "ok" : working && limited === undefined ? "running" : "queued",
-    live: working && limited === undefined,
+    hue: waiting || replied || finished ? "ask" : ended ? "ok" : stuck ? "issue" : working && limited === undefined ? "running" : "queued",
+    live: read === "working" && limited === undefined,
     where: session.address ?? "",
     body: waiting ? [["Asks to run", session.asked!.command]] : [],
     ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
-    doing: waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
+    doing: waiting ? "Waiting on a command" : ended ? "Ended" : said,
     context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
     contextHead: "Last messages",
     acts: (done) =>
@@ -438,8 +449,8 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     icon: SquareTerminal,
     kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
     session: true,
-    mark: Eye,
-    state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",
+    mark: item.source === "replied" ? Reply : item.source === "done" ? Power : Eye,
+    state: item.source === "permission" ? "Waiting on a command" : item.source === "replied" ? "Replied" : item.source === "done" ? "Done" : "Waiting on you",
     spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
     fact: item.text,
@@ -448,7 +459,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     where: session.address ?? "",
     body: [],
     ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
-    doing: "Waiting on you",
+    doing: item.source === "replied" ? "Replied" : item.source === "done" ? "Done" : "Waiting on you",
     context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
     contextHead: "Last messages",
     waiting: { sessionId: session.id, item },

@@ -9,7 +9,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -47,6 +47,7 @@ test("the Board's old shortcut reaches Studios, because the digits closed up beh
 });
 
 test("Done draws every Job that completed or was cleared, on its own filter", async () => {
+  rememberingTheGrid();
   mount("every-state");
   await onScreen();
 

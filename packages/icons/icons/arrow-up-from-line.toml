@@ -1,0 +1,7 @@
+[icons.arrow-up-from-line]
+  means = "An arrow leaving a line: a row on this machine, put in the shared home"
+  group = "Shared home"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Adding a row that is only on this machine to the shared home, tooltip `Add to the home`. Never an upload of a file, a push, a sort or being ahead of main, which is `arrow-up`."
+  notes = "Minted 13 Oct 2026 for the walk `shared-home`, the owner's answer: the act is an icon with a tooltip and no text. `arrow-up` is reserved to ahead of main and says it is never an upload or a push; `arrow-up-to-line` is the loop cap. Pair of `arrow-down-to-line`."

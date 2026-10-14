@@ -1,278 +1,31 @@
-// One repository's Helm conversation: the socket that carries it, which
-// repository it is pointed at, and the two requests that send into it. Held
-// beside `observe.ts` for that file's own reason — a second socket to the
-// same peer, never a second peer — and unlike it, this one can send. #939,
-// #944.
+// Which repository Helm answers for, and the requests that send into its Session. Helm is a hosted
+// Session (`docs/concepts/helm.md`): its thread, its turn and its model are the Session's, held by
+// `sessions.ts` with every other Session and read by the dock from there. What is Helm's own, and
+// lives here, is only the aim and the four requests the dock makes: ask, start fresh, read a thought
+// and record where one went. #939, #944.
 //
-// One at a time: the dock shows one repository's thread, and picking another
-// replaces it. A `closed` message means Fleet forgot the thread this socket
-// was reading — a Start fresh, on this window or another — so this reopens
-// the same repository onto the new, empty one rather than leaving a viewer on
-// a connection with nothing left to say.
-
-import WebSocket from "ws";
+// A Session a request answers with is folded into the Sessions host at once, so the dock draws the
+// Helm Session the moment its first message is sent and does not wait on the stream to say so.
 
 import type {
   AskHelm,
-  FrameRead,
-  HelmBoxFacts,
   HelmContext,
   HelmDebugInfo,
   HelmDebugRead,
-  HelmMessage,
-  HelmThread,
-  HeldHelmThread,
   Outcome,
   ReadThought,
   RepositorySummary,
+  SessionRecord,
   ThoughtRead,
   ThoughtReading,
   ThoughtSent,
   ThoughtTarget,
-  TuneHelm,
 } from "@armada/protocol";
-import { helmArrived, NO_HELM_ITEMS } from "@armada/protocol";
-import type { HelmCarry, HelmTuned } from "../shared/api/helm";
-import { ask, helmFileOf, MODEL_CALL_MS } from "./request";
-import { HOST } from "./runtime-file";
-
-type Held = HeldHelmThread;
-
-/** One repository's Helm conversation, read and written over one socket and two requests. */
-export class HelmSocket {
-  private readonly publish: (thread: HelmThread) => void;
-  private socket: WebSocket | null = null;
-  private manifestId: string | null = null;
-  private port: number | null = null;
-  private status: "opening" | "open" | "cleared" | "failed" = "opening";
-  private held: Held = NO_HELM_ITEMS;
-  private detail = "";
-  /** An item's own identity, since none carries one — counted once per item actually added. */
-  private seq = 0;
-
-  constructor(publish: (thread: HelmThread) => void) {
-    this.publish = publish;
-  }
-
-  /** Which repository's conversation is watched, or `null` to stop. Reopens only where that changed. */
-  open(port: number | null, manifestId: string | null): void {
-    if (manifestId !== null && manifestId === this.manifestId && this.socket !== null) return;
-    this.close();
-    this.manifestId = manifestId;
-    this.port = port;
-    this.held = NO_HELM_ITEMS;
-    this.seq = 0;
-    if (manifestId === null) {
-      this.publish({ state: "none" });
-      return;
-    }
-    if (port === null) {
-      this.status = "failed";
-      this.detail = "Fleet is not connected.";
-      this.publishNow();
-      return;
-    }
-    this.status = "opening";
-    this.publishNow();
-    this.connect(port, manifestId);
-  }
-
-  close(): void {
-    const socket = this.socket;
-    this.socket = null;
-    if (socket === null) return;
-    socket.removeAllListeners();
-    // One listener stays, `observe.ts`'s reason: a socket still shaking hands
-    // reports its abort as an `error` on the next tick, with nothing
-    // listening, which Node throws.
-    socket.on("error", () => {});
-    socket.close();
-  }
-
-  private connect(port: number, manifestId: string): void {
-    const path = `/helm/observe?manifest_id=${encodeURIComponent(manifestId)}`;
-    const socket = new WebSocket(`ws://${HOST}:${port}${path}`);
-    this.socket = socket;
-    socket.on("message", (data: WebSocket.RawData) => this.arrived(manifestId, String(data)));
-    socket.on("error", (cause: Error) => this.broke(manifestId, cause.message));
-    socket.on("close", () => this.broke(manifestId, "the connection closed"));
-  }
-
-  private arrived(manifestId: string, text: string): void {
-    if (manifestId !== this.manifestId) return;
-    let message: HelmMessage;
-    try {
-      message = JSON.parse(text) as HelmMessage;
-    } catch {
-      this.broke(manifestId, "Fleet sent a message this Bridge could not read.");
-      return;
-    }
-
-    const next = helmArrived(this.held, message, this.seq);
-    if (next.added) this.seq += 1;
-    this.held = next.held;
-
-    if (next.ended !== undefined) {
-      // Fleet forgot this thread. Say so for a beat, then reopen the same
-      // repository onto the conversation replacing it.
-      this.close();
-      this.status = "cleared";
-      this.publishNow();
-      const port = this.port;
-      if (port !== null) {
-        this.held = NO_HELM_ITEMS;
-        this.seq = 0;
-        this.status = "opening";
-        this.connect(port, manifestId);
-      }
-      return;
-    }
-
-    this.status = "open";
-    this.publishNow();
-  }
-
-  /** The socket went without a sentence. What had arrived stays arrived. */
-  private broke(manifestId: string, detail: string): void {
-    if (this.socket === null || manifestId !== this.manifestId) return;
-    this.socket.removeAllListeners();
-    this.socket = null;
-    this.status = "failed";
-    this.detail = detail;
-    this.publishNow();
-  }
-
-  private publishNow(): void {
-    const manifestId = this.manifestId;
-    if (manifestId === null) {
-      this.publish({ state: "none" });
-      return;
-    }
-    if (this.status === "opening") {
-      this.publish({ state: "opening", manifestId });
-      return;
-    }
-    if (this.status === "cleared") {
-      this.publish({ state: "cleared", manifestId });
-      return;
-    }
-    if (this.status === "failed") {
-      this.publish({ state: "failed", manifestId, ...this.held, detail: this.detail });
-      return;
-    }
-    this.publish({ state: "open", manifestId, ...this.held });
-  }
-
-  /** `POST /helm/ask`. Answers at once; the reply is always the socket's. */
-  async askHelm(manifestId: string, text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
-    if (this.port === null) return { ok: false, why: "not_connected" };
-    const attachments = carry?.attachments ?? [];
-    const mentions = carry?.mentions ?? [];
-    // Words may be blank when the message carries something; with neither it is not sent.
-    if (text.trim() === "" && attachments.length === 0 && mentions.length === 0) return { ok: false, why: "empty_brief" };
-    const body: AskHelm = {
-      text,
-      ...(context === undefined ? {} : { context }),
-      ...(attachments.length === 0 ? {} : { attachments }),
-      ...(mentions.length === 0 ? {} : { mentions }),
-    };
-    const answer = await ask(
-      this.port,
-      "POST",
-      `/helm/ask?manifest_id=${encodeURIComponent(manifestId)}`,
-      body,
-    );
-    return answer.ok === true ? { ok: true } : answer.outcome;
-  }
-
-  /**
-   * `POST /helm/tune` — the model and effort the conversation uses. Absent is Auto. **Answered to
-   * the caller as well as published**: Fleet's `facts` message on the socket replaces what is held.
-   */
-  async tune(manifestId: string, model: string | null, effort: string | null): Promise<HelmTuned> {
-    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const body: TuneHelm = {
-      ...(model === null ? {} : { model }),
-      ...(effort === null ? {} : { effort }),
-    };
-    const answer = await ask(this.port, "POST", `/helm/tune?manifest_id=${encodeURIComponent(manifestId)}`, body);
-    return answer.ok === true ? { ok: true, facts: answer.body as HelmBoxFacts } : { ok: false, outcome: answer.outcome };
-  }
-
-  /** `GET /helm/file` — a picture or file one of the conversation's messages carried. */
-  async file(manifestId: string, file: string): Promise<FrameRead> {
-    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    return await helmFileOf(this.port, manifestId, file);
-  }
-
-  /**
-   * `GET /helm/debug` — the session as one record, taken now.
-   *
-   * **Answered to the caller and never published.** It is one person's gesture
-   * on one conversation; a record in `BridgeState` would redraw every surface
-   * each time a reply arrived.
-   */
-  async debugInfo(manifestId: string): Promise<HelmDebugRead> {
-    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const answer = await ask(
-      this.port,
-      "GET",
-      `/helm/debug?manifest_id=${encodeURIComponent(manifestId)}`,
-    );
-    return answer.ok === true
-      ? { ok: true, record: answer.body as HelmDebugInfo }
-      : { ok: false, outcome: answer.outcome };
-  }
-
-  /**
-   * `POST /helm/read_thought`. **Answered to the caller and never published**, as `debugInfo` is:
-   * it is the dock's gesture on one message. No repository in the path, since a thought is read
-   * against everything Fleet serves.
-   */
-  async readThought(text: string): Promise<ThoughtRead> {
-    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const body: ReadThought = { text };
-    // A model call is inside the request, and Fleet answers `question` at its own 20 s budget.
-    const answer = await ask(this.port, "POST", "/helm/read_thought", body, MODEL_CALL_MS);
-    return answer.ok === true
-      ? { ok: true, reading: answer.body as ThoughtReading }
-      : { ok: false, outcome: answer.outcome };
-  }
-
-  /** `POST /helm/thought_sent`. Said after the words were delivered; the row arrives on the socket. */
-  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
-    if (this.port === null) return { ok: false, why: "not_connected" };
-    const attachments = carry?.attachments ?? [];
-    const mentions = carry?.mentions ?? [];
-    const body: ThoughtSent = {
-      text,
-      target,
-      ...(attachments.length === 0 ? {} : { attachments }),
-      ...(mentions.length === 0 ? {} : { mentions }),
-    };
-    const answer = await ask(
-      this.port,
-      "POST",
-      `/helm/thought_sent?manifest_id=${encodeURIComponent(manifestId)}`,
-      body,
-    );
-    return answer.ok === true ? { ok: true } : answer.outcome;
-  }
-
-  /** `POST /helm/start_fresh`. Refused while a reply is being written. */
-  async startFresh(manifestId: string): Promise<Outcome> {
-    if (this.port === null) return { ok: false, why: "not_connected" };
-    const answer = await ask(
-      this.port,
-      "POST",
-      `/helm/start_fresh?manifest_id=${encodeURIComponent(manifestId)}`,
-    );
-    return answer.ok === true ? { ok: true } : answer.outcome;
-  }
-}
+import type { HelmAim, HelmCarry } from "../shared/api/helm";
+import { ask, MODEL_CALL_MS } from "./request";
 
 /**
- * Which repository Helm answers for, and the socket onto it.
+ * Which repository Helm answers for, and the requests into its Session.
  *
  * The most recent explicit act wins — a pick to a specific repository, or a
  * point ("Discuss with Helm", the dock's own switch) — and failing either,
@@ -280,10 +33,12 @@ export class HelmSocket {
  * first one Fleet lists.
  */
 export class HelmConnection {
-  private readonly publish: (change: { helm: HelmThread }) => void;
+  private readonly publish: (change: { helm: HelmAim }) => void;
   private readonly port: () => number | null;
-  private readonly socket: HelmSocket;
+  /** A Session a request answered with, handed to the Sessions host. */
+  private readonly folded: (record: SessionRecord) => void;
   private repositories: readonly RepositorySummary[] = [];
+  private aimed: HelmAim = { state: "none" };
   /**
    * The most recent explicit act — a pick to a specific repository, or a
    * point ("Discuss with Helm", the dock's own switch) — whichever came
@@ -302,15 +57,18 @@ export class HelmConnection {
    * surviving a quit needs a `crates/config` field or a new local store, neither of which this reaches. */
   private lastTalked: string | null = null;
 
-  constructor(wiring: { publish: (change: { helm: HelmThread }) => void; port: () => number | null }) {
+  constructor(wiring: {
+    publish: (change: { helm: HelmAim }) => void;
+    port: () => number | null;
+    folded: (record: SessionRecord) => void;
+  }) {
     this.publish = wiring.publish;
     this.port = wiring.port;
-    this.socket = new HelmSocket((helm) => this.publish({ helm }));
+    this.folded = wiring.folded;
   }
 
-  close(): void {
-    this.socket.close();
-  }
+  /** Nothing is held open: Helm's thread rides the Sessions stream. */
+  close(): void {}
 
   /** The repositories Fleet serves changed, or were read for the first time. */
   onRepositoriesChanged(repositories: readonly RepositorySummary[]): void {
@@ -330,52 +88,94 @@ export class HelmConnection {
     this.retarget();
   }
 
-  /** The connection came back, or a window asked for the state fresh. Reopens where it is not already up. */
-  reconnected(port: number): void {
-    this.socket.open(port, this.targetManifestId());
+  /** The connection came back: say again which repository Helm answers for. */
+  reconnected(_port: number): void {
+    this.publish({ helm: this.aimed });
   }
 
+  /**
+   * `POST /helm/ask`. Answers the Helm Session's record, which the first message of a repository makes;
+   * the reply is that Session's thread, on the stream.
+   */
   async askHelm(text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
     const manifestId = this.targetManifestId();
-    if (manifestId === null) return { ok: false, why: "not_connected" };
-    const outcome = await this.socket.askHelm(manifestId, text, context, carry);
-    if (outcome.ok) this.lastTalked = manifestId;
-    return outcome;
+    const port = this.port();
+    if (manifestId === null || port === null) return { ok: false, why: "not_connected" };
+    const attachments = carry?.attachments ?? [];
+    const mentions = carry?.mentions ?? [];
+    // Words may be blank when the message carries something; with neither it is not sent.
+    if (text.trim() === "" && attachments.length === 0 && mentions.length === 0) return { ok: false, why: "empty_brief" };
+    const body: AskHelm = {
+      text,
+      ...(context === undefined ? {} : { context }),
+      ...(attachments.length === 0 ? {} : { attachments }),
+      ...(mentions.length === 0 ? {} : { mentions }),
+      ...(carry?.model === undefined ? {} : { model: carry.model }),
+      ...(carry?.effort === undefined ? {} : { effort: carry.effort }),
+    };
+    const answer = await ask(port, "POST", `/helm/ask?manifest_id=${encodeURIComponent(manifestId)}`, body);
+    if (answer.ok !== true) return answer.outcome;
+    this.lastTalked = manifestId;
+    this.folded(answer.body as SessionRecord);
+    return { ok: true };
   }
 
-  /** The model and effort for a conversation: `manifestId`'s, or the one Helm points at. */
-  async tuneHelm(manifestId: string | undefined, model: string | null, effort: string | null): Promise<HelmTuned> {
-    const target = manifestId ?? this.targetManifestId();
-    if (target === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    return await this.socket.tune(target, model, effort);
-  }
-
-  /** A file one of `manifestId`'s messages carried. */
-  async readHelmFile(manifestId: string, file: string): Promise<FrameRead> {
-    return await this.socket.file(manifestId, file);
-  }
-
+  /** `POST /helm/start_fresh`. The Session ends, whatever it was doing, and the next message starts a new one. */
   async startFresh(): Promise<Outcome> {
     const manifestId = this.targetManifestId();
-    if (manifestId === null) return { ok: false, why: "not_connected" };
-    return await this.socket.startFresh(manifestId);
+    const port = this.port();
+    if (manifestId === null || port === null) return { ok: false, why: "not_connected" };
+    const answer = await ask(port, "POST", `/helm/start_fresh?manifest_id=${encodeURIComponent(manifestId)}`);
+    return answer.ok === true ? { ok: true } : answer.outcome;
   }
 
-  /** What Helm makes of words typed into its box. */
+  /**
+   * `POST /helm/read_thought`. **Answered to the caller and never published**: it is the dock's gesture
+   * on one message. No repository in the path, since a thought is read against everything Fleet serves.
+   */
   async readThought(text: string): Promise<ThoughtRead> {
-    return await this.socket.readThought(text);
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const body: ReadThought = { text };
+    // A model call is inside the request, and Fleet answers `question` at its own 20 s budget.
+    const answer = await ask(port, "POST", "/helm/read_thought", body, MODEL_CALL_MS);
+    return answer.ok === true
+      ? { ok: true, reading: answer.body as ThoughtReading }
+      : { ok: false, outcome: answer.outcome };
   }
 
-  /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
+  /** `POST /helm/thought_sent`. Said after the words were delivered; the `sent` row arrives as a row of the Helm Session. */
   async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
-    return await this.socket.recordThoughtSent(manifestId, text, target, carry);
+    const port = this.port();
+    if (port === null) return { ok: false, why: "not_connected" };
+    const attachments = carry?.attachments ?? [];
+    const mentions = carry?.mentions ?? [];
+    const body: ThoughtSent = {
+      text,
+      target,
+      ...(attachments.length === 0 ? {} : { attachments }),
+      ...(mentions.length === 0 ? {} : { mentions }),
+    };
+    const answer = await ask(port, "POST", `/helm/thought_sent?manifest_id=${encodeURIComponent(manifestId)}`, body);
+    if (answer.ok !== true) return answer.outcome;
+    this.folded(answer.body as SessionRecord);
+    return { ok: true };
   }
 
-  /** The record for whichever repository Helm answers for right now. */
+  /**
+   * `GET /helm/debug` — the Helm Session of whichever repository Helm answers for, as one record taken now.
+   *
+   * **Answered to the caller and never published.** It is one person's gesture; a record in
+   * `BridgeState` would redraw every surface each time a reply arrived.
+   */
   async debugInfo(): Promise<HelmDebugRead> {
     const manifestId = this.targetManifestId();
-    if (manifestId === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    return await this.socket.debugInfo(manifestId);
+    const port = this.port();
+    if (manifestId === null || port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const answer = await ask(port, "GET", `/helm/debug?manifest_id=${encodeURIComponent(manifestId)}`);
+    return answer.ok === true
+      ? { ok: true, record: answer.body as HelmDebugInfo }
+      : { ok: false, outcome: answer.outcome };
   }
 
   /** The repository Helm answers for right now, for the dock to name. `null` where nothing is servable yet. */
@@ -384,7 +184,11 @@ export class HelmConnection {
   }
 
   private retarget(): void {
-    this.socket.open(this.port(), this.targetManifestId());
+    const manifestId = this.targetManifestId();
+    const same = manifestId === null ? this.aimed.state === "none" : this.aimed.state === "pointed" && this.aimed.manifestId === manifestId;
+    if (same) return;
+    this.aimed = manifestId === null ? { state: "none" } : { state: "pointed", manifestId };
+    this.publish({ helm: this.aimed });
   }
 
   private targetManifestId(): string | null {

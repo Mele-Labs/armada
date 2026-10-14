@@ -255,6 +255,8 @@ export type ModelChoices = {
   models: string[];
   /** Always a member of `models`, so a picker selects it without a lookup. */
   default: string;
+  /** What a Session with no model starts on, `models.session`. Always a member of `models`. */
+  session: string;
   /** The harnesses a Drone may run under. One today. Absent from a Fleet before 23.23. */
   harnesses?: string[];
 };

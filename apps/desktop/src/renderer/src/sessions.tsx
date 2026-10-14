@@ -28,7 +28,6 @@ import {
   TileSheet,
   pressedSlot,
   useKept,
-  limitHeldSaid,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -58,7 +57,8 @@ import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
-import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
+import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
+import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -85,36 +85,30 @@ import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
+import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
 import { useViewing } from "./cockpit/viewed";
+import { dismissWaiting } from "./cockpit/dismissed";
+import { stateOf } from "./session-state";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
   return served ? [] : [SURFACE.sessions];
 }
 
-function stateOf(session: Session): { state: SessionState; said: string } {
-  if (session.dead === "ended") return { state: "ended", said: "Ended" };
-  if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
-  if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
-  if (session.turn.state === "working") {
-    const by = session.turn.wokenBy;
-    return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
-  }
-  if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
-  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
-  if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
-  return { state: "idle", said: "Idle" };
-}
-
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
 
-const checksSaid = (checks: Checks) =>
-  checks.state === "failed" ? `Checks failed: ${checks.failing}` : checks.state === "pending" ? "Checks running" : "Checks passed";
+const checksSaid = (checks: Checks) => {
+  if (checks.state === "failed") return `Checks failed: ${checks.failing}`;
+  const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
+  return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
+};
+
+const redOf = (checks: Checks): { red?: "running" | "advisory" } =>
+  checks.state === "failed" || checks.red === undefined ? {} : { red: checks.state === "pending" ? "running" : "advisory" };
 
 const pullRequestsOf = (session: Session) =>
-  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks) }));
+  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks) }));
 
 function summaryOf(session: Session): OwnerSummary {
   return {
@@ -257,9 +251,10 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
-  { label: "Running", has: (state) => state === "working" || state === "limited" },
-  { label: "Idle", has: (state) => state === "idle" },
+  { label: "Needs you", has: (state) => state === "waiting" || state === "replied" || state === "done" },
+  { label: "Running", has: (state) => state === "working" || state === "stuck" || state === "limited" },
+  // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
+  { label: "Idle", has: (state) => state === "idle" || state === "failing" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
@@ -420,13 +415,14 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), state: one.state })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
-      ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
+      ...(owesOf(session).length > 0 ? { waiting: owesOf(session).map((one) => one.text) } : {}),
       ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
+      ...(session.helm === true ? { helm: true } : {}),
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
@@ -448,9 +444,9 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
-type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
+export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
 
-const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
+export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
   open === undefined
     ? undefined
     : session.attachments.find((one) =>
@@ -459,7 +455,7 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
 
-function ReadingSheet({
+export function ReadingSheet({
   sessionId,
   readSubagent,
   one,
@@ -606,7 +602,7 @@ export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClos
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
 
-function entriesOf(
+export function entriesOf(
   session: Session,
   goes: LedgerGoes,
   read: (one: Reading) => void,
@@ -620,29 +616,43 @@ function entriesOf(
   runner: Runner | undefined,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
+  const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
     if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
+    // A restart is the Fleet panel's build switch: it reads as its label and is one key, as on its call card.
+    const restart = restartOf(act);
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
-      name: one.text,
-      text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
-      card: {
-        title: one.text,
-        facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
-      },
+      name: restart?.label ?? one.text,
+      text: restart !== undefined ? restart.label : act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      ...(restart !== undefined
+        ? {}
+        : {
+            card: {
+              title: one.text,
+              facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
+            },
+          }),
       ...(act === undefined ? {} : { act: act.kind }),
-      ...(act?.kind === "run" && runner !== undefined ? { run: { command: act.target, runner } } : {}),
+      ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, ...(runner === undefined ? {} : { runner }) } } : {}),
+      ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
-        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, { choice: at }) })) }),
+        : {
+            options: one.options.map((option, at) => ({
+              label: option.label,
+              ...(option.description === undefined ? {} : { description: option.description }),
+              onPick: () => answerWaiting(one.id, { choice: at }),
+            })),
+            onOther: (text: string) => answerWaiting(one.id, { text }),
+          }),
       ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
       onOpen: () => {
-        if (act === undefined) return;
+        if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
         else if (act.kind === "approve_pr") read({ kind: "pull_request", number: Number(act.target.replace(/^#/, "")) });
         else if (act.kind === "run") {
@@ -775,6 +785,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
   const [kept, setKept] = useState<string | undefined>();
+  // The lapsed question answered from here, hidden until Fleet's thread shows the message that settles it.
+  const [answeredLapse, setAnsweredLapse] = useState<string | undefined>();
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
   const threadRows = useThreadRows(session);
@@ -959,6 +971,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                     made,
                     onKeep: () => {
                       setKept(session.done?.since);
+                      // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
+                      if (session.done !== undefined) void dismissWaiting(session.id, `done:${session.done.since}`);
                       centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
                     },
                   },
@@ -977,6 +991,19 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                   },
                 })}
             onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+            {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
+              ? {}
+              : {
+                  lapsed: {
+                    id: session.lapsed.id,
+                    questions: session.lapsed.questions,
+                    onAnswer: (answers) => {
+                      const lapse = session.lapsed!.id;
+                      void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
+                    },
+                    onSkip: () => setAnsweredLapse(session.lapsed!.id),
+                  },
+                })}
             onOpenSession={onOpen}
           />
           {session.dead !== undefined ? null : (
@@ -1144,7 +1171,8 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
 /** The rail surface: the list, or the Session open on it. */
 /** Sessions in the order the list draws them: under each heading in turn. */
 export function listed(sessions: readonly Session[]): string[] {
-  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true).map((one) => one.id));
+  // Helm's Session opens the dock and no page, so j and k pass it by.
+  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true && one.helm !== true).map((one) => one.id));
 }
 
 /** Whether a key press belongs to a field, which j and k must leave alone. */

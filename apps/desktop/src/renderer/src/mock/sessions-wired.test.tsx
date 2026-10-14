@@ -3,7 +3,7 @@
 // walks (`walks/sessions.ts`) prove what the screens draw from fixtures; this proves the same screens
 // are drawn from, and act on, what Fleet serves.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
@@ -11,9 +11,11 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
+import { mount, onScreen, putOffEveryCall, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+// The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
+beforeEach(rememberingTheGrid);
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -228,13 +230,14 @@ test("Sessions wired: red checks on a merged pull request do not put a Session u
   await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
 });
 
-test("Sessions wired: red checks on an open pull request put a Session under Needs you", async () => {
+test("Sessions wired: red checks on an open pull request leave a Session under Idle, not Needs you", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { checks: "failed", failing: "lint" })] }),
   ]);
   mount(served(fleet));
   await onSessions();
-  await expect.element(page.getByText("Needs you")).toBeVisible();
+  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
 });
 
 test("Sessions wired: Open in a Session on a stopped Job starts one with the Job in its first message's mentions", async () => {
@@ -251,6 +254,20 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   await userEvent.click(page.getByRole("button", { name: "Send" }));
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);
+});
+
+test("Sessions wired: Open in a Session on All starts in the Job's own repository, so nothing asks", async () => {
+  const fleet = new FakeSessionsFleet();
+  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
+  mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA] })));
+  await onScreen();
+  await putOffEveryCall();
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
+  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
+  await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  expect(fleet.calls.startedIn).toEqual([ARMADA.root]);
 });
 
 test("Sessions wired: a chip on Cleanup's tile names the session that holds its branch, across repositories, and the card opens it", async () => {

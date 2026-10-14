@@ -98,6 +98,8 @@ export const pullRequest = (number: number, detail: Partial<Record<string, strin
 
 export type Calls = {
   started: number;
+  /** The repository root each start named, in order; absent where the window named none. */
+  startedIn: (string | undefined)[];
   piloted: { jobId: string; outcome: string }[];
   exited: { jobId: string; exit: string; note?: string }[];
   sent: SendSessionMessage[];
@@ -129,12 +131,13 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
   /** The Board's rows, which a take over and an exit change as Fleet does. */
   private jobs: JobSummary[] = [];
+  private repositories: readonly { root: string; manifest?: { id: string } }[] = [];
   /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
@@ -184,6 +187,7 @@ export class FakeSessionsFleet {
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
   scenario(base: Scenario): Scenario {
     this.jobs = base.state.jobs;
+    this.repositories = base.state.holds.repositories ?? [];
     return {
       ...base,
       state: { ...base.state, sessions: { state: "read", sessions: this.records }, sessionThreads: {} },
@@ -193,9 +197,12 @@ export class FakeSessionsFleet {
         // (it clears the hook of a scenario with no `later`, right after this returns), and the latest wins.
         if (this.retroHeld) queueMicrotask(() => onTimePassing(() => this.releaseRetro?.()));
         return {
-          startSession: async () => {
+          startSession: async (_title, root) => {
             this.calls.started += 1;
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, this.began());
+            this.calls.startedIn.push(root);
+            // Fleet records the Manifest of the repository a Session starts in, and the window narrows by it.
+            const manifest_id = this.repositories.find((one) => one.root === root)?.manifest?.id;
+            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }) });
             this.set([record, ...this.records]);
             return { ok: true, value: record };
           },

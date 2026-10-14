@@ -8,7 +8,6 @@ KEYS = [
     "typecheck",
     "apps/desktop:typecheck",
     "apps/desktop:bridge_build",
-    "apps/desktop:app_smoke",
     "apps/desktop/unit:desktop_test",
     "apps/desktop:xtask_test",
     "packages/screens:screens_test",
@@ -25,11 +24,6 @@ class Planning(unittest.TestCase):
         keys = [row["key"] for row in plan(KEYS)["matrix"]["include"]]
         self.assertIn("packages/surfaces/studios:test", keys)
         self.assertIn("apps/desktop:bridge_build", keys)
-
-    def test_the_smoke_tests_are_sharded_and_not_in_the_matrix(self):
-        answer = plan(KEYS)
-        self.assertIn("apps/desktop:app_smoke", answer["checks"])
-        self.assertNotIn("apps/desktop:app_smoke", [row["key"] for row in answer["matrix"]["include"]])
 
     def test_the_desktop_tests_that_read_no_surface_have_their_own_job_and_no_matrix_entry(self):
         answer = plan(KEYS)

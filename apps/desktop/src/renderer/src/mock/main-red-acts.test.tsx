@@ -48,6 +48,19 @@ test("Dispatch a new Job sends the brief as edited, and no Job", async () => {
   expect(sent).toEqual([{ root: repository().root, brief: "components_test fails on main.\nTest: Theme tokens" }]);
 });
 
+test("Dispatch a new Session opens the Dispatch panel on a Session, holding the brief", async () => {
+  const sent: FixMain[] = [];
+  mount(standingAt(6, sent));
+  await onScreen();
+  await page.getByRole("button", { name: "Merge line", exact: true }).click();
+
+  await band().getByRole("button", { name: "Dispatch a new Session" }).click();
+  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  await expect.element(panel.getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveValue("components_test fails on main.\nTest: Theme tokens > the dark ground keeps its contrast\nMerged in #1815 (nick/theme-tokens).");
+  expect(sent).toEqual([]);
+});
+
 test("Send back lists the Board's Jobs at their review or over, and sends the one chosen", async () => {
   const sent: FixMain[] = [];
   mount(standingAt(3, sent));

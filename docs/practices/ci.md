@@ -38,8 +38,7 @@ to `main` are keyed by their own commit and never cancelled.
 ```
 changed paths ──> armada covers ──> plan.py ──> checks (JSON array of keys) ──> root name: a static job, `if:` its name is in it
                   reads armada.yml     sorts keys    matrix                  ──> workspace key: one `workspace_check` matrix entry
-                  `when:` lists        fails on one                          ──> app_smoke of apps/desktop: the macOS shards;
-                                                                                 desktop_test of apps/desktop/unit: one Linux job
+                  `when:` lists        fails on one                          ──> desktop_test of apps/desktop/unit: one Linux job
                                        it cannot place
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
@@ -69,7 +68,7 @@ change touched. Every other Check runs whole. A workspace Check runs as `armada 
 |---|---|---|
 | `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
 | `needs` | Fleet's status says so: no standing need ahead of the pull request's on a path it shares | Not defined here. Fleet publishes it as a commit status, `docs/capabilities/needs.md`; not yet required |
-| `desktop_test` | The plan succeeded and neither a smoke shard nor the unit job failed or was cancelled | A failed shard, a failed unit job, a failed plan |
+| `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are named by their key.
 
@@ -89,19 +88,18 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
-| `app_smoke` of `apps/desktop` | `macos-latest`, four shards, job `app_smoke_shard` | `vitest run --shard=N/4 --maxWorkers=2 --project 'smoke*'`, direct, since `armada check` takes no shard. `vitest.shard.ts` weighs the walks so the shards are even | node_modules, Playwright |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*). Measured 7 Oct on the 4-core runner, whole runs of `test`: width 2 median job 451s, tests 282s; width 4 two runs, job 375s and 368s, tests 197s and 193s, 4768 passed, no failure or retry. Contention at width 4 beyond those two runs is not measured. Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
-The root's Node Check and the desktop shards run their command directly. The matrix
+The root's Node Check and the desktop unit job run their command directly. The matrix
 runs `armada check` so a workspace's own `armada.yml` is the command, and it uses
 the binary the plan job built, uploaded as an artifact, so no matrix entry builds Rust.
 
 **`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
-reports on its own, so a red smoke shard or a red unit job never blocks a change that `ci` passes.
+reports on its own, so a red unit job never blocks a change that `ci` passes.
 
-**A surface change runs `app_smoke` and not `desktop_test`.** `apps/desktop/unit/armada.yml` lists what its tests read, so a path under `packages/surfaces/<x>/src` other than `api.ts` does not hit it. `docs/practices/bridge.md` says what is in each and why they are two manifests.
+**The smoke tests are not a Check.** The owner removed `app_smoke` on 13 Oct 2026, after one kept turning main red and nobody was going to maintain it. `apps/desktop/vitest.config.ts` still has the `smoke` projects, and `pnpm --dir apps/desktop exec vitest run --project 'smoke*'` runs them by hand, as the walk replays do. No manifest, gate or CI job runs them. `apps/desktop/unit/armada.yml` lists what `desktop_test`'s tests read; `docs/practices/bridge.md` says what is in each project.
 
 ## Foundations
 

@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { MessageCircleQuestion } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -16,12 +16,16 @@ export function QuestionDeck({
   questions,
   onAnswer,
   canSkip,
+  flat,
 }: {
   questions: readonly AskedQuestion[];
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
   canSkip: boolean;
+  /** Inside a panel that already frames it: no card, no band, the question and its answers alone. */
+  flat?: boolean;
 }) {
   const [front, setFront] = useState(0);
+  const [open, setOpen] = useState(true);
   const [picked, setPicked] = useState<readonly (readonly string[])[]>(() => questions.map(() => []));
   const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
   const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
@@ -51,7 +55,7 @@ export function QuestionDeck({
   };
   // A number picks the tile it is drawn on, as in the Cockpit.
   const key = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target instanceof HTMLInputElement) return;
+    if (!open || event.target instanceof HTMLInputElement) return;
     const n = Number(event.key);
     if (!Number.isInteger(n) || n < 1) return;
     if (n <= one.options.length) choose(one.options[n - 1]!.label);
@@ -61,7 +65,7 @@ export function QuestionDeck({
   };
 
   return (
-    <div className="armada-question-deck">
+    <div className="armada-question-deck" data-flat={flat || undefined}>
       {front === 0 ? null : (
         <div className="armada-question-deck__done" role="group" aria-label="Answered">
           {questions.slice(0, front).map((q, index) => (
@@ -77,17 +81,26 @@ export function QuestionDeck({
         ))}
         <div key={one.question} className="armada-question-deck__card" role="group" aria-label={one.question} onKeyDown={key}>
           <header className="armada-question-deck__band">
-            <MessageCircleQuestion size={16} aria-hidden />
-            <span>{one.header === "" ? "Question" : one.header}</span>
-            {questions.length === 1 ? null : (
-              <span className="armada-question-deck__pips" title={`${front + 1} of ${questions.length}`}>
-                {questions.map((q, index) => (
-                  <span key={q.question} className="armada-question-deck__pip" data-here={index === front || undefined} data-done={index < front || undefined} />
-                ))}
-              </span>
-            )}
+            <button
+              type="button"
+              className="armada-question-deck__toggle"
+              aria-expanded={open}
+              title={open ? undefined : one.question}
+              onClick={() => setOpen(!open)}
+            >
+              <MessageCircleQuestion size={16} aria-hidden />
+              <span className="armada-question-deck__title">{one.header === "" ? "Question" : one.header}</span>
+              {questions.length === 1 ? null : (
+                <span className="armada-question-deck__pips" title={`${front + 1} of ${questions.length}`}>
+                  {questions.map((q, index) => (
+                    <span key={q.question} className="armada-question-deck__pip" data-here={index === front || undefined} data-done={index < front || undefined} />
+                  ))}
+                </span>
+              )}
+              {open ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
+            </button>
           </header>
-          <div className="armada-question-deck__body">
+          <div className="armada-question-deck__body" hidden={flat ? false : !open}>
             <p className="armada-question-deck__ask">{one.question}</p>
             <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
               {one.options.map((option, index) => {

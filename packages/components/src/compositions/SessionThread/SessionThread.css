@@ -522,22 +522,41 @@
 }
 
 .armada-question-deck__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
   background: var(--hue);
   color: var(--fg-inverse);
   font-size: var(--text-xs);
   font-weight: var(--weight-heading);
 }
 
-.armada-question-deck__pips { display: inline-flex; gap: var(--space-1); margin-left: auto; }
+/* The whole band presses: it folds the card down to this strip so the thread above can be read. */
+.armada-question-deck__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.armada-question-deck__title { flex: 1; }
+.armada-question-deck__toggle:focus-visible { outline: var(--focus-ring); outline-offset: calc(-1 * var(--focus-ring-offset)); }
+
+.armada-question-deck__pips { display: inline-flex; gap: var(--space-1); }
 .armada-question-deck__pip { width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--fg-inverse); border-radius: 50%; }
 .armada-question-deck__pip[data-here],
 .armada-question-deck__pip[data-done] { background: var(--fg-inverse); }
 .armada-question-deck__pip[data-done] { opacity: 0.6; }
 
+.armada-question-deck__body[hidden] { display: none; }
+
+/* Inside the Needs you panel the panel is the frame: the deck is its question and answers, nothing around them. */
+.armada-question-deck[data-flat] .armada-question-deck__card { border: 0; border-radius: 0; background: transparent; box-shadow: none; animation: none; }
+.armada-question-deck[data-flat] .armada-question-deck__band { display: none; }
+.armada-question-deck[data-flat] .armada-question-deck__body { padding: 0; }
 .armada-question-deck__body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
 
 .armada-question-deck__ask {

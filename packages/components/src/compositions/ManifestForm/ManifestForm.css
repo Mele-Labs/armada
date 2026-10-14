@@ -91,6 +91,11 @@
   grid-column: 1 / -1;
 }
 
+/* A switch under its tooltip's wrapper still takes the row, as the ones beside it do. */
+.armada-manifest-form__section > .armada-tooltip > .armada-switch {
+  flex: 1 1 auto;
+}
+
 .armada-manifest-form__section:focus-visible,
 .armada-manifest-form__entry:focus-visible {
   outline: var(--focus-ring);

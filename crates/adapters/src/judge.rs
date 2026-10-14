@@ -76,7 +76,7 @@ const SECOND_OPINION_MODEL: &str = "sonnet";
 /// `commander-model` row.
 const COMMANDER_MODEL: &str = "opus";
 
-/// The model the default steps down to when the weekly plan window runs out.
+/// The model the Session default steps down to when the weekly plan window runs out.
 /// **Named rather than derived**, and held to the roster by a test: the middle
 /// tier, as the retro's. It is `crates/config/settings.toml`'s
 /// `plan-downshift-model` row.
@@ -109,6 +109,19 @@ impl HeadlessAgent {
         }
     }
 
+    /// The model a Session runs on when none is chosen: **the strongest alias on
+    /// the roster**, which is what `crates/config/settings.toml`'s `session-model`
+    /// row decided on 13 Oct 2026. The first entry because the roster runs
+    /// strongest first, and a test pins it so a reordered roster breaks the build
+    /// rather than redeciding the setting, as for [`judge_model`](Self::judge_model).
+    pub fn session_model() -> &'static str {
+        match HeadlessAgent::models().first() {
+            Some(strongest) => strongest,
+            // A non-empty constant, so nothing reaches here; see `judge_model`.
+            None => HeadlessAgent::default_model(),
+        }
+    }
+
     /// The model a dispatch request is read by when nothing names one.
     pub fn proposer_model() -> &'static str {
         PROPOSER_MODEL
@@ -130,7 +143,7 @@ impl HeadlessAgent {
         COMMANDER_MODEL
     }
 
-    /// The model the default is offered a step down to.
+    /// The model the Session default is offered a step down to.
     pub fn downshift_model() -> &'static str {
         DOWNSHIFT_MODEL
     }

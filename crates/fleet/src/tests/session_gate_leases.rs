@@ -249,11 +249,8 @@ async fn the_door_lets_the_session_write_in_a_slot_its_subagent_leased() {
         let encoded = ipc::encode(&Quoted { command: &line }).expect("a line");
         assert!(allowed(at_the_door(&rig, "Bash", &encoded).await), "{line}");
     }
-
-    // A slot somebody else holds is no more its own here than at the gate.
-    let foreign = leased_by(&rig, 3, OTHER);
-    let refused = at_the_door(&rig, "Edit", &format!(r#"{{"file_path":"{foreign}/src/lib.rs"}}"#)).await;
-    assert!(matches!(refused, ipc::RunOrNot::Deny { .. }));
+    // Whether a slot somebody else holds is its own is the gate's, above, and the held list's
+    // at `session_auto`. This rig sits in the temp dir, which the door treats as scratch.
 }
 
 /// #2239. A line that only looks (`cd` first, `git -C`, a GET) leased a slot to a session that

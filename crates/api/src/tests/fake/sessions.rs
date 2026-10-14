@@ -36,8 +36,10 @@ impl Sessions for FakeDaemon {
             mod_out_of_date: false,
             waiting_for: Vec::new(),
             done_since: None,
+            standing: None,
             held_until: None,
             context_breakdown: None,
+            helm: false,
         })
     }
 
@@ -160,7 +162,7 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: ask.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
-            fact: ipc::SessionFact::TurnCompleted,
+            fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await
     }
@@ -199,6 +201,14 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn finish_up(
+        &self,
+        _caller: Option<crate::Caller>,
+        _finish: ipc::FinishUp,
+    ) -> Result<ipc::FinishedUp, Refusal> {
+        Ok(ipc::FinishedUp::default())
+    }
+
     async fn all_done(
         &self,
         _caller: Option<crate::Caller>,
@@ -207,7 +217,7 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: done.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
-            fact: ipc::SessionFact::TurnCompleted,
+            fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await
     }

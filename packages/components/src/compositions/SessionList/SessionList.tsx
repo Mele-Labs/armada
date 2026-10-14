@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BellRing, LoaderCircle, Search } from "lucide-react";
+import { BellRing, LoaderCircle, MessageSquare, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -9,7 +9,7 @@ import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useTileGrid } from "../../tile-grid";
 import { ClashMark } from "../ClashMark/ClashMark";
-import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
+import { Chip, type OwnerChipRef, type RedChecks } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
@@ -35,7 +35,7 @@ export type SessionRowView = {
   said: string;
   slots: readonly number[];
   /** A merged one is on the Session's ledger and not on its row. */
-  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; state?: "open" | "draft" | "merged" }[];
+  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks; state?: "open" | "draft" | "merged" }[];
   /** What the search matched in this Session, where it matched an attachment. */
   matched?: OwnerChipRef;
   /** The clock time of the last turn, which the tooltip keeps. */
@@ -48,6 +48,8 @@ export type SessionRowView = {
   waiting?: readonly string[];
   /** Its retro is being written. */
   retroWriting?: boolean;
+  /** Helm's own Session for a repository, pinned to the dock: it carries Helm's mark, and opening it opens the dock. */
+  helm?: boolean;
 };
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
@@ -177,7 +179,7 @@ function itemsOf(row: SessionRowView): Item[] {
       label: `#${pr.number}`,
       node: (
         <span className="armada-session-list__pr" data-checks={pr.checks}>
-          <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said }} />
+          <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
         </span>
       ),
     });
@@ -274,6 +276,13 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
                     <div className="armada-session-list__top">
                       <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
                         {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
+                        {row.helm !== true ? null : (
+                          <Tooltip label="Helm">
+                            <span className="armada-session-mark" role="img" aria-label="Helm">
+                              <MessageSquare size={12} strokeWidth={2} aria-hidden />
+                            </span>
+                          </Tooltip>
+                        )}
                         <span className="armada-session-list__title">
                           {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
                         </span>

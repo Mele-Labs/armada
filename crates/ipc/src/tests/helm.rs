@@ -1,10 +1,12 @@
-//! What a Helm conversation's wire must keep true: every socket message is told apart by its
-//! `message` tag. A blank message is Fleet's to refuse, and `helm_box.rs` holds what rides with one.
+//! What Helm's wire must keep true: an ask names where the person is and, for the message that
+//! starts the Session, what it runs on; the Session is found by `HelmSession`, which leaves a
+//! Session that is not there out. A blank message is Fleet's to refuse, and `helm_box.rs` holds
+//! what rides with one.
 
 use crate::{
-    decode, encode, AskHelm, Freshness, HelmAsked, HelmClosed, HelmContext, HelmFresh, HelmMessage,
-    HelmScreen, HelmSilence, Instant, JobId, ManifestId, Saw, Shown, StudioId,
-    StudioNodeId, TranscriptRow, Voice,
+    decode, encode, AskHelm, HelmContext, HelmScreen, HelmSession, Instant, JobId, ManifestId,
+    SessionOrigin, SessionRecord, SessionRow, SessionState, SessionTag, SessionThread, SessionUsage,
+    StudioId, StudioNodeId, TagKind, ThoughtKind, ThoughtTarget,
 };
 
 #[test]
@@ -29,6 +31,8 @@ fn an_asks_context_round_trips() {
         text: "what is this stuck on?".to_string(),
         attachments: Vec::new(),
         mentions: Vec::new(),
+        model: None,
+        effort: None,
         context: Some(HelmContext {
             screen: HelmScreen::JobDetail,
             picked: Some(ManifestId::carried("armada")),
@@ -58,6 +62,8 @@ fn a_studios_context_round_trips_and_an_older_one_still_decodes() {
         text: "what does this connect to?".to_string(),
         attachments: Vec::new(),
         mentions: Vec::new(),
+        model: None,
+        effort: None,
         context: Some(HelmContext {
             screen: HelmScreen::Studio,
             picked: Some(ManifestId::carried("armada")),
@@ -101,49 +107,115 @@ fn the_workflows_screen_round_trips() {
     );
 }
 
+/// The tuning rides only on the message that starts the Session, and an ask without it carries
+/// neither field.
 #[test]
-fn each_socket_message_carries_its_tag_and_round_trips() {
-    let row = Shown::of(TranscriptRow {
-        ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-        step: None,
-        by: Voice::Drone,
-        drone_id: None,
-        saw: Saw::Said {
-            text: "Job 12 is waiting on a person.".to_string(),
-        },
-    })
-    .expect("prose is shown");
-    let cases = [
-        (
-            HelmMessage::Asked(HelmAsked {
-                ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-                text: "why?".to_string(),
-                files: Vec::new(),
-                tags: Vec::new(),
-            }),
-            r#""message":"asked""#,
-        ),
-        (HelmMessage::Row(row), r#""message":"row""#),
-        (
-            HelmMessage::Fresh(HelmFresh {
-                ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-                because: Freshness::SessionNotFound,
-            }),
-            r#""because":"session_not_found""#,
-        ),
-        (
-            HelmMessage::Closed(HelmClosed {
-                because: HelmSilence::StartedFresh,
-            }),
-            r#""because":"started_fresh""#,
-        ),
-    ];
-    for (message, carries) in cases {
-        let json = encode(&message).expect("plain data");
-        assert!(json.contains(carries), "{json} carries {carries}");
-        assert_eq!(
-            decode::<HelmMessage>("a Helm message", json.as_bytes()).expect("round-trips"),
-            message
-        );
+fn an_asks_tuning_is_left_out_when_absent_and_round_trips_when_set() {
+    let plain = decode::<AskHelm>("a message to Helm", br#"{"text":"hi"}"#).expect("plain data");
+    assert_eq!((plain.model.as_deref(), plain.effort.as_deref()), (None, None));
+    assert_eq!(encode(&plain).expect("plain data"), r#"{"text":"hi"}"#);
+
+    let tuned = decode::<AskHelm>(
+        "a message to Helm",
+        br#"{"text":"hi","model":"opus","effort":"high"}"#,
+    )
+    .expect("plain data");
+    assert_eq!((tuned.model.as_deref(), tuned.effort.as_deref()), (Some("opus"), Some("high")));
+    let json = encode(&tuned).expect("plain data");
+    assert_eq!(decode::<AskHelm>("a message to Helm", json.as_bytes()).expect("round-trips"), tuned);
+}
+
+fn a_helm_record() -> SessionRecord {
+    let at = Instant::carried("2026-10-13T09:00:00.000Z");
+    SessionRecord {
+        id: crate::SessionId::carried("01HELM"),
+        harness: "hosted".into(),
+        origin: SessionOrigin::Bridge,
+        manifest_id: Some(ManifestId::carried("armada")),
+        cwd: "/repos/armada".into(),
+        title: Some("Helm".into()),
+        state: SessionState::Live,
+        started_at: at.clone(),
+        last_seen_at: at,
+        last_turn_at: None,
+        ended_at: None,
+        end_reason: None,
+        usage: SessionUsage::default(),
+        attachments: Vec::new(),
+        hosted: None,
+        terminal: None,
+        mod_out_of_date: false,
+        waiting_for: Vec::new(),
+        done_since: None,
+        standing: None,
+        held_until: None,
+        context_breakdown: None,
+        helm: true,
     }
+}
+
+/// The mark is on a Helm Session's record and on no other: an ordinary Session leaves it out.
+#[test]
+fn the_helm_mark_is_left_off_every_record_that_is_not_helms() {
+    let helm = a_helm_record();
+    let json = encode(&helm).expect("plain data");
+    assert!(json.contains(r#""helm":true"#), "{json}");
+    assert_eq!(decode::<SessionRecord>("a record", json.as_bytes()).expect("round-trips"), helm);
+
+    let ordinary = SessionRecord { helm: false, ..helm };
+    let json = encode(&ordinary).expect("plain data");
+    assert!(!json.contains("helm"), "{json}");
+    assert!(!decode::<SessionRecord>("a record", json.as_bytes()).expect("decodes").helm);
+}
+
+#[test]
+fn a_helm_session_is_left_out_when_there_is_none_and_carries_its_thread_when_there_is() {
+    let none = HelmSession { manifest_id: ManifestId::carried("armada"), session: None };
+    let json = encode(&none).expect("plain data");
+    assert_eq!(json, r#"{"manifest_id":"armada"}"#);
+    assert_eq!(decode::<HelmSession>("a Helm session", json.as_bytes()).expect("round-trips"), none);
+
+    let some = HelmSession {
+        manifest_id: ManifestId::carried("armada"),
+        session: Some(SessionThread { session: a_helm_record(), rows: Vec::new() }),
+    };
+    let json = encode(&some).expect("plain data");
+    assert_eq!(decode::<HelmSession>("a Helm session", json.as_bytes()).expect("round-trips"), some);
+}
+
+/// The `sent` row is told apart by its `kind` and leaves what it did not carry out.
+#[test]
+fn the_sent_row_round_trips_and_leaves_empty_lists_out() {
+    let target = ThoughtTarget {
+        kind: ThoughtKind::Session,
+        id: "01LISTVIEWS".into(),
+        title: "Sessions list views".into(),
+        manifest_id: Some(ManifestId::carried("armada")),
+        slot: None,
+    };
+    let bare = SessionRow::Sent {
+        id: "r1".into(),
+        at: Instant::carried("2026-10-13T09:00:00.000Z"),
+        text: "retries should back off".into(),
+        target: target.clone(),
+        files: Vec::new(),
+        tags: Vec::new(),
+    };
+    let json = encode(&bare).expect("plain data");
+    assert!(json.starts_with(r#"{"kind":"sent","id":"r1","#), "{json}");
+    assert!(!json.contains("files") && !json.contains("tags") && !json.contains("null"), "{json}");
+    assert_eq!(decode::<SessionRow>("a row", json.as_bytes()).expect("round-trips"), bare);
+
+    let carrying = SessionRow::Sent {
+        id: "r2".into(),
+        at: Instant::carried("2026-10-13T09:00:00.000Z"),
+        text: "see this".into(),
+        target,
+        files: vec![crate::SentFile { id: "f1".into(), name: "shot.png".into(), media_type: "image/png".into() }],
+        tags: vec![SessionTag { kind: TagKind::Issue, id: "214".into(), title: "#214 The title".into(), job: None, url: None }],
+    };
+    let json = encode(&carrying).expect("plain data");
+    assert!(json.contains(r#""files":[{"id":"f1""#) && json.contains(r#""tags":[{"kind":"issue""#), "{json}");
+    assert_eq!(decode::<SessionRow>("a row", json.as_bytes()).expect("round-trips"), carrying);
+    assert_eq!(carrying.id(), "r2");
 }
