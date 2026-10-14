@@ -859,9 +859,9 @@ That day also closes the one gap it cannot close now. A setting nothing reads is
   `commands.<name>.run`,
   `commands.<name>.destructive`, `commands.<name>.serve`,
   `commands.<name>.ready`, `commands.<name>.links`, `setup.requires`, `setup.seed`, `setup.worktrees`, `setup.auto_release`,
-  `setup.auto_release_grace_minutes` and, in a
+  `setup.auto_release_grace_minutes`, `policy.pull_request_owners` and, in a
   workspace, `depends_on` (`manifest.md`, *Workspace gating*) — with every
-  other key (`permissions`, `knowledge`, `policy`,
+  other key (`permissions`, `knowledge`, any other under `policy`,
   `commands.*.description`) hard-failing as unknown until Reach. Beyond that, what is still open: the
   file syntax for how a Check declares its command; how the Commands
   registry is structured and relates to the allowlist; how Checks and

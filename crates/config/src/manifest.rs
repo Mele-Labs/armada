@@ -60,6 +60,7 @@ use serde_yaml_ng::Value;
 mod drone;
 mod freeze;
 mod policies;
+mod pull_request_owners;
 mod standing;
 
 use crate::error::{Fault, LoadError, Refusal};
@@ -89,6 +90,8 @@ const TOP_LEVEL: &[&str] = &[
     // How a pull request is offered: [`pr_mode`].
     "pr_mode",
     "freeze",
+    // The central store's switch: [`pull_request_owners`].
+    "policy",
     "standing_rules",
     // Which other paths gate a workspace: [`workspace`].
     "depends_on",
@@ -607,6 +610,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     let merge_by = merge_by::read(&mut top, out);
     let pr_mode = pr_mode::read(&mut top, out);
     let freeze = freeze::read(&mut top, out);
+    let pull_request_owners = pull_request_owners::read(&mut top, placed.is_a_workspace(), out);
     let standing_rules = standing::read(&mut top, out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
@@ -656,6 +660,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
             merge_by,
             pr_mode,
             freeze,
+            pull_request_owners,
         }),
     })
 }

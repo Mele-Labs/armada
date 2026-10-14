@@ -94,6 +94,10 @@ mod rerunning;
 mod scouting;
 /// A worktree before a person's run, and putting back what the run changed.
 pub mod snapshot;
+/// The central store over HTTP, signed with this machine's key.
+mod store;
+mod store_device;
+mod store_signing;
 /// A terminal session's thread, drawn from the transcript its agent CLI keeps.
 pub mod terminal_thread;
 mod transcript;
@@ -143,4 +147,5 @@ pub use scouting::{
 };
 pub use transcript::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 pub use trigger_files::triggers_on_base;
+pub use store::HttpStore;
 pub use worktree::GitVcs;

@@ -85,6 +85,8 @@ pub(crate) struct InForce {
     pub(crate) pr_mode: Option<PrMode>,
     /// `freeze`, defaulted for the policies' reason: absent means not frozen.
     pub(crate) freeze: bool,
+    /// `policy.pull_request_owners`, defaulted for the policies' reason: absent means off.
+    pub(crate) pull_request_owners: bool,
 }
 
 /// Where the live keys are kept, shared by every clone of one Manifest.
@@ -150,6 +152,8 @@ pub enum LiveKey {
     /// Live because a freeze only a restart could lift would stop the Fleet it
     /// was meant to leave running for every other repository.
     Freeze,
+    /// Live because turning it off must stop the next take reaching the store.
+    PullRequestOwners,
 }
 
 impl LiveKey {
@@ -170,6 +174,7 @@ impl LiveKey {
             LiveKey::MergeBy => "merge_by",
             LiveKey::PrMode => "pr_mode",
             LiveKey::Freeze => "freeze",
+            LiveKey::PullRequestOwners => "policy.pull_request_owners",
         }
     }
 }
@@ -479,6 +484,13 @@ fn moved(before: InForce, after: InForce) -> Vec<Moved> {
             key: LiveKey::Freeze,
             before: Some(before.freeze.to_string()),
             after: Some(after.freeze.to_string()),
+        });
+    }
+    if before.pull_request_owners != after.pull_request_owners {
+        changed.push(Moved {
+            key: LiveKey::PullRequestOwners,
+            before: Some(before.pull_request_owners.to_string()),
+            after: Some(after.pull_request_owners.to_string()),
         });
     }
     changed

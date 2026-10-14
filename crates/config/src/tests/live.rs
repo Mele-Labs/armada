@@ -388,6 +388,25 @@ fn how_a_repository_offers_a_pull_request_moves_under_a_running_fleet() {
     assert!(adopted.at_restart().is_empty());
 }
 
+/// **`policy.pull_request_owners` moves under a running Fleet too.** A person
+/// turning it off is answered at the next take, not after a restart.
+#[test]
+fn the_central_store_switch_moves_under_a_running_fleet() {
+    let repository = Repository::holding(&format!("{PATIENT}policy:\n  pull_request_owners: true\n"));
+    let (manifest, reloads) = reloadable(&repository.manifest());
+    assert!(manifest.pull_request_owners());
+
+    repository.save(PATIENT);
+    let adopted = reloads.reread().expect("it reads");
+
+    assert!(!manifest.pull_request_owners());
+    assert_eq!(
+        adopted.moved()[0].to_string(),
+        "policy.pull_request_owners true -> false"
+    );
+    assert!(adopted.at_restart().is_empty());
+}
+
 /// **Deleting the key puts the cautious value back**, and says so, rather than
 /// leaving the last word in force. The other direction is the dangerous one: a
 /// repository that removes `auto_merge: always` has stopped asking for it.

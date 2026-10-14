@@ -1,6 +1,6 @@
 //! Which agent CLI a Drone runs as and on what `PATH`, the switches that turn
 //! a behaviour on or off, the programs Bridge opens a file or a folder in, and
-//! where a pull request link opens.
+//! where a pull request link opens, and the name this machine goes by.
 
 use super::{Applies, Entry, Flag, Kind, List, Options, Section, Shipped, Words};
 
@@ -17,6 +17,8 @@ pub const TERMINAL_APP: Words = Words("terminal.app");
 pub const TERMINAL_COMMAND: Words = Words("terminal.command");
 
 pub const OPEN_PULL_REQUESTS_IN: Words = Words("links.openPullRequestsIn");
+
+pub const MACHINE_NAME: Words = Words("machine.name");
 
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.
@@ -160,5 +162,17 @@ pub(super) const LINKS: &[Entry] = &[Entry {
     shipped: Shipped::Text("armada"),
     applies: Applies::Live,
     row: None,
+    env: None,
+}];
+
+pub(super) const MACHINE: &[Entry] = &[Entry {
+    key: MACHINE_NAME.0,
+    section: Section::Machine,
+    title: "Machine name",
+    description: "How the other machines signed in to your account name this one. Blank uses the host's name.",
+    kind: Kind::Text,
+    shipped: Shipped::Text(""),
+    applies: Applies::Live,
+    row: Some("machine-name"),
     env: None,
 }];
