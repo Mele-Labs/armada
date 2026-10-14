@@ -238,6 +238,15 @@ impl Vcs for GitVcs {
         noted(crate::reclaim::delete_repair_branch(spec)).map_err(adapter_traits::BranchKept)
     }
 
+    fn delete_merged_branch(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+    ) -> Result<bool, adapter_traits::BranchKept> {
+        noted(crate::reclaim::delete_merged_branch(pool.repo_root(), branch))
+            .map_err(adapter_traits::BranchKept)
+    }
+
     fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str) {
         noted(crate::leasing::jobs::completed(pool, slot, job_id))
     }

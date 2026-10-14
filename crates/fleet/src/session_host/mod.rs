@@ -12,6 +12,7 @@ mod asking;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
 pub(crate) mod following;
+mod finishing;
 mod fork_point;
 mod forking;
 mod gate;
@@ -236,6 +237,9 @@ pub(crate) struct State {
     /// Sessions that wrote to this one and whose message has not yet started a
     /// turn.
     pub woken_by: Vec<ipc::SessionVoiceNamed>,
+    /// Fleet's own notices whose turn has not started. A turn one of them begins leaves the agent's
+    /// `all_done` standing.
+    pub fleet_told: u32,
     pub asked: Option<HelmCallInFlight>,
     /// The door the answer to `asked` came through, set by the request that
     /// answers and taken by the ask that was waiting, which is another task.
@@ -288,6 +292,7 @@ impl State {
             queued: 0,
             moving: None,
             woken_by: Vec::new(),
+            fleet_told: 0,
             asked: None,
             answered_via: None,
             last_active: Instant::now(),
