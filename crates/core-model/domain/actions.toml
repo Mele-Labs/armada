@@ -676,8 +676,7 @@ shortcut = "l b c q f a"
 scope = "deck"
 destructive = false
 confirms = false
-unbuilt = "#2301"
-notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot. `m`, the map, is `dashboard_view` and stays its row: the deck reads it as the map and `t` as the timeline. Six letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. `l` and `b` are also `call_later` and `call_best`, which belong to the `call` scope and hold their keys only while a call is in front. `c` is `copy_debug_info` on a list; the deck is not one. The panels are those of `proto/cockpit-flight-deck`."
+notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot. Six letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is not built (#2301), and `dashboard_view` stays the classic Cockpit's."
 
 [actions.deck_tile]
 kind = "Action"
@@ -689,8 +688,7 @@ shortcut = "1–6"
 scope = "deck"
 destructive = false
 confirms = false
-unbuilt = "#2301"
-notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call in front takes them while it is up, and gives them back."
+notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. The Map tile is drawn and not built (#2301), so `5` presses nothing until the battlefield is."
 
 [actions.deck_view]
 kind = "Action"
@@ -715,8 +713,7 @@ shortcut = "t"
 scope = "deck"
 destructive = false
 confirms = false
-unbuilt = "#2301"
-notes = "Shows the deck's event timeline where `m` shows the map. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's. The row listens to nothing until #2301 wires it, and that is also when the keymap has to say where `attest` stands on the deck."
+notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. The map is the timeline until the battlefield is built (#2301)."
 
 [actions.deck_page]
 kind = "Action"
@@ -728,7 +725,6 @@ shortcut = "g"
 scope = "deck"
 destructive = false
 confirms = false
-unbuilt = "#2301"
 notes = "The first key of a two key chord: `g` and then `c` the Cockpit, `j` Jobs, `s` Sessions or `y` System. The second key is read only for the moment after `g` and is not a binding of its own, which is why the row is `g` and not four keys: the keymap holds a key and not a sequence. Not on a Job's page, where `g` is `open_stage`. `g` is `call_quick` while a call is in front."
 
 [actions.deck_tabs]
@@ -741,8 +737,7 @@ shortcut = "⌘1–⌘4"
 scope = "deck"
 destructive = false
 confirms = false
-unbuilt = "#2301"
-notes = "With the rail off, `⌘1` to `⌘4` are the title bar's four tabs: Cockpit, Jobs, Sessions and System. With the rail on they stay `bridge_surfaces`' and this row listens to nothing. The rail is a preview switch for now and the keymap holds places, not switches, so the two rows share a key the keymap cannot tell apart: this one stays `unbuilt` until the rail goes. `⌘5` to `⌘9` stay the rail's either way."
+notes = "With the rail off, `⌘1` to `⌘4` are the title bar's four tabs: Cockpit, Jobs, Sessions and System, and System opens the page last used there. With the rail on they are `bridge_surfaces`' and this row listens to nothing: the two are in scopes of their own, `deck` and `rail`, so the keymap tells them apart by where each listens. `⌘5` to `⌘9` stay the rail's."
 
 [actions.dispatch_from_field]
 kind = "Action"
