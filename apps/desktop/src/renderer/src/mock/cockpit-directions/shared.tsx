@@ -192,7 +192,7 @@ const KEYS = {
 } as const;
 export { KEYS };
 
-function IconAct({ label, keys, glyph: Glyph, pressed, onPress }: { label: string; keys: string; glyph: LucideIcon; pressed?: boolean; onPress: () => void }) {
+export function IconAct({ label, keys, glyph: Glyph, pressed, onPress }: { label: string; keys: string; glyph: LucideIcon; pressed?: boolean; onPress: () => void }) {
   return (
     <Tooltip label={`${label} · ${keys}`}>
       <Button variant="ghost" size="sm" iconOnly aria-label={label} {...(pressed === undefined ? {} : { "aria-pressed": pressed })} onClick={onPress}>

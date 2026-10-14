@@ -185,6 +185,21 @@ const red: Session = {
 
 const SESSIONS: Session[] = [asking, WORKING_REPLY, done, working, stuck, queuedOwner, red];
 
+/**
+ * The opening state the tab bar's walk reads: the Session that asks a question has already replied to him in
+ * words, as Fleet reads a turn that ended on a message, so the one thing it owes is an answer typed into its
+ * thread. Nothing else moves: the colour budget is the view's to keep, and what is failing stays in the data.
+ */
+const CACHE_KEY_AT = ago(9);
+const { asked: _question, ...askingBase } = asking;
+const repliedCache: Session = {
+  ...askingBase,
+  standing: "replied",
+  waitingFor: [{ id: `replied:${CACHE_KEY_AT}`, text: "I can key the cache on the manifest hash or on its path. Which?", since: CACHE_KEY_AT, source: "replied" }],
+  rows: [ask("q1-u", "14:00:00", "Cache the manifest read."), say("q1-a", "14:09:20", "I can key the cache on the manifest hash or on its path. Which?")],
+};
+const SESSIONS_TABS: Session[] = SESSIONS.map((one) => (one.id === asking.id ? repliedCache : one));
+
 /** Fleet's reading of the Session at the first moment: its turn ended on a message to him. */
 const REPLIED: Partial<Session> = {
   turn: { state: "idle" },
@@ -197,12 +212,12 @@ const REPLIED: Partial<Session> = {
 };
 
 /** The Sessions, with the moments that move them, and Stop, which Fleet answers and the mock's fixtures do not. */
-function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
+function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly Session[] = SESSIONS): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, [], control, [], SESSIONS);
+  const store = sessionsStore([none, none], none, [], control, [], list);
   let moment = 0;
   // The store carries the usual Sessions beside these; the ship holds only its own seven.
-  const own = new Set(SESSIONS.map((one) => one.id));
+  const own = new Set(list.map((one) => one.id));
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
   // Its turn is running, so rows keep arriving once something watches it: a Peek that is open sees them land.
@@ -362,9 +377,9 @@ const CALLS: Record<string, CallView> = {
   },
 };
 
-function build(): Scenario {
+function build(tabs = false): Scenario {
   const pocketManifest = { ...repository().manifest!, id: POCKET, repository: POCKET, path: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada` };
-  const base = holding("cockpit-ship", "The whole ship at rest: two repositories, four Jobs, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
+  const base = holding(tabs ? "cockpit-ship-tabs" : "cockpit-ship", "The whole ship at rest: two repositories, four Jobs, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
     alsoServed: [{ root: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada`, manifest: pocketManifest }],
   });
   const jobs = JOBS.map((one) => one.job);
@@ -374,8 +389,10 @@ function build(): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands.
     later: [{}, { mergeLines: lines("red") }, { mergeLines: lines("fixed") }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control) },
+    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, tabs ? SESSIONS_TABS : SESSIONS) },
   };
 }
 
 export const s250CockpitShip: Scenario = build();
+/** The same ship for the tab bar's walk, with the Session that asked a question now replied. */
+export const s251CockpitShipTabs: Scenario = build(true);
