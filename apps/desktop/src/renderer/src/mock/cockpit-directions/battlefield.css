@@ -123,7 +123,7 @@
 .bf-hangar[data-face="right"] { fill: color-mix(in srgb, var(--fg-default) 7%, var(--bg-base)); }
 .bf-mast-line { stroke: var(--fg-subtle); stroke-width: 1.2; }
 .bf-mast-dot { fill: var(--fg-muted); }
-.bf-name { left: -80px; top: -16px; width: 160px; transform-origin: 50% 100%; text-align: center; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); line-height: 14px; pointer-events: none; text-shadow: 0 0 3px var(--bg-base), 0 0 6px var(--bg-base); }
+.bf-name { scale: clamp(1, 0.72 / var(--eye, 1), 1.7); left: -80px; top: -16px; width: 160px; transform-origin: 50% 100%; text-align: center; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); line-height: 14px; pointer-events: none; text-shadow: 0 0 3px var(--bg-base), 0 0 6px var(--bg-base); }
 
 .bf-pad { cursor: pointer; outline: none; }
 .bf-pad__ring { fill: color-mix(in srgb, var(--fg-default) 4%, transparent); stroke: var(--fg-subtle); stroke-opacity: 0.7; stroke-width: 1.4; }
@@ -145,7 +145,7 @@
 .bf-goal i { position: absolute; border-radius: 50%; pointer-events: none; }
 .bf-zone { left: -64px; top: -64px; width: 128px; height: 128px; border: 1.2px dotted color-mix(in srgb, var(--fg-subtle) 80%, transparent); }
 .bf-goal-rim { left: -28px; top: -28px; width: 56px; height: 56px; background: color-mix(in srgb, var(--fg-default) 8%, transparent); border: 1.4px solid var(--status-completed-success); box-shadow: 0 0 18px color-mix(in srgb, var(--status-completed-success) 45%, transparent), inset 0 0 14px color-mix(in srgb, var(--status-completed-success) 22%, transparent); pointer-events: auto !important; }
-.bf-flag-name { fill: var(--status-completed-success); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3.5; stroke-linejoin: round; pointer-events: none; }
+.bf-flag-name { transform-box: fill-box; transform-origin: 0 50%; scale: clamp(1, 0.72 / var(--eye, 1), 1.7); fill: var(--status-completed-success); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3.5; stroke-linejoin: round; pointer-events: none; }
 .bf-goal[data-red] .bf-flag-name { fill: var(--status-completed-failed); }
 .bf-pole { stroke: var(--status-completed-success); stroke-width: 2; stroke-linecap: round; }
 .bf-pennant { fill: var(--status-completed-success); fill-opacity: 0.9; }

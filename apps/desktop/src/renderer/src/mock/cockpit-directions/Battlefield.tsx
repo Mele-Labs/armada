@@ -46,10 +46,10 @@ const SIN = Math.sin((CAM.wide * Math.PI) / 180);
 const COS = Math.cos((CAM.wide * Math.PI) / 180);
 /** How much larger the field is than the pane, each way. */
 const WORLD = 1.8;
-/** How far the camera stands at home: back far enough to take the field in, never so far that a drone is too small to hit. */
-const HOME = { least: 0.6, most: 0.92 };
-/** The least a drone's hit box may stand on the screen at home, in pixels tall. */
-const HIT_LEAST = 56;
+/** The share of the pane left clear round the field at home, each side. */
+const HOME_MARGIN = 0.035;
+/** Below this zoom the type is too small to read: a drone's name and a plot's are dropped, and the callout names them. */
+const READABLE = 0.72;
 /** How close lock-on stands. */
 const LOCK_EYE = 1.5;
 /** How much one press of + or - zooms, and how far an arrow key pans, in screen pixels. */
@@ -637,23 +637,55 @@ export function Battlefield({
   const lock = selected === undefined ? undefined : layout.at.get(selected);
   const lockX = lock?.x;
   const lockY = lock?.y;
+  /**
+   * Where a screen offset from the middle of the pane lies on the plane, from the aim, in plane units at an eye of one: the camera's own
+   * projection undone (the yaw, the tilt and the perspective), so a point held under the pointer stays under it however far it is from the middle.
+   */
+  const unproject = (sx: number, sy: number, tilt: boolean): Point => {
+    const phi = ((tilt ? CAM.near : CAM.wide) * Math.PI) / 180;
+    const yaw = (CAM.yaw * Math.PI) / 180;
+    const depth = size.width * 2.8;
+    const y1 = (sy * depth) / (depth * Math.cos(phi) + sy * Math.sin(phi));
+    const x1 = (sx * (depth - y1 * Math.sin(phi))) / depth;
+    return { x: x1 * Math.cos(yaw) + y1 * Math.sin(yaw), y: -x1 * Math.sin(yaw) + y1 * Math.cos(yaw) };
+  };
+  // Where a point of the plane, at some height, lands on the screen from a camera: the same turn, scale and perspective the CSS applies.
+  const projectOf = (p: P3, c: Cam): Point => {
+    const phi = ((c.tilt ? CAM.near : CAM.wide) * Math.PI) / 180;
+    const yaw = (CAM.yaw * Math.PI) / 180;
+    const [dx, dy, z] = [(p.x - c.x) * c.eye, (p.y - c.y) * c.eye, p.z * c.eye];
+    const ux = dx * Math.cos(yaw) - dy * Math.sin(yaw);
+    const uy = dx * Math.sin(yaw) + dy * Math.cos(yaw);
+    const depth = size.width * 2.8;
+    const scale = depth / (depth - (uy * Math.sin(phi) + z * Math.cos(phi)));
+    return { x: ux * scale, y: (uy * Math.cos(phi) - z * Math.sin(phi)) * scale };
+  };
+  // The whole field at rest: every territory with its base and its flag, and every drone with its altitude and its name over it, inside the pane
+  // with a small margin, at whatever size the pane is. Found from the projection itself, so the perspective's growth toward the viewer is allowed for.
   const home = useMemo<Cam>(() => {
-    const marks: Point[] = layout.territories.flatMap((one) => [{ x: one.rect.x, y: one.rect.y }, { x: one.rect.x + one.rect.w, y: one.rect.y + one.rect.h + 40 }]);
+    const reach = SLAB.high + FOOT + MARGIN + 18 * big;
+    const marks: P3[] = [];
+    for (const one of layout.territories) {
+      const { rect } = one;
+      for (const x of [rect.x, rect.x + rect.w]) for (const y of [rect.y, rect.y + rect.h + 40]) marks.push({ x, y: y * FLAT, z: 0 });
+      if (one.goal !== undefined) marks.push({ x: one.goal.x, y: one.goal.y * FLAT, z: 78 }, { x: one.goal.x + 100, y: one.goal.y * FLAT, z: 40 });
+    }
+    for (const at of layout.at.values()) marks.push({ x: at.x - 38 * big, y: at.y * FLAT, z: reach + 40 * big }, { x: at.x + 38 * big, y: at.y * FLAT, z: reach + 40 * big }, { x: at.x, y: at.y * FLAT, z: 0 });
     if (marks.length === 0) return { x: plane.width / 2, y: plane.height / 2, eye: 0.8, tilt: false };
-    const l = Math.min(...marks.map((m) => m.x));
-    const r = Math.max(...marks.map((m) => m.x));
-    const t = Math.min(...marks.map((m) => m.y));
-    const b = Math.max(...marks.map((m) => m.y));
-    const fitted = Math.min(size.width / (r - l), size.height / ((b - t) * FLAT * COS)) * 0.82;
-    const floor = Math.max(HOME.least, HIT_LEAST / (56 * big));
-    if (fitted >= floor) return { x: (l + r) / 2, y: ((t + b) / 2) * FLAT, eye: Math.min(HOME.most, fitted), tilt: false };
-    // Too much field for the pane at a size a drone can be read at: stand at that size over the drones, the flags and the bases.
-    const action: Point[] = [...layout.at.values(), ...layout.territories.flatMap((one) => [...(one.goal === undefined ? [] : [one.goal]), { x: one.base.x, y: one.base.y }])];
-    const ax = (Math.min(...action.map((m) => m.x)) + Math.max(...action.map((m) => m.x))) / 2;
-    const ay = (Math.min(...action.map((m) => m.y)) + Math.max(...action.map((m) => m.y))) / 2;
-    return { x: ax, y: ay * FLAT, eye: floor, tilt: false };
+    let cam: Cam = { x: marks.reduce((sum, m) => sum + m.x, 0) / marks.length, y: marks.reduce((sum, m) => sum + m.y, 0) / marks.length, eye: 0.6, tilt: false };
+    for (let pass = 0; pass < 8; pass += 1) {
+      const shown = marks.map((m) => projectOf(m, cam));
+      const [l, r] = [Math.min(...shown.map((m) => m.x)), Math.max(...shown.map((m) => m.x))];
+      const [t, b] = [Math.min(...shown.map((m) => m.y)), Math.max(...shown.map((m) => m.y))];
+      const eye = cam.eye * Math.min((size.width * (1 - 2 * HOME_MARGIN)) / (r - l), (size.height * (1 - 2 * HOME_MARGIN)) / (b - t));
+      // What lay at the middle of the box now lies where the pane's middle is.
+      const there = unproject((l + r) / 2, (t + b) / 2, false);
+      cam = { ...cam, eye, x: cam.x + there.x / cam.eye, y: cam.y + there.y / cam.eye };
+    }
+    return cam;
   }, [layout, plane.width, plane.height, size, big]);
-  const eyes = { least: Math.max(0.3, Math.min(size.width / world.width, size.height / (plane.height * COS)) * 0.92), most: 2.6 };
+  // Out as far as the whole field, which is where it rests; in as far as a drone is large.
+  const eyes = { least: Math.min(home.eye, Math.max(0.3, Math.min(size.width / world.width, size.height / (plane.height * COS)) * 0.92)) * 0.98, most: 2.6 };
   const fit = (c: Cam): Cam => ({ ...c, eye: Math.min(eyes.most, Math.max(eyes.least, c.eye)), x: Math.min(plane.width, Math.max(0, c.x)), y: Math.min(plane.height, Math.max(0, c.y)) });
   const [held, setHeld] = useState<Cam | undefined>(camera.current);
   const [live, setLive] = useState(false);
@@ -727,18 +759,6 @@ export function Battlefield({
     const box = host.current?.getBoundingClientRect();
     return box === undefined ? { x: 0, y: 0 } : { x: box.left + box.width / 2, y: box.top + box.height / 2 };
   };
-  /**
-   * Where a screen offset from the middle of the pane lies on the plane, from the aim, in plane units at an eye of one: the camera's own
-   * projection undone (the yaw, the tilt and the perspective), so a point held under the pointer stays under it however far it is from the middle.
-   */
-  const unproject = (sx: number, sy: number, tilt: boolean): Point => {
-    const phi = ((tilt ? CAM.near : CAM.wide) * Math.PI) / 180;
-    const yaw = (CAM.yaw * Math.PI) / 180;
-    const depth = size.width * 2.8;
-    const y1 = (sy * depth) / (depth * Math.cos(phi) + sy * Math.sin(phi));
-    const x1 = (sx * (depth - y1 * Math.sin(phi))) / depth;
-    return { x: x1 * Math.cos(yaw) + y1 * Math.sin(yaw), y: -x1 * Math.sin(yaw) + y1 * Math.cos(yaw) };
-  };
   /** Zoom by a factor, keeping the point of the plane under (x, y) on the screen where it is. */
   const zoomAt = (factor: number, x: number, y: number, by: "hand" | "ease" = "hand") => {
     const c = latest.current;
@@ -754,7 +774,18 @@ export function Battlefield({
     const there = unproject(dx, dy, from.tilt);
     go({ ...from, x: from.x + there.x / from.eye, y: from.y + there.y / from.eye }, by);
   };
-  const homeAgain = () => go(home, "ease");
+  // Back to the fit: not a camera of his own, so the field refits as the pane changes, and what he left is forgotten.
+  const homeAgain = () => {
+    window.clearTimeout(quiet.current);
+    window.cancelAnimationFrame(frame.current);
+    frame.current = 0;
+    camera.current = undefined;
+    latest.current = home;
+    next.current = home;
+    setLive(false);
+    setPulled(false);
+    setHeld(undefined);
+  };
   const toSelection = () => (lockX === undefined || lockY === undefined ? homeAgain() : go({ x: lockX, y: (lockY - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease"));
   // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
   const first = useRef(camera.current !== undefined);
@@ -873,9 +904,11 @@ export function Battlefield({
   });
   // Labels: the selected drone's, the one under the pointer, then those that need him and those failing, each only where it
   // meets no label already drawn, so no two collide. Any other is named by its tip.
+  // Zoomed out to the whole field the type is too small to read: a name is dropped rather than drawn unreadable, and the callout says it.
+  const readable = eff.eye >= READABLE;
   const labels = new Set<string>();
   const taken: { l: number; r: number; t: number; b: number }[] = [];
-  const ranked = drones.filter((one) => one.shown && (one.key === selected || one.key === hot || one.hue !== "calm")).sort((a, b) => rank(a, selected, hot) - rank(b, selected, hot));
+  const ranked = drones.filter((one) => readable && one.shown && (one.key === selected || one.key === hot || one.hue !== "calm")).sort((a, b) => rank(a, selected, hot) - rank(b, selected, hot));
   for (const one of ranked) {
     const there = shownAt(one);
     if (there === undefined) continue;
@@ -978,7 +1011,7 @@ export function Battlefield({
       onClickCapture={onClick}
       onDoubleClick={onDouble}
       onKeyDown={onKeys}
-      style={vars({ "--pitch": `${pitch}deg`, "--yaw": `${CAM.yaw}deg`, perspective: `${Math.round(size.width * 2.8)}px` })}>
+      style={vars({ "--pitch": `${pitch}deg`, "--yaw": `${CAM.yaw}deg`, "--eye": eff.eye.toFixed(3), perspective: `${Math.round(size.width * 2.8)}px` })}>
       <svg className="bf-grain" aria-hidden="true" width="100%" height="100%">
         <filter id="bf-noise" x="0" y="0" width="100%" height="100%">
           <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="5" />
@@ -1022,7 +1055,7 @@ export function Battlefield({
                 const there = (heights.get(tile.path) ?? 0) * SIN;
                 const box = { l: tile.rect.x + 5, r: tile.rect.x + 9 + Math.min(room, tile.path.length) * 6.4, t: tile.rect.y - there - 16, b: tile.rect.y - there };
                 const meets = (o: { l: number; r: number; t: number; b: number }) => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t;
-                const named = hotTile === tile.path || (labelled.has(tile.path) && !bodies.some(meets) && !taken.some(meets));
+                const named = readable && (hotTile === tile.path || (labelled.has(tile.path) && !bodies.some(meets) && !taken.some(meets)));
                 const clash = clashAt.get(tile.path);
                 return (
                   <Slab
