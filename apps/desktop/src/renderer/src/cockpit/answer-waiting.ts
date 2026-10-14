@@ -16,10 +16,12 @@ export type WaitingAnswered = { kind: "answered" } | { kind: "gone" } | { kind: 
 
 export async function answerWaiting(request: AnswerWaiting): Promise<WaitingAnswered> {
   const done = await window.armada.answerWaiting(request);
-  // An answer sent from a card is him being in the Session. Without this the Session's older items came
-  // back as calls, since a Session he never opened holds no thread to date his message by.
-  if (done.ok) return markViewed(request.session_id), { kind: "answered" };
+  // An answer to a reply or a done is him being in the Session. Without this the Session's older items came
+  // back as calls, since a Session he never opened holds no thread to date his message by. A question
+  // answered is not: the Session's other questions still wait, and each is answered on its own.
+  const been = (): void => (request.item_id.startsWith("replied:") || request.item_id.startsWith("done:") ? markViewed(request.session_id) : undefined);
+  if (done.ok) return been(), { kind: "answered" };
   const outcome = done.outcome;
-  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD) return markViewed(request.session_id), { kind: "gone" };
+  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD) return been(), { kind: "gone" };
   return { kind: "refused", said: refusalWords(outcome) };
 }

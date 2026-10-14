@@ -5,12 +5,18 @@
 // hue and waits; w opens it and Enter answers it; Grid shows the tiles on the ruled background, with the tray
 // on every filter. Nothing is remembered. Over `cockpit-everything`.
 
+import { toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, tab, walk } from "../walk";
 
 const cockpit = region("Dashboard");
 const timeline = region("Timeline");
 const autopilot = button("Autopilot", { exact: true });
 const plan = region(/^Plan question/);
+const sessions = region("Sessions");
+const tray = role("group", "Calls waiting");
+const call = (title: RegExp) => region(title);
+const row = (title: string) => inside(sessions, role("listitem", title));
+const toCockpit = { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back to the Cockpit" } as const;
 
 const cockpitEverything = walk("cockpit-everything", [
   { look: timeline, say: "The Cockpit opens on the timeline, with nothing remembered" },
@@ -44,6 +50,30 @@ const cockpitEverything = walk("cockpit-everything", [
   { look: button(/^Check failed/), say: "The tray is there on every filter" },
   { press: tab("Bays"), say: "Bays" },
   { look: button(/^Check failed/), say: "And here" },
+
+  // What a Session is doing is one answer everywhere: `session-standing`.
+  { press: tab("Active"), say: "Active again" },
+  { press: button("Timeline"), say: "The timeline again" },
+  { later: cockpit, say: "Four Sessions report in: one replied, one is done, one went quiet mid-turn, one asked a question" },
+  { look: inside(timeline, role("list", "Needs you")), say: "The Session that replied and the one that is done stand in Needs you, beside the one that asked. Neither is moving and neither is stuck, though each ended on a live turn" },
+  { hover: inside(timeline, role("img", "Replied")), say: "A reply: its turn ended on a message to him" },
+  { hover: inside(timeline, role("img", "Done")), say: "Done: the agent said nothing is left" },
+  { look: inside(inside(timeline, role("list", "Stuck")), button(/^Session: Unused token audit/)), say: "Stuck holds the one Session that went quiet mid-turn, and neither of the two that ended their turns" },
+  toSessions,
+  { look: inside(row("Trim the fixture clock"), role("img", "Replied")), say: "The Sessions page shows the same Sessions with the same marks: a reply is the Reply glyph" },
+  { look: inside(row("Changelog script"), role("img", "Done")), say: "Done is the power glyph" },
+  { look: inside(row("Unused token audit"), role("img", "Stuck")), say: "And the quiet one reads Stuck here as it does on the timeline" },
+  toCockpit,
+  { look: inside(tray, button(/^Session: Cache key/)), say: "The question the agent asked waits in the tray. The reply and the done wait with it, raised from what happened and not from a tool call" },
+  { press: inside(tray, button(/^Session: Cache key/)), say: "Open the question" },
+  { key: "o", on: cockpit, say: "o opens the Session, to see what it asked" },
+  toCockpit,
+  { look: inside(tray, button(/^Session: Trim the fixture clock/)), say: "His question is gone from the calls: he was in the Session after it began waiting. The reply waits" },
+  { press: inside(tray, button(/^Session: Trim the fixture clock/)), say: "A press opens the reply: the agent's first line, with a box to answer in" },
+  { type: "Good. Merge it.\n", into: inside(call(/^Session: Trim the fixture clock/), role("textbox", "Message")), say: "Answered in words, and the card clears" },
+  { press: inside(tray, button(/^Session: Changelog script/)), say: "The done: end the Session, or keep going" },
+  { look: button(/Keep going/), say: "Keep going is the other act" },
+  { press: button(/End session/), say: "End session, and the card clears" },
 ]);
 
 export { cockpitEverything as "cockpit-everything" };

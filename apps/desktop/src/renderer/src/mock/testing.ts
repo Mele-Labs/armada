@@ -7,6 +7,7 @@ import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 
+import { forgetViewed } from "../cockpit/viewed";
 import type { FakeOptions } from "./fake";
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
@@ -52,6 +53,8 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.dashboard-tab");
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
+  // And when he was last in each Session: an answer sent from a card marks the Session viewed, which drops its older calls.
+  forgetViewed();
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";
