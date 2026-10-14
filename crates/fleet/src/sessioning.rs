@@ -904,6 +904,7 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         mod_out_of_date: false,
         waiting_for: Vec::new(),
         done_since: None,
+        standing: None,
         held_until: None,
         context_breakdown: None,
         helm: false,

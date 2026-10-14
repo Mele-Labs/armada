@@ -600,6 +600,12 @@ where
                 // Delivered, so the item goes now: a failed send above leaves it standing.
                 self.drop_answered(&id, &item.id).await
             }
+            // Derived from the turn and `done_since`, never kept: the person's words are a message to
+            // the Session, which is what makes either stop standing, so there is nothing to drop.
+            WaitingSource::Replied | WaitingSource::Done => {
+                let body = both.clone().unwrap_or_default();
+                self.send_known(terminal.then_some(session), message(body)).await
+            }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "the first message is settled by sending it, from the Session's message box",
