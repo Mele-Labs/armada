@@ -7,7 +7,7 @@
 // A scene arrives as `unknown` (a Drone wrote it) and `parseScene` is the only way in. **A scene
 // that does not validate is `undefined` and draws nothing**: no partial drawing, no repaired one.
 
-import type { SketchPoint, SketchStroke } from "../SketchPad/Ink";
+import type { SketchPoint, SketchStroke } from "../SketchPad/ink-types";
 
 export const SCENE_KINDS = ["box", "group", "lane", "label", "code", "wire"] as const;
 export type SceneKind = (typeof SCENE_KINDS)[number];
