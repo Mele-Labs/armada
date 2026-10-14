@@ -231,9 +231,15 @@ refused, and a `..` is resolved by reading before the path is placed.
 
 **Setup's session is the one exception** (the owner, 13 Oct 2026). Started by `root` in a
 repository with no `armada.yml`, it has no pool to lease from, so until that root's
-Manifest is served it writes only `armada.yml` and `.gitignore` at the root and is
-refused anything else. Fleet loads the Manifest when one of its turns ends, and from its
-next write the session leases a slot like any other.
+Manifest is served it writes only its setup files and is refused anything else: a file
+named `armada.yml` or `.gitignore` at any depth under the root, one for each workspace of
+a monorepo, and `<root>/.git/info/exclude` (the owner, 14 Oct 2026). A path is placed
+after its `..` is resolved, so one that climbs out of the root is refused, and nothing
+else under `.git` is a setup file. Fleet loads the Manifest when one of its turns ends,
+and from its next write the session leases a slot like any other, **save its setup
+files, which still land in the checkout**: an ignored file written on a slot branch
+would never reach it. The hosting row's `setup` marks the session as Setup's, so the
+window outlasts the `manifest_id` it is bound to.
 
 The same slots decide for **every write path alike**:
 

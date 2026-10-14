@@ -117,6 +117,13 @@ where
         if matches!(touching, Touch::Nothing) {
             return GateAnswer::pass();
         }
+        // Setup's window stays open once its Manifest is served: an app's armada.yml written a
+        // turn later belongs in the checkout, where a slot branch would never bring it.
+        if let (true, Touch::File(path)) = (hosting.setup, &touching) {
+            if setup_file(&absolute(&gate, path), &root) {
+                return GateAnswer::pass();
+            }
+        }
         if let (Some(slot), true) = (own, self.hosts().of(&id).state().moving.is_some()) {
             return GateAnswer::deny(waiting_to_move(slot, &directory));
         }
@@ -206,6 +213,8 @@ where
             .clone();
         let served = self.repositories().serving(manifest.as_str())?;
         hosting.manifest_id = manifest.as_str().to_string();
+        // Only Setup's session reaches here, including one started before the mark was kept.
+        hosting.setup = true;
         session.manifest_id = Some(hosting.manifest_id.clone());
         {
             let mut store = self.store().lock().await;
@@ -386,29 +395,43 @@ pub(super) enum Taken {
     Gone,
 }
 
-/// The files Setup's session may write at its root, and nothing else, until the
-/// Manifest it writes is served (the owner, 13 Oct 2026).
-const SETUP_WRITES: [&str; 2] = ["armada.yml", ".gitignore"];
+/// The files Setup's session writes in the checkout, by name at any depth, plus
+/// `.git/info/exclude` (the owner, 14 Oct 2026: a monorepo has one `armada.yml` per app).
+const SETUP_NAMES: [&str; 2] = ["armada.yml", ".gitignore"];
+
+/// A file tool's path, made absolute against where the call stands, `.` and `..` resolved.
+fn absolute(gate: &SessionGate, path: &str) -> String {
+    match path.starts_with('/') {
+        true => normalised(path),
+        false => normalised(&format!("{}/{path}", gate.cwd.trim_end_matches('/'))),
+    }
+}
+
+/// Whether `at`, absolute and normalised, is a setup file of `root`'s own checkout. Nothing
+/// under a slot, and nothing else under `.git`.
+fn setup_file(at: &str, root: &str) -> bool {
+    let root = root.trim_end_matches('/');
+    if place_of(at, root) != Place::Main || at == root {
+        return false;
+    }
+    if at == format!("{root}/.git/info/exclude") {
+        return true;
+    }
+    let named = at.rsplit('/').next().unwrap_or_default();
+    !at.starts_with(&format!("{root}/.git/")) && SETUP_NAMES.contains(&named)
+}
 
 /// Setup's session's call, before `root` has a Manifest. A relative path is read
 /// against where the call stands.
 fn setting_up(gate: &SessionGate, root: &str) -> GateAnswer {
     let root = root.trim_end_matches('/');
-    let allowed = |path: &str| {
-        let at = match path.starts_with('/') {
-            true => normalised(path),
-            false => normalised(&format!("{}/{path}", gate.cwd.trim_end_matches('/'))),
-        };
-        SETUP_WRITES
-            .iter()
-            .any(|file| at == format!("{root}/{file}"))
-    };
     match touch(gate) {
         Touch::Nothing => GateAnswer::pass(),
-        Touch::File(path) if allowed(&path) => GateAnswer::pass(),
+        Touch::File(path) if setup_file(&absolute(gate, &path), root) => GateAnswer::pass(),
         Touch::File(_) | Touch::Shell(_) => GateAnswer::deny(format!(
-            "Until this repository's armada.yml is served, this session writes only {root}/armada.yml \
-             and {root}/.gitignore, with the Write or Edit tool. Nothing else is written here."
+            "Until this repository's armada.yml is served, this session writes only a file named \
+             armada.yml or .gitignore anywhere under {root}, and {root}/.git/info/exclude, with \
+             the Write or Edit tool. Nothing else is written here."
         )),
     }
 }
