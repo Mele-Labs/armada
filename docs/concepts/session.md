@@ -476,6 +476,8 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 > **Rule.** The ledger follows the forge through its own attach.
 > Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`, and `body` where the author wrote one) is Fleet's reading of the same pull request, so one writer is not two.
 
+**Only a failed required check is `checks: failed`.** Where a repository names a gate (`ci`), a check outside it that is red while the gate runs reads `pending`, and one red after the gate passed reads `passed`, with its name still in `failing`. Bridge draws those two as a tinted chip and leaves the Session's row alone; only `failed` puts a Session under Idle with a red mark, and a Session that waits on the person is under Needs you whatever its checks say. Fleet refuses a merge on all three.
+
 **The three writes are a person's ask, `pushes to shared`.** The operations are `Helm only`, and Helm calls them on a person's ask. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
 
 **A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
