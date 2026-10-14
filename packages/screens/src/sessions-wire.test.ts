@@ -610,7 +610,7 @@ describe("a session its agent was started by another to hold", () => {
 
 describe("a question that lapsed", () => {
   const questions = [{ question: "Which night?", header: "Night", multi_select: false, options: [{ label: "Friday", description: "" }] }];
-  const ask = (id: string, state: "unanswered" | "waiting" | "allowed_once", asked = questions): SessionRow => ({
+  const ask = (id: string, state: "unanswered" | "refused" | "waiting" | "allowed_once", asked = questions): SessionRow => ({
     kind: "ask",
     id,
     at: AT,
@@ -621,6 +621,10 @@ describe("a question that lapsed", () => {
 
   it("is the last unanswered ask that carried questions", () => {
     expect(lapsedOf([said("1"), ask("2", "unanswered")])).toEqual({ id: "2", questions });
+  });
+
+  it("is a skipped question too, so a press by mistake can be undone", () => {
+    expect(lapsedOf([said("1"), ask("2", "refused")])).toEqual({ id: "2", questions });
   });
 
   it("is gone once the person has said anything after it", () => {
