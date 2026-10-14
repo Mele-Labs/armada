@@ -193,3 +193,36 @@ async fn once_its_manifest_is_served_a_setup_session_leases_a_slot_like_any_othe
         Some(ManifestId::carried("01SETUPMANIFEST"))
     );
 }
+
+/// **Its door places it and answers its permission prompt with no Manifest**: the
+/// agent CLI ended at the first such call when the door offered it nothing.
+#[tokio::test]
+async fn a_setup_sessions_permission_prompt_is_answered_with_no_manifest() {
+    use api::{Admitting, Conversations};
+
+    let rig = rig_placing(None);
+    let home = TempDir::new();
+    let root = unset_up(&rig, &home);
+    let id = rig
+        .fleet
+        .start_session(setting_up(&root))
+        .await
+        .expect("started")
+        .id;
+    rig.send(&id, "set this repository up").await;
+
+    let caller = api::Caller::at("127.0.0.1:50999".parse().expect("an address"));
+    let reach = rig.fleet.helm_at(caller).expect("its connection is placed");
+    assert!(reach.is_a_hosted_session() && reach.may("ask_the_person"));
+    let asking: ipc::AskingToRun = ipc::decode(
+        "an ask",
+        br#"{"tool_name":"Bash","input":{"command":"git branch --show-current"}}"#,
+    )
+    .expect("an ask");
+    let decided = rig
+        .fleet
+        .ask_the_person_at(asking, None, caller)
+        .await
+        .expect("answered");
+    assert!(matches!(decided, ipc::RunOrNot::Allow { .. }), "{decided:?}");
+}

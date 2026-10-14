@@ -75,7 +75,16 @@ pub fn speak() -> ExitCode {
 fn reached() -> Result<(Loopback, String, Option<String>), String> {
     let cwd = std::env::current_dir()
         .map_err(|why| format!("the working directory could not be read: {why}"))?;
-    let standing = standing_in(&cwd)?;
+    let session = std::env::var(adapters::leasing::Holder::SESSION_ENV).ok();
+    let standing = match door_for(standing_in(&cwd), session.as_deref())? {
+        Door::Within(standing) => standing,
+        Door::WithoutAManifest => {
+            let at = runtime::machine_path().map_err(|why| why.to_string())?;
+            let fleet = Loopback::at(listening(runtime::read(&at), &at)?);
+            answering(&fleet)?;
+            return Ok((fleet, api::door_without_a_manifest(), None));
+        }
+    };
     let adopted = standing.adopted();
     let at = runtime::machine_path().map_err(|why| why.to_string())?;
     let fleet = Loopback::at(listening(runtime::read(&at), &at)?);
@@ -88,6 +97,29 @@ fn reached() -> Result<(Loopback, String, Option<String>), String> {
     })?;
     answering(&fleet)?;
     Ok((fleet, api::door_within(standing.id()), adopted))
+}
+
+/// Which door a relay posts to.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Door {
+    Within(Standing),
+    /// A session Fleet hosts, in a root with no `armada.yml`: Setup's.
+    WithoutAManifest,
+}
+
+/// **A session Fleet started is relayed even where there is no Manifest**,
+/// because its `--permission-prompt-tool` is on this door and a door with no
+/// tools ends the session at its first call. Fleet places it by connection and
+/// serves it its own acts only. Anything else with no Manifest is refused here.
+pub(crate) fn door_for(
+    standing: Result<Standing, String>,
+    session: Option<&str>,
+) -> Result<Door, String> {
+    match (standing, session.map(str::trim).filter(|id| !id.is_empty())) {
+        (Ok(standing), _) => Ok(Door::Within(standing)),
+        (Err(_), Some(_)) => Ok(Door::WithoutAManifest),
+        (Err(why), None) => Err(why),
+    }
 }
 
 /// The Manifest a session resolved to, and where it was found.

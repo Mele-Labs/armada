@@ -11,7 +11,7 @@ use fleet::process::StartedAt;
 use fleet::runtime::{Presence, RuntimeFile, Staleness};
 use ipc::{ManifestId, ManifestSummary, ProtocolId};
 
-use crate::mcp::{found_in, posted_patiently, listening, noting, publish, refused, standing_in, stands_in};
+use crate::mcp::{door_for, found_in, posted_patiently, Door, listening, noting, publish, refused, standing_in, stands_in};
 use crate::tests::{repository, TempDir};
 
 fn file(id: ProtocolId) -> RuntimeFile {
@@ -103,6 +103,33 @@ fn a_repository_with_no_manifest_ends_the_walk_rather_than_escaping_it() {
     assert!(said.contains("has not been set up for"), "{said}");
     assert!(said.contains(&inner.display().to_string()), "{said}");
     assert!(!said.contains("01OUTERMANIFEST"), "{said}");
+}
+
+/// **A session Fleet hosts is relayed in a root with no Manifest**: Setup's
+/// session runs where `armada.yml` is not written yet, and its permission tool
+/// is on this door, so a door with no tools ended it at its first call.
+#[test]
+fn a_hosted_session_in_a_root_with_no_manifest_is_still_relayed() {
+    let root = TempDir::new();
+    std::fs::create_dir_all(root.path().join(".git")).expect("a repository");
+
+    assert_eq!(
+        door_for(standing_in(root.path()), Some("f7e84798")),
+        Ok(Door::WithoutAManifest)
+    );
+}
+
+/// **Anything else with no Manifest is still told why and offered nothing**:
+/// nothing names a session Fleet could answer it as.
+#[test]
+fn a_folder_no_session_stands_in_is_refused_as_before() {
+    let root = TempDir::new();
+    std::fs::create_dir_all(root.path().join(".git")).expect("a repository");
+
+    for session in [None, Some(""), Some("  ")] {
+        let said = door_for(standing_in(root.path()), session).expect_err("no session");
+        assert!(said.contains("has not been set up for"), "{said}");
+    }
 }
 
 /// The other end of the walk. **A Manifest in a home directory is not every
