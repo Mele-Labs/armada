@@ -208,7 +208,7 @@ const SCRATCH: &[&str] = &[
 
 /// Whether `path` is under `directory`, a relative path being read against it.
 /// **Read where it lands**: a `..` and a symlink are followed first, so
-/// `/tmp/../Users/x` is not scratch and `slot/a/../b` is the slot's own.
+/// `/tmp/../etc/hosts` is not scratch and `slot/a/../b` is the slot's own.
 fn inside_the_directory(path: &str, directory: &str) -> bool {
     match (resolved(path, directory), resolved(directory, "/")) {
         (Some(path), Some(directory)) => path.starts_with(directory),
