@@ -392,6 +392,7 @@
 @import "./compositions/WorkflowCreator/WorkflowCreator.css";
 @import "./compositions/WorkflowTriggers/WorkflowTriggers.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
+@import "./compositions/RegisteredOwner/RegisteredOwner.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/SessionThread/SessionThread.css";
 @import "./compositions/SessionThread/StartedRow.css";
