@@ -258,6 +258,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route("/sessions/done", post(crate::sessions::all_done::<D>))
+        .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))
         .route(
             "/sessions/waiting/answer",
             post(crate::hosted_sessions::answer_waiting::<D>),

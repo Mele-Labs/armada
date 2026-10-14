@@ -200,6 +200,14 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn finish_up(
+        &self,
+        _caller: Option<crate::Caller>,
+        _finish: ipc::FinishUp,
+    ) -> Result<ipc::FinishedUp, Refusal> {
+        Ok(ipc::FinishedUp::default())
+    }
+
     async fn all_done(
         &self,
         _caller: Option<crate::Caller>,

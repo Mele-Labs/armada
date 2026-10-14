@@ -421,7 +421,7 @@ where
     }
 
     /// The session a call is about: the hosted one holding the connection, else the named one.
-    fn waiting_session(
+    pub(super) fn waiting_session(
         &self,
         caller: Option<api::Caller>,
         named: Option<&ipc::SessionId>,

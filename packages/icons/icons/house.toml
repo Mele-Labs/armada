@@ -1,0 +1,7 @@
+[icons.house]
+  means = "A house: the shared home"
+  group = "Shared home"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "The shared home, a private repository holding a person's Kit, and a row that is only in it. Never a home screen, an overview or a landing page."
+  notes = "Minted 13 Oct 2026 for the walk `shared-home`. The home is called a home, so the mark is a house. On the Kit page's header chip beside the account, and on a row that is only in the home, tooltip `Only in the home`."

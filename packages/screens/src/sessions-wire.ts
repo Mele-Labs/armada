@@ -230,15 +230,15 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
 }
 
 /**
- * The last ask whose time ran out with questions in it, while nothing the person said and no newer
- * question came after it. Reading back from the end, the first of those stops the search.
+ * The last ask with questions in it that nobody answered in time or that was skipped, while nothing the
+ * person said and no newer question came after it. Reading back from the end, the first of those stops the search.
  */
 export function lapsedOf(rows: readonly WireRow[]): Session["lapsed"] {
   for (let at = rows.length - 1; at >= 0; at -= 1) {
     const row = rows[at]!;
     if (row.kind === "message" && row.from.kind === "you") return undefined;
     if (row.kind !== "ask" || row.ask.questions === undefined || row.ask.questions.length === 0) continue;
-    return row.state === "unanswered" ? { id: row.id, questions: row.ask.questions } : undefined;
+    return row.state === "unanswered" || row.state === "refused" ? { id: row.id, questions: row.ask.questions } : undefined;
   }
   return undefined;
 }

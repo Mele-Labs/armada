@@ -9,7 +9,10 @@
 use std::sync::Arc;
 
 use api::HostedSessions;
-use ipc::{AnswerSessionAsk, AskingToRun, HelmCallAnswer, QuestionAnswer, RunOrNot, SessionId};
+use ipc::{
+    AnswerSessionAsk, AskingToRun, HelmCallAnswer, QuestionAnswer, RunOrNot, SessionAskState,
+    SessionId, SessionRow,
+};
 
 use super::session_host::{eventually, rig_placing, Rig};
 
@@ -162,4 +165,42 @@ async fn a_skipped_question_tells_the_agent_so() {
         held.await.unwrap().unwrap(),
         RunOrNot::Deny { .. }
     ));
+}
+
+#[tokio::test]
+async fn a_question_nobody_answers_in_the_hold_keeps_its_options_on_the_unanswered_row() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
+    waiting_on(&rig, &id).await;
+
+    // The rig's hold is two seconds; nobody answers.
+    let RunOrNot::Deny { message } = held.await.unwrap().unwrap() else {
+        panic!("a question nobody answered does not run");
+    };
+    assert!(message.contains("Nobody answered this within 2 seconds"), "{message}");
+
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
+    assert!(record.session.hosted.unwrap().asked.is_none(), "the lapsed ask is no longer live");
+    let lapsed: Vec<_> = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Ask { ask, state, .. } => Some((ask, state)),
+            _ => None,
+        })
+        .collect();
+    let [(ask, state)] = lapsed.as_slice() else {
+        panic!("one ask row, settled in place: {lapsed:?}");
+    };
+    assert_eq!(*state, SessionAskState::Unanswered);
+    // What the card needs to be read afterwards, not just the fact it lapsed.
+    assert_eq!(ask.questions.len(), 2);
+    assert_eq!(ask.questions[0].question, "Which toppings?");
+    assert_eq!(ask.questions[0].options[1].label, "ham");
+    assert_eq!(ask.questions[0].options[1].description, "Cured");
+    assert_eq!(ask.questions[1].options[0].description, "Small");
 }

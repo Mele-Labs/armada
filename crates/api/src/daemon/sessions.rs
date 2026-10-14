@@ -139,6 +139,15 @@ pub trait Sessions: Send + Sync + 'static {
         done: ipc::AllDone,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `finish_up` — the agent gives back the slots, merged branches and servers it is finished with.
+    /// `caller` places a hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places
+    /// no session, and a refusal for a session in a terminal.
+    fn finish_up(
+        &self,
+        caller: Option<crate::Caller>,
+        finish: ipc::FinishUp,
+    ) -> impl Future<Output = Result<ipc::FinishedUp, Refusal>> + Send;
+
     /// `list_sessions` — the most recently seen first. `manifest_id` absent is
     /// every session on the machine, `text` finds one by title, branch, pull
     /// request, Job or slot, and `state` absent is both.

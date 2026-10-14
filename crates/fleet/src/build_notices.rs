@@ -150,7 +150,7 @@ where
             // A wait for this build is answered with the notice itself, so the session wakes once.
             let told = match settling.next() {
                 Some(item) => Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok(),
-                None => matches!(self.told_by_fleet(&session, &text).await, Ok(true)),
+                None => matches!(self.told_news_by_fleet(&session, &text).await, Ok(true)),
             };
             if !told {
                 everyone = false;

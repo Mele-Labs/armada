@@ -83,7 +83,7 @@ test("All repositories asks for one rather than drawing a tier that answers for 
   // **The ask takes the servers' place and not the screen.** What a person
   // already has is this machine's, so it answers with no repository picked —
   // #1491. The second tier is the only half that needs one.
-  await expect.element(page.getByText("What you already have")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
   await expect.element(page.getByText("humanizer", { exact: true })).toBeVisible();
 });
 
@@ -96,7 +96,7 @@ test("All repositories asks for one rather than drawing a tier that answers for 
 test("Kit opens on the setup a person already works with", async () => {
   await kit();
 
-  await expect.element(page.getByText("What you already have")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
   await expect.element(page.getByText("humanizer", { exact: true })).toBeVisible();
   await expect.element(page.getByText("code-simplifier@official")).toBeVisible();
   await expect.element(page.getByText(/would not read/)).toBeVisible();
@@ -132,9 +132,9 @@ test("a server Armada can see is not a server a Drone gets", async () => {
 test("Kit names the home each half came from", async () => {
   await kit();
 
-  await expect.element(page.getByText("What you already have")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "An agent CLI" })).toBeVisible();
   await expect.element(page.getByText("An agent CLI")).toBeVisible();
-  await expect.element(page.getByText("What Armada holds")).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Armada", exact: true })).toBeVisible();
   await expect.element(page.getByText(/edited where it lives/)).toBeVisible();
 });
 
@@ -148,13 +148,13 @@ test("Kit names the home each half came from", async () => {
 test("at a short window, the wheel brings Kit's last control on screen", async () => {
   await page.viewport(1440, 856);
   await kit({ kitServers: KIT_SERVERS });
-  const own = page.getByRole("region", { name: "What Armada holds" });
+  const own = page.getByRole("region", { name: "Armada", exact: true });
   await expect.element(own.getByRole("combobox", { name: "Here: nexus" })).toBeInTheDocument();
   const controls = own.element().querySelectorAll("button, select, input");
   const last = controls[controls.length - 1]!;
   expect(pressable(last)).toBe(false);
 
-  await userEvent.wheel(page.getByText("What you already have"), { delta: { y: 400 }, times: 10 });
+  await userEvent.wheel(page.getByRole("heading", { name: "An agent CLI" }), { delta: { y: 400 }, times: 10 });
   await expect.poll(() => pressable(last)).toBe(true);
 });
 

@@ -458,6 +458,26 @@ pub struct AllDone {
     pub session_id: Option<SessionId>,
 }
 
+/// `finish_up`: the agent is finished with its slots, branches and servers, and asks Fleet to give
+/// them back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FinishUp {
+    /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `finish_up` gave back and what it kept.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FinishedUp {
+    /// The slots released.
+    pub released: Vec<u32>,
+    /// The local branches deleted, each already in the base.
+    pub deleted_branches: Vec<String>,
+    /// What stayed, one sentence each, with why.
+    pub kept: Vec<String>,
+}
+
 /// How the agent is told to settle an item itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

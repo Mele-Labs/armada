@@ -1013,6 +1013,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                       const lapse = session.lapsed!.id;
                       void draft.send(session.id, { text: lapsedAnswerText(answers), files: [], sketches: [], tags: [] })?.then((went) => went && setAnsweredLapse(lapse));
                     },
+                    onSkip: () => setAnsweredLapse(session.lapsed!.id),
                   },
                 })}
             onOpenSession={onOpen}

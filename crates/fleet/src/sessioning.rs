@@ -653,6 +653,14 @@ where
         self.say_done(caller, done).await
     }
 
+    async fn finish_up(
+        &self,
+        caller: Option<api::Caller>,
+        finish: ipc::FinishUp,
+    ) -> Result<ipc::FinishedUp, Refusal> {
+        self.finished_up(caller, finish).await
+    }
+
     async fn start_session_run(
         &self,
         start: ipc::StartSessionRun,
