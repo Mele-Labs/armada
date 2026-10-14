@@ -116,6 +116,7 @@ test("n opens the title bar's one bar from the panel, ready for the work", async
 });
 
 test("a call arrives in the tray on every filter and covers nothing, w opens it, and the next arrives after", async () => {
+  remembering({ [VIEW]: "grid" });
   await dashboard();
   expect(behind(/^Plan question/).query()).toBeNull();
   timePasses();

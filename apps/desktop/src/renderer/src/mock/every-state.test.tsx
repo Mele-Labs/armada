@@ -9,13 +9,14 @@
 // (#1339). `test.for` gives each Job its own budget, the Done fold included,
 // and the roster the loop opened with is a test of its own.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { scenarioNamed } from "./scenario";
-import { mount, listed, rows, unmountAfterEach } from "./testing";
+import { mount, listed, rememberingTheGrid, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+beforeEach(rememberingTheGrid);
 
 /**
  * Every Job `every-state` holds, read while the file is collected so each one

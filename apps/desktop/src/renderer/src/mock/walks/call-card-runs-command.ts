@@ -8,6 +8,7 @@ const cockpit = region("Dashboard");
 const card = region(/^Session: Debug Bridge on Merge line/);
 
 const callCardRunsCommand = walk("call-card-runs-command", [
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { key: "w", on: cockpit, say: "w opens the first call in the tray" },
   { look: inside(card, text("kill $(lsof -ti tcp:5788)")), say: "A command he runs: the command on the card, in the case it was written" },
   { hover: inside(card, text("kill $(lsof -ti tcp:5788)")), say: "Hover the command: the same play control as in the Session" },

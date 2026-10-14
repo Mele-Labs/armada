@@ -12,6 +12,7 @@ const check = region(/^Check failed/);
 
 const cockpitCallsArrive = walk("cockpit-calls-arrive", [
   { look: tab("Active"), say: "One filter for what is live, and the one the Cockpit opens on" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: inside(glass, role("option", /Cache the manifest read/)), say: "Two Jobs at work, and nothing in front of them" },
   { later: cockpit, say: "Time passes, and nothing is new" },
   { later: cockpit, say: "A Drone reaches a question" },

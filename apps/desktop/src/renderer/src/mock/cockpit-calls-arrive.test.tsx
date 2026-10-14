@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { settle } from "../cockpit/CallAlerts";
 import { forgetDismissals } from "../cockpit/dismissed";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -17,6 +17,7 @@ const FILTER = "armada.bridge.dashboard-tab";
 const SAVED = { ...settle };
 beforeEach(() => {
   forgetDismissals();
+  rememberingTheGrid();
   settle.ms = 0;
 });
 afterEach(() => Object.assign(settle, SAVED));
