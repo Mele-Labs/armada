@@ -247,7 +247,11 @@ writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-q
 overwrites something outside the slots the session holds and `/tmp`: **every** slot the
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
-written at all is the gate's.
+written at all is the gate's. **What the session started or made is its own to remove**
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
+branch and the branches of slots it holds, once the base holds every commit on them, and
+`rm` under `$TMPDIR` as under `/tmp`.
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches

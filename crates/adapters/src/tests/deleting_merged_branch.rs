@@ -2,7 +2,7 @@
 //! base counts, since a merge lands there before the local base catches up.
 
 use super::repo::TempRepo;
-use crate::reclaim::delete_merged_branch;
+use crate::reclaim::{branch_is_merged, delete_merged_branch};
 
 fn ref_at(repo: &TempRepo, name: &str, commit: &str) {
     let id = git2::Oid::from_str(commit).expect("an object id");
@@ -57,4 +57,18 @@ fn a_branch_already_gone_is_not_an_error_and_the_base_is_never_deleted() {
     assert_eq!(delete_merged_branch(&repo.root_str(), "armada/session-2"), Ok(false));
     let refused = delete_merged_branch(&repo.root_str(), "main").unwrap_err();
     assert!(refused.contains("is the base"), "{refused}");
+}
+
+#[test]
+fn a_branch_is_merged_only_when_the_base_holds_it_and_nothing_is_deleted_to_say_so() {
+    let repo = TempRepo::with_a_commit();
+    let first = repo.head_str();
+    let tip = child_of(&repo, &first);
+    ref_at(&repo, "refs/heads/armada/session-1", &tip);
+    assert!(!branch_is_merged(&repo.root_str(), "armada/session-1"));
+
+    ref_at(&repo, "refs/remotes/origin/main", &tip);
+    assert!(branch_is_merged(&repo.root_str(), "armada/session-1"));
+    assert!(exists(&repo, "armada/session-1"));
+    assert!(!branch_is_merged(&repo.root_str(), "armada/session-gone"));
 }
