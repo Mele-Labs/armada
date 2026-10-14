@@ -3,7 +3,7 @@
   group = "Sleep mode"
   size = "16px"
   status = "Specified"
-  reserved = "Sleep mode, the toggle in the title row, and nothing else. Never a dark theme."
+  reserved = "Sleep mode: its entry in the title row's menu and the mark that menu's button carries while it is on, and nothing else. Never a dark theme."
   notes = "Approved 9 Oct 2026 with sleep mode."
 
   [[icons.moon.usage]]

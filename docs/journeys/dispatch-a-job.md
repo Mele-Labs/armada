@@ -20,7 +20,7 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open the Cockpit (scoped to a Manifest by the title row's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
+Open the Cockpit (scoped to a Manifest by the rail's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
 
 ## The dispatch panel
 

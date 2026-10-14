@@ -112,7 +112,7 @@ The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`).
 
 ### Which machine owned a pull request
 
-**A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub login can tell who had it.** It is a small central store keyed by the login, and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
+**A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub account can tell who had it.** It is a small central store, set up by [signing in](account.md), and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
 
 | Field | Holds |
 |---|---|
@@ -719,7 +719,7 @@ Not measured.
 
 ## Sleep mode
 
-The owner turns on the moon in Bridge's title row before bed (`set_sleep`), and sessions and Jobs keep going until only he can unblock them. `get_sleep` reads the switch and the night's rows; turning it on starts a new night and clears the last one's rows.
+The owner turns on Sleep from the menu in Bridge's title row before bed (`set_sleep`), and the menu button carries the moon while it is on. Sessions and Jobs keep going until only he can unblock them. `get_sleep` reads the switch and the night's rows; turning it on starts a new night and clears the last one's rows.
 
 While it is on, a pass over every live session's waiting items (`crates/fleet/src/sleeping.rs`, riding the pull-request notice tick) works like this:
 

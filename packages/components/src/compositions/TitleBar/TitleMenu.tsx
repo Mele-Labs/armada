@@ -74,7 +74,7 @@ export function TitleMenu({ sleep, settings, narrow }: TitleMenuProps) {
 
   if (account === undefined && sleep === undefined && settings === undefined && narrow === undefined) return null;
 
-  const said = sleeping ? "Menu, sleep mode on" : signedOut ? "Menu, signed out" : "Menu";
+  const said = ["Menu", ...(sleeping ? ["sleep mode on"] : []), ...(signedOut ? ["signed out"] : [])].join(", ");
   return (
     // Pressing anywhere in the menu is not the first use of Bridge that turns Sleep off.
     <div className="armada-title-bar__menu armada-popover" ref={root} data-keeps-sleep="">
@@ -98,9 +98,8 @@ export function TitleMenu({ sleep, settings, narrow }: TitleMenuProps) {
             <span className="armada-title-menu__moon" aria-hidden>
               <Moon size={12} strokeWidth={2} fill="currentColor" />
             </span>
-          ) : signedOut ? (
-            <span className="armada-title-menu__attention" aria-hidden />
           ) : null}
+          {signedOut ? <span className="armada-title-menu__attention" aria-hidden /> : null}
         </span>
       </span>
       {open ? (
