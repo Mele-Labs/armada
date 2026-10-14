@@ -863,6 +863,19 @@ A step may declare `manifest_rule:review_gate` and no Judge criterion — Code R
 
 The gate names a tier the step never declared, so advancing would advance on the mechanical tier alone while reading as judged. That is what a workflow file spelling `auto_if_judge_passes` outright is refused for at parse time; it cannot be refused there through a policy, because the file does not say what the policy is. So it is refused where the resolution happens, and refusing means holding rather than failing: the step passed every tier it declared, and nothing a Drone can do from a worktree would fix a configuration mismatch. Fleet writes a line into the Job's log naming the file to fix.
 
+## Pull request owners
+
+**`policy.pull_request_owners` puts this repository in the central store.** Its claims on a red main and its pull requests' registered owners go there, so a Fleet on another machine signed in to the same account sees them. [Merge line](../capabilities/merge-line.md), *Fixing a red across machines*; [Account](account.md).
+
+```yaml
+policy:
+  pull_request_owners: true
+```
+
+- **Off unless the file says `true`.** Absent or `false` claims nothing, registers nothing and draws nothing of another machine's. Anything else is refused at the key.
+- **The root's to say.** A workspace's file that names it is refused, because the claim is on the repository and a second value would be one nothing reads.
+- **Live.** It is read at each take, so turning it off is answered at the next one. `policy` holds this one key; any other is refused.
+
 ## What every change here carries
 
 **`standing_rules: <path>` names a file in the repository, and every Judge brief carries it.** A Judge reads it as what this repository requires of every change, labelled as a standard rather than the work and placed after the request. Without it, a Judge asked whether work stays inside the request reads a repository's own rules as scope expansion: one refused a plan for fixing the prose its change made wrong, in a repository whose gate refuses a change that leaves prose wrong.
