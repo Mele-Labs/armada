@@ -10,7 +10,7 @@ unmountAfterEach();
 
 const now = () => page.getByRole("region", { name: "Now" });
 
-// One name, so the whole file runs as one Check: `armada check app_smoke "job now real"`.
+// One name, so the whole file runs as one Check: `pnpm exec vitest run --project \'smoke*\' -t "job now real"`.
 describe("job now real", () => {
   test("a gate running its Checks lists the one that started", async () => {
     mount("job/gateChecksStreaming");
