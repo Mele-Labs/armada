@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import type { TimelineEvent } from "@armada/protocol";
 
-import { fromWire, lanesOf, type FleetEvent, type Names } from "./fleet-events";
+import { QUIET_KINDS, fromWire, lanesOf, type FleetEvent, type Names } from "./fleet-events";
 
 const NOW = Date.parse("2026-10-13T12:00:00Z");
 const at = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -80,6 +80,46 @@ describe("the lanes a pull request's entries make", () => {
 
   test("a pull request nobody owns makes no lane", () => {
     expect(lanesOf(drawn([own(1, 30), pull(2, 5)], undefined), NOW).map((one) => one.key)).toEqual(["job:j1"]);
+  });
+});
+
+describe("what a Session or a Job's Drone did between its turns", () => {
+  const session = { kind: "session", id: "s1" } as const;
+  const burst = (kind: TimelineEvent["kind"], says: string, over: Partial<TimelineEvent> = {}) => own(1, 5, { kind, subject: session, says, ...over });
+
+  test("every kind of the burst and of the agent's own list is read, with the files or commands a burst counted", () => {
+    const kinds: [TimelineEvent["kind"], string][] = [
+      ["session.read", "Read 2 files"],
+      ["session.edited", "Edited 2 files"],
+      ["session.ran", "Ran 2 commands"],
+      ["job.read", "Read 2 files"],
+      ["job.ran", "Ran 2 commands"],
+    ];
+    for (const [kind, says] of kinds) {
+      const event = fromWire(burst(kind, says, { detail: "b", items: ["b", "a"] }), names(undefined));
+      expect(event?.kind).toBe(kind);
+      expect(event?.items).toEqual(["b", "a"]);
+      expect(event?.detail).toBe("b");
+      expect(QUIET_KINDS.has(kind)).toBe(true);
+    }
+    for (const kind of ["session.subagent", "session.waiting", "session.resolved", "session.spawned"] as const) {
+      expect(fromWire(burst(kind, "x"), names(undefined))?.kind).toBe(kind);
+      expect(QUIET_KINDS.has(kind)).toBe(false);
+    }
+  });
+
+  test("an entry written before Fleet kept the items, or kept none, has nothing to open", () => {
+    expect(fromWire(burst("session.read", "Read 14 files", { detail: "b" }), names(undefined))).not.toHaveProperty("items");
+    expect(fromWire(burst("session.read", "Read 14 files", { detail: "b", items: [] }), names(undefined))).not.toHaveProperty("items");
+  });
+
+  test("a Session waiting on him needs him, as one asked does, by its tone alone", () => {
+    const waiting = burst("session.waiting", "Waiting: approve #1896", { tone: "ask", live: false });
+    const asked = burst("session.asked", "Asked: manifest hash or path?", { tone: "ask", live: false });
+    for (const head of [waiting, asked]) {
+      const [lane] = lanesOf([fromWire(burst("session.read", "Read 3 files"), names(undefined))!, fromWire({ ...head, at: at(1) }, names(undefined))!], NOW);
+      expect(lane?.standing).toBe("ask");
+    }
   });
 });
 

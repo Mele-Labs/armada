@@ -63,3 +63,32 @@ fn a_long_path_is_read_whole() {
     );
     assert_eq!(edited(&line), vec![Some(deep)]);
 }
+
+/// A read and a command are what `used` answers; an edit, and a tool that is neither, are not.
+#[test]
+fn a_read_and_a_command_are_used_and_an_edit_is_not() {
+    use adapter_traits::ToolUse;
+
+    let harness = HeadlessAgent::at("/usr/local/bin/agent");
+    let used: Vec<Option<ToolUse>> = harness
+        .read(
+            r#"{"type":"assistant","message":{"content":[
+                 {"type":"tool_use","id":"a","name":"Read","input":{"file_path":"/tmp/repo/src/settings.rs"}},
+                 {"type":"tool_use","id":"b","name":"Bash","input":{"command":"cargo test --workspace"}},
+                 {"type":"tool_use","id":"c","name":"Edit",
+                  "input":{"file_path":"/tmp/repo/reducer.rs","old_string":"one","new_string":"two"}},
+                 {"type":"tool_use","id":"d","name":"Grep","input":{"pattern":"needle"}}]}}"#,
+        )
+        .iter()
+        .map(|event| harness.used(event))
+        .collect();
+    assert_eq!(
+        used,
+        vec![
+            Some(ToolUse::Read("/tmp/repo/src/settings.rs".to_string())),
+            Some(ToolUse::Ran("cargo test --workspace".to_string())),
+            None,
+            None,
+        ]
+    );
+}

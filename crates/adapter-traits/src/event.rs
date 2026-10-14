@@ -305,6 +305,16 @@ impl DroneEvent {
     }
 }
 
+/// What a call did that a person following the work counts, other than changing a file, which
+/// [`AgentHarness::edited`](crate::AgentHarness::edited) answers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ToolUse {
+    /// A file read, by the path the call named.
+    Read(String),
+    /// A shell command run, as the call carried it.
+    Ran(String),
+}
+
 #[cfg(test)]
 mod tests {
     use super::{CallDetail, DETAIL};

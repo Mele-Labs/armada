@@ -14,6 +14,7 @@ use super::process::Heard;
 use super::rows::UserLine;
 use super::{address_of, Move, Runtime};
 use crate::daemon::Fleet;
+use crate::timeline::Doer;
 
 /// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
 /// queued line at once, so a longer wait is a line it folded into the turn that just ended.
@@ -154,6 +155,14 @@ where
     }
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
+        // A terminal session's own mod tells these; a hosted one is heard here.
+        if let Some((act, what)) = crate::timeline::tool_of(&**self.harness(), &event) {
+            let doer = match self.store().lock().await.session(id) {
+                Ok(Some(session)) => Doer::of_session(&session),
+                _ => Doer::session(id, None, None),
+            };
+            self.timeline().used(doer, act, 1, Some(what));
+        }
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;

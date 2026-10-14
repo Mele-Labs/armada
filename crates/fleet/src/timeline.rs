@@ -15,6 +15,7 @@
 
 mod events;
 mod merge;
+mod tools;
 
 use std::sync::{Arc, Mutex};
 
@@ -26,6 +27,7 @@ use tokio::task::JoinHandle;
 use crate::clock::Clock;
 
 pub(crate) use merge::Between;
+pub(crate) use tools::{tool_of, Act, Doer, JobToolsSeen};
 
 /// What it happened to, before the wire spells it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -46,6 +48,7 @@ pub(crate) struct Fact {
     tone: TimelineTone,
     says: String,
     detail: Option<String>,
+    items: Vec<String>,
     manifest: Option<String>,
     live: bool,
     over: bool,
@@ -67,6 +70,7 @@ impl Fact {
             tone,
             says: says.into(),
             detail: None,
+            items: Vec::new(),
             manifest: None,
             live: false,
             over: false,
@@ -80,6 +84,13 @@ impl Fact {
 
     pub(crate) fn detail(mut self, detail: Option<String>) -> Fact {
         self.detail = detail.map(|detail| bare(&detail, DETAIL)).filter(|detail| !detail.is_empty());
+        self
+    }
+
+    /// What a burst counted, newest first. **The caller has already cut each to a line** and the list to
+    /// [`ipc::MOST_TIMELINE_ITEMS`], and the first is the `detail`.
+    pub(crate) fn items(mut self, items: Vec<String>) -> Fact {
+        self.items = items;
         self
     }
 
@@ -125,6 +136,11 @@ impl Fact {
         self.detail.as_deref()
     }
 
+    #[cfg(test)]
+    pub(crate) fn item_texts(&self) -> &[String] {
+        &self.items
+    }
+
     fn entry(self) -> store::TimelineEntry {
         let (subject_kind, subject_id, subject_url) = match self.subject {
             Subject::Job(id) => ("job", id, None),
@@ -143,6 +159,7 @@ impl Fact {
             tone: self.tone.as_wire(),
             says: bare(&self.says, SAYS),
             detail: self.detail,
+            items: self.items,
             live: self.live,
             over: self.over,
         }
@@ -179,6 +196,8 @@ pub struct Timeline {
     /// Taken once, by [`keep_timeline`]. Until then entries wait, unwritten.
     unwritten: Arc<Mutex<Option<UnboundedReceiver<Msg>>>>,
     clock: Arc<dyn Clock>,
+    /// Reads, edits and commands counted, and not yet entered.
+    bursts: Arc<Mutex<tools::Bursts>>,
 }
 
 impl Timeline {
@@ -188,6 +207,7 @@ impl Timeline {
             queue,
             unwritten: Arc::new(Mutex::new(Some(unwritten))),
             clock,
+            bursts: Arc::default(),
         }
     }
 
@@ -228,15 +248,21 @@ where
 {
     let timeline = fleet.timeline().clone();
     let mut unwritten = timeline.unwritten.lock().ok()?.take()?;
-    let hearing = events::Hearing::new(Arc::clone(fleet.names()), timeline);
+    let hearing = events::Hearing::new(Arc::clone(fleet.names()), timeline.clone());
     fleet.events().tap(move |event| hearing.hear(event));
     Some(tokio::spawn(async move {
-        while let Some(msg) = unwritten.recv().await {
-            match msg {
-                Msg::Kept(entry) => fleet.timeline_written(*entry).await,
-                Msg::Settled(done) => {
-                    let _ = done.send(());
-                }
+        let mut tick = tokio::time::interval(tools::TICK);
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                msg = unwritten.recv() => match msg {
+                    Some(Msg::Kept(entry)) => fleet.timeline_written(*entry).await,
+                    Some(Msg::Settled(done)) => {
+                        let _ = done.send(());
+                    }
+                    None => break,
+                },
+                _ = tick.tick() => timeline.flush_due(),
             }
         }
     }))
@@ -334,6 +360,24 @@ where
         );
     }
 
+    /// A Session's agent started another Session, or forked its own: `spawned` is the new one's title.
+    pub(crate) fn session_spawned(
+        &self,
+        id: &str,
+        (title, manifest): (Option<String>, Option<String>),
+        spawned: &str,
+        fork: bool,
+    ) {
+        let says = if fork { "Forked a session" } else { "Started a session" };
+        self.timeline().note(
+            Fact::new(self.timeline().now(), TimelineKind::SessionSpawned, Subject::Session(id.to_string()), TimelineTone::Run, says)
+                .titled(title)
+                .detail(Some(spawned.to_string()))
+                .in_repository(manifest)
+                .live(),
+        );
+    }
+
     /// A Session's turn ended, `began` to `ended`, both by Fleet's clock. **It is not live**: the turn is
     /// over, and whether the Session is moving, replied, done or stuck is what Fleet derives from the
     /// turn (`SessionRecord::standing`), never what an event's flag says. **Nothing is entered
@@ -346,6 +390,7 @@ where
         began: Option<&str>,
         ended: &str,
     ) {
+        self.timeline().close_bursts_of(&Doer::session(id, None, None));
         let took = |at: &str| core_model::Timestamp::from_rfc3339(at).epoch_millis();
         let (Some(began), Some(ended_ms)) = (began.and_then(took), took(ended)) else {
             return;
@@ -495,6 +540,7 @@ pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
         tone: TimelineTone::from_wire(&entry.tone)?,
         says: entry.says.clone(),
         detail: entry.detail.clone(),
+        items: entry.items.clone(),
         manifest_id: entry.repo.as_deref().map(ipc::ManifestId::carried),
         live: entry.live,
         over: entry.over,

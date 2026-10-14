@@ -326,7 +326,9 @@ test('declaring, taking and giving back a need are each reported as the session,
 
   const sent = posts.slice(before)
   expect(sent.every(one => one.body.session_id === 'S1')).toBe(true)
-  expect(facts(sent)).toEqual([
+  // Each command is also counted as one run, for the timeline.
+  expect(facts(sent).filter(fact => fact.kind === 'ran')).toHaveLength(3)
+  expect(facts(sent).filter(fact => fact.kind !== 'ran')).toEqual([
     {
       kind: 'attached',
       attachment: {
@@ -570,6 +572,27 @@ test('a file written is told as its path from the session directory, and never i
     { kind: 'touched', paths: ['src/b.rs'] },
   ])
   expect(JSON.stringify(posts)).not.toContain('secret')
+})
+
+test('a file read and a command run are told as a path and a first line, and not the content', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'file contents nobody sends' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/src/a.rs' })
+  await $.tool.call({ tool: 'Read', file_path: '/etc/hosts' })
+  await $.tool.call({ tool: 'Bash', command: 'cargo test --workspace\nsecond line' })
+  await clock.settle()
+
+  const told = facts(posts.slice(before)).filter(fact => fact.kind === 'read' || fact.kind === 'ran')
+  expect(told).toEqual([
+    { kind: 'read', path: 'src/a.rs' },
+    { kind: 'ran', command: 'cargo test --workspace' },
+  ])
+  expect(JSON.stringify(posts)).not.toContain('nobody sends')
+  expect(JSON.stringify(posts)).not.toContain('second line')
 })
 
 test('the model is told its Armada session id, and a Drone is not', async ($, on) => {

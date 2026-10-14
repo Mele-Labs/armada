@@ -12,3 +12,10 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The same files the Finding marks, named in the panel's own row and in Clear's confirm. Tooltip `Written and committed nowhere`."
+
+[[icons.file-pen-line.usage]]
+  means = "A Session edited files: one row for a burst of edits on the Cockpit's timeline"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Edited`. Draws in `--fg-subtle` on a muted row. The reserved list gives `file-*` to evidence and this row is not evidence: it counts files a Session wrote, as the Uncommitted row above does. Open for the owner's ruling on that reading. Refused: `square-pen`, an edit control, and `pencil`, drawing. The row opens to its files, newest first."

@@ -29,7 +29,7 @@ use std::error::Error;
 use std::fmt;
 use std::sync::Mutex;
 
-use adapter_traits::{AgentHarness, DroneEvent, DroneSpawnConfig, Launch, Speaker};
+use adapter_traits::{AgentHarness, DroneEvent, DroneSpawnConfig, Launch, Speaker, ToolUse};
 
 /// A harness that renders a harmless program.
 ///
@@ -224,10 +224,29 @@ impl AgentHarness for FakeHarness {
             _ => None,
         }
     }
+
+    /// A call to [`READS`] names the file in its detail, and one to [`RUNS`] the command.
+    fn used(&self, event: &DroneEvent) -> Option<ToolUse> {
+        match event {
+            DroneEvent::Called { tool, detail, .. } if tool == READS => {
+                Some(ToolUse::Read(String::from(detail.shown())))
+            }
+            DroneEvent::Called { tool, detail, .. } if tool == RUNS => {
+                Some(ToolUse::Ran(String::from(detail.shown())))
+            }
+            _ => None,
+        }
+    }
 }
 
 /// The tool [`FakeHarness::edited`] reads as an edit call.
 pub const EDITS: &str = "edits_a_file";
+
+/// The tool [`FakeHarness::used`] reads as a file read.
+pub const READS: &str = "reads_a_file";
+
+/// The tool [`FakeHarness::used`] reads as a shell command.
+pub const RUNS: &str = "runs_a_command";
 
 /// The fake's refusal. One variant, because a test only needs the seam to fail,
 /// not to fail in a particular way.

@@ -4,7 +4,9 @@
 //! **A Job's own events carry the instant they happened**, and are dated by it.
 //! A Session row is replaced whole, so what changed is read against what this
 //! saw last: the first sighting is its start, a waiting item that was not there
-//! is an ask, and live turning to ended is its end. That memory starts empty,
+//! is an ask (or, where the agent listed it, a wait), one that left the agent's list is resolved,
+//! a subagent attached or spent is its start or finish, and live turning to ended is its end.
+//! That memory starts empty,
 //! so a Session already live when Fleet starts is entered as started the first
 //! time its row changes, with the start the row states.
 
@@ -12,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use core_model::{CheckOutcome, JobStatus, StepState};
-use ipc::{Event, SessionRecord, SessionState, TimelineKind, TimelineTone, WaitingSource};
+use ipc::{AttachmentState, Event, SessionRecord, SessionState, TimelineKind, TimelineTone, WaitingSource};
 
 use super::{bare, Fact, Subject, Timeline, SAYS};
 use crate::naming::Names;
@@ -34,6 +36,10 @@ struct Seen {
 struct SeenSession {
     ended: bool,
     items: BTreeSet<String>,
+    /// What the agent listed itself, by id, so its leaving the list can say what it was.
+    listed: BTreeMap<String, String>,
+    /// Each subagent the row held, and whether it was spent.
+    subagents: BTreeMap<String, bool>,
 }
 
 /// The tap on the event stream.
@@ -233,12 +239,51 @@ impl Hearing {
             facts.push(fact(&record.started_at, K::SessionStarted, T::Run, "Started".to_string()).live());
         }
         for item in &record.waiting_for {
-            if item.source != WaitingSource::Walk && !before.items.contains(&item.id) {
-                let says = bare(&format!("Asked: {}", item.text), SAYS);
-                facts.push(fact(&item.since, K::SessionAsked, T::Ask, says));
+            if item.source == WaitingSource::Walk || before.items.contains(&item.id) {
+                continue;
             }
+            // What the agent listed is its own to say it waits on; the rest Fleet raised.
+            facts.push(match item.source {
+                WaitingSource::Agent => {
+                    fact(&item.since, K::SessionWaiting, T::Ask, bare(&format!("Waiting: {}", item.text), SAYS))
+                }
+                _ => fact(&item.since, K::SessionAsked, T::Ask, bare(&format!("Asked: {}", item.text), SAYS)),
+            });
         }
         before.items = record.waiting_for.iter().map(|item| item.id.clone()).collect();
+        let listed: BTreeMap<String, String> = record
+            .waiting_for
+            .iter()
+            .filter(|item| item.source == WaitingSource::Agent)
+            .map(|item| (item.id.clone(), item.text.clone()))
+            .collect();
+        // An ended Session's list is cleared with it, which resolves nothing.
+        if record.state == SessionState::Live {
+            for (_, text) in before.listed.iter().filter(|(id, _)| !listed.contains_key(*id)) {
+                let says = bare(&format!("Resolved: {text}"), SAYS);
+                facts.push(fact(&record.last_seen_at, K::SessionResolved, T::Ok, says));
+            }
+        }
+        before.listed = listed;
+        for one in record.attachments.iter().filter(|one| one.kind == "subagent") {
+            let spent = one.state == AttachmentState::Spent;
+            let known = before.subagents.insert(one.target.clone(), spent);
+            // A Session already held subagents when Fleet first saw it: they began before this.
+            if first {
+                continue;
+            }
+            let said = |key: &str| one.detail.get(key).map(String::as_str).unwrap_or_default();
+            let what = [said("type"), said("description")].iter().filter(|part| !part.is_empty()).cloned().collect::<Vec<_>>().join(": ");
+            let subagent = |at: &ipc::Instant, tone, says: &str| {
+                fact(at, K::SessionSubagent, tone, says.to_string()).detail(Some(what.clone()))
+            };
+            if known.is_none() {
+                facts.push(subagent(&one.since, T::Run, "Subagent started").live());
+            }
+            if spent && known != Some(true) {
+                facts.push(subagent(&one.changed_at, T::Ok, "Subagent finished"));
+            }
+        }
         let ended = record.state == SessionState::Ended;
         if ended && !before.ended {
             let at = record.ended_at.as_ref().unwrap_or(&record.last_seen_at);
