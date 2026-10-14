@@ -63,3 +63,6 @@
   from { transform: translateY(calc((var(--h-control) + var(--space-6)) * -1)); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
+
+/* The Work group has no rows left once the seam hides its places, so its frame goes too: Machine and Fleet lead the rail. */
+body:has(.proto-app-overlay) .armada-shell__left > nav[aria-label="Work"] { display: none; }
