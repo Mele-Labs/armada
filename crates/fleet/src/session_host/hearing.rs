@@ -148,10 +148,19 @@ where
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         match event {
             DroneEvent::Started { model, .. } => {
-                // A turn begun again is work the agent had said was over.
-                self.done_cleared(id).await;
                 self.limit_cleared(id).await;
                 let began = self.now().as_str().to_string();
+                let noticed = {
+                    let mut state = runtime.state();
+                    let noticed = state.fleet_told > 0;
+                    state.fleet_told = state.fleet_told.saturating_sub(1);
+                    noticed
+                };
+                // A turn begun again is work the agent had said was over. Fleet's own notice
+                // is not: the agent has nothing new to do, and does not call `all_done` again.
+                if !noticed {
+                    self.done_cleared(id).await;
+                }
                 {
                     let mut state = runtime.state();
                     state.turn_began = Some(began);

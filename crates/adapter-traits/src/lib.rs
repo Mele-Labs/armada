@@ -459,6 +459,13 @@ pub trait Vcs {
     /// deleted now and `false` where it was gone already.
     fn delete_repair_branch(&self, spec: &WorktreeSpec) -> Result<bool, BranchKept>;
 
+    /// Delete a local branch a session worked on, once the base holds every
+    /// commit on it. **Fleet's act at a session's `finish_up`, and nothing
+    /// else's**: a branch with commits the base lacks, or one a slot still has
+    /// checked out, is refused and stays. `true` where it was deleted now and
+    /// `false` where it was gone already.
+    fn delete_merged_branch(&self, pool: &SlotPool, branch: &str) -> Result<bool, BranchKept>;
+
     /// Write on the slot this Job holds that the Job completed, so
     /// `armada worktree --status` reads it as held until a person clears the
     /// Job. Best-effort: it changes what the status says and nothing else.

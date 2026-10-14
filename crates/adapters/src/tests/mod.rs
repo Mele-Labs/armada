@@ -12,6 +12,7 @@
 
 mod basing;
 mod build_standing;
+mod deleting_merged_branch;
 mod catching_up_to_the_remote;
 mod ci_workflows;
 mod clash;

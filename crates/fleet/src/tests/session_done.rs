@@ -89,6 +89,27 @@ async fn a_hosted_turn_starting_again_clears_it() {
 }
 
 #[tokio::test]
+async fn a_turn_fleets_news_starts_leaves_it_standing_and_a_request_clears_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "do the thing").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "done");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+
+    rig.fleet.all_done(None, done(&id)).await.unwrap();
+    Arc::clone(&rig.fleet).told_news_by_fleet(id.as_str(), "#1 merged into main.").await.unwrap();
+    rig.stand_in.init(0);
+    eventually(|| async { rig.fleet.hosts().of(id.as_str()).state().fleet_told == 0 }).await;
+    assert!(read(&rig, &id).await.done_since.is_some(), "the notice gave the agent nothing to do");
+
+    // A word that asks for work is a turn like any other.
+    Arc::clone(&rig.fleet).told_by_fleet(id.as_str(), "Commit and push slot 3.").await.unwrap();
+    rig.stand_in.init(0);
+    eventually(|| async { read(&rig, &id).await.done_since.is_none() }).await;
+}
+
+#[tokio::test]
 async fn an_ended_session_is_refused() {
     let rig = rig_placing(None);
     let id = rig.start().await;

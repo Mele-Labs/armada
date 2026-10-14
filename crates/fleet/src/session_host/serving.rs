@@ -634,6 +634,26 @@ where
         session: &str,
         text: &str,
     ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false).await
+    }
+
+    /// [`Self::told_by_fleet`] for news that asks the agent for nothing: a pull request merged, a
+    /// build moved. **The turn it starts leaves the agent's `all_done` standing**, since the agent
+    /// has no work to find in it and would not call `all_done` again.
+    pub(crate) async fn told_news_by_fleet(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+    ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, true).await
+    }
+
+    async fn fleet_word(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        news: bool,
+    ) -> Result<bool, Refusal> {
         if let Some(terminal) = self.terminal_session(session).await? {
             if terminal.state == store::SessionState::Ended {
                 return Ok(false);
@@ -659,6 +679,9 @@ where
             id: FLEET_NAME.to_lowercase(),
             title: FLEET_NAME.to_string(),
         };
+        if news {
+            self.hosts().of(session).state().fleet_told += 1;
+        }
         Arc::clone(self).send_hosted(sent, from).await.map(|_| true)
     }
 
