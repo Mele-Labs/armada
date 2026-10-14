@@ -62,6 +62,11 @@ describe("the first message", () => {
     expect(message.indexOf(".gitignore")).toBeLessThan(message.indexOf("End on a real run"));
   });
 
+  it("says which files Fleet lets it write, a workspace's own armada.yml among them", () => {
+    expect(message).toContain("A workspace that needs its own writes its armada.yml in its own directory.");
+    expect(message).toContain("Write only armada.yml files, .gitignore files and .git/info/exclude");
+  });
+
   it("carries each workspace's reading on a line of its own", () => {
     expect(message).toContain(
       "- `packages/web` (read packages/web/package.json): ready to write. Checks: test `yarn test` (packages/web/package.json scripts.test, read); lint `yarn lint` (packages/web/package.json scripts.lint, read).",
