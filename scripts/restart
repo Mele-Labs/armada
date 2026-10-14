@@ -555,12 +555,23 @@ ipc_built_protocol() {
   [[ -n "$out" ]] || return 0
   sed -n 's/^const PROTOCOL_ID_HASH: &str = "\([0-9a-f]*\)";$/\1/p' "$out"
 }
+# Whether the Bridge in `out/` was built for another protocol than the tree's.
+# Its build compiles the ID into `out/main/index.js`, and the wire files it
+# hashes include `crates/ipc` and `crates/api`, which the mtime check never
+# reads. Confirmed 14 Oct 2026: a restart moved Fleet to a new protocol, said
+# "Bridge is unchanged", and left Bridge unable to connect.
+bridge_protocol_stale() {
+  local main="$src/apps/desktop/out/main/index.js"
+  [[ -f "$main" ]] && ! grep -qF "\"$(tree_protocol)\"" "$main"
+}
 
 if $dry_run; then
   say "Dry run — nothing below happens"
   echo "would install armada from $src (cargo install --path crates/armada --profile installed --locked) to $armada_bin"
   if [[ ! -f "$src/apps/desktop/out/.armada-restart-stamp" ]]; then
     echo "would build Bridge from $src — no build stamp there"
+  elif bridge_protocol_stale; then
+    echo "would build Bridge from $src — it was built for another protocol than $(tree_protocol)"
   elif [[ -n "$(find "$src/apps" "$src/packages" -type f -not -path '*/node_modules/*' -not -path "$src/apps/desktop/out/*" \
       -not -path "$src/apps/desktop/release/*" -not -name '*.tsbuildinfo' -newer "$src/apps/desktop/out/.armada-restart-stamp" -print 2>/dev/null | head -n 1)" ]]; then
     echo "would build Bridge from $src — apps/ or packages/ moved since its last build"
@@ -667,6 +678,9 @@ elif [[ -z "$from" && -f "$source_record" ]]; then
   bridge_rebuilt=true
 elif [[ ! -f "$bridge_stamp" ]]; then
   bridge_rebuilt=true
+elif bridge_protocol_stale; then
+  bridge_why="it was built for another protocol than $(tree_protocol)"
+  bridge_rebuilt=true
 else
   changed=$(find "$src/apps" "$src/packages" -type f \
       -not -path '*/node_modules/*' \
@@ -682,7 +696,7 @@ else
 fi
 
 if $bridge_rebuilt; then
-  say "Building Bridge — apps/ or packages/ moved since its last build"
+  say "Building Bridge — ${bridge_why:-apps/ or packages/ moved since its last build}"
   mkdir -p "$src/apps/desktop/out"
   touch "$bridge_pending"
   (cd "$src" && pnpm --filter @armada/desktop build)

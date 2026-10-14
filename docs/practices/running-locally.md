@@ -184,6 +184,13 @@ Fleet's own restart, a Bridge that would not quit) leaves the stamp exactly
 as it was, so the next run still finds Bridge changed and rebuilds and
 reopens it rather than trusting a build nobody is running yet.
 
+**A Bridge built for another protocol is rebuilt whatever the stamp says.**
+The stamp only sees `apps/` and `packages/`, and the protocol ID also hashes
+`crates/ipc` and `crates/api/src/routes`. So the restart reads the ID compiled
+into `out/main/index.js` and rebuilds when it is not the tree's. Confirmed 14
+Oct 2026: a wire change in `crates/` alone moved Fleet's protocol, the restart
+said "Bridge is unchanged", and Bridge could not connect.
+
 **It runs Fleet under a launchd job it bootstraps on first use**, the design
 `docs/concepts/fleet.md` (Daemon lifecycle, Restarting Fleet) specifies: the
 plist lives beside the runtime file, outside `~/Library/LaunchAgents` so it is
