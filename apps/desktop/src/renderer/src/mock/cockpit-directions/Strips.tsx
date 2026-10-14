@@ -7,28 +7,17 @@
 // proto/cockpit-three-directions.
 
 import { useState } from "react";
-import type { ReactNode } from "react";
-import { ChevronRight, Hammer, Rows3 } from "lucide-react";
-import { Button, Kbd, Tooltip } from "@armada/components";
+import { Rows3 } from "lucide-react";
+import { Kbd, Tooltip } from "@armada/components";
 
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { useCalls } from "./calls";
-import { ActBar, FixAct, KEYS, KeySheet, MarkGlyph, PeekPop, PrChip, ReplyBox, StationMark, StepsBar, useShipActs, useShipKeys, useShipUi, type Acts, type ShipUi } from "./shared";
-import { PHASES, stationsOf, useShip, type Main, type Phase, type Pr, type Station, type Subject } from "./ship";
+import { ActBar, KEYS, KeySheet, MarkGlyph, PeekPop, PrChip, ReplyBox, StationMark, StepsBar, useShipActs, useShipKeys, useShipUi, type Acts, type ShipUi } from "./shared";
+import { PHASES, stationsOf, useShip, type Phase, type Subject } from "./ship";
+import { Rail, type Link } from "./rail";
 import "./strips.css";
 
 const COLUMN: Record<Phase, string> = { needs: "Needs you", working: "Working", held: "Stuck or held", done: "Done" };
-
-/** The stage of the one pipeline a pull request is at. */
-type Stage = "open" | "checking" | "queue";
-const STAGES: readonly { id: Stage; said: string }[] = [
-  { id: "open", said: "Open" },
-  { id: "checking", said: "Checking" },
-  { id: "queue", said: "In queue" },
-];
-const stageOf = (pr: Pr): Stage | "main" => (pr.stage === "landed" ? "main" : pr.stage === "queued" || pr.stage === "ready" ? "queue" : pr.ci === "waiting_on_main" ? "open" : "checking");
-
-type Link = { setHover: (key: string | undefined) => void };
 
 function Strip({ subject, selected, linked, ui, acts, link }: { subject: Subject; selected: boolean; linked: boolean; ui: ShipUi; acts: Acts; link: Link }) {
   const tone = subject.alarm ? "bad" : subject.needs ? "ask" : "calm";
@@ -69,53 +58,6 @@ function Strip({ subject, selected, linked, ui, acts, link }: { subject: Subject
       {ui.replying === subject.key ? <ReplyBox subject={subject} acts={acts} ui={ui} /> : null}
       {ui.peeking === subject.key ? <PeekPop subject={subject} ui={ui} acts={acts} /> : null}
     </li>
-  );
-}
-
-/** A pull request on the rail. Joined to its owner: hover or select either and both light. Merge acts here. */
-function Unit({ subject, pr, linked, ui, acts, link }: { subject: Subject; pr: Pr; linked: boolean; ui: ShipUi; acts: Acts; link: Link }) {
-  return (
-    <li
-      className="proto-unit"
-      data-subject={subject.key}
-      data-stage={pr.stage}
-      data-linked={linked || undefined}
-      aria-label={`#${pr.number} ${pr.title}`}
-      tabIndex={0}
-      onFocus={() => ui.select(subject.key)}
-      onClick={() => ui.select(subject.key)}
-      onPointerEnter={() => link.setHover(subject.key)}
-      onPointerLeave={() => link.setHover(undefined)}
-    >
-      <PrChip pr={pr} />
-      <span className="proto-unit__title">{pr.owner?.title ?? pr.title}</span>
-      {subject.mergeable ? (
-        <Button variant="secondary" size="sm" aria-label={`Merge #${pr.number}`} onClick={() => acts.merge(subject)}>
-          Merge
-          <Kbd>{KEYS.merge}</Kbd>
-        </Button>
-      ) : null}
-    </li>
-  );
-}
-
-/** Main, the end of the rail. Red, it is the alarm, and Fix is on it. */
-function MainMarker({ main, station, acts, children }: { main: Main | undefined; station: Station; acts: Acts; children: ReactNode }) {
-  return (
-    <div className="proto-rail__main" data-state={main?.state ?? "unknown"}>
-      <div className="proto-rail__mainhead">
-        <StationMark station={station} />
-        {main === undefined || main.state !== "red" ? null : (
-          <>
-            <span className="proto-rail__check">{main.check}</span>
-            {main.fixing ? <MarkGlyph mark={{ Glyph: Hammer, said: "Fixing main", tone: "calm" }} /> : <FixAct main={main} acts={acts} />}
-          </>
-        )}
-      </div>
-      <ul className="proto-rail__landed" aria-label="Landed">
-        {children}
-      </ul>
-    </div>
   );
 }
 
@@ -160,16 +102,8 @@ export function Strips(props: CockpitProps) {
     },
   });
   const lit = hover ?? ui.selected;
-  // A landed pull request is drawn at main only where something here owns it: the history stays in the forge.
-  const units = (stage: Stage | "main") =>
-    ship.prs.flatMap((pr) => {
-      const subject = ship.subjects.find((one) => one.pr?.key === pr.key);
-      if (subject === undefined || stageOf(pr) !== stage || (subject.kind === "pr" && pr.stage === "landed")) return [];
-      return [<Unit key={pr.key} subject={subject} pr={pr} linked={lit === subject.key} ui={ui} acts={acts} link={link} />];
-    });
   const alarm = ship.mains.some((one) => one.state === "red") || ship.subjects.some((one) => one.alarm);
   const waiting = ship.subjects.some((one) => one.needs) || calls.front !== undefined;
-  const mainStation = stations.find((one) => one.id === "main")!;
   return (
     <div className="armada-cockpit proto" data-direction="strips">
       <section className="proto-view" aria-label="Dashboard" data-alarm={alarm || undefined} data-waiting={waiting || undefined}>
@@ -211,22 +145,7 @@ export function Strips(props: CockpitProps) {
             ))}
           </div>
           <section className="proto-rail" aria-label="Merge line">
-            <ol className="proto-rail__stages">
-              {STAGES.map((stage) => (
-                <li key={stage.id} className="proto-rail__stage" data-stage={stage.id}>
-                  <span className="proto-rail__band">
-                    {stage.said}
-                    <ChevronRight size={14} aria-hidden />
-                  </span>
-                  <ul className="proto-rail__units" aria-label={stage.said}>
-                    {units(stage.id)}
-                  </ul>
-                </li>
-              ))}
-            </ol>
-            <MainMarker main={ship.main} station={mainStation} acts={acts}>
-              {units("main")}
-            </MainMarker>
+            <Rail ship={ship} ui={ui} acts={acts} lit={lit} link={link} />
           </section>
           {calls.tray}
           {calls.card}
