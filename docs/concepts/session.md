@@ -102,6 +102,7 @@ The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`).
 | The lease is written as the Session's | Credits the `slot`, its checked-out `branch`, and what is read from it |
 | The lease names no live Session: a person's own terminal, an older lease, a Session that ended (`/clear` starts a new id in the same terminal) | Credits it, as before the lease named anyone |
 | Held for another live Session or a Job, or free | Credits no `slot` and drops a `branch` or `pr` read from it |
+| Any of these, for a `pr` the mod reports with `created` in its `detail` | Credits it. The mod read its address off the session's own `gh pr create`, so no directory is being trusted, and a session that leased a second slot and left its first still owns what it opened |
 
 **A release is settled by the pull sweep, for hosted and terminal Sessions alike.** Each interval Fleet gives back the `slot` and `branch` rows of a live Session whose lease is no longer its own, by whatever road the slot went: its own `armada worktree release`, Bridge's release, a lease taken back from a gone holder. A hosted Session is also followed at its next tool call. **A `pr` row stays**: the Session that opened a pull request is still the one to tell after it leaves the slot, and the row settles when the pull request merges or closes.
 
