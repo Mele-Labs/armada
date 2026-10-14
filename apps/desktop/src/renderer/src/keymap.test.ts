@@ -63,10 +63,19 @@ describe("reading the registry's spellings", () => {
     }
   });
 
-  it("counts an act whose row is unbuilt against no key: the deck's `t` waits for #2301 beside attest's", () => {
+  it("counts an act whose row is unbuilt against no key: the deck's mission switch waits for #2301 beside observe's", () => {
+    const view = ACTIONS.find((one) => one.id === "deck_view")!;
+    const observe = ACTIONS.find((one) => one.id === "observe")!;
+    expect(view.unbuilt).not.toBeNull();
+    expect(view.shortcut).toBe(observe.shortcut);
+    expect(conflictsOf("deck_view", defaultSlotsOf("deck_view")[0]!)).toEqual([]);
+    expect(conflictsOf("observe", defaultSlotsOf("observe")[0]!).map((one) => one.id)).not.toContain("deck_view");
+  });
+
+  it("lets the deck's built `t` stand beside attest's, each where it listens, and neither is the other's conflict", () => {
     const timeline = ACTIONS.find((one) => one.id === "deck_timeline")!;
     const attest = ACTIONS.find((one) => one.id === "attest")!;
-    expect(timeline.unbuilt).not.toBeNull();
+    expect(timeline.unbuilt).toBeNull();
     expect(timeline.shortcut).toBe(attest.shortcut);
     expect(conflictsOf("deck_timeline", defaultSlotsOf("deck_timeline")[0]!)).toEqual([]);
     expect(conflictsOf("attest", defaultSlotsOf("attest")[0]!).map((one) => one.id)).not.toContain("deck_timeline");
