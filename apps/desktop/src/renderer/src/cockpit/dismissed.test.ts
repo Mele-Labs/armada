@@ -29,6 +29,19 @@ describe("dismissing what a Session waits on", () => {
     expect(dismissedCalls().size).toBe(0);
   });
 
+  test("carries the reason trimmed, and none where it is empty or only spaces", async () => {
+    const route = vi.fn(async () => ({ ok: true as const, value: {} }));
+    windowWith({ dismissWaiting: route });
+    await dismissWaiting("s1", "o1-a1", "  The cache tests still read it.\n");
+    await dismissWaiting("s1", "o1-a2", "   ");
+    await dismissWaiting("s1", "o1-a3", "");
+    expect(route.mock.calls).toEqual([
+      [{ session_id: "s1", item_id: "o1-a1", reason: "The cache tests still read it." }],
+      [{ session_id: "s1", item_id: "o1-a2" }],
+      [{ session_id: "s1", item_id: "o1-a3" }],
+    ]);
+  });
+
   test("an item nothing holds is already gone, and any other refusal is told in Fleet's words", async () => {
     windowWith({ dismissWaiting: async () => refusal("fleet.session_waiting_unheld", "nothing is waiting under that item.") });
     expect(await dismissWaiting("s1", "ask:q1")).toEqual({ kind: "dismissed" });

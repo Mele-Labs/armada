@@ -1,5 +1,5 @@
 // Six Sessions, each in the state Fleet read it to be in, and the Cockpit and the Sessions page
-// agreeing about every one. Two replied to him and wait, one in a terminal (not stuck), one said it is done (not stuck),
+// agreeing about every one. Two replied to him and ask nothing (one in a terminal, not stuck), one said it is done (not stuck),
 // one went quiet mid-turn (stuck), one is at work, and one asked a question he will open. The
 // timeline's last event for the replied and the done is a live turn, the case that used to read as
 // moving and then as stuck. The walk `session-standing` plays it.
