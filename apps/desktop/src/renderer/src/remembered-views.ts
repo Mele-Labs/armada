@@ -87,3 +87,32 @@ export type DispatchKind = "job" | "session";
 export function useDispatchKind(): [DispatchKind, (kind: DispatchKind) => void] {
   return remembered(DISPATCH_KEY, (value): DispatchKind => (value === "session" ? "session" : "job"));
 }
+
+// ---- The flight deck's views, which live in a store and not in a component ---------------------------------------
+//
+// The deck keeps its state in a module so the top bar and the body, two trees, agree and a body that unmounts while a
+// page is open comes back to the exact view (`cockpit/deck/store.ts`). It remembers the few ways of reading that
+// should survive a restart through the same keys and the same failed-read-is-the-default rule as the hooks above.
+
+export const DECK_VIEW_KEY = "armada.bridge.deck-view";
+export const DECK_JOB_VIEW_KEY = "armada.bridge.deck-job-view";
+export const DECK_ONLY_KEY = "armada.bridge.deck-only";
+export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
+
+/** What was stored under `key`, on whatever the reader makes of it. A failed read is the default. */
+export function readRemembered<T extends string>(key: string, named: (value: string | null) => T): T {
+  try {
+    return named(window.localStorage.getItem(key));
+  } catch {
+    return named(null);
+  }
+}
+
+/** Stores a choice. A failed write leaves it unremembered, the honest answer for a preference. */
+export function writeRemembered(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Unremembered.
+  }
+}
