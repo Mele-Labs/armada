@@ -210,6 +210,23 @@ const VENDOR_LITERALS: &[&str] = &[
 /// Bridge's registry of unbuilt Fleet routes. Exempt from the rule above, by name.
 const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
 
+/// The sign-in files, which may say `github`, and no other vendor.
+///
+/// The account a person signs in with is a GitHub account, and the approved
+/// button, its mock and its walk name it so the owner can tell which one. The
+/// owner chose this exception over neutral wording on 14 Oct 2026. The address
+/// to sign in at still comes from Fleet when this is wired.
+const SIGN_IN_FILES: &[&str] = &[
+    "apps/desktop/src/renderer/src/mock/account.tsx",
+    "apps/desktop/src/renderer/src/mock/scenarios/onboarding-home.ts",
+    "apps/desktop/src/renderer/src/mock/walks/onboarding-home.ts",
+    "apps/desktop/src/renderer/src/mock/walks/onboarding-work.ts",
+    "packages/components/src/compositions/Account/Account.stories.tsx",
+    "packages/components/src/compositions/Account/Account.tsx",
+    "packages/components/src/compositions/TitleBar/TitleBar.stories.tsx",
+    "packages/components/src/compositions/TitleBar/TitleMenu.tsx",
+];
+
 /// `lower` with every identifier imported from `lucide-react` blanked out.
 ///
 /// **Why the rule yields to these, and only these.** A glyph's component name
@@ -264,7 +281,11 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
                 continue;
             };
             let lower = without_lucide_names(&text.to_lowercase(), &text);
+            let signs_in = SIGN_IN_FILES.contains(&path.as_str());
             for vendor in VENDOR_LITERALS {
+                if signs_in && *vendor == "github" {
+                    continue;
+                }
                 if lower.contains(vendor) {
                     let line = lower
                         .lines()
