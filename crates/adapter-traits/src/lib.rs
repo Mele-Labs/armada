@@ -48,6 +48,7 @@ mod pull_watch;
 mod secret;
 mod setup;
 mod slots;
+mod store;
 mod tracker;
 mod under_review;
 mod work_product;
@@ -85,6 +86,7 @@ pub use pull_request_detail::{
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
+pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError};
 pub use tracker::{NotTracked, OpenIssue, ReadIssue, Tracker};
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
