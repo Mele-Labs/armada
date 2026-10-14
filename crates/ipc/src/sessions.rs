@@ -427,9 +427,8 @@ pub enum WaitingSource {
     /// Fleet: another Session's agent started this one and its first message has not been sent.
     /// The item has no reply, since sending that message is the answer. Since 23.80.
     FirstMessage,
-    /// Fleet: the Session's turn ended on a message of the agent's and the person has not answered it.
-    /// Derived on every read from the turn and the thread, never kept, so it does not depend on the
-    /// agent calling any tool. Id `replied:<turn end>`, text the first line of that message.
+    /// No longer produced. A reply asks nothing of the person, so it is `SessionStanding::Replied`
+    /// and no item. The variant stays so a reader of an older Fleet's items still parses.
     Replied,
     /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
     /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
@@ -445,11 +444,12 @@ pub enum SessionStanding {
     Working,
     /// A turn is running and nothing has happened for the quiet threshold.
     Stuck,
-    /// The turn ended on a message of the agent's and the person has not answered since.
+    /// The turn ended on a message of the agent's and the person has not answered since. Under Idle:
+    /// it is the unread mark, and raises no item.
     Replied,
     /// The agent said, through `all_done`, that nothing is left, and the person has not answered.
     Done,
-    /// Nothing is owed. What a `replied` or `done` becomes once the person dismisses it.
+    /// Nothing is owed. What a `done` becomes once the person dismisses it.
     Idle,
 }
 
@@ -457,7 +457,7 @@ pub enum SessionStanding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
     /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
-    /// `window_ask:<row>`, `unsent:<session>`, `replied:<turn end>`, `done:<done_since>`.
+    /// `window_ask:<row>`, `unsent:<session>`, `done:<done_since>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.
@@ -545,11 +545,15 @@ pub struct AnswerWaiting {
     pub mode: Option<WaitingMode>,
 }
 
-/// `dismiss_waiting`: the person drops one item for good. Nothing is sent to the agent.
+/// `dismiss_waiting`: the person drops one item for good. An item the agent stated tells it so;
+/// one Fleet derived is only dropped.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DismissWaiting {
     pub session_id: SessionId,
     pub item_id: String,
+    /// Why he removed it, sent to the agent after the item where it is non-blank. Absent where he gave none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// One row of the ledger as the wire carries it.
