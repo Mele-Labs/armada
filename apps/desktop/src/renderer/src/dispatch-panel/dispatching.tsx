@@ -1,14 +1,13 @@
-// Dispatch, as the window holds it: one draft, two entries. The Cockpit's bar grows into the panel in
-// place; the title bar's one bar, once something is chosen to dispatch, grows it down from its field.
-// Both read this and neither owns a word of it, so what was typed in one is in the other, and leaving
-// either (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
+// Dispatch, as the window holds it: one draft, one entry. The title bar's one bar, once something is
+// chosen to dispatch, grows the panel down from its field. The entry reads this and owns no word of it,
+// so leaving it (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
 //
 //   Job        needs a repository: read from the words by Fleet, else asked inline. Sends `proposeFrom`.
 //   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
-// A Job or an Autopilot sent leaves a strip where the bar was (`DispatchedStrip`), holding the latest
+// A Job or an Autopilot sent leaves a strip over the one bar's field (`DispatchedStrip`), holding the latest
 // send until the next dispatch or a dismiss; ↵ or a press opens it. A Session opens itself and leaves none.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
@@ -24,9 +23,6 @@ import type { SentView } from "./DispatchedStrip";
 import type { PanelProps, PanelReading } from "./DispatchPanel";
 import { optionsFor, useReading } from "./reading";
 
-/** Which entry is asking for the props: the Cockpit's bar, or the panel grown from the title bar. */
-export type Entry = "bar" | "title";
-
 type Host = {
   state: BridgeState;
   repositories: readonly RepositorySummary[];
@@ -40,10 +36,9 @@ type Host = {
   said: (sentence: string) => void;
 };
 
-/** The latest Job or Autopilot sent, and where it was sent from. */
+/** The latest Job or Autopilot sent. */
 type Sent = {
   kind: "job" | "autopilot";
-  entry: Entry;
   title: string;
   /** The Jobs on the Board before the send. The Job the send made is not among them. */
   before: ReadonlySet<string>;
@@ -57,7 +52,7 @@ type Sent = {
 };
 
 /** What the panel is handed by an entry, short of where the entry puts it. */
-export type EntryProps = Omit<PanelProps, "layout" | "anchor" | "away" | "onDismiss" | "fieldRef" | "autoFocus">;
+export type EntryProps = Omit<PanelProps, "anchor" | "onDismiss" | "fieldRef" | "autoFocus">;
 
 export type Dispatching = {
   kind: DispatchKind;
@@ -69,11 +64,16 @@ export type Dispatching = {
   /** The one bar chose to dispatch: the panel grows down from its field holding these words. */
   openTitled: (words: string) => void;
   closeTitled: () => void;
-  panel: (entry: Entry) => EntryProps;
-  /** The latest send, as the strip draws it, and the entry it was sent from. */
-  sent: (SentView & { entry: Entry }) | undefined;
+  /** Words left in the draft by a panel put away: bring the panel back holding them. False where there are none. */
+  reopenDraft: () => boolean;
+  panel: () => EntryProps;
+  /** The latest send, as the strip draws it. */
+  sent: SentView | undefined;
   openSent: () => void;
   dismissSent: () => void;
+  /** An Autopilot sent was opened from its strip: the Cockpit puts its bar up once, then lets this go. */
+  autopilotAsked: boolean;
+  autopilotShown: () => void;
 };
 
 const Held = createContext<Dispatching | undefined>(undefined);
@@ -102,8 +102,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   const [words, setWords, clearWords] = useKept("dispatch:request", "");
   const [picked, pick, clearPicked] = useKept<string | null>("dispatch:repository", null);
   const [settings, setSettings, clearSettings] = useKept<DispatchSettingsValue>("dispatch:job-settings", {});
-  const [grown, setGrown] = useState(false);
   const [titled, setTitled] = useState(false);
+  const [autopilotAsked, setAutopilotAsked] = useState(false);
   const [titleGrown, setTitleGrown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [asking, setAsking] = useState<"send" | "chip" | false>(false);
@@ -144,7 +144,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   // A reading belongs to the repository it was made for.
   useEffect(() => setRead(undefined), [root]);
 
-  /** Sent or started: everything the panel held is let go, and the bar is a bar again. */
+  /** Sent or started: everything the panel held is let go. */
   function clearAll() {
     stamp.current += 1;
     clearWords();
@@ -153,7 +153,6 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     setAsking(false);
     setWaiting(false);
     setSending(false);
-    setGrown(false);
     setTitled(false);
     setSettingsOpen(false);
     setRead(undefined);
@@ -162,10 +161,10 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     setLatest(undefined);
   }
 
-  /** The strip for what was just sent, from the entry the draft was in. */
+  /** The strip for what was just sent. */
   function leave(send: Pick<Sent, "kind" | "title"> & Partial<Pick<Sent, "root">>): number {
     const token = (sends.current += 1);
-    setLatest({ ...send, entry: titled ? "title" : "bar", before: new Set(state.jobs.map((job) => job.id)), token });
+    setLatest({ ...send, before: new Set(state.jobs.map((job) => job.id)), token });
     return token;
   }
 
@@ -177,13 +176,12 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     setLatest((now) => (now?.kind === "job" && now.jobId === undefined && !now.before.has(proposed) ? { ...now, jobId: proposed } : now));
   }, [proposed, latest?.token]);
   const made = latest?.kind === "job" && latest.jobId !== undefined ? state.jobs.find((job) => job.id === latest.jobId) : undefined;
-  const sentView: (SentView & { entry: Entry }) | undefined =
+  const sentView: SentView | undefined =
     latest === undefined
       ? undefined
       : {
           id: latest.token,
           kind: latest.kind,
-          entry: latest.entry,
           title: made === undefined ? latest.title : firstLine(made.title),
           ready: latest.kind === "autopilot" || latest.jobId !== undefined,
           ...(latest.refused === undefined ? {} : { refused: latest.refused }),
@@ -194,7 +192,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     if (latest.kind === "job") {
       if (latest.jobId === undefined) return;
       openJob(latest.jobId);
-    } else if (latest.root !== undefined) openAutopilot(latest.root);
+    } else if (latest.root !== undefined) (openAutopilot(latest.root), setAutopilotAsked(true));
     setLatest(undefined);
   }
 
@@ -284,11 +282,10 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
 
   const cycle = () => choose(kinds[(kinds.indexOf(kind) + 1) % kinds.length] ?? "job");
 
-  const typed = (entry: Entry, next: string) => {
+  const typed = (next: string) => {
     stamp.current += 1;
     setWords(next);
     setLatest(undefined);
-    if (entry === "bar") setGrown(true);
     setAsking(false);
     setRead(undefined);
     setRefused(undefined);
@@ -313,16 +310,15 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       <AutopilotBody read={read} onRead={setRead} refused={refused} />
     ) : undefined;
 
-  const collapse = (entry: Entry) => {
+  const collapse = () => {
     setAsking(false);
-    if (entry === "bar") setGrown(false);
-    else setTitled(false);
+    setTitled(false);
   };
 
-  const panel = (entry: Entry): EntryProps => ({
-    open: entry === "bar" ? grown : titleGrown,
+  const panel = (): EntryProps => ({
+    open: titleGrown,
     words,
-    onWords: (next) => typed(entry, next),
+    onWords: typed,
     placeholder: REQUEST_PLACEHOLDER,
     kind,
     kinds,
@@ -341,25 +337,19 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     act: kind === "job" ? "Dispatch" : kind === "session" ? "Start" : read === undefined ? "Read it" : "Start Autopilot",
     sending: sending || waiting,
     onAct: act,
-    onOpen: () => words !== "" && setGrown(true),
-    onCollapse: () => collapse(entry),
+    onCollapse: collapse,
     onFieldKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => {
       if (event.key === "Tab" && kinds.length > 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
         event.preventDefault();
         cycle();
       } else if (event.key === "Escape") {
-        if (latest?.entry === entry && words === "") setLatest(undefined);
-        else if (!(entry === "bar" ? grown : titleGrown)) entry === "bar" ? event.currentTarget.blur() : collapse(entry);
-      } else if (event.key === "Enter" && latest?.entry === entry && words === "" && !event.shiftKey) {
-        event.preventDefault();
-        openSent();
+        if (!titleGrown) collapse();
       } else if (event.key === "Enter" && kind === "session" && !event.shiftKey && words.trim() !== "") {
         event.preventDefault();
         act();
       }
     },
     ...(body === undefined ? {} : { body }),
-    ...(sentView?.entry === entry ? { sent: sentView, onOpenSent: openSent, onDismissSent: () => setLatest(undefined) } : {}),
     disabled: state.connection.state !== "connected",
   });
 
@@ -377,10 +367,17 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       setRefused(undefined);
       setTitled(true);
     },
-    closeTitled: () => collapse("title"),
+    closeTitled: collapse,
+    reopenDraft: () => {
+      if (words.trim() === "") return false;
+      setTitled(true);
+      return true;
+    },
     panel,
     sent: sentView,
     openSent,
     dismissSent: () => setLatest(undefined),
+    autopilotAsked,
+    autopilotShown: () => setAutopilotAsked(false),
   };
 }

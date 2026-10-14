@@ -24,7 +24,7 @@
     group = "Action"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 9 Oct 2026 for the walk `dispatch-panel-from-either-bar`. The repository chip's mark from the first word until the reading comes back, tooltip `Finding the repository`: an open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
+    notes = "Proposed 9 Oct 2026 for the walk `dispatch-panel-from-the-title-bar`. The repository chip's mark from the first word until the reading comes back, tooltip `Finding the repository`: an open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."
 
   [[icons.loader-circle.usage]]
     means = "Helm is reading a thought for where it belongs, over the message box"

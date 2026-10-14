@@ -29,7 +29,7 @@ mod branch;
 use adapter_traits::WorktreeSpec;
 use git2::{BranchType, ErrorCode, Oid, Repository, WorktreeLockStatus, WorktreePruneOptions};
 
-pub use branch::{delete_branch, delete_merged_branch, delete_repair_branch, BranchRefused};
+pub use branch::{branch_is_merged, delete_branch, delete_merged_branch, delete_repair_branch, BranchRefused};
 
 /// Whether a branch holding commits the base cannot reach may be deleted.
 ///

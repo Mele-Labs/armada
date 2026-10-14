@@ -7,6 +7,7 @@ import { button, role, tab, text, walk } from "../walk";
 
 export const plainWordsInARequestTitle = walk("arc/proposing-workflow-landed", [
   { press: tab("Active"), say: "A Job being proposed is under way" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   {
     look: text("the worktree alone the branch as well"),
     say: "The Dashboard's title: the request's words, with no ** or backticks",

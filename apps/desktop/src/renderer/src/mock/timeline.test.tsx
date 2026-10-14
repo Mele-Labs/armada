@@ -1,5 +1,5 @@
-// The Cockpit's timeline: it opens on Lanes, keeps the take he last chose, and draws an entry the moment
-// Fleet appends one. Through `App` on the `fleet-timeline` mock Fleet, and for the live append through the
+// The Cockpit's timeline: it opens on Lanes, keeps the take he last chose, draws an entry the moment
+// Fleet appends one, and draws a pull request as marks on its owner's track, never as a lane. Through `App` on the `fleet-timeline` mock Fleet, and for the live append through the
 // timeline alone over a source the test moves by hand.
 
 import { createRoot } from "react-dom/client";
@@ -95,6 +95,47 @@ test("main is a subject on the timeline and nothing to open", async () => {
   expect(page.getByRole("button", { name: /^Main/ }).query()).toBeNull();
 });
 
+// ---- Pull requests ride their owner's track -----------------------------------------------------------------------
+
+/** The pip a lane's track draws for an event, by what it says. */
+const pipIn = (lane: Element | null, says: RegExp) => [...(lane?.querySelectorAll<HTMLElement>(".armada-tl__pip") ?? [])].find((one) => says.test(one.getAttribute("aria-label") ?? ""));
+const laneOf = (name: RegExp) => page.getByRole("button", { name }).element().closest(".armada-tl__lane");
+
+test("a pull request is marks on the track of the Job or Session that owns it, and no lane of its own", async () => {
+  mount("cockpit-timeline-first");
+  await onScreen();
+  await page.getByRole("tab", { name: "Active" }).click();
+  await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
+
+  // #1890 opened on the Job's branch; #1896 on the branch a Session works on.
+  const job = laneOf(/^Job: Debounce the Job Board/);
+  const queued = pipIn(job, /^Queued, place 1/);
+  expect(queued?.getAttribute("data-shape")).toBe("pull_request");
+  const session = laneOf(/^Session: Flaky store test/);
+  expect(pipIn(session, /^Check store passed/)?.getAttribute("data-shape")).toBe("pull_request");
+  // The Job's own marks keep the Job's shape.
+  expect(pipIn(job, /^Check lint failed/)?.getAttribute("data-shape")).toBe("job");
+
+  // No row, lane or Split entry is a pull request, whoever owns it.
+  expect(page.getByRole("button", { name: /^Pull request/ }).query()).toBeNull();
+  await take("Split").click();
+  await expect.element(page.getByRole("navigation", { name: "Subjects" })).toBeVisible();
+  expect(page.getByRole("navigation", { name: "Subjects" }).getByRole("button", { name: /^Pull request/ }).query()).toBeNull();
+});
+
+test("a pull request nobody owns draws nothing, in any take", async () => {
+  mount("cockpit-timeline-first");
+  await onScreen();
+  await page.getByRole("tab", { name: "Active" }).click();
+  // #1894 has no Job on its branch and no Session holding it: its failed Check is on no track.
+  await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
+  expect([...document.querySelectorAll<HTMLElement>(".armada-tl__pip")].some((one) => /Check store failed/.test(one.getAttribute("aria-label") ?? ""))).toBe(false);
+  await take("Feed").click();
+  await expect.element(page.getByRole("list", { name: "Just now" })).toBeVisible();
+  expect(page.getByText(/Check store failed/).query()).toBeNull();
+  expect(page.getByRole("button", { name: /^Pull request/ }).query()).toBeNull();
+});
+
 // ---- Live over Fleet ----------------------------------------------------------------------------------------------
 
 const entry = (id: number, says: string, over: Partial<TimelineEvent> = {}): TimelineEvent => ({
@@ -133,11 +174,11 @@ test("an entry Fleet appends is drawn at once, in the lane of its subject, and a
   );
   await expect.element(page.getByRole("button", { name: /^Scope passed/ })).toBeVisible();
   expect(page.getByRole("button", { name: /^Implement started/ }).query()).toBeNull();
-  expect(page.getByText("#1900 Pin the clock").query()).toBeNull();
+  expect(page.getByText("Pin the clock").query()).toBeNull();
 
-  held = [...held, entry(2, "Implement started"), entry(3, "Opened", { kind: "pr.opened", subject: { kind: "pull_request", number: 1900 }, title: "Pin the clock" })];
+  held = [...held, entry(2, "Implement started"), entry(3, "Dispatched", { kind: "job.created", subject: { kind: "job", id: "job-new" }, title: "Pin the clock" })];
   listeners.forEach((on) => on());
 
   await expect.element(page.getByRole("button", { name: /^Implement started/ })).toBeVisible();
-  await expect.element(page.getByText("#1900 Pin the clock")).toBeVisible();
+  await expect.element(page.getByText("Pin the clock")).toBeVisible();
 });

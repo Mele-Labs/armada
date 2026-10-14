@@ -20,7 +20,7 @@ use ipc::{
 use super::serving::mode_of;
 use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because, Said};
+use crate::helm::{answering, because_in_a_session_owning, pages_opened, unanswered, Because, Own, Said};
 
 /// How long one `Wait` is held. The mod's request must outlast it.
 const POLL_HOLD: Duration = Duration::from_secs(25);
@@ -125,7 +125,15 @@ where
                 SessionMode::Auto | SessionMode::Plan => {
                     let held = self.held_directories(id, &served, &hosting);
                     let held: Vec<&str> = held.iter().map(String::as_str).collect();
-                    match because_in_a_session(&asking, &held) {
+                    // A branch is looked up only for a line that names one.
+                    let merged = match asking.detail().is_some_and(|line| line.contains("branch")) {
+                        true => self.own_merged_branches(id, &served, &hosting).await,
+                        false => Vec::new(),
+                    };
+                    let merged: Vec<&str> = merged.iter().map(String::as_str).collect();
+                    let started = self.started_by(id);
+                    let own = Own { started: Some(&started), merged_branches: &merged };
+                    match because_in_a_session_owning(&asking, &held, own) {
                         Some(Because::ReachesOutside) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(

@@ -1,6 +1,5 @@
-/* The strip a send leaves where the bar was: the cockpit's band (raised, mono, ruled) as one slim row.
-   Docked it fills the Cockpit bar's frame; anchored it is laid over the title bar's field. The refusal
-   hue fills it as a held bay's is filled. Tokens only. */
+/* The strip a send leaves where the one bar's field was: the cockpit's band (raised, mono, ruled) as one slim row,
+   laid over the title bar's field. The refusal hue fills it as a held bay's is filled. Tokens only. */
 
 .armada-dispatch-strip {
   --hue: var(--status-completed-failed);
@@ -53,8 +52,7 @@
 
 /* The hint is for a bar that has the cursor, which is where ↵ lands. */
 .armada-dispatch-strip__enter { visibility: hidden; }
-.armada-dispatch-strip:focus-within .armada-dispatch-strip__enter,
-.armada-dispatch-panel__frame:focus-within .armada-dispatch-strip__enter { visibility: visible; }
+.armada-dispatch-strip:focus-within .armada-dispatch-strip__enter { visibility: visible; }
 
 .armada-dispatch-strip[data-refused] {
   background: var(--hue);
@@ -65,7 +63,7 @@
 .armada-dispatch-strip[data-refused] .armada-dispatch-strip__title { color: var(--fg-inverse); }
 
 /* Over the title bar's field: its box, read when the strip appears. The row is a drag region and the strip opts out. */
-.armada-dispatch-strip[data-layout="anchored"] {
+.armada-dispatch-strip {
   position: fixed;
   top: var(--hung-top);
   left: var(--hung-left);
@@ -79,5 +77,5 @@
   -webkit-app-region: no-drag;
 }
 
-.armada-dispatch-strip[data-layout="anchored"][data-refused] { border-color: var(--hue); }
-.armada-dispatch-strip[data-layout="anchored"]:focus-within { border-color: var(--accent); }
+.armada-dispatch-strip[data-refused] { border-color: var(--hue); }
+.armada-dispatch-strip:focus-within { border-color: var(--accent); }

@@ -1151,6 +1151,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
+                  onPickRepository={pick}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />

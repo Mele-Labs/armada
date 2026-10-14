@@ -935,8 +935,8 @@ picker, the one bar and Helm's reopen control (#1087 moved them off the left
 column and into this row), and Fleet's status dot. **The one bar searches and
 dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
 the palette offers what was typed as the work too, so the row draws no
-Dispatch button. Dispatching grows a panel, down from the bar's field, and the
-Cockpit's own bar grows the same panel in place (`docs/journeys/dispatch-a-job.md`). The row sits flush on
+Dispatch button. Dispatching grows a panel, down from the bar's field (`docs/journeys/dispatch-a-job.md`);
+the Cockpit has no dispatch bar of its own. The row sits flush on
 `--bg-base` with no rule under it, so the panels below carry the frames. **The dot is
 permanent chrome**, corrected on 18 Sep 2026 from the conditional one #1438
 shipped — see Left column, below. Costs a custom drag region: the whole row is

@@ -11,7 +11,7 @@ import { boardJobs, boardWorkflows } from "@armada/screens/src/fixtures/build/bo
 
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
-import { mount, onScreen, openHelm, rows, unmountAfterEach } from "./testing";
+import { mount, onScreen, openHelm, rows, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -76,6 +76,7 @@ function unreachable(scenario: Scenario): Scenario {
 const picked = () => document.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
 
 test("every filter draws its own: what needs you comes forward, what is live and what is over are tiles", async () => {
+  rememberingTheGrid();
   await overview(onOverview(JOBS()));
   // Your move: what needs the owner is a call in front of the panel, whatever the filter.
   await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
@@ -125,6 +126,7 @@ test("Fleet unreachable with nothing held says so flatly", async () => {
 });
 
 test("a running Job picked on Active, under Helm's dock, keeps its steps and its act", async () => {
+  rememberingTheGrid();
   await overview(onOverview(RUNNING_ONE_WITH_A_PLAN(), { repositories: [ARMADA, STOREFRONT] }));
   await openHelm();
   await page.getByRole("tab", { name: "Active" }).click();
@@ -135,6 +137,7 @@ test("a running Job picked on Active, under Helm's dock, keeps its steps and its
 });
 
 test("j and k move the pick, x asks to kill, Enter opens", async () => {
+  rememberingTheGrid();
   await overview(onOverview(RUNNING_ONE_WITH_A_PLAN()));
   await page.getByRole("tab", { name: "Active" }).click();
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();

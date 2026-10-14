@@ -9,6 +9,7 @@
 
 mod agent_starting;
 mod asking;
+mod cut_off;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
 pub(crate) mod following;
@@ -262,6 +263,8 @@ pub(crate) struct State {
     pub unstarted: Vec<String>,
     /// Those lines have been sent to a replacement once already.
     pub retried: bool,
+    /// The subagents the last restart cut off, told to the agent with its next turn.
+    pub cut_off: Vec<String>,
     /// The keeper said busy on reattach and nothing has been heard since, so
     /// a long silence is a turn end that was missed.
     pub reattached_busy: bool,
@@ -303,6 +306,7 @@ impl State {
             resolved_model: None,
             unstarted: Vec::new(),
             retried: false,
+            cut_off: Vec::new(),
             reattached_busy: false,
             turn_began: None,
             helm: false,

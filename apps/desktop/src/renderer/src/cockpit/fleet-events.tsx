@@ -2,7 +2,8 @@
 // happened to. Fleet serves them as `get_fleet_timeline` and `timeline.appended` (`@armada/protocol`,
 // `TimelineEvent`); `fleet-timeline.ts` reads them in the app, and a mock scenario carries its own list.
 // Both reach the window through `FleetEventsFrom` or `FleetEventsOver`, and `fromWire` is where an entry
-// becomes what the takes draw.
+// becomes what the takes draw. **A pull request is no subject**: its entries are events on the track of the
+// Job or Session that owns it, and one nobody owns is left out.
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
@@ -11,15 +12,15 @@ import type { DashboardTab } from "@armada/overview";
 import type { TimelineEvent, TimelineKind, TimelineTone } from "@armada/protocol";
 
 import type { TimelineSource } from "../fleet-timeline";
+import type { Owner } from "./owner";
 
 /** What an event is a state of, as the colour reads it: working, needs him, failing, passed, waiting. */
 export type EventTone = TimelineTone;
 
-export type Subject =
-  | { kind: "job"; id: string; title: string }
-  | { kind: "session"; id: string; title: string }
-  | { kind: "pull_request"; number: number; title: string; url?: string }
-  | { kind: "main" };
+export type Subject = { kind: "job"; id: string; title: string } | { kind: "session"; id: string; title: string } | { kind: "main" };
+
+/** The pull request an event is about, where it is drawn on its owner's track. */
+export type Pull = { number: number; title: string; url?: string };
 
 export type EventKind = TimelineKind;
 
@@ -40,6 +41,8 @@ export type FleetEvent = {
   live?: boolean;
   /** The subject is over after this: landed, failed, merged, ended. */
   over?: boolean;
+  /** Set where the event is a pull request's: it sits on the track of the Job or Session that owns it. */
+  pull?: Pull;
 };
 
 const NOTHING: readonly TimelineEvent[] = [];
@@ -64,19 +67,34 @@ export function useFleetEvents(): readonly TimelineEvent[] {
 }
 
 /** What a subject is called where the entry itself carries no title: the Jobs and Sessions the window holds. */
-export type Names = { job: (id: string) => string | undefined; session: (id: string) => string | undefined };
+export type Names = {
+  job: (id: string) => string | undefined;
+  session: (id: string) => string | undefined;
+  /** Whoever owns pull request `number`. */
+  pull: (number: number) => Owner | undefined;
+};
 
-/** An entry as the takes draw it. A subject Fleet gave no title takes the window's own name for it. */
-export function fromWire(event: TimelineEvent, names: Names): FleetEvent {
+/**
+ * An entry as the takes draw it. A subject Fleet gave no title takes the window's own name for it. A pull
+ * request's entry takes its owner's subject and keeps the pull request in `pull`, with its number leading
+ * the detail; one nobody owns is undefined.
+ */
+export function fromWire(event: TimelineEvent, names: Names): FleetEvent | undefined {
   const { subject } = event;
-  const drawn: Subject =
-    subject.kind === "job"
-      ? { kind: "job", id: subject.id, title: event.title ?? names.job(subject.id) ?? "Job" }
-      : subject.kind === "session"
-        ? { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Session" }
-        : subject.kind === "pull_request"
-          ? { kind: "pull_request", number: subject.number, title: event.title ?? "", ...(subject.url === undefined ? {} : { url: subject.url }) }
-          : { kind: "main" };
+  let pull: Pull | undefined;
+  let drawn: Subject;
+  if (subject.kind === "job") drawn = { kind: "job", id: subject.id, title: event.title ?? names.job(subject.id) ?? "Job" };
+  else if (subject.kind === "session") drawn = { kind: "session", id: subject.id, title: event.title ?? names.session(subject.id) ?? "Session" };
+  else if (subject.kind === "pull_request") {
+    const owner = names.pull(subject.number);
+    if (owner === undefined) return undefined;
+    drawn =
+      owner.kind === "job"
+        ? { kind: "job", id: owner.id, title: names.job(owner.id) ?? owner.title }
+        : { kind: "session", id: owner.id, title: names.session(owner.id) ?? owner.title };
+    pull = { number: subject.number, title: event.title ?? "", ...(subject.url === undefined ? {} : { url: subject.url }) };
+  } else drawn = { kind: "main" };
+  const detail = pull === undefined ? event.detail : [`#${pull.number}`, event.detail].filter((one) => one !== undefined).join(" ");
   return {
     id: String(event.id),
     at: event.at,
@@ -84,18 +102,17 @@ export function fromWire(event: TimelineEvent, names: Names): FleetEvent {
     subject: drawn,
     tone: event.tone,
     says: event.says,
-    ...(event.detail === undefined ? {} : { detail: event.detail }),
+    ...(detail === undefined ? {} : { detail }),
     repo: event.manifest_id ?? "",
     ...(event.live === true ? { live: true } : {}),
     ...(event.over === true ? { over: true } : {}),
+    ...(pull === undefined ? {} : { pull }),
   };
 }
 
-export const keyOf = (subject: Subject): string =>
-  subject.kind === "job" ? `job:${subject.id}` : subject.kind === "session" ? `session:${subject.id}` : subject.kind === "pull_request" ? `pr:${subject.number}` : "main";
+export const keyOf = (subject: Subject): string => (subject.kind === "job" ? `job:${subject.id}` : subject.kind === "session" ? `session:${subject.id}` : "main");
 
-export const titleOf = (subject: Subject): string =>
-  subject.kind === "pull_request" ? (subject.title === "" ? `#${subject.number}` : `#${subject.number} ${subject.title}`) : subject.kind === "main" ? "main" : subject.title;
+export const titleOf = (subject: Subject): string => (subject.kind === "main" ? "main" : subject.title);
 
 /** How a subject stands, from its newest event: the order the lanes group in. */
 export type Standing = "ask" | "bad" | "stuck" | "run" | "idle" | "done";
@@ -116,8 +133,10 @@ export type Lane = {
   key: string;
   subject: Subject;
   repo: string;
-  /** Newest first. */
+  /** Newest first. A pull request's are among them, and the track draws them. */
   events: FleetEvent[];
+  /** The newest event that is not a pull request's, which is what the standing is read from. Any event where there is no other. */
+  head: FleetEvent;
   standing: Standing;
   /** A Session's state as the Sessions list reads it, where the window holds the Session. */
   session?: SessionState;
@@ -161,7 +180,8 @@ export function lanesOf(events: readonly FleetEvent[], now: number, reading: (se
   }
   const lanes = [...by].map(([key, own]): Lane => {
     const newest = own.sort((a, b) => when(b) - when(a));
-    const head = newest[0]!;
+    // A pull request's events are marks on the track and do not say how the Job or Session stands.
+    const head = newest.find((one) => one.pull === undefined) ?? newest[0]!;
     const read = head.subject.kind === "session" ? reading(head.subject.id) : undefined;
     const standing: Standing =
       head.over === true
@@ -172,12 +192,12 @@ export function lanesOf(events: readonly FleetEvent[], now: number, reading: (se
             ? "ask"
             : head.tone === "bad"
               ? "bad"
-              : head.subject.kind !== "session" && head.live === true
+              : head.live === true
                 ? now - when(head) > STUCK_MS
                   ? "stuck"
                   : "run"
                 : "idle";
-    return { key, subject: head.subject, repo: head.repo, events: newest, standing, ...(read === undefined ? {} : { session: read }), last: when(head) };
+    return { key, subject: head.subject, repo: head.repo, events: newest, head, standing, ...(read === undefined ? {} : { session: read }), last: when(newest[0]!) };
   });
   const rank = (lane: Lane) => STANDINGS.findIndex((one) => one.id === lane.standing);
   return lanes.sort((a, b) => rank(a) - rank(b) || b.last - a.last);

@@ -32,6 +32,7 @@ export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
   { look: inside(SCRATCH, role("status")), say: "Another branch, told the same way" },
   { press: role("button", "Cockpit", { exact: true }), say: "A Job in the batch, on the Dashboard" },
   { press: tab("Active"), say: "It is running" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { press: role("option", /Cache the manifest read between dispatches, Job/), say: "Picked" },
   { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open it" },
   { press: tab("Pulse"), say: "Its Pulse" },
