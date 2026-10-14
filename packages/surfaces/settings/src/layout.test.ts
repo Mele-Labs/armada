@@ -24,6 +24,23 @@ describe("the registry file both sides check", () => {
   });
 });
 
+describe("the Cockpit's filters", () => {
+  it("are Active, Done and Bays, and Active is never hidden", () => {
+    expect(LAYOUT["dashboard.tabs"].entries.map((one) => one.id)).toEqual(["running", "done", "bays"]);
+    expect(LAYOUT["dashboard.tabs"].entries.find((one) => one.id === "running")?.hideable).toBe(false);
+  });
+
+  it("ignore a layout that still names Your move's old id, and never fail on it", () => {
+    const old = '{"version":1,"dashboard.tabs":{"order":["command-central","done"],"hidden":["command-central","running"],"first":"command-central"}}';
+    const parsed = parseLayout(old);
+    expect(parsed.problems).toEqual([]);
+    expect(parsed.ignored.length).toBeGreaterThan(0);
+    const layers = layersOf({ mods: [mod("old", old)], own: { regions: {} } });
+    expect(shown("dashboard.tabs", layers)).toEqual(["done", "running", "bays"]);
+    expect(resolveLayout("dashboard.tabs", layers).first).toBe("running");
+  });
+});
+
 describe("the examples the armada-mods skill teaches", () => {
   // Written out as the skill has them: a skill is not a file a test may read, so a change to either is a change to both.
   const tidy = '{\n  "version": 1,\n  "dashboard.panels": { "order": ["merge-line", "fleet"] },\n  "rail": { "hidden": ["lessons"] }\n}\n';

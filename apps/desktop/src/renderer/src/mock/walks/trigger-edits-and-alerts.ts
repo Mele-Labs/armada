@@ -3,7 +3,7 @@
 // never offered Replace on a clash. Job 2's own lead lists its alert, which opens the
 // Trigger, where a file of the held fix opens its diff against the Job's branch.
 
-import { button, card, dialog, inside, role, tab, walk } from "../walk";
+import { button, card, dialog, inside, region, role, tab, walk } from "../walk";
 
 const NEW = dialog("Script");
 const ADDED = dialog("fmt");
@@ -47,6 +47,7 @@ export const triggerEditsAndAlerts = walk("real/job-2-edits-and-alerts", [
   { press: inside(KEEP, button("Keep", { exact: true })), say: "Kept under the next free name, never asked to Replace" },
   { press: inside(KEEP, button("Close")), say: "Close" },
   { press: role("button", "Cockpit", { exact: true }), say: "Back to the Board" },
+  { key: "w", on: region("Dashboard"), say: "w opens the call waiting in the tray" },
   { press: button(/Open Job/), say: "Job 2, which holds an alert" },
   { look: ALERTS, say: "The alert in this Job's lead, naming the Trigger" },
   { hover: inside(ALERTS, role("img", /Fix ready, deploy_qa/)), say: "Its state, and where it fired" },

@@ -1,5 +1,5 @@
 // The alert for a call that has come while the owner is elsewhere: it names the call, a press takes him to
-// it, and it says nothing for what was already waiting, for what the cockpit is already showing, or for
+// it, and it says nothing for what was already waiting, for what the cockpit already shows in its tray, or for
 // what has been dealt with by the time it would have stood.
 
 import { featureRunning } from "@armada/jobs/fake";
@@ -77,7 +77,7 @@ test("several that come together are one alert, landing on the one that has wait
   expect(onShow).toHaveBeenCalledWith(second.id);
 });
 
-test("says nothing while the cockpit is what is on screen, because its card is already in front", async () => {
+test("says nothing while the cockpit is what is on screen, because the call already shows in its tray", async () => {
   const { show } = draw([], vi.fn(), true);
   await show([waiting(1, "Fix the login")]);
   expect(alert(/needs you/).query()).toBeNull();

@@ -1,6 +1,7 @@
-// The Dashboard as one panel. Its top bar filters Your move, Active and Done, and reads them as a grid
-// of tiles or a timeline of what Fleet did; a call that needs the owner comes forward on Your move over either with the context to answer it, and is answered from the
-// keyboard, the calls behind it stacked like a deck. Over `dashboard-cockpit`.
+// The Dashboard as one panel. Its top bar filters Active, Done and Bays, and reads them as a grid
+// of tiles or a timeline of what Fleet did; a call that needs the owner waits in a tray along the foot of
+// either, and opens over it with the context to answer it, answered from the keyboard, the calls behind
+// it listed beside. Over `dashboard-cockpit`.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
@@ -11,11 +12,12 @@ const behind = (kind: RegExp) => button(kind);
 const call = (kind: RegExp) => region(kind);
 
 const dashboardCockpit = walk("dashboard-cockpit", [
-  { look: tab("Your move"), say: "One panel, three filters on its top bar. Your move is what needs him, and nothing does: the panel is empty" },
+  { look: tab("Active"), say: "One panel, three filters on its top bar. Active is what is live, and nothing waits on him: no call in the tray" },
   { look: role("img", /^docs\/wire-lock-signed/), say: "The merge line is a band along the foot of the panel, main's light at its right end. A dot each, nearest main first: Fleet's landings, then the pull requests in the merge queue by place, then the open ones" },
   { hover: button(/^#1890/), say: "Colour is the state, a solid dot is held by a queue and a ring is open, and only a running one pulses. Hovering opens its card; pressing it opens the pull request" },
   { hover: role("img", /^docs\/wire-lock-signed/), say: "A landing's card gives the full branch, its stage and the Check it is on" },
   { key: "]", on: cockpit, say: "] steps to the next filter, [ to the one before" },
+  { key: "[", on: cockpit, say: "[ steps back" },
   { look: tab("Active"), say: "Active: everything live, one tile each. What is active is the glyph, and a tile that asks is lit" },
   { hover: inside(glass, role("img", "Drone working")), say: "A glyph names its state on hover" },
   { key: "j", on: cockpit, say: "j and k move along the glass, the arrows too" },
@@ -23,22 +25,25 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { key: "m", on: cockpit, say: "m flips the grid into the timeline: what Fleet did, a row for each event" },
   { look: timeline, say: "The same filter, as a timeline. This Fleet has served no events, so it is empty" },
   { later: cockpit, say: "Time passes: a Drone reaches a question" },
-  { look: inside(tab("Your move"), role("img", "Needs you")), say: "The timeline shows no deck: Your move carries a dot while a call waits" },
-  { press: tab("Your move"), say: "Your move" },
-  { look: call(/^Plan question/), say: "It comes forward over the timeline there: the Job, what he asked for, who asked and where, what is active, then the question" },
+  { look: button(/^Plan question/), say: "It waits in the tray along the foot of the timeline, which it does not cover" },
+  { key: "w", on: cockpit, say: "w opens it" },
+  { look: call(/^Plan question/), say: "It opens over the timeline: the Job, what he asked for, who asked and where, what is active, then the question" },
   { key: "e", on: cockpit, say: "e opens the whole request" },
   { look: inside(call(/^Plan question/), button(/Less/)), say: "The request, in full" },
   { key: "2", on: cockpit, say: "A number picks an answer" },
   { look: inside(call(/^Plan question/), role("radio", "Wrap it in place")), say: "Picked, and not sent" },
   { later: cockpit, say: "A second call arrives while the first is open" },
-  { look: behind(/^Check failed/), say: "It stands behind the open one, its title on its edge" },
+  { look: behind(/^Check failed/), say: "It is listed beside the open one, its title on its edge" },
   { key: "b", on: cockpit, say: "b is a standing answer: make the best decision" },
   { look: inside(call(/^Plan question/), role("radio", /Make the best decision/)), say: "Under the numbered ones, with what it tells the agent on hover" },
   { key: "Enter", on: cockpit, say: "Enter sends the answer" },
-  { look: call(/^Check failed/), say: "The next call slides up from behind. A state Fleet raises, a failed Check, keeps only its own act" },
+  { look: button(/^Check failed/), say: "The card goes and the next call waits in the tray" },
+  { key: "w", on: cockpit, say: "w opens it" },
+  { look: call(/^Check failed/), say: "A state Fleet raises, a failed Check, keeps only its own act" },
   { later: cockpit, say: "A Session stops to ask for a command" },
-  { look: behind(/^Session/), say: "Behind it, in its turn" },
-  { key: "l", on: cockpit, say: "l puts this one at the back of the stack" },
+  { look: behind(/^Session/), say: "Beside it, in its turn" },
+  { key: "l", on: cockpit, say: "l puts this one off, to the back of the tray" },
+  { key: "w", on: cockpit, say: "w opens the next" },
   { look: call(/^Session/), say: "The Session's call: a small view of the Session, and what it asks" },
   { look: text("The store test is flaky on CI"), say: "What he told it, and what it did since" },
   { key: "g", on: cockpit, say: "On a Session's ask the standing two hand the decision to the agent: g, just get it done" },
@@ -49,7 +54,7 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { key: "w", on: cockpit, say: "w brings it forward" },
   { look: call(/^Check failed/), say: "Back in front" },
   { key: "Escape", on: cockpit, say: "Esc puts it off again" },
-  { look: timeline, say: "Nothing in front: the timeline, with the call still waiting at the bottom edge" },
+  { look: timeline, say: "Nothing in front: the timeline, with the call still waiting in the tray" },
   { key: "m", on: cockpit, say: "m flips back to the grid" },
   { look: glass, say: "The grid" },
   { key: "?", on: cockpit, say: "? lists every key" },
@@ -58,7 +63,7 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { key: "]", on: cockpit, say: "] steps to Done" },
   { look: tab("Done"), say: "Done: Jobs and Sessions that are over, the same tiles, the one picked opened beside them" },
   { key: "Alt+1", on: tab("Done"), say: "Option and a number picks a filter" },
-  { look: inside(glass, role("option", /Shorten the reconnect wait/)), say: "Your move again: the call that was put off is a lit tile" },
+  { look: inside(glass, role("option", /Shorten the reconnect wait/)), say: "Active again: the call that was put off is a lit tile" },
   { later: cockpit, say: "Checks fail on an open pull request" },
   { hover: button(/^#1894/), say: "Its dot turns red on the merge line, and the pull request is a call of its own" },
 ]);

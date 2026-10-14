@@ -8,5 +8,6 @@ export const aFlatLeftColumn = walk("every-state", [
   { look: role("navigation", "Work", { exact: true }), say: "Navigation, Work: flat, no bevel, no shadow" },
   { look: role("navigation", "Machine", { exact: true }), say: "Navigation, Machine: the same" },
   { look: text("Fleet"), say: "Fleet: a solid fill and a thin border" },
+  { key: "w", on: region("Dashboard"), say: "w opens the call waiting in the tray" },
   { look: region(/^[A-Z][A-Za-z ]+: /), say: "The Dashboard's call, beside them, keeps its depth" },
 ]);

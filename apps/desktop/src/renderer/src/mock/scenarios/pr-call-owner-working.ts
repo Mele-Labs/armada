@@ -1,5 +1,5 @@
-// A pull request whose checks failed, held by a Session that is already working on it: no call, and no
-// dot on Your move. Then the Session goes idle with nothing said to it since the failure, and the call
+// A pull request whose checks failed, held by a Session that is already working on it: no call, and
+// nothing in the tray. Then the Session goes idle with nothing said to it since the failure, and the call
 // comes up with the Session's thread under it. Poke sends it a line, and the call leaves again. The
 // walk `prCallOwnerWorking` plays it.
 

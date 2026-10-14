@@ -75,7 +75,7 @@ export type CardOption = {
 /**
  * The card a Job's Commander has out to the owner, which outlives the turn that raised it. #2166.
  * A Drone's question one subject over: asked once, a closed set to pick from, and it waits however
- * long he takes. **While it is out `JobSummary.asking` is true**, which puts the Job in Your move.
+ * long he takes. **While it is out `JobSummary.asking` is true**, which puts the Job's call in the Cockpit's tray.
  */
 export type CommanderCard = {
   card_id: string;

@@ -8,6 +8,7 @@ const cockpit = region("Dashboard");
 const card = region(/^Session: Debug Bridge on Merge line/);
 
 const callCardRunsCommand = walk("call-card-runs-command", [
+  { key: "w", on: cockpit, say: "w opens the first call in the tray" },
   { look: inside(card, text("kill $(lsof -ti tcp:5788)")), say: "A command he runs: the command on the card, in the case it was written" },
   { hover: inside(card, text("kill $(lsof -ti tcp:5788)")), say: "Hover the command: the same play control as in the Session" },
   { look: inside(card, button("Run")), say: "Play, on the command's own block" },
@@ -18,7 +19,9 @@ const callCardRunsCommand = walk("call-card-runs-command", [
   { look: inside(card, role("img", "Running")), say: "A running mark while it goes, and the card's other keys held" },
   { look: inside(card, role("img", "Passed")), say: "Exit 0: the mark turns to passed, and the card stays a moment" },
   { hover: inside(card, role("img", "Passed")), say: "The tooltip names the exit" },
-  { look: inside(card, text("Run the components tests")), say: "The card has gone, the agent is told, and the next command is in front" },
+  { look: text("It ran clean."), say: "The card has gone and the agent is told: its reply is on the Session behind" },
+  { key: "w", on: cockpit, say: "The next command waits in the tray, and w opens it" },
+  { look: inside(card, text("Run the components tests")), say: "The next command is in front" },
   { press: inside(inside(card, role("group", "pnpm vitest run packages/components")), button("Run")), say: "Play on the command runs it too, with the key's state" },
   { look: inside(card, role("img", "Failed")), say: "Exit 1: the card stays with the output and the exit" },
   { hover: inside(card, role("img", "Failed")), say: "The tooltip names the exit" },

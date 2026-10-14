@@ -8,7 +8,7 @@ import { button, inside, role, tab, text, walk } from "../walk";
 const outside = role("list", "Pull requests outside a bay");
 const tokens = button("Session: Theme token audit");
 const notes = button("Session: Migration notes");
-const pause = button("Job: Add the pause marker column");
+const pause = inside(outside, button("Job: Add the pause marker column"));
 
 const baysOutsidePrs = walk("bays-outside-prs", [
   { press: tab("Bays"), say: "Bays" },

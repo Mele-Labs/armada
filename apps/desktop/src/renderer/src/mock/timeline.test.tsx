@@ -75,7 +75,7 @@ test("Lanes scrolls sideways, opens at now, and a Session's mark never turns its
   expect(getComputedStyle(pip).transform).toBe("none");
 });
 
-test("the filter narrows it as it narrows the grid: Your move keeps what needs him, Done what is over", async () => {
+test("the filter narrows it as it narrows the grid: Active keeps what is not over, Done what is over", async () => {
   await timeline();
   const subject = (name: RegExp) => page.getByRole("button", { name });
 

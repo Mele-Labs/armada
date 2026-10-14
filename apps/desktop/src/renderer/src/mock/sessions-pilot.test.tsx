@@ -13,7 +13,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard, onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -30,8 +30,6 @@ function served(fleet: FakeSessionsFleet): Scenario {
 /** The stopped Job's tile picked on Active, so its acts are in the pane beside the grid. */
 async function toTheJob(): Promise<void> {
   await onScreen();
-  // The Job asks, so its call is in front of the panel; put it off to reach the pane under it.
-  await putOffEveryCall();
   await userEvent.click(page.getByRole("tab", { name: "Active" }));
   await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
 }

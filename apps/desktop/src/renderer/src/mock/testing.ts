@@ -204,18 +204,3 @@ export async function openNode(name: string, at = 0): Promise<ReturnType<typeof 
   (node.element() as HTMLElement).click();
   return page.getByRole("dialog", { name });
 }
-
-/**
- * Put off every call standing in front of the Dashboard's panel, so the tiles under it can be pressed.
- * A call comes forward over the panel whatever the filter, and a press on what is behind it lands on
- * the card. `l` sends the one in front to the back, so once each has gone the front is empty.
- */
-export async function putOffEveryCall(): Promise<void> {
-  const front = () => document.querySelector<HTMLElement>(".armada-callcard")?.getAttribute("aria-label") ?? null;
-  for (let tries = 0; tries < 30 && front() !== null; tries += 1) {
-    const was = front();
-    await userEvent.keyboard("l");
-    await expect.poll(() => front() !== was || front() === null, { timeout: 3000 }).toBe(true);
-  }
-  expect(front()).toBeNull();
-}

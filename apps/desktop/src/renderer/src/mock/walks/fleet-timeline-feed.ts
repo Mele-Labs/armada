@@ -13,8 +13,6 @@ export const fleetTimelineFeed = walk("fleet-timeline", [
   { look: button(/Job: Cache the manifest read/), say: "A row whose subject needs him carries it in its edge: this Job asked for a command and has not been answered" },
   { look: button(/Job: Install the PWA shell offline/), say: "Quiet for longer than ten minutes while working reads the same way, in orange" },
   { look: button(/Pull request: #1894/), say: "A Check red on a pull request, in red" },
-  { press: tab("Your move"), say: "Your move keeps the subjects that need him, have failed or have gone quiet" },
-  { look: timeline, say: "Only their events" },
   { press: tab("Done"), say: "Done keeps what is over" },
   { look: timeline, say: "Landed, failed, merged and ended" },
 ]);

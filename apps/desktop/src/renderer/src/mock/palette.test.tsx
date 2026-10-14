@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { running } from "@armada/jobs/fixtures/build/index";
-import { boardJobs, boardWorkflows } from "@armada/screens/src/fixtures/build/board";
+import { boardWorkflows } from "@armada/screens/src/fixtures/build/board";
 
 import { onBoard, onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
@@ -21,9 +21,9 @@ async function palette() {
 }
 
 test("with no Job focused, an act on one Job is left out, and a row not built yet still draws", async () => {
-  // Nothing needs the owner, so Your move picks nothing and no Job is focused.
-  mount(onBoard(boardJobs().filter((one) => one.status === "running" || one.status === "queued"), { workflows: boardWorkflows() }));
-  await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
+  // The Board is empty, so the Cockpit has no tile under its cursor and no Job is focused.
+  mount(onBoard([], { workflows: boardWorkflows() }));
+  await expect.element(page.getByRole("tab", { name: "Active" })).toBeVisible();
   const list = await palette();
   await expect.element(list.getByRole("option", { name: /^Pilot/ })).toBeInTheDocument();
   for (const verb of ["Open", "Review", "Attest", "Redirect", "Kill"]) {

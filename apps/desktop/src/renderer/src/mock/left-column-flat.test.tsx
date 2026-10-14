@@ -3,7 +3,7 @@
 // The owner, 7 Oct 2026: "Remove the bevels and make this a bit more flat."
 
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { mount, unmountAfterEach } from "./testing";
 
@@ -27,6 +27,9 @@ test("Navigation (Work and Machine) and Fleet are flat, and the Dashboard's call
     expect(layer(panel).backdropFilter).toBe("none");
   }
 
+  // A call waits in the tray until he opens it.
+  await expect.poll(() => document.querySelector(".armada-tray")).not.toBeNull();
+  await userEvent.keyboard("w");
   await expect.poll(() => document.querySelector(".armada-callcard")).not.toBeNull();
   // On the Helm rail (12 Oct 2026) the call is framed, not shadowed: a frame twice a panel's weight.
   const card = surface(document.querySelector(".armada-callcard")!);

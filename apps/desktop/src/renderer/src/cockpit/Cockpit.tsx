@@ -530,7 +530,7 @@ export function Cockpit({
               </div>
             </div>
           ) : edge.length === 0 ? null : (
-            <div className="armada-tray">
+            <div className="armada-tray" role="group" aria-label="Calls waiting">
               <div className="armada-stack" data-tray style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
                 <Behind edge={edge} put={waiting} recall={recall} />
               </div>

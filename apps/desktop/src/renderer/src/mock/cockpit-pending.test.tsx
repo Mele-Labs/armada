@@ -34,10 +34,12 @@ const key = (name: RegExp) => page.getByRole("complementary").getByRole("button"
 const FIRST = /A fake the test sets/;
 const SECOND = /Keep three/;
 
-/** The cockpit with its first question in front. */
+/** The cockpit with its first question opened from the tray. */
 async function asking() {
   const app = mount("cockpit-pending");
   await onScreen();
+  await expect.element(page.getByRole("button", { name: /^Session question/ }).first()).toBeVisible();
+  await userEvent.keyboard("w");
   await expect.element(radio(FIRST)).toBeVisible();
   return app;
 }
@@ -56,6 +58,8 @@ async function staysGone(from: number): Promise<void> {
     expect(here(), "the card came back while Fleet still carried it").toBeNull();
     await new Promise((done) => window.setTimeout(done, 20));
   }
+  // The card is gone and the next question waits in the tray until he opens it.
+  await userEvent.keyboard("w");
   await expect.element(radio(SECOND)).toBeVisible();
 }
 
@@ -85,6 +89,8 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
   await userEvent.keyboard("{Enter}");
   await userEvent.keyboard("2");
   await userEvent.keyboard("{Enter}");
+  await expect.poll(() => radio(FIRST).query()).toBeNull();
+  await userEvent.keyboard("w");
   await expect.element(radio(SECOND)).toBeVisible();
   expect(answer).toHaveBeenCalledTimes(1);
   expect(answer).toHaveBeenCalledWith({ session_id: "s14", item_id: "q1", choice: 0 });
@@ -93,8 +99,9 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
 test("a refusal stops the loop, leaves the card where it was, and the toast says Fleet's words", async () => {
   await motion();
   await asking();
-  // Put the first off, so the one Fleet refuses is in front.
+  // Put the first off, and open the next, so the one Fleet refuses is in front.
   await userEvent.keyboard("l");
+  await userEvent.keyboard("w");
   await expect.element(radio(SECOND)).toBeVisible();
   await userEvent.keyboard("2");
   await userEvent.keyboard("{Enter}");
@@ -109,7 +116,7 @@ test("a refusal stops the loop, leaves the card where it was, and the toast says
   await expect.element(question()).toBeVisible();
 });
 
-test("an answered call does not come back while Fleet still carries it, and the next one is in front", async () => {
+test("an answered call does not come back while Fleet still carries it, and the next one waits in the tray", async () => {
   await asking();
   await userEvent.keyboard("1");
   await userEvent.keyboard("{Enter}");
@@ -138,9 +145,10 @@ test("a call Fleet keeps carrying comes back after the hold, with nothing said",
   await asking();
   await userEvent.keyboard("1");
   await userEvent.keyboard("{Enter}");
+  await expect.poll(() => radio(FIRST).query()).toBeNull();
+  await userEvent.keyboard("w");
   await expect.element(radio(SECOND)).toBeVisible();
-  expect(page.getByRole("radio", { name: FIRST }).query()).toBeNull();
-  // The hold lets go: the call is in the deck again, behind the one now in front, and nobody was told anything.
+  // The hold lets go: the call is listed again beside the one now open, and nobody was told anything.
   await expect.element(page.getByRole("button", { name: /^Session question: Pin the store clock/ })).toBeVisible();
   expect(page.getByText(/already working on that/).query()).toBeNull();
 });
@@ -148,7 +156,6 @@ test("a call Fleet keeps carrying comes back after the hold, with nothing said",
 test("a Job whose workflow is still being settled holds the steps' place with the caret, and the steps replace it", async () => {
   await asking();
   await userEvent.keyboard("{Escape}");
-  await userEvent.keyboard("]");
   const tile = () => page.getByRole("option", { name: /^Split the settings reducer/ });
   await expect.element(tile()).toBeVisible();
   const cue = () => tile().element().querySelector('[role="img"][aria-label="Workflow, still being settled"]');

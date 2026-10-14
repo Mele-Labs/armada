@@ -376,8 +376,8 @@ describe("a proposal fills in as it is written", () => {
     settle(fleet, idOf(fleet), { workflow_id: "feature" }, { status: "escalated" });
     fleet.publish({ proposing: null });
 
-    // `escalated` needs a person, so the Job is on Your move now.
-    await userEvent.click(page.getByRole("tab", { name: "Your move" }));
+    // `escalated` needs a person, so the Job is a call among Active's tiles now.
+    await userEvent.click(page.getByRole("tab", { name: "Active" }));
     await expect
       .poll(() => rows().some((one) => one.dataset.status === "escalated" && one.textContent?.includes(SECOND_REQUEST_SAYS) === true))
       .toBe(true);

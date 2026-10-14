@@ -18,25 +18,26 @@ const radio = (name: RegExp) => page.getByRole("radio", { name });
 const key = (name: RegExp) => page.getByRole("complementary").getByRole("button", { name });
 const card = () => page.getByRole("region", { name: /^Session/ });
 const send = () => card().getByRole("button", { name: /Send/ });
-const words = () => page.getByRole("textbox", { name: "Message" });
+const words = () => card().getByRole("textbox", { name: "Message" });
 const COMMAND = "kill $(lsof -ti tcp:5788) && scripts/preview --restart --adopt";
 const STANDING = [/Make the best decision/, /Just get it done/];
 
-/** Puts the cards in front of the one named off, until it is the one in front. */
+/** Opens the calls with `w` and puts off, with `l`, the ones that are not the one named, until the card open is it. */
 async function reach(label: string): Promise<void> {
-  for (let tries = 0; tries < 8 && document.querySelector(".armada-callcard")?.textContent?.includes(label) !== true; tries += 1) {
-    const front = document.querySelector(".armada-callcard")?.textContent;
-    await userEvent.keyboard("l");
-    await expect.poll(() => document.querySelector(".armada-callcard")?.textContent !== front, { timeout: 3000 }).toBe(true);
+  const shown = () => document.querySelector(".armada-callcard")?.textContent;
+  for (let tries = 0; tries < 16 && shown()?.includes(label) !== true; tries += 1) {
+    const before = shown();
+    await userEvent.keyboard(before === undefined ? "w" : "l");
+    await expect.poll(() => shown() !== before, { timeout: 3000 }).toBe(true);
   }
-  expect(document.querySelector(".armada-callcard")?.textContent).toContain(label);
+  expect(shown()).toContain(label);
 }
 
 async function open() {
   localStorage.removeItem("armada.bridge.dashboard-tab");
   const app = mount("session-errands");
   await onScreen();
-  await expect.element(page.getByRole("region", { name: /^Session: Land the speed fixes/ })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Session: Land the speed fixes/ }).first()).toBeVisible();
   return app;
 }
 
@@ -45,6 +46,7 @@ const noStanding = () => STANDING.forEach((name) => expect(radio(name).query()).
 test("a run act with a slash command is Run <command>, and Send tells the Session the command as its reply", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
+  await reach("/land 2109 2118 2119");
   await expect.element(key(/Run/)).toBeVisible();
   await expect.element(card().getByRole("code")).toHaveTextContent("/land 2109 2118 2119");
   expect(radio(/Run \/land/).query()).toBeNull();

@@ -1,6 +1,6 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
 // repository picked and the mock's Autopilot mid-run: the bar on every filter, Pause and Stop, the
-// start form, each set-aside pick in Your move, its marks and sidings on the Bays metro, and the one
+// start form, each set-aside pick in Active, its marks and sidings on the Bays metro, and the one
 // bar's third kind. #2092. Then #2105's: the second repository's paused by its Job cap and raised,
 // All with none on, and a step the Judges sent back.
 
@@ -55,7 +55,7 @@ test("the bar is on every filter, with its caps used of their limit, and pauses 
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
   await expect.element(bar().getByText("$4.12 of $30")).toBeVisible();
   await expect.element(bar().getByText("2 started · no cap")).toBeVisible();
-  for (const name of ["Active", "Done", "Bays", "Your move"]) {
+  for (const name of ["Active", "Done", "Bays"]) {
     await page.getByRole("tab", { name }).click();
     await expect.element(bar().getByRole("button", { name: "Pause" })).toBeVisible();
   }
@@ -87,12 +87,12 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
   await expect.element(bar().getByText("0 of 4 started")).toBeVisible();
 });
 
-test("a pick it set aside is in Your move, and Dismiss takes it off", async () => {
+test("a pick it set aside is in Active, and Dismiss takes it off", async () => {
   await cockpit();
   const tile = page.getByRole("option", { name: `${issue(377)} Should the Board group Jobs by repository?` });
   await expect.element(tile).toBeVisible();
   await tile.click();
-  await page.getByRole("button", { name: "Dismiss" }).click();
+  await page.getByLabelText(`${issue(377)} Should the Board group Jobs by repository?`, { exact: true }).getByRole("button", { name: "Dismiss" }).click();
   await expect.poll(() => tile.query()).toBeNull();
 });
 

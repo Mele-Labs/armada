@@ -1,6 +1,6 @@
-// The Cockpit as a ship's console. The deck of calls is drawn on Your move alone, and that tab carries a
-// dot while anything needs him; a call that arrives while he is elsewhere raises a toast. The card keeps
-// its content and its acts sit on the Helm rail beside it as keycaps. Dismiss is under a cover. A Job's
+// The Cockpit as a ship's console. The calls wait in the tray under Active, and no tab carries a dot or a
+// figure for them; a call that arrives while he is elsewhere raises a toast. An opened card keeps its
+// content and its acts sit on the Helm rail beside it as keycaps. Dismiss is under a cover. A Job's
 // box opens on `t`; a Session's is always open. Over `cockpit-consoles`.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
@@ -11,14 +11,13 @@ const stuck = region(/^Drone stuck: Raise the reconnect ceiling/);
 const session = region(/^Session: Cap the retry ceiling/);
 
 const cockpitConsoles = walk("cockpit-consoles", [
-  { look: inside(tab("Your move"), role("img", "Needs you")), say: "Your move carries a dot while anything needs him, and never a figure" },
-  { press: tab("Active"), say: "Active" },
-  { look: role("listbox", "Tiles"), say: "Tiles and lines only: no deck of calls here, though a Job with a call is still its tile" },
-  { hover: tab("Done"), say: "Done and Bays draw no deck either" },
-  { later: cockpit, say: "Time passes, and nothing is new" },
-  { later: cockpit, say: "A call arrives while he is somewhere else" },
+  { look: tab("Active"), say: "Active carries no dot while anything needs him, and never a figure" },
+  { look: role("listbox", "Tiles"), say: "Tiles and lines only: nothing is in front of the work, though a Job with a call is still its tile" },
+  { press: inside(role("navigation", "Work"), button("Jobs", { exact: true })), say: "He goes to the Jobs page" },
+  { later: region("Jobs"), say: "Time passes, and nothing is new" },
+  { later: region("Jobs"), say: "A call arrives while he is somewhere else" },
   { look: text("“Raise the reconnect ceiling” needs you."), say: "A toast says so, wherever he is" },
-  { press: button(/needs you/), say: "Pressing it goes to Your move, and the call comes forward" },
+  { press: button(/needs you/), say: "Pressing it goes to the Cockpit with that call open" },
   { look: stuck, say: "The card keeps its content; its acts are on the Helm rail beside it" },
   { look: button(/Check failed/), say: "Left: what waits behind the card, a strip of slim rows" },
   { look: button(/Open Job/), say: "On the rail: the decision on top as big keycaps, a rule, then Open and Later" },
@@ -34,7 +33,8 @@ const cockpitConsoles = walk("cockpit-consoles", [
   { press: button(/Dismiss/), say: "One press lifts the cover" },
   { look: button(/Dismiss/), say: "The key shows in the failed hue, and lets go on its own if left" },
   { press: button(/Dismiss/), say: "A second press dismisses it for good" },
-  { press: button(/^Session/), say: "The Session's call, from the strip" },
+  { key: "w", on: cockpit, say: "w opens the next call from the tray" },
+  { press: inside(cockpit, button(/^Session/)), say: "The Session's call, from the strip beside the card" },
   { look: inside(session, role("textbox", "Message")), say: "A Session's box is always open, the Session's own, with its own Send" },
 ]);
 

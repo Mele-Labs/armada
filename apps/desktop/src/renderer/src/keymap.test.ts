@@ -64,6 +64,16 @@ describe("reading the registry's spellings", () => {
   });
 });
 
+describe("the call a transmission opens", () => {
+  it("is call_open on w in the dashboard's scope, and call_recall is gone", () => {
+    const open = ACTIONS.find((one) => one.id === "call_open");
+    expect(open).toMatchObject({ verb: "Open the call", shortcut: "w", scope: "dashboard" });
+    expect(ACTIONS.some((one) => one.id === "call_recall")).toBe(false);
+    expect(isPressed("call_open", press("w"))).toBe(true);
+    expect(isPressed("call_open", press("w", { meta: true }))).toBe(false);
+  });
+});
+
 describe("a press, as the shipped keys answer it", () => {
   it("takes Control for ⌘, reads shift exactly, and Option by the key's place", () => {
     expect(isPressed("command_palette", press("k", { meta: true }))).toBe(true);

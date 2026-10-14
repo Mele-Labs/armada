@@ -35,7 +35,7 @@ describe("overview menu gone", () => {
     await onScreen();
 
     // Overview, drawn: the Dashboard's filters.
-    await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
+    await expect.element(page.getByRole("tab", { name: "Active" })).toBeVisible();
     expect(page.getByRole("button", { name: "Everything else", exact: true }).query()).toBeNull();
     expect(page.getByRole("button", { name: /^Clear \d+ finished/ }).query()).toBeNull();
   });

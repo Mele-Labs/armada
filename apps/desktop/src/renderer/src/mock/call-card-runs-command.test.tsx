@@ -22,14 +22,15 @@ const key = (name: RegExp) => page.getByRole("complementary").getByRole("button"
 const card = () => page.getByRole("region", { name: /^Session: Debug Bridge on Merge line/ });
 const block = (command: string) => card().getByRole("group", { name: command });
 
-/** Puts the cards in front of the one holding the command off, until it is the one in front. */
+/** Opens the calls with `w` and puts off, with `l`, the ones that do not hold the command, until the card open is the one that does. */
 async function reach(command: string): Promise<void> {
-  for (let tries = 0; tries < 4 && document.querySelector(".armada-callcard")?.textContent?.includes(command) !== true; tries += 1) {
-    const front = document.querySelector(".armada-callcard")?.textContent;
-    await userEvent.keyboard("l");
-    await expect.poll(() => document.querySelector(".armada-callcard")?.textContent !== front, { timeout: 3000 }).toBe(true);
+  const open = () => document.querySelector(".armada-callcard")?.textContent;
+  for (let tries = 0; tries < 12 && open()?.includes(command) !== true; tries += 1) {
+    const before = open();
+    await userEvent.keyboard(before === undefined ? "w" : "l");
+    await expect.poll(() => open() !== before, { timeout: 3000 }).toBe(true);
   }
-  expect(document.querySelector(".armada-callcard")?.textContent).toContain(command);
+  expect(open()).toContain(command);
 }
 
 /** The scenario with its Sessions store held, so a test sees what reached the runner and what settled an item. */
@@ -57,7 +58,7 @@ async function show(command: string) {
   const run = vi.spyOn(held.store!, "run");
   const settle = vi.spyOn(held.store!, "answerWaiting");
   const told = vi.spyOn(app.api, "answerWaiting");
-  await expect.element(card()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Session: Debug Bridge on Merge line/ }).first()).toBeVisible();
   await reach(command);
   return { run, settle, told };
 }
@@ -75,7 +76,8 @@ test("Run on a command's card runs it in its Session, and a clean exit settles t
   expect(settle).not.toHaveBeenCalled();
   await expect.poll(() => settle.mock.calls.length, { timeout: SLOW }).toBe(1);
   expect(settle).toHaveBeenLastCalledWith("s21", "c-stop", { text: "Ran: exit 0" });
-  // The next command is in front.
+  // The card is gone and the next command waits in the tray: opened, it is the next one.
+  await reach(FAILS);
   await expect.element(card().getByRole("code")).toHaveTextContent(FAILS);
   expect(run).toHaveBeenCalledTimes(1);
 }, 30000);

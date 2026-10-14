@@ -11,8 +11,11 @@ const preview = inside(needs, button("Refresh preview"));
 const tests = inside(needs, role("group", "pnpm test"));
 
 const refreshPreviewOnSessions = walk("refresh-preview-on-sessions", [
+  { key: "w", on: cockpit, say: "w opens the first call" },
   { key: "l", on: cockpit, say: "Later, past the first call" },
+  { key: "w", on: cockpit, say: "w opens the next" },
   { key: "l", on: cockpit, say: "Later, past the second" },
+  { key: "w", on: cockpit, say: "w opens the next" },
   { look: button(/Refresh preview/), say: "On the call card the restart is one key, Refresh preview" },
   toSessions,
   { press: inside(region("Sessions"), button(/Pin the store clock/)), say: "Opened" },

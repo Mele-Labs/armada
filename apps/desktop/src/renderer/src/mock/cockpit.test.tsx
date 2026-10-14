@@ -1,5 +1,5 @@
 // The Dashboard's one panel, through `App` on the `dashboard-cockpit` mock Fleet: its filters and the
-// keys that step them, the call that comes forward over it and the deck behind, the standing
+// keys that step them, the call that arrives in its tray and the card it opens as, the standing
 // answers, the grid and the timeline, and the Bays filter's metro lines.
 
 import { beforeEach, expect, test, vi } from "vitest";
@@ -23,7 +23,7 @@ async function dashboard(): Promise<void> {
   localStorage.removeItem(VIEW);
   mount("dashboard-cockpit");
   await onScreen();
-  await expect.element(page.getByRole("tab", { name: "Your move" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(page.getByRole("tab", { name: "Active" })).toHaveAttribute("aria-selected", "true");
 }
 
 const call = (kind: RegExp) => page.getByRole("region", { name: kind });
@@ -32,12 +32,16 @@ const selected = (name: string) => expect.element(page.getByRole("tab", { name }
 const radio = (name: RegExp) => page.getByRole("radio", { name });
 /** An act runs on one press, so it is a button on the rail, and an option is a radio. */
 const act = (name: RegExp) => page.getByRole("button", { name });
+/** The calls waiting along the foot of the panel, each a button naming its kind and title. */
+const tray = () => document.querySelector(".armada-tray");
 
-test("Your move with nothing waiting is empty and says nothing, and the dispatch bar above it is the one line", async () => {
+test("Active with nothing waiting draws the work at hand with nothing in front of it, and the dispatch bar above it is the one line", async () => {
   localStorage.removeItem(FILTER);
   mount("dashboard-cockpit");
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
-  expect(document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [role="option"]').length).toBe(0);
+  expect(document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [role="option"]').length).toBeGreaterThan(0);
+  expect(document.querySelector(".armada-callcard")).toBeNull();
+  expect(tray()).toBeNull();
   // The bar is a line at rest: its frame is not grown, so nothing of the panel is drawn under it.
   await expect.element(page.getByRole("textbox", { name: "Request" })).toBeVisible();
   expect(page.getByRole("button", { name: "Dispatch", exact: true }).query()).toBeNull();
@@ -46,20 +50,21 @@ test("Your move with nothing waiting is empty and says nothing, and the dispatch
 test("[ and ] step the filters round, Option and a digit jumps, and the filter is kept", async () => {
   await dashboard();
   await userEvent.keyboard("]");
-  await selected("Active");
-  await userEvent.keyboard("]");
   await selected("Done");
   await userEvent.keyboard("]");
   await selected("Bays");
   await userEvent.keyboard("]");
-  await selected("Your move");
+  await selected("Active");
   // `[[` is the bracket itself, in user-event's own syntax.
   await userEvent.keyboard("[[");
   await selected("Bays");
   await userEvent.keyboard("{Alt>}2{/Alt}");
+  await selected("Done");
+  await userEvent.keyboard("{Alt>}1{/Alt}");
   await selected("Active");
   expect(localStorage.getItem(FILTER)).toBe("running");
-  for (const name of ["Your move", "Active", "Done", "Bays"]) {
+  expect(page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
+  for (const name of ["Active", "Done", "Bays"]) {
     expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
   }
 });
@@ -110,29 +115,41 @@ test("n opens the title bar's one bar from the panel, ready for the work", async
   await expect.element(page.getByRole("combobox")).toHaveAttribute("placeholder", "Describe the work, or paste a link to a ticket.");
 });
 
-test("a call comes forward on Your move alone, the next steps up, and one put off goes to the back until w", async () => {
+test("a call arrives in the tray on every filter and covers nothing, w opens it, and the next arrives after", async () => {
   await dashboard();
+  expect(behind(/^Plan question/).query()).toBeNull();
   timePasses();
-  await expect.element(call(/^Plan question/)).toBeVisible();
-  // The deck is drawn on Your move and nowhere else: another filter shows its own tiles, and Your move carries a dot.
+  // It is in the tray with its key printed on it, and the work is still there to press.
+  await expect.element(behind(/^Plan question/)).toBeVisible();
+  await expect.element(behind(/^Plan question/)).toHaveTextContent("w");
+  expect(call(/^Plan question/).query()).toBeNull();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
+  // Another filter keeps it in the tray, and no tab carries a dot for it.
   await page.getByRole("tab", { name: "Done" }).click();
-  await expect.element(call(/^Plan question/)).not.toBeInTheDocument();
-  await expect.element(page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" })).toBeVisible();
-  await page.getByRole("tab", { name: "Your move" }).click();
-  await expect.element(call(/^Plan question/)).toBeVisible();
+  await expect.element(behind(/^Plan question/)).toBeVisible();
+  expect(document.querySelector('[role="tab"] [role="img"]')).toBeNull();
+  await page.getByRole("tab", { name: "Active" }).click();
 
   timePasses();
   await expect.element(behind(/^Check failed/)).toBeVisible();
+  expect(call(/^Check failed/).query()).toBeNull();
 
-  // Put the first off: the second comes forward and the first stands behind it, dashed.
+  // w opens the nearest; put it off and the card goes back to the tray, dashed, and nothing opens by itself.
+  await userEvent.keyboard("w");
+  await expect.element(call(/^Plan question/)).toBeVisible();
   await userEvent.keyboard("l");
-  await expect.element(call(/^Check failed/)).toBeVisible();
+  await expect.poll(() => call(/^Plan question/).query()).toBeNull();
+  expect(call(/^Check failed/).query()).toBeNull();
   await expect.element(behind(/^Plan question/)).toBeVisible();
   expect(behind(/^Plan question/).element().hasAttribute("data-deferred")).toBe(true);
+  expect(behind(/^Check failed/).element().hasAttribute("data-deferred")).toBe(false);
 
-  // Answer the second, which is an act and runs on its number; the one put off stays at the edge with nothing in front, and w brings it back.
+  // The next opens on w. Answer it, which is an act and runs on its number; the one put off stays in the tray, and w opens it.
+  await userEvent.keyboard("w");
+  await expect.element(call(/^Check failed/)).toBeVisible();
   await userEvent.keyboard("1");
-  await expect.element(call(/^Check failed/)).not.toBeInTheDocument();
+  await expect.poll(() => call(/^Check failed/).query()).toBeNull();
+  expect(call(/^Plan question/).query()).toBeNull();
   await expect.element(behind(/^Plan question/)).toBeVisible();
   await userEvent.keyboard("w");
   await expect.element(call(/^Plan question/)).toBeVisible();
@@ -144,6 +161,7 @@ test("the standing answers b and g are on an agent's question, and not on a call
   timePasses();
   timePasses();
   // A Plan question: an agent asked it, so both stand under the numbered answers.
+  await userEvent.keyboard("w");
   await expect.element(call(/^Plan question/)).toBeVisible();
   await expect.element(radio(/Make the best decision/)).toBeVisible();
   await expect.element(radio(/Just get it done/)).toBeVisible();
@@ -152,6 +170,8 @@ test("the standing answers b and g are on an agent's question, and not on a call
   await userEvent.keyboard("{Enter}");
 
   // A failed Check: Fleet raised it, so it keeps its own act and nothing more.
+  await expect.poll(() => call(/^Plan question/).query()).toBeNull();
+  await userEvent.keyboard("w");
   await expect.element(call(/^Check failed/)).toBeVisible();
   await expect.element(act(/Retry/)).toBeVisible();
   expect(radio(/Make the best decision/).query()).toBeNull();
@@ -159,6 +179,8 @@ test("the standing answers b and g are on an agent's question, and not on a call
 
   // A Session's ask: both stand, and say what they hand the agent.
   await userEvent.keyboard("l");
+  await expect.poll(() => call(/^Check failed/).query()).toBeNull();
+  await userEvent.keyboard("w");
   await expect.element(call(/^Session/)).toBeVisible();
   await expect.element(radio(/Make the best decision/)).toBeVisible();
   await userEvent.keyboard("g");
@@ -254,21 +276,22 @@ test("a bay a hosted Session holds is released from its line: the idle one frees
   await expect.element(page.getByRole("button", { name: "Open Session" })).toBeVisible();
 });
 
-test("the call deck is not drawn over the timeline, and the Your move tab says a call waits", async () => {
+test("a call arrives in the tray over the timeline too, covers nothing, and opens over it on w", async () => {
   await dashboard();
-  await page.getByRole("tab", { name: "Active" }).click();
   await userEvent.keyboard("m");
   await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
   timePasses();
-  await expect.element(page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" })).toBeVisible();
+  await expect.element(behind(/^Plan question/)).toBeVisible();
   expect(call(/^Plan question/).query()).toBeNull();
+  await userEvent.keyboard("w");
+  await expect.element(call(/^Plan question/)).toBeVisible();
 });
 
-/** Put calls off until the one named is in front: the stack comes round to it. */
+/** Open the call named: w opens the nearest in the tray, and l puts one off so the next is nearest, until it comes round. */
 async function reach(kind: RegExp): Promise<void> {
-  for (let tries = 0; tries < 20 && page.getByRole("region", { name: kind }).query() === null; tries += 1) {
+  for (let tries = 0; tries < 40 && page.getByRole("region", { name: kind }).query() === null; tries += 1) {
     const front = document.querySelector(".armada-callcard")?.getAttribute("aria-label");
-    await userEvent.keyboard("l");
+    await userEvent.keyboard(front === undefined ? "w" : "l");
     await expect.poll(() => document.querySelector(".armada-callcard")?.getAttribute("aria-label") !== front, { timeout: 3000 }).toBe(true);
   }
   await expect.element(page.getByRole("region", { name: kind })).toBeVisible();
@@ -279,7 +302,6 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   const app = mount("dashboard-needs-you");
   const claim = vi.spyOn(app.api, "claimPullRequest");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
 
   // Opened by a Job: that Job is the one to open.
   await reach(/^Pull request: #1819/);
@@ -319,7 +341,6 @@ test("Attach to a Job claims the pull request with its job_id, and the card is t
   const app = mount("dashboard-needs-you");
   const claim = vi.spyOn(app.api, "claimPullRequest");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1823/);
   await userEvent.keyboard("2");
   await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Split the writer");
@@ -335,14 +356,13 @@ test("main's red goes to the Job that broke it: 1 opens it, 2 pokes it", async (
   localStorage.removeItem(FILTER);
   mount("dashboard-needs-you");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Main/);
   await expect.element(act(/Open the Job/)).toBeVisible();
   expect(act(/Hand to a Job/).query()).toBeNull();
   await expect.element(act(/Poke/)).toBeVisible();
   await userEvent.keyboard("1");
   // The Job opens: the Dashboard's filters are no longer drawn.
-  await expect.poll(() => page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
+  await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
 });
 
 test("a poke on main's red says main is red and what failed, never that a pull request's checks did", async () => {
@@ -350,7 +370,6 @@ test("a poke on main's red says main is red and what failed, never that a pull r
   const app = mount("dashboard-needs-you");
   const redirect = vi.spyOn(app.api, "redirectDrone");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Main/);
   await userEvent.keyboard("2");
   await expect.poll(() => redirect.mock.calls.length).toBe(1);
@@ -364,7 +383,6 @@ test("a Session's own question shows its options and their lines, never Allow or
   localStorage.removeItem(FILTER);
   mount("dashboard-needs-you");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Session question/);
   // The question whole, down to its last sentence.
   await expect.element(page.getByText(/Nothing you see changes either way. What should happen to it\?/)).toBeVisible();
@@ -387,7 +405,6 @@ test("a permission is the only Session call that offers Allow once and Refuse, a
   localStorage.removeItem(FILTER);
   mount("dashboard-needs-you");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Session walk/);
   await expect.element(act(/Approve/)).toBeVisible();
   await reach(/^Session: Flaky/);
@@ -399,7 +416,6 @@ test("a walk waiting on approval offers Open walk on v, which opens its page and
   localStorage.removeItem(FILTER);
   mount("dashboard-needs-you");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   const window = page.getByRole("dialog", { name: "Bridge's window on Docs for the pairing screen" });
 
   await reach(/^Session question/);
@@ -428,7 +444,6 @@ test("a Session's answer goes to Fleet as an index, its words as text, and a mod
   const app = mount("dashboard-needs-you");
   const answer = vi.spyOn(app.api, "answerWaiting");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
 
   // The second of its options, by number.
   await reach(/^Session question/);
@@ -457,7 +472,6 @@ test("an item nothing holds clears the card quietly, and any other refusal stays
   const refuse = (code: string, message: string) => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code, message, run_id: "", fields: {}, chain: [] as string[] } } });
   const answer = vi.spyOn(app.api, "answerWaiting");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
 
   answer.mockResolvedValueOnce(refuse("fleet.session_waiting_empty", "an answer needs a choice, words or a mode"));
   await reach(/^Session question/);
@@ -481,7 +495,6 @@ test("a pull request Fleet will not hand over stays unowned, and the toast names
     outcome: { ok: false, why: "refused", error: { code: "fleet.pull_request_not_claimable", message: "pull request #1823 is held by session Release script", run_id: "", fields: {}, chain: [] as string[] } },
   });
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1823/);
   await userEvent.keyboard("2");
   await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
@@ -505,7 +518,6 @@ test("a dismissed call stays gone across a remount, and the same pull request fa
 
   const first = mount(scenario);
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1823/);
   await expect.element(page.getByRole("button", { name: /Dismiss/ })).toHaveTextContent("d");
   // Dismiss is for good, so it is under a cover: the first press lifts it and the second does it.
@@ -520,7 +532,6 @@ test("a dismissed call stays gone across a remount, and the same pull request fa
   // The window opens again: the other pull requests are called, this one is not.
   mount(scenario);
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1822/);
   await userEvent.keyboard("l");
   await expect.poll(() => page.getByRole("region", { name: /^Pull request: #1823/ }).query()).toBeNull();
@@ -542,7 +553,6 @@ test("d on a Session's call dismisses that item on Fleet and the card goes", asy
   const app = mount("dashboard-needs-you");
   const dismiss = vi.spyOn(app.api, "dismissWaiting");
   await onScreen();
-  await userEvent.keyboard("{Escape}");
   await reach(/^Session walk/);
   await userEvent.keyboard("d");
   await userEvent.keyboard("d");

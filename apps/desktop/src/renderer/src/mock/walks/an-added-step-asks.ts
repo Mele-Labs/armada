@@ -7,7 +7,8 @@ import { button, card, inside, region, role, tab, walk } from "../walk";
 const LEAF = role("group", /wipe_qa, PR opened/);
 
 export const anAddedStepAsks = walk("real/job-2-added-step-asks", [
-  { look: region(/^Job:/), say: "A call comes forward over the Dashboard: a step added to this Job waits on him" },
+  { look: button(/^Job:/), say: "A call waits in the tray: a step added to this Job waits on him" },
+  { key: "w", on: region("Dashboard"), say: "w opens it" },
   { press: button(/Open Job/), say: "The Job" },
   { press: tab("Workflow"), say: "Its workflow, on the canvas" },
   { look: LEAF, say: "The added step, as a leaf off the step it fired at" },

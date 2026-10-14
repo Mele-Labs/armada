@@ -51,10 +51,10 @@ const RUNNING_ONE_WITH_A_PLAN = (): JobSummary[] => [
   }),
 ];
 
-/** Overview, where `App` opens, on these rows: the Dashboard's one panel, on its Your move filter. */
+/** Overview, where `App` opens, on these rows: the Dashboard's one panel, on its Active filter. */
 async function overview(scenario: Scenario): Promise<void> {
   mount(scenario);
-  await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Active" })).toBeVisible();
 }
 
 const onOverview = (jobs: JobSummary[], options: Parameters<typeof onBoard>[1] = {}) =>
@@ -75,11 +75,11 @@ function unreachable(scenario: Scenario): Scenario {
 
 const picked = () => document.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
 
-test("every filter draws its own: what needs you comes forward, what is live and what is over are tiles", async () => {
+test("every filter draws its own: what needs you waits in the tray, what is live and what is over are tiles", async () => {
   await overview(onOverview(JOBS()));
-  // Your move: what needs the owner is a call in front of the panel, whatever the filter.
-  await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
-  await page.getByRole("tab", { name: "Active" }).click();
+  // What needs the owner is a call waiting in the tray, whatever the filter, and covers nothing.
+  await expect.element(page.getByRole("button", { name: /^Job:/ }).first()).toBeVisible();
+  expect(page.getByRole("region", { name: /^Job:/ }).query()).toBeNull();
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
   // No badge to draw for it, so its tile's mark names the status.
   await expect.element(page.getByRole("img", { name: "not_a_status_the_registry_has" })).toBeVisible();
@@ -107,7 +107,7 @@ test("the filter picked is kept, and a filter draws no count", async () => {
   await page.getByRole("tab", { name: "Done" }).click();
   await expect.element(page.getByRole("tab", { name: "Done" })).toHaveAttribute("aria-selected", "true");
   expect(localStorage.getItem("armada.bridge.dashboard-tab")).toBe("done");
-  for (const name of ["Your move", "Active", "Done"]) {
+  for (const name of ["Active", "Done"]) {
     expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
   }
 });

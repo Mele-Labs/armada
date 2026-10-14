@@ -1,5 +1,5 @@
-// The call card with its acts on the Helm rail beside it, through `App` on the mock Fleet: the deck on
-// Your move alone with a dot and no count, an act that runs on one press while an option is picked and
+// The call card with its acts on the Helm rail beside it, through `App` on the mock Fleet: a call
+// waiting in the tray until it is opened, with no dot on any tab, an act that runs on one press while an option is picked and
 // then sent, Dismiss under its cover, a Job's box hidden until `t`, the Sleep card's acts, and a walk's
 // call held back while its window is open.
 
@@ -25,32 +25,45 @@ const call = (kind: RegExp) => page.getByRole("region", { name: kind });
 const key = (name: RegExp) => page.getByRole("complementary").getByRole("button", { name });
 const tab = (name: string) => page.getByRole("tab", { name });
 
-/** Brings the call named to the front: its strip on the rail's other side is pressed. */
+/** Opens the call named: its strip is pressed, in the tray or on the rail's other side; past the tray's three, w and l come round to it. */
 async function reach(kind: RegExp): Promise<void> {
-  const strip = page.getByRole("complementary").getByRole("button", { name: kind });
-  await expect.poll(() => call(kind).query() !== null || strip.query() !== null).toBe(true);
+  const strip = page.getByRole("region", { name: "Dashboard" }).getByRole("button", { name: kind }).first();
+  await expect.poll(() => call(kind).query() !== null || strip.query() !== null || document.querySelector(".armada-tray, .armada-queue") !== null).toBe(true);
+  for (let tries = 0; tries < 40 && call(kind).query() === null && strip.query() === null; tries += 1) {
+    await userEvent.keyboard(document.querySelector(".armada-callcard") === null ? "w" : "l");
+  }
   if (call(kind).query() === null) await strip.click();
   await expect.element(call(kind)).toBeVisible();
 }
 
-async function consoles() {
+/** The Cockpit with its calls waiting in the tray, none opened. */
+async function waiting() {
   const app = mount("cockpit-consoles");
   await onScreen();
-  // Leaves the dispatch bar the window starts in, so the keys reach the card.
+  // Leaves the dispatch bar the window starts in, so the keys reach the Cockpit.
   await userEvent.keyboard("{Escape}");
+  await expect.element(page.getByRole("button", { name: /^Check failed|^Drone stuck|^Session/ }).first()).toBeVisible();
+  return app;
+}
+
+/** The same, with the nearest call opened. */
+async function consoles() {
+  const app = await waiting();
+  await userEvent.keyboard("w");
   await expect.element(page.getByRole("region", { name: /^Check failed|^Drone stuck|^Session/ }).first()).toBeVisible();
   return app;
 }
 
-test("the deck is drawn on Your move alone, and the tab carries a dot with no figure", async () => {
-  await consoles();
-  const dot = tab("Your move").getByRole("img", { name: "Needs you" });
-  await expect.element(dot).toBeVisible();
-  expect(tab("Your move").element().textContent).not.toMatch(/\d/);
-  await tab("Active").click();
+test("a call waits in the tray on every filter with no dot on any tab, and opens as the card on w", async () => {
+  await waiting();
   expect(document.querySelector(".armada-callcard")).toBeNull();
-  await expect.element(dot).toBeVisible();
-  await tab("Your move").click();
+  expect(document.querySelector('[role="tab"] [role="img"]')).toBeNull();
+  expect(tab("Active").element().textContent).not.toMatch(/\d/);
+  await tab("Done").click();
+  await expect.element(page.getByRole("button", { name: /^Check failed|^Drone stuck|^Session/ }).first()).toBeVisible();
+  expect(document.querySelector(".armada-callcard")).toBeNull();
+  await tab("Active").click();
+  await userEvent.keyboard("w");
   await expect.element(page.getByRole("region").first()).toBeVisible();
   expect(document.querySelector(".armada-callcard")).not.toBeNull();
 });
@@ -77,7 +90,9 @@ test("an option is picked and then sent, so a pick alone sends nothing", async (
   const app = mount("session-errands");
   await onScreen();
   const answer = vi.spyOn(app.api, "answerWaiting");
-  for (let tries = 0; tries < 8 && !document.querySelector(".armada-callcard")?.textContent?.includes("Which clock"); tries += 1) await userEvent.keyboard("l");
+  for (let tries = 0; tries < 16 && !document.querySelector(".armada-callcard")?.textContent?.includes("Which clock"); tries += 1) {
+    await userEvent.keyboard(document.querySelector(".armada-callcard") === null ? "w" : "l");
+  }
   await userEvent.keyboard("2");
   await expect.element(page.getByRole("radio", { name: /The real one, stopped/ })).toHaveAttribute("aria-checked", "true");
   expect(answer).not.toHaveBeenCalled();
@@ -253,10 +268,13 @@ test("a walk's call is held back while its window is open, and comes when it clo
   mount(scenario);
   await onScreen();
   await userEvent.keyboard("{Escape}");
-  await expect.poll(() => document.querySelector(".armada-callcard") !== null).toBe(true);
+  await expect.element(page.getByRole("button", { name: /^Plan question|^Check failed|^Session/ }).first()).toBeVisible();
   const walk = () => document.querySelector('[aria-label^="Session walk"]');
-  // Every other call is dealt through, and the walk's is not among them.
-  for (let tries = 0; tries < 12; tries += 1) await userEvent.keyboard("l");
+  // Every other call is opened and put off in turn, and the walk's is not among them.
+  for (let tries = 0; tries < 12; tries += 1) {
+    await userEvent.keyboard("w");
+    await userEvent.keyboard("l");
+  }
   expect(walk()).toBeNull();
 
   open = [];

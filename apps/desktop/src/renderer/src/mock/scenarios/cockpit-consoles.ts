@@ -1,5 +1,5 @@
 // The Cockpit as a ship's console: the calls of `job-call-fixes` plus a Session waiting on a question in
-// words, and one more Job whose Drone goes quiet a moment after the walk leaves Your move, so a call
+// words, and one more Job whose Drone goes quiet a moment after the walk leaves the Cockpit, so a call
 // arrives with the owner somewhere else. The walk `cockpitConsoles` plays it.
 
 import { featureRunning } from "@armada/jobs/fake";

@@ -64,11 +64,13 @@ describe("job commander", () => {
     await expect.element(now().getByRole("region", { name: /^Commander asks/ })).not.toBeInTheDocument();
   });
 
-  test("a Job with a card out is waiting on him, and the Job is in the Cockpit's Your move", async () => {
+  test("a Job with a card out is waiting on him, and the Cockpit holds it as a call in the tray", async () => {
     mount("job-commander-asks");
     await onScreen();
     await expect.element(commander()).toHaveAttribute("data-state", "waiting");
     await page.getByRole("button", { name: "Cockpit", exact: true }).click();
+    await expect.element(page.getByRole("button", { name: /^Commander asks/ })).toBeVisible();
+    await userEvent.keyboard("w");
     await expect.element(page.getByRole("region", { name: /^Commander asks/ })).toBeVisible();
   });
 

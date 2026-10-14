@@ -13,14 +13,14 @@ const ask = (words: string) => ({ type: words, into: message, say: "The request"
 const tabsOf = (words: string) => ({ look: jobTabs, say: words });
 
 export const modsLayout = walk("mods-layout", [
-  { look: tab("Your move"), say: "The Cockpit as shipped" },
+  { look: tab("Active"), say: "The Cockpit as shipped" },
   { look: rail("Retros"), say: "Retros is on the rail" },
   toSessions,
   { press: inside(region("Sessions"), button(/A layout/)), say: "A Session Bridge hosts" },
   ask("Move Merge line to the top of my Dashboard and hide the Lessons tab.\n"),
   { look: inside(thread, text(/layout\.json/)), say: "layout.json written into the mod folder" },
   { press: rail("Cockpit"), say: "The Cockpit" },
-  { look: tab("Your move"), say: "The Cockpit after the mod" },
+  { look: tab("Active"), say: "The Cockpit after the mod" },
   { press: rail("Mods"), say: "Mods, under Machine" },
   { look: role("img", "Layout"), say: "Each row names its kind" },
   { look: group("Tidy"), say: "Tidy" },

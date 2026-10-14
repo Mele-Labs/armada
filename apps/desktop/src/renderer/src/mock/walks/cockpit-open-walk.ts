@@ -6,17 +6,25 @@ import { button, dialog, region, walk } from "../walk";
 const cockpit = region("Dashboard");
 const call = (kind: RegExp) => region(kind);
 const later = { key: "l", on: cockpit, say: "Later" } as const;
+const next = { key: "w", on: cockpit, say: "w opens the next" } as const;
 
 const cockpitOpenWalk = walk("dashboard-needs-you", [
-  { look: call(/^Plan question/), say: "Several calls wait" },
+  { key: "w", on: cockpit, say: "Several calls wait in the tray. w opens the first" },
+  { look: call(/^Plan question/), say: "An agent's question" },
   { ...later },
+  { ...next },
   { ...later },
+  { ...next },
   { ...later },
+  { ...next },
   { ...later },
+  { ...next },
   { ...later },
+  { ...next },
   { look: call(/^Session question/), say: "A Session's question: Open Session only" },
   { look: button(/Open Session/), say: "o opens the Session" },
   { ...later },
+  { ...next },
   { look: call(/^Session walk/), say: "A walk waiting on approval" },
   { look: button(/Approve/), say: "Approve answers it" },
   { look: button(/Open walk/), say: "Open walk, on v, beside Open Session on o" },
