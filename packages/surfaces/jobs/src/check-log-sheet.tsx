@@ -189,6 +189,7 @@ function CheckLogPanel({
       about={<span className="mono">{about}</span>}
       live={live}
       grows={rows.length}
+      bleed
       wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
       {...(onOpenRecord === undefined ? {} : { goes: { label: TO_THE_RECORD, onGo: onOpenRecord } })}
       {...(bands === undefined ? {} : { bands })}
