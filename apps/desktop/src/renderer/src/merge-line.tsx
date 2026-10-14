@@ -16,6 +16,7 @@ import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { followLandCheck } from "./commands";
+import { useDispatching } from "./dispatch-panel/dispatching";
 import { usePanelOpen } from "./panel-open";
 import { useSessions } from "./sessions-draft";
 
@@ -120,6 +121,7 @@ function OneLine({
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
   // The Sessions work can be sent back to are the ones the window already holds, the one that merged among them.
   const sessions = useSessions();
+  const dispatching = useDispatching();
   const culprit = view.hub?.main?.state === "red" ? view.hub.main.red.merge?.session : undefined;
   const hub = useMemo(() => (view.hub === undefined ? undefined : { ...view.hub, recentSessions: recentSessionsOf(sessions, culprit) }), [view.hub, sessions, culprit]);
   const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack, ...(view.hub?.pulls ?? [])].some((one) => one.branch === focus);
@@ -147,7 +149,9 @@ function OneLine({
             onFix: (choice) =>
               choice.kind === "session"
                 ? onSendToSession?.(choice.session, choice.message)
-                : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
+                : choice.kind === "newSession"
+                  ? (dispatching?.choose("session"), dispatching?.openTitled(choice.request, view.root))
+                  : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
           })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}

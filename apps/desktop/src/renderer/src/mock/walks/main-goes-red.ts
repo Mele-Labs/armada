@@ -98,6 +98,10 @@ export const mainGoesRed = walk("main-red-hub", [
   // A person's own pull request turned it red: no Job to send it to first, and the owner dispatches one.
   { later: inside(MERGE, role("img", "Main is green")), say: "A person merges their own pull request" },
   { look: inside(RED, text("nick/theme-tokens")), say: "Main is red from a person's pull request: no Job of its own" },
+  { look: inside(RED, button("Dispatch a new Session")), say: "Beside it, a new Session" },
+  { press: inside(RED, button("Dispatch a new Session")), say: "Dispatch a new Session" },
+  { look: inside(role("region", "Dispatch", { exact: true }), role("textbox", "Request")), say: "The Dispatch panel opens on a Session, the brief in it: the Check, the test and the pull request, there to edit" },
+  { key: "Escape", on: role("textbox", "Request"), say: "Put it away" },
   { press: inside(RED, button("Dispatch a new Job")), say: "Dispatch a new Job" },
   { look: inside(DISPATCH, role("list", "Attached")), say: "Prefilled: the Check, the test, the log and the pull request" },
   { look: inside(DISPATCH, role("textbox", "Brief")), say: "A brief of bare facts, there to edit" },

@@ -66,8 +66,8 @@ export type Dispatching = {
   choose: (kind: DispatchKind) => void;
   /** The title bar's panel is up. */
   titled: boolean;
-  /** The one bar chose to dispatch: the panel grows down from its field holding these words. */
-  openTitled: (words: string) => void;
+  /** The one bar chose to dispatch: the panel grows down from its field holding these words, for the repository `root` where one is named. */
+  openTitled: (words: string, root?: string) => void;
   closeTitled: () => void;
   panel: (entry: Entry) => EntryProps;
   /** The latest send, as the strip draws it, and the entry it was sent from. */
@@ -368,9 +368,10 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     kinds,
     choose,
     titled,
-    openTitled: (next) => {
+    openTitled: (next, at) => {
       stamp.current += 1;
       setWords(next);
+      if (at !== undefined) pick(at);
       setLatest(undefined);
       setAsking(false);
       setRead(undefined);
