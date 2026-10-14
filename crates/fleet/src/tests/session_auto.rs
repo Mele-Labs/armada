@@ -100,10 +100,49 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
         Some(Because::Destructive),
         "outside the slot, an overwrite keeps its card"
     );
-    // A `..` is not read as inside, even under the directory's own prefix.
-    let under = |path: &str| because_in_a_session(&call("Edit", Path { file_path: path }), &["/etc"]);
-    assert_eq!(under("/etc/hosts"), None);
-    assert_eq!(under("/etc/../etc/hosts"), Some(Because::Destructive));
+    // A `..` is followed to where the path lands: back inside is inside, out past the
+    // directory is not, whatever prefix it starts with.
+    let under = |path: &str, held: &str| {
+        because_in_a_session(&call("Edit", Path { file_path: path }), &[held])
+    };
+    assert_eq!(under("/etc/hosts", "/etc"), None);
+    assert_eq!(under("/etc/../etc/hosts", "/etc"), None);
+    assert_eq!(under("/etc/ssh/../hosts", "/etc/ssh"), Some(Because::Destructive));
+}
+
+/// The refused write from a retro: an `Edit` of a file that exists in `/tmp`, and the
+/// heredoc writes a subagent made, were read as outside the slot and `/tmp`.
+#[test]
+fn a_write_is_read_where_it_lands_so_scratch_and_the_slot_pass() {
+    let real = std::env::temp_dir().join(format!("armada-scratch-{}", std::process::id()));
+    std::fs::create_dir_all(real.join("crates/api/src/tests")).unwrap();
+    let file = real.join("crates/api/src/tests/reach.rs");
+    std::fs::write(&file, "fn a() {}").unwrap();
+    let file = file.to_string_lossy().into_owned();
+    // The file exists, so it is an overwrite, and scratch is still no one's work.
+    for tool in ["Write", "Edit", "NotebookEdit"] {
+        assert_eq!(edit(tool, &file), None, "{tool} of {file}");
+    }
+    assert_eq!(edit("Edit", "/tmp/helm-tells/crates/api/src/lib.rs"), None);
+    assert_eq!(edit("Edit", &format!("{SLOT}/crates/../Cargo.toml")), None);
+    assert_eq!(edit("Edit", "/tmp/../etc/hosts"), Some(Because::Destructive));
+    assert_eq!(
+        bash(&format!("cat > {SLOT}/crates/../src/new.rs <<'EOF'\nfn main() {{}}\nEOF")),
+        None
+    );
+    assert_eq!(
+        bash(&format!("cat > {file} <<'EOF'\nfn main() {{}}\nEOF")),
+        None
+    );
+    // A symlink in scratch that points at a file elsewhere is read as that file.
+    #[cfg(unix)]
+    {
+        let link = real.join("hosts");
+        std::os::unix::fs::symlink("/etc/hosts", &link).unwrap();
+        let link = link.to_string_lossy().into_owned();
+        assert_eq!(edit("Edit", &link), Some(Because::Destructive));
+    }
+    std::fs::remove_dir_all(&real).unwrap();
 }
 
 #[test]
@@ -261,8 +300,11 @@ fn every_slot_the_session_holds_is_its_own_for_an_edit_and_a_shell_line() {
     let held = [SLOT, OTHER];
     let bash = |line: &str| because_in_a_session(&call("Bash", Command { command: line }), &held);
 
-    // The file exists, so overwriting it is the destructive act anywhere it is not held.
-    let real = std::env::temp_dir().join(format!("armada-held-{}", std::process::id()));
+    // The file exists, so overwriting it is the destructive act anywhere it is not held, and
+    // it is built beside the crate rather than in `/tmp`, where an overwrite runs anyway.
+    let real = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join(format!("armada-held-{}", std::process::id()));
     let slot = real.join(".armada/slots/slot-9");
     std::fs::create_dir_all(slot.join("src")).unwrap();
     std::fs::write(slot.join("src/lib.rs"), "fn a() {}").unwrap();

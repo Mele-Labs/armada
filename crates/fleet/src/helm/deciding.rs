@@ -117,7 +117,9 @@ pub fn because_in_a_session_owning(
             .get("file_path")
             .or_else(|| asking.input.get("notebook_path"))
             .and_then(|named| named.as_str());
-        if path.is_some_and(|path| held.iter().any(|one| inside_the_directory(path, one))) {
+        if path.is_some_and(|path| {
+            in_scratch(path) || held.iter().any(|one| inside_the_directory(path, one))
+        }) {
             return None;
         }
         return because(asking);
@@ -218,18 +220,16 @@ fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
     }
     // Scratch space is no one's work: a patch kept in `/tmp` between two
     // steps asked, on every try (8 Oct 2026).
-    if SCRATCH.iter().any(|scratch| word.starts_with(scratch)) && !word.contains("..") {
+    if in_scratch(word) {
         return true;
     }
+    let below = |slot: &&str| {
+        inside_the_directory(word, slot) && resolved(word, slot) != resolved(slot, "/")
+    };
     if word.starts_with('/') {
-        return slots.iter().any(|slot| {
-            inside_the_directory(word, slot)
-                && word.trim_end_matches('/') != slot.trim_end_matches('/')
-        });
+        return slots.iter().any(below);
     }
-    relative
-        && !matches!(word.trim_end_matches('/'), "" | "." | "*")
-        && slots.iter().any(|slot| inside_the_directory(word, slot))
+    relative && !matches!(word.trim_end_matches('/'), "" | "." | "*") && slots.iter().any(below)
 }
 
 /// Where a session may write and remove besides its slot.
@@ -241,13 +241,57 @@ const SCRATCH: &[&str] = &[
 ];
 
 /// Whether `path` is under `directory`, a relative path being read against it.
-/// A `..` anywhere makes it unreadable as inside.
+/// **Read where it lands**: a `..` and a symlink are followed first, so
+/// `/tmp/../etc/hosts` is not scratch and `slot/a/../b` is the slot's own.
 fn inside_the_directory(path: &str, directory: &str) -> bool {
-    if path.split('/').any(|part| part == "..") {
-        return false;
+    match (resolved(path, directory), resolved(directory, "/")) {
+        (Some(path), Some(directory)) => path.starts_with(directory),
+        _ => false,
     }
-    let directory = directory.trim_end_matches('/');
-    !path.starts_with('/') || path == directory || path.starts_with(&format!("{directory}/"))
+}
+
+/// Whether `path` is an absolute path inside the system's scratch folders.
+fn in_scratch(path: &str) -> bool {
+    path.starts_with('/')
+        && resolved(path, "/").is_some_and(|real| {
+            let real = real.to_string_lossy();
+            SCRATCH.iter().any(|scratch| real.starts_with(scratch))
+        })
+}
+
+/// Where `path` lands, a relative one read against `base`: every `.` and `..`
+/// folded away and every symlink that exists followed. The part of the path
+/// that does not exist yet is read as written, so a write that creates a file
+/// is placed by its directory. `None` where a `..` climbs past the root.
+fn resolved(path: &str, base: &str) -> Option<std::path::PathBuf> {
+    let whole = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("{base}/{path}")
+    };
+    let mut at = std::path::PathBuf::from("/");
+    let mut missing = false;
+    for part in whole.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                if !at.pop() {
+                    return None;
+                }
+                missing = false;
+            }
+            _ => {
+                at.push(part);
+                if !missing {
+                    match std::fs::canonicalize(&at) {
+                        Ok(real) => at = real,
+                        Err(_) => missing = true,
+                    }
+                }
+            }
+        }
+    }
+    Some(at)
 }
 
 /// A shell line with its heredoc bodies cut out and its substitutions turned
