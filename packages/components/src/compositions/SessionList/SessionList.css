@@ -219,6 +219,31 @@
   line-height: var(--leading-xs);
 }
 
+/* What the Session is doing, detected: mono, one line, in the tile's hue. */
+.armada-session-list__now {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--hue);
+}
+
+.armada-session-list__now-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-list__row[data-state="ended"] .armada-session-list__now,
+.armada-session-list__row[data-state="quiet"] .armada-session-list__now { color: var(--fg-muted); }
+
 /* The open items are one line that never wraps, ruled off at the tile's foot; the ghost is the same items measured, unseen. */
 .armada-session-list__chips {
   display: flex;

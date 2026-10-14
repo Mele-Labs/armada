@@ -49,6 +49,7 @@ import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { stateOf } from "./session-state";
 import { useSessions } from "./sessions-draft";
+import { lineOf } from "./session-activity";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
@@ -104,6 +105,8 @@ export type Item = {
   stepAt?: number;
   /** The Job is being proposed and its workflow has not landed: the tile holds the steps' place with the settling mark. */
   settling?: true;
+  /** What a running Session is doing, for its tile: the todo being done, else its detected action. */
+  line?: string;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
   /** What went wrong on the Job, where the call is that: the card shows it and offers the fixes. */
@@ -406,6 +409,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const working = read === "working" || stuck;
   const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
+  const line = lineOf(session);
   const said = stuck ? "Stuck" : replied ? "Replied" : finished ? "Done" : working ? "Working" : "Idle";
   return {
     key: `session:${session.id}`,
@@ -416,6 +420,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
     mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : stuck ? Clock : working ? CircleDot : replied ? Reply : finished ? Power : Check,
     state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : said,
     spark: sparkOf(session),
+    ...(line === undefined ? {} : { line }),
     title: session.title ?? session.address ?? session.id,
     fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : said.toLowerCase(),
     at: session.lastTurnAt,

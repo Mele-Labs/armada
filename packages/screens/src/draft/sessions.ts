@@ -195,6 +195,16 @@ export type SessionRow =
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 
+/** One item of the agent's own TodoWrite list. The agent's report of itself; `SessionActivity.now` is what Fleet detected. */
+export type SessionTodo = { text: string; state: "done" | "doing" | "todo" };
+
+/**
+ * What a Session is doing, from Fleet's PreToolUse gate: `now` is the last tool call as a short
+ * action, and `todos` the agent's list where it keeps one. Todos are detail on top of `now`, never a
+ * plan the Session is held to.
+ */
+export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
+
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
@@ -252,6 +262,8 @@ export type Session = {
    * `id` is the ask's row. Not `asked`: that is a live call the agent is held on.
    */
   lapsed?: { id: string; questions: readonly SessionQuestion[] };
+  /** What it is doing now and the agent's todo list. Absent is nothing to say. */
+  activity?: SessionActivity;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */

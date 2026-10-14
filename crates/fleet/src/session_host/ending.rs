@@ -99,10 +99,12 @@ where
     }
 
     /// What a session that ended leaves in Fleet's hands: the Check runs it
-    /// still had out, and the walk it had open. Its slot's processes and
+    /// still had out, and the walk it had open, and what it was doing, which
+    /// is dropped. Its slot's processes and
     /// servers are ended by the park (`Vcs::park_hosted_slot`), and a run's
     /// process is among them, since Fleet holds no pid for a run its CLI makes.
     pub(crate) async fn session_wound_up(&self, session: &str) {
+        self.activity_ended(session);
         self.session_checks_ended(session).await;
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;

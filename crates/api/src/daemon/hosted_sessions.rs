@@ -146,7 +146,7 @@ pub trait HostedSessions: Send + Sync + 'static {
 
     /// `gate_session_call`: the hook a hosted session runs before a tool.
     fn gate_session_call(
-        &self,
+        self: Arc<Self>,
         gate: SessionGate,
     ) -> impl Future<Output = Result<GateAnswer, Refusal>> + Send;
 

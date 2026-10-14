@@ -224,6 +224,9 @@ where
             record.mod_out_of_date = self.mod_out_of_date(session);
         }
         record.helm = reads.hosting.as_ref().is_some_and(|hosting| hosting.helm);
+        if reads.hosting.is_some() && session.state == store::SessionState::Live {
+            record.activity = self.activity_of(&session.id);
+        }
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
@@ -941,5 +944,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         held_until: None,
         context_breakdown: None,
         helm: false,
+        activity: None,
     }
 }

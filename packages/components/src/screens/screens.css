@@ -788,6 +788,10 @@
   color: var(--fg-default);
 }
 
+/* What a running Session is doing: one mono line in the tile's hue. */
+.armada-tile__line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--hue); }
+.armada-tile__line-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .armada-tile__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-4); }
 .armada-tile__age { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-subtle); }
 

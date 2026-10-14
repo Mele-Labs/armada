@@ -108,7 +108,7 @@ impl Rig {
             self.root
         );
         let gate: SessionGate = ipc::decode("a gate", call.as_bytes()).expect("a gate");
-        self.fleet.gate_session_call(gate).await.expect("answered")
+        std::sync::Arc::clone(&self.fleet).gate_session_call(gate).await.expect("answered")
     }
 }
 
