@@ -10,7 +10,7 @@ import type { Pr, Ship, Subject } from "./ship";
 import { orderOf, toneOf } from "./tabs-model";
 
 /** What the dynamic area is showing. Nothing selected is the map or the timeline. */
-export type Sel = { kind: "job" | "session" | "slot" | "pr" | "call" | "checks"; key: string };
+export type Sel = { kind: "job" | "session" | "slot" | "pr" | "call" | "checks" | "autopilot"; key: string };
 export type DeckView = "map" | "timeline";
 export type Only = "jobs" | "sessions";
 

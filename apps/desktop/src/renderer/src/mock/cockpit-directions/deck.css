@@ -1,6 +1,7 @@
-/* The flight deck. Gray is the baseline: amber is what he is owed, red is a Check failing now, and nothing else
-   is a colour. Where he is, the raised tab and the selected thing, is the blue accent and says nothing else. Each
-   panel is a header band over a mono body, as the pool's. Tokens only. proto/cockpit-flight-deck. */
+/* The flight deck. Gray is the baseline: amber is what he is owed, red is a Check failing now, green and orange
+   are a state on a pin and nothing else. Where he is, the raised tab and the selected thing, is the blue accent
+   and says nothing else. Each panel is dark glass with a small-caps heading over rows that are pills. Tokens only.
+   proto/cockpit-flight-deck. */
 
 /* ---- The window, rebuilt around the deck: no rail, and the title bar carries the places ------------------- */
 
@@ -23,9 +24,11 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   text-transform: uppercase;
 }
 .deck-places { display: flex; align-items: center; -webkit-app-region: no-drag; }
-/* The raised tab: filled with the accent's muted ground and weighed, the rest quiet. */
-.deck-places .armada-tabs__tab { color: var(--fg-muted); }
-.deck-places .armada-tabs__tab--active { color: var(--fg-default); font-weight: var(--weight-heading); box-shadow: inset 0 calc(var(--border-width) * -3) 0 var(--accent); }
+/* Pill tabs: a glass track, the raised tab clearly lighter and filled. */
+.deck-places .armada-tabs { border-color: var(--border-glass); border-radius: calc(var(--radius-lg) * 2); background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight); }
+.deck-places .armada-tabs__tab { border-radius: calc(var(--radius-lg) * 2); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.deck-places .armada-tabs__fill { border-radius: calc(var(--radius-lg) * 2); background: color-mix(in srgb, var(--fg-default) 16%, var(--bg-raised)); box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card); }
+.deck-places .armada-tabs__tab--active { color: var(--fg-default); font-weight: var(--weight-heading); }
 
 .deck-chrome:empty { display: none; }
 .deck-chrome { flex: none; margin: 0 var(--space-4) var(--space-3); }
@@ -69,24 +72,25 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: var(--bg-glass);
+  box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card);
   overflow: hidden;
 }
-.deck-centre > .deck-pane { flex: 1 1 0; }
+.deck-centre { gap: var(--space-3); }
+.deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--space-3); }
+.deck-stage > .deck-pane { flex: 1 1 0; }
 .deck-list { flex: 1 1 0; }
 
-/* A header band over a mono body, as the pool's: raised, caps, one line. */
+/* A heading: small caps, quiet, one line, with its arrow or key at the right. No band, no rule. */
 .deck-band {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-3);
   min-height: var(--h-row-header);
-  padding: var(--space-1) var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
+  padding: var(--space-2) var(--space-4) var(--space-1);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -99,19 +103,19 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 
 /* ---- The list ------------------------------------------------------------------------------------------- */
 
-.deck-list__rows { flex: 1 1 0; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+.deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
 .deck-row {
   position: relative;
   display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr) var(--space-4);
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto var(--space-4);
   align-items: center;
   column-gap: var(--space-3);
   width: 100%;
   min-height: var(--h-control-sm);
-  padding: 0 var(--space-3) 0 var(--space-4);
+  padding: 0 var(--space-3);
   border: 0;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: none;
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: color-mix(in srgb, var(--fg-default) 5%, transparent);
   color: var(--fg-default);
   font: inherit;
   font-size: var(--text-xs);
@@ -119,28 +123,28 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   text-align: left;
   cursor: pointer;
 }
-.deck-row:hover { background: var(--bg-hover); }
+.deck-row:hover,
+.deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 .deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
 .deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
-/* How loud a row is: an edge on its leading side, and nothing else. */
-.deck-row[data-tone="ask"]::before,
-.deck-row[data-tone="bad"]::before { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--border-width) * 3); }
-.deck-row[data-tone="ask"]::before { background: var(--status-awaiting-review); }
-.deck-row[data-tone="bad"]::before { background: var(--status-completed-failed); }
-/* Where the arrow keys are: a ring. What is open: filled, with the accent along the trailing edge. */
-.deck-row[data-cursor] { box-shadow: inset 0 0 0 var(--border-width) var(--border-strong); }
-.deck-row[data-selected] { background: var(--accent-muted); box-shadow: inset calc(var(--border-width) * -3) 0 0 var(--accent); }
+.deck-row__said { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+/* What is open is lit: filled with the accent's ground, and nothing drawn round it. */
+.deck-row[data-selected] { background: var(--accent-muted); }
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
+.deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
 
 /* ---- Activity: the Feed take, in the narrow column under the list ---------------------------------------- */
 
 .deck-activity { flex: none; height: calc(var(--space-12) * 5); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 .deck-activity .armada-tl__body { flex: 1 1 0; min-height: 0; }
-.deck-activity .armada-tl__part { padding: 0 var(--space-3); }
+.deck-activity .armada-tl__part { padding: 0 var(--space-2); }
 .deck-activity .armada-tl__event {
+  margin-bottom: var(--space-1);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: color-mix(in srgb, var(--fg-default) 5%, transparent);
   grid-template-columns: 4ch var(--space-4) minmax(0, 1fr);
   min-height: calc(var(--space-6) * 2);
   padding: var(--space-1) var(--space-3);
@@ -190,14 +194,17 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 
 .deck-map,
 .deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
+/* The map runs edge to edge, with room round it, and stops above the pins that stand over its foot. */
+.deck-map { padding: var(--space-3); overflow: hidden; }
+.deck-stage:has(.deck-queue[data-over]) .deck-map { padding-bottom: calc(var(--space-12) * 2); }
 .deck-timeline > * { flex: 1 1 auto; min-width: 0; }
 
 .armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .armada-map__field { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
 .armada-map__field:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-map__dust { fill: var(--fg-subtle); opacity: 0.35; }
-.armada-map__cluster circle { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
-.armada-map__cluster text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-map__cluster rect { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
+.armada-map__cluster text { fill: var(--fg-subtle); text-transform: none; font-family: var(--font-mono); font-size: var(--text-xs); }
 .armada-map__link { stroke: var(--fg-subtle); stroke-width: 1; opacity: 0.55; }
 .armada-map__link[data-kind="dispatched"] { stroke: var(--fg-muted); stroke-width: 1.5; opacity: 0.85; }
 .armada-map__link[data-kind="waits"] { stroke-dasharray: 5 4; }
@@ -209,7 +216,8 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 .armada-star__core { fill: var(--hue); }
 .armada-star__halo { fill: var(--hue); opacity: 0.14; }
 .armada-star__halo[data-inner] { opacity: 0.24; }
-.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 2; }
+.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0.8; }
+.armada-star__brackets { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); pointer-events: none; }
 .armada-star[data-lit] .armada-star__label,
 .armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
@@ -236,22 +244,46 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   white-space: nowrap;
 }
 .armada-map__tip span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
-.armada-map__key { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.armada-map__zoom { position: absolute; top: var(--space-2); right: var(--space-2); z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-map__zoom .armada-button { border: var(--border-width) solid var(--border-glass); border-radius: 50%; background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card); }
+.armada-map__key { position: absolute; left: var(--space-2); bottom: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
 .armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
 
-/* ---- The merge queue: the Cockpit's own horizon, in gray ---------------------------------------------- */
+/* ---- The merge queue: waypoints ---------------------------------------------------------------------- */
 
-.deck-queue { flex: none; min-height: var(--h-control); justify-content: center; border-top: var(--border-width) solid var(--border-default); }
-.deck-queue .armada-view__dot[data-state] { --dot: var(--fg-subtle); }
-.deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
-.deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
-.deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
-.deck-queue .armada-view__main { background: var(--fg-subtle); }
-.deck-queue .armada-view__main[data-red] { background: var(--status-completed-failed); }
+/* A row of pins on a dotted line. Over the map it stands on the foot of it, with nothing behind it; elsewhere it is a glass strip below the pane. */
+.deck-queue { flex: none; }
+.deck-queue:not([data-over]) { padding: var(--space-2) var(--space-4); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 1.5); background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card); }
+.deck-queue[data-over] { position: absolute; right: 0; bottom: var(--space-3); left: 0; z-index: 1; pointer-events: none; }
+.deck-queue__pins { position: relative; display: flex; align-items: flex-end; justify-content: space-evenly; gap: var(--space-4); max-width: calc(var(--space-12) * 14); margin: 0 auto; padding: 0 var(--space-4); list-style: none; }
+.deck-queue__pins::before { content: ""; position: absolute; right: var(--space-6); bottom: calc(var(--space-2) - var(--border-width)); left: var(--space-6); border-top: var(--border-width) dotted var(--fg-subtle); opacity: 0.7; }
+.deck-queue__gap { flex: none; width: 0; }
+.deck-pin { --stood: var(--fg-subtle); position: relative; display: flex; pointer-events: auto; }
+.deck-pin[data-stood="ready"] { --stood: var(--status-completed-success); }
+.deck-pin[data-stood="active"] { --stood: var(--status-awaiting-review); }
+.deck-pin[data-stood="failing"] { --stood: var(--status-completed-failed); }
+.deck-pin__body { display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+span.deck-pin__body { cursor: default; }
+.deck-pin__body:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-lg); }
+.deck-pin__label {
+  padding: var(--space-1) var(--space-3);
+  border-radius: calc(var(--radius-lg) * 2);
+  background: var(--bg-overlay);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  box-shadow: var(--shadow-card);
+}
+.deck-pin:not([data-stood="waiting"]) .deck-pin__label { background: var(--stood); color: var(--fg-inverse); font-weight: var(--weight-heading); }
+.deck-pin__stem { width: var(--border-width); height: var(--space-2); background: var(--stood); }
+.deck-pin__disc { width: var(--space-6); height: var(--space-2); border-radius: 50%; background: color-mix(in srgb, var(--stood) 35%, transparent); box-shadow: 0 0 0 var(--border-width) var(--stood), 0 0 var(--space-3) color-mix(in srgb, var(--stood) 40%, transparent); }
+.deck-pin[data-selected] .deck-pin__label { box-shadow: 0 0 0 var(--space-1) var(--accent); }
+.deck-pin__body:hover .deck-pin__label { filter: brightness(1.15); }
 
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 
-.deck-bays__rows { flex: 1 1 0; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; }
+.deck-bays__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; }
 .deck-bay {
   display: grid;
   grid-template-columns: var(--space-4) minmax(0, auto) minmax(0, 1fr);
@@ -260,10 +292,10 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   column-gap: var(--space-3);
   row-gap: 0;
   width: 100%;
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   border: 0;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-  background: none;
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: color-mix(in srgb, var(--fg-default) 5%, transparent);
   color: var(--fg-default);
   font: inherit;
   font-family: var(--font-mono);
@@ -272,9 +304,9 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   text-align: left;
   cursor: pointer;
 }
-.deck-bay:hover { background: var(--bg-hover); }
+.deck-bay:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-bay:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.deck-bay[data-selected] { background: var(--accent-muted); box-shadow: inset calc(var(--border-width) * -3) 0 0 var(--accent); }
+.deck-bay[data-selected] { background: var(--accent-muted); }
 .deck-bay__state { grid-area: state; display: inline-flex; color: var(--fg-subtle); }
 .deck-bay[data-bay="stranded"] .deck-bay__state,
 .deck-bay[data-bay="closed"] .deck-bay__state { color: var(--status-completed-failed); }
@@ -285,14 +317,52 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 
 /* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
 
-/* The controls are a block in the middle of the panel: two rows, each centred, equal buttons and equal gaps. */
-.deck-controls { flex: none; --control-w: calc(var(--space-12) * 2); }
-.deck-controls__block { display: flex; flex: 1 1 auto; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
-.deck-controls__row { display: grid; grid-auto-flow: column; grid-auto-columns: var(--control-w); justify-content: center; gap: var(--space-3); }
-.deck-controls__row > *,
-.deck-controls__cell { display: flex; align-items: center; justify-content: center; width: 100%; }
-.deck-controls__row > .armada-button { display: inline-flex; justify-content: center; gap: var(--space-2); }
-.deck-controls [aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--accent); }
+/* The foot: the controls and Autopilot, side by side across the centre column. */
+.deck-foot { display: flex; flex: none; gap: var(--space-3); }
+
+/* Two rows of three equal square tiles, in the middle of the panel. A tile is a glyph over its word, rounded and a little raised. */
+.deck-controls { flex: none; --tile: calc(var(--space-12) + var(--space-4)); }
+.deck-controls__block { display: grid; flex: 1 1 auto; grid-template-columns: repeat(3, var(--tile)); grid-auto-rows: var(--tile); justify-content: center; align-content: center; gap: var(--space-2); padding: var(--space-1) var(--space-4) var(--space-4); }
+.deck-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
+  box-shadow: inset 0 1px 0 var(--border-highlight);
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
+.deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-tile__text { font-size: var(--text-2xs); line-height: var(--leading-xs); }
+/* Pressed is lit. */
+.deck-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 1px 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* Autopilot: the switch is its title, the arrow opens its lane in the area above, and under them the repository, how it stands, and a thin bar. */
+.deck-autopilot { flex: 1 1 0; }
+.deck-autopilot > .deck-band { justify-content: space-between; }
+.deck-autopilot > .deck-band .armada-switch { min-height: 0; gap: var(--space-3); color: var(--fg-muted); font: inherit; letter-spacing: inherit; text-transform: inherit; }
+.deck-autopilot > .deck-band .armada-button[aria-pressed="true"] { background: var(--accent-muted); }
+.deck-autopilot__body { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: var(--space-4); padding: var(--space-2) var(--space-4) var(--space-4); }
+.deck-autopilot__repo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
+.deck-autopilot__name { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.deck-autopilot__bar { height: var(--space-1); border-radius: var(--space-1); background: color-mix(in srgb, var(--fg-default) 10%, transparent); overflow: hidden; }
+.deck-autopilot__fill { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--fg-subtle); }
+.deck-autopilot__bar[data-state="paused"] .deck-autopilot__fill { width: 40%; }
+.deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 35%; background: var(--status-completed-success); animation: deck-autopilot-run calc(var(--duration-pulse) * 3) var(--ease) infinite; }
+@keyframes deck-autopilot-run {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 60%; animation: none; }
+}
 
 .deck-incoming { flex: 2 1 0; }
 .deck-bays { flex: 3 1 0; }
@@ -388,6 +458,3 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 /* Running and passed are gray: only a Check that failed is a colour. */
 .deck-check[data-state="running"] .armada-step-mark,
 .deck-check[data-state="passed"] .armada-step-mark { color: var(--fg-subtle); }
-
-/* The one row's seam between two repositories: a thin gap, no mark. */
-.deck-queue__gap { flex: none; width: var(--space-4); }

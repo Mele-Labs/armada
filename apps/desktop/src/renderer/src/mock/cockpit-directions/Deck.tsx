@@ -7,8 +7,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Plane, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Button, DropdownMenu, Kbd, Tabs, Tooltip } from "@armada/components";
+import { ArrowUpRight, Box, ChartNoAxesGantt, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Badge, Button, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
@@ -21,12 +21,13 @@ import { useAutopilotLane } from "../../cockpit/AutopilotLane";
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { holdFor } from "../../cockpit/Cockpit";
 import { dotsOf } from "../../cockpit/horizon";
-import { skyOf, type Field } from "../../cockpit/map-layout";
+import type { Field } from "../../cockpit/map-layout";
+import { deckSkyOf } from "./deck-sky";
 import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
 import { sessionIdOf } from "../../cockpit/waiting";
 import { viewsOf } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
-import { CallPane, ChecksPane, JobPane, PrPane, SessionPane, SlotPane } from "./deck-panes";
+import { CallPane, ChecksPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./deck-panes";
 import {
   arrivedLate,
   deckNow,
@@ -223,16 +224,19 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
       <ul className="deck-list__rows">
         {subjects.map((one) => {
           const Kind = one.kind === "job" ? Box : SquareTerminal;
+          const quiet = one.since ?? one.step?.label ?? "";
+          const said = quiet.length > 9 ? "" : quiet;
           return (
             <li key={one.key}>
               <button type="button" className="deck-row" data-row={one.key} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)}>
-                <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
-                <span className="deck-row__title">{one.title}</span>
                 <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
                   <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
-                    <Kind size={12} aria-hidden />
+                    <Kind size={14} aria-hidden />
                   </span>
                 </Tooltip>
+                <span className="deck-row__title">{one.title}</span>
+                <span className="deck-row__said">{said}</span>
+                <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
               </button>
             </li>
           );
@@ -282,7 +286,7 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
   }, [ship.calls, running, shown]);
   const sky = useMemo(
     () =>
-      skyOf(
+      deckSkyOf(
         items,
         sessions,
         viewsOf(props.state),
@@ -361,7 +365,7 @@ const slotsOf = (props: CockpitProps): readonly WorktreeSlot[] =>
 
 const repoNameOf = (props: CockpitProps, manifest: string) => props.state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
 
-function Stage({ props, ship, listed, acts }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; acts: ReturnType<typeof useShipActs> }) {
+function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; acts: ReturnType<typeof useShipActs>; autopilot: ReturnType<typeof useAutopilotLane> }) {
   const deck = useDeck();
   const sel = deck.sel;
   const subject = sel === undefined ? undefined : ship.subjects.find((one) => one.key === sel.key && one.kind !== "pr");
@@ -370,7 +374,8 @@ function Stage({ props, ship, listed, acts }: { props: CockpitProps; ship: Ship;
   const call = sel?.kind === "call" ? ship.calls.find((one) => one.key === sel.key) : undefined;
   // What was picked is gone (a Job ended, a call was answered elsewhere): back to the map.
   const checks = sel?.kind === "checks";
-  const gone = sel !== undefined && !checks && subject === undefined && slot === undefined && pr === undefined && call === undefined;
+  const lane = sel?.kind === "autopilot";
+  const gone = sel !== undefined && !checks && !lane && subject === undefined && slot === undefined && pr === undefined && call === undefined;
   useEffect(() => {
     if (gone) select(undefined);
   }, [gone]);
@@ -381,44 +386,64 @@ function Stage({ props, ship, listed, acts }: { props: CockpitProps; ship: Ship;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (checks) return <ChecksPane props={props} ship={ship} />;
+  if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
   return deck.view === "map" ? <MapView props={props} ship={ship} listed={listed} cursor={deck.cursor} /> : <TimelineView props={props} ship={ship} listed={listed} />;
 }
 
-/** The merge queue: one row, one dot for each pull request, each repository's nearest main first, ending at one light for main. No count. */
-function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
+/** How a pin stands: green is ready or landed, orange is running, red is failing, and gray is waiting. */
+const PIN: Record<string, "ready" | "active" | "failing" | "waiting"> = { ready: "ready", running: "active", failing: "failing", queued: "waiting", blocked: "waiting", open: "waiting" };
+
+/**
+ * The merge queue as a waypoint row: one pin a pull request on a dotted line, each repository's nearest main first,
+ * ending at one pin for main. A pin is a rounded label over a ground disc. No count.
+ */
+function MergeQueue({ props, ship, selected, over }: { props: CockpitProps; ship: Ship; selected: string | undefined; over: boolean }) {
   const sessions = useSessions();
   const views = viewsOf(props.state);
   if (views.length === 0) return null;
   const red = views.filter((view) => view.hub?.main?.state === "red").map((view) => ship.repos.find((one) => one.root === view.root)?.name ?? view.root);
   return (
-    <section className="deck-panel deck-queue armada-view__horizon" aria-label="Merge queue">
-      <div className="armada-view__line">
-        <GitMerge size={16} aria-hidden="true" />
-        <ol className="armada-view__belt">
-          {views.flatMap((view, at) => [
-            ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
-            ...dotsOf(view, props.state.mergeLines, views, sessions).map((dot) => {
-              const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
-              const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
-              const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
-              return (
-                <li key={`${view.root}:${dot.key}`} className="armada-view__dot-item">
-                  <Tooltip label={dot.tip} asChild>
-                    {pr === undefined ? (
-                      <span className="armada-view__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} role="img" aria-label={dot.tip} />
-                    ) : (
-                      <button type="button" className="armada-view__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} data-selected={selected === pr.key || undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))} />
-                    )}
-                  </Tooltip>
-                </li>
-              );
-            }),
-          ])}
-        </ol>
-        <Tooltip label={red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}>
-          <span className="armada-view__main" data-red={red.length > 0 || undefined} />
-        </Tooltip>
-      </div>
+    <section className="deck-queue" data-over={over || undefined} aria-label="Merge queue">
+      <ol className="deck-queue__pins">
+        {views.flatMap((view, at) => [
+          ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
+          ...dotsOf(view, props.state.mergeLines, views, sessions).map((dot) => {
+            const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
+            const stood = PIN[dot.state] ?? "waiting";
+            const pin = (
+              <>
+                <span className="deck-pin__label">{dot.card.heading}</span>
+                <span className="deck-pin__stem" aria-hidden="true" />
+                <span className="deck-pin__disc" aria-hidden="true" />
+              </>
+            );
+            return (
+              <li key={`${view.root}:${dot.key}`} className="deck-pin" data-stood={stood} data-selected={(pr !== undefined && selected === pr.key) || undefined}>
+                <Tooltip label={dot.tip} asChild>
+                  {pr === undefined ? (
+                    <span className="deck-pin__body" role="img" aria-label={dot.tip}>
+                      {pin}
+                    </span>
+                  ) : (
+                    <button type="button" className="deck-pin__body" aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
+                      {pin}
+                    </button>
+                  )}
+                </Tooltip>
+              </li>
+            );
+          }),
+        ])}
+        <li className="deck-pin" data-stood={red.length > 0 ? "failing" : "ready"} data-main>
+          <Tooltip label={red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"} asChild>
+            <span className="deck-pin__body" role="img" aria-label={red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}>
+              <span className="deck-pin__label">main</span>
+              <span className="deck-pin__stem" aria-hidden="true" />
+              <span className="deck-pin__disc" aria-hidden="true" />
+            </span>
+          </Tooltip>
+        </li>
+      </ol>
     </section>
   );
 }
@@ -456,75 +481,124 @@ function Bays({ props, selected }: { props: CockpitProps; selected: string | und
   );
 }
 
-function Pressed({ label, text, keys, pressed, onPress, children }: { label: string; text?: string; keys?: string; pressed: boolean; onPress: () => void; children: ReactNode }) {
+function Tile({ label, text, keys, pressed, onPress, children }: { label: string; text: string; keys?: string; pressed: boolean; onPress: () => void; children: ReactNode }) {
   return (
     <Tooltip label={label} {...(keys === undefined ? {} : { shortcut: keys })} asChild>
-      <Button variant="ghost" size="sm" iconOnly={text === undefined} aria-label={label} aria-pressed={pressed} onClick={onPress}>
+      <button type="button" className="deck-tile" aria-label={label} aria-pressed={pressed} onClick={onPress}>
         {children}
-        {text === undefined ? null : text}
-      </Button>
+        <span className="deck-tile__text">{text}</span>
+      </button>
     </Tooltip>
   );
 }
 
-/** The controls as a block in the middle of the panel: four labelled buttons over three that are only glyphs, equal in each row. */
-function Controls({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
+/** The four filters and the view switch, as two rows of equal square tiles in the middle of the panel. */
+function FlightControl() {
   const deck = useDeck();
-  const [recent, remember] = useRecentRepositories();
-  const control = autopilot.control;
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls">
-      <header className="deck-band">Flight controls</header>
+      <header className="deck-band">Flight control</header>
       <div className="deck-controls__block">
-        <div className="deck-controls__row" data-labelled>
-          <Pressed label="Jobs only" text="Jobs" pressed={deck.only === "jobs"} onPress={() => toggleOnly("jobs")}>
-            <Box size={16} aria-hidden />
-          </Pressed>
-          <Pressed label="Sessions only" text="Sessions" pressed={deck.only === "sessions"} onPress={() => toggleOnly("sessions")}>
-            <SquareTerminal size={16} aria-hidden />
-          </Pressed>
-          <Pressed label="Checks" text="Checks" pressed={deck.sel?.kind === "checks"} onPress={() => select(deck.sel?.kind === "checks" ? undefined : { kind: "checks", key: "checks" })}>
-            <ShieldCheck size={16} aria-hidden />
-          </Pressed>
-          <Pressed label="Needs me" text="Calls" pressed={deck.needs} onPress={toggleNeeds}>
-            <Megaphone size={16} aria-hidden />
-          </Pressed>
-        </div>
-        <div className="deck-controls__row">
-          {control === undefined ? null : (
-            <Tooltip label={control.state === "off" ? "Autopilot" : `Autopilot, ${control.state}`} asChild>
-              <span className="deck-controls__cell">
-                {props.picked === null ? (
-                  <DropdownMenu
-                    align="end"
-                    portal
-                    icon={Plane}
-                    triggerLabel="Autopilot"
-                    searchLabel={FIND_A_REPOSITORY}
-                    entries={repositoryEntries(props.state.holds.repositories ?? [], { onlySetUp: true, recent })}
-                    onSelect={(chosen) => {
-                      const root = rootOf(chosen);
-                      remember(root);
-                      control.openNext();
-                      props.onPickRepository?.(root);
-                    }}
-                  />
-                ) : (
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Autopilot" aria-pressed={control.open} data-autopilot={control.state} onClick={control.toggle}>
-                    <Plane size={16} aria-hidden="true" />
-                  </Button>
-                )}
-              </span>
-            </Tooltip>
+        <Tile label="Jobs only" text="Jobs" pressed={deck.only === "jobs"} onPress={() => toggleOnly("jobs")}>
+          <Box size={20} aria-hidden />
+        </Tile>
+        <Tile label="Sessions only" text="Sessions" pressed={deck.only === "sessions"} onPress={() => toggleOnly("sessions")}>
+          <SquareTerminal size={20} aria-hidden />
+        </Tile>
+        <Tile label="Checks" text="Checks" pressed={deck.sel?.kind === "checks"} onPress={() => select(deck.sel?.kind === "checks" ? undefined : { kind: "checks", key: "checks" })}>
+          <ShieldCheck size={20} aria-hidden />
+        </Tile>
+        <Tile label="Needs me" text="Calls" pressed={deck.needs} onPress={toggleNeeds}>
+          <Megaphone size={20} aria-hidden />
+        </Tile>
+        <Tile label="Map" text="Map" keys="m" pressed={deck.view === "map"} onPress={() => setView("map")}>
+          <Orbit size={20} aria-hidden />
+        </Tile>
+        <Tile label="Timeline" text="Timeline" keys="t" pressed={deck.view === "timeline"} onPress={() => setView("timeline")}>
+          <ChartNoAxesGantt size={20} aria-hidden />
+        </Tile>
+      </div>
+    </section>
+  );
+}
+
+const STATE_BADGE = {
+  off: { status: "not-started", icon: Power, said: "Off" },
+  running: { status: "running", icon: Plane, said: "Running" },
+  paused: { status: "awaiting-review", icon: Pause, said: "Waiting" },
+} as const;
+
+/** The repository's picker, where none is chosen. Choosing one opens the Autopilot lane for it. */
+function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
+  const [recent, remember] = useRecentRepositories();
+  return (
+    <DropdownMenu
+      align="end"
+      portal
+      icon={Plane}
+      triggerLabel="Repository"
+      searchLabel={FIND_A_REPOSITORY}
+      entries={repositoryEntries(props.state.holds.repositories ?? [], { onlySetUp: true, recent })}
+      onSelect={(chosen) => {
+        const root = rootOf(chosen);
+        remember(root);
+        autopilot.control?.openNext();
+        props.onPickRepository?.(root);
+      }}
+    />
+  );
+}
+
+/** Autopilot as a card beside the controls: its switch in the header, the repository, how it stands, and a thin bar for what it is doing. */
+function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
+  const deck = useDeck();
+  const control = autopilot.control;
+  const open = deck.sel?.kind === "autopilot";
+  const state = control?.state ?? "off";
+  const badge = STATE_BADGE[state];
+  const lane = () => select(open ? undefined : { kind: "autopilot", key: "autopilot" });
+  return (
+    <section className="deck-panel deck-autopilot" aria-label="Autopilot">
+      <header className="deck-band">
+        <Switch checked={state !== "off"} onChange={lane} disabled={control === undefined}>
+          Autopilot
+        </Switch>
+        <Tooltip label={open ? "Back to the map" : "Open the Autopilot lane"} asChild>
+          <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Close the Autopilot lane" : "Open the Autopilot lane"} aria-pressed={open} onClick={lane}>
+            <ArrowUpRight size={16} aria-hidden />
+          </Button>
+        </Tooltip>
+      </header>
+      <div className="deck-autopilot__body">
+        <div className="deck-autopilot__repo">
+          {props.picked === null ? (
+            <RepositoryPicker props={props} autopilot={autopilot} />
+          ) : (
+            <span className="deck-autopilot__name">{props.picked.manifest?.repository ?? props.picked.root}</span>
           )}
-          <Pressed label="Map" keys="m" pressed={deck.view === "map"} onPress={() => setView("map")}>
-            <Orbit size={16} aria-hidden />
-          </Pressed>
-          <Pressed label="Timeline" keys="t" pressed={deck.view === "timeline"} onPress={() => setView("timeline")}>
-            <ChartNoAxesGantt size={16} aria-hidden />
-          </Pressed>
+          <Badge status={badge.status} icon={badge.icon}>
+            {badge.said}
+          </Badge>
+        </div>
+        <div className="deck-autopilot__bar" data-state={state} role="progressbar" aria-label={`Autopilot, ${badge.said.toLowerCase()}`}>
+          <span className="deck-autopilot__fill" />
         </div>
       </div>
+    </section>
+  );
+}
+
+/** The lane in the dynamic area: the real bar for the chosen repository, or the picker while none is. */
+function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
+  // The bar is the lane's own, drawn while its control has it open; opening this pane is what opens it.
+  const control = autopilot.control;
+  useEffect(() => {
+    if (props.picked !== null && control !== undefined && !control.open) control.openNext();
+  }, [props.picked, control]);
+  return (
+    <section className="deck-pane" aria-label="Autopilot lane">
+      <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
+      <div className="deck-pane__body">{props.picked === null ? <RepositoryPicker props={props} autopilot={autopilot} /> : autopilot.bar}</div>
     </section>
   );
 }
@@ -586,16 +660,20 @@ export function DeckBody(props: CockpitProps) {
   const selected = deck.sel?.key;
   return (
     <div className="armada-cockpit proto deck" data-direction="flightdeck">
-      {autopilot.bar}
       <div className="deck-grid">
         <div className="deck-left">
           <List subjects={listed} cursor={deck.cursor} selected={deck.sel?.kind === "job" || deck.sel?.kind === "session" ? selected : undefined} onPick={(one) => select(selOfSubject(one))} />
           <Activity props={props} listed={listed} ship={ship} />
         </div>
         <div className="deck-centre">
-          <Stage props={props} ship={ship} listed={listed} acts={acts} />
-          <MergeQueue props={props} ship={ship} selected={deck.sel?.kind === "pr" ? selected : undefined} />
-          <Controls props={props} autopilot={autopilot} />
+          <div className="deck-stage">
+            <Stage props={props} ship={ship} listed={listed} acts={acts} autopilot={autopilot} />
+            <MergeQueue props={props} ship={ship} selected={deck.sel?.kind === "pr" ? selected : undefined} over={deck.sel === undefined && deck.view === "map"} />
+          </div>
+          <div className="deck-foot">
+            <FlightControl />
+            <AutopilotPanel props={props} autopilot={autopilot} />
+          </div>
         </div>
         <div className="deck-right">
           <Bays props={props} selected={deck.sel?.kind === "slot" ? selected : undefined} />

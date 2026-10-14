@@ -1,6 +1,6 @@
 // The Cockpit as a flight deck: the places as tabs in the title bar, every Job and Session in a column on the left,
-// the map until something is picked and then that thing, the merge queue as dots, the bays with the incoming calls under them, and the
-// flight controls under the merge queue. A throwaway prototype on proto/cockpit-flight-deck.
+// the map until something is picked and then that thing, the merge queue as waypoints over the map, the bays with the incoming calls under them, and the
+// flight control tiles and Autopilot under it. A throwaway prototype on proto/cockpit-flight-deck.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
@@ -30,10 +30,13 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { look: inside(stage(/^Session: Migration notes/), role("textbox", "Message")), say: "Its thread and its box, as the Session's page has them" },
   { press: inside(region("Bays"), button(/^slot-2/)), say: "A bay" },
   { look: stage("Bay: slot-2"), say: "What holds it, and since when" },
-  { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row: a dot for each pull request, one light for main" },
+  { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row of pins over the map: a pin for each pull request, one for main. Green is ready, orange is running, red is failing, gray is waiting" },
   { look: stage("Pull request #1896"), say: "What the forge says about it" },
   { press: inside(controls, button("Checks")), say: "Checks, from the flight controls" },
   { look: inside(stage("Checks"), region("Running")), say: "What is running now is in one band, what has finished under it" },
+  { press: inside(region("Autopilot"), button("Open the Autopilot lane")), say: "Autopilot is its own card, a switch and an arrow. The arrow opens its lane in the area" },
+  { look: stage("Autopilot lane"), say: "The lane, in the same place the Jobs and Sessions open" },
+  { press: inside(region("Autopilot"), button("Close the Autopilot lane")), say: "Pressed again, it is put away" },
   { press: inside(controls, button("Needs me")), say: "Needs me narrows the column to what holds a call" },
   { press: inside(controls, button("Jobs only")), say: "Jobs only narrows it again" },
   { press: inside(controls, button("Timeline")), say: "The map and the timeline are one switch" },
