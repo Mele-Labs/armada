@@ -6,7 +6,7 @@
 // the fix lands. The walks `cockpit-direction-*` play it.
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
-import type { HubJob, HubMerged, HubPullRequest, MainStanding, MergeLines, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
+import type { HubJob, HubMerged, HubPullRequest, MainStanding, MergeLines, PlanUsage, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionChecks } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -377,9 +377,69 @@ const CALLS: Record<string, CallView> = {
   },
 };
 
-function build(tabs = false): Scenario {
+// ---- What Fleet did, for the flight deck's timeline ---------------------------------------------------
+
+let count = 0;
+type Who = { subject: TimelineSubject; title: string };
+const jobWho = (one: JobFixture): Who => ({ subject: { kind: "job", id: one.job.id }, title: one.job.title });
+const sessionWho = (one: Session): Who => ({ subject: { kind: "session", id: one.id }, title: one.title ?? one.id });
+const pullWho = (number: number, title: string): Who => ({ subject: { kind: "pull_request", number, url: `${FORGE}${number}` }, title });
+function event(minutes: number, who: Who, kind: TimelineEvent["kind"], tone: TimelineEvent["tone"], says: string, rest: { detail?: string; live?: boolean; over?: boolean; repo?: string } = {}): TimelineEvent {
+  count += 1;
+  const { repo, ...more } = rest;
+  return { id: count, at: ago(minutes), kind, subject: who.subject, title: who.title, tone, says, manifest_id: repo ?? ARMADA, ...more };
+}
+
+const EVENTS: TimelineEvent[] = [
+  event(19, jobWho(cache), "job.created", "idle", "Dispatched"),
+  event(18, jobWho(cache), "job.started", "run", "Started", { live: true }),
+  event(14, jobWho(cache), "job.step", "ok", "Scope passed", { live: true }),
+  event(9, jobWho(cache), "job.step", "run", "Fix started", { live: true }),
+  event(97, jobWho(pause), "job.created", "idle", "Dispatched"),
+  event(96, jobWho(pause), "job.started", "run", "Started", { live: true }),
+  event(52, jobWho(pause), "job.step", "ok", "Implement passed", { live: true }),
+  event(33, jobWho(pause), "job.step", "ask", "Awaiting review"),
+  event(35, jobWho(reconnect), "job.created", "idle", "Dispatched"),
+  event(34, jobWho(reconnect), "job.started", "run", "Started", { live: true }),
+  event(20, jobWho(reconnect), "job.step", "ok", "Scope passed", { live: true }),
+  event(6, jobWho(reconnect), "job.step", "bad", "store failed", { detail: "store::reconnect::waits_five_seconds", live: true }),
+  event(5, jobWho(reconnect), "job.asked", "ask", "Asked: what to do about the store Check"),
+  event(4, jobWho(code), "job.queued", "idle", "Queued, waits for a bay in pocket", { repo: POCKET }),
+  event(70, sessionWho(queuedOwner), "session.started", "run", "Started", { live: true }),
+  event(3, pullWho(1890, "Gate policy on every run"), "pr.opened", "idle", "Opened", { detail: "fleet/gate-policy-every-run" }),
+  event(2, pullWho(1890, "Gate policy on every run"), "pr.checks", "ok", "Checks passed"),
+  event(60, sessionWho(WORKING_REPLY), "session.started", "run", "Started", { live: true }),
+  event(25, sessionWho(WORKING_REPLY), "session.turn", "run", "Editing the store tests", { live: true }),
+  event(80, sessionWho(asking), "session.started", "run", "Started", { live: true }),
+  event(9, sessionWho(asking), "session.turn", "ask", "Replied"),
+  event(40, sessionWho(red), "session.started", "run", "Started", { live: true }),
+  event(40, pullWho(1896, "Fix the reconnect wait"), "pr.opened", "idle", "Opened", { detail: "fleet/reconnect-wait" }),
+  event(22, pullWho(1896, "Fix the reconnect wait"), "pr.checks", "bad", "Checks failed", { detail: "desktop_test" }),
+  event(30, jobWho(pause), "pr.opened", "idle", "Opened"),
+  event(50, sessionWho(done), "session.started", "run", "Started", { live: true }),
+  event(4, sessionWho(done), "session.ended", "ok", "Done", { over: true }),
+  event(12, sessionWho(working), "session.started", "run", "Started", { live: true }),
+  event(1, sessionWho(working), "session.turn", "run", "Reading migrations", { live: true }),
+  event(45, sessionWho(stuck), "session.started", "run", "Started", { live: true, repo: POCKET }),
+  event(25, sessionWho(stuck), "session.turn", "idle", "Quiet", { repo: POCKET }),
+];
+
+/** The plan's windows the title bar's meters read. */
+const PLAN = (): PlanUsage => ({
+  windows: [
+    { kind: "five_hour", percent_used: 34, resets_at: new Date(Date.now() + (2 * 60 + 14) * 60_000).toISOString() },
+    { kind: "seven_day", percent_used: 61, resets_at: new Date(Date.now() + (2 * 24 + 17) * 3_600_000).toISOString() },
+  ],
+  read_at: new Date().toISOString(),
+});
+
+type Variant = "rest" | "tabs" | "deck";
+const NAMES: Record<Variant, string> = { rest: "cockpit-ship", tabs: "cockpit-ship-tabs", deck: "cockpit-ship-flightdeck" };
+
+function build(variant: Variant = "rest"): Scenario {
+  const tabs = variant !== "rest";
   const pocketManifest = { ...repository().manifest!, id: POCKET, repository: POCKET, path: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada` };
-  const base = holding(tabs ? "cockpit-ship-tabs" : "cockpit-ship", "The whole ship at rest: two repositories, four Jobs, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
+  const base = holding(NAMES[variant], "The whole ship at rest: two repositories, four Jobs, seven Sessions, four pull requests, main green, eight bays, Autopilot off", JOBS, {
     alsoServed: [{ root: POCKET_ROOT, records_root: `${POCKET_ROOT}/.armada`, manifest: pocketManifest }],
   });
   const jobs = JOBS.map((one) => one.job);
@@ -389,10 +449,13 @@ function build(tabs = false): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands.
     later: [{}, { mergeLines: lines("red") }, { mergeLines: lines("fixed") }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, tabs ? SESSIONS_TABS : SESSIONS) },
+    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, tabs ? SESSIONS_TABS : SESSIONS), ...(variant === "deck" ? { events: EVENTS } : {}) },
+    ...(variant === "deck" ? { behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }) } : {}),
   };
 }
 
 export const s250CockpitShip: Scenario = build();
 /** The same ship for the tab bar's walk, with the Session that asked a question now replied. */
-export const s251CockpitShipTabs: Scenario = build(true);
+export const s251CockpitShipTabs: Scenario = build("tabs");
+/** The same ship for the flight deck: the replied Session, two hours of events for the timeline, and the plan's two windows. */
+export const s252CockpitShipFlightdeck: Scenario = build("deck");

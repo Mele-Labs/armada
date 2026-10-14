@@ -321,6 +321,7 @@ export function Timeline({
   views = NO_VIEWS,
   filter,
   recessed,
+  keep,
   onOpenJob,
   onOpenSession,
   onOpenLink,
@@ -334,6 +335,8 @@ export function Timeline({
   filter: DashboardTab;
   /** A call is in front, and the glass is dimmed behind it. */
   recessed: boolean;
+  /** Narrows the lanes to the subjects it keeps: the flight deck's own filters. Absent keeps every one. */
+  keep?: (subject: Subject) => boolean;
   onOpenJob: (id: string) => void;
   onOpenSession: (id: string) => void;
   onOpenLink: (address: string) => void;
@@ -364,8 +367,8 @@ export function Timeline({
           return held === undefined ? undefined : stateOf(held).state;
         }),
         filter,
-      ),
-    [events, now, filter, sessions],
+      ).filter((lane) => keep === undefined || keep(lane.subject)),
+    [events, now, filter, sessions, keep],
   );
   // Lanes open at now, the right-hand end; the older hour is a scroll back.
   const body = useRef<HTMLDivElement>(null);
