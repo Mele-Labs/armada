@@ -85,14 +85,26 @@ where
                 Err(why) => done.kept.push(format!("branch {branch}: {}", why.0)),
             }
         }
-        if hosting.lease_slot.is_some_and(|slot| done.released.contains(&slot)) {
-            hosting.lease_slot = None;
-            hosting.lease_branch = None;
+        let slot_released = hosting.lease_slot.is_some_and(|slot| done.released.contains(&slot));
+        // A branch that stayed is named again by the next call, once the base holds it.
+        let branch_gone = hosting.lease_branch.as_ref().is_some_and(|branch| {
+            let stayed = format!("branch {branch}:");
+            !done.kept.iter().any(|one| one.starts_with(&stayed))
+        });
+        if slot_released || branch_gone {
+            if slot_released {
+                hosting.lease_slot = None;
+            }
+            if branch_gone {
+                hosting.lease_branch = None;
+            }
             let now = self.now().as_str().to_string();
             let mut store = self.store().lock().await;
             let _ = store.keep_hosting(&hosting);
-            for kind in ["slot", "branch"] {
-                let _ = store.give_back(&Holder::session(&id), Some(kind), &now);
+            if slot_released {
+                for kind in ["slot", "branch"] {
+                    let _ = store.give_back(&Holder::session(&id), Some(kind), &now);
+                }
             }
         }
         if !done.released.is_empty() {
