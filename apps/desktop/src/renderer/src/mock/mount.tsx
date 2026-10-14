@@ -37,6 +37,7 @@ import { DownshiftSourceProvider } from "../downshift";
 import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
+import { OtherMachineFrom } from "./other-machine";
 import type { Scenario } from "./scenario";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -138,11 +139,13 @@ export function mountApp(
                       <PlanUsageSourceProvider value={planUsage}>
                         <DownshiftSourceProvider value={downshift}>
                           <FleetEventsFrom events={chosen.draft?.events}>
+                            <OtherMachineFrom other={chosen.draft?.otherMachine}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                 <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
                               </ClashesFrom>
                             </SessionsHere>
+                            </OtherMachineFrom>
                           </FleetEventsFrom>
                         </DownshiftSourceProvider>
                       </PlanUsageSourceProvider>

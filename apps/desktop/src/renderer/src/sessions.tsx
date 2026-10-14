@@ -29,6 +29,7 @@ import {
   pressedSlot,
   useKept,
   limitHeldSaid,
+  useOtherMachine,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -267,6 +268,9 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Ended", has: (state) => state === "ended" },
 ];
 
+/** What a state's mark says on another machine's Session, which publishes the state and no more. */
+const REMOTE_SAID = { working: "Working", waiting: "Waiting on you", idle: "Idle", ended: "Ended" } as const;
+
 /** The views of the list, and the headings each holds. Active on opening. */
 const VIEWS = [
   { id: "active", label: "Active", headings: ["Needs you", "Running", "Idle", "Not started"] },
@@ -411,8 +415,9 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
   const [query, setQuery] = useState("");
   const [view, setView] = useView();
   const retro = useRetroPress();
+  const other = useOtherMachine();
   if (draft === undefined) return null;
-  const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
+  const own: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
     return {
@@ -432,6 +437,22 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       ...(session.helm === true ? { helm: true } : {}),
     };
   });
+  // Another machine's Sessions stand beside this one's, the quiet machine's last, each read off a summary and nothing more.
+  const asked = query.trim().toLowerCase();
+  const there: SessionRowView[] = (other?.sessions ?? [])
+    .filter((one) => asked === "" || [one.title, one.repository, other!.name].some((word) => word.toLowerCase().includes(asked)))
+    .map((one) => ({
+      id: `${other!.name}:${one.id}`,
+      title: one.title,
+      state: one.state,
+      said: REMOTE_SAID[one.state],
+      slots: [],
+      pullRequests: [],
+      lastTurnAt: one.since,
+      ...((one.waiting?.length ?? 0) > 0 ? { waiting: one.waiting! } : {}),
+      machine: { name: other!.name, repository: one.repository, ...(other!.lastHeard === undefined ? {} : { heardAt: other!.lastHeard }) },
+    }));
+  const views: SessionRowView[] = [...own, ...there];
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
   const groups: SessionGroup[] = HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
   return (

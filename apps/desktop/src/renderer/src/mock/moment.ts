@@ -11,6 +11,7 @@ import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/pro
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
+import type { OtherMachine } from "@armada/components";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -35,6 +36,8 @@ export type MockDraft = ArcDraft & {
   events?: readonly TimelineEvent[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
+  /** The other machine under this login and what it publishes, then how that changes each time a walk lets time pass. Mock only. */
+  otherMachine?: { machine: OtherMachine; moments: readonly ((was: OtherMachine) => OtherMachine)[] };
 };
 
 export type Scenario = ScenarioOf<BridgeState, BridgeApi, MockDraft>;

@@ -269,3 +269,50 @@
 @media (prefers-reduced-motion: reduce) {
   .armada-session-list__more-rows > svg { animation: none; }
 }
+
+/* ---- Another machine's Session: presence only, nothing to press ------------------------------- */
+
+/* No press, so no hover and no pointer; the open row is only its mark and its title. */
+.armada-session-list__row--remote:hover { background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised)); }
+.armada-session-list__row--remote[data-state="waiting"]:hover { background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised)); }
+.armada-session-list__row--remote .armada-session-list__open { cursor: default; }
+.armada-session-list__row--remote .armada-session-list__open::after { content: none; }
+
+.armada-session-list__remote-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-list__repo { color: var(--fg-muted); }
+
+.armada-session-list__waiting {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-session-list__waiting > svg { flex: none; margin-top: var(--space-1); color: var(--hue); }
+
+/* Gone quiet: the hue drains, the glow goes, nothing breathes. Receded the way an ended one is. */
+.armada-session-list__row[data-away] {
+  --hue: var(--fg-subtle);
+  border-style: dashed;
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+  box-shadow: none;
+}
+
+.armada-session-list__row[data-away]:hover { background: var(--bg-raised); }
+.armada-session-list__row[data-away] .armada-session-list__title,
+.armada-session-list__row[data-away] .armada-session-list__waiting { color: var(--fg-muted); }
+.armada-session-list__row[data-away] .armada-session-mark[data-pulsing] > svg > circle + circle { animation: none; }

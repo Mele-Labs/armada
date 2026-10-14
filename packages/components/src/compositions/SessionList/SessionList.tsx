@@ -12,6 +12,7 @@ import { ClashMark } from "../ClashMark/ClashMark";
 import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
+import { MachineMark, QuietMark } from "./OtherMachine";
 
 /**
  * Sessions, searchable, under the headings Overview's lists use: **Needs you**
@@ -50,6 +51,11 @@ export type SessionRowView = {
   retroWriting?: boolean;
   /** Helm's own Session for a repository, pinned to the dock: it carries Helm's mark, and opening it opens the dock. */
   helm?: boolean;
+  /**
+   * Another machine's Session, read-only: its machine marks it, and it has no press and no act. `heardAt`
+   * is set once that machine has gone quiet, when it was last heard from.
+   */
+  machine?: { name: string; repository: string; heardAt?: string };
 };
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
@@ -228,6 +234,41 @@ function MoreRows({ onMore }: { onMore: () => void }) {
   );
 }
 
+/** Another machine's Session as a tile: what it published, and nothing to press. */
+function RemoteRow({ row, now }: { row: SessionRowView; now: number }) {
+  const machine = row.machine!;
+  const away = machine.heardAt === undefined ? undefined : since(machine.heardAt, now);
+  const clock = row.lastTurnAt === undefined ? undefined : new Date(row.lastTurnAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return (
+    <li className="armada-session-list__row armada-session-list__row--remote" data-state={row.state} data-away={machine.heardAt === undefined ? undefined : ""} aria-label={row.title ?? row.id}>
+      <div className="armada-session-list__top">
+        <span className="armada-session-list__open">
+          <SessionMark state={row.state} said={row.said} />
+          <span className="armada-session-list__title">{row.title}</span>
+        </span>
+        {away === undefined ? null : <QuietMark said={`Last heard ${away} ago`} />}
+        <MachineMark name={machine.name} />
+        {row.lastTurnAt === undefined ? null : (
+          <Tooltip label={`Since ${clock ?? ""}`}>
+            <span className="armada-session-list__last" aria-label={`Since ${clock ?? ""}`}>
+              {since(row.lastTurnAt, now)}
+            </span>
+          </Tooltip>
+        )}
+      </div>
+      <div className="armada-session-list__remote-foot">
+        <span className="armada-session-list__repo">{machine.repository}</span>
+        {(row.waiting ?? []).map((one) => (
+          <span className="armada-session-list__waiting" key={one}>
+            <BellRing size={12} strokeWidth={2} aria-hidden />
+            {one}
+          </span>
+        ))}
+      </div>
+    </li>
+  );
+}
+
 export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the glass, the arrows across it. j and k are the surface's, which opens the next Session with them.
@@ -270,6 +311,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
             <h3 className="armada-session-list__eyebrow">{group.label}</h3>
             <ul className="armada-session-list__rows">
               {group.rows.map((row) => {
+                if (row.machine !== undefined) return <RemoteRow key={row.id} row={row} now={now} />;
                 const items = itemsOf(row);
                 return (
                   <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
