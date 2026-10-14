@@ -192,7 +192,7 @@ where
         reads: LedgerReads,
     ) -> Vec<ipc::WaitingItem> {
         let attachments: Vec<ipc::Attachment> = reads.held.iter().map(attachment_wire).collect();
-        self.waiting_from(reads.waiting, session, &attachments)
+        self.waiting_from(reads.waiting, session, &attachments).items
     }
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
@@ -223,6 +223,7 @@ where
             };
             record.mod_out_of_date = self.mod_out_of_date(session);
         }
+        record.helm = reads.hosting.as_ref().is_some_and(|hosting| hosting.helm);
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
@@ -234,7 +235,9 @@ where
             .context
             .as_deref()
             .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
-        record.waiting_for = self.waiting_from(reads.waiting, session, &record.attachments);
+        let waited = self.waiting_from(reads.waiting, session, &record.attachments);
+        record.waiting_for = waited.items;
+        record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record
     }
 
@@ -328,6 +331,12 @@ where
             mod_version: None,
         });
         let manifest_of = |session: &KeptSession| session.manifest_id.clone().unwrap_or_default();
+        // A session in a terminal is read from what its mod tells: anything said while a turn runs
+        // is that turn being heard from. A hosted one is heard from its own process.
+        let terminal = session.origin != "bridge";
+        if terminal && !matches!(report.fact, SessionFact::TurnStarted | SessionFact::TurnCompleted { .. } | SessionFact::Ended { .. }) {
+            self.hosts().terminals().turn_heard(&id);
+        }
 
         match report.fact {
             SessionFact::Started {
@@ -375,8 +384,13 @@ where
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
                     return Err(self.ledger_unnamed("a kind and a target on an attachment"));
                 }
-                // A branch or pull request read from a slot the lease is another's is theirs.
-                let backed = !matches!(attachment.kind.as_str(), "branch" | "pr")
+                // A branch or pull request read from a slot the lease is another's is theirs, but a
+                // pull request the session opened itself is its own wherever it stood: the mod read
+                // its address off `gh pr create`, so no directory is being trusted.
+                let opened = attachment.kind == "pr"
+                    && attachment.detail.get("created").is_some_and(|one| one == "true");
+                let backed = opened
+                    || !matches!(attachment.kind.as_str(), "branch" | "pr")
                     || pool_backs(&store, &session, &roots);
                 if backed {
                     changed |= store
@@ -443,8 +457,24 @@ where
                     },
                 );
             }
-            SessionFact::TurnCompleted => {
+            SessionFact::TurnStarted => {
+                // A turn begun again is work the agent had said was over, and ends the reply the turn
+                // before left. A hosted session's own process says so, so only a terminal's is read here.
+                if terminal {
+                    self.hosts().terminals().turn_began(&id);
+                    store.clear_done(&id).map_err(fault)?;
+                    store.clear_turn_end(&id).map_err(fault)?;
+                }
+                changed = true;
+            }
+            SessionFact::TurnCompleted { said } => {
                 session.last_turn_at = Some(now.clone());
+                if terminal {
+                    self.hosts().terminals().turn_over(&id);
+                    if let Some(line) = said.as_deref().map(crate::session_host::standing::first_line).filter(|line| !line.is_empty()) {
+                        store.keep_turn_end(&id, &now, &line).map_err(fault)?;
+                    }
+                }
                 // A turn taken since the limit was hit: the wake is not owed.
                 store.clear_session_limit(&id).map_err(fault)?;
                 changed = true;
@@ -482,6 +512,7 @@ where
                         .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing)
                         .and_then(|one| Some((one.manifest_id, one.target.parse().ok()?)));
                 }
+                self.hosts().terminals().turn_over(&id);
                 session.end_reason = Some(if asked { String::from("closed") } else { reason });
                 store.clear_session_limit(&id).map_err(fault)?;
                 store.give_back(&holder, None, &now).map_err(fault)?;
@@ -650,6 +681,14 @@ where
         done: ipc::AllDone,
     ) -> Result<SessionRecord, Refusal> {
         self.say_done(caller, done).await
+    }
+
+    async fn finish_up(
+        &self,
+        caller: Option<api::Caller>,
+        finish: ipc::FinishUp,
+    ) -> Result<ipc::FinishedUp, Refusal> {
+        self.finished_up(caller, finish).await
     }
 
     async fn start_session_run(
@@ -890,7 +929,9 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         mod_out_of_date: false,
         waiting_for: Vec::new(),
         done_since: None,
+        standing: None,
         held_until: None,
         context_breakdown: None,
+        helm: false,
     }
 }

@@ -7,7 +7,7 @@
 // `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
+// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, and a question put to Bridge.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
@@ -34,6 +34,8 @@ import {
   pullRequestsIn,
   senderOf,
   titleOf,
+  saidOf,
+  withoutMarkup,
   effortOf,
   modeOf,
   modelName,
@@ -248,8 +250,12 @@ async function branchOf($: Dollar, cwd: string): Promise<string | undefined> {
   return ran.exitCode === 0 && name !== '' && name !== 'HEAD' ? name : undefined
 }
 
-async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string): Promise<void> {
-  const ran = await $.process.run(['gh', 'pr', 'view', '--json', 'number,url,state,title,headRefName,isDraft'], {
+/**
+ * The pull request on the branch checked out in `cwd`, or the one `ref` names. `created` marks one this
+ * session opened, which Fleet credits wherever the session stood.
+ */
+async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string, ref?: string, created = false): Promise<void> {
+  const ran = await $.process.run(['gh', 'pr', 'view', ...(ref === undefined ? [] : [ref]), '--json', 'number,url,state,title,headRefName,isDraft'], {
     cwd,
     timeoutMs: 10_000,
   })
@@ -271,6 +277,7 @@ async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string): Pr
     state: view.isDraft === true && view.state === 'OPEN' ? 'draft' : (view.state ?? '').toLowerCase(),
     ...(view.title === undefined ? {} : { title: view.title }),
     ...(view.headRefName === undefined ? {} : { branch: view.headRefName }),
+    ...(created ? { created: 'true' } : {}),
   }
   one.prs.set(number, detail)
   say($, id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } })
@@ -410,7 +417,7 @@ async function settledInTerminal($: Door, id: string, answered: boolean): Promis
 const ASK_IN_WINDOW = "To ask the owner about something on a page you showed him, call ask_in_window with the question, its options, the page's url and a CSS selector for the place, passing session_id, then end your turn.";
 
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and then call all_done, passing session_id, so Bridge offers to end the session; do not call it while anything is still running or owed. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. ${ASK_IN_WINDOW}`
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, call finish_up, passing session_id, then clear waiting_for and call all_done, passing session_id, so Bridge offers to end the session; do not call all_done while anything is still running or owed. finish_up gives back your slots, the branches already in main and the servers you started with start_server, in one call: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. Read what it kept and say it. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -499,10 +506,12 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
   }
   const act = ghAct(command)
   if (act?.act === 'create') {
+    // What `gh pr create` printed is this session's own, whichever slot the command ran in.
     for (const pr of pullRequestsIn(text)) {
-      const detail = { url: pr.url }
+      const detail = { url: pr.url, created: 'true' }
       one.prs.set(pr.number, detail)
       say($, id, { kind: 'attached', attachment: { kind: 'pr', target: pr.number, detail } })
+      await pullRequestOn($, id, one, await $.session.cwd(), pr.url, true).catch(() => undefined)
     }
   }
   if (act?.act === 'merge' || act?.act === 'close') {
@@ -626,6 +635,23 @@ async function titled($: Dollar, prompt: string): Promise<void> {
 }
 
 /**
+ * A turn began, so Fleet has the session working and the reply the turn before left is over. **Fleet
+ * reads this from the prompt going in and never from the model.** A slash command is not a turn:
+ * most of them end without one, so they would leave the session working with nothing to end it.
+ */
+async function turnBegan($: Dollar, prompt: string): Promise<void> {
+  if (withoutMarkup(prompt).trim().startsWith('/')) return
+  const [id] = await current($)
+  say($, id, { kind: 'turn_started' })
+}
+
+/** A turn ended: Fleet has the first line of what it ended on as the reply, with no call from the model. */
+function turnEnd(answer: string): Fact {
+  const said = saidOf(answer)
+  return said === undefined ? { kind: 'turn_completed' } : { kind: 'turn_completed', said }
+}
+
+/**
  * A `/rename` in the terminal. **The name is what was typed**; a bare `/rename` has Claude Code
  * make one up, which is read from the transcript it writes the entry to. It replaces any title
  * and is told as `named`, so the first prompt's line never takes it back.
@@ -685,6 +711,7 @@ export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     const out = await next(e)
     void titled($, e.text).catch(() => undefined)
+    void turnBegan($, e.text).catch(() => undefined)
     return out
   })
 
@@ -851,7 +878,7 @@ export const register: Register = on => {
     const out = await next(e)
     if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
-        .then(([id]) => say($, id, { kind: 'turn_completed' }))
+        .then(([id]) => say($, id, turnEnd(e.answer)))
         .catch(() => undefined)
     }
     return out

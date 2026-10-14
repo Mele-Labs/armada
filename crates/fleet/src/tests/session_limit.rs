@@ -119,7 +119,7 @@ async fn a_session_that_took_a_turn_meanwhile_is_not_woken() {
     handed_to_the_mod(&fleet).await;
     limited(&fleet).await;
 
-    let record = fleet.report_session(report(SessionFact::TurnCompleted)).await.unwrap();
+    let record = fleet.report_session(report(SessionFact::TurnCompleted { said: None })).await.unwrap();
     assert_eq!(record.held_until, None);
 
     clock.pushed.fetch_add(6 * 3_600, Ordering::SeqCst);

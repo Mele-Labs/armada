@@ -5,8 +5,10 @@
 //! in place (spike 24 measured the built-in worktree tool refusing a permission
 //! door). The hook leases the slot, denies the write, and the turn ends;
 //! `hearing::moved_into` then resumes the session with the slot as its
-//! directory. **A line the hook cannot read as a read is a write**, so a shell
-//! line it does not know leases a slot rather than touching the checkout.
+//! directory. A session resumed with no slot is leased one before its process
+//! starts ([`Fleet::leased_for_resume`]), so no first call moves it. **A line the
+//! hook cannot read as a read is a write**, so a shell line it does not know
+//! leases a slot rather than touching the checkout.
 //!
 //! **A full pool queues the session** (`queueing`) rather than telling it to try
 //! again: it is denied, told its place and told to stop, and Fleet leases and moves
@@ -14,7 +16,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec};
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
-use store::{AttachmentState, Holder, KeptAttachment};
+use store::{AttachmentState, Holder, KeptAttachment, KeptHosting};
 
 use super::following::Standing;
 use super::places::{normalised, place_of, run_from, worked_in, written_by, Place};
@@ -243,6 +245,37 @@ where
                     moving.slot, moving.branch, moving.directory
                 ))
             }
+        }
+    }
+
+    /// A session about to be resumed with no slot is given one first, and its process starts in
+    /// it. **A resumed session otherwise starts in the main checkout and is moved by whatever its
+    /// first tool call is**, which cost it that call and a turn. A full pool, or a line of
+    /// sessions already waiting, leaves the hosting as it was and the first write queues as before.
+    pub(crate) async fn leased_for_resume(
+        &self,
+        served: &Served,
+        hosting: &KeptHosting,
+    ) -> KeptHosting {
+        let id = hosting.session_id.as_str();
+        let queue = self.hosts().slot_queue();
+        let unleased = hosting.lease_slot.is_none()
+            && !hosting.helm
+            && mode_of(&hosting.mode) != SessionMode::Plan
+            && queue.ahead_of(served.manifest().id().as_str(), id) == 0;
+        if !unleased {
+            return hosting.clone();
+        }
+        match self.take_lease(id, served).await {
+            // No process runs yet, so there is nothing to move.
+            Taken::Moving(_) => self.hosts().of(id).state().moving = None,
+            Taken::Held { .. } => {}
+            Taken::Full | Taken::Refused(_) | Taken::Gone => return hosting.clone(),
+        }
+        queue.leave(id);
+        match self.session_and_hosting(id).await {
+            Ok((_, leased)) => leased,
+            Err(_) => hosting.clone(),
         }
     }
 

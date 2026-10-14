@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Say something to one repository's Helm, answered at once while the reply streams on its socket"
+description = "Say something to one repository's Helm, a hosted Session started by the first message"
 notes = """
-**202, and the reply is not in the answer.** Fleet takes the message and answers with whether the next message resumes a session; the reply is written on `observe_helm`. A message sent while a reply is being written waits its turn rather than being refused.
+`POST /helm/ask?manifest_id=`, body `AskHelm`: `text`, `attachments[]`, `mentions[]`, `context?`, and `model?` and `effort?`. Answers 200 with the Helm Session's `SessionRecord` (`helm` set), as `send_session_message` answers. **The reply is the Session's thread**, on `session.row`.
 
-**Resume, not keep-alive.** One process per message, exiting once it has answered; the next message resumes the stored session by id, after an idle exit, a Fleet restart or a reboot. A session the agent no longer has is forgotten and started again, and the thread is told so with `fresh`. 
+**The first message starts the Helm Session**; the next reuses it, and a second Manifest has its own. At most one is live per Manifest. `model` and `effort` are read only by the message that starts it (a blank string is absent; `effort` is `low`, `medium` or `high`, else 422 `fleet.unacceptable_effort`), and a Session started after Start fresh begins on what the last one was tuned to. A live one is tuned with `tune_session`.
 
-**What a message may carry.** `text` may be blank where `attachments` (`SessionUpload`: `name`, `media_type`, base64 `data`) or `mentions` (`SessionTag`, `@` and `#`) carry it; a message with none of the three is refused with a 422 `fleet.helm_message_empty`. A picture reaches Helm as a picture and any other file as an `Attached file:` path it can read; the tags become one line ahead of the words, and the thread's `asked` row keeps the words as typed with `files` and `tags`. Uploads are refused as a Session's are, 422 `fleet.session_attachment_refused`. A file is read back with `get_helm_file`.
+**This is `send_session_message` for the Helm Session**, with the person's whereabouts. `context` becomes one line ahead of the words in the turn (the screen, the picked repository, a chipped Job, the cursor row, an open Studio): **never stored and never drawn**, the thread's row keeps the words as typed with `files` and `tags`. A message sent while a turn runs is queued as a Session's is. The send is refused as a Session's is, including 422 `fleet.session_message_empty` for no words and no file, and `fleet.session_attachment_refused`; uploads are kept with the Session's own, and `get_session_file` serves them.
 
 `agent_access` is `No`: a session must not drive another session.
 """

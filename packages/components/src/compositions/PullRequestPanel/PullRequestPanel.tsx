@@ -9,6 +9,7 @@ import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
 import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
+import { RegisteredOwnerOf } from "../RegisteredOwner/RegisteredOwner";
 import { PullRequestComposer, type PullRequestComposerProps } from "./PullRequestComposer";
 import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
 import { DiffSize, PullRequestTabs } from "./PullRequestTabs";
@@ -141,6 +142,7 @@ export function PullRequestPanel({
             </Tooltip>
           )}
           {page === undefined ? null : <DiffSize additions={page.additions} deletions={page.deletions} />}
+          <RegisteredOwnerOf repository={repository} number={number} />
         </div>
         <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
           <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} reviewed={reviewed} onAct={onAct} />

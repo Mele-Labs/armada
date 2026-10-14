@@ -34,7 +34,7 @@ const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
 /// A command that is not one slash command, or a session that is not a terminal one. A 422.
 pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
-pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
+pub(crate) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// A reattached session the keeper called busy, and that then says nothing for
 /// this long, missed its turn's end: it goes to Idle.
 const REATTACH_QUIET: Duration = Duration::from_secs(120);
@@ -91,62 +91,7 @@ where
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
-        let (manifest, cwd) = match start.root.take() {
-            Some(root) => {
-                let repository = self.repository_named(Some(&root))?;
-                let manifest = repository
-                    .manifest()
-                    .map(|one| one.id().as_str().to_string());
-                (manifest, repository.root().to_string())
-            }
-            None => {
-                let served = self.served_named(Some(&start.manifest_id))?;
-                let manifest = served.manifest().id().as_str().to_string();
-                (Some(manifest), served.root().to_string())
-            }
-        };
-        let id = new_id();
-        let now = self.now().as_str().to_string();
-        let title = start
-            .title
-            .map(|title| title.trim().to_string())
-            .filter(|title| !title.is_empty());
-        {
-            let mut store = self.store().lock().await;
-            store
-                .keep_session(&KeptSession {
-                    id: id.clone(),
-                    harness: String::from(adapters::HOSTED_HARNESS),
-                    origin: String::from("bridge"),
-                    manifest_id: manifest.clone(),
-                    cwd,
-                    title,
-                    state: store::SessionState::Live,
-                    started_at: now.clone(),
-                    last_seen_at: now,
-                    last_turn_at: None,
-                    ended_at: None,
-                    end_reason: None,
-                    figures: Default::default(),
-                    mod_version: None,
-                })
-                .map_err(|why| self.ledger_fault(why))?;
-            store
-                .keep_hosting(&KeptHosting {
-                    session_id: id.clone(),
-                    // Empty is Setup's session, which has no Manifest to name.
-                    manifest_id: manifest.unwrap_or_default(),
-                    model: start.model.filter(|model| !model.trim().is_empty()),
-                    effort: start.effort.filter(|effort| !effort.trim().is_empty()),
-                    mode: mode_text(start.mode.unwrap_or_default()).to_string(),
-                    ran: false,
-                    lease_slot: None,
-                    lease_branch: None,
-                    fork_of: None,
-                })
-                .map_err(|why| self.ledger_fault(why))?;
-        }
-        self.published_hosted(&id).await
+        self.started_hosted(start, false).await
     }
 
     async fn send_session_message(
@@ -485,7 +430,7 @@ where
             .await?
             .into_iter()
             .find_map(|row| match row {
-                SessionRow::Message { files, .. } => {
+                SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } => {
                     files.into_iter().find(|candidate| candidate.id == file)
                 }
                 _ => None,
@@ -525,6 +470,83 @@ where
 
     async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// A plain hosted session's ledger row and its hosting. `helm` marks it as a repository's Helm
+    /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
+    pub(crate) async fn started_hosted(
+        &self,
+        mut start: StartSession,
+        helm: bool,
+    ) -> Result<SessionRecord, Refusal> {
+        let (manifest, cwd) = match start.root.take() {
+            Some(root) => {
+                let repository = self.repository_named(Some(&root))?;
+                let manifest = repository
+                    .manifest()
+                    .map(|one| one.id().as_str().to_string());
+                (manifest, repository.root().to_string())
+            }
+            None => {
+                let served = self.served_named(Some(&start.manifest_id))?;
+                let manifest = served.manifest().id().as_str().to_string();
+                (Some(manifest), served.root().to_string())
+            }
+        };
+        let id = new_id();
+        let now = self.now().as_str().to_string();
+        let title = start
+            .title
+            .map(|title| title.trim().to_string())
+            .filter(|title| !title.is_empty());
+        {
+            let mut store = self.store().lock().await;
+            store
+                .keep_session(&KeptSession {
+                    id: id.clone(),
+                    harness: String::from(adapters::HOSTED_HARNESS),
+                    origin: String::from("bridge"),
+                    manifest_id: manifest.clone(),
+                    cwd,
+                    title,
+                    state: store::SessionState::Live,
+                    started_at: now.clone(),
+                    last_seen_at: now,
+                    last_turn_at: None,
+                    ended_at: None,
+                    end_reason: None,
+                    figures: Default::default(),
+                    mod_version: None,
+                })
+                .map_err(|why| self.ledger_fault(why))?;
+            store
+                .keep_hosting(&KeptHosting {
+                    session_id: id.clone(),
+                    // Empty is Setup's session, which has no Manifest to name.
+                    manifest_id: manifest.unwrap_or_default(),
+                    model: start.model.filter(|model| !model.trim().is_empty()),
+                    effort: start.effort.filter(|effort| !effort.trim().is_empty()),
+                    mode: mode_text(start.mode.unwrap_or_default()).to_string(),
+                    ran: false,
+                    lease_slot: None,
+                    lease_branch: None,
+                    fork_of: None,
+                    helm,
+                })
+                .map_err(|why| self.ledger_fault(why))?;
+        }
+        self.published_hosted(&id).await
     }
 }
 
@@ -639,6 +661,26 @@ where
         session: &str,
         text: &str,
     ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false).await
+    }
+
+    /// [`Self::told_by_fleet`] for news that asks the agent for nothing: a pull request merged, a
+    /// build moved. **The turn it starts leaves the agent's `all_done` standing**, since the agent
+    /// has no work to find in it and would not call `all_done` again.
+    pub(crate) async fn told_news_by_fleet(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+    ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, true).await
+    }
+
+    async fn fleet_word(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        news: bool,
+    ) -> Result<bool, Refusal> {
         if let Some(terminal) = self.terminal_session(session).await? {
             if terminal.state == store::SessionState::Ended {
                 return Ok(false);
@@ -664,6 +706,9 @@ where
             id: FLEET_NAME.to_lowercase(),
             title: FLEET_NAME.to_string(),
         };
+        if news {
+            self.hosts().of(session).state().fleet_told += 1;
+        }
         Arc::clone(self).send_hosted(sent, from).await.map(|_| true)
     }
 
@@ -673,6 +718,18 @@ where
         self: Arc<Self>,
         sent: SendSessionMessage,
         from: SessionVoice,
+    ) -> Result<SessionRecord, Refusal> {
+        self.send_hosted_ahead(sent, from, None).await
+    }
+
+    /// [`Self::send_hosted`] with a line of Fleet's own ahead of the person's words in the turn.
+    /// **The thread's row keeps the words as typed**, so the line is the agent's and never drawn:
+    /// Helm's "where they are" is the one caller.
+    async fn send_hosted_ahead(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        from: SessionVoice,
+        ahead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let (session, hosting) = self.session_and_hosting(&id).await?;
@@ -708,12 +765,20 @@ where
             self.first_message_sent(&id).await;
         }
 
+        let runtime = self.hosts().of(&id);
+        self.ensure_process(&id, &hosting)
+            .await
+            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         let mut turn = String::new();
         if !hosting.ran {
             if let Some(preface) = self.handoff_preface(&id).await {
                 turn.push_str(&preface);
                 turn.push_str("\n\nThe person's first message:\n\n");
             }
+        }
+        if let Some(line) = &ahead {
+            turn.push_str(line);
+            turn.push_str("\n\n");
         }
         if let Some(line) = mention_line(&addressed) {
             turn.push_str(&line);
@@ -723,13 +788,10 @@ where
         for path in &kept.paths {
             turn.push_str(&format!("\n\nAttached file: {path}"));
         }
+        let turn = super::cut_off::told(&mut runtime.state(), turn);
         let line = ipc::encode(&UserLine::of(turn, kept.pictures))
             .map_err(|why| self.hosted_refusal(SESSION_UNSTARTED, &why.to_string()))?;
 
-        let runtime = self.hosts().of(&id);
-        self.ensure_process(&id, &hosting)
-            .await
-            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         {
             let mut state = runtime.state();
             state.turn = SessionTurn::Working { woken_by: None };
@@ -828,6 +890,17 @@ where
         terminal: Option<KeptSession>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_known_ahead(terminal, sent, None).await
+    }
+
+    /// [`Self::send_known`] with the line [`Self::send_hosted_ahead`] puts ahead of the words.
+    /// Read only for a hosted session.
+    pub(crate) async fn send_known_ahead(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        ahead: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let approved = super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::readiness::note_address(&sent.text).map(str::to_string);
@@ -839,7 +912,9 @@ where
             self.send_to_terminal(&session, sent, addressed, paths)
                 .await?
         } else {
-            Arc::clone(&self).send_hosted(sent, SessionVoice::You).await?
+            Arc::clone(&self)
+                .send_hosted_ahead(sent, SessionVoice::You, ahead)
+                .await?
         };
         if let Some(url) = approved {
             self.walk_ended(&id, &url).await;
@@ -849,9 +924,11 @@ where
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
         let done = self.done_cleared(&id).await;
+        // And so does the reply the last turn left: he has answered it.
+        let replied = self.turn_end_cleared(&id).await;
         // And the person has taken the session back from the limit: Fleet does not wake it as well.
         let limited = self.limit_cleared(&id).await;
-        if done || limited {
+        if done || replied || limited {
             return self.published_hosted(&id).await;
         }
         Ok(record)
@@ -963,12 +1040,28 @@ where
             }
             None if !may_start => return Ok(false),
             None => {
-                let directory = match &served {
-                    Ok(served) => Self::directory_of(served, hosting),
-                    Err(_) => self.unset_up_directory(id, hosting).await.ok_or_else(|| {
-                        format!("the repository {} is no longer served", hosting.manifest_id)
-                    })?,
+                let (directory, resuming, resumed, served) = match served {
+                    Ok(served) => {
+                        // **A session that has run is leased its slot before its process starts**, so no
+                        // tool call of the first turn is the one that moves it.
+                        let resuming = hosting.ran && self.has_a_conversation(id).await;
+                        let resumed = match resuming {
+                            true => self.leased_for_resume(&served, hosting).await,
+                            false => hosting.clone(),
+                        };
+                        let directory = Self::directory_of(&served, &resumed);
+                        (directory, resuming, resumed, Some(served))
+                    }
+                    // Setup's session has no Manifest and so no slot: it runs in the root it started in.
+                    Err(_) => {
+                        let directory = self.unset_up_directory(id, hosting).await.ok_or_else(|| {
+                            format!("the repository {} is no longer served", hosting.manifest_id)
+                        })?;
+                        let resuming = hosting.ran && self.has_a_conversation(id).await;
+                        (directory, resuming, hosting.clone(), None)
+                    }
                 };
+                let hosting = &resumed;
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),
@@ -976,7 +1069,7 @@ where
                     // started and ended before its first turn wrote none, and `--resume` on it
                     // exits at once ("No conversation found"), so every later message was lost
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
-                    resuming: hosting.ran && self.has_a_conversation(id).await,
+                    resuming,
                     forking: hosting.fork_of.clone(),
                     fork_note: match &hosting.fork_of {
                         Some(old) => self.fork_note_of(id, old).await,
@@ -985,6 +1078,11 @@ where
                     fork_cut: match hosting.fork_of {
                         Some(_) => self.fork_cut_of(id).await,
                         None => None,
+                    },
+                    // Read at each start, so an edit to the note reaches the next process.
+                    note: match (hosting.helm, &served) {
+                        (true, Some(served)) => Some(self.helm_note_of(served)),
+                        _ => None,
                     },
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.
@@ -995,7 +1093,10 @@ where
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {
-                    self.kept_restart(id, "resumed", None).await;
+                    let cut = self.cut_off_subagents(id).await;
+                    self.kept_restart(id, "resumed", super::cut_off::cut_off_said(&cut).as_deref())
+                        .await;
+                    runtime.state().cut_off = cut;
                 }
                 (process, directory)
             }
@@ -1003,6 +1104,7 @@ where
         let generation = {
             let mut state = runtime.state();
             state.process = Some(process);
+            state.helm = hosting.helm;
             state.directory = directory;
             state.last_active = std::time::Instant::now();
             state.generation

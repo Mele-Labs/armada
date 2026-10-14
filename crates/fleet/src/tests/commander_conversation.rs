@@ -478,22 +478,3 @@ async fn what_a_turn_costs_is_the_jobs_cost_and_none_of_its_caps() {
     assert_eq!(spend.cost_micros, 0, "beside the Drones', not in it");
     assert_eq!(spend.cost_cap_micros, 5_000_000);
 }
-
-#[tokio::test]
-async fn a_jobs_key_is_never_a_repositorys() {
-    use crate::helm::ConversationKey;
-    let job = JobId::carried(core_model::Ulid::carried("01JOB"));
-    let of_job = ConversationKey::of_job(&job);
-    for manifest in ["01JOB", "commander:01JOB", "commander_01JOB", "armada"] {
-        let of_repository = ConversationKey::of_repository(&core_model::ManifestId::carried(
-            core_model::Ulid::carried(manifest),
-        ));
-        assert_ne!(of_job, of_repository, "{manifest}");
-        assert_ne!(of_job.as_str(), of_repository.as_str(), "{manifest}");
-        assert_ne!(
-            of_job.thread_in("records"),
-            of_repository.thread_in("records"),
-            "{manifest}: not the same thread file either"
-        );
-    }
-}

@@ -1,4 +1,4 @@
-// What a send leaves where the bar was: one slim strip in the cockpit's band style, holding the kind's
+// What a send leaves over the one bar's field: one slim strip in the cockpit's band style, holding the kind's
 // mark, the Job's title or the Autopilot's repository, and the way to open it. It stays until the next
 // dispatch or a dismiss and shows only the latest. A Session opens itself and leaves none. Before the
 // Job's id is known the mark is a turning ring; a refusal puts Fleet's words where the title was.
@@ -25,7 +25,6 @@ export type SentView = {
 
 export function DispatchedStrip({
   sent,
-  layout,
   onOpen,
   onDismiss,
   onKeyDown,
@@ -33,8 +32,6 @@ export function DispatchedStrip({
   style,
 }: {
   sent: SentView;
-  /** In the Cockpit's frame, or laid over the title bar's field. */
-  layout: "docked" | "anchored";
   onOpen: () => void;
   onDismiss: () => void;
   /** The keys of an entry whose focus is on the strip itself. */
@@ -52,7 +49,6 @@ export function DispatchedStrip({
       className="armada-dispatch-strip"
       role="group"
       aria-label="Last dispatch"
-      data-layout={layout}
       data-kind={sent.kind}
       data-refused={sent.refused === undefined ? undefined : ""}
       data-openable={openable || undefined}

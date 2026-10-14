@@ -374,8 +374,9 @@ async fn ending_the_pilot_frees_the_session_of_the_worktree() {
     assert_eq!(starts.len(), 2);
     assert!(starts[1].resuming);
     assert_eq!(
-        starts[1].directory, rig.root,
-        "back in the repository, and its next write leases a slot of its own"
+        starts[1].directory,
+        adapter_traits::slot_path(&rig.root, 1),
+        "out of the Job's worktree, and resumed in a slot of its own"
     );
 }
 

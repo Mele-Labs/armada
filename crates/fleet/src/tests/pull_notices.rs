@@ -1071,6 +1071,33 @@ async fn a_notice_goes_to_the_session_the_pool_says_works_the_branch_and_not_to_
     assert_eq!(rig.standing_of("sess-a", "pr").await, vec![("9".to_string(), AttachmentState::Standing)]);
 }
 
+/// A pull request the session opened from a slot it holds is its own although its directory reads
+/// another's slot, as when it leased a second slot and left the first. One it only read there is not.
+#[tokio::test]
+async fn a_pull_request_a_session_opened_is_credited_from_any_slot_but_one_it_only_read_is_not() {
+    let rig = a_rig();
+    let root = rig.root();
+    let slot = leased(&root, 13, "armada/9", By::Session("sess-b"));
+    rig.reports_from("sess-b", &slot, None).await;
+    rig.reports_from("sess-a", &slot, None).await;
+    let attach = |target: &str, opened: bool| SessionReport {
+        harness: adapters::HOSTED_HARNESS.into(),
+        session_id: SessionId::carried("sess-a"),
+        fact: SessionFact::Attached {
+            attachment: ipc::AttachmentReport {
+                kind: "pr".into(),
+                target: target.into(),
+                detail: opened.then(|| ("created".to_string(), "true".to_string())).into_iter().collect(),
+            },
+        },
+    };
+
+    rig.fleet.report_session(attach("8", false)).await.unwrap();
+    rig.fleet.report_session(attach("9", true)).await.unwrap();
+
+    assert_eq!(rig.standing_of("sess-a", "pr").await, vec![("9".to_string(), AttachmentState::Standing)]);
+}
+
 /// The Session that opened a pull request is still told once nobody works its branch: the pool
 /// confirms no one, so the oldest `pr` row stands, as `docs/concepts/fleet.md` has it.
 #[tokio::test]

@@ -7,7 +7,7 @@ import type { MergeLine } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { Scenario } from "../moment";
-import { appended, carriedBy } from "../helm-carry";
+import { helmFleetOn } from "../helm-carry";
 import { s210RouteAThought } from "./route-a-thought";
 
 /** Helm's reply, in the facts of the two pull requests the walk tags and nothing past them. */
@@ -31,26 +31,11 @@ const LINE: MergeLine = {
   },
 };
 
-const now = () => new Date().toISOString();
-
 export const s211HelmRichComposer: Scenario = {
   ...s210RouteAThought,
   name: "helm-rich-composer",
   says: "Helm's message box is the Sessions box: files, sketches, /, @ and #, in three repositories",
   state: { ...s210RouteAThought.state, mergeLines: { lines: [LINE] } },
-  behaves: (handle) => ({
-    ...s210RouteAThought.behaves!(handle),
-    // What the message carried is kept on its row, as Fleet keeps it, and Helm's reply follows.
-    askHelm: async (text, _context, carry) => {
-      const at = now();
-      appended(
-        handle,
-        "armada",
-        (id) => ({ kind: "asked", id, ts: at, text, ...carriedBy("armada", carry) }),
-        (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "said", text: REPLY } } }),
-        (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "ended", turns: 1, cost_micros: 6_100, refusals: 0 } } }),
-      );
-      return { ok: true };
-    },
-  }),
+  // What the message carried is kept on its row, as Fleet keeps it, and Helm's reply follows.
+  behaves: (handle) => helmFleetOn(s210RouteAThought, handle, REPLY),
 };

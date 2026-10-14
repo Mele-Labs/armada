@@ -14,6 +14,7 @@ const picked = text("Studios · Every kind of node and edge · Job Cache the man
 
 export const backToItsStudio = walk("every-state", [
   { press: tab("Active"), say: "Running" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { press: option, say: "A Job dispatched off a Studio" },
   { press: open, say: "Open it" },
   { look: sentence, say: "Where it came from is a link now; its tooltip names the Studio" },

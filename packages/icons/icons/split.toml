@@ -18,3 +18,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 11 Oct 2026 with the Commander's act rows. One line becoming two is what a split is; the Commander also has a Drone to restart, which is `rotate-cw`. Tooltip `Split task`."
+
+[[icons.split.usage]]
+  means = "A row whose two versions, on this machine and in the shared home, have gone different ways"
+  group = "Shared home"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 13 Oct 2026 for the walk `shared-home`. One line becoming two is what a version that diverged is. `diff` says differs too but is reserved to a criterion's origin, and `arrow-up-down` is sort. Draws in the awaiting review hue, because the owner picks a side. Tooltip `Differs from the home`."

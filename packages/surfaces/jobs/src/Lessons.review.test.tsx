@@ -319,6 +319,28 @@ test("while Fleet reads, the page says so; when it cannot, Fleet's words and a R
   expect(reviewLessons).toHaveBeenCalledTimes(2);
 });
 
+test("a review Fleet refused says why, in Fleet's own words", async () => {
+  opened({
+    reviewed: async () => ({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "refused",
+        error: {
+          code: "fleet.lesson_review_failed",
+          message: "the call failed: the Judge did not answer inside its budget",
+          run_id: "run-1",
+          fields: {},
+          chain: [],
+        },
+      },
+    }),
+  });
+  await start();
+  await expect.element(page.getByText("The review could not be made")).toBeVisible();
+  await expect.element(page.getByText("the call failed: the Judge did not answer inside its budget")).toBeVisible();
+});
+
 test("an empty review says there is nothing to review and leads back to the list", async () => {
   opened({ reviewed: async () => ({ ok: true, review: review({ entries: [], set_aside: [] }) }) }, []);
   await start();

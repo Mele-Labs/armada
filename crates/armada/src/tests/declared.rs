@@ -395,7 +395,6 @@ fn this_repositorys_checks_are_chosen_by_their_when() {
     for key in [
         "packages/components:components_test",
         "packages/screens:screens_test",
-        "apps/desktop:app_smoke",
         "apps/desktop/unit:desktop_test",
     ] {
         assert!(

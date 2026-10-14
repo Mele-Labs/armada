@@ -41,6 +41,7 @@ export * from "./compositions/DockQuestions/DockQuestions";
 export * from "./compositions/HelmRecord/HelmRecord";
 export * from "./compositions/HelmThread/HelmThread";
 export * from "./compositions/HelmComposer/HelmComposer";
+export * from "./compositions/HelmHolds/HelmHolds";
 export * from "./compositions/JudgeQuestion/JudgeQuestion";
 export * from "./compositions/EvidenceCard/EvidenceCard";
 export * from "./compositions/FleetPanel/FleetPanel";
@@ -296,6 +297,8 @@ export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 export * from "./compositions/JobSettings/JobSettings";
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
+// Kit against the shared home: how each row stands, and the two versions of one that differs.
+export * from "./compositions/KitSetup/SharedHome";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.
@@ -443,6 +446,8 @@ export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
 export * from "./compositions/AskerView/AskerView";
 export * from "./compositions/OwnerChip/OwnerChip";
+// The owner a pull request was registered to, from any machine under one GitHub login.
+export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/CommanderPanel/CommanderPanel";

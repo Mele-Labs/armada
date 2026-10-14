@@ -111,6 +111,34 @@ fn a_session_that_is_not_a_fork_is_told_nothing() {
     assert!(!args.iter().any(|arg| arg == "--append-system-prompt"));
 }
 
+/// Helm's note is appended to every process of its Session, and a blank one is none at all.
+#[test]
+fn helms_note_is_appended_to_every_process_of_its_session() {
+    let note = "You are Helm, docked in Armada over repository armada.";
+    for resuming in [false, true] {
+        let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
+        assert_eq!(value_after(&args, "--append-system-prompt").as_deref(), Some(note), "resuming: {resuming}");
+    }
+    let blank = rendered(&launching(false, SessionMode::Auto).noting("  \n "));
+    assert!(!blank.iter().any(|arg| arg == "--append-system-prompt"));
+}
+
+/// A fork of a Session that has a note is told both, in one argument and not two, which the CLI
+/// would read as the last of them.
+#[test]
+fn a_note_and_a_forks_note_are_one_appended_prompt() {
+    let launch = launching(false, SessionMode::Auto)
+        .forking(OLD, NOTE)
+        .expect("portable")
+        .noting("You are Helm.");
+    let args = rendered(&launch);
+    assert_eq!(args.iter().filter(|arg| *arg == "--append-system-prompt").count(), 1);
+    assert_eq!(
+        value_after(&args, "--append-system-prompt").as_deref(),
+        Some(format!("You are Helm.\n\n{NOTE}").as_str())
+    );
+}
+
 #[test]
 fn a_fork_with_no_note_is_refused_before_it_starts() {
     for note in ["", "  \n"] {
@@ -289,6 +317,13 @@ fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
         "git --no-pager -C /repo log -5",
         "git merge-base origin/main HEAD",
         "git remote -v",
+        "git worktree list",
+        "git -C /repo worktree list --porcelain | head -20",
+        "git stash list",
+        "git tag --list 'v*'",
+        "git config --get remote.origin.url",
+        "git for-each-ref --format=x refs/heads",
+        "git ls-tree -r HEAD",
         "git rev-parse --abbrev-ref HEAD",
         "gh issue view 2239",
         "gh issue list --state open",
@@ -297,6 +332,11 @@ fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
         "gh api repos/Mele-Labs/armada/pulls/2234",
         "gh api -X GET repos/Mele-Labs/armada/pulls --jq '.[].number'",
         "gh api --paginate repos/Mele-Labs/armada/issues",
+        "sed -n 250,420p crates/fleet/src/session_host/hearing.rs",
+        "sed -n '10,40p' file | head",
+        "sed -n '$p' file",
+        "ls",
+        "git log",
     ] {
         assert!(reads_only(read), "{read}");
     }
@@ -307,10 +347,21 @@ fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
         "git -C /repo push",
         "git -C",
         "git remote add origin x",
+        "git worktree add ../x topic",
+        "git worktree remove /repo/.armada/slots/slot-3",
+        "git stash pop",
+        "git tag v1",
+        "git config user.name x",
         "git merge topic",
         "cd /repo && git commit -m x",
         "cd /repo && sed -i s/a/b/ file",
         "sed -i s/a/b/ file",
+        "sed s/a/b/ file",
+        "sed -n -i 1p file",
+        "sed -n 'w out' file",
+        "sed -n '1,3p;w out' file",
+        "sed -n 1e file",
+        "sed -n p file",
         "cd /repo && echo x > file",
         "gh pr create --fill",
         "gh pr merge 12",

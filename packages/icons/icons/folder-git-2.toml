@@ -24,4 +24,4 @@
     group = "Git and config"
     size = "12px"
     status = "Proposed"
-    notes = "Proposed 9 Oct 2026 for the walk `dispatch-panel-from-either-bar`. The mark on the dispatch panel's repository chip and on each row of its inline list. Found, picked or the rail's, it precedes the repository's name in mono; none found, it stands alone on a dashed outline with the tooltip `No repository found`. The same meaning it has everywhere else: the repository."
+    notes = "Proposed 9 Oct 2026 for the walk `dispatch-panel-from-the-title-bar`. The mark on the dispatch panel's repository chip and on each row of its inline list. Found, picked or the rail's, it precedes the repository's name in mono; none found, it stands alone on a dashed outline with the tooltip `No repository found`. The same meaning it has everywhere else: the repository."

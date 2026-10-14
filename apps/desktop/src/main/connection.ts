@@ -15,7 +15,7 @@
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { PilotOutcome } from "@armada/protocol";
-import type { HelmCarry, HelmTuned } from "../shared/api/helm";
+import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
@@ -168,7 +168,7 @@ export class FleetConnection {
   private readonly follow: FollowSocket;
   /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
   private readonly landFollow: LandFollowSocket;
-  /** One repository's Helm conversation — a fifth socket, and the only one that sends. `helm.ts`. */
+  /** Which repository Helm answers for, and the requests into its Session. `helm.ts`. */
   private readonly helm: HelmConnection;
   /** Not `private`, `commands`' reason: `remarks-poll.ts` (`#667`) reaches `remarksChanged` from `index.ts`. */
   readonly material: ReviewMaterial;
@@ -257,7 +257,7 @@ export class FleetConnection {
     this.landFollow = new LandFollowSocket((landFollowed) => this.publish({ landFollowed }));
     this.material = new ReviewMaterial((change) => this.publish(change));
     const port = (): number | null => this.connected()?.port ?? null;
-    this.helm = new HelmConnection({ publish: (change) => this.publish(change), port });
+    this.helm = new HelmConnection({ publish: (change) => this.publish(change), port, folded: (record) => this.sessions.changed(record) });
     this.activeJobs = new ActiveJobs({ publish: (change) => this.publish(change) });
     this.jobFocus = new JobFocus({
       port,
@@ -512,16 +512,6 @@ export class FleetConnection {
     return this.helm.askHelm(text, context, carry);
   }
 
-  /** The model and effort Helm uses for a conversation. */
-  tuneHelm(manifestId: string | undefined, model: string | null, effort: string | null): Promise<HelmTuned> {
-    return this.helm.tuneHelm(manifestId, model, effort);
-  }
-
-  /** A picture or file one of Helm's messages carried. */
-  readHelmFile(manifestId: string, file: string): Promise<FrameRead> {
-    return this.helm.readHelmFile(manifestId, file);
-  }
-
   /** The Helm session Bridge is pointed at, as one quotable record — #1367. */
   helmDebugInfo(): Promise<HelmDebugRead> {
     return this.helm.debugInfo();
@@ -537,7 +527,7 @@ export class FleetConnection {
     return this.helm.recordThoughtSent(manifestId, text, target, carry);
   }
 
-  /** Forget Helm's stored session and the thread. Refused while a reply is being written. */
+  /** End the Helm Session, so the next message starts a new one. */
   startHelmFresh(): Promise<Outcome> {
     return this.helm.startFresh();
   }

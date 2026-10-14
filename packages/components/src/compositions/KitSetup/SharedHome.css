@@ -1,0 +1,150 @@
+/* Kit against the shared home: a mark on each row for how it stands, a chip and Sync in the band,
+   and a sheet with the two versions of a row that differs. Marks are neutral and recede when the
+   row is the same; the one hue is the awaiting review amber, on a row the person has to pick a
+   side for, and the frame of the tile that holds one. Tokens only. */
+
+/* ---- The band: the account, and Sync ------------------------------------------------------- */
+
+.armada-shared-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-shared-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border: calc(var(--border-width) * 2) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+}
+
+.armada-shared-chip > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-shared-chip__repo {
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+}
+
+.armada-shared-bar__turn[data-turning] {
+  animation: armada-shared-turn var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-shared-turn {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-shared-bar__turn[data-turning] {
+    animation: none;
+  }
+}
+
+/* ---- A row's marks ------------------------------------------------------------------------- */
+
+.armada-sync-marks {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-sync-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-default);
+}
+
+.armada-sync-mark[data-sync="same"] {
+  color: var(--fg-muted);
+}
+
+.armada-sync-mark[data-sync="differs"] {
+  color: var(--status-awaiting-review);
+  cursor: pointer;
+}
+
+.armada-sync-mark[data-sync="differs"]:hover {
+  color: var(--fg-default);
+}
+
+.armada-sync-mark[data-sync="differs"]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ---- The sheet: the two versions ----------------------------------------------------------- */
+
+.armada-sync-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-sync-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-sync-side__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-sync-side__lines {
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+}
+
+/* A line the other side does not have: lit in the amber, so the eye lands on what differs. */
+.armada-sync-side__line {
+  min-height: var(--leading-xs);
+  padding: 0 var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid transparent;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.armada-sync-side__line[data-differs] {
+  border-left-color: var(--status-awaiting-review);
+  background: var(--status-awaiting-review-bg);
+}

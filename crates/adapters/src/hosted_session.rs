@@ -12,7 +12,8 @@
 //! carries two things, the switch that lets another session's message start a
 //! turn here and the hook that holds a write until the session has leased a
 //! slot. A fork's processes also carry `--append-system-prompt` with the note that
-//! says whose work the copied conversation describes.
+//! says whose work the copied conversation describes, and Helm's carry the note that says what
+//! Helm is (`noting`).
 
 use std::error::Error;
 use std::fmt;
@@ -53,6 +54,8 @@ pub struct HostedLaunch {
     fork_note: Option<String>,
     /// The transcript line a fork's copy ends at, included. Since 23.79.
     fork_at: Option<String>,
+    /// What every process of the session is told it is, appended to its system prompt: Helm's note.
+    note: Option<String>,
     name: String,
     model: Option<Model>,
     effort: Option<String>,
@@ -113,6 +116,7 @@ impl HostedLaunch {
             fork_of: None,
             fork_note: None,
             fork_at: None,
+            note: None,
             name: name.to_string(),
             model,
             effort: effort.map(str::to_string),
@@ -146,6 +150,14 @@ impl HostedLaunch {
         self.fork_of = Some(old.to_string());
         self.fork_note = Some(note.trim().to_string());
         Ok(self)
+    }
+
+    /// Tell every process of this session what it is, in its system prompt. **Appended beside a
+    /// fork's note and not instead of it**, so a blank one is no note at all.
+    pub fn noting(mut self, note: &str) -> HostedLaunch {
+        let note = note.trim();
+        self.note = (!note.is_empty()).then(|| note.to_string());
+        self
     }
 
     /// End the copy at the transcript line `uuid` of the session forked from,
@@ -250,9 +262,13 @@ impl HeadlessAgent {
             "--name".into(),
             hosted.name.clone(),
         ];
-        if let Some(note) = &hosted.fork_note {
+        let told: Vec<&str> = [hosted.note.as_deref(), hosted.fork_note.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect();
+        if !told.is_empty() {
             args.push("--append-system-prompt".into());
-            args.push(note.clone());
+            args.push(told.join("\n\n"));
         }
         if let Some(model) = &hosted.model {
             args.push("--model".into());
@@ -440,11 +456,48 @@ fn api_reads(segment: &str) -> bool {
     })
 }
 
+/// A `git` subcommand that reads only when its first argument says so, or when it has none:
+/// `git worktree list` reads and `git worktree add` does not.
+fn git_lists(segment: &str) -> bool {
+    let mut words = segment.split_whitespace().skip(1);
+    match (words.next(), words.next()) {
+        (Some("worktree" | "stash"), Some("list")) => true,
+        (Some("tag"), Some("-l" | "--list")) => true,
+        (Some("tag" | "remote"), None) => true,
+        (Some("remote"), Some("get-url" | "show")) => true,
+        (Some("config"), Some("--get" | "--get-all" | "--list" | "-l")) => true,
+        _ => false,
+    }
+}
+
+/// Whether a `sed` only prints lines: `-n` and a script that is an address and `p`, such as
+/// `sed -n 10,40p file`. Any other script can write a file (`w`) or run one (`e`).
+fn sed_reads(segment: &str) -> bool {
+    let words: Vec<&str> = segment.split_whitespace().skip(1).collect();
+    let script = words.iter().find(|word| !word.starts_with('-'));
+    let quiet = words.contains(&"-n");
+    let only_flags = words
+        .iter()
+        .filter(|word| word.starts_with('-'))
+        .all(|word| *word == "-n");
+    quiet
+        && only_flags
+        && script.is_some_and(|script| {
+            let script = script.trim_matches(['\'', '"']);
+            script.strip_suffix('p').is_some_and(|address| {
+                !address.is_empty() && address.chars().all(|c| c.is_ascii_digit() || c == ',' || c == '$')
+            })
+        })
+}
+
 /// One segment of a line.
 fn reads(segment: &str) -> bool {
     let segment = &*plain_git(segment);
     if segment.starts_with("gh api ") {
         return api_reads(segment);
+    }
+    if segment.starts_with("sed ") {
+        return sed_reads(segment);
     }
     let named = |read: &&str| {
         segment == *read
@@ -457,6 +510,9 @@ fn reads(segment: &str) -> bool {
             .iter()
             .any(|flag| segment.starts_with(&format!("git branch {flag}")))
     {
+        return true;
+    }
+    if git_lists(segment) {
         return true;
     }
     if segment.starts_with("find ") && (segment.contains("-delete") || segment.contains("-exec")) {
@@ -491,6 +547,15 @@ const READS: &[&str] = &[
     "sort",
     "uniq",
     "cut",
+    "tr",
+    "jq",
+    "du",
+    "df",
+    "uname",
+    "basename",
+    "dirname",
+    "realpath",
+    "readlink",
     "date",
     "whoami",
     "printenv",
@@ -510,6 +575,17 @@ const READS: &[&str] = &[
     "git fetch",
     "git merge-base",
     "git remote -v",
+    "git for-each-ref",
+    "git ls-tree",
+    "git cat-file",
+    "git grep",
+    "git shortlog",
+    "git rev-list",
+    "git show-ref",
+    "git name-rev",
+    "git ls-remote",
+    "git diff-tree",
+    "git check-ignore",
     "gh pr view",
     "gh pr list",
     "gh pr diff",

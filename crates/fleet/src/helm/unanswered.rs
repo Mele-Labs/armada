@@ -63,12 +63,6 @@ pub(crate) fn lost_before_held() -> String {
     "the session was gone before Fleet could hold on to it".to_string()
 }
 
-/// The model and effort kept for the conversation would not read, so the reply could not say what
-/// it ran on.
-pub(crate) fn tuning_would_not_read(why: impl std::fmt::Display) -> String {
-    format!("Helm's model and effort would not read: {why}")
-}
-
 /// The turn would not encode, so nothing was sent.
 pub(crate) fn message_not_encoded(why: impl std::fmt::Display) -> String {
     format!("the message could not be encoded for the session: {why}")

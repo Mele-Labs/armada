@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "No nautical iconography. A wheel or compass for Helm is decoration, and metaphor is confined to proper nouns."
+
+  [[icons.message-square.usage]]
+    means = "Helm's own Session in the Sessions list, beside its title"
+    group = "Navigation"
+    size = "12px"
+    status = "Specified"
+    notes = "Tooltip `Helm`. Marks the one hosted Session per repository that is Helm's, and opening that row opens the dock. The walk `helm-is-a-session`, approved 13 Oct 2026."

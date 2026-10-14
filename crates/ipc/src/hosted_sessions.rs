@@ -419,6 +419,20 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         why: Option<String>,
     },
+    /// Words that went to another Session or to a Job: a person's thought Helm's dock routed, or
+    /// what Helm passed on with `tell_session`. **Written in a Helm Session's thread only, and never
+    /// delivered to it**: it records where the words went and the agent is not told. `files` and
+    /// `tags` are what went with them, read back with `get_session_file`. Since the Helm Session.
+    Sent {
+        id: String,
+        at: Instant,
+        text: String,
+        target: crate::thought::ThoughtTarget,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        files: Vec<SentFile>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tags: Vec<SessionTag>,
+    },
     /// A call put to the person. **The row is replaced by id** as the ask is
     /// answered, so a client holds one row per ask.
     Ask {
@@ -469,6 +483,7 @@ impl SessionRow {
             | SessionRow::Check { id, .. }
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
+            | SessionRow::Sent { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

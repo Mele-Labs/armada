@@ -3,7 +3,7 @@
 // walks (`walks/sessions.ts`) prove what the screens draw from fixtures; this proves the same screens
 // are drawn from, and act on, what Fleet serves.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
@@ -11,9 +11,11 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
+import { mount, onScreen, putOffEveryCall, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+// The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
+beforeEach(rememberingTheGrid);
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -228,13 +230,14 @@ test("Sessions wired: red checks on a merged pull request do not put a Session u
   await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
 });
 
-test("Sessions wired: red checks on an open pull request put a Session under Needs you", async () => {
+test("Sessions wired: red checks on an open pull request leave a Session under Idle, not Needs you", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { checks: "failed", failing: "lint" })] }),
   ]);
   mount(served(fleet));
   await onSessions();
-  await expect.element(page.getByText("Needs you")).toBeVisible();
+  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
 });
 
 test("Sessions wired: Open in a Session on a stopped Job starts one with the Job in its first message's mentions", async () => {

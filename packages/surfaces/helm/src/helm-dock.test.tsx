@@ -23,17 +23,14 @@ unmountAfterEach();
 // Core and Helm only: what the dock reads is its own slice's.
 const SLICES = { slices: ["core", "helm"] } as const;
 
-/**
- * Helm pointed at a repository, with a reply either out or finished — the one
- * fact *Start fresh* is refused by.
- */
-function talking(replying: boolean): Scenario {
+/** Helm pointed at a repository, idle. */
+function talking(): Scenario {
   return {
-    name: `helm-${replying ? "replying" : "idle"}`,
-    says: replying ? "Helm is writing a reply" : "Helm is pointed at a repository and idle",
+    name: "helm-idle",
+    says: "Helm is pointed at a repository and idle",
     state: {
       ...connected([], [workflow()], [repository()]),
-      helm: { state: "open", manifestId: MANIFEST_ID, replying, skipped: 0, missed: 0, items: [], facts: {} },
+      helm: { state: "pointed", manifestId: MANIFEST_ID },
     },
     reads: {},
     behaves: () => ({}),
@@ -94,13 +91,13 @@ test("nothing set up: the thread says nothing, and there is no switch to offer",
   expect(page.getByRole("button", { name: /^Point Helm at a/ }).query()).toBeNull();
 });
 
-// Where Start fresh is drawn, and when Fleet refuses it — the owner's note of
-// 18 Sep 2026. It ends the conversation the whole dock is showing, so it sits
+// Where Start fresh is drawn — the owner's note of 18 Sep 2026. It waits on a
+// turn in progress; that is held in `mock/helm-session.test.tsx`, which has a Session. It ends the conversation the whole dock is showing, so it sits
 // in the dock's own head beside Close rather than in the row above the message
 // box, where it was one of three controls that wrapped onto a second line.
 
 test("Start fresh sits in the dock's head, beside Close and above the conversation", async () => {
-  mount(talking(false), SLICES);
+  mount(talking(), SLICES);
   await openHelm();
 
   const fresh = page.getByRole("button", { name: "Start fresh" });
@@ -119,16 +116,4 @@ test("Start fresh sits in the dock's head, beside Close and above the conversati
   // composer, which is the length of the conversation further down.
   const field = page.getByRole("textbox", { name: "Ask Helm" }).element().getBoundingClientRect();
   expect(act.bottom).toBeLessThan(field.top);
-});
-
-test("a reply is being written: Start fresh is refused, in the head where it now lives", async () => {
-  mount(talking(true), SLICES);
-  await openHelm();
-
-  const fresh = page.getByRole("button", { name: "Start fresh" });
-  await expect.element(fresh).toBeDisabled();
-  // Still the head's control while refused: a disabled act does not move.
-  const act = fresh.element().getBoundingClientRect();
-  const close = page.getByRole("button", { name: /^Close/ }).element().getBoundingClientRect();
-  expect(Math.abs(act.top - close.top)).toBeLessThan(2);
 });

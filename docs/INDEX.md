@@ -298,6 +298,7 @@ can find them.
 | Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
 | Moving the owner onto latest main and the newest mod, when he types /update-armada | `update-armada` |
 | Merging this session's pull request once `ci` is green, when the owner types /land | `land` |
+| Showing a walk, briefing an agent, or offering follow-up work | `session-habits` |
 | Walking the owner through what this session left waiting on him, one question at a time | `review-open-items` |
 | Asking the code graph how something works | `gitnexus-exploring` |
 | Asking the code graph what a change breaks | `gitnexus-impact-analysis` |

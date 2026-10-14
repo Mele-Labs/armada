@@ -132,11 +132,11 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/fleet/build/change",
     },
-    // One repository's Helm conversation, named by `?manifest_id=`.
+    // One repository's Helm Session, named by `?manifest_id=`.
     Route {
-        operation: "observe_helm",
+        operation: "get_helm_session",
         method: "GET",
-        path: "/helm/observe",
+        path: "/helm/session",
     },
     Route {
         operation: "ask_helm",
@@ -171,9 +171,9 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/commander/card/answer",
     },
-    // The session as one record, `#1367`. Beside the conversation it reports
+    // The session as one record, `#1367`. Beside the Session it reports
     // on, not under `/debug`: there is no such surface, and the subject is the
-    // conversation.
+    // Session.
     Route {
         operation: "get_helm_debug_info",
         method: "GET",
@@ -431,6 +431,11 @@ const ROUTES: &[Route] = &[
         operation: "all_done",
         method: "POST",
         path: "/sessions/done",
+    },
+    Route {
+        operation: "finish_up",
+        method: "POST",
+        path: "/sessions/finish_up",
     },
     Route {
         operation: "answer_waiting",

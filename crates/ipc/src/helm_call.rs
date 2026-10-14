@@ -247,8 +247,8 @@ pub struct HelmAskingToRun {
 /// `helm.call_answered`: what became of one ask, published whoever ended it —
 /// a person, or the bound running out.
 ///
-/// **Helm's act as its own event type**, the rule `helm.changed_checkout` and
-/// `studio.helm_acted` already follow. A person who finds a command was run
+/// **Helm's act as its own event type**, the rule
+/// `studio.helm_acted` already follows. A person who finds a command was run
 /// reads this to see that they allowed it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelmCallAnswered {

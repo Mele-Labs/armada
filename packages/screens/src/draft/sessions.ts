@@ -9,7 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
-import type { PullRequestPage, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { PullRequestPage, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -114,7 +114,11 @@ export type SessionPullRequestState = "draft" | "open" | "merged";
 /** What a person can do to a pull request without leaving Bridge. */
 export type PullRequestAct = "ready" | "merge" | "auto_merge" | "review";
 
-export type SessionChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string };
+/**
+ * `failed` is the required check red. `red` on the other two names a check that is red and not required:
+ * on `pending` while the run goes on, on `passed` after the required checks passed.
+ */
+export type SessionChecks = { state: "pending"; red?: string } | { state: "passed"; red?: string } | { state: "failed"; failing: string };
 
 /** `piloted` is a Job the person is working in this Session, its Drone stopped. */
 export type SessionJobState = "running" | "review" | "landed" | "escalated" | "piloted" | "superseded";
@@ -140,6 +144,21 @@ export type SessionRow =
       files?: readonly SentFile[];
       sketches?: readonly { id: string; title: string }[];
       /** Sessions tagged with `@`, so the agent knows to talk to them. */
+      tags?: readonly SessionTag[];
+    }
+  /**
+   * Words typed in Helm's box that went to a Session or a Job and never to Helm. Only Helm's own Session
+   * has these: Fleet keeps the row beside the ones the agent wrote, in the thread where it was sent.
+   */
+  | {
+      id: string;
+      at: string;
+      kind: "sent";
+      text: string;
+      /** The Session or Job the words went to, and the repository it is of as the picker names it. */
+      target: ThoughtTarget & { repository: string };
+      files?: readonly SentFile[];
+      sketches?: readonly { id: string; title: string }[];
       tags?: readonly SessionTag[];
     }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone. */
@@ -204,6 +223,12 @@ export type Session = {
   context?: { tokens: number; window: number };
   /** What fills that window, as the harness reports it. Absent where it has not. */
   contextBreakdown?: ContextBreakdown;
+  /**
+   * Helm's own Session for a repository: hosted like any other, pinned to Helm's dock, one per
+   * repository. The Sessions list marks it and opening it opens the dock, not a page of its own.
+   * It runs in auto, so `mode` is never offered for it.
+   */
+  helm?: true;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
@@ -222,10 +247,21 @@ export type Session = {
   lastTurnAt?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
+  /**
+   * The last question the agent asked that nobody answered in time, while the person has said nothing since.
+   * `id` is the ask's row. Not `asked`: that is a live call the agent is held on.
+   */
+  lapsed?: { id: string; questions: readonly SessionQuestion[] };
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
+  /**
+   * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**
+   * the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not
+   * say, and the Session is then read from its turn alone.
+   */
+  standing?: SessionStanding;
   /**
    * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
    * Absent once it is sent, or on a Session nobody's agent started.
@@ -317,6 +353,12 @@ export type PageBounds = { x: number; y: number; width: number; height: number }
  */
 export type SessionsDraft = {
   get: () => readonly Session[];
+  /**
+   * The live Helm Session of the repository Helm's dock answers for, **whatever the rail picked**: the
+   * list holds the picked repository's Sessions, and Helm may be pointed at another. Absent where the
+   * list holds every Session, and the dock then finds it there.
+   */
+  helmOf?: (manifestId: string) => Session | undefined;
   subscribe: (onChange: () => void) => () => void;
   /**
    * Takes a Job's worktree: starts a Session on it and returns the Session's id. **A promise on a real
@@ -461,6 +503,21 @@ export function attachmentsOf<K extends SessionAttachmentKind>(
 ): Extract<SessionAttachment, { kind: K }>[] {
   return session.attachments.filter((one): one is Extract<SessionAttachment, { kind: K }> => one.kind === kind);
 }
+
+/**
+ * What the person is owed besides the reply and the done Fleet derives from the turn: the agent's own
+ * items, an open card, a walk, a question asked in the window. `replied` and `done` are read from the
+ * thread and the turn, so a surface that draws the thread (its last message, its done callout) leaves them out.
+ */
+export const owesOf = (session: Session): readonly WaitingItem[] =>
+  (session.waitingFor ?? []).filter((one) => one.source !== "replied" && one.source !== "done");
+
+/**
+ * What the Session is doing: Fleet's reading where it gave one, else what the turn alone says. A Fleet
+ * that predates `standing` never says `replied` or `stuck`, and a Session it called done still is.
+ */
+export const standingOf = (session: Session): SessionStanding =>
+  session.standing ?? (session.turn.state === "working" ? "working" : session.done !== undefined ? "done" : "idle");
 
 function names(attachment: SessionAttachment, ref: ChipRef): boolean {
   switch (ref.kind) {

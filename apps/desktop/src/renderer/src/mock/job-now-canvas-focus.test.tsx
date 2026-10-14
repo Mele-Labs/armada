@@ -20,7 +20,7 @@ async function settled(): Promise<void> {
   await expect.poll(() => document.querySelectorAll(".react-flow__node").length).toBeGreaterThan(5);
 }
 
-// One name, so the whole file runs as one Check: `armada check app_smoke "job now canvas focus"`.
+// One name, so the whole file runs as one Check: `pnpm exec vitest run --project \'smoke*\' -t "job now canvas focus"`.
 describe("job now canvas focus", () => {
   test("the step a row belongs to stays lit, with what hangs on it, and everything else stands back", async () => {
     mount("job-now-drone");

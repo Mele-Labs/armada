@@ -1,6 +1,8 @@
 import { ADVANCE_GATE, AUTO_MERGE, type Rendering } from "../../generated/vocabulary";
 import { Select } from "../../primitives/Select/Select";
 import { Switch } from "../../primitives/Switch/Switch";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { usePrOwnerRegistry } from "../RegisteredOwner/RegisteredOwner";
 
 import { Section } from "./Entries";
 import type { ManifestFormProps } from "./ManifestForm";
@@ -13,6 +15,8 @@ function reads(vocabulary: Readonly<Record<string, Rendering | undefined>>, word
 
 export function PolicySection({ draft, onDraft, autoMergeWords, reviewGateWords }: ManifestFormProps) {
   const consequence = AUTO_MERGE[draft.autoMerge]?.hint;
+  // Fleet serves no such key yet: a window that holds the registry draws the switch, every other draws none.
+  const registry = usePrOwnerRegistry();
   return (
     <Section title="Policy" says="Who decides a landing and a review here. Across several Manifests, the most cautious wins.">
       <div className="armada-manifest-form__hinted">
@@ -45,6 +49,13 @@ export function PolicySection({ draft, onDraft, autoMergeWords, reviewGateWords 
       <Switch checked={draft.draftPr} onChange={(event) => onDraft({ ...draft, draftPr: event.target.checked })}>
         Draft pull requests
       </Switch>
+      {registry === undefined ? null : (
+        <Tooltip label="Register pull request owners">
+          <Switch checked={registry.registering} onChange={(event) => registry.setRegistering(event.target.checked)}>
+            Pull request owners
+          </Switch>
+        </Tooltip>
+      )}
     </Section>
   );
 }

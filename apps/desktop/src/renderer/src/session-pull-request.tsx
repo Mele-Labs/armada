@@ -25,7 +25,8 @@ export const repositoryOf = (address: string): string | undefined => {
 const promptsOut = (body: string | undefined): string => (body ?? "").replace(/<!-{2}[\s\S]*?-{2}>/g, "").trim();
 
 /** The failing checks' names: Fleet serves them as one string, joined with a comma and a space. */
-const failingOf = (one: PullRequest): string[] => (one.checks.state === "failed" ? one.checks.failing.split(", ").filter((name) => name !== "") : []);
+const failingOf = (one: PullRequest): string[] =>
+  (one.checks.state === "failed" ? one.checks.failing : (one.checks.red ?? "")).split(", ").filter((name) => name !== "");
 
 const keyOf = (sessionId: string, one: PullRequest) => `${sessionId}#${one.number}:${failingOf(one).join(",")}`;
 
@@ -102,7 +103,8 @@ function SessionPullRequestPanel({
       {...(pageSaid === undefined ? {} : { pageSaid })}
       {...(composer === undefined ? {} : { composer })}
       state={one.state}
-      checks={one.checks.state === "failed" ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
+      // A check red after the gate passed still reads as failed here: Fleet refuses the merge on it.
+      checks={one.checks.state === "failed" || (one.checks.state === "passed" && one.checks.red !== undefined) ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
       auto={one.auto}
       queued={one.queued === true}
       {...(place === undefined ? {} : { place })}

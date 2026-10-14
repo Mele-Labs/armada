@@ -22,15 +22,16 @@ export type HelmDebugInfo = {
   authority: HelmActionAuthority;
   /** The model each message's process is started with. */
   model: string;
-  /** The brief as it was sent, whole. */
-  brief: string;
+  /**
+   * The note appended to the Session's system prompt, whole, as the next process is started with it.
+   * Was `brief`.
+   */
+  note: string;
   /** The MCP server Armada's door is registered under, which prefixes every name in `tools` inside the session. */
   door: string;
   /** Every tool the door offered this session, by name, as the inventory orders them. */
   tools: string[];
-  /** How many MCP servers the session came up with, as its own `init` line last said. Absent where nothing has run yet. */
-  servers?: number;
-  /** The agent CLI's own session id, where one is stored to resume. */
+  /** The Helm Session's id. Absent where the repository has none live: before the first message, and after a start fresh. */
   session?: string;
   /** The thread, oldest first, bounded — `cut` says by how much. */
   thread: HelmDebugLine[];
@@ -51,16 +52,16 @@ export type HelmDebugLine = { at: string } & HelmDebugSaid;
 /**
  * What one line was — a narrowing of the thread's own vocabulary, not a second
  * copy of it: what was asked, what came back, what was called, what was
- * refused, and what the turn cost.
+ * refused, and where words were sent. **`ended`, `fresh` and `unanswered` are gone**: a Session's
+ * thread has no such rows.
  */
 export type HelmDebugSaid =
   | { line: "asked"; text: HelmDebugText }
   | { line: "said"; text: HelmDebugText }
   | { line: "called"; tool: string; detail: string }
   | { line: "refused"; tool: string; because: string }
-  | { line: "ended"; turns: number; cost_micros: number; refusals: number }
-  | { line: "fresh" }
-  | { line: "unanswered"; why: string };
+  /** Words Helm's dock sent to a Session or a Job, and which. Never told to Helm's process. */
+  | { line: "sent"; text: HelmDebugText; to: string };
 
 /** A piece of prose, bounded where the record cut it. */
 export type HelmDebugText = {

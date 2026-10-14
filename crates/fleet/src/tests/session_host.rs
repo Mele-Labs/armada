@@ -342,6 +342,11 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
     // Reads and a write outside the repository never lease.
     let read = rig.gate(&id, "Bash", r#"{"command":"git status"}"#).await;
     assert!(!denied(&read));
+    let chain = format!(
+        r#"{{"command":"cd {} && ls .claude/hooks/ && cat a.json | head -80 && git worktree list | head -20"}}"#,
+        rig.root
+    );
+    assert!(!denied(&rig.gate(&id, "Bash", &chain).await));
     let scratch = rig
         .gate(&id, "Write", r#"{"file_path":"/tmp/notes.txt"}"#)
         .await;
@@ -545,6 +550,38 @@ async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     assert!(resumed.resuming);
     let line = rig.stand_in.process(2).sent.lock().unwrap()[0].clone();
     assert!(line.contains("are you there"));
+}
+
+#[tokio::test]
+async fn a_session_resumed_with_no_slot_is_leased_one_before_its_process_starts() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "ready");
+    eventually(|| async { rig.turn(&id).await == SessionTurn::Idle }).await;
+    rig.fleet
+        .tune_session(TuneSession {
+            session_id: id.clone(),
+            model: None,
+            effort: None,
+            mode: SessionMode::Auto,
+        })
+        .await
+        .unwrap();
+
+    rig.send(&id, "carry on").await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    let slot = adapter_traits::slot_path(&rig.root, 1);
+    let resumed = &rig.stand_in.starts()[1];
+    assert!(resumed.resuming);
+    assert_eq!(resumed.directory, slot);
+
+    // Its first call is not the one that moves it: a write in the slot passes, and no
+    // second process is started.
+    let write = format!(r#"{{"file_path":"{slot}/src/lib.rs"}}"#);
+    assert!(!denied(&rig.gate(&id, "Edit", &write).await));
+    assert_eq!(rig.stand_in.starts().len(), 2);
 }
 
 #[tokio::test]

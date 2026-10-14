@@ -1,0 +1,7 @@
+[icons.arrow-down-to-line]
+  means = "An arrow landing on a line: a row from the shared home, put on this machine"
+  group = "Shared home"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Adding a row that is only in the shared home to this machine, tooltip `Add to this machine`. Never a download of a file, a fetch or a sort."
+  notes = "Minted 13 Oct 2026 for the walk `shared-home`, the owner's answer: the act is an icon with a tooltip and no text. `download` is reserved to reading a source into a Studio and says it is never a file written to disk, which is what this act does, so a different silhouette. Pair of `arrow-up-from-line`."

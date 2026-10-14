@@ -1,5 +1,5 @@
-// Grid or map, remembered across a restart as the panel's other ways of reading are: in the window's
-// own storage, never a Fleet preference. A failed read is the grid.
+// Grid or map (the timeline), remembered across a restart as the panel's other ways of reading are: in
+// the window's own storage, never a Fleet preference. The timeline until a pick is kept, and a failed read is the timeline.
 
 import { useState } from "react";
 
@@ -10,9 +10,9 @@ const KEY = "armada.bridge.cockpit-view";
 export function useCockpitView(): [CockpitView, (view: CockpitView) => void] {
   const [view, set] = useState<CockpitView>(() => {
     try {
-      return window.localStorage.getItem(KEY) === "map" ? "map" : "grid";
+      return window.localStorage.getItem(KEY) === "grid" ? "grid" : "map";
     } catch {
-      return "grid";
+      return "map";
     }
   });
   return [

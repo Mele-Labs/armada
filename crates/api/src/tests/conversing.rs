@@ -1,25 +1,16 @@
-//! A Helm conversation's routes, over the same in-memory pipe the other
-//! sockets use: the thread and then what is said after, on one connection; a
-//! message with nothing in it refused as the daemon refuses it; a fresh start closing the socket
-//! saying why; a repository nobody serves refused before the upgrade; and the
-//! record served whole.
+//! Helm's routes: a message answered with the Helm Session it went to, the Session found by its
+//! repository, a fresh start ending it, a message with nothing in it refused as the daemon refuses
+//! it, a repository nobody serves refused, and the record served whole. What the Session's thread
+//! is made of is Fleet's (`fleet::tests::helm_session`); this holds the routes and the wire.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
-use futures_util::StreamExt;
-use hyper::service::service_fn;
-use hyper_util::rt::TokioIo;
-use ipc::{HelmAsked, HelmConversation, HelmMessage, HelmSilence, Instant};
-use tokio::io::DuplexStream;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::WebSocketStream;
-use tower::{Service, ServiceExt};
+use ipc::{HelmSession, SessionRecord};
+use tower::ServiceExt;
 
-use crate::tests::connected;
 use crate::tests::fake::{FakeDaemon, SERVED_MANIFEST};
 use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served};
@@ -31,24 +22,12 @@ fn wired() -> (Arc<FakeDaemon>, Router) {
     (daemon, app)
 }
 
-async fn read(socket: &mut WebSocketStream<DuplexStream>) -> HelmMessage {
-    let frame = tokio::time::timeout(Duration::from_secs(5), socket.next())
-        .await
-        .expect("the socket answers")
-        .expect("the socket is open")
-        .expect("a frame");
-    let Message::Text(json) = frame else {
-        panic!("the socket is text: {frame:?}");
-    };
-    ipc::decode("a Helm message", json.as_bytes()).expect("a Helm message")
-}
-
-async fn posted(app: &Router, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
+async fn call(app: &Router, method: &str, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .method("POST")
+                .method(method)
                 .uri(uri)
                 .header("content-type", "application/json")
                 .body(Body::from(body.to_string()))
@@ -66,133 +45,82 @@ async fn posted(app: &Router, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
 }
 
 #[tokio::test]
-async fn one_connection_carries_the_thread_and_then_what_is_asked() {
+async fn a_message_is_answered_with_the_helm_session_and_the_session_is_then_found() {
     let (daemon, app) = wired();
-    *daemon.helm_thread.lock().expect("not poisoned") = vec![HelmMessage::Asked(HelmAsked {
-        ts: Instant::carried("2026-09-13T08:00:00.000Z"),
-        text: "asked before".to_string(),
-        files: Vec::new(),
-        tags: Vec::new(),
-    })];
-    let mut socket = connected(app.clone(), "/helm/observe", 8192).await;
+    let (status, body) = call(&app, "GET", "/helm/session", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let before: HelmSession = ipc::decode("a Helm session", &body).expect("an answer");
+    assert_eq!(before.manifest_id.as_str(), SERVED_MANIFEST);
+    assert!(before.session.is_none(), "none before the first message");
+    assert!(!String::from_utf8_lossy(&body).contains("session\""), "left out, never null: {body:?}");
 
-    let HelmMessage::Opened(opened) = read(&mut socket).await else {
-        panic!("the first message says what this connection is");
-    };
-    assert_eq!(opened.protocol_id, ipc::ProtocolId::current());
-    assert_eq!(opened.manifest_id.as_str(), SERVED_MANIFEST);
-    assert!(!opened.replying);
-    let HelmMessage::Asked(before) = read(&mut socket).await else {
-        panic!("the thread so far");
-    };
-    assert_eq!(before.text, "asked before");
+    let (status, body) = call(&app, "POST", "/helm/ask", r#"{"text":"why did it stall?"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    let record: SessionRecord = ipc::decode("a record", &body).expect("the Session comes back");
+    assert!(record.helm, "it is marked as Helm");
+    assert_eq!(daemon.helm_asked.lock().expect("not poisoned").len(), 1);
 
-    let (status, body) = posted(&app, "/helm/ask", r#"{"text":"why did it stall?"}"#).await;
-    assert_eq!(status, StatusCode::ACCEPTED, "the reply is the socket's");
-    let conversation: HelmConversation =
-        ipc::decode("a conversation", &body).expect("the conversation comes back");
-    assert!(conversation.replying);
-
-    let HelmMessage::Asked(asked) = read(&mut socket).await else {
-        panic!("what the person asked, live");
-    };
-    assert_eq!(asked.text, "why did it stall?");
+    let (_, body) = call(&app, "GET", "/helm/session?manifest_id=armada", "").await;
+    let after: HelmSession = ipc::decode("a Helm session", &body).expect("an answer");
+    assert_eq!(after.session.expect("one now").session.id, record.id);
 }
 
-/// A blank text decodes now, so refusing a message with nothing in it is the daemon's: a 422, and a
-/// message that carries a file or a tag is taken.
+/// A blank text decodes, so refusing a message with nothing in it is the daemon's: a 422, and a
+/// message that carries a file is taken.
 #[tokio::test]
 async fn a_message_with_nothing_in_it_is_the_daemons_to_refuse() {
     let (_daemon, app) = wired();
-    let (status, body) = posted(&app, "/helm/ask", r#"{"text":"   "}"#).await;
+    let (status, body) = call(&app, "POST", "/helm/ask", r#"{"text":"   "}"#).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(String::from_utf8_lossy(&body).contains("fleet.helm_message_empty"));
+    assert!(String::from_utf8_lossy(&body).contains("fleet.session_message_empty"));
 
-    let (status, _) = posted(
+    let (status, _) = call(
         &app,
+        "POST",
         "/helm/ask",
         r#"{"text":"","attachments":[{"name":"a.txt","media_type":"text/plain","data":"aGk="}]}"#,
     )
     .await;
-    assert_eq!(status, StatusCode::ACCEPTED);
-}
-
-#[tokio::test]
-async fn starting_fresh_closes_the_socket_saying_why() {
-    let (_daemon, app) = wired();
-    let mut socket = connected(app.clone(), "/helm/observe?manifest_id=armada", 8192).await;
-    assert!(matches!(read(&mut socket).await, HelmMessage::Opened(_)));
-
-    let (status, _) = posted(&app, "/helm/start_fresh", "").await;
     assert_eq!(status, StatusCode::OK);
-
-    let HelmMessage::Closed(closed) = read(&mut socket).await else {
-        panic!("the thread this showed is gone, and the socket says so");
-    };
-    assert_eq!(closed.because, HelmSilence::StartedFresh);
-    let after = tokio::time::timeout(Duration::from_secs(5), socket.next())
-        .await
-        .expect("the socket ends");
-    assert!(
-        !matches!(after, Some(Ok(Message::Text(_)))),
-        "nothing follows closed: {after:?}"
-    );
 }
 
 #[tokio::test]
-async fn a_repository_nobody_serves_is_refused_before_the_upgrade() {
+async fn starting_fresh_answers_with_no_session() {
     let (_daemon, app) = wired();
-    let (client_side, server_side) = tokio::io::duplex(8192);
-    tokio::spawn(async move {
-        let service = service_fn(move |request| app.clone().call(request));
-        let _ = hyper::server::conn::http1::Builder::new()
-            .serve_connection(TokioIo::new(server_side), service)
-            .with_upgrades()
-            .await;
-    });
-    let opened = tokio_tungstenite::client_async(
-        "ws://fleet.invalid/helm/observe?manifest_id=elsewhere",
-        client_side,
-    )
-    .await;
-    let Err(tokio_tungstenite::tungstenite::Error::Http(answer)) = opened else {
-        panic!("a repository nobody serves has no conversation to open");
-    };
-    assert_eq!(answer.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    call(&app, "POST", "/helm/ask", r#"{"text":"hello"}"#).await;
+
+    let (status, body) = call(&app, "POST", "/helm/start_fresh", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let fresh: HelmSession = ipc::decode("a Helm session", &body).expect("an answer");
+    assert!(fresh.session.is_none());
+
+    let (_, body) = call(&app, "GET", "/helm/session", "").await;
+    let after: HelmSession = ipc::decode("a Helm session", &body).expect("an answer");
+    assert!(after.session.is_none(), "the next message starts a new one");
 }
 
 #[tokio::test]
-async fn the_record_is_served_whole_and_a_repository_nobody_serves_is_refused() {
+async fn a_repository_nobody_serves_is_refused_by_every_route() {
     let (_daemon, app) = wired();
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/helm/debug?manifest_id=armada")
-                .body(Body::empty())
-                .expect("a well-formed request"),
-        )
-        .await
-        .expect("the router answers");
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = http_body_util::BodyExt::collect(response.into_body())
-        .await
-        .expect("a body")
-        .to_bytes()
-        .to_vec();
+    for (method, uri) in [
+        ("GET", "/helm/session?manifest_id=elsewhere"),
+        ("POST", "/helm/start_fresh?manifest_id=elsewhere"),
+        ("GET", "/helm/debug?manifest_id=elsewhere"),
+    ] {
+        let (status, _) = call(&app, method, uri, "").await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{method} {uri}");
+    }
+    let (status, _) = call(&app, "POST", "/helm/ask?manifest_id=elsewhere", r#"{"text":"hi"}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn the_record_is_served_whole() {
+    let (_daemon, app) = wired();
+    let (status, body) = call(&app, "GET", "/helm/debug?manifest_id=armada", "").await;
+    assert_eq!(status, StatusCode::OK);
     let record: ipc::HelmDebugInfo = ipc::decode("a record", &body).expect("the record comes back");
     assert_eq!(record.manifest_id.as_str(), SERVED_MANIFEST);
     assert_eq!(record.protocol_id, ipc::ProtocolId::current());
-    assert!(!record.brief.is_empty(), "the brief as it was sent");
-
-    let refused = app
-        .oneshot(
-            Request::builder()
-                .uri("/helm/debug?manifest_id=elsewhere")
-                .body(Body::empty())
-                .expect("a well-formed request"),
-        )
-        .await
-        .expect("the router answers");
-    assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(!record.note.is_empty(), "the note as it is appended");
 }

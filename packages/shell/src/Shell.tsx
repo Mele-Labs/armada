@@ -379,6 +379,13 @@ function useToggleSidebar(narrow: boolean, toggle: () => void): void {
   }, [narrow]);
 }
 
+const OPEN_HELM = "armada:open-helm";
+
+/** Opens Helm's dock from anywhere in the window. A window event, since the dock's open state is the shell's own. */
+export function askToOpenHelm(): void {
+  window.dispatchEvent(new Event(OPEN_HELM));
+}
+
 /**
  * Helm's dock: a panel over the content, or a sheet when folded. `⌘J` toggles
  * whichever the width draws, from every surface and from inside a field.
@@ -389,6 +396,7 @@ function useToggleSidebar(narrow: boolean, toggle: () => void): void {
  * opens with the screen and Helm is a press away.
  */
 function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => void } {
+  // A Helm Session opened from the Sessions list opens the dock by this event.
   const [beside, setBeside] = useState(false);
   const [sheet, setSheet] = useState(false);
 
@@ -401,6 +409,13 @@ function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => v
   const onOpen = folded ? setSheet : setBeside;
   const toggle = useRef(() => onOpen(!open));
   toggle.current = () => onOpen(!open);
+  const opens = useRef(onOpen);
+  opens.current = onOpen;
+  useEffect(() => {
+    const heard = (): void => opens.current(true);
+    window.addEventListener(OPEN_HELM, heard);
+    return () => window.removeEventListener(OPEN_HELM, heard);
+  }, []);
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {

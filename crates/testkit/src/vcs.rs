@@ -820,6 +820,22 @@ impl Vcs for FakeVcs {
         Ok(true)
     }
 
+    fn delete_merged_branch(
+        &self,
+        _pool: &SlotPool,
+        branch: &str,
+    ) -> Result<bool, adapter_traits::BranchKept> {
+        self.deleted_branches
+            .lock()
+            .expect("not poisoned")
+            .push(branch.to_string());
+        Ok(true)
+    }
+
+    fn branch_is_merged(&self, _pool: &SlotPool, _branch: &str) -> bool {
+        true
+    }
+
     fn park_hosted_slot(
         &self,
         pool: &SlotPool,

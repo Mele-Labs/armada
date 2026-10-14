@@ -1,14 +1,12 @@
-// Helm's dock: its thread, its held calls and the questions waiting on a person.
+// Helm's dock: the repository it answers for, its held calls and the questions waiting on a person.
+// Its thread is the Helm Session's, which the window holds with every other Session.
 // A slice imports protocol and screens, never another slice; desktop's `shared/api.ts` composes them.
 
 import type {
-  FrameRead,
-  HelmBoxFacts,
   HelmCallAnswer,
   Outcome,
   HelmContext,
   HelmDebugRead,
-  HelmThread,
   SessionTag,
   SessionUpload,
   ThoughtRead,
@@ -16,11 +14,12 @@ import type {
 } from "@armada/protocol";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 
-/** What a message to Helm carries beside its words: files and pictures, and what it names with `@` and `#`. */
-export type HelmCarry = { attachments?: SessionUpload[]; mentions?: SessionTag[] };
-
-/** What `tuneHelm` came to: the facts Fleet now holds for the conversation, or the refusal to word. */
-export type HelmTuned = { ok: true; facts: HelmBoxFacts } | { ok: false; outcome: Outcome };
+/**
+ * What a message to Helm carries beside its words: files and pictures, and what it names with `@` and `#`.
+ * `model` and `effort` are the box's pick, read only by the message that starts the Helm Session; a live one
+ * is tuned as any Session is.
+ */
+export type HelmCarry = { attachments?: SessionUpload[]; mentions?: SessionTag[]; model?: string; effort?: string };
 
 export type HelmApi = {
   /**
@@ -34,20 +33,12 @@ export type HelmApi = {
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
   /**
    * Say something to Helm, about whichever repository it currently answers
-   * for. The reply arrives on `BridgeState.helm`. `context` names where the
-   * person is — omitted, an older Bridge's shape, Helm asks as it always has.
+   * for. The first message starts that repository's Helm Session and the reply is its thread, which
+   * the window holds as it holds every Session's. `context` names where the person is.
    * `carry` is what the message went with; **the text may be blank when it
    * carries something**, and a message with neither is not sent.
    */
   askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
-  /**
-   * The model and effort Helm uses for a conversation, `null` for Auto. `manifestId` names the
-   * conversation; absent, the one Helm points at. The facts Fleet now holds come back, and
-   * `BridgeState.helm` carries them too.
-   */
-  tuneHelm: (manifestId: string | undefined, model: string | null, effort: string | null) => Promise<HelmTuned>;
-  /** A picture or file a message to Helm carried, by the id its row gave. */
-  readHelmFile: (manifestId: string, file: string) => Promise<FrameRead>;
   /**
    * The Helm session Bridge is pointed at, as one quotable record — #1367.
    *
@@ -64,13 +55,13 @@ export type HelmApi = {
    */
   readThought: (text: string) => Promise<ThoughtRead>;
   /**
-   * Said after the words were delivered to a Session or a Job: Fleet keeps a row for them in the
-   * thread of `manifestId`, the conversation the dock shows, and it arrives on `BridgeState.helm`.
+   * Said after the words were delivered to a Session or a Job: Fleet keeps a `sent` row for them in the
+   * thread of `manifestId`'s Helm Session, and it arrives as any row of a Session's thread does.
    * **Never sent before the delivery succeeded**, and never to Helm's own session. `carry` is what the
    * thought went with, which Fleet keeps on the row so a reload draws it.
    */
   recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) => Promise<Outcome>;
-  /** Forget Helm's stored session and the thread. Refused while a reply is being written. */
+  /** End the Helm Session of the repository Helm answers for, so the next message starts a new one. */
   startHelmFresh: () => Promise<Outcome>;
   /**
    * "Discuss with Helm" on a card, or the dock's own switch on All
@@ -80,18 +71,17 @@ export type HelmApi = {
   pointHelm: (manifestId: string) => Promise<void>;
 };
 
+/** The repository Helm answers for. Its Session is one of the window's Sessions, found by its `helm` mark and this id. */
+export type HelmAim = { state: "none" } | { state: "pointed"; manifestId: string };
+
 export type HelmState = {
   /**
    * Every question waiting on a person — a Drone's, a held command, a Judge refusal — from every
    * repository Fleet serves, **whatever the rail picked**. Helm's dock draws them. `questions.ts`.
    */
   questions: Outstanding[];
-  /**
-   * One repository's Helm conversation — the dock's own thread, under the
-   * questions above. Which repository it answers for is main's own decision;
-   * see `main/helm.ts`.
-   */
-  helm: HelmThread;
+  /** Which repository Helm answers for is main's own decision; see `main/helm.ts`. */
+  helm: HelmAim;
 };
 
 export const HELM_NOTHING_YET: HelmState = {
@@ -103,12 +93,9 @@ export const HELM_CHANNELS = {
   // One call helm was held on, answered in the dock. No job id: it names the
   // call fleet minted, and nothing on the board moves. #1389.
   answerHelmCall: "bridge:answer-helm-call",
-  // Helm's conversation: say something, forget it, and point it at a
+  // Helm's conversation: say something, end its Session, and point it at a
   // repository without moving the rail's own pick. #944.
   askHelm: "bridge:ask-helm",
-  // The model and effort Helm uses, and a file one of its messages carried.
-  tuneHelm: "bridge:tune-helm",
-  readHelmFile: "bridge:read-helm-file",
   // The session as one record, read once when a person opens it — #1367.
   helmDebugInfo: "bridge:helm-debug-info",
   // Helm reading a thought for where it belongs, and recording where it went.

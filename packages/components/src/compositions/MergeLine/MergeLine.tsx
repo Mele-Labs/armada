@@ -9,6 +9,7 @@ import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GUIDE_MERGE_LINE } from "../../guides";
 import { OwnerChip, useChipOwner, type OwnerChipRef } from "../OwnerChip/OwnerChip";
+import { RegisteredOwnerOf, repositoryOfAddress } from "../RegisteredOwner/RegisteredOwner";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
 import {
@@ -859,6 +860,7 @@ function Pull({
         </Tooltip>
       </span>
       <span className="armada-merge-line__detail">
+        <RegisteredOwnerOf repository={repositoryOfAddress(pull.url)} number={pull.number} />
         <EntryOwner
           entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url }, ...(pull.job === undefined ? {} : { job: pull.job }) }}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}

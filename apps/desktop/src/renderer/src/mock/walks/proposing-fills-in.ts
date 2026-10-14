@@ -14,6 +14,7 @@ const boardRow = (words: string) => role("option", words);
 export const proposingFillsIn = walk("proposing-fills-in", [
   { press: button("Dispatch", { exact: true }), say: "Dispatch the request" },
   { press: tab("Active"), say: "A Job being proposed is under way" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: boardRow(REQUEST), say: "Its row arrives at once, titled with the request" },
   { look: inside(boardRow(REQUEST), role("img", "Plan the change")), say: "The workflow lands first, its steps as pips on the tile" },
   { look: boardRow(TITLE), say: "Then the title replaces the request" },

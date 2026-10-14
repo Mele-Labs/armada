@@ -170,7 +170,31 @@ test('a pull request a session opens is attached from the address gh printed', a
 
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
-    attachment: { kind: 'pr', target: '1853', detail: { url: URL } },
+    attachment: { kind: 'pr', target: '1853', detail: { url: URL, created: 'true' } },
+  })
+})
+
+test('a pull request a session opens is read by its address, so it carries its title from any slot', async ($, on) => {
+  const { posts, processes, clock } = world(on, {
+    cwd: () => '/repos/armada/.armada/slots/slot-2',
+    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock' }),
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({
+    result: { stdout: URL, stderr: '', interrupted: false },
+    text: URL,
+  }))
+  await $.session.start({ cwd: '/repos/armada/.armada/slots/slot-2', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'cd /repos/armada/.armada/slots/slot-4 && gh pr create --base main' })
+  await clock.settle()
+
+  expect(processes.some(one => one.argv.join(' ').includes(`gh pr view ${URL}`))).toBe(true)
+  expect(facts(posts)).toContainEqual({
+    kind: 'attached',
+    attachment: {
+      kind: 'pr',
+      target: '1853',
+      detail: { url: URL, address: URL, state: 'open', title: 'Pin the store clock', branch: 'fix/store-clock', created: 'true' },
+    },
   })
 })
 
@@ -558,7 +582,10 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   expect(out.blocks[0].text).toContain('already waits on him by itself, so never put it in waiting_for')
   expect(out.blocks[0].text).not.toContain('a page to look at')
   expect(out.blocks[0].text).toContain('call all_done')
+  expect(out.blocks[0].text).toContain('call finish_up')
   expect(out.blocks[0].text).toContain('never in an Actions table')
+  expect(out.blocks[0].text).toContain('one way only')
+  expect(out.blocks[0].text).toContain('fenced block tagged bash')
 })
 
 test('a Drone is told no session id', async ($, on) => {
@@ -797,6 +824,37 @@ test('a measurement off a subscription names no plan', async ($, on) => {
   const measured = facts(posts).find(fact => fact.kind === 'measured')
   expect(measured).toBeDefined()
   expect('plan' in measured).toBe(false)
+})
+
+test('a turn that ends is told with the first line of what it said, and the agent is never asked', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: 'The cap is five.\nThe backoff stops there.', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'turn_completed', said: 'The cap is five.' })
+  expect(JSON.stringify(posts)).not.toContain('backoff')
+})
+
+test('a turn that said nothing is told as over and carries no line', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: '  ', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'turn_completed' })
+})
+
+test('a prompt going in tells Fleet a turn began, and a slash command is not a turn', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: '/compact', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  expect(kinds(posts)).not.toContain('turn_started')
+
+  await $.prompt.submit({ text: 'fix the ledger', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  expect(facts(posts)).toContainEqual({ kind: 'turn_started' })
 })
 
 test('a turn that failed on the plan limit tells Fleet when the full window opens, and is not a finished turn', async ($, on) => {

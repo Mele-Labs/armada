@@ -168,6 +168,41 @@ where
         held
     }
 
+    /// Whether a process is one the session started, however deep: what it may `kill`.
+    pub(super) fn started_by<'a>(&'a self, id: &str) -> impl Fn(u32) -> bool + 'a {
+        let roots = self.tree_roots(id);
+        move |pid| started_within(&roots, pid, self.peers().as_ref())
+    }
+
+    /// The branches the session may delete by hand: the one it was leased and each one a slot
+    /// it holds is on, where the base already holds every commit on them.
+    pub(super) async fn own_merged_branches(
+        &self,
+        id: &str,
+        served: &Served,
+        hosting: &KeptHosting,
+    ) -> Vec<String> {
+        let pool = crate::leasing::pool_of(served);
+        let (vcs, session) = (Arc::clone(self.vcs()), id.to_string());
+        let mut branches: Vec<String> = hosting.lease_branch.clone().into_iter().collect();
+        let lease = hosting.lease_slot;
+        tokio::task::spawn_blocking(move || {
+            for reading in vcs.slot_pool(&pool) {
+                if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
+                    || lease == Some(reading.slot)
+                {
+                    branches.extend(reading.branch);
+                }
+            }
+            branches.sort();
+            branches.dedup();
+            branches.retain(|branch| vcs.branch_is_merged(&pool, branch));
+            branches
+        })
+        .await
+        .unwrap_or_default()
+    }
+
     /// Park every slot an ending session holds: the one the ledger records,
     /// and any other `armada worktree lease` took for it (a subagent's), which
     /// the pool holds under the session's id and would otherwise hold for

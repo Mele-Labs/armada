@@ -9,6 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
+import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WindowPlace, WindowTake } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
@@ -202,6 +203,19 @@ export type SessionRow =
       at: string;
       from: SessionVoice;
       text: string;
+      files?: SentFile[];
+      tags?: SessionTag[];
+    }
+  /**
+   * Words Helm's dock sent to a Session or a Job instead of asking Helm, from `tell_session` and
+   * `record_thought_sent`. Only a Helm Session's thread has them.
+   */
+  | {
+      kind: "sent";
+      id: string;
+      at: string;
+      text: string;
+      target: ThoughtTarget;
       files?: SentFile[];
       tags?: SessionTag[];
     }

@@ -20,7 +20,7 @@ use ipc::{
 use super::serving::mode_of;
 use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because, Said};
+use crate::helm::{answering, because_in_a_session_owning, pages_opened, unanswered, Because, Own, Said};
 
 /// How long one `Wait` is held. The mod's request must outlast it.
 const POLL_HOLD: Duration = Duration::from_secs(25);
@@ -31,6 +31,21 @@ pub(crate) const POLL_LAPSE: Duration = Duration::from_secs(180);
 
 /// A kept terminal question that would not encode or read back.
 const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
+
+/// A block a question, the question in bold and what was chosen under it, for an answer that
+/// allowed it. Nothing where
+/// the call was a permission, which carries no answers, or was refused.
+fn answers_text(said: &Said) -> Option<String> {
+    if said.answer != HelmCallAnswer::AllowOnce || said.answers.is_empty() {
+        return None;
+    }
+    let lines: Vec<String> = said
+        .answers
+        .iter()
+        .map(|one| format!("**{}**\n{}", one.question, one.chosen.join(", ")))
+        .collect();
+    Some(lines.join("\n\n"))
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -45,10 +60,19 @@ where
     /// The hosted session whose process holds this call's connection.
     /// **Placed by the connection**, as Helm's is, never by what the caller says.
     pub(crate) fn session_holding(&self, caller: &Caller) -> Option<String> {
+        self.session_placed(caller).map(|(id, _)| id)
+    }
+
+    /// The hosted session whose process holds this call's connection, and whether it is a
+    /// repository's Helm, whose door is Helm's and not a Session's.
+    pub(crate) fn session_placed(&self, caller: &Caller) -> Option<(String, bool)> {
         self.hosts().all().into_iter().find_map(|(id, runtime)| {
-            let pid = runtime.state().process.as_ref().and_then(|p| p.pid())?;
+            let (pid, helm) = {
+                let state = runtime.state();
+                (state.process.as_ref().and_then(|p| p.pid())?, state.helm)
+            };
             crate::peer::held_within(caller, self.host().port, &[pid], self.peers().as_ref())
-                .then_some(id)
+                .then_some((id, helm))
         })
     }
 
@@ -86,16 +110,16 @@ where
         }
         let (session, hosting) = self.session_and_hosting(id).await?;
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
-        let (held, root) = match served {
+        let (held, root) = match &served {
             Ok(served) => (
-                self.held_directories(id, &served, &hosting),
+                self.held_directories(id, served, &hosting),
                 served.root().to_string(),
             ),
             // Setup's session holds no slot: the root it was started in is where it works.
             Err(_) if hosting.manifest_id.is_empty() => {
                 (vec![session.cwd.clone()], session.cwd.clone())
             }
-            Err(why) => return Err(why),
+            Err(why) => return Err(why.clone()),
         };
         let mode = mode_of(&hosting.mode);
         // A question is for the person whatever the mode: nothing else can
@@ -111,7 +135,15 @@ where
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
                 SessionMode::Auto | SessionMode::Plan => {
                     let held: Vec<&str> = held.iter().map(String::as_str).collect();
-                    match because_in_a_session(&asking, &held) {
+                    // A branch is looked up only for a line that names one.
+                    let merged = match (asking.detail().is_some_and(|line| line.contains("branch")), &served) {
+                        (true, Ok(served)) => self.own_merged_branches(id, served, &hosting).await,
+                        _ => Vec::new(),
+                    };
+                    let merged: Vec<&str> = merged.iter().map(String::as_str).collect();
+                    let started = self.started_by(id);
+                    let own = Own { started: Some(&started), merged_branches: &merged };
+                    match because_in_a_session_owning(&asking, &held, own) {
                         Some(Because::ReachesOutside) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(
@@ -154,8 +186,10 @@ where
         let _ = self.published_hosted(&session.id).await;
 
         let held = asks.hold();
+        let mut said_aloud = None;
         let (decided, state) = match tokio::time::timeout(held, answer).await {
             Ok(Ok(said)) => {
+                said_aloud = answers_text(&said);
                 let state = match said.answer {
                     HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     HelmCallAnswer::Refuse => SessionAskState::Refused,
@@ -182,8 +216,25 @@ where
             held.answered_via.take()
         };
         self.row_put(id, put(state, via)).await;
+        if let Some(text) = said_aloud {
+            self.person_said(id, text).await;
+        }
         let _ = self.published_hosted(id).await;
         Ok(decided)
+    }
+
+    /// What the person chose, as a message of theirs in the thread: the ask row settles into a
+    /// collapsed tool line, which is not where a person looks for what they said.
+    async fn person_said(&self, id: &str, text: String) {
+        let row = SessionRow::Message {
+            id: self.row_id(id),
+            at: self.instant(),
+            from: ipc::SessionVoice::You,
+            text,
+            files: Vec::new(),
+            tags: Vec::new(),
+        };
+        self.row_put(id, row).await;
     }
 
     /// A terminal session's `AskUserQuestion`, put to Bridge while its own
