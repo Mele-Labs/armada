@@ -245,6 +245,7 @@ mod session_piloting;
 mod session_queue;
 mod session_question;
 mod session_retro;
+mod session_standing;
 pub(crate) mod slot_leases;
 mod session_retro_live;
 mod lesson_session;

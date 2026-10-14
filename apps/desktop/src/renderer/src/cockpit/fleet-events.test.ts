@@ -82,3 +82,21 @@ describe("the lanes a pull request's entries make", () => {
     expect(lanesOf(drawn([own(1, 30), pull(2, 5)], undefined), NOW).map((one) => one.key)).toEqual(["job:j1"]);
   });
 });
+
+describe("a Session's lane stands by what Fleet says it is doing", () => {
+  const session = { kind: "session", id: "s1", title: "Flaky store" } as const;
+  const turn = (minutes: number) => own(1, minutes, { kind: "session.turn", subject: { kind: "session", id: "s1" }, tone: "idle", says: "Turn took 2m 14s", live: true });
+  const lane = (minutes: number, reading?: "working" | "stuck" | "replied" | "idle") =>
+    lanesOf(drawn([turn(minutes)], session), NOW, reading === undefined ? undefined : () => reading)[0];
+
+  test("an old live-flagged turn is not stuck and not moving unless Fleet says so", () => {
+    expect(lane(90)?.standing).toBe("idle");
+    expect(lane(90, "idle")?.standing).toBe("idle");
+  });
+
+  test("Fleet's stuck is stuck, however fresh the entry, and a reply is a call", () => {
+    expect(lane(1, "stuck")?.standing).toBe("stuck");
+    expect(lane(90, "replied")?.standing).toBe("ask");
+    expect(lane(90, "working")?.standing).toBe("run");
+  });
+});

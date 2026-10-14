@@ -28,7 +28,6 @@ import {
   TileSheet,
   pressedSlot,
   useKept,
-  limitHeldSaid,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -59,7 +58,7 @@ import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
-import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
+import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
@@ -90,25 +89,12 @@ import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
 import { nowOf, quietOf, todosOf } from "./session-activity";
 import { useViewing } from "./cockpit/viewed";
+import { dismissWaiting } from "./cockpit/dismissed";
+import { stateOf } from "./session-state";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
   return served ? [] : [SURFACE.sessions];
-}
-
-function stateOf(session: Session): { state: SessionState; said: string } {
-  if (session.dead === "ended") return { state: "ended", said: "Ended" };
-  if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
-  if (session.limitedUntil !== undefined) return { state: "limited", said: limitHeldSaid(session.limitedUntil) };
-  if (session.turn.state === "working") {
-    const by = session.turn.wokenBy;
-    return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
-  }
-  if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
-  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
-  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
-  if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  return { state: "idle", said: "Idle" };
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
@@ -266,8 +252,8 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" },
-  { label: "Running", has: (state) => state === "working" || state === "limited" },
+  { label: "Needs you", has: (state) => state === "waiting" || state === "replied" || state === "done" },
+  { label: "Running", has: (state) => state === "working" || state === "stuck" || state === "limited" },
   // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
   { label: "Idle", has: (state) => state === "idle" || state === "failing" },
   { label: "Not started", has: (state) => state === "blank" },
@@ -436,7 +422,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
-      ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
+      ...(owesOf(session).length > 0 ? { waiting: owesOf(session).map((one) => one.text) } : {}),
       ...(doing.now === undefined ? {} : { now: doing.now }),
       ...(doing.quiet === undefined ? {} : { quiet: doing.quiet }),
       ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
@@ -634,7 +620,7 @@ export function entriesOf(
   runner: Runner | undefined,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
+  const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
     if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
@@ -992,6 +978,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                     made,
                     onKeep: () => {
                       setKept(session.done?.since);
+                      // Fleet's `done` item goes too, so the Cockpit and the list stop calling it done.
+                      if (session.done !== undefined) void dismissWaiting(session.id, `done:${session.done.since}`);
                       centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
                     },
                   },

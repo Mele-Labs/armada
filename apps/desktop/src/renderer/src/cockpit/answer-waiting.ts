@@ -6,6 +6,8 @@
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { AnswerWaiting } from "@armada/protocol";
 
+import { markViewed } from "./viewed";
+
 /** Fleet's refusal for an item nothing holds (409): it was settled already, or the Session stopped waiting. */
 const UNHELD = "fleet.session_waiting_unheld";
 
@@ -14,8 +16,10 @@ export type WaitingAnswered = { kind: "answered" } | { kind: "gone" } | { kind: 
 
 export async function answerWaiting(request: AnswerWaiting): Promise<WaitingAnswered> {
   const done = await window.armada.answerWaiting(request);
-  if (done.ok) return { kind: "answered" };
+  // An answer sent from a card is him being in the Session. Without this the Session's older items came
+  // back as calls, since a Session he never opened holds no thread to date his message by.
+  if (done.ok) return markViewed(request.session_id), { kind: "answered" };
   const outcome = done.outcome;
-  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD) return { kind: "gone" };
+  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD) return markViewed(request.session_id), { kind: "gone" };
   return { kind: "refused", said: refusalWords(outcome) };
 }

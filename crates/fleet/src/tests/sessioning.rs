@@ -166,7 +166,7 @@ async fn a_branch_is_one_at_a_time_and_a_pull_request_is_not() {
         fleet.report_session(report("s1", fact)).await.unwrap();
     }
     let record = fleet
-        .report_session(report("s1", SessionFact::TurnCompleted))
+        .report_session(report("s1", SessionFact::TurnCompleted { said: None }))
         .await
         .unwrap();
 
@@ -252,7 +252,7 @@ async fn a_fact_that_repeats_the_ledger_publishes_nothing() {
         .await
         .unwrap();
     fleet
-        .report_session(report("s1", SessionFact::TurnCompleted))
+        .report_session(report("s1", SessionFact::TurnCompleted { said: None }))
         .await
         .unwrap();
     let next = next_session(&mut watching).await;
@@ -483,7 +483,7 @@ async fn renaming_to_nothing_or_a_stranger_is_refused() {
         );
     }
     let kept = fleet
-        .report_session(report("s1", SessionFact::TurnCompleted))
+        .report_session(report("s1", SessionFact::TurnCompleted { said: None }))
         .await
         .expect("kept");
     assert_eq!(kept.title.as_deref(), Some("fix the ledger"));
@@ -517,7 +517,7 @@ async fn the_artifacts_a_session_made_are_kept_with_their_form_and_one_of_each_a
         fleet.report_session(report("s1", fact)).await.unwrap();
     }
     let record = fleet
-        .report_session(report("s1", SessionFact::TurnCompleted))
+        .report_session(report("s1", SessionFact::TurnCompleted { said: None }))
         .await
         .unwrap();
 
@@ -752,7 +752,7 @@ async fn a_directory_in_a_slot_another_session_leased_credits_this_one_with_noth
 
     assert!(held(&said, "slot").is_empty() && held(&said, "branch").is_empty() && held(&said, "pr").is_empty());
     assert_eq!(held(&said, "job").len(), 1);
-    let theirs = fleet.report_session(report("s2", SessionFact::TurnCompleted)).await.unwrap();
+    let theirs = fleet.report_session(report("s2", SessionFact::TurnCompleted { said: None })).await.unwrap();
     assert_eq!(held(&theirs, "slot"), [("13".into(), AttachmentState::Standing)]);
     assert_eq!(held(&theirs, "branch"), [("fleet/theirs".into(), AttachmentState::Standing)]);
 }

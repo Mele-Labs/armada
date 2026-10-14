@@ -436,6 +436,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
+    ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
   };
 }
 

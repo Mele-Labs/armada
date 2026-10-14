@@ -30,6 +30,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         held_until: None,
         context_breakdown: None,
         helm: false,
+        standing: None,
         activity,
     }
 }

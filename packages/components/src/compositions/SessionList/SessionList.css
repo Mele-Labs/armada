@@ -121,6 +121,9 @@
 /* The hue, from the Job rows' own status tokens. */
 .armada-session-list__row[data-state="working"] { --hue: var(--status-running); }
 .armada-session-list__row[data-state="waiting"] { --hue: var(--status-awaiting-review); }
+.armada-session-list__row[data-state="replied"],
+.armada-session-list__row[data-state="done"] { --hue: var(--status-awaiting-review); }
+.armada-session-list__row[data-state="stuck"] { --hue: var(--status-escalated); }
 /* Red on its checks is the mark's alone: the agent has been told, so the frame stays an idle one. */
 .armada-session-list__row[data-state="failing"] { --hue: var(--status-completed-success); }
 .armada-session-list__row[data-state="idle"] { --hue: var(--status-completed-success); }
@@ -132,7 +135,9 @@
 .armada-session-list__row:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
 
 /* Waiting on the owner: lit, as a tile that needs him is on the cockpit's glass. */
-.armada-session-list__row[data-state="waiting"] {
+.armada-session-list__row[data-state="waiting"],
+.armada-session-list__row[data-state="replied"],
+.armada-session-list__row[data-state="done"] {
   border-color: var(--hue);
   background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
   box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);

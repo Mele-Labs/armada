@@ -897,9 +897,11 @@ where
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
         let done = self.done_cleared(&id).await;
+        // And so does the reply the last turn left: he has answered it.
+        let replied = self.turn_end_cleared(&id).await;
         // And the person has taken the session back from the limit: Fleet does not wake it as well.
         let limited = self.limit_cleared(&id).await;
-        if done || limited {
+        if done || replied || limited {
             return self.published_hosted(&id).await;
         }
         Ok(record)
