@@ -28,6 +28,7 @@ while IFS= read -r line; do
   case "$line" in *die*) echo 'boom: no such session' >&2; exit 3;; esac
   echo '{"type":"system","subtype":"init","session_id":"s","model":"m","mcp_servers":[]}'
   echo '{"type":"assistant","message":{"content":[{"type":"text","text":"pid '$$' before '$n'"}]}}'
+  case "$line" in *"were running"*) echo '{"type":"assistant","message":{"content":[{"type":"text","text":"told"}]}}';; esac
   case "$line" in *subagent*) echo '{"type":"assistant","message":{"content":[{"type":"text","text":"inside"}]},"parent_tool_use_id":"toolu_x"}';; esac
   case "$line" in *hold*) while [ ! -f "$1" ]; do sleep 0.05; done;; esac
   echo '{"type":"assistant","message":{"content":[{"type":"text","text":"pid '$$' after '$n'"}]}}'
@@ -396,6 +397,77 @@ fn a_message_after_the_process_was_let_go_starts_a_new_one() {
         let rows = said(&fleet, &id).await;
         assert_ne!(pid_in(&rows[2]), first, "a new process answered: {rows:?}");
         assert_eq!(keepers.starts.load(Ordering::SeqCst), 2);
+    });
+}
+
+/// A subagent works inside its agent's process, so the process that replaces one Fleet let go has
+/// lost it: its row is given back, the restart says so, and the agent is told with its next turn.
+#[test]
+fn a_process_let_go_with_a_subagent_working_says_it_was_cut_off() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let fleet_side = Runtime::new().unwrap();
+    fleet_side.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        let say = |text: &str| {
+            Arc::clone(&fleet).send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: text.into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+        };
+        say("one").await.expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 2 }).await;
+        let holder = store::Holder::session(id.as_str());
+        let at = "2026-10-13T13:30:00Z";
+        fleet
+            .store()
+            .lock()
+            .await
+            .attach(
+                &store::KeptAttachment {
+                    holder: holder.clone(),
+                    kind: "subagent".into(),
+                    manifest_id: manifest_of(&fleet).as_str().into(),
+                    target: "a1".into(),
+                    state: store::AttachmentState::Standing,
+                    detail: [("type", "Explore"), ("description", "slot-9 timeline events")]
+                        .into_iter()
+                        .map(|(key, value)| (key.to_string(), value.to_string()))
+                        .collect(),
+                    since: at.into(),
+                    changed_at: at.into(),
+                },
+                false,
+            )
+            .expect("kept");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        Hosted::let_go(&mut fleet.hosts().of(id.as_str()).state());
+        say("two").await.expect("taken");
+        eventually(|| async { said(&fleet, &id).await.iter().any(|row| row == "told") }).await;
+
+        let store = fleet.store().lock().await;
+        let held = store.attachments_of(&holder).expect("read");
+        let subagent = held.iter().find(|one| one.kind == "subagent").expect("kept");
+        assert_eq!(subagent.state, store::AttachmentState::GivenBack);
+        let restarts = store.session_restarts(id.as_str()).expect("read");
+        let said_of = restarts.last().and_then(|one| one.said.clone()).unwrap_or_default();
+        assert!(said_of.contains("Explore") && said_of.contains("a1"), "{restarts:?}");
     });
 }
 
