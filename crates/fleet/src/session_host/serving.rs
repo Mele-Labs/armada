@@ -1012,6 +1012,14 @@ where
                 let served = served.map_err(|_| {
                     format!("the repository {} is no longer served", hosting.manifest_id)
                 })?;
+                // **A session that has run is leased its slot before its process starts**, so no
+                // tool call of the first turn is the one that moves it.
+                let resuming = hosting.ran && self.has_a_conversation(id).await;
+                let resumed = match resuming {
+                    true => self.leased_for_resume(&served, hosting).await,
+                    false => hosting.clone(),
+                };
+                let hosting = &resumed;
                 let directory = Self::directory_of(&served, hosting);
                 let start = Start {
                     directory: directory.clone(),
@@ -1020,7 +1028,7 @@ where
                     // started and ended before its first turn wrote none, and `--resume` on it
                     // exits at once ("No conversation found"), so every later message was lost
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
-                    resuming: hosting.ran && self.has_a_conversation(id).await,
+                    resuming,
                     forking: hosting.fork_of.clone(),
                     fork_note: match &hosting.fork_of {
                         Some(old) => self.fork_note_of(id, old).await,
