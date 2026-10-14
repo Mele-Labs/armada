@@ -13,7 +13,7 @@
 // one layer above the slabs and shifted by the height they stand for. Calm at rest: only what is working or calling moves.
 // Mock only. proto/cockpit-flight-deck.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Crosshair, Minus, Plus, ShieldCheck, ShieldX } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
@@ -21,6 +21,7 @@ import { camera } from "./deck-model";
 import { GLYPH as DOING_GLYPH, MOST_LOOPS, WORD as DOING_WORD } from "./deck-doing";
 import { Callout, type Anchor, type Glyph, type Tip } from "./Callout";
 import { STAGE } from "./shared";
+import { Sprite, keyed, onPlane, px, vars } from "./bf-parts";
 import { ALONG, CAM, FLAT, SLAB, STAGE_SAID, TRAIL_MS, alongOf, bigOf, heightsOf, layoutOf, rand, type DroneIn, type P3, type Placed, type Play, type Point, type RepoIn, type Size, type Territory, type Tile } from "./deck-field";
 
 export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; Glyph: Glyph; holder?: string };
@@ -67,17 +68,8 @@ const pillsOf = (drone: DroneIn): string[] =>
     .slice(0, 2)
     .map((one) => (one.path.length > 26 ? `…${one.path.slice(-25)}` : one.path));
 
-const vars = (values: Record<string, string | number>) => values as CSSProperties;
-const px = (value: number) => `${value.toFixed(1)}px`;
 const rank = (one: DroneIn, selected: string | undefined, hot: string | undefined) => (one.key === selected ? 0 : one.key === hot ? 1 : one.hue === "bad" ? 2 : 3);
 const short = (title: string, room: number) => (title.length > room ? `${title.slice(0, room - 1)}…` : title);
-const onPlane = (p: Point): Point => ({ x: p.x, y: p.y * FLAT });
-const keyed = (event: { key: string; preventDefault: () => void }, act: () => void) => {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    act();
-  }
-};
 
 /** Four corner brackets round a box: the lock-on reticle. */
 function bracketsOf(w: number, top: number, bottom: number): string {
@@ -101,20 +93,6 @@ function liftOf(pitch: number): (p: P3) => Point {
     const a = (p.z - LAYER) * tan;
     return { x: p.x - a * sin, y: p.y - a * cos };
   };
-}
-
-/**
- * A flat picture standing in the scene, upright toward the viewer, its origin on the anchor. The billboard is sized round
- * the picture and turns about the anchor: a box of no size, or a picture drawn off its own origin, is clipped by the layer. The viewBox starts at zero so that a transform-origin of 0 0 in the CSS is the anchor.
- */
-function Sprite({ x, y, w, h, label, children }: { x: number; y: number; w: number; h: number; label?: boolean; children: React.ReactNode }) {
-  return (
-    <div className={label === undefined ? "bf-bb" : "bf-bb bf-tag"} style={{ left: x, top: y, width: w, height: h, transformOrigin: `${-x}px ${-y}px` }}>
-      <svg className="bf-sprite" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-        <g transform={`translate(${-x} ${-y})`}>{children}</g>
-      </svg>
-    </div>
-  );
 }
 
 // ---- The drone -----------------------------------------------------------------------------------------

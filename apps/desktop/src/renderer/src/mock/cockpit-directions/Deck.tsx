@@ -447,7 +447,8 @@ function usePlays(candidates: readonly Play[], drones: readonly string[], landed
   return plays;
 }
 
-function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
+/** Everything the field draws, read off the ship, the events and the replay: the map shows all of it, a Job's mission the part that is its own. */
+function useField(props: CockpitProps, ship: Ship, listed: readonly Subject[]) {
   const deck = useDeck();
   const sessions = useSessions();
   const events = useFleetEvents();
@@ -558,6 +559,11 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
     return out;
   }, [flying, ship.subjects, ship.calls, before, replay === undefined ? props.now : passed, deck.held, pads, ship.prs]);
 
+  return { deck, repos, pads, goals, crates, drones: flying, flightTrails, drawn, facts, focusKey, replay, ordered, picked, ownerOf, rootOfManifest };
+}
+
+function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
+  const { replay, ordered, picked, repos, drones: flying, pads, goals, crates, flightTrails, drawn, facts, focusKey } = useField(props, ship, listed);
   return (
     <section className="deck-pane" aria-label="Flight map">
       <header className="deck-band deck-pane__head">
