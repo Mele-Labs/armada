@@ -4,7 +4,7 @@
 
 use ipc::AskingToRun;
 
-use crate::helm::{because_in_a_session, Because};
+use crate::helm::{because_in_a_session, because_in_a_session_owning, Because, Own};
 
 const SLOT: &str = "/repo/.armada/slots/slot-3";
 
@@ -293,4 +293,57 @@ fn every_slot_the_session_holds_is_its_own_for_an_edit_and_a_shell_line() {
         because_in_a_session(&call("Bash", Command { command: "echo x > /repo/.armada/slots/slot-2/a.rs" }), &held),
         Some(Because::Destructive)
     );
+}
+
+/// What a session started or made is its own to remove (the owner, retro of session 9c74d82e):
+/// a dev server, a merged branch of its own and a scratch file. Nothing else's.
+#[test]
+fn a_session_removes_what_it_started_and_nothing_more() {
+    let started = |pid: u32| pid == 4120 || pid == 4121;
+    let merged = ["armada/session-9c74d82e"];
+    let own = Own { started: Some(&started), merged_branches: &merged };
+    let run = |line: &str| because_in_a_session_owning(&call("Bash", Command { command: line }), &[SLOT], own);
+
+    for line in [
+        "kill 4120",
+        "kill -9 4120 4121",
+        "kill -TERM 4120",
+        "kill -s TERM 4120",
+        "git branch -D armada/session-9c74d82e",
+        "git branch -d armada/session-9c74d82e",
+        "rm $TMPDIR/scratch_test.rs",
+        "rm \"${TMPDIR}/scratch_test.rs\"",
+    ] {
+        assert_eq!(run(line), None, "{line} should run");
+    }
+    for line in [
+        // A process it did not start, or one it cannot name.
+        "kill 99",
+        "kill 4120 99",
+        "kill",
+        "kill -9",
+        // A process group, and every process.
+        "kill -9 -1",
+        "kill -9 -4120",
+        "kill 1",
+        "kill 0",
+        "pkill node",
+        "killall node",
+        // A branch of someone else's, an unmerged one, a remote's, a rename and a glob.
+        "git branch -D armada/session-other",
+        "git branch -D armada/session-9c74d82e armada/session-other",
+        "git branch -D",
+        "git branch -D -f armada/session-9c74d82e",
+        "git branch -D armada/*",
+        // Scratch that climbs out, or hides a second path.
+        "rm $TMPDIR/../x",
+        "rm $TMPDIR/a /etc/hosts",
+        "rm $TMPDIR",
+    ] {
+        assert_eq!(run(line), Some(Because::Destructive), "{line} should be refused");
+    }
+    assert_eq!(run("git push origin --delete armada/session-9c74d82e"), Some(Because::PushesToShared));
+    // With nothing owned the same lines are refused, as before.
+    assert_eq!(bash("kill 4120"), Some(Because::Destructive));
+    assert_eq!(bash("git branch -D armada/session-9c74d82e"), Some(Because::Destructive));
 }

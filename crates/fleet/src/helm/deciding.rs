@@ -64,7 +64,7 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
         return door(operation, asking);
     }
     if tool == "Bash" {
-        return shell(asking.detail().unwrap_or_default(), &[]);
+        return shell(asking.detail().unwrap_or_default(), &[], Own::default());
     }
     if WRITES_A_FILE.contains(&tool) {
         return writing(asking);
@@ -80,6 +80,36 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
 /// way to commit and is none of the three. Which slot is held is the lease ledger's to say;
 /// whether a slot may be written at all is the write gate's.
 pub fn because_in_a_session(asking: &AskingToRun, held: &[&str]) -> Option<Because> {
+    because_in_a_session_owning(asking, held, Own::default())
+}
+
+/// What a session made or started beyond the slots it holds, which it may remove again.
+/// **Its own and no one else's** (the owner, retro of session 9c74d82e): a dev server it
+/// started, and a branch of its own the base already holds.
+#[derive(Clone, Copy, Default)]
+pub struct Own<'a> {
+    /// Whether a process is one the session started, however deep. Absent: none is.
+    pub started: Option<&'a dyn Fn(u32) -> bool>,
+    /// Its branches whose every commit the base holds.
+    pub merged_branches: &'a [&'a str],
+}
+
+impl Own<'_> {
+    fn started(&self, pid: u32) -> bool {
+        self.started.is_some_and(|started| started(pid))
+    }
+
+    fn merged(&self, branch: &str) -> bool {
+        self.merged_branches.contains(&branch)
+    }
+}
+
+/// [`because_in_a_session`] for a session that owns what it started.
+pub fn because_in_a_session_owning(
+    asking: &AskingToRun,
+    held: &[&str],
+    own: Own,
+) -> Option<Because> {
     let tool = asking.tool_name.as_str();
     if WRITES_A_FILE.contains(&tool) {
         let path = asking
@@ -102,7 +132,7 @@ pub fn because_in_a_session(asking: &AskingToRun, held: &[&str]) -> Option<Becau
         {
             return Some(Because::ReachesOutside);
         }
-        return shell(&line, &slots_of(held));
+        return shell(&line, &slots_of(held), own);
     }
     let named = ["file_path", "path"]
         .iter()
@@ -179,6 +209,10 @@ fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
 /// inside, and a relative path only where the line has not moved with `cd`.
 fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
     let word = word.trim_matches(|c| c == '\'' || c == '"');
+    // `$TMPDIR` is scratch space spelled by variable, and the one `$` read as inside.
+    if let Some(under) = word.strip_prefix("$TMPDIR/").or_else(|| word.strip_prefix("${TMPDIR}/")) {
+        return !under.is_empty() && !under.contains(['$', '~']) && !under.split('/').any(|part| part == "..");
+    }
     if word.is_empty() || word.contains('$') || word.starts_with('~') {
         return false;
     }
@@ -383,7 +417,7 @@ fn writing(asking: &AskingToRun) -> Option<Because> {
 ///
 /// **Every segment, never the first word.** `cd crates && rm -rf target` has
 /// `cd` at the front of it, and a classifier reading one word would run it.
-fn shell(line: &str, slots: &[&str]) -> Option<Because> {
+fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
     let line = line.trim();
     if line.is_empty() {
         return Some(Because::Unreadable);
@@ -419,7 +453,7 @@ fn shell(line: &str, slots: &[&str]) -> Option<Because> {
             }
         }),
     });
-    segments.into_iter().find_map(|said| segment(said, slot))
+    segments.into_iter().find_map(|said| segment(said, slot, own))
 }
 
 /// `line` with every `;`, `|`, `&`, `<` and `>` inside quotes turned to a
@@ -482,7 +516,7 @@ impl Slot<'_> {
 }
 
 /// One segment of a shell line, already split from the rest.
-fn segment(said: &str, slot: Option<Slot>) -> Option<Because> {
+fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
     if truncating_redirect(said)
         && !slot.is_some_and(|slot| {
             redirect_targets(said)
@@ -509,7 +543,7 @@ fn segment(said: &str, slot: Option<Slot>) -> Option<Because> {
     }
     let arguments: Vec<&str> = rest.collect();
     match program {
-        "git" => return git(&arguments, slot.is_some()),
+        "git" => return git(&arguments, slot.is_some(), own),
         "gh" => return forge(&arguments),
         "curl" | "wget" | "http" => return fetching(&arguments),
         _ => {}
@@ -546,6 +580,8 @@ fn segment(said: &str, slot: Option<Slot>) -> Option<Because> {
         if !held {
             return Some(Because::Destructive);
         }
+    } else if program == "kill" && kills_only_its_own(&arguments, own) {
+        // A process it started is its own work, as a file in its slot is.
     } else if GONE.contains(&program) {
         return Some(Because::Destructive);
     }
@@ -607,7 +643,7 @@ fn into_a_device(after: &[char]) -> bool {
 
 /// `git`, by its subcommand. **Reading history is not writing it**: `log`,
 /// `status`, `diff`, `show` and `worktree list` run.
-fn git(arguments: &[&str], own_slot: bool) -> Option<Because> {
+fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
     // `-C <path>` and `-c <key=value>` carry a value, which is not the verb.
     let mut words = arguments.iter();
     let subcommand = loop {
@@ -657,6 +693,9 @@ fn git(arguments: &[&str], own_slot: bool) -> Option<Because> {
         "prune",
         "am",
     ];
+    if *subcommand == "branch" && deletes_only_its_own(arguments, own) {
+        return None;
+    }
     let said = |word: &str| arguments.iter().any(|argument| *argument == word);
     match *subcommand {
         "push" => Some(Because::PushesToShared),
@@ -673,6 +712,47 @@ fn git(arguments: &[&str], own_slot: bool) -> Option<Because> {
         word if GONE.contains(&word) => Some(Because::Destructive),
         _ => None,
     }
+}
+
+/// `kill` naming only processes the session started. **A signal first, then pids and nothing
+/// else**: a negative pid is a process group, and `kill -9 -1` is every process the user owns.
+fn kills_only_its_own(arguments: &[&str], own: Own) -> bool {
+    let mut words = arguments.iter().copied();
+    let mut pids = Vec::new();
+    let mut first = true;
+    while let Some(word) = words.next() {
+        if matches!(word, "-s" | "-n") && first {
+            words.next();
+        } else if word.starts_with('-') && first && word.len() > 1 {
+            // A signal: `-9`, `-TERM`, `-SIGKILL`.
+            if !word[1..].chars().all(|c| c.is_ascii_alphanumeric()) {
+                return false;
+            }
+        } else {
+            match word.parse::<u32>() {
+                Ok(pid) if pid > 1 => pids.push(pid),
+                _ => return false,
+            }
+        }
+        first = false;
+    }
+    !pids.is_empty() && pids.into_iter().all(|pid| own.started(pid))
+}
+
+/// `git branch -d` or `-D` naming only branches of the session's own that the base holds. **No
+/// other flag**: `-r` is a remote's branch and `-m` a rename.
+fn deletes_only_its_own(arguments: &[&str], own: Own) -> bool {
+    let mut words = arguments.iter().copied().skip_while(|word| *word != "branch").skip(1);
+    let mut deleting = false;
+    let mut named = Vec::new();
+    for word in &mut words {
+        match word {
+            "-d" | "-D" | "--delete" => deleting = true,
+            flag if flag.starts_with('-') => return false,
+            branch => named.push(branch),
+        }
+    }
+    deleting && !named.is_empty() && named.into_iter().all(|branch| own.merged(branch))
 }
 
 fn takes_something_away(word: &str) -> bool {
