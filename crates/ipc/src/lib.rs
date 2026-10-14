@@ -421,7 +421,7 @@ pub use proposing::{
     StopProposal,
 };
 pub use pull_requests::{
-    ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
+    FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
     PullRequestFile, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
     PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,

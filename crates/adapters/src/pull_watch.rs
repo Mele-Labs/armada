@@ -8,7 +8,7 @@ use crate::delivery::{run_in, FORGE};
 use crate::under_review::as_written;
 
 /// The check whose result gates a pull request, where it has one.
-const GATE: &str = "ci";
+pub(crate) const GATE: &str = "ci";
 
 /// A job gets 45 minutes. One that ended cancelled after at least this long was stopped by the
 /// limit, and a runner that hung is the likeliest cause.

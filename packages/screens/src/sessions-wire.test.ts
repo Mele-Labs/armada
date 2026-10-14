@@ -82,6 +82,17 @@ describe("the ledger", () => {
     });
   });
 
+  it("reads names left in `failing` beside a pending or passed verdict as a check red outside the gate", () => {
+    const [running, after] = attachmentsOfRecord(
+      record("a", {
+        attachments: [held("pr", "1", { checks: "pending", failing: "app_smoke_shard (2)" }), held("pr", "2", { checks: "passed", failing: "app_smoke_shard (2)" })],
+      }),
+      beside(),
+    );
+    expect(running).toMatchObject({ checks: { state: "pending", red: "app_smoke_shard (2)" } });
+    expect(after).toMatchObject({ checks: { state: "passed", red: "app_smoke_shard (2)" } });
+  });
+
   it("reads a pull request nobody has read yet as open, with its Checks pending", () => {
     const [pr] = attachmentsOfRecord(record("a", { attachments: [held("pr", "9")] }), beside());
     expect(pr).toMatchObject({ number: 9, state: "open", checks: { state: "pending" }, title: "", address: "" });

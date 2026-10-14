@@ -71,13 +71,15 @@ export function jobStateOf(status: string): SessionJobState {
 
 function checksOf(detail: Record<string, string>): SessionChecks {
   const failing = detail["failing"] ?? "";
+  // Fleet words a failure outside the gate as `pending` or `passed` with the names still in `failing`.
+  const red = failing === "" ? {} : { red: failing };
   switch (detail["checks"]) {
     case "passed":
-      return { state: "passed" };
+      return { state: "passed", ...red };
     case "failed":
       return { state: "failed", failing };
     default:
-      return { state: "pending" };
+      return { state: "pending", ...red };
   }
 }
 

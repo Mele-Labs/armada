@@ -84,6 +84,7 @@ fn approved_with_a_failing_check() -> UnderReview {
         checks: WhatTheForgeRan::SomeFailed {
             failed: vec![FromOutside::verbatim("bridge_test")],
             checks: 3,
+            weight: adapter_traits::FailureWeight::Required,
         },
         remarks: vec![Remark::written(
             "IC_kwDO1",

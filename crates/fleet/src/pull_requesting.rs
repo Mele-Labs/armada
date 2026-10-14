@@ -21,8 +21,8 @@
 use std::collections::BTreeMap;
 
 use adapter_traits::{
-    AgentHarness, Delivery, NotMerged, PullRequestStanding as Forge, Vcs, WhatTheForgeRan,
-    WorkProduct,
+    AgentHarness, Delivery, FailureWeight, NotMerged, PullRequestStanding as Forge, Vcs,
+    WhatTheForgeRan, WorkProduct,
 };
 use api::{PullRequests, Redirector, Refusal, Sessions};
 use ipc::{
@@ -94,11 +94,16 @@ fn checks_of(ran: &WhatTheForgeRan) -> Option<ForgeChecks> {
             Some(ForgeChecks::Pending)
         }
         WhatTheForgeRan::AllPassed { .. } => Some(ForgeChecks::Passed),
-        WhatTheForgeRan::SomeFailed { failed, .. } => Some(ForgeChecks::Failed {
+        WhatTheForgeRan::SomeFailed { failed, weight, .. } => Some(ForgeChecks::Failed {
             failing: failed
                 .iter()
                 .map(|name| name.as_written().to_string())
                 .collect(),
+            weight: match weight {
+                FailureWeight::Required => ipc::FailureWeight::Required,
+                FailureWeight::WhileRunning => ipc::FailureWeight::WhileRunning,
+                FailureWeight::AfterRequired => ipc::FailureWeight::AfterRequired,
+            },
         }),
         WhatTheForgeRan::Unreadable => None,
     }
@@ -110,7 +115,11 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
     let (checks, failing) = match &state.checks {
         ForgeChecks::Pending => ("pending", String::new()),
         ForgeChecks::Passed => ("passed", String::new()),
-        ForgeChecks::Failed { failing } => ("failed", failing.join(", ")),
+        ForgeChecks::Failed { failing, weight } => match weight {
+            ipc::FailureWeight::Required => ("failed", failing.join(", ")),
+            ipc::FailureWeight::WhileRunning => ("pending", failing.join(", ")),
+            ipc::FailureWeight::AfterRequired => ("passed", failing.join(", ")),
+        },
     };
     let standing = match state.state {
         PullRequestStanding::Draft => "draft",
@@ -326,7 +335,7 @@ where
     /// What a check that has not passed is called to a person.
     fn checks_not_passed(&self, state: &PullRequestState) -> Refusal {
         let said = match &state.checks {
-            ForgeChecks::Failed { failing } => {
+            ForgeChecks::Failed { failing, .. } => {
                 format!(
                     "{} failed on pull request {}",
                     failing.join(", "),
