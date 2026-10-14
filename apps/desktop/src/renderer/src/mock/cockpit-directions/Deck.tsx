@@ -54,6 +54,7 @@ import {
 import { MarkGlyph, useShipActs } from "./shared";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import { toneOf } from "./tabs-model";
+import { BARE, TREES, touchesOf } from "./deck-paths";
 import { Battlefield, type GoalIn, type PadIn, type PrIn } from "./Battlefield";
 import "./deck.css";
 import "./battlefield.css";
@@ -320,7 +321,7 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
       const attached = one.kind === "session" ? sessions.find((row) => row.id === one.id)?.attachments.find((a) => a.kind === "job" && a.looking !== true) : undefined;
       const made = one.kind === "job" ? props.state.jobs.find((job) => job.id === one.id)?.dispatched_by : undefined;
       const parent = attached !== undefined && attached.kind === "job" ? `job:${attached.id}` : made === undefined ? undefined : `job:${made}`;
-      return droneOf(one, callOfSubject(one, deck.held) !== undefined, { parent: parent !== undefined && has.has(parent) ? parent : undefined, slot: holder.get(one.key), shown: shown.has(one.key) });
+      return droneOf(one, callOfSubject(one, deck.held) !== undefined, { parent: parent !== undefined && has.has(parent) ? parent : undefined, slot: holder.get(one.key), shown: shown.has(one.key), touches: touchesOf(one.title) });
     });
   }, [ship.subjects, sessions, slots, props.state.jobs, deck.held, shown]);
 
@@ -331,6 +332,8 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
       name: ship.repos.find((one) => one.root === root)?.name ?? ship.subjects.find((one) => one.root === root)?.repo ?? root,
       pads: slots.filter((one) => (rootOfManifest(one.manifest_id) ?? one.manifest_id) === root).sort((a, b) => a.slot - b.slot).map(slotKey),
       goal: ship.mains.some((one) => one.root === root),
+      tree: TREES[ship.repos.find((one) => one.root === root)?.name ?? ship.subjects.find((one) => one.root === root)?.repo ?? root] ?? [],
+      bare: BARE,
     }));
   }, [ship.subjects, ship.mains, ship.repos, slots, repositories]);
 

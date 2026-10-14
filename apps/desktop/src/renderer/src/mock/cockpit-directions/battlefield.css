@@ -27,18 +27,33 @@
 /* ---- The ground ---------------------------------------------------------------------------------------- */
 
 .bf-grid path { fill: none; stroke: var(--fg-default); stroke-opacity: 0.11; stroke-width: 1; }
-.bf-stop-ground-a { stop-color: color-mix(in srgb, var(--fg-default) 8%, var(--bg-base)); }
-.bf-stop-ground-b { stop-color: color-mix(in srgb, var(--fg-default) 2%, var(--bg-base)); }
-.bf-contour { fill: color-mix(in srgb, var(--fg-default) 2.2%, transparent); stroke: var(--fg-default); stroke-opacity: 0.09; stroke-width: 1; }
-.bf-scrub { fill: none; stroke: var(--fg-default); stroke-opacity: 0.12; stroke-width: 1; stroke-linecap: round; }
-.bf-crater { fill: color-mix(in srgb, var(--bg-base) 35%, transparent); stroke: var(--fg-default); stroke-opacity: 0.1; stroke-width: 1; }
-.bf-crater[data-rim] { fill: none; stroke-opacity: 0.06; }
-.bf-front { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.55; stroke-width: 1.2; stroke-dasharray: 1.5 7; stroke-linecap: round; }
 .bf-stop-pool-calm { stop-color: var(--fg-default); }
 .bf-stop-pool-ask { stop-color: var(--status-awaiting-review); }
 .bf-stop-pool-bad { stop-color: var(--status-completed-failed); }
 .bf-stop-cone-a { stop-color: var(--fg-default); stop-opacity: 0.34; }
 .bf-stop-cone-b { stop-color: var(--fg-default); stop-opacity: 0; }
+
+/* The territory's front line, and its plots: one for each directory, quiet ground with a contour or two. A plot lifts
+   where a working drone is over it; where two drones are changing the same one it is amber and hatched. */
+.bf-front { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.5; stroke-width: 1.2; stroke-dasharray: 1.5 7; stroke-linecap: round; }
+.bf-plot__ground { fill: color-mix(in srgb, var(--fg-default) var(--tint, 4%), transparent); stroke: var(--fg-default); stroke-opacity: 0.13; stroke-width: 1; transition: fill var(--duration-sheet) var(--ease); }
+.bf-plot__contour { fill: none; stroke: var(--fg-default); stroke-opacity: 0.07; stroke-width: 1; }
+.bf-plot[data-lit] .bf-plot__ground { fill: color-mix(in srgb, var(--fg-default) 9%, transparent); stroke-opacity: 0.22; }
+.bf-plot:hover .bf-plot__ground { stroke-opacity: 0.35; }
+.bf-plot[data-clash] .bf-plot__ground { fill: color-mix(in srgb, var(--status-awaiting-review) 14%, transparent); stroke: var(--status-awaiting-review); stroke-opacity: 0.6; }
+.bf-plot__hatch { stroke: none; pointer-events: none; }
+.bf-hatch-line { stroke: var(--status-awaiting-review); stroke-opacity: 0.38; stroke-width: 1.4; }
+.bf-plot__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
+.bf-group { fill: none; stroke: var(--fg-default); stroke-opacity: 0.2; stroke-width: 1.2; pointer-events: none; }
+/* What a drone is changing: a dotted beam to each plot, the biggest share brightest. The line between two drones that clash. */
+.bf-lines { pointer-events: none; }
+.bf-touch path { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.32; stroke-width: 1.1; stroke-dasharray: 1.2 4.5; stroke-linecap: round; }
+.bf-touch ellipse { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.4; stroke-width: 1.1; }
+.bf-touch[data-main] path { stroke-opacity: 0.6; }
+.bf-touch[data-lit] path,
+.bf-touch[data-lit] ellipse { stroke: var(--accent); stroke-opacity: 0.85; }
+.bf-clash__line { fill: none; stroke: var(--status-awaiting-review); stroke-opacity: 0.85; stroke-width: 1.8; stroke-dasharray: 5 4; stroke-linecap: round; }
+.bf-clash__hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: default; }
 
 /* ---- A base: its compound, its hangar, its pads ------------------------------------------------------- */
 

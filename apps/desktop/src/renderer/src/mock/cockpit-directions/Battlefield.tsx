@@ -11,8 +11,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Crosshair, Minus, Plus } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
-import { ALONG, STAGE_SAID, TRAIL_MS, arcAt, arcOf, bigOf, cameraOf, layoutOf, type DroneIn, type Placed, type Play, type Point, type RepoIn, type Size, type Territory } from "./deck-field";
-import { scene } from "./deck-model";
+import { ALONG, STAGE_SAID, rand, TRAIL_MS, arcAt, arcOf, bigOf, cameraOf, layoutOf, type DroneIn, type Placed, type Play, type Point, type RepoIn, type Size, type Territory } from "./deck-field";
 
 export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; holder?: string };
 export type PrIn = { key: string; number: number; stage: keyof typeof ALONG; root: string; owner?: string };
@@ -435,7 +434,7 @@ export function Battlefield({
   }, []);
 
   const big = bigOf(size);
-  const layout = useMemo(() => layoutOf(repos, drones, size, scene.memory, big), [repos, drones, size, big]);
+  const layout = useMemo(() => layoutOf(repos, drones, size, big), [repos, drones, size, big]);
   const territory = new Map(layout.territories.map((one) => [one.root, one] as const));
   const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, { x: pad.x, y: pad.y }] as const)));
   const baseOf = (root: string): Point => {
@@ -495,6 +494,19 @@ export function Battlefield({
   };
 
   const locked = selected !== undefined && lock !== undefined;
+  const [hotTile, setHotTile] = useState<string>();
+  // The plots: a name for those the selected drone is over and those a calling drone is over, a lift for those a working
+  // drone is over, an amber hatch for those two or more are changing.
+  const clashAt = new Map(layout.clashes.map((one) => [one.path, one] as const));
+  const labelled = new Set<string>();
+  const lit = new Set<string>();
+  for (const drone of drones) {
+    if (!drone.shown) continue;
+    for (const { tile } of layout.over.get(drone.key) ?? []) {
+      if (drone.key === selected || drone.ping) labelled.add(tile.path);
+      if (drone.spin) lit.add(tile.path);
+    }
+  }
   // Labels: the selected drone's, the one under the pointer, then those that need him and those failing, each only where it
   // meets no label already drawn, so no two collide. Any other is named by its tip.
   const labels = new Set<string>();
@@ -516,6 +528,13 @@ export function Battlefield({
     taken.push(box);
     labels.add(one.key);
   }
+  // Boxes of every drone's body, so a plot's name is not set under one.
+  const bodies = drones.flatMap((one) => {
+    const there = layout.at.get(one.key);
+    if (there === undefined) return [];
+    const w = (one.kind === "job" ? 34 : 26) * big * there.s;
+    return [{ l: there.x - w, r: there.x + w, t: there.y - (HOVER + 28) * big * there.s, b: there.y + 8 * big }];
+  });
   const landing = new Set(plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
   return (
     <div ref={host} className="bf" data-locked={locked || undefined}>
@@ -529,10 +548,9 @@ export function Battlefield({
       <div className="bf-world" style={{ transform: `translate(${cam.x.toFixed(1)}px, ${cam.y.toFixed(1)}px) scale(${zoom})` }}>
         <svg className="bf-field" width={size.width} height={size.height} viewBox={`0 0 ${size.width} ${size.height}`} role="listbox" aria-label="Map" data-locked={locked || undefined}>
           <defs>
-            <radialGradient id="bf-ground" cx="50%" cy="46%" r="62%">
-              <stop offset="0" className="bf-stop-ground-a" />
-              <stop offset="1" className="bf-stop-ground-b" />
-            </radialGradient>
+            <pattern id="bf-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="8" className="bf-hatch-line" />
+            </pattern>
             <linearGradient id="bf-fade" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#fff" stopOpacity="0" />
               <stop offset="0.7" stopColor="#fff" stopOpacity="0.55" />
@@ -558,19 +576,47 @@ export function Battlefield({
           </g>
 
           {layout.territories.map((one) => (
-            <g key={one.root} className="bf-territory" aria-hidden="true">
-              <path className="bf-land" d={one.blob} fill="url(#bf-ground)" />
-              {one.contours.map((d, i) => (
-                <path key={i} className="bf-contour" d={d} />
+            <g key={one.root} className="bf-territory">
+              <rect className="bf-front" aria-hidden="true" x={one.rect.x} y={one.rect.y} width={one.rect.w} height={one.rect.h} rx={26} />
+              {one.tiles.map((tile) => {
+                const clash = clashAt.get(tile.path);
+                const inset = Math.min(tile.rect.w, tile.rect.h);
+                const room = Math.max(4, Math.floor((tile.rect.w - 12) / 6.3));
+                const box = { l: tile.rect.x + 5, r: tile.rect.x + 9 + Math.min(room, tile.path.length) * 6.4, t: tile.rect.y + 2, b: tile.rect.y + 18 };
+                const meets = (o: { l: number; r: number; t: number; b: number }) => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t;
+                const named = hotTile === tile.path || (labelled.has(tile.path) && !bodies.some(meets) && !taken.some(meets));
+                return (
+                  <g
+                    key={tile.path}
+                    className="bf-plot"
+                    style={{ "--tint": `${(3 + rand(tile.path, 1) * 3).toFixed(1)}%` } as CSSProperties}
+                    data-lit={lit.has(tile.path) || undefined}
+                    data-clash={clash !== undefined || undefined}
+                    data-named={named || undefined}
+                    onMouseEnter={(event) => {
+                      setHotTile(tile.path);
+                      showTip(clash === undefined ? { said: "Directory", title: tile.path, left: 0, top: 0 } : { said: "Write clash", title: `Both are changing ${tile.path}`, left: 0, top: 0 }, event.currentTarget);
+                    }}
+                    onMouseLeave={() => {
+                      setHotTile(undefined);
+                      showTip(undefined);
+                    }}
+                  >
+                    <rect className="bf-plot__ground" x={tile.rect.x} y={tile.rect.y} width={tile.rect.w} height={tile.rect.h} rx={4} />
+                    {inset > 52 ? <rect className="bf-plot__contour" x={tile.rect.x + 8} y={tile.rect.y + 8} width={tile.rect.w - 16} height={tile.rect.h - 16} rx={10} /> : null}
+                    {inset > 100 ? <rect className="bf-plot__contour" x={tile.rect.x + 17} y={tile.rect.y + 17} width={tile.rect.w - 34} height={tile.rect.h - 34} rx={16} /> : null}
+                    {clash === undefined ? null : <rect className="bf-plot__hatch" x={tile.rect.x} y={tile.rect.y} width={tile.rect.w} height={tile.rect.h} rx={4} fill="url(#bf-hatch)" />}
+                    {named && tile.rect.w > 44 ? (
+                      <text className="bf-plot__label" x={tile.rect.x + 7} y={tile.rect.y + 14}>
+                        {short(tile.path, room)}
+                      </text>
+                    ) : null}
+                  </g>
+                );
+              })}
+              {one.groups.map((group) => (
+                <rect key={group.dir} className="bf-group" aria-hidden="true" x={group.rect.x} y={group.rect.y} width={group.rect.w} height={group.rect.h} rx={6} />
               ))}
-              <path className="bf-scrub" d={one.scrub} />
-              {one.craters.map((c, i) => (
-                <g key={i} transform={`translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})`}>
-                  <ellipse className="bf-crater" rx={c.r} ry={c.r * 0.38} />
-                  <ellipse className="bf-crater" data-rim rx={c.r * 0.6} ry={c.r * 0.22} cy={c.r * 0.04} />
-                </g>
-              ))}
-              <path className="bf-front" d={one.blob} />
             </g>
           ))}
 
@@ -594,6 +640,28 @@ export function Battlefield({
                   {age === undefined ? null : <path className="bf-trail" pathLength={1} d={arcOf(origin, to, 0.1)} style={{ opacity: Math.max(0.05, 0.15 * (1 - age / TRAIL_MS)), ...(launching === undefined ? {} : ({ "--wait": `${launching.delay}ms` } as CSSProperties)) }} data-launching={launching !== undefined || undefined} />}
                   {pad === undefined ? null : <path className="bf-tether" d={`M${pad.x},${pad.y} L${to.x},${to.y}`} />}
                   {parent === undefined ? null : <path className="bf-formation" data-lit={lit || undefined} d={arcOf(parent, to, 0.12)} />}
+                  {(layout.over.get(drone.key) ?? []).map(({ tile }, i) => {
+                    const from = airOf(drone);
+                    if (from === undefined) return null;
+                    return (
+                      <g key={tile.path} className="bf-touch" data-main={i === 0 || undefined} data-lit={selected === drone.key || undefined}>
+                        <path d={`M${from.x.toFixed(1)},${from.y.toFixed(1)} L${tile.cx.toFixed(1)},${tile.cy.toFixed(1)}`} />
+                        <ellipse cx={tile.cx} cy={tile.cy} rx={8} ry={3.2} />
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+            {layout.clashes.map((clash) => {
+              const a = groundOf(clash.keys[0]!);
+              const b = groundOf(clash.keys[1]!);
+              if (a === undefined || b === undefined) return null;
+              const tip = { said: "Write clash", title: `Both are changing ${clash.path}`, left: 0, top: 0 };
+              return (
+                <g key={clash.path} className="bf-clash">
+                  <path className="bf-clash__line" d={arcOf(a, b, 0.1)} />
+                  <path className="bf-clash__hit" d={arcOf(a, b, 0.1)} onMouseEnter={(event) => showTip(tip, event.currentTarget as unknown as SVGGElement)} onMouseLeave={() => showTip(undefined)} />
                 </g>
               );
             })}

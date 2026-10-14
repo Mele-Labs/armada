@@ -36,13 +36,15 @@ export type DroneIn = {
   flare: boolean;
   /** The Job it belongs to or was dispatched by. */
   parent?: string;
+  /** The directories it is changing, and how much of its change is in each. */
+  touches: readonly { path: string; w: number }[];
   /** The bay it holds. */
   slot?: string;
   /** Inside the filters. Outside, it stays where it is and dims. */
   shown: boolean;
 };
 
-export function droneOf(subject: Subject, owed: boolean, extra: { parent?: string | undefined; slot?: string | undefined; shown: boolean }): DroneIn {
+export function droneOf(subject: Subject, owed: boolean, extra: { parent?: string | undefined; slot?: string | undefined; shown: boolean; touches?: readonly { path: string; w: number }[] }): DroneIn {
   const stuck = subject.kind === "session" && subject.phase === "held" && subject.alarm;
   const failing = !stuck && (subject.alarm || subject.mark.tone === "bad");
   const ask = owed || subject.needs;
@@ -62,15 +64,15 @@ export function droneOf(subject: Subject, owed: boolean, extra: { parent?: strin
     ...(extra.parent === undefined ? {} : { parent: extra.parent }),
     ...(extra.slot === undefined ? {} : { slot: extra.slot }),
     shown: extra.shown,
+    touches: extra.touches ?? [],
   };
 }
 
 // ---- Layout --------------------------------------------------------------------------------------------
 
 const MARGIN = 14;
-const GAP = 14;
 
-/** A fixed number in [0, 1) from a key, so a drone is put the same way every time. */
+/** A fixed number in [0, 1) from a key, so a tile or a drone is put the same way every time. */
 export function rand(key: string, salt: number): number {
   let hash = 2166136261 ^ Math.imul(salt + 1, 40503);
   for (let i = 0; i < key.length; i += 1) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
@@ -81,7 +83,8 @@ export function rand(key: string, salt: number): number {
 }
 
 /** Split a rect among weighted parts, along its longer side, so each part's area follows its weight. */
-function slice(parts: readonly { id: string; weight: number }[], rect: Rect, into: Map<string, Rect>): void {
+function slice(parts: readonly { id: string; weight: number }[], rect: Rect, into: Map<string, Rect>, gap: number): void {
+  if (parts.length === 0) return;
   if (parts.length === 1) {
     into.set(parts[0]!.id, rect);
     return;
@@ -95,95 +98,74 @@ function slice(parts: readonly { id: string; weight: number }[], rect: Rect, int
   const rest = sorted.slice(take);
   const share = sum / total;
   if (rect.w >= rect.h) {
-    const left = (rect.w - GAP) * share;
-    slice(first, { x: rect.x, y: rect.y, w: left, h: rect.h }, into);
-    slice(rest, { x: rect.x + left + GAP, y: rect.y, w: rect.w - left - GAP, h: rect.h }, into);
+    const left = (rect.w - gap) * share;
+    slice(first, { x: rect.x, y: rect.y, w: left, h: rect.h }, into, gap);
+    slice(rest, { x: rect.x + left + gap, y: rect.y, w: rect.w - left - gap, h: rect.h }, into, gap);
   } else {
-    const top = (rect.h - GAP) * share;
-    slice(first, { x: rect.x, y: rect.y, w: rect.w, h: top }, into);
-    slice(rest, { x: rect.x, y: rect.y + top + GAP, w: rect.w, h: rect.h - top - GAP }, into);
+    const top = (rect.h - gap) * share;
+    slice(first, { x: rect.x, y: rect.y, w: rect.w, h: top }, into, gap);
+    slice(rest, { x: rect.x, y: rect.y + top + gap, w: rect.w, h: rect.h - top - gap }, into, gap);
   }
-}
-
-/** A closed smooth path through points: Catmull-Rom turned into Béziers. */
-function smooth(points: readonly Point[]): string {
-  const n = points.length;
-  const at = (i: number) => points[(i + n) % n]!;
-  let d = `M${at(0).x.toFixed(1)},${at(0).y.toFixed(1)}`;
-  for (let i = 0; i < n; i += 1) {
-    const p0 = at(i - 1);
-    const p1 = at(i);
-    const p2 = at(i + 1);
-    const p3 = at(i + 2);
-    d += ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)},${(p1.y + (p2.y - p0.y) / 6).toFixed(1)} ${(p2.x - (p3.x - p1.x) / 6).toFixed(1)},${(p2.y - (p3.y - p1.y) / 6).toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
-  }
-  return `${d}Z`;
-}
-
-/** A ground patch that fills a rect the way a country does: a rounded square with a ragged edge. */
-function blobOf(rect: Rect, seed: string, wobble: number): string {
-  const cx = rect.x + rect.w / 2;
-  const cy = rect.y + rect.h / 2;
-  const points = Array.from({ length: 18 }, (_, i) => {
-    const turn = (i / 18) * Math.PI * 2;
-    const c = Math.cos(turn);
-    const s = Math.sin(turn);
-    // A superellipse, so the corners are taken up, not left empty.
-    const reach = 1 + (rand(seed, i) - 0.5) * 2 * wobble;
-    return { x: cx + Math.sign(c) * Math.abs(c) ** (2 / 3.4) * (rect.w / 2) * reach, y: cy + Math.sign(s) * Math.abs(s) ** (2 / 3.4) * (rect.h / 2) * reach };
-  });
-  return smooth(points);
 }
 
 export type Pad = { key: string; x: number; y: number };
+
+/** A plot of the battlefield: one directory, drawn to the area its files take. */
+export type Tile = { path: string; top: string; rect: Rect; cx: number; cy: number };
 
 export type Territory = {
   root: string;
   name: string;
   rect: Rect;
-  blob: string;
-  contours: string[];
-  /** Craters and scrub: the ground's own marks, as ellipses and one path of short ticks. */
-  craters: { x: number; y: number; r: number }[];
-  scrub: string;
+  /** The top directories, each the rect of its tiles, for the border that groups them. */
+  groups: { dir: string; rect: Rect }[];
+  tiles: Tile[];
   /** The base: the centre of its compound, and how wide it is. */
   base: { x: number; y: number; w: number };
   pads: Pad[];
   /** The objective, where this repository has a main. */
   goal: Point | undefined;
-  /** Where a drone may be put, in ground coordinates. */
-  area: Rect;
 };
 
 export type Placed = { x: number; y: number; s: number; root: string };
 
-export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean };
+export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; tree: readonly { dir: string; kids: readonly (readonly [string, number])[] }[]; bare: Readonly<Record<string, number>> };
+
+/** Two or more drones changing the same plot: the write clash. */
+export type Clash = { path: string; root: string; keys: string[] };
+
+export type Layout = {
+  territories: Territory[];
+  at: Map<string, Placed>;
+  /** The plots each drone touches, the biggest share first. */
+  over: Map<string, { tile: Tile; w: number }[]>;
+  clashes: Clash[];
+};
 
 /** How large a drone is drawn in a field of this size: larger where there is room, smaller where there is not. */
 export const bigOf = (size: Size): number => Math.min(1.55, Math.max(1.05, Math.min(size.width / 1000, size.height / 700) * 1.3));
 
-/** Unit positions inside a territory's area, kept by drone so it stays where it was put when others come and go. */
-export type Memory = Map<string, { u: number; v: number }>;
-
-export type Layout = { territories: Territory[]; at: Map<string, Placed> };
-
-const DRONE_W = 1.25;
-
 /**
- * The territories across the whole field, sized by what they hold, and every drone put loosely inside its own.
- * Each new drone takes the best of a handful of fixed candidates, the one furthest from the rest, and a Session
- * looks first near its Job. A drone already put keeps its place, so a later arrival moves nothing.
+ * The territories across the whole field, sized by what they hold. Each is the repository's own directories as a
+ * treemap, two levels, a plot for each directory with its area from its file count. A drone hovers over the centre
+ * of the plots it touches, weighted by how much it touches each, and is held apart from the others; one with nothing
+ * touched yet stays near its base pad.
  */
-export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], size: Size, memory: Memory, big: number): Layout {
+export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], size: Size, big: number): Layout {
   const rects = new Map<string, Rect>();
-  const weights = repos.map((repo) => ({ id: repo.root, weight: drones.filter((one) => one.root === repo.root).length + 2.5 }));
-  if (weights.length > 0) slice(weights, { x: MARGIN, y: MARGIN, w: Math.max(120, size.width - MARGIN * 2), h: Math.max(120, size.height - MARGIN * 2) }, rects);
+  const filesOf = (repo: RepoIn) => repo.tree.reduce((sum, area) => sum + (area.kids.length === 0 ? (repo.bare[area.dir] ?? 8) : area.kids.reduce((s, k) => s + k[1], 0)), 0);
+  const weights = repos.map((repo) => ({ id: repo.root, weight: 3 + drones.filter((one) => one.root === repo.root).length + 0.35 * Math.sqrt(filesOf(repo)) }));
+  slice(weights, { x: MARGIN, y: MARGIN, w: Math.max(120, size.width - MARGIN * 2), h: Math.max(120, size.height - MARGIN * 2) }, rects, 14);
 
   const territories: Territory[] = [];
   const at = new Map<string, Placed>();
+  const over = new Map<string, { tile: Tile; w: number }[]>();
+  const clashes: Clash[] = [];
+  const want = new Map<string, Point>();
+  const bounds = new Map<string, Rect>();
+
   for (const repo of repos) {
     const rect = rects.get(repo.root)!;
-    const objectiveH = Math.min(70, rect.h * 0.13);
     const baseH = Math.min(104, rect.h * 0.2);
     const spacing = Math.max(24, Math.min(42, (rect.w - 190) / Math.max(1, repo.pads.length)));
     const rowW = spacing * Math.max(0, repo.pads.length - 1);
@@ -193,78 +175,98 @@ export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], s
     const by = rect.y + rect.h - baseH * 0.52;
     const left = bx - baseW / 2;
     const pads = repo.pads.map((key, i) => ({ key, x: left + hangar + 24 + i * spacing, y: by + 2 }));
-    // Ground a drone may stand on: room above for its body and beam, room below for its label, and the base clear.
-    const top = rect.y + 34 + 56 * big;
-    const bottom = by - 34 - 20 - 12 * big;
-    const area: Rect = { x: rect.x + 28 + 22 * big, y: top, w: Math.max(60, rect.w - 56 - 44 * big), h: Math.max(60, bottom - top) };
-    const goal = repo.goal ? { x: rect.x + rect.w * (0.5 + (rand(repo.root, 7) - 0.5) * 0.3), y: rect.y + objectiveH * 0.9 + 34 } : undefined;
+    // The strip above the base where a drone with nothing touched stands, and the flag's band above the plots.
+    const strip = 64 + 22 * big;
+    const plots: Rect = { x: rect.x + 8, y: rect.y + 98, w: rect.w - 16, h: Math.max(60, by - strip - (rect.y + 98)) };
+    const goal = repo.goal ? { x: rect.x + rect.w * (0.5 + (rand(repo.root, 7) - 0.5) * 0.3), y: rect.y + 84 } : undefined;
+
+    // Top directories by their files, then the directories inside each.
+    const sizeOf = (area: RepoIn["tree"][number]) => (area.kids.length === 0 ? (repo.bare[area.dir] ?? 8) : area.kids.reduce((sum, k) => sum + k[1], 0));
+    const tops = new Map<string, Rect>();
+    slice(repo.tree.map((area) => ({ id: area.dir, weight: sizeOf(area) })), plots, tops, 6);
+    const tiles: Tile[] = [];
+    const groups: Territory["groups"] = [];
+    for (const area of repo.tree) {
+      const box = tops.get(area.dir);
+      if (box === undefined) continue;
+      groups.push({ dir: area.dir, rect: box });
+      if (area.kids.length === 0) {
+        tiles.push({ path: area.dir, top: area.dir, rect: box, cx: box.x + box.w / 2, cy: box.y + box.h / 2 });
+        continue;
+      }
+      const inner = new Map<string, Rect>();
+      slice(area.kids.map(([name, files]) => ({ id: name, weight: files })), { x: box.x + 3, y: box.y + 3, w: box.w - 6, h: box.h - 6 }, inner, 3);
+      for (const [name] of area.kids) {
+        const r = inner.get(name);
+        if (r !== undefined) tiles.push({ path: `${area.dir}/${name}`, top: area.dir, rect: r, cx: r.x + r.w / 2, cy: r.y + r.h / 2 });
+      }
+    }
+    // A touched path belongs to the plot with the longest path that begins it.
+    const tileOf = (path: string) => tiles.filter((t) => path === t.path || path.startsWith(`${t.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
 
     const own = drones.filter((one) => one.root === repo.root);
-    const placed: { key: string; x: number; y: number }[] = goal === undefined ? [] : [{ key: "goal", x: goal.x, y: goal.y + 26 }];
-    const px = (u: number, v: number): Point => ({ x: area.x + u * area.w, y: area.y + v * area.h });
-    for (const one of own) {
-      const known = memory.get(one.key);
-      if (known !== undefined) placed.push({ key: one.key, ...px(known.u, known.v) });
-    }
-    // Jobs first, so a Session can look for room beside its own.
-    const fresh = own.filter((one) => !memory.has(one.key)).sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "job" ? -1 : 1));
-    for (const one of fresh) {
-      const parent = one.parent === undefined ? undefined : placed.find((p) => p.key === one.parent);
-      const candidates: Point[] = Array.from({ length: 56 }, (_, i) => {
-        if (parent !== undefined && i < 36) {
-          const turn = rand(one.key, i * 2) * Math.PI * 2;
-          const reach = (80 + rand(one.key, i * 2 + 1) * 60) * big;
-          return { x: Math.min(area.x + area.w, Math.max(area.x, parent.x + Math.cos(turn) * reach * 1.15)), y: Math.min(area.y + area.h, Math.max(area.y, parent.y + Math.sin(turn) * reach * 0.62)) };
-        }
-        return px(rand(one.key, i * 2 + 100), rand(one.key, i * 2 + 101));
-      });
-      let best = candidates[0]!;
-      let most = -Infinity;
-      for (const candidate of candidates) {
-        let room = Infinity;
-        for (const other of placed) room = Math.min(room, Math.hypot((candidate.x - other.x) / DRONE_W, candidate.y - other.y));
-        // Keep off the edges of the area a little, and keep near the parent when it has one.
-        room = Math.min(room, 40 * big + Math.min(candidate.x - area.x, area.x + area.w - candidate.x, (candidate.y - area.y) * 1.6, (area.y + area.h - candidate.y) * 1.6));
-        if (parent !== undefined) room -= Math.max(0, Math.hypot(candidate.x - parent.x, candidate.y - parent.y) - 150 * big) * 0.6;
-        if (room > most) {
-          most = room;
-          best = candidate;
-        }
+    const byTile = new Map<string, string[]>();
+    own.forEach((one, order) => {
+      const share = new Map<Tile, number>();
+      for (const touch of one.touches) {
+        const tile = tileOf(touch.path);
+        if (tile !== undefined) share.set(tile, (share.get(tile) ?? 0) + touch.w);
       }
-      memory.set(one.key, { u: (best.x - area.x) / area.w, v: (best.y - area.y) / area.h });
-      placed.push({ key: one.key, ...best });
-    }
-    for (const one of own) {
-      const known = memory.get(one.key)!;
-      const point = px(known.u, known.v);
-      // Nearer the bottom of the field is nearer the viewer: a little larger.
-      at.set(one.key, { ...point, s: 0.84 + 0.3 * Math.min(1, Math.max(0, point.y / size.height)), root: repo.root });
-    }
-
-    const contours = [0.84, 0.68, 0.52].map((shrink, i) =>
-      blobOf({ x: rect.x + rect.w * (1 - shrink) * (0.35 + rand(repo.root, 40 + i) * 0.5), y: rect.y + rect.h * (1 - shrink) * (0.3 + rand(repo.root, 50 + i) * 0.4), w: rect.w * shrink, h: rect.h * shrink }, `${repo.root}:${i}`, 0.07),
-    );
-    const craters = Array.from({ length: 6 }, (_, i) => ({ x: rect.x + rect.w * (0.12 + rand(repo.root, 60 + i) * 0.76), y: rect.y + rect.h * (0.16 + rand(repo.root, 70 + i) * 0.6), r: 9 + rand(repo.root, 80 + i) * 16 }));
-    const scrub = Array.from({ length: 34 }, (_, i) => {
-      const x = rect.x + rect.w * (0.08 + rand(repo.root, 200 + i) * 0.84);
-      const y = rect.y + rect.h * (0.1 + rand(repo.root, 300 + i) * 0.74);
-      return `M${x.toFixed(1)},${y.toFixed(1)} l${(3 + rand(repo.root, 400 + i) * 4).toFixed(1)},${(rand(repo.root, 500 + i) * 2 - 1).toFixed(1)}`;
-    }).join(" ");
-    territories.push({
-      root: repo.root,
-      name: repo.name,
-      rect,
-      blob: blobOf(rect, repo.root, 0.025),
-      contours,
-      craters,
-      scrub,
-      base: { x: bx, y: by, w: baseW },
-      pads,
-      goal,
-      area,
+      const list = [...share].map(([tile, w]) => ({ tile, w })).sort((a, b) => b.w - a.w || a.tile.path.localeCompare(b.tile.path));
+      over.set(one.key, list);
+      for (const { tile } of list) byTile.set(tile.path, [...(byTile.get(tile.path) ?? []), one.key]);
+      if (list.length > 0) {
+        const total = list.reduce((sum, one) => sum + one.w, 0);
+        want.set(one.key, { x: list.reduce((sum, one) => sum + one.tile.cx * one.w, 0) / total, y: list.reduce((sum, one) => sum + one.tile.cy * one.w, 0) / total });
+      } else {
+        // Near its pad, or the base's middle, spread along the strip so two do not stand on each other.
+        const pad = one.slot === undefined ? undefined : pads.find((p) => p.key === one.slot);
+        want.set(one.key, { x: pad?.x ?? bx + (order % 5 - 2) * 56 * big, y: by - strip * 0.5 - 8 });
+      }
+      bounds.set(one.key, { x: rect.x + 30, y: plots.y + 14, w: rect.w - 60, h: by - 26 - strip * 0.2 - (plots.y + 14) });
     });
+    for (const [path, keys] of byTile) if (keys.length > 1) clashes.push({ path, root: repo.root, keys });
+
+    territories.push({ root: repo.root, name: repo.name, rect, groups, tiles, base: { x: bx, y: by, w: baseW }, pads, goal });
   }
-  return { territories, at };
+
+  // Held apart: drones over the same plot, or close, are pushed from each other, a few passes, the same way every time.
+  const keys = [...want.keys()].sort();
+  const place = new Map(keys.map((key) => [key, { ...want.get(key)! }]));
+  const apart = 64 * big;
+  for (let pass = 0; pass < 24; pass += 1) {
+    for (let i = 0; i < keys.length; i += 1) {
+      for (let j = i + 1; j < keys.length; j += 1) {
+        const a = place.get(keys[i]!)!;
+        const b = place.get(keys[j]!)!;
+        const dx = (b.x - a.x) / 1.5;
+        const dy = b.y - a.y;
+        const gap = Math.hypot(dx, dy);
+        if (gap >= apart) continue;
+        const turn = rand(keys[i]! + keys[j]!, 3) * Math.PI * 2;
+        const ux = gap < 1 ? Math.cos(turn) : dx / gap;
+        const uy = gap < 1 ? Math.sin(turn) : dy / gap;
+        const push = (apart - gap) / 2;
+        a.x -= ux * push * 1.5;
+        a.y -= uy * push;
+        b.x += ux * push * 1.5;
+        b.y += uy * push;
+      }
+    }
+    for (const key of keys) {
+      const p = place.get(key)!;
+      const box = bounds.get(key)!;
+      p.x = Math.min(box.x + box.w, Math.max(box.x, p.x));
+      p.y = Math.min(box.y + box.h, Math.max(box.y, p.y));
+    }
+  }
+  for (const key of keys) {
+    const p = place.get(key)!;
+    const root = drones.find((one) => one.key === key)!.root;
+    // Nearer the bottom of the field is nearer the viewer: a little larger.
+    at.set(key, { x: p.x, y: p.y, s: 0.84 + 0.3 * Math.min(1, Math.max(0, p.y / size.height)), root });
+  }
+  return { territories, at, over, clashes };
 }
 
 /** A camera over the field: the translation that puts `aim` in the middle at zoom `z`, kept inside the field. */

@@ -45,18 +45,16 @@ const firstSeen = new Map<string, number>();
 let settled = false;
 
 /**
- * What the field remembers between its mounts, so a drone stays where it was put and a play is played once: the unit
- * positions of the drones, the events and arrivals already shown, and the drones and landed pull requests there were.
+ * What the field remembers between its mounts, so a play is played once: the events
+ * and arrivals already shown, and the drones and landed pull requests there were.
  */
 export const scene = {
-  memory: new Map<string, { u: number; v: number }>(),
   seen: new Set<string>(),
   drones: undefined as Set<string> | undefined,
   landed: undefined as Set<string> | undefined,
 };
 
 export const forgetDeck = () => {
-  scene.memory.clear();
   scene.seen.clear();
   scene.drones = undefined;
   scene.landed = undefined;
