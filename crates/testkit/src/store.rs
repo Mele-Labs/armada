@@ -14,7 +14,7 @@
 //! store's one-request-at-a-time object makes them. It is **not** faithful
 //! about time or signing, and a row keeps whatever `since` it was handed.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -24,6 +24,7 @@ use adapter_traits::{Claimed, Holder, OwnerKey, RedKey, RepositoryKey, Store, St
 struct Rows {
     claims: BTreeMap<(RepositoryKey, RedKey), Holder>,
     owners: BTreeMap<OwnerKey, Holder>,
+    devices: BTreeSet<String>,
 }
 
 /// A store that remembers what it was asked and reaches nothing.
@@ -46,6 +47,17 @@ impl FakeStore {
             rows: Arc::clone(&self.rows),
             ..FakeStore::default()
         }
+    }
+
+    /// Register a device as an enrolment would. The real store does this on
+    /// `POST /v1/enrol`, which is not part of [`Store`].
+    pub fn enrol(&self, device: &str) {
+        self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner).devices.insert(device.to_string());
+    }
+
+    /// The devices the store holds, whichever handle enrolled them.
+    pub fn devices(&self) -> Vec<String> {
+        self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner).devices.iter().cloned().collect()
     }
 
     /// While set, every call from this handle fails as unreachable and changes
@@ -118,6 +130,11 @@ impl Store for FakeStore {
 
     fn delete_owner(&self, key: &OwnerKey) -> Result<(), StoreError> {
         self.rows("delete_owner")?.owners.remove(key);
+        Ok(())
+    }
+
+    fn delete_device(&self, device: &str) -> Result<(), StoreError> {
+        self.rows("delete_device")?.devices.remove(device);
         Ok(())
     }
 }
@@ -206,6 +223,19 @@ mod tests {
         assert_eq!(store.read_claim(&repository(), &red()).unwrap(), None);
         assert_eq!(store.read_claim(&repository(), &older).unwrap(), None);
         assert!(store.read_claim(&other, &red()).unwrap().is_some());
+    }
+
+    #[test]
+    fn signing_a_device_out_removes_that_device_and_a_missing_one_is_done() {
+        let store = FakeStore::new();
+        store.enrol("1.aa");
+        store.enrol("1.bb");
+        store.delete_device("1.aa").unwrap();
+        store.delete_device("1.zz").unwrap();
+        assert_eq!(store.devices(), ["1.bb"]);
+        store.set_unreachable(true);
+        assert!(store.delete_device("1.bb").unwrap_err().is_unreachable());
+        assert_eq!(store.devices(), ["1.bb"], "nothing changed");
     }
 
     #[test]

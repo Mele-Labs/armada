@@ -194,15 +194,15 @@ fn the_claim_call_carries_hashes_and_the_holder_and_no_name() {
 
 // A socket on this machine that answers a script, one connection per entry.
 
-struct Seen {
-    method: String,
-    target: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+pub(super) struct Seen {
+    pub(super) method: String,
+    pub(super) target: String,
+    pub(super) headers: Vec<(String, String)>,
+    pub(super) body: Vec<u8>,
 }
 
 impl Seen {
-    fn header(&self, name: &str) -> Option<&str> {
+    pub(super) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(n, _)| n.eq_ignore_ascii_case(name))
@@ -210,7 +210,7 @@ impl Seen {
     }
 }
 
-fn serve(script: Vec<(u16, &'static str)>) -> (String, JoinHandle<Vec<Seen>>) {
+pub(super) fn serve(script: Vec<(u16, &'static str)>) -> (String, JoinHandle<Vec<Seen>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let handle = std::thread::spawn(move || {
@@ -349,5 +349,43 @@ fn enrolling_sends_the_public_key_unsigned_and_keeps_the_device_it_is_given() {
 fn a_machine_that_has_not_enrolled_opens_no_store() {
     let dir = scratch("unenrolled");
     assert!(HttpStore::open("http://127.0.0.1:1", &dir, Duration::from_secs(1)).unwrap().is_none());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn signing_a_device_out_sends_a_signed_delete_and_a_device_already_gone_is_done() {
+    let (url, server) = serve(vec![(204, ""), (404, r#"{"error":"no_device"}"#)]);
+    let store = store_at(&url);
+    store.delete_device("42.00ff").unwrap();
+    store.delete_device("42.00ee").unwrap();
+    let seen = server.join().unwrap();
+    assert_eq!((seen[0].method.as_str(), seen[0].target.as_str()), ("DELETE", "/v1/devices/42.00ff"));
+    let text = store_signing::signed_text("DELETE", &seen[0].target, at(), NONCE, b"");
+    assert!(verifies(&key().public_key(), &text, seen[0].header("x-armada-signature").unwrap()));
+}
+
+#[test]
+fn a_device_id_that_could_not_be_a_path_segment_is_refused_before_any_request() {
+    let closed = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", closed.local_addr().unwrap());
+    for bad in ["", "../claims", "a/b", "a b"] {
+        let said = store_at(&url).delete_device(bad).unwrap_err();
+        assert!(!said.is_unreachable(), "{bad:?} reached the network");
+    }
+}
+
+#[test]
+fn enrolling_tells_a_store_that_is_down_from_one_that_said_no() {
+    let dir = scratch("enrol-down");
+    let token = Secret::new("t".to_string());
+    let closed = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", closed.local_addr().unwrap());
+    drop(closed);
+    assert!(HttpStore::enrol(&url, &dir, &token, "mac-a", Duration::from_secs(2)).err().unwrap().is_unreachable());
+    let (url, server) = serve(vec![(401, r#"{"error":"forge_refused"}"#)]);
+    let said = HttpStore::enrol(&url, &dir, &token, "mac-a", Duration::from_secs(2)).err().unwrap();
+    server.join().unwrap();
+    assert!(!said.is_unreachable());
+    assert_eq!(store_device::device_id(&dir).unwrap(), None, "a refused enrolment keeps no device");
     std::fs::remove_dir_all(&dir).ok();
 }
