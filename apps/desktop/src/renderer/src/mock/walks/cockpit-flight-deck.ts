@@ -1,6 +1,6 @@
 // The Cockpit as a flight deck: the places as tabs in the title bar, every Job and Session in a column on the left,
-// the map until something is picked and then that thing, the merge queue as dots, the bays, and along the foot the
-// flight controls and the calls that are incoming. A throwaway prototype on proto/cockpit-flight-deck.
+// the map until something is picked and then that thing, the merge queue as dots, the bays with the incoming calls under them, and the
+// flight controls under the merge queue. A throwaway prototype on proto/cockpit-flight-deck.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
@@ -16,8 +16,9 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { press: inside(list, button("Shorten the reconnect wait")), say: "Pick a Job from the column" },
   { look: inside(stage(/^Job: Shorten the reconnect wait/), role("group", "Canvas")), say: "A small Job canvas: the step it is on is live, the rest are quiet" },
   { look: inside(stage(/^Job: Shorten the reconnect wait/), role("group", "Running now")), say: "And what it is running now, beside it" },
+  { look: inside(region("Activity"), text(/Shorten the reconnect wait/)), say: "Activity is the Cockpit's feed, newest first, in the column under the list" },
   { later: places, say: "A Session replies" },
-  { look: inside(incoming, button(/Pin the store clock/)), say: "A call arrives in Incoming calls and rings until he opens it" },
+  { look: inside(incoming, button(/Pin the store clock/)), say: "A call arrives in the panel under the Bays and rings until he opens it" },
   { press: inside(incoming, button(/Pin the store clock/)), say: "Open it" },
   { type: "Good. Merge it.\n", into: inside(stage(/^Call: Pin the store clock/), role("textbox", "Message")), say: "The real call card, answered here" },
   { look: role("listbox", "Map"), say: "Answered: the call is gone from Incoming calls, and the area is back on the map" },

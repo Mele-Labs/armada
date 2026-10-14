@@ -56,12 +56,12 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   flex: 1 1 0;
   min-height: 0;
   grid-template-columns: calc(var(--space-12) * 6) minmax(0, 1fr) calc(var(--space-12) * 5);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-3);
 }
 .deck-left,
-.deck-centre { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
-.deck-foot { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); }
+.deck-centre,
+.deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
 
 .deck-panel,
 .deck-pane {
@@ -134,16 +134,22 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 .deck-row[data-selected] { background: var(--accent-muted); box-shadow: inset calc(var(--border-width) * -3) 0 0 var(--accent); }
 .deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
 
-/* ---- Usage ---------------------------------------------------------------------------------------------- */
+/* ---- Activity: the Feed take, in the narrow column under the list ---------------------------------------- */
 
-.deck-usage { flex: none; }
-.deck-usage__bars { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
-.deck-meter { display: grid; grid-template-columns: calc(var(--space-12) / 2) minmax(0, 1fr); align-items: center; gap: var(--space-3); }
-.deck-meter__label { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
-.deck-meter__track { display: block; height: var(--space-2); border-radius: var(--radius-sm); background: var(--bg-raised); overflow: hidden; }
-.deck-meter__fill { display: block; height: 100%; background: var(--fg-subtle); }
-.deck-meter[data-level="warning"] .deck-meter__fill { background: var(--status-awaiting-review); }
-.deck-meter[data-level="danger"] .deck-meter__fill { background: var(--status-completed-failed); }
+.deck-activity { flex: none; height: calc(var(--space-12) * 5); }
+.deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+.deck-activity .armada-tl__body { flex: 1 1 0; min-height: 0; }
+.deck-activity .armada-tl__part { padding: 0 var(--space-3); }
+.deck-activity .armada-tl__event {
+  grid-template-columns: 4ch var(--space-4) minmax(0, 1fr);
+  min-height: calc(var(--space-6) * 2);
+  padding: var(--space-1) var(--space-3);
+  row-gap: 0;
+}
+.deck-activity .armada-tl__age { grid-column: 1; grid-row: 1; width: auto; }
+.deck-activity .armada-tl__spine { grid-column: 2; grid-row: 1 / span 2; }
+.deck-activity .armada-tl__who { grid-column: 3; grid-row: 1; }
+.deck-activity .armada-tl__says { grid-column: 3; grid-row: 2; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
 
@@ -279,14 +285,19 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 
 /* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
 
-.deck-controls__row { display: flex; align-items: center; gap: var(--space-4); min-height: calc(var(--h-control) + var(--space-3)); padding: var(--space-2) var(--space-3); }
-.deck-controls__group { display: inline-flex; align-items: center; gap: var(--space-1); }
-.deck-controls__group + .deck-controls__group,
-.deck-controls__row > span + .deck-controls__group { padding-left: var(--space-4); border-left: var(--border-width) solid var(--border-subtle); }
+/* The controls are a block in the middle of the panel: two rows, each centred, equal buttons and equal gaps. */
+.deck-controls { flex: none; --control-w: calc(var(--space-12) * 2); }
+.deck-controls__block { display: flex; flex: 1 1 auto; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.deck-controls__row { display: grid; grid-auto-flow: column; grid-auto-columns: var(--control-w); justify-content: center; gap: var(--space-3); }
+.deck-controls__row > *,
+.deck-controls__cell { display: flex; align-items: center; justify-content: center; width: 100%; }
+.deck-controls__row > .armada-button { display: inline-flex; justify-content: center; gap: var(--space-2); }
 .deck-controls [aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--accent); }
 
-.deck-incoming__cards { display: flex; align-items: stretch; gap: var(--space-3); min-height: calc(var(--h-control) + var(--space-3)); margin: 0; padding: var(--space-2) var(--space-3); list-style: none; overflow: hidden; }
-.deck-incoming__cards > li { display: flex; min-width: 0; flex: 0 1 calc(var(--space-12) * 6); }
+.deck-incoming { flex: 2 1 0; }
+.deck-bays { flex: 3 1 0; }
+.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; }
+.deck-incoming__cards > li { display: flex; flex: none; min-width: 0; }
 
 /* A call that has come in: a card, edged in its hue. The front one rings, slowly, until he opens it. A card that
    turns up after the first frame slides in. Answered or opened, it is gone. */
@@ -296,6 +307,7 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
+  min-height: var(--h-control);
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--hue);
   border-left-width: calc(var(--border-width) * 3);

@@ -9,7 +9,6 @@ import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "r
 import { createPortal } from "react-dom";
 import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Plane, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Button, DropdownMenu, Kbd, Tabs, Tooltip } from "@armada/components";
-import { usageLevel } from "@armada/components/src/usage";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
@@ -23,10 +22,9 @@ import type { CockpitProps } from "../../cockpit/body-seam";
 import { holdFor } from "../../cockpit/Cockpit";
 import { dotsOf } from "../../cockpit/horizon";
 import { skyOf, type Field } from "../../cockpit/map-layout";
-import { Timeline } from "../../cockpit/Timeline";
+import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
 import { sessionIdOf } from "../../cockpit/waiting";
 import { viewsOf } from "../../merge-line";
-import { usePlanUsage } from "../../plan-usage";
 import { useSessions } from "../../sessions-draft";
 import { CallPane, ChecksPane, JobPane, PrPane, SessionPane, SlotPane } from "./deck-panes";
 import {
@@ -244,29 +242,20 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
   );
 }
 
-/** The plan's windows as bars. A bar is gray until it is nearly full. */
-function Usage() {
-  const usage = usePlanUsage() ?? [];
-  const NAMES: Record<string, { short: string; name: string }> = { five_hour: { short: "5h", name: "5-hour limit" }, seven_day: { short: "wk", name: "Weekly limit" } };
-  const drawn = usage.flatMap((one) => (NAMES[one.kind] === undefined ? [] : [{ one, ...NAMES[one.kind]! }]));
+/** What Fleet has been doing, newest first, in the column under the list. A press picks the Job or Session as a list row does. */
+function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
+  const deck = useDeck();
+  const views = useMemo(() => viewsOf(props.state), [props.state]);
+  const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
+  const keep = useMemo(() => (subject: { kind: string; id?: string }) => (subject.kind === "main" ? deck.only === undefined && !deck.needs : shown.has(`${subject.kind}:${subject.id}`)), [shown, deck.only, deck.needs]);
+  const pick = (key: string) => {
+    const subject = ship.subjects.find((one) => one.key === key);
+    if (subject !== undefined && subject.kind !== "pr") select(selOfSubject(subject));
+  };
   return (
-    <section className="deck-panel deck-usage" aria-label="Usage">
-      <header className="deck-band">Usage</header>
-      <div className="deck-usage__bars">
-        {drawn.map(({ one, short, name }) => {
-          const percent = Math.round(one.percentUsed);
-          return (
-            <Tooltip key={one.kind} label={`${name} ${percent}%`} asChild>
-              <div className="deck-meter" role="meter" aria-label={`${name} ${percent}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} data-level={usageLevel(percent)}>
-                <span className="deck-meter__label">{short}</span>
-                <span className="deck-meter__track">
-                  <span className="deck-meter__fill" style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
-                </span>
-              </div>
-            </Tooltip>
-          );
-        })}
-      </div>
+    <section className="deck-panel deck-activity" aria-label="Activity">
+      <header className="deck-band">Activity</header>
+      <ActivityFeed now={props.now} jobs={props.state.jobs} views={views} filter="running" keep={keep as never} onOpenJob={(id) => pick(`job:${id}`)} onOpenSession={(id) => pick(`session:${id}`)} />
     </section>
   );
 }
@@ -467,16 +456,18 @@ function Bays({ props, selected }: { props: CockpitProps; selected: string | und
   );
 }
 
-function Pressed({ label, keys, pressed, onPress, children }: { label: string; keys?: string; pressed: boolean; onPress: () => void; children: ReactNode }) {
+function Pressed({ label, text, keys, pressed, onPress, children }: { label: string; text?: string; keys?: string; pressed: boolean; onPress: () => void; children: ReactNode }) {
   return (
-    <Tooltip label={label} {...(keys === undefined ? {} : { shortcut: keys })}>
-      <Button variant="ghost" size="sm" iconOnly aria-label={label} aria-pressed={pressed} onClick={onPress}>
+    <Tooltip label={label} {...(keys === undefined ? {} : { shortcut: keys })} asChild>
+      <Button variant="ghost" size="sm" iconOnly={text === undefined} aria-label={label} aria-pressed={pressed} onClick={onPress}>
         {children}
+        {text === undefined ? null : text}
       </Button>
     </Tooltip>
   );
 }
 
+/** The controls as a block in the middle of the panel: four labelled buttons over three that are only glyphs, equal in each row. */
 function Controls({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
   const deck = useDeck();
   const [recent, remember] = useRecentRepositories();
@@ -484,55 +475,55 @@ function Controls({ props, autopilot }: { props: CockpitProps; autopilot: Return
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls">
       <header className="deck-band">Flight controls</header>
-      <div className="deck-controls__row">
-        {control === undefined ? null : (
-          <Tooltip label={control.state === "off" ? "Autopilot" : `Autopilot, ${control.state}`}>
-            <span>
-              {props.picked === null ? (
-                <DropdownMenu
-                  align="end"
-                  portal
-                  icon={Plane}
-                  triggerLabel="Autopilot"
-                  searchLabel={FIND_A_REPOSITORY}
-                  entries={repositoryEntries(props.state.holds.repositories ?? [], { onlySetUp: true, recent })}
-                  onSelect={(chosen) => {
-                    const root = rootOf(chosen);
-                    remember(root);
-                    control.openNext();
-                    props.onPickRepository?.(root);
-                  }}
-                />
-              ) : (
-                <Button variant="ghost" size="sm" iconOnly aria-label="Autopilot" aria-pressed={control.open} data-autopilot={control.state} onClick={control.toggle}>
-                  <Plane size={16} aria-hidden="true" />
-                </Button>
-              )}
-            </span>
-          </Tooltip>
-        )}
-        <span className="deck-controls__group" role="group" aria-label="Show">
-          <Pressed label="Jobs only" pressed={deck.only === "jobs"} onPress={() => toggleOnly("jobs")}>
+      <div className="deck-controls__block">
+        <div className="deck-controls__row" data-labelled>
+          <Pressed label="Jobs only" text="Jobs" pressed={deck.only === "jobs"} onPress={() => toggleOnly("jobs")}>
             <Box size={16} aria-hidden />
           </Pressed>
-          <Pressed label="Sessions only" pressed={deck.only === "sessions"} onPress={() => toggleOnly("sessions")}>
+          <Pressed label="Sessions only" text="Sessions" pressed={deck.only === "sessions"} onPress={() => toggleOnly("sessions")}>
             <SquareTerminal size={16} aria-hidden />
           </Pressed>
-          <Pressed label="Needs me" pressed={deck.needs} onPress={toggleNeeds}>
+          <Pressed label="Checks" text="Checks" pressed={deck.sel?.kind === "checks"} onPress={() => select(deck.sel?.kind === "checks" ? undefined : { kind: "checks", key: "checks" })}>
+            <ShieldCheck size={16} aria-hidden />
+          </Pressed>
+          <Pressed label="Needs me" text="Calls" pressed={deck.needs} onPress={toggleNeeds}>
             <Megaphone size={16} aria-hidden />
           </Pressed>
-        </span>
-        <Pressed label="Checks" pressed={deck.sel?.kind === "checks"} onPress={() => select(deck.sel?.kind === "checks" ? undefined : { kind: "checks", key: "checks" })}>
-          <ShieldCheck size={16} aria-hidden />
-        </Pressed>
-        <span className="deck-controls__group" role="group" aria-label="View">
+        </div>
+        <div className="deck-controls__row">
+          {control === undefined ? null : (
+            <Tooltip label={control.state === "off" ? "Autopilot" : `Autopilot, ${control.state}`} asChild>
+              <span className="deck-controls__cell">
+                {props.picked === null ? (
+                  <DropdownMenu
+                    align="end"
+                    portal
+                    icon={Plane}
+                    triggerLabel="Autopilot"
+                    searchLabel={FIND_A_REPOSITORY}
+                    entries={repositoryEntries(props.state.holds.repositories ?? [], { onlySetUp: true, recent })}
+                    onSelect={(chosen) => {
+                      const root = rootOf(chosen);
+                      remember(root);
+                      control.openNext();
+                      props.onPickRepository?.(root);
+                    }}
+                  />
+                ) : (
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Autopilot" aria-pressed={control.open} data-autopilot={control.state} onClick={control.toggle}>
+                    <Plane size={16} aria-hidden="true" />
+                  </Button>
+                )}
+              </span>
+            </Tooltip>
+          )}
           <Pressed label="Map" keys="m" pressed={deck.view === "map"} onPress={() => setView("map")}>
             <Orbit size={16} aria-hidden />
           </Pressed>
           <Pressed label="Timeline" keys="t" pressed={deck.view === "timeline"} onPress={() => setView("timeline")}>
             <ChartNoAxesGantt size={16} aria-hidden />
           </Pressed>
-        </span>
+        </div>
       </div>
     </section>
   );
@@ -548,7 +539,7 @@ function Incoming({ calls, now }: { calls: readonly Item[]; now: number }) {
         </Tooltip>
       </header>
       <ul className="deck-incoming__cards">
-        {calls.slice(0, 3).map((item, at) => {
+        {calls.map((item, at) => {
           const Icon = item.icon;
           return (
             <li key={item.key}>
@@ -599,15 +590,15 @@ export function DeckBody(props: CockpitProps) {
       <div className="deck-grid">
         <div className="deck-left">
           <List subjects={listed} cursor={deck.cursor} selected={deck.sel?.kind === "job" || deck.sel?.kind === "session" ? selected : undefined} onPick={(one) => select(selOfSubject(one))} />
-          <Usage />
+          <Activity props={props} listed={listed} ship={ship} />
         </div>
         <div className="deck-centre">
           <Stage props={props} ship={ship} listed={listed} acts={acts} />
           <MergeQueue props={props} ship={ship} selected={deck.sel?.kind === "pr" ? selected : undefined} />
-        </div>
-        <Bays props={props} selected={deck.sel?.kind === "slot" ? selected : undefined} />
-        <div className="deck-foot">
           <Controls props={props} autopilot={autopilot} />
+        </div>
+        <div className="deck-right">
+          <Bays props={props} selected={deck.sel?.kind === "slot" ? selected : undefined} />
           <Incoming calls={incoming} now={props.now} />
         </div>
       </div>

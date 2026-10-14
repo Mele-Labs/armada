@@ -313,6 +313,39 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
   );
 }
 
+/** The lanes the Timeline and the feed draw: Fleet's events named from what the window holds, narrowed by the filter and by `keep`. */
+function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined): Lane[] {
+  const wire = useFleetEvents();
+  const sessions = useSessions();
+  const events = useMemo(() => {
+    // Only a pull request's opening and its merge carry its branch, so the other entries read it from those.
+    const branches = new Map(wire.flatMap((one) => (one.subject.kind === "pull_request" && one.detail !== undefined && (one.kind === "pr.opened" || one.kind === "pr.merged") ? [[one.subject.number, one.detail] as const] : [])));
+    return wire.flatMap((one) => {
+      const drawn = fromWire(one, {
+        job: (id) => {
+          const job = jobs.find((row) => row.id === id);
+          return job === undefined ? undefined : plainTitle(job);
+        },
+        session: (id) => sessions.find((row) => row.id === id)?.title,
+        pull: (number) => timelineOwner(views, jobs, sessions, number, branches.get(number)),
+      });
+      return drawn === undefined ? [] : [drawn];
+    });
+  }, [wire, jobs, views, sessions]);
+  const lanes = useMemo(
+    () =>
+      lanesFor(
+        lanesOf(events, now, (id) => {
+          const held = sessions.find((one) => one.id === id);
+          return held === undefined ? undefined : stateOf(held).state;
+        }),
+        filter,
+      ).filter((lane) => keep === undefined || keep(lane.subject)),
+    [events, now, filter, sessions, keep],
+  );
+  return lanes;
+}
+
 const NO_VIEWS: readonly MergeLineView[] = [];
 
 export function Timeline({
@@ -341,35 +374,8 @@ export function Timeline({
   onOpenSession: (id: string) => void;
   onOpenLink: (address: string) => void;
 }) {
-  const wire = useFleetEvents();
-  const sessions = useSessions();
   const [take, setTake] = useTake();
-  const events = useMemo(() => {
-    // Only a pull request's opening and its merge carry its branch, so the other entries read it from those.
-    const branches = new Map(wire.flatMap((one) => (one.subject.kind === "pull_request" && one.detail !== undefined && (one.kind === "pr.opened" || one.kind === "pr.merged") ? [[one.subject.number, one.detail] as const] : [])));
-    return wire.flatMap((one) => {
-      const drawn = fromWire(one, {
-        job: (id) => {
-          const job = jobs.find((row) => row.id === id);
-          return job === undefined ? undefined : plainTitle(job);
-        },
-        session: (id) => sessions.find((row) => row.id === id)?.title,
-        pull: (number) => timelineOwner(views, jobs, sessions, number, branches.get(number)),
-      });
-      return drawn === undefined ? [] : [drawn];
-    });
-  }, [wire, jobs, views, sessions]);
-  const lanes = useMemo(
-    () =>
-      lanesFor(
-        lanesOf(events, now, (id) => {
-          const held = sessions.find((one) => one.id === id);
-          return held === undefined ? undefined : stateOf(held).state;
-        }),
-        filter,
-      ).filter((lane) => keep === undefined || keep(lane.subject)),
-    [events, now, filter, sessions, keep],
-  );
+  const lanes = useLanes(now, jobs, views, filter, keep);
   // Lanes open at now, the right-hand end; the older hour is a scroll back.
   const body = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -400,5 +406,21 @@ export function Timeline({
         </div>
       </section>
     </div>
+  );
+}
+
+/** The Feed take on its own, for a narrow column: one row for each event, newest first. A press names the Job or Session it is about. */
+export function ActivityFeed({ now, jobs, views = NO_VIEWS, filter, keep, onOpenJob, onOpenSession }: { now: number; jobs: readonly JobSummary[]; views?: readonly MergeLineView[]; filter: DashboardTab; keep?: (subject: Subject) => boolean; onOpenJob: (id: string) => void; onOpenSession: (id: string) => void }) {
+  const lanes = useLanes(now, jobs, views, filter, keep);
+  const open: Open = (subject) => {
+    if (subject.kind === "job") onOpenJob(subject.id);
+    else if (subject.kind === "session") onOpenSession(subject.id);
+  };
+  return (
+    <section className="armada-tl" aria-label="Activity feed" data-take="feed">
+      <div className="armada-tl__body">
+        <Feed lanes={lanes} now={now} open={open} />
+      </div>
+    </section>
   );
 }
