@@ -55,6 +55,8 @@ pub enum Section {
     Editor,
     Terminal,
     Links,
+    /// Which machine this is, to the others signed in to one account.
+    Machine,
     Bridge,
 }
 
@@ -91,7 +93,7 @@ impl Section {
         match self {
             Section::Harness | Section::Model | Section::Effort | Section::Plan => Group::Agents,
             Section::Prompt(_) => Group::Prompts,
-            Section::Limits | Section::Timeouts | Section::Retention => Group::Fleet,
+            Section::Limits | Section::Timeouts | Section::Retention | Section::Machine => Group::Fleet,
             Section::Features => Group::Features,
             Section::Editor | Section::Terminal | Section::Links => Group::Tools,
             Section::Bridge => Group::Appearance,
@@ -113,6 +115,7 @@ impl Section {
             Section::Editor => "Editor",
             Section::Terminal => "Terminal",
             Section::Links => "Links",
+            Section::Machine => "Machine",
             Section::Bridge => "Bridge",
         }
     }
@@ -210,6 +213,7 @@ pub fn entries() -> impl Iterator<Item = &'static Entry> {
                 limits::LIMITS,
                 timeouts::TIMEOUTS,
                 timeouts::RETENTION,
+                machine::MACHINE,
                 machine::FEATURES,
                 machine::EDITOR,
                 machine::TERMINAL,
