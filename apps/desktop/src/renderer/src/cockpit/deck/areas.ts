@@ -1,0 +1,46 @@
+// The directories a repository is drawn in on the flight deck's battlefield, and the one rule that puts a path in one.
+//
+// **An area is two directories deep.** `crates/fleet`, `apps/desktop`, `docs/concepts`: the grain the battlefield draws
+// plots at and the grain a touch or a write clash is rolled up to. A file at the top of a repository, or a path under no
+// checkout, is in none.
+//
+// **Nothing here knows what a repository holds.** Fleet reports no directory tree and no file counts yet, so the areas a
+// repository is drawn in are empty and its territory shows pads and the main flag with no plots. A walk may stand a
+// source in; the real one is F1 of the flight deck port. #2301.
+
+/** One top directory with the directories inside it, each with a file count. A top directory with no children has none listed. */
+export type Area = { dir: string; kids: readonly (readonly [string, number])[] };
+
+export type Areas = readonly Area[];
+
+/** Where a repository's areas come from: its root, to the directories drawn for it. */
+export type AreaSource = (root: string) => Areas;
+
+/** What Fleet reports today: no areas for any repository. #2301. */
+export const noAreas: AreaSource = () => [];
+
+/** The area a repository-relative path is in, or none for a file at the top of the repository and for a path that is not relative. */
+export function areaOf(path: string): string | undefined {
+  if (path === "" || path.startsWith("/") || path.startsWith("~")) return undefined;
+  const parts = path.split("/").filter((part) => part !== "");
+  // The last part is the file, so a path of one part has no directory and a path of two has one.
+  const dirs = parts.slice(0, -1).slice(0, 2);
+  return dirs.length === 0 ? undefined : dirs.join("/");
+}
+
+/** The home directory off an absolute path, so `~/x` and `/Users/nick/x` can be set side by side. */
+const HOME = /^\/(?:Users|home)\/[^/]+\//;
+
+/**
+ * A path as the repository spells it, where it lies under one of these checkouts, in either spelling of the home directory.
+ * A path under none is somebody else's file and comes back as it came, which no area claims.
+ */
+export function relativeTo(path: string, roots: readonly string[]): string {
+  for (const root of roots) {
+    const bare = root.replace(/\/+$/, "");
+    if (path.startsWith(`${bare}/`)) return path.slice(bare.length + 1);
+    const homed = bare.replace(HOME, "");
+    if (homed !== bare && path.startsWith(`~/${homed}/`)) return path.slice(homed.length + 3);
+  }
+  return path;
+}
