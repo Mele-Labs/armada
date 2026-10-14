@@ -104,9 +104,9 @@ function stateOf(session: Session): { state: SessionState; said: string } {
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
+  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
 }
 
@@ -259,9 +259,10 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
+  { label: "Needs you", has: (state) => state === "waiting" },
   { label: "Running", has: (state) => state === "working" || state === "limited" },
-  { label: "Idle", has: (state) => state === "idle" },
+  // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
+  { label: "Idle", has: (state) => state === "idle" || state === "failing" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
