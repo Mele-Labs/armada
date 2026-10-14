@@ -7,6 +7,7 @@
 import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
+import type { SessionActivity } from "./session-activity";
 import type { PlanWindow } from "./plan-usage";
 
 /** What started a session. */
@@ -99,6 +100,11 @@ export type SessionRecord = {
    * mod reports one.
    */
   context_breakdown?: ContextBreakdown;
+  /**
+   * What a hosted session is doing, as Fleet saw its tool calls. Absent before the first call, on a
+   * session a terminal runs and once the session ends. Since 14 Oct 2026.
+   */
+  activity?: SessionActivity;
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */

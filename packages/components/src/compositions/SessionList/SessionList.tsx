@@ -46,6 +46,8 @@ export type SessionRowView = {
   modOutOfDate?: boolean;
   /** What it waits on the person for, in words. A bell with these in its tooltip; no figure beside it. */
   waiting?: readonly string[];
+  /** What it is doing, detected: its last tool call as a short action. One line under the title; absent draws none. */
+  now?: string;
   /** Its retro is being written. */
   retroWriting?: boolean;
   /** Helm's own Session for a repository, pinned to the dock: it carries Helm's mark, and opening it opens the dock. */
@@ -305,6 +307,11 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
                       )}
                       {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
                     </div>
+                    {row.now === undefined ? null : (
+                      <div className="armada-session-list__now">
+                        <span className="armada-session-list__now-text">{row.now}</span>
+                      </div>
+                    )}
                     {items.length === 0 ? null : <OpenLine items={items} />}
                   </li>
                 );

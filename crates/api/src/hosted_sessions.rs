@@ -345,7 +345,7 @@ pub(crate) async fn gate_session_call<D: HostedSessions>(
         Ok(gate) => gate,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().gate_session_call(gate).await {
+    match served.shared().gate_session_call(gate).await {
         Ok(decided) => answer(StatusCode::OK, &decided, served.run_id()),
         Err(refusal) => refused(refusal),
     }

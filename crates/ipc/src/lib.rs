@@ -221,6 +221,8 @@ mod plan_usage;
 mod model_downshift;
 /// What fills a session's context window.
 mod context_breakdown;
+/// What a hosted Session is doing now, as Fleet saw it.
+mod session_activity;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -498,6 +500,7 @@ pub use autopilot::{
     AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
 pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile};
+pub use session_activity::{SessionActivity, SessionTodo, SessionTodoState};
 pub use model_downshift::{ModelDownshift, ModelDownshiftState};
 pub use plan_usage::{PlanUsage, PlanWindow};
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};

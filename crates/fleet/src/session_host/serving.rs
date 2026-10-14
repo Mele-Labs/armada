@@ -468,7 +468,7 @@ where
         }
     }
 
-    async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
+    async fn gate_session_call(self: Arc<Self>, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
     }
 }

@@ -173,6 +173,8 @@ where
                 }
                 {
                     let mut state = runtime.state();
+                    // A turn Fleet's own notice began is a new turn all the same.
+                    state.activity.turn_began();
                     state.turn_began = Some(began);
                     state.said = None;
                     state.resolved_model = (!model.is_empty()).then_some(model);
