@@ -11,7 +11,7 @@ export const fleetTimelineFeed = walk("fleet-timeline", [
   { look: timeline, say: "The feed, newest first. A mark on a spine for each event, the subject named on the row: a Job or a Session. A pull request's events sit on its owner's rows, the number leading the detail" },
   { look: button(/Job: Cache the manifest read/), say: "A row whose subject needs him carries it in its edge: this Job asked for a command and has not been answered" },
   { look: button(/Job: Install the PWA shell offline/), say: "Quiet for longer than ten minutes while working reads the same way, in orange" },
-  { look: button(/Job: Move the store reads/), say: "A Job that failed, in red" },
+  { look: button(/Job: Debounce/), say: "A Check red on a Job, in red" },
   { press: tab("Your move"), say: "Your move keeps the subjects that need him, have failed or have gone quiet" },
   { look: timeline, say: "Only their events" },
   { press: tab("Done"), say: "Done keeps what is over" },
