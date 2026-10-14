@@ -17,6 +17,7 @@ import {
   spentUntil,
   customTitleIn,
   titleOf,
+  saidOf,
   touchedOf,
   transcriptPath,
 } from './facts'
@@ -26,6 +27,13 @@ test('a title is the first line of a prompt, cut, and never a command', () => {
   expect(titleOf('/compact')).toBeUndefined()
   expect(titleOf('   \n  ')).toBeUndefined()
   expect(titleOf('x'.repeat(200))?.length).toBe(80)
+})
+
+test('what a turn said is the first line of its answer, flat and cut, and nothing for a turn that said nothing', () => {
+  expect(saidOf('\n  The cap   is five.\nAnd the backoff stops there.')).toBe('The cap is five.')
+  expect(saidOf('x'.repeat(300))?.length).toBe(200)
+  expect(saidOf('  \n ')).toBeUndefined()
+  expect(saidOf('')).toBeUndefined()
 })
 
 test('a git command that may move the branch is told from one that cannot', () => {
