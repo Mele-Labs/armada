@@ -602,7 +602,7 @@ A fenced shell block in a Session's thread shows Run when the block is hovered o
 
 The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 
-**A block with no language is a shell block when it reads as one** (`readsAsShell`): every line opens like a command, after an optional `$ `, and none reads as code, JSON, prose or a diagram. A doubt is no Run. In a **terminal** Session, inline code that is exactly a command the terminal lists (`` `/update-armada` ``, `` `/model opus` ``) is pressable instead: it is run in the terminal as typed with `run_session_command` (`POST /sessions/command`), no output comes back, and a check says Sent. A Fleet-hosted Session has no terminal, so the code stays plain.
+**A block with no language is a shell block when it reads as one** (`readsAsShell`): every line opens like a command, after an optional `$ `, and none reads as code, JSON, prose or a diagram. A doubt is no Run. In a **terminal** Session, inline code that is exactly a command the terminal lists (`` `/update-armada` ``, `` `/model opus` ``) is pressable instead: it is run in the terminal as typed with `run_session_command` (`POST /sessions/command`), no output comes back, and a check says Sent. A Fleet-hosted Session has no terminal, so the code stays plain. A waiting item whose `run` target is such a command takes the same path: Run in the Needs-you list sends it to the terminal instead of a shell, and a Sent settles the item.
 
 ## A terminal session's thread
 
