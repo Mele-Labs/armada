@@ -92,8 +92,9 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `image` | A picture the session **looked at**: a `Read` of a `png`, `jpg`, `jpeg`, `gif` or `webp`, in any directory (a screenshot is usually in `/tmp`). The same path twice is one row, and a picture it wrote stays `file` | the file, on this machine |
 | `doc` | A Claude Docs document made or edited (`mcp__claude_ai_Claude_Docs__create`, `batch`, `update`), by the address its answer carries or the document's id | the address, in the browser |
 | `window` | A page the session showed with `show_window` | the address, in Bridge's own window |
+| `sketch` | A diagram the session drew with `show_sketch`; `target` is `sketch:<title>` and `detail.by` is `agent` | the sketch pad |
 
-The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
+The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
 **A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
 
@@ -409,6 +410,26 @@ an agent whose hooks name a Fleet port that changed.
 | A question meanwhile | Refused with a reason the agent reads: put it under `waiting_for` and end the turn, or, for a question about the page, ask it in the window with `ask_in_window` (*Asking in the window*). A hosted session's is refused at its permission door; a terminal session's at `ask_from_terminal`, which the mod asks before the terminal's own prompt opens |
 
 The mod's first-message note and `show_window`'s description tell the agent the same. Closing the window ends the walk and does not settle its `walk:` item, which still waits. A Bridge that quits with a window open may not reach Fleet to say so. The walk then reads open until it is approved or replaced, and a question meanwhile goes under `waiting_for`, which blocks nothing.
+
+## Drawing a sketch
+
+**A session draws the person a diagram with `show_sketch`** (`title`, `scene`, optional `against`), a tool on the agent's door, in place of ASCII art. The scene is the format of `docs/concepts/sketch-pane.md`: `nodes`, `edges` and optional `strokes`. Fleet places a hosted session by its connection, as for `show_window`; a terminal session names its own id.
+
+**A scene that `parseScene` would draw as an empty frame is refused first.** `ipc` (`sketch.rs`) checks it against the same rules and answers 422 with up to twelve problems, each naming the part (`nodes[1] `b``), what it holds and what is allowed. It is stricter in one way: a field the format has no name for is refused, where `parseScene` drops it. A scene with no nodes is refused. The kinds, wire parts and icons are listed in the tool's description, and `crates/ipc/src/tests/sketch.rs` fails when they differ from `scene.ts`.
+
+| Cap | Holds |
+|---|---|
+| Nodes, edges, strokes | 80, 120, 20 |
+| Scene, written, with `against` | 32768 bytes |
+| Title | 120 characters |
+
+**It is kept as an artifact of form `sketch`**, `target` `sketch:<title>`, with `detail` of `by` `agent`, `title` and `scene`, the scene as JSON text, and `against` where the call named one. A second call with the same title replaces the first where it stands; another title adds one. It stays on the ledger after the session ends and survives a restart. The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`, the arguments unwrapped from the door's `body` and carried whole (`title`, `scene`, `against`; not `session_id`), which Bridge draws the sketch's card from. No window opens. Through the door the answer is a receipt of `session_id` and `sketch`.
+
+**`step` orders what plays.** It is a finite number on a node or an edge, with one numbering for both: everything with the same step plays together, in ascending order, the dot travels an edge from `from` to `to`, and an edge with no step never pulses. A sequence diagram is groups as lifelines, label nodes as points and stepped edges between them; a workflow steps its nodes and its arrows.
+
+**`against` names an earlier sketch of the session by title**, which the owner reads this one as a change to. Fleet resolves it at the call and keeps that scene whole in `detail.against`, a JSON object `{"title", "scene"}` written as text (`detail` holds strings only), `scene` being the earlier scene's text as it was kept. A later replacement of the earlier sketch does not move the diff, and a sketch may be drawn against the title it replaces. A title the session holds no sketch of is refused with the titles it does hold, and a blank one is refused. The earlier scene counts in the byte cap with the new one.
+
+**The scene rides on the record**, which is published whole on every change, so each sketch is carried by every event after it. That is why the byte cap is 32 KiB and not more.
 
 ## Asking in the window
 

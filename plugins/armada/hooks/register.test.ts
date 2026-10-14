@@ -633,6 +633,14 @@ test('the first-message note says a question waits during a walk, and one about 
   expect(note).toContain('call ask_in_window')
 })
 
+test('the first-message note names show_sketch for any diagram and forbids ASCII art', async ($, on) => {
+  world(on)
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  const note = out.additionalContext?.[0] ?? ''
+  expect(note).toContain('call show_sketch')
+  expect(note).toContain('never draw ASCII art')
+})
+
 test('a Drone is told no session id at a start', async ($, on) => {
   world(on, { env: { ARMADA_DRONE: '1' } })
   const out = await $.classic.SessionStart({ source: 'startup' })

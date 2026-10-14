@@ -155,6 +155,19 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn show_sketch(
+        &self,
+        _caller: Option<crate::Caller>,
+        show: ipc::ShowSketch,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: show.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
     async fn ask_in_window(
         &self,
         _caller: Option<crate::Caller>,

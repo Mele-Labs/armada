@@ -88,6 +88,7 @@ mod turns;
 /// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
 mod walk_notes;
 mod window_asks;
+mod sketch;
 /// An Epic's wave: each pass's line, and each member's waits-on edges.
 mod waves;
 mod work_plan;

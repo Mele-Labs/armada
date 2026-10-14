@@ -69,6 +69,10 @@ struct Fields {
     title: Option<Said>,
     task: Option<Said>,
     group: Option<Said>,
+    // `show_sketch`'s own fields. `title` is read above, and `scene` is held only as long as the call's
+    // line is being read: what is made of it is decided by the operation, in [`sketch_call`].
+    against: Option<Said>,
+    scene: Option<ipc::RawScene>,
 }
 
 /// A door call's `body`, or nothing where it is not an object.
@@ -151,6 +155,29 @@ pub(crate) fn figure(operation: &str, call: &Arguments) -> Option<String> {
         "redirect_one_drone" => call.drone_id.and_then(|said| said.0.clone()),
         _ => None,
     }
+}
+
+/// A `show_sketch` call's arguments as JSON text, whole, or `None` for any other operation and for a
+/// call that sent no title or no scene.
+///
+/// **The one operation whose row carries its content**, because the row is what Bridge draws the sketch
+/// from: the thread card reads `<tool> <this text>`. The door sent the fields under `body` and they
+/// are unwrapped here, so the text is `{"title",…}` at the top level. The call was capped at 32 KiB by
+/// the tool, so the text is as long as that and no more; `CallDetail` keeps it whole beside the
+/// 200-character line a row shows. `session_id` is not carried: Fleet places the call by its connection.
+pub(crate) fn sketch_call(operation: &str, call: &Arguments) -> Option<String> {
+    if operation != "show_sketch" {
+        return None;
+    }
+    let fields = call.body.map(|body| &body.0)?;
+    let said = |field: &Option<Said>| field.as_ref().and_then(|said| said.0.clone());
+    let show = ipc::ShowSketch {
+        title: said(&fields.title)?,
+        scene: fields.scene.clone()?,
+        session_id: None,
+        against: said(&fields.against),
+    };
+    ipc::encode(&show).ok()
 }
 
 /// A figure in millionths of a dollar, to the cent and without cents where

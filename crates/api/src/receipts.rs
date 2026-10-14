@@ -28,6 +28,9 @@ enum Set<'a> {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         takes: Vec<&'a str>,
     },
+    Sketch {
+        sketch: &'a str,
+    },
     Asked {
         #[serde(skip_serializing_if = "Option::is_none")]
         asked: Option<&'a str>,
@@ -72,6 +75,10 @@ impl<'a> Receipt<'a> {
                 .collect(),
         };
         Receipt::of(record, set)
+    }
+
+    pub(crate) fn sketch(record: &'a SessionRecord, show: &'a ipc::ShowSketch) -> Self {
+        Receipt::of(record, Set::Sketch { sketch: show.title.trim() })
     }
 
     /// The newest open question at the place the agent named.

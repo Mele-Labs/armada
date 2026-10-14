@@ -145,3 +145,80 @@ fn a_drones_own_add_task_is_not_read_as_a_commanders() {
         ""
     );
 }
+
+/// What a thread row says for the call: the tool, then the detail the way the session host writes it,
+/// the whole where the row was cut.
+fn row_of(tool: &str, input: &str) -> String {
+    let line = format!(
+        r#"{{"type":"assistant","message":{{"content":[
+             {{"type":"tool_use","id":"a","name":"{tool}","input":{input}}}]}}}}"#
+    );
+    let read = read(&line);
+    let [DroneEvent::Called { tool, detail, .. }] = &read[..] else {
+        panic!("{read:?}");
+    };
+    format!("{tool} {}", detail.whole().unwrap_or(detail.shown()))
+}
+
+// Written as the row will carry it: `title`, `scene`, `against`, and the scene's keys in order.
+const SKETCH: &str = r#"{"title":"Request flow","scene":{"edges":[],"nodes":[{"id":"a","kind":"box","title":"Bridge","x":0,"y":0}]}}"#;
+
+#[test]
+fn a_show_sketch_row_carries_the_call_s_arguments_unwrapped_from_the_door_s_body() {
+    let row = row_of(
+        "mcp__armada-fleet__show_sketch",
+        &format!(r#"{{"body":{SKETCH}}}"#),
+    );
+    assert_eq!(row, format!("mcp__armada-fleet__show_sketch {SKETCH}"));
+}
+
+#[test]
+fn a_show_sketch_row_names_what_it_is_drawn_against_and_leaves_the_session_id_out() {
+    let row = row_of(
+        "show_sketch",
+        r#"{"body":{"session_id":"S1","title":"After","against":"Before","scene":{"nodes":[],"edges":[]}}}"#,
+    );
+    assert_eq!(
+        row,
+        r#"show_sketch {"title":"After","scene":{"edges":[],"nodes":[]},"against":"Before"}"#
+    );
+}
+
+#[test]
+fn a_show_sketch_scene_past_the_row_s_bound_is_kept_whole_in_the_row() {
+    let nodes: Vec<String> = (0..60)
+        .map(|n| format!(r#"{{"id":"n{n}","kind":"box","x":{n},"y":0,"body":"{}"}}"#, "word ".repeat(20).trim()))
+        .collect();
+    let scene = format!(r#"{{"nodes":[{}],"edges":[]}}"#, nodes.join(","));
+    let row = row_of(
+        "mcp__armada-fleet__show_sketch",
+        &format!(r#"{{"body":{{"title":"Big","scene":{scene}}}}}"#),
+    );
+    let text = row.strip_prefix("mcp__armada-fleet__show_sketch ").unwrap();
+    assert!(text.chars().count() > 5_000, "{}", text.chars().count());
+    assert!(text.starts_with(r#"{"title":"Big","scene":{"#) && text.ends_with("}]}}"), "{}", &text[text.len() - 40..]);
+    assert!(text.contains(r#""id":"n59""#), "the last node is in the row");
+}
+
+#[test]
+fn a_show_sketch_call_with_no_title_or_no_scene_has_no_detail() {
+    for body in [r#"{"scene":{"nodes":[],"edges":[]}}"#, r#"{"title":"Flow"}"#, r#""just text""#] {
+        assert_eq!(detail_of("show_sketch", &format!(r#"{{"body":{body}}}"#)), "", "{body}");
+    }
+}
+
+#[test]
+fn another_tool_with_a_title_and_a_scene_keeps_its_own_reading() {
+    // `add_task` reads its title, and a `scene` beside it is not carried.
+    assert_eq!(
+        detail_of(
+            "mcp__armada__add_task",
+            r#"{"job_id":"01JOB9","body":{"title":"Narrower","scene":{"nodes":[]}}}"#
+        ),
+        "Narrower"
+    );
+    assert_eq!(
+        row_of("mcp__armada-fleet__show_window", r#"{"body":{"url":"http://localhost:5173/","title":"Page"}}"#),
+        "mcp__armada-fleet__show_window "
+    );
+}

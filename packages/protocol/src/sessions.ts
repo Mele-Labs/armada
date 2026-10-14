@@ -223,6 +223,13 @@ export type WindowTake = { name: string; url: string };
 export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[] };
 
 /**
+ * `POST /sessions/sketch`, the agent's: a diagram to draw. `scene` is the format `parseScene` reads
+ * (`SketchScene/scene.ts`), which Fleet has already checked by the time Bridge sees it. It lands on the
+ * ledger as an artifact of form `sketch`, keyed by `title`: a second call with the same title replaces it.
+ */
+export type ShowSketch = { title: string; scene: unknown; session_id?: string };
+
+/**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
  * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
  */

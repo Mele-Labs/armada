@@ -236,6 +236,9 @@ fn detail(name: &str, input: &ToolInput) -> CallDetail {
         drone_id: input.drone_id.as_ref(),
         body: input.body.as_ref(),
     };
+    if let Some(sketch) = acted::sketch_call(operation, &call) {
+        return CallDetail::of(&sketch);
+    }
     if let Some(figure) = acted::figure(operation, &call) {
         return CallDetail::of(&figure);
     }
@@ -585,7 +588,7 @@ struct ToolInput {
     task_id: Option<Said>,
     /// `redirect_one_drone`: the Drone, a segment of its path.
     drone_id: Option<Said>,
-    /// A door call's own fields. Only what [`acted::figure`] reads is kept.
+    /// A door call's own fields. Only what [`acted::figure`] and [`acted::sketch_call`] read is kept.
     body: Option<Body>,
 }
 

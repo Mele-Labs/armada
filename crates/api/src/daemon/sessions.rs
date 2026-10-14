@@ -64,6 +64,15 @@ pub trait Sessions: Send + Sync + 'static {
         show: ipc::ShowWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `show_sketch` — a session draws the person a diagram, kept on its ledger. `caller` places a
+    /// hosted session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`]
+    /// with every rule the scene breaks, or for a call that places no session.
+    fn show_sketch(
+        &self,
+        caller: Option<crate::Caller>,
+        show: ipc::ShowSketch,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
     /// Answers the run, or none where no Session holds the slot that directory is in.
     /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.

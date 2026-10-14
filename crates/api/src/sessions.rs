@@ -118,6 +118,30 @@ pub(crate) async fn show_window<D: Sessions>(
     }
 }
 
+/// A session draws the person a diagram. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a scene that breaks a
+/// rule, naming each, or a call that places no session. **The session is placed by the connection**, as `show_window`'s is.
+pub(crate) async fn show_sketch<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let show: ipc::ShowSketch = match ipc::decode("a sketch to show", &body) {
+        Ok(show) => show,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .show_sketch(crate::acting::asking(), show.clone())
+        .await
+    {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::sketch(&record, &show), served.run_id())
+        }
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session asks the person about a place on its walk. 200 with the row, or a [`Receipt`] through the door; 422 for an address on no
 /// window the session showed, a blank question or selector, or a call that places no session.
 pub(crate) async fn ask_in_window<D: Sessions>(

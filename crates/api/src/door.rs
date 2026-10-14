@@ -141,6 +141,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "waiting_for",
     "all_done",
     "show_window",
+    "show_sketch",
     "ask_in_window",
 ];
 
