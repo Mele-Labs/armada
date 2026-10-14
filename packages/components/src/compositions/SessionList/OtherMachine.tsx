@@ -30,6 +30,8 @@ export type OtherMachine = {
   sessions: readonly OtherSession[];
   /** Set once the machine has stopped being heard from: when it last was. */
   lastHeard?: string;
+  /** How the Cockpit's Your move shows this machine's waiting items, while the owner chooses between the two. Mock only. */
+  onCockpit?: "strip" | "cards";
 };
 
 const Held = createContext<OtherMachine | undefined>(undefined);

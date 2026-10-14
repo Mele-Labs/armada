@@ -17,7 +17,7 @@ export type AskCardProps = {
   /** What kind of ask it is, in the band: `Plan question`, `Review`. */
   kind: string;
   /** Where it is, at the band's trailing edge: a Job's handle. Absent draws none. */
-  where?: string;
+  where?: ReactNode;
   /** How long it has waited, already worded. */
   age?: string;
   /** What it is about, drawn large over the body. Absent draws none. */

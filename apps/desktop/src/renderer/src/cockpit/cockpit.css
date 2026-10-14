@@ -506,3 +506,59 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
   .armada-queue__strip { width: auto; max-width: calc(var(--space-12) * 4); }
   .armada-callcard__acts[data-consoled] { display: flex; }
 }
+
+/* ---- Another machine's waiting items: read-only, no keys ------------------------------------ */
+
+/* The strip: one line to an item, under the glass, so the cards stay the only things with keys. */
+.armada-remote-strip {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  list-style: none;
+}
+
+.armada-remote-strip__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-remote-strip__line .armada-session-mark { color: var(--status-awaiting-review); }
+.armada-remote-strip__text { flex: none; font-weight: var(--weight-medium); }
+
+.armada-remote-strip__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-remote-strip__age { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
+
+.armada-remote-strip__line[data-away] { color: var(--fg-muted); }
+.armada-remote-strip__line[data-away] .armada-session-mark { color: var(--fg-subtle); }
+
+/* The cards: under the card in front, in its column, the same frame with nothing to press. */
+.armada-remote-card { grid-column: 2; margin-top: var(--space-3); pointer-events: none; }
+.armada-remote-card .armada-callcard { --hue: var(--status-awaiting-review); border-style: dashed; box-shadow: none; animation: none; }
+.armada-remote-card .armada-callcard__band { background: var(--bg-raised); color: var(--hue); border-bottom: var(--border-width) dashed var(--hue); }
+.armada-remote-card__marks { display: inline-flex; align-items: center; gap: var(--space-2); }
+/* The band's caps are the band's, not a tooltip's. */
+.armada-remote-card .armada-tooltip__bubble { text-transform: none; letter-spacing: normal; font-family: var(--font-sans); }
+.armada-remote-card .armada-callcard__ask { font-size: var(--text-sm); line-height: var(--leading-sm); }
+.armada-remote-card[data-away] .armada-callcard { --hue: var(--fg-subtle); }
+.armada-remote-card[data-away] .armada-callcard__title,
+.armada-remote-card[data-away] .armada-callcard__ask { color: var(--fg-muted); }

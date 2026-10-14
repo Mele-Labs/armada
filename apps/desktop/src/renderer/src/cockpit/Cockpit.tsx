@@ -6,7 +6,7 @@
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, SquareTerminal } from "lucide-react";
-import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
+import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot, useOtherMachine } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
@@ -33,6 +33,7 @@ import { useLayout } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
+import { RemoteCards, RemoteStrip, remoteWaitingOf } from "./RemoteCalls";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
 import "./cockpit.css";
@@ -204,6 +205,7 @@ export function Cockpit({
   const [holds, setHolds] = useState<ReadonlyMap<string, number>>(new Map());
   const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
+  const other = useOtherMachine();
   const autopilot = useAutopilotLane({ picked, state, now });
   const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
   const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
@@ -460,6 +462,8 @@ export function Cockpit({
   const pane = filter !== "command-central" && filter !== "bays" && view !== "map" && current !== undefined;
   // Your move carries a dot while anything needs him: no figure, since a count is not what it says.
   const filters = useFilters(filter).map((one) => (one.id === "command-central" && calls.length > 0 ? { ...one, alert: "Needs you" } : one));
+  // Another machine's items are read, never answered: not calls, so no key of the deck reaches them.
+  const remote = deck ? remoteWaitingOf(other, now) : [];
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
   return (
@@ -529,6 +533,13 @@ export function Cockpit({
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
                 <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={nowOf(front)} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                {other?.onCockpit === "cards" ? <RemoteCards items={remote} now={now} /> : null}
+              </div>
+            </div>
+          ) : other?.onCockpit === "cards" && remote.length > 0 ? (
+            <div className="armada-cockpit__scrim">
+              <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
+                <RemoteCards items={remote} now={now} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (
@@ -539,6 +550,7 @@ export function Cockpit({
             </div>
           )}
         </div>
+        {other?.onCockpit === "strip" ? <RemoteStrip items={remote} now={now} /> : null}
         {mergeLine && filter !== "bays" ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
       </section>
     </div>
