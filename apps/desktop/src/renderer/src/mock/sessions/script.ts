@@ -8,6 +8,8 @@
 
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
+import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE } from "./sketches";
+import type { Scene } from "@armada/components";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
@@ -27,6 +29,9 @@ export type Gate = { wait: () => Promise<void>; release: () => void };
 
 /** How long Fleet takes to answer, and then to stop carrying what it answered. Where `held` is set it waits on that instead of on the clocks. */
 export type Pace = { answerMs: number; settleMs: number; held?: Gate };
+
+/** The Session that draws a sketch each time it is spoken to: the first, the same title again, and a change to it. */
+export const SKETCHER = "s14";
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
@@ -270,6 +275,22 @@ export function sessionsStore(
         : [{ kind: "artifact", form: "window", id: url, title }],
     );
     openWindow(id, url);
+  };
+  /** The agent calls `show_sketch`: a card in the thread, and a row on the ledger that a sketch of the same title replaces. */
+  const showSketch = (id: string, title: string, drawing: Scene, against?: { title: string; drawing: Scene }) => {
+    const key = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const sketch: SessionAttachment = { kind: "sketch", id: key, title, by: "agent", drawing, ...(against === undefined ? {} : { against }) };
+    edit(id, (one) => ({
+      ...one,
+      rows: [
+        ...one.rows,
+        tool(`show_sketch ${title}`),
+        row((rid, stamp) => ({ id: rid, at: stamp, kind: "sketch", sketch: key, title, drawing, ...(against === undefined ? {} : { against: against.title }) })),
+      ],
+      attachments: one.attachments.some((a) => a.kind === "sketch" && a.id === key)
+        ? one.attachments.map((a) => (a.kind === "sketch" && a.id === key ? sketch : a))
+        : [...one.attachments, sketch],
+    }));
   };
   const attach = (match: (one: SessionAttachment) => boolean, to: SessionAttachment) =>
     edit(MINE, (one) => ({ ...one, attachments: one.attachments.map((a) => (match(a) ? to : a)) }));
@@ -581,6 +602,22 @@ export function sessionsStore(
             addTo(id, [said("Noted. I will change that.")]);
           }
           finishOf(id, "14:44");
+        });
+      } else if (id === SKETCHER) {
+        const had = asked.get(id) ?? 0;
+        asked.set(id, had + 1);
+        after(900, () => {
+          if (had === 0) {
+            showSketch(id, READS_TITLE, READS);
+            addTo(id, [said("Every write reads the wall clock. The test fails when the second turns between two writes.")]);
+          } else if (had === 1) {
+            showSketch(id, READS_TITLE, READS_AGAIN);
+            addTo(id, [said("Added the sleep I tried. It hides the failure and leaves the cause.")]);
+          } else {
+            showSketch(id, PINNED_TITLE, PINNED, { title: READS_TITLE, drawing: READS_AGAIN });
+            addTo(id, [said("The clock is injected and the test pins it. The sleep is gone.")]);
+          }
+          finishOf(id, "14:52");
         });
       } else if (id === MINE && !started) {
         started = true;

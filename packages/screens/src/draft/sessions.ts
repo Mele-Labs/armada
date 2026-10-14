@@ -9,6 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
+import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { PullRequestPage, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -62,8 +63,12 @@ export type SessionAttachment =
       pilotedElsewhere?: true;
     }
   | { kind: "studio"; id: string; title: string }
-  /** A sketch the agent published into the Session, or one the person shared with it. */
-  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
+  /**
+   * A sketch the agent published into the Session, or one the person shared with it.
+   * **The agent's is a scene, and a second one with the same title replaces the first under the same `id`.**
+   * `against` is the sketch it is read as a change to, held whole so a later replacement does not move it.
+   */
+  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
   /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
@@ -190,6 +195,11 @@ export type SessionRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /**
+   * The agent called `show_sketch`: where in the thread it did. `sketch` is the ledger row's `id`, `drawing` what
+   * was drawn at that point, and `against` the title of the sketch it was read against, where it was.
+   */
+  | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
