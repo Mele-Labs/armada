@@ -711,8 +711,9 @@ circle-*       Judge criterion verdicts only. circle-check, circle-x and
 human figure   human required, or actor=human. A person having written a
                criterion is actor=human: `user-pen`, the owner, 3 Oct 2026
 eye            review
-terminal       Pilot only. The action and the piloted status, which are one
-               concept at two points in a flow
+terminal       Pilot: the action and the piloted status, which are one
+               concept at two points in a flow. And a burst of commands run,
+               on the Cockpit's timeline only, by the owner's ruling of 14 Oct 2026
 hourglass      BANNED. Nothing may use it
 flag           stopped step only. A step whose retries are spent
 megaphone      job_status.escalated only. Never an alert or a notification —

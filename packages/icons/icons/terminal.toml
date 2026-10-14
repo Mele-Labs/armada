@@ -3,7 +3,7 @@
   group = "Job state"
   size = "12 and 16px"
   status = "Specified"
-  reserved = "Pilot only."
+  reserved = "Pilot, and a burst of commands run on the Cockpit's timeline. Nothing else."
 
 [[icons.terminal.usage]]
   means = "A Job a Session is piloting, on its ledger row"
@@ -16,5 +16,5 @@
   means = "A Session or a Job's Drone ran shell commands: one row for a burst of commands on the Cockpit's timeline"
   group = "Session"
   size = "12px"
-  status = "Proposed"
-  notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Ran`. **Conflict, not resolved:** the reserved list gives `terminal` to Pilot alone, and a command run is not Pilot. The walk was approved with this glyph; the reservation was not ruled on. Open for the owner. Draws in `--fg-subtle` on a muted row. The row opens to its commands, newest first."
+  status = "Specified"
+  notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Ran`. **An exception to the reservation to Pilot, ruled by the owner on 14 Oct 2026** (\"Keep terminal\"): a command run is not Pilot, and the two never share a surface, since Pilot is drawn on a Job's ledger row and this on a timeline row. Draws in `--fg-subtle` on a muted row. The row opens to its commands, newest first."
