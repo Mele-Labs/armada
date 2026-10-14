@@ -511,3 +511,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   .deck-replay__fill,
   .deck-replay__head { transition: none; }
 }
+
+/* A page opened from the deck is a layer over it: Back, as the pane left it. */
+.deck-layer { display: flex; padding: var(--space-3) var(--space-5) 0; }

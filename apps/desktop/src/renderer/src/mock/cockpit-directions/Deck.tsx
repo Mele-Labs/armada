@@ -7,8 +7,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
+import { Box, ChartNoAxesGantt, ChevronLeft, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Badge, Button, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
@@ -179,7 +179,10 @@ export function DeckChrome(props: AppSeamProps) {
   /** Pick a row of the list: the cursor moves with focus, and the row is brought into view. */
   const rowFocus = (key: string) => {
     moveCursor(key);
-    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)?.focus());
+    // At once where the row is drawn, so a held key does not step from a cursor the last press has not reached; after a frame where it is not yet.
+    const row = () => document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`);
+    if (row() !== null) row()!.focus();
+    else window.requestAnimationFrame(() => row()?.focus());
   };
 
   useDeckKeys((event) => {
@@ -321,6 +324,17 @@ export function DeckChrome(props: AppSeamProps) {
           )}
       <DeckKeySheet open={keySheet} onClose={() => setKeySheet(false)} />
       <div className="deck-chrome">
+        {here || place !== "cockpit" ? null : (
+          <div className="deck-layer">
+            <Tooltip label="Back to the Cockpit">
+              <Button variant="secondary" size="sm" aria-label="Back to the Cockpit" onClick={() => props.back()}>
+                <ChevronLeft size={14} aria-hidden />
+                Cockpit
+                <Kbd>Esc</Kbd>
+              </Button>
+            </Tooltip>
+          </div>
+        )}
         {place !== "system" ? null : (
           <nav className="deck-system" aria-label="System">
             <Tabs items={SYSTEM} value={props.showing} onChange={(id) => props.goTo(id)} />

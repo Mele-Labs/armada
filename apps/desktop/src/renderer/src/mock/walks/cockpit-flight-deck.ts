@@ -16,6 +16,8 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { press: inside(list, button("Shorten the reconnect wait")), say: "Pick a Job from the column" },
   { look: inside(stage(/^Job: Shorten the reconnect wait/), role("group", "Canvas")), say: "A small Job canvas: the step it is on is live, the rest are quiet" },
   { look: inside(stage(/^Job: Shorten the reconnect wait/), role("group", "Running now")), say: "And what it is running now, beside it" },
+  { press: inside(stage(/^Job: Shorten the reconnect wait/), button("Open the Job page")), say: "The canvas is the one the Job page draws, read only. Open the Job page opens the page itself, as a layer over the deck" },
+  { press: button("Back to the Cockpit"), say: "Back returns to the deck with the Job still open in the area" },
   { look: inside(region("Activity"), text(/Shorten the reconnect wait/)), say: "Activity is the Cockpit's feed, newest first, in the column under the list" },
   { later: places, say: "A Session replies" },
   { look: inside(incoming, button(/Pin the store clock/)), say: "A call arrives in the panel under the Bays and rings until he opens it" },
