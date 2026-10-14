@@ -738,6 +738,10 @@ where
             self.first_message_sent(&id).await;
         }
 
+        let runtime = self.hosts().of(&id);
+        self.ensure_process(&id, &hosting)
+            .await
+            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         let mut turn = String::new();
         if !hosting.ran {
             if let Some(preface) = self.handoff_preface(&id).await {
@@ -757,13 +761,10 @@ where
         for path in &kept.paths {
             turn.push_str(&format!("\n\nAttached file: {path}"));
         }
+        let turn = super::cut_off::told(&mut runtime.state(), turn);
         let line = ipc::encode(&UserLine::of(turn, kept.pictures))
             .map_err(|why| self.hosted_refusal(SESSION_UNSTARTED, &why.to_string()))?;
 
-        let runtime = self.hosts().of(&id);
-        self.ensure_process(&id, &hosting)
-            .await
-            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         {
             let mut state = runtime.state();
             state.turn = SessionTurn::Working { woken_by: None };
@@ -1012,6 +1013,14 @@ where
                 let served = served.map_err(|_| {
                     format!("the repository {} is no longer served", hosting.manifest_id)
                 })?;
+                // **A session that has run is leased its slot before its process starts**, so no
+                // tool call of the first turn is the one that moves it.
+                let resuming = hosting.ran && self.has_a_conversation(id).await;
+                let resumed = match resuming {
+                    true => self.leased_for_resume(&served, hosting).await,
+                    false => hosting.clone(),
+                };
+                let hosting = &resumed;
                 let directory = Self::directory_of(&served, hosting);
                 let start = Start {
                     directory: directory.clone(),
@@ -1020,7 +1029,7 @@ where
                     // started and ended before its first turn wrote none, and `--resume` on it
                     // exits at once ("No conversation found"), so every later message was lost
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
-                    resuming: hosting.ran && self.has_a_conversation(id).await,
+                    resuming,
                     forking: hosting.fork_of.clone(),
                     fork_note: match &hosting.fork_of {
                         Some(old) => self.fork_note_of(id, old).await,
@@ -1044,7 +1053,10 @@ where
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {
-                    self.kept_restart(id, "resumed", None).await;
+                    let cut = self.cut_off_subagents(id).await;
+                    self.kept_restart(id, "resumed", super::cut_off::cut_off_said(&cut).as_deref())
+                        .await;
+                    runtime.state().cut_off = cut;
                 }
                 (process, directory)
             }

@@ -20,6 +20,7 @@ const boardRow = (words: string) => role("option", words);
 export const originsAndPanelFields = walk("origins-and-panel-fields", [
   { press: button("Dispatch", { exact: true }), say: "Dispatch the request" },
   { press: tab("Active"), say: "A Job being proposed is under way" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: boardRow(REQUEST), say: "Its tile arrives with the request on it: the proposer has not settled the workflow" },
   { look: inside(boardRow(REQUEST), role("list", "Steps")), say: "The workflow lands, and its steps come onto the tile as pips" },
   { press: tab("Your move"), say: "A Job waiting at its gate needs you" },

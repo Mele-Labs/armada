@@ -21,6 +21,7 @@ const PANEL = (n: number) => dialog(`slot-${n}`);
 export const pausingAJob = walk("pausing/jobs", [
   ...putOff(1),
   { press: tab("Active"), say: "A running Job, on Active" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { press: role("option", new RegExp(RUNNING)), say: "Picked, its acts beside it" },
   { press: MORE(RUNNING), say: "Pause is in the caret beside the verb" },
   { press: role("menuitem", "Pause", { exact: true }), say: "Pause asks first" },
@@ -34,6 +35,7 @@ export const pausingAJob = walk("pausing/jobs", [
   { look: inside(role("listitem", "slot-1", { exact: true }), role("img", "Free", { exact: true })), say: "slot-1 is free, and the Job's work is on its branch" },
   { press: role("button", "Cockpit", { exact: true }), say: "Back to the Dashboard" },
   { press: tab("Active"), say: "A Job at its review gate, on Active" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { press: role("option", new RegExp(GATE)), say: "Picked" },
   { press: MORE(GATE), say: "A Job at its gate: the same caret" },
   { press: role("menuitem", "Pause", { exact: true }), say: "Pause asks first" },

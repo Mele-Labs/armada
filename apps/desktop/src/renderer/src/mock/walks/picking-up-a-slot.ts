@@ -20,5 +20,6 @@ export const pickingUpASlot = walk("cleanup/slots", [
   { press: IN_PANEL("Close panel Esc"), say: "Close the panel" },
   { press: button("Cockpit", { exact: true }), say: "Back to the Dashboard" },
   { press: tab("Active"), say: "Running" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: role("option", "Continue the work on branch fleet/an-old-try."), say: "The proposal is a row, titled with its request" },
 ]);

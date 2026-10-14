@@ -1,8 +1,9 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
-// repository picked and the mock's Autopilot mid-run: the bar on every filter, Pause and Stop, the
-// start form, each set-aside pick in Your move, its marks and sidings on the Bays metro, and the one
-// bar's third kind. #2092. Then #2105's: the second repository's paused by its Job cap and raised,
-// All with none on, and a step the Judges sent back.
+// repository picked and the mock's Autopilot mid-run: the header control that opens its bar at the top,
+// the bar on every filter, Pause and Stop, the start form, each set-aside pick in Your move, its marks
+// and sidings on the Bays metro, and the one bar's third kind. #2092. Then #2105's: the second
+// repository's paused by its Job cap and raised, All with none picked asking for one, and a step the
+// Judges sent back.
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -11,7 +12,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { forgetDismissals } from "../cockpit/dismissed";
 import type { Scenario } from "./moment";
 import { scenarioNamed } from "./scenario";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 beforeEach(forgetDismissals);
@@ -39,18 +40,25 @@ const issue = (n: number) => `#${n}`;
 
 const bar = () => page.getByRole("region", { name: "Autopilot" });
 
+/** The control in the header band, which opens the bar at the top of the Cockpit and puts it away. */
+const control = () => page.getByRole("button", { name: "Autopilot", exact: true });
+
 /** The switch, pressed where a person presses it: on its label, since the native box is clipped. */
 const flip = () => bar().getByText("Autopilot", { exact: true }).click();
 
-async function cockpit(): Promise<void> {
+/** The bar is put away until the control is pressed, so this opens it. */
+async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
   localStorage.removeItem("armada.bridge.dashboard-tab");
-  mount(onTheRepository());
+  mount(scenario);
   await onScreen();
-  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
+  expect(bar().query()).toBeNull();
+  await control().click();
+  await expect.element(bar().getByRole("status")).toBeVisible();
 }
 
 test("the bar is on every filter, with its caps used of their limit, and pauses and resumes", async () => {
   await cockpit();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar()).toHaveTextContent("work through the open issues that don't need design decisions");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
   await expect.element(bar().getByText("$4.12 of $30")).toBeVisible();
@@ -67,6 +75,7 @@ test("the bar is on every filter, with its caps used of their limit, and pauses 
 
 test("turning it off asks in the bar first, and turning it on reads a sentence before anything starts", async () => {
   await cockpit();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await flip();
   const asked = bar().getByRole("group", { name: "Stop Autopilot" });
   await expect.element(asked).toHaveTextContent(`Stop ends Autopilot. ${issue(401)}, picked and not started, is withdrawn.`);
@@ -88,6 +97,7 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
 });
 
 test("a pick it set aside is in Your move, and Dismiss takes it off", async () => {
+  rememberingTheGrid();
   await cockpit();
   const tile = page.getByRole("option", { name: `${issue(377)} Should the Board group Jobs by repository?` });
   await expect.element(tile).toBeVisible();
@@ -141,9 +151,7 @@ function onPocket(): Scenario {
 }
 
 test("a cap paused it: the bar names the cap, Resume is refused while it holds, and raising it lets Resume through", async () => {
-  localStorage.removeItem("armada.bridge.dashboard-tab");
-  mount(onPocket());
-  await onScreen();
+  await cockpit(onPocket());
   await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
   await expect.element(bar().getByText("3 of 3 started")).toHaveTextContent("3 of 3 started · reached");
 
@@ -160,13 +168,38 @@ test("a cap paused it: the bar names the cap, Resume is refused while it holds, 
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
 
-test("on All with no Autopilot on anywhere, one quiet line says where to start one", async () => {
+test("on All with no repository picked the control asks for one, and the bar opens for the one picked", async () => {
   localStorage.removeItem("armada.bridge.dashboard-tab");
   mount(scenarioNamed("dashboard-cockpit")!);
   await onScreen();
-  await expect.element(page.getByText("Pick a repository to start Autopilot")).toBeVisible();
-  expect(page.getByRole("region", { name: "Autopilot" }).query()).toBeNull();
+  // Nothing stands at rest, and no line says where to start one.
+  expect(bar().query()).toBeNull();
+  expect(page.getByText("Pick a repository to start Autopilot").query()).toBeNull();
   expect(page.getByRole("switch", { name: "Autopilot" }).query()).toBeNull();
+
+  // No repository is picked, so the press asks for one in the repository menu.
+  await control().click();
+  await expect.element(page.getByRole("searchbox", { name: "Find a repository" })).toBeVisible();
+  expect(bar().query()).toBeNull();
+  await page.getByRole("menuitem", { name: /armada/ }).click();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
+  // It is now a control that is pressed while the bar is open.
+  await expect.element(control()).toHaveAttribute("aria-pressed", "true");
+});
+
+test("pressing the control again puts the bar away without stopping Autopilot", async () => {
+  await cockpit();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
+  await expect.element(control()).toHaveAttribute("aria-pressed", "true");
+
+  await control().click();
+  await expect.poll(() => bar().query()).toBeNull();
+  await expect.element(control()).toHaveAttribute("aria-pressed", "false");
+  // Still on: the control says so, and the bar comes back running where it was.
+  await expect.element(control()).toHaveAttribute("data-autopilot", "running");
+  await control().click();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
+  await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
 });
 
 test("a step the Judges sent back to its Drone says so on its card", async () => {

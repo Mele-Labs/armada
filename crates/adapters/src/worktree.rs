@@ -243,8 +243,16 @@ impl Vcs for GitVcs {
         pool: &SlotPool,
         branch: &str,
     ) -> Result<bool, adapter_traits::BranchKept> {
+        // A merge lands on the remote first, and the remote-tracking base here is only as new as
+        // the last fetch. A failed fetch leaves the check to what is here.
+        let _ = crate::build_standing::fetch_main(pool.repo_root(), std::time::Duration::from_secs(20));
         noted(crate::reclaim::delete_merged_branch(pool.repo_root(), branch))
             .map_err(adapter_traits::BranchKept)
+    }
+
+    fn branch_is_merged(&self, pool: &SlotPool, branch: &str) -> bool {
+        let _ = crate::build_standing::fetch_main(pool.repo_root(), std::time::Duration::from_secs(20));
+        crate::reclaim::branch_is_merged(pool.repo_root(), branch)
     }
 
     fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str) {

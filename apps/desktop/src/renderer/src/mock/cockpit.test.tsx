@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { s205DashboardNeedsYou } from "./scenarios/dashboard-needs-you";
 import type { Scenario } from "./moment";
-import { motion, mount, onScreen, unmountAfterEach } from "./testing";
+import { motion, mount, onScreen, remembering, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -33,14 +33,14 @@ const radio = (name: RegExp) => page.getByRole("radio", { name });
 /** An act runs on one press, so it is a button on the rail, and an option is a radio. */
 const act = (name: RegExp) => page.getByRole("button", { name });
 
-test("Your move with nothing waiting is empty and says nothing, and the dispatch bar above it is the one line", async () => {
+test("Your move with nothing waiting is empty and says nothing, and no dispatch bar stands above it", async () => {
   localStorage.removeItem(FILTER);
+  remembering({ [VIEW]: "grid" });
   mount("dashboard-cockpit");
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
   expect(document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [role="option"]').length).toBe(0);
-  // The bar is a line at rest: its frame is not grown, so nothing of the panel is drawn under it.
-  await expect.element(page.getByRole("textbox", { name: "Request" })).toBeVisible();
-  expect(page.getByRole("button", { name: "Dispatch", exact: true }).query()).toBeNull();
+  // The Cockpit has no dispatch bar of its own: dispatching is the title bar's.
+  expect(page.getByRole("textbox", { name: "Request" }).query()).toBeNull();
 });
 
 test("[ and ] step the filters round, Option and a digit jumps, and the filter is kept", async () => {
@@ -165,13 +165,20 @@ test("the standing answers b and g are on an agent's question, and not on a call
   await expect.element(radio(/Just get it done/)).toHaveAttribute("aria-checked", "true");
 });
 
-test("the grid offers its acts, and m turns it into the timeline, a choice that is kept", async () => {
+test("the Cockpit opens on the timeline, m turns it into the grid and its acts, a choice that is kept", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Active" }).click();
   const star = () => page.getByRole("option", { name: /^Debounce the Job Board/ });
 
+  // Nothing is remembered, so it opens on the timeline; opening it stores nothing.
+  await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
+  expect(page.getByRole("listbox", { name: "Tiles" }).query()).toBeNull();
+  expect(localStorage.getItem(VIEW)).toBeNull();
+
   // The grid.
+  await userEvent.keyboard("m");
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
+  expect(localStorage.getItem(VIEW)).toBe("grid");
   await star().click();
   await expect.element(star()).toHaveAttribute("aria-selected", "true");
   await userEvent.keyboard("x");
@@ -184,9 +191,16 @@ test("the grid offers its acts, and m turns it into the timeline, a choice that 
   await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
   expect(page.getByRole("listbox", { name: "Tiles" }).query()).toBeNull();
   expect(localStorage.getItem(VIEW)).toBe("map");
-  await userEvent.keyboard("m");
+});
+
+test("a grid he picked is the view it opens on, and the timeline is not drawn", async () => {
+  localStorage.removeItem(FILTER);
+  remembering({ [VIEW]: "grid" });
+  mount("dashboard-cockpit");
+  await onScreen();
+  await page.getByRole("tab", { name: "Active" }).click();
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
-  expect(localStorage.getItem(VIEW)).toBe("grid");
+  expect(page.getByRole("region", { name: "Timeline" }).query()).toBeNull();
 });
 
 test("Bays is a filter of its own: each piece of work in a bay, and each waiting for one, a line through the same stations to main", async () => {
@@ -257,7 +271,6 @@ test("a bay a hosted Session holds is released from its line: the idle one frees
 test("the call deck is not drawn over the timeline, and the Your move tab says a call waits", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Active" }).click();
-  await userEvent.keyboard("m");
   await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
   timePasses();
   await expect.element(page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" })).toBeVisible();

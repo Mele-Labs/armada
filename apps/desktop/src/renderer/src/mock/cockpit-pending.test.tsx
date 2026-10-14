@@ -9,7 +9,7 @@ import { page, userEvent } from "vitest/browser";
 import { holdFor } from "../cockpit/Cockpit";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { SLOW_FLEET } from "./cockpit-routes";
-import { entered, motion, mount, onScreen, unmountAfterEach } from "./testing";
+import { entered, motion, mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -146,6 +146,7 @@ test("a call Fleet keeps carrying comes back after the hold, with nothing said",
 });
 
 test("a Job whose workflow is still being settled holds the steps' place with the caret, and the steps replace it", async () => {
+  rememberingTheGrid();
   await asking();
   await userEvent.keyboard("{Escape}");
   await userEvent.keyboard("]");

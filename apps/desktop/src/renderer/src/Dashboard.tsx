@@ -188,6 +188,8 @@ export type Hosts = {
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
+  /** Picks a repository, as the title row's picker does. */
+  onPickRepository?: ((root: string) => void) | undefined;
 };
 
 /**
