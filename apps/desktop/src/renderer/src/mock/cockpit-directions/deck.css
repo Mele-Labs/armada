@@ -194,7 +194,7 @@ body:has(.deck-chrome) .armada-title-bar__search-label { display: none; }
 .deck-facts__row { display: grid; grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-2) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
 .deck-facts dt { color: var(--fg-subtle); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-caps); font-size: var(--text-2xs); }
 .deck-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--fg-default); }
-.deck-facts dd[data-mono] { font-family: var(--font-mono); }
+.deck-facts dd[data-mono] { font-family: var(--font-mono); white-space: pre-line; }
 .deck-pane__body[data-tone="bad"] .deck-facts__row:first-child dd { color: var(--status-completed-failed); }
 
 .deck-link { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
@@ -280,21 +280,19 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 
 .deck-bays__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; }
+/* A bay is two lines in the list's own row system: the bay, its state and its holder's kind; then the facts behind the state. */
 .deck-bay {
-  display: grid;
-  grid-template-columns: var(--space-4) minmax(0, auto) minmax(0, 1fr);
-  grid-template-areas: "state name repo" ". holder holder";
-  align-items: center;
-  column-gap: var(--space-3);
-  row-gap: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: calc(var(--radius-lg) * 1.5);
-  background: color-mix(in srgb, var(--fg-default) 5%, transparent);
+  border-radius: var(--radius-md);
+  background: none;
   color: var(--fg-default);
   font: inherit;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   text-align: left;
@@ -302,14 +300,30 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 }
 .deck-bay:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
 .deck-bay:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
-.deck-bay[data-selected] { background: var(--accent-muted); }
-.deck-bay__state { grid-area: state; display: inline-flex; color: var(--fg-subtle); }
-.deck-bay[data-bay="stranded"] .deck-bay__state,
-.deck-bay[data-bay="closed"] .deck-bay__state { color: var(--status-completed-failed); }
-.deck-bay__name { grid-area: name; font-weight: var(--weight-medium); }
-.deck-bay__repo { grid-area: repo; min-width: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-.deck-bay__holder { grid-area: holder; min-width: 0; overflow: hidden; color: var(--fg-muted); font-family: var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
-.deck-bay__holder:empty { display: none; }
+.deck-bay[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+.deck-bay__head,
+.deck-bay__facts { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); }
+.deck-bay__facts { padding-left: calc(var(--space-4) + var(--space-3)); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.deck-bay__state { display: inline-flex; flex: none; width: var(--space-4); color: var(--fg-subtle); }
+.deck-bay[data-bay="leased"] .deck-bay__state { color: var(--accent); }
+.deck-bay[data-bay="stranded"] .deck-bay__state { color: var(--status-awaiting-review); animation: deck-bay-pulse calc(var(--duration-pulse) * 3) ease-in-out infinite; }
+.deck-bay[data-bay="closed"] .deck-bay__state { color: var(--fg-subtle); }
+.deck-bay[data-bay="leased"][data-live] .deck-bay__state { animation: deck-bay-pulse calc(var(--duration-pulse) * 2.4) ease-in-out infinite; }
+@keyframes deck-bay-pulse { 50% { opacity: 0.4; } }
+.deck-bay__name { flex: none; font-weight: var(--weight-medium); }
+.deck-bay__mark { display: inline-flex; flex: none; color: var(--fg-muted); }
+.deck-bay__repo { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+/* Each cut-short text hangs from its tooltip's wrapper, which is what takes the room. */
+.deck-bay__facts > .armada-tooltip { flex: 0 2 auto; min-width: 0; }
+.deck-bay__facts > .armada-tooltip:has(> .deck-bay__who) { flex: 1 1 auto; }
+.deck-bay__facts > .armada-tooltip:has(> .deck-bay__branch) { max-width: 50%; }
+.deck-bay__who,
+.deck-bay__branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-bay__who { color: var(--fg-default); }
+.deck-bay__who[data-gone] { color: var(--fg-subtle); }
+.deck-bay__time { color: var(--fg-muted); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+.deck-bay__head > .armada-tooltip:has(> .deck-bay__time) { flex: none; }
+.deck-bay__marks { display: inline-flex; flex: none; align-items: center; gap: var(--space-2); margin-left: auto; }
 
 /* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
 
@@ -499,3 +513,14 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   .deck-replay__head { transition: none; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .deck-bay[data-bay="stranded"] .deck-bay__state,
+  .deck-bay[data-live] .deck-bay__state { animation: none; }
+}
+
+/* A stranded bay's pane: what it means, the Scout's finding, and the acts the Bays page offers for it. */
+.deck-slot__rescue { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
+.deck-slot__means { margin: 0; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-slot__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.deck-slot__asked { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); }
+.deck-link__plain { color: var(--fg-default); }

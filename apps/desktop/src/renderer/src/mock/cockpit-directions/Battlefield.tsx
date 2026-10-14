@@ -26,7 +26,7 @@ import { sceneOf, type SceneIn } from "./deck-mission";
 import { Pins, RouteLegs, tipOf } from "./Route";
 import { ALONG, CAM, FLAT, SLAB, STAGE_SAID, TRAIL_MS, alongOf, bigOf, heightsOf, layoutOf, rand, type DroneIn, type P3, type Placed, type Play, type Point, type RepoIn, type Size, type Territory, type Tile } from "./deck-field";
 
-export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; Glyph: Glyph; holder?: string };
+export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; Glyph: Glyph; holder?: string; holderKind?: "job" | "session"; /** It is the one that held it last. */ holderWas?: boolean; branch?: string };
 /** What a drone's callout says beyond the drone itself: its state as the list draws it, the call it holds, what it last did and when, its last hour. */
 export type DroneFacts = { state: { Glyph: Glyph; said: string; tone: "calm" | "ask" | "bad" }; call?: string; last?: { says: string; ago: string }; ticks: readonly number[]; bay?: { slot: number; Glyph: Glyph; word: string } };
 export type PrIn = { key: string; number: number; stage: keyof typeof ALONG; root: string; owner?: string };
@@ -505,7 +505,14 @@ function Goal({
 }
 
 function Pad({ pad, at, onPress, onTip }: { pad: PadIn; at: Point; onPress: () => void; onTip: OnTip }) {
-  const tip: Tip = { label: "Bay", title: `slot-${pad.slot}`, hue: pad.bay === "held" ? "calm" : "quiet", state: { Glyph: pad.Glyph, said: pad.word, tone: "calm" }, pills: [pad.repo], ...(pad.holder === undefined ? {} : { lines: [pad.holder] }) };
+  const tip: Tip = {
+    label: "Bay",
+    title: `slot-${pad.slot}`,
+    hue: pad.bay === "stranded" ? "ask" : pad.bay === "held" || pad.bay === "kept" ? "calm" : "quiet",
+    state: { Glyph: pad.Glyph, said: pad.word, tone: pad.bay === "stranded" ? "ask" : "calm" },
+    pills: [pad.repo, ...(pad.branch === undefined ? [] : [pad.branch])],
+    ...(pad.holder === undefined ? {} : { lines: [`${pad.holderWas === true ? "Last holder, " : ""}${pad.holderKind === "session" ? "Session" : "Job"}: ${pad.holder}`] }),
+  };
   return (
     <g
       className="bf-pad"

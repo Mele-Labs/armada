@@ -3,11 +3,12 @@
 // and a call as the real call card. Every pane has one head with the way back, which Esc is too. Mock only.
 // proto/cockpit-flight-deck.
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
 import { Button, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
-import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
-import type { JobDetail, WorktreeSlot } from "@armada/protocol";
+import { ScrapConfirm, SlotFinding } from "@armada/components/src/compositions/PoolSlots/SlotFinding";
+import { clockOf, shortOf, spanOf, type BayView, type Holder as BayHolder } from "./deck-bays";
+import type { JobDetail } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
 import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
@@ -231,26 +232,71 @@ function Holder({ kind, id, title }: { kind: "job" | "session"; id: string; titl
 
 // ---- A bay ---------------------------------------------------------------------------------------------
 
-export function SlotPane({ slot, repo, now }: { slot: WorktreeSlot; repo: string; now: number }) {
-  const state = bayStateOf({ slot });
-  const held = slot.held;
-  const holder = held.state === "job" ? <Holder kind="job" id={held.job_id} title={held.job_title ?? held.job_id} /> : held.state === "hosted_session" ? <Holder kind="session" id={held.session_id} title={held.session_title ?? held.session_id} /> : undefined;
+export function SlotPane({ view, repo, known }: { view: BayView; repo: string; known: ReadonlySet<string> }) {
+  const slot = view.slot;
+  const [asked, setAsked] = useState<string>();
+  const [scrapping, setScrapping] = useState(false);
+  const stranded = view.state === "stranded";
+  const rescue = slot.rescue;
+  const toContinue = rescue?.verdict === "unfinished" || (rescue?.verdict === undefined && (rescue?.summary !== undefined || (rescue?.items ?? []).length > 0));
+  // A holder the ship still holds opens as a link; one that is gone is named by its id.
+  const who = (one: BayHolder | undefined) =>
+    one === undefined ? undefined : known.has(`${one.kind}:${one.id}`) ? <Holder kind={one.kind} id={one.id} title={one.title ?? one.id} /> : <span className="deck-link__plain">{one.title ?? shortOf(one.id)}</span>;
+  const files = slot.stranded?.uncommitted ?? [];
+  const commits = slot.stranded?.commits ?? [];
+  const mark = <MarkGlyph mark={{ Glyph: view.Glyph, said: view.said ?? view.word, tone: stranded ? "ask" : "calm" }} />;
   return (
     <section className="deck-pane" aria-label={`Bay: slot-${slot.slot}`}>
-      <PaneHead glyph={Rows3} kind="Bay" title={`slot-${slot.slot}`} where={repo} mark={<MarkGlyph mark={{ Glyph: state.Glyph, said: state.said, tone: slot.closed === true || state.bay === "stranded" ? "bad" : "calm" }} />} />
+      <PaneHead glyph={Rows3} kind="Bay" title={`slot-${slot.slot}`} where={repo} mark={mark} />
       <div className="deck-pane__body">
         <Facts
           rows={[
-            ["State", slot.closed === true ? "Closed" : state.word],
-            ["Holder", holder],
-            ["Branch", slot.branch, true],
-            ["Held for", heldFor(slot.since, now)],
+            ["State", view.said ?? view.word],
+            ["Holder", who(view.holder)],
+            ["Branch", view.branch, true],
+            ["Held for", view.heldFor === undefined ? undefined : spanOf(view.heldFor)],
+            ["Given back", view.freed === undefined ? undefined : `${spanOf(view.freed)} ago`],
+            ["Last holder", stranded ? (who(view.last) ?? "Holder gone") : undefined],
+            ["Told", view.told === undefined ? undefined : clockOf(view.told)],
+            ["Uncommitted", files.length === 0 ? undefined : files.join("\n"), true],
+            ["Unpushed", commits.length === 0 ? undefined : commits.filter((one) => one.home === "only_here").map((one) => `${one.sha.slice(0, 7)} ${one.subject}`).join("\n"), true],
             ["Base", slot.base, true],
             ["Behind", (slot.behind ?? 0) > 0 ? `${slot.behind} commits` : undefined],
             ["Checkout", slot.warm ? "Warm" : "Cold"],
             ["Path", slot.path, true],
           ]}
         />
+        {!stranded ? null : (
+          <div className="deck-slot__rescue">
+            <p className="deck-slot__means">Its holder is gone and the work is still in it. Scrap loses it.</p>
+            <SlotFinding slot={slot} />
+            {scrapping ? (
+              <ScrapConfirm
+                slot={slot}
+                onScrap={() => {
+                  setScrapping(false);
+                  setAsked("Scrap");
+                }}
+                onCancel={() => setScrapping(false)}
+              />
+            ) : (
+              <div className="deck-slot__acts">
+                {toContinue ? (
+                  <Button variant="secondary" size="sm" disabled={asked !== undefined} onClick={() => setAsked("Pick up")}>
+                    Pick up
+                  </Button>
+                ) : null}
+                <Button variant="secondary" size="sm" disabled={asked !== undefined} onClick={() => setAsked("Stash")}>
+                  Stash
+                </Button>
+                <Button variant="destructive" size="sm" disabled={asked !== undefined} onClick={() => setScrapping(true)}>
+                  Scrap
+                </Button>
+                {asked === undefined ? null : <span className="deck-slot__asked">{asked}</span>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

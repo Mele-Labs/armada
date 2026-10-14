@@ -9,7 +9,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
-import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
@@ -23,6 +22,8 @@ import { dotsOf } from "../../cockpit/horizon";
 import { useFleetEvents } from "../../cockpit/fleet-events";
 import { MOST_PLAYING, droneOf, droneOfEvent, playOfEvent, playsOf, trailsOf, type DroneIn, type Play } from "./deck-field";
 import { missionOf, type SceneIn } from "./deck-mission";
+import { useBays } from "./deck-bays";
+import { Bays } from "./BayRows";
 import { taskGroupsOf } from "@armada/jobs/draft/group";
 import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
 import { viewsOf } from "../../merge-line";
@@ -502,16 +503,28 @@ function useField(props: CockpitProps, ship: Ship, listed: readonly Subject[]) {
     }));
   }, [ship.subjects, ship.mains, ship.repos, slots, repositories]);
 
+  const bays = useBays(slots, rootOfManifest as (manifest: string) => string | undefined, ship.subjects, deck.replay?.at, props.now);
   const pads = useMemo(() => {
     const out = new Map<string, PadIn>();
-    for (const slot of slots) {
-      const state = bayStateOf({ slot });
-      const held = slot.held;
-      const holder = held.state === "job" ? (held.job_title ?? held.job_id) : held.state === "hosted_session" ? (held.session_title ?? held.session_id) : undefined;
-      out.set(slotKey(slot), { key: slotKey(slot), slot: slot.slot, bay: slot.closed === true ? "closed" : state.bay, word: slot.closed === true ? "Closed" : state.word, repo: repoNameOf(props, slot.manifest_id), Glyph: state.Glyph, ...(holder === undefined ? {} : { holder }) });
+    for (const { view } of bays) {
+      const slot = view.slot;
+      const who = view.holder ?? view.last;
+      const holder = who === undefined ? undefined : (who.title ?? who.id);
+      out.set(view.key, {
+        key: view.key,
+        slot: slot.slot,
+        bay: view.state === "leased" ? (view.kept === undefined ? "held" : "kept") : view.state,
+        word: view.word,
+        repo: repoNameOf(props, slot.manifest_id),
+        Glyph: view.Glyph,
+        ...(holder === undefined ? {} : { holder }),
+        ...(who === undefined ? {} : { holderKind: who.kind }),
+        ...(view.holder === undefined && who !== undefined ? { holderWas: true } : {}),
+        ...(view.branch === undefined ? {} : { branch: view.branch }),
+      });
     }
     return out;
-  }, [slots]);
+  }, [bays]);
 
   const goals = useMemo(() => new Map<string, GoalIn>(ship.mains.map((main) => [main.root, { root: main.root, red: main.state === "red", said: main.state === "red" ? `Main is red in ${main.repo}` : `Main is green in ${main.repo}` }])), [ship.mains]);
 
@@ -782,6 +795,7 @@ function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; 
   const sel = deck.sel;
   const subject = sel === undefined ? undefined : ship.subjects.find((one) => one.key === sel.key && one.kind !== "pr");
   const slot = sel?.kind === "slot" ? slotsOf(props).find((one) => slotKey(one) === sel.key) : undefined;
+  const bays = useBayViews(props, ship);
   const pr = sel?.kind === "pr" ? ship.prs.find((one) => one.key === sel.key) : undefined;
   const call = sel?.kind === "call" ? ship.calls.find((one) => one.key === sel.key) : undefined;
   // What was picked is gone (a Job ended, a call was answered elsewhere): back to the map.
@@ -795,7 +809,8 @@ function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; 
   const asked = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed);
   if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
-  if (slot !== undefined) return <SlotPane slot={slot} repo={repoNameOf(props, slot.manifest_id)} now={props.now} />;
+  const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
+  if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
@@ -893,38 +908,19 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
 
 // ---- The right column, and the foot ------------------------------------------------------------------
 
-function Bays({ props, selected }: { props: CockpitProps; selected: string | undefined }) {
+/** The bays, as views: the pool's own states and who is behind each, now or as of the playhead of a replay. */
+function useBayViews(props: CockpitProps, ship: Ship) {
+  const replay = useDeck().replay;
   const slots = slotsOf(props);
-  return (
-    <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
-      <header className="deck-band">
-        Bays
-        <PanelKey id="bays" />
-      </header>
-      <ul className="deck-bays__rows">
-        {slots.map((slot) => {
-          const state = bayStateOf({ slot });
-          const held = slot.held;
-          const holder = held.state === "job" ? (held.job_title ?? held.job_id) : held.state === "hosted_session" ? (held.session_title ?? held.session_id) : undefined;
-          const key = slotKey(slot);
-          return (
-            <li key={key}>
-              <button type="button" className="deck-bay" data-bay={slot.closed === true ? "closed" : state.bay} data-selected={selected === key || undefined} aria-label={`slot-${slot.slot}, ${repoNameOf(props, slot.manifest_id)}, ${slot.closed === true ? "Closed" : state.word}`} onClick={() => select({ kind: "slot", key })}>
-                <Tooltip label={slot.closed === true ? "Closed" : state.word}>
-                  <span className="deck-bay__state" role="img" aria-label={slot.closed === true ? "Closed" : state.word}>
-                    <state.Glyph size={16} aria-hidden />
-                  </span>
-                </Tooltip>
-                <span className="deck-bay__name">slot-{slot.slot}</span>
-                <span className="deck-bay__holder">{holder ?? ""}</span>
-                <span className="deck-bay__repo">{repoNameOf(props, slot.manifest_id)}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
+  const repositories = props.state.holds.repositories ?? [];
+  const rootOfManifest = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  return useBays(slots, rootOfManifest, ship.subjects, replay?.at, props.now);
+}
+
+function BaysPanel({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
+  const bays = useBayViews(props, ship);
+  const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
+  return <Bays views={bays.map((one) => one.view)} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} />;
 }
 
 type Deck = ReturnType<typeof deckNow>;
@@ -1129,7 +1125,7 @@ export function DeckBody(props: CockpitProps) {
           </div>
         </div>
         <div className="deck-right">
-          <Bays props={props} selected={deck.sel?.kind === "slot" ? selected : undefined} />
+          <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} />
           <Incoming calls={incoming} now={props.now} ship={ship} />
         </div>
       </div>

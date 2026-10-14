@@ -128,15 +128,21 @@
 .bf-pad { cursor: pointer; outline: none; }
 .bf-pad__ring { fill: color-mix(in srgb, var(--fg-default) 4%, transparent); stroke: var(--fg-subtle); stroke-opacity: 0.7; stroke-width: 1.4; }
 .bf-pad__core { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.4; stroke-width: 1; }
+/* Free is dim; leased is lit; stranded pulses amber; closed is dark. */
+.bf-pad[data-bay="free"] { opacity: 0.55; }
 .bf-pad[data-bay="held"] .bf-pad__ring,
 .bf-pad[data-bay="kept"] .bf-pad__ring,
-.bf-pad[data-bay="busy"] .bf-pad__ring { stroke: var(--fg-muted); stroke-opacity: 1; }
+.bf-pad[data-bay="busy"] .bf-pad__ring { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: var(--accent); stroke-opacity: 1; stroke-width: 1.8; }
 .bf-pad[data-bay="held"] .bf-pad__core,
 .bf-pad[data-bay="kept"] .bf-pad__core,
-.bf-pad[data-bay="busy"] .bf-pad__core { fill: color-mix(in srgb, var(--fg-default) 24%, transparent); stroke-opacity: 0.8; }
+.bf-pad[data-bay="busy"] .bf-pad__core { fill: var(--accent); stroke: var(--accent); stroke-opacity: 1; }
 .bf-pad[data-bay="ghost"] .bf-pad__ring { stroke-dasharray: 2 3; }
-.bf-pad[data-bay="stranded"] .bf-pad__ring,
-.bf-pad[data-bay="closed"] .bf-pad__ring { stroke: var(--status-completed-failed); stroke-opacity: 0.9; }
+.bf-pad[data-bay="stranded"] .bf-pad__ring { fill: color-mix(in srgb, var(--status-awaiting-review) 18%, transparent); stroke: var(--status-awaiting-review); stroke-opacity: 1; stroke-width: 2; animation: bf-pad-pulse calc(var(--duration-pulse) * 3) ease-in-out infinite; }
+.bf-pad[data-bay="stranded"] .bf-pad__core { fill: var(--status-awaiting-review); stroke: var(--status-awaiting-review); stroke-opacity: 1; }
+.bf-pad[data-bay="closed"] { opacity: 0.75; }
+.bf-pad[data-bay="closed"] .bf-pad__ring { fill: color-mix(in srgb, var(--bg-base) 85%, black); stroke: var(--fg-subtle); stroke-opacity: 0.45; }
+.bf-pad[data-bay="closed"] .bf-pad__core { fill: var(--bg-base); stroke-opacity: 0.3; }
+@keyframes bf-pad-pulse { 50% { stroke-opacity: 0.3; } }
 .bf-pad:hover .bf-pad__ring { stroke: var(--fg-default); stroke-opacity: 1; }
 
 /* ---- The objective ------------------------------------------------------------------------------------- */
@@ -685,6 +691,7 @@
   .bf-drone[data-spin] .bf-blades,
   .bf-ping,
   .bf-pin__ping,
+  .bf-pad[data-bay="stranded"] .bf-pad__ring,
   .bf-pin__flare path,
   .bf-tip,
   .bf-stall,

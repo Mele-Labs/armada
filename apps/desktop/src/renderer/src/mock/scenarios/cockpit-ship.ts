@@ -1,6 +1,6 @@
 // The whole ship at rest, for the three Cockpit body prototypes (proto/cockpit-three-directions): two
 // repositories, four Jobs, seven Sessions in the states Fleet reads them to be in, four pull requests
-// each owned by a Job, a Session or nobody, main green, eight bays with five held, Autopilot off.
+// each owned by a Job, a Session or nobody, main green, eight bays (five held, one free, one stranded, one closed), Autopilot off.
 // **One scenario for all three directions**, so he compares the layout and not the data. Three `later`
 // moments carry the story: the Session that was working replies, main goes red once PR 1890 lands, and
 // the fix lands. The walks `cockpit-direction-*` play it.
@@ -329,7 +329,7 @@ const bay = (manifest: string, slot: number, held: WorktreeSlot["held"], rest: P
   ...rest,
 });
 
-/** Eight bays, five held: four held in armada, one in pocket. */
+/** Eight bays: held by two Jobs and three Sessions, one free, one stranded, one closed. */
 function pool(): WorktreesHeld {
   const session = (manifest: string, slot: number, one: Session, branch: string, minutes: number) =>
     bay(manifest, slot, { state: "hosted_session", session_id: one.id, session_title: one.title ?? one.id }, { branch, since: ago(minutes) });
@@ -340,10 +340,27 @@ function pool(): WorktreesHeld {
       bay(ARMADA, 2, { state: "job", job_id: cache.job.id, job_title: cache.job.title }, { branch: "armada/81-cache", since: ago(17) }),
       bay(ARMADA, 3, { state: "job", job_id: reconnect.job.id, job_title: reconnect.job.title }, { branch: "armada/83-reconnect", since: ago(33) }),
       session(ARMADA, 4, WORKING_REPLY, "fix/pin-store-clock", 16),
-      bay(ARMADA, 5, { state: "free" }, { behind: 2 }),
-      bay(ARMADA, 6, { state: "free" }, { behind: 4 }),
+      bay(ARMADA, 5, { state: "free" }, { behind: 2, warm: false }),
+      bay(
+        ARMADA,
+        6,
+        { state: "stranded", why: "2 uncommitted, first crates/ipc/src/frame.rs" },
+        {
+          branch: "session/frame-the-reply",
+          since: ago(3 * 60),
+          behind: 4,
+          stranded: {
+            uncommitted: ["crates/ipc/src/frame.rs", "notes/frame.md"],
+            commits: [{ sha: "e08c4d1a77", subject: "Frame the reply once", home: "only_here" }],
+            unpushed: 1,
+            last_holder: { kind: "session", id: "01SESSIONCLOSEDFRAME0000", title: "Frame the reply", open: false },
+            told: ago(95),
+          },
+          rescue: { state: "answered", commit: "e08c4d1a77", uncommitted: true, read: ["crates/ipc/src/frame.rs"], searched: ["frame in crates/ipc/src/"], verdict: "unfinished", items: ["Wire the frame into the reply", "Add the test for a short frame"] },
+        },
+      ),
       session(POCKET, 1, stuck, "pocket/sw-audit", 40),
-      bay(POCKET, 2, { state: "free" }, { behind: 1 }),
+      bay(POCKET, 2, { state: "free" }, { behind: 1, closed: true }),
     ].map((one) => (one.manifest_id === POCKET ? { ...one, path: one.path.replace(/slots\/slot-\d+/, `slots/slot-${one.slot}`) } : one)),
   };
 }
