@@ -137,6 +137,7 @@ export class FakeSessionsFleet {
   private fleet: FleetHandle | undefined;
   /** The Board's rows, which a take over and an exit change as Fleet does. */
   private jobs: JobSummary[] = [];
+  private repositories: readonly { root: string; manifest?: { id: string } }[] = [];
   /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
@@ -179,9 +180,6 @@ export class FakeSessionsFleet {
     this.threads = threads;
   }
 
-  /** What a Session this Fleet starts is placed by, as Fleet places one by the repository it was started in. */
-  startsIn: Partial<SessionRecord> = {};
-
   private began(): Partial<SessionRecord> {
     return this.startsNow ? { started_at: new Date().toISOString() } : {};
   }
@@ -189,6 +187,7 @@ export class FakeSessionsFleet {
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
   scenario(base: Scenario): Scenario {
     this.jobs = base.state.jobs;
+    this.repositories = base.state.holds.repositories ?? [];
     return {
       ...base,
       state: { ...base.state, sessions: { state: "read", sessions: this.records }, sessionThreads: {} },
@@ -201,7 +200,9 @@ export class FakeSessionsFleet {
           startSession: async (_title, root) => {
             this.calls.started += 1;
             this.calls.startedIn.push(root);
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...this.startsIn });
+            // Fleet records the Manifest of the repository a Session starts in, and the window narrows by it.
+            const manifest_id = this.repositories.find((one) => one.root === root)?.manifest?.id;
+            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...(manifest_id === undefined ? {} : { manifest_id }) });
             this.set([record, ...this.records]);
             return { ok: true, value: record };
           },
