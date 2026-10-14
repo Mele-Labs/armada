@@ -85,6 +85,10 @@ pub struct AskedChoice {
     pub label: String,
     #[serde(default)]
     pub description: String,
+    /// What the agent attached to show while this option is in focus: monospace
+    /// text such as a snippet or a list of checks. Empty where it sent none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub preview: String,
 }
 
 /// What a person chose for one question: the labels of the options, and where
