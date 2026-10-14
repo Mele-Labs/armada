@@ -81,6 +81,8 @@ pub struct Fleet<H, V, W> {
     /// settings.json: the file, what was in force at start, and the last good
     /// read. See [`crate::settings`].
     settings: crate::settings::MachineSettings,
+    /// Signing in to an account, and the profiles joined. See [`crate::signing_in`].
+    signing_in: crate::signing_in::SigningIn,
     judge: Arc<dyn ModelClient + Send + Sync>,
     /// How long a permission question is held inside the Drone's call before
     /// the Drone is told to wait for a turn. See
