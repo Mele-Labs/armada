@@ -12,6 +12,7 @@ const session = region(/^Session: Cap the retry ceiling/);
 
 const cockpitConsoles = walk("cockpit-consoles", [
   { look: tab("Active"), say: "Active carries no dot while anything needs him, and never a figure" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: role("listbox", "Tiles"), say: "Tiles and lines only: nothing is in front of the work, though a Job with a call is still its tile" },
   { press: inside(role("navigation", "Work"), button("Jobs", { exact: true })), say: "He goes to the Jobs page" },
   { later: region("Jobs"), say: "Time passes, and nothing is new" },

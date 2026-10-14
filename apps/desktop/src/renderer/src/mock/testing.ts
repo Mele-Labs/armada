@@ -15,6 +15,19 @@ import type { StudioKeeping } from "@armada/studios/fake";
 
 let mounted: { app: Mounted; host: HTMLElement }[] = [];
 
+/** What the next mount's viewer remembers, set by a test that opens on a pick it made earlier. */
+let remembered: Readonly<Record<string, string>> = {};
+
+/** The next mount starts from these remembered picks, by storage key. Forgotten again after the test. */
+export function remembering(picks: Readonly<Record<string, string>>): void {
+  remembered = picks;
+}
+
+/** The Cockpit opens on its timeline; a test about the tiles starts from the grid the owner picked. */
+export function rememberingTheGrid(): void {
+  remembering({ "armada.bridge.cockpit-view": "grid" });
+}
+
 /** Registers the teardown. Call once at the top of a test file. */
 export function unmountAfterEach(): void {
   afterEach(() => {
@@ -26,6 +39,7 @@ export function unmountAfterEach(): void {
       one.host.remove();
     }
     mounted = [];
+    remembered = {};
     forgetAllKept();
   });
 }
@@ -38,6 +52,7 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.dashboard-tab");
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
+  for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);

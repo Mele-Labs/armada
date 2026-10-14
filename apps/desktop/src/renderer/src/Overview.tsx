@@ -1,6 +1,6 @@
 // The Dashboard, as the window mounts it, out of `App.tsx`, which is at the length the gate refuses.
 // Three tabs over the panels: Command Central (what needs the owner), Running, and Done. Work is
-// dispatched from the title bar's one bar (`one-bar.tsx`) or this page's own bar, one panel over one draft (`dispatch-panel/`). Each reads Jobs, Sessions and the merge line alike. #921 mounted
+// dispatched from the title bar's one bar (`one-bar.tsx`), one panel over one draft (`dispatch-panel/`). Each reads Jobs, Sessions and the merge line alike. #921 mounted
 // the tile band here first; Overview 27 (#1091) gave every panel a fold, and the tabs replaced the strip.
 //
 // `.armada-screen__overview` is the one child `.armada-screen__mounted` gets — the surface's own
@@ -21,7 +21,6 @@ import { Nows, type Hosts } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
 import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
-import { CockpitDispatchBar } from "./dispatch-panel/entries";
 
 import { usePanelOpen } from "./panel-open";
 import { useDashboardTab } from "./remembered-views";
@@ -57,6 +56,7 @@ export function Overview({
   onBrought,
   onWantHeld,
   onReleaseSlot,
+  onPickRepository,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
   bring?: { key: string; at: number } | null;
@@ -110,6 +110,8 @@ export function Overview({
   /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
   onWantHeld?: (want: boolean) => void;
   onReleaseSlot?: Hosts["onReleaseSlot"];
+  /** Picks a repository, as the title row's picker does: Autopilot's control asks for one on All. */
+  onPickRepository?: Hosts["onPickRepository"];
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -182,8 +184,6 @@ export function Overview({
     <Boundary region="the overview" {...guarded}>
       <Nows.Provider value={nows}>
       <div className="armada-screen__overview">
-        {/* Where Fleet cannot be reached the Board's own lists draw, and there is nothing to dispatch into. */}
-        {fault ? null : <CockpitDispatchBar />}
         {fault ? (
           <OverviewLists
             jobs={state.jobs}
@@ -232,6 +232,7 @@ export function Overview({
             onCursor={onCursor}
             onWantHeld={onWantHeld}
             onReleaseSlot={onReleaseSlot}
+            onPickRepository={onPickRepository}
           />
         )}
         <KeySheet open={keys.sheet} onClose={keys.closeSheet} />

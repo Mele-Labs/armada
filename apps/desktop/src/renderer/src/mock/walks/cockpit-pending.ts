@@ -29,6 +29,7 @@ const cockpitPending = walk("cockpit-pending", [
   { look: text("Session Pin the store clock is already working on that"), say: "The loop stops, the card stays as it was, and the toast says Fleet's words" },
   { look: inside(question, role("radio", /Raise it to five/)), say: "Nothing is held now: the answer can be pressed again" },
   { key: "Escape", on: cockpit, say: "Esc puts the card off, and the tiles behind it show the rest" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { look: inside(glass, role("img", "Workflow, still being settled")), say: "A Job whose workflow is still being settled holds the steps' place with a blinking caret. No step stands in for it" },
   { hover: inside(glass, role("img", "Workflow, still being settled")), say: "The tooltip names it" },
   { later: cockpit, say: "The proposer settles the workflow" },

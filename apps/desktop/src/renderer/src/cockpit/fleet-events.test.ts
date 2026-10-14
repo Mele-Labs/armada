@@ -1,42 +1,84 @@
-// What the Cockpit's filters keep of the timeline's lanes: Active every lane that is not over, the
-// subjects that need him among them as their own group; Done what is over.
+// How a pull request's entries are placed on the timeline: on the track of the Job or Session that owns
+// it, with the pull request kept on the event, and dropped where nobody owns it. Pure.
 
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
+import type { TimelineEvent } from "@armada/protocol";
 
-import { STANDINGS, lanesFor, lanesOf, type FleetEvent } from "./fleet-events";
+import { fromWire, lanesOf, type FleetEvent, type Names } from "./fleet-events";
 
 const NOW = Date.parse("2026-10-13T12:00:00Z");
-const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString();
+const at = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
 
-const event = (id: string, job: string, over: Partial<FleetEvent>): FleetEvent => ({
+const pull = (id: number, minutes: number, over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   id,
-  at: at(1),
+  at: at(minutes),
+  kind: "pr.checks",
+  subject: { kind: "pull_request", number: 1890, url: "https://git.example/pull/1890" },
+  title: "Gate policy",
+  tone: "ok",
+  says: "Checks passed",
+  ...over,
+});
+const own = (id: number, minutes: number, over: Partial<TimelineEvent> = {}): TimelineEvent => ({
+  id,
+  at: at(minutes),
   kind: "job.step",
-  subject: { kind: "job", id: job, title: job },
+  subject: { kind: "job", id: "j1" },
+  title: "Debounce",
   tone: "run",
-  says: "says",
-  repo: "armada",
+  says: "Implement started",
+  live: true,
   ...over,
 });
 
-const lanes = lanesOf(
-  [
-    event("1", "asking", { tone: "ask" }),
-    event("2", "failing", { tone: "bad" }),
-    event("3", "quiet", { live: true, at: at(30) }),
-    event("4", "moving", { live: true }),
-    event("5", "waiting", {}),
-    event("6", "finished", { over: true }),
-  ],
-  NOW,
-);
+type Owner = ReturnType<Names["pull"]>;
+const names = (owner: Owner): Names => ({ job: () => undefined, session: () => undefined, pull: () => owner });
+const drawn = (events: TimelineEvent[], owner: Owner): FleetEvent[] => events.flatMap((one) => fromWire(one, names(owner)) ?? []);
 
-test("Active keeps every lane that is not over, and the ones that need him stand as their own group", () => {
-  expect(lanesFor(lanes, "running").map((one) => one.standing).sort()).toEqual(["ask", "bad", "idle", "run", "stuck"]);
-  expect(STANDINGS.find((one) => one.id === "ask")?.said).toBe("Needs you");
-  expect(lanesFor(lanes, "running").find((one) => one.standing === "ask")?.key).toBe("job:asking");
+describe("a pull request's entry", () => {
+  test("takes its Job's subject and keeps the pull request, its number leading the detail", () => {
+    const [event] = drawn([pull(1, 5, { detail: "fleet/gate" })], { kind: "job", id: "j1", title: "Debounce" });
+    expect(event?.subject).toEqual({ kind: "job", id: "j1", title: "Debounce" });
+    expect(event?.pull).toEqual({ number: 1890, title: "Gate policy", url: "https://git.example/pull/1890" });
+    expect(event?.detail).toBe("#1890 fleet/gate");
+  });
+
+  test("takes a Session's subject, with the number alone for a detail where the entry had none", () => {
+    const [event] = drawn([pull(1, 5)], { kind: "session", id: "s1", title: "Flaky store" });
+    expect(event?.subject).toEqual({ kind: "session", id: "s1", title: "Flaky store" });
+    expect(event?.detail).toBe("#1890");
+  });
+
+  test("is dropped where nobody owns the pull request", () => {
+    expect(fromWire(pull(1, 5), names(undefined))).toBeUndefined();
+  });
+
+  test("an entry about a Job or main carries no pull request", () => {
+    expect(fromWire(own(2, 5), names(undefined))?.pull).toBeUndefined();
+    expect(fromWire({ ...own(3, 5), subject: { kind: "main" } }, names(undefined))?.subject).toEqual({ kind: "main" });
+  });
 });
 
-test("Done keeps what is over", () => {
-  expect(lanesFor(lanes, "done").map((one) => one.key)).toEqual(["job:finished"]);
+describe("the lanes a pull request's entries make", () => {
+  const owner = { kind: "job", id: "j1", title: "Debounce" } as const;
+
+  test("one lane for the owner, holding its own entries and the pull request's, and none for the pull request", () => {
+    const lanes = lanesOf(drawn([own(1, 30), pull(2, 10), pull(3, 5, { kind: "pr.queued", says: "Queued, place 1" })], owner), NOW);
+    expect(lanes.map((one) => one.key)).toEqual(["job:j1"]);
+    expect(lanes[0]?.events.map((one) => one.says)).toEqual(["Queued, place 1", "Checks passed", "Implement started"]);
+  });
+
+  test("how the lane stands is read from its own entries: a pull request after the Session ended does not reopen it", () => {
+    const session = { kind: "session", id: "s1", title: "Flaky store" } as const;
+    const ended = own(1, 30, { kind: "session.ended", subject: { kind: "session", id: "s1" }, says: "Ended", tone: "idle", live: false, over: true });
+    // Both entries are read through one owner, so the ended entry is the Session's own.
+    const events = [...drawn([ended], undefined), ...drawn([pull(2, 5, { kind: "pr.opened", says: "Opened", tone: "idle" })], session)];
+    const lanes = lanesOf(events, NOW);
+    expect(lanes[0]?.standing).toBe("done");
+    expect(lanes[0]?.head.says).toBe("Ended");
+  });
+
+  test("a pull request nobody owns makes no lane", () => {
+    expect(lanesOf(drawn([own(1, 30), pull(2, 5)], undefined), NOW).map((one) => one.key)).toEqual(["job:j1"]);
+  });
 });

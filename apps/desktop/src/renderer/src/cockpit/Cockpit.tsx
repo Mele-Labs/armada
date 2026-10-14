@@ -5,8 +5,8 @@
 // behind it stacked like a deck; `l` puts the one in front at the back and `d` dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, SquareTerminal } from "lucide-react";
-import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
+import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, Plane, SquareTerminal } from "lucide-react";
+import { Button, DropdownMenu, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
@@ -23,13 +23,14 @@ import { Nows, useBoardKeys, useCursor, useItems, type Hosts, type Item } from "
 import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
+import { useDispatching } from "../dispatch-panel/dispatching";
 import { CallCard, type CardKeys } from "./CallCard";
 import { Queue } from "./consoles";
 import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
 import { Timeline } from "./Timeline";
-import { useLayout } from "@armada/shell";
+import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
@@ -207,6 +208,14 @@ export function Cockpit({
   const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
   const autopilot = useAutopilotLane({ picked, state, now });
+  // An Autopilot's strip, opened, brings the bar up for it once.
+  const dispatching = useDispatching();
+  useEffect(() => {
+    if (dispatching?.autopilotAsked !== true || autopilot.control === undefined) return;
+    autopilot.control.openNext();
+    dispatching.autopilotShown();
+  });
+  const [recent, remember] = useRecentRepositories();
   const carriedCalls = useItems("calls", state, picked, nowViews, hosts, NONE);
   const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
   const carriedOver = useItems("done", state, picked, nowViews, hosts, NONE);
@@ -264,6 +273,7 @@ export function Cockpit({
   }, [filter, state, picked, calls, running, over, bays, now, autopilot.asides]);
   const [view, setView] = useCockpitView();
   const [field] = useState({ width: 900, height: 560 });
+  const lines = useMemo(() => viewsOf(state), [state]);
   const sky = useMemo(
     () =>
       skyOf(
@@ -462,6 +472,7 @@ export function Cockpit({
 
   return (
     <div className="armada-cockpit" data-hue={frame} data-settles>
+      {autopilot.bar}
       <section className="armada-view" aria-label="Dashboard" data-hue={frame} data-waiting={frame === undefined ? undefined : ""}>
         <header className="armada-view__band">
           <span className="armada-view__filters">
@@ -474,6 +485,32 @@ export function Cockpit({
             </Tooltip>
           </span>
           <span className="armada-view__keys">
+            {autopilot.control === undefined ? null : (
+              <Tooltip label={autopilot.control.state === "off" ? "Autopilot" : `Autopilot, ${autopilot.control.state}`}>
+                <span>
+                  {picked === null ? (
+                    <DropdownMenu
+                      align="end"
+                      portal
+                      icon={Plane}
+                      triggerLabel="Autopilot"
+                      searchLabel={FIND_A_REPOSITORY}
+                      entries={repositoryEntries(state.holds.repositories ?? [], { onlySetUp: true, recent })}
+                      onSelect={(chosen) => {
+                        const root = rootOf(chosen);
+                        remember(root);
+                        autopilot.control?.openNext();
+                        hosts.onPickRepository?.(root);
+                      }}
+                    />
+                  ) : (
+                    <Button variant="ghost" size="sm" iconOnly aria-label="Autopilot" aria-pressed={autopilot.control.open} data-autopilot={autopilot.control.state} onClick={autopilot.control.toggle}>
+                      <Plane size={16} aria-hidden="true" />
+                    </Button>
+                  )}
+                </span>
+              </Tooltip>
+            )}
             {filter === "bays" ? null : (
               <span className="armada-view__toggle" role="group" aria-label="View">
                 <Tooltip label="Grid">
@@ -501,7 +538,6 @@ export function Cockpit({
             </Tooltip>
           </span>
         </header>
-        {autopilot.bar}
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
             {filter === "bays" ? (
@@ -509,7 +545,7 @@ export function Cockpit({
                 <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} onReleaseSlot={hosts.onReleaseSlot} />
               </div>
             ) : view === "map" ? (
-              <Timeline now={now} jobs={state.jobs} filter={filter} recessed={front !== undefined && leaving === undefined} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+              <Timeline now={now} jobs={state.jobs} views={lines} filter={filter} recessed={front !== undefined && leaving === undefined} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
             ) : (
               <ul ref={grid} className="armada-tiles armada-view__grid" role="listbox" aria-label="Tiles" tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 {instruments.map((one) => (

@@ -19,6 +19,7 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { key: "]", on: cockpit, say: "] steps to the next filter, [ to the one before" },
   { key: "[", on: cockpit, say: "[ steps back" },
   { look: tab("Active"), say: "Active: everything live, one tile each. What is active is the glyph, and a tile that asks is lit" },
+  { press: button("Grid"), say: "Grid, the tiles view" },
   { hover: inside(glass, role("img", "Drone working")), say: "A glyph names its state on hover" },
   { key: "j", on: cockpit, say: "j and k move along the glass, the arrows too" },
   { look: inside(glass, button("Open")), say: "The one under the cursor carries its keys: Enter opens, x kills" },

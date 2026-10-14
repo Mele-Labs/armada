@@ -1,17 +1,20 @@
 // The Cockpit's other face: what Fleet did, newest first, one row per event, each naming what it happened
 // to. Three takes of it share one set of marks, Lanes first and his last pick kept: a feed of every
-// event, a lane for each Job, Session and pull request with its events along the last two hours,
-// and the lanes beside the feed. The filter above narrows it as it narrows the grid. What it draws is Fleet's
-// timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
+// event, a lane for each Job and Session with its events along the last two hours,
+// and the lanes beside the feed. A pull request is no lane: its events are marks on the track of the Job
+// or Session that owns it, and one nobody owns is left out. The filter above narrows it as it narrows the
+// grid. What it draws is Fleet's timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, GitPullRequest, LoaderCircle, SquareTerminal } from "lucide-react";
+import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, LoaderCircle, SquareTerminal } from "lucide-react";
 import { Button, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
 import type { JobSummary } from "@armada/protocol";
+import type { MergeLineView } from "@armada/screens";
 import { titleOf as plainTitle } from "@armada/screens";
 
 import { useSessions } from "../sessions-draft";
+import { timelineOwner } from "./owner";
 import { STANDINGS, ageOf, fromWire, lanesFor, lanesOf, titleOf, useFleetEvents, type EventTone, type FleetEvent, type Lane, type Standing, type Subject } from "./fleet-events";
 import "./timeline.css";
 
@@ -44,7 +47,7 @@ function useTake(): [Take, (take: Take) => void] {
 
 const TAKES = [
   { id: "feed", label: "Feed", hint: "One row for each event, newest first" },
-  { id: "lanes", label: "Lanes", hint: "A row for each Job, Session and pull request, its events along the last two hours" },
+  { id: "lanes", label: "Lanes", hint: "A row for each Job and Session, its events along the last two hours" },
   { id: "split", label: "Split", hint: "Each subject, and its events beside it" },
 ];
 
@@ -69,13 +72,16 @@ const MINUTES = 120;
 const SHOWN = 60;
 const WINDOW = MINUTES * 60_000;
 
-const KIND: Record<Subject["kind"], string> = { job: "Job", session: "Session", pull_request: "Pull request", main: "Main" };
-const GLYPH = { job: Box, session: SquareTerminal, pull_request: GitPullRequest, main: GitMerge };
+const KIND: Record<Subject["kind"], string> = { job: "Job", session: "Session", main: "Main" };
+const GLYPH = { job: Box, session: SquareTerminal, main: GitMerge };
+
+/** What an event's mark is shaped as: a pull request's keeps its own shape on its owner's track. */
+const shapeOf = (event: FleetEvent): string => (event.pull === undefined ? event.subject.kind : "pull_request");
 
 const toneOf = (tone: EventTone) => ({ ["--tone" as string]: TONE[tone] }) as CSSProperties;
 const clock = (at: string) => new Date(at).toLocaleTimeString([], { hour12: false });
 
-/** Where a subject opens: the Job, the Session, the pull request. Main opens nothing. */
+/** Where a subject opens: the Job or the Session. Main opens nothing. */
 type Open = (subject: Subject) => void;
 
 function Glyph({ subject }: { subject: Subject }) {
@@ -98,7 +104,7 @@ function Who({ subject, open, children }: { subject: Subject; open: Open; childr
       {children}
     </>
   );
-  return subject.kind === "main" || (subject.kind === "pull_request" && subject.url === undefined) ? (
+  return subject.kind === "main" ? (
     <span className="armada-tl__who">{inside}</span>
   ) : (
     <button type="button" className="armada-tl__who" data-opens aria-label={`${KIND[subject.kind]}: ${titleOf(subject)}`} onClick={() => open(subject)}>
@@ -119,11 +125,11 @@ const STANDING_MARK: Record<Standing, { icon: typeof Clock; said: string }> = {
 /** How a subject stands now: the one live mark, which turns only while it is working. */
 function Stand({ lane, now }: { lane: Lane; now: number }) {
   const { icon: Icon, said } = STANDING_MARK[lane.standing];
-  const failed = lane.standing === "done" && lane.events[0]?.tone === "bad";
+  const failed = lane.standing === "done" && lane.head.tone === "bad";
   const Shown = failed ? CircleX : Icon;
   const tone: EventTone = failed ? "bad" : lane.standing === "run" ? "run" : lane.standing === "ask" ? "ask" : lane.standing === "bad" ? "bad" : lane.standing === "done" ? "ok" : "idle";
   return (
-    <Tooltip label={lane.standing === "stuck" ? `Quiet for ${ageOf(lane.events[0]!.at, now)}` : failed ? "Failed" : said}>
+    <Tooltip label={lane.standing === "stuck" ? `Quiet for ${ageOf(lane.head.at, now)}` : failed ? "Failed" : said}>
       <span className="armada-tl__standing" data-standing={lane.standing} style={toneOf(tone)}>
         <Shown size={12} aria-hidden="true" />
       </span>
@@ -166,7 +172,7 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
             <li key={event.id} className="armada-tl__event" data-current={standing.get(event.id)} style={toneOf(event.tone)}>
               <Age event={event} now={now} />
               <span className="armada-tl__spine">
-                <i className="armada-tl__mark" data-shape={event.subject.kind} />
+                <i className="armada-tl__mark" data-shape={shapeOf(event)} />
               </span>
               <Who subject={event.subject} open={open} />
               <span className="armada-tl__says">
@@ -184,7 +190,7 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
 const AXIS = [120, 100, 80, 60, 40, 20, 0];
 
 /** A lane's events along the window, the line between them solid while the subject was working and dashed while it was not. */
-function Track({ lane, now, open }: { lane: Lane; now: number; open: Open }) {
+function Track({ lane, now, press }: { lane: Lane; now: number; press: (event: FleetEvent) => void }) {
   const at = (ms: number) => Math.min(100, Math.max(0, 100 - ((now - ms) / WINDOW) * 100));
   const oldest = [...lane.events].reverse();
   const going = lane.standing !== "done" && lane.standing !== "bad";
@@ -213,7 +219,7 @@ function Track({ lane, now, open }: { lane: Lane; now: number; open: Open }) {
           );
           return (
             <Tooltip key={event.id} label={tip} card asChild>
-              <button type="button" className="armada-tl__pip" data-shape={event.subject.kind} aria-label={said} style={{ ...toneOf(event.tone), left: `${at(Date.parse(event.at))}%` }} onClick={() => open(event.subject)} />
+              <button type="button" className="armada-tl__pip" data-shape={shapeOf(event)} aria-label={said} style={{ ...toneOf(event.tone), left: `${at(Date.parse(event.at))}%` }} onClick={() => press(event)} />
             </Tooltip>
           );
         })}
@@ -242,7 +248,7 @@ function Groups({ lanes, now, children }: { lanes: readonly Lane[]; now: number;
   );
 }
 
-function Lanes({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open: Open }) {
+function Lanes({ lanes, now, open, press }: { lanes: readonly Lane[]; now: number; open: Open; press: (event: FleetEvent) => void }) {
   return (
     <>
       <div className="armada-tl__axis" role="presentation">
@@ -262,7 +268,7 @@ function Lanes({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
               <Stand lane={lane} now={now} />
               <Who subject={lane.subject} open={open} />
             </span>
-            <Track lane={lane} now={now} open={open} />
+            <Track lane={lane} now={now} press={press} />
           </>
         )}
       </Groups>
@@ -304,9 +310,12 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
   );
 }
 
+const NO_VIEWS: readonly MergeLineView[] = [];
+
 export function Timeline({
   now,
   jobs,
+  views = NO_VIEWS,
   filter,
   recessed,
   onOpenJob,
@@ -316,6 +325,8 @@ export function Timeline({
   now: number;
   /** The Board's Jobs, for the name of a Job Fleet gave an entry no title for. */
   jobs: readonly JobSummary[];
+  /** The merge lines, which say who a pull request belongs to. Without them a pull request's events have no owner. */
+  views?: readonly MergeLineView[];
   /** The Cockpit's filter: what is not over, what is. */
   filter: DashboardTab;
   /** A call is in front, and the glass is dimmed behind it. */
@@ -327,19 +338,21 @@ export function Timeline({
   const wire = useFleetEvents();
   const sessions = useSessions();
   const [take, setTake] = useTake();
-  const events = useMemo(
-    () =>
-      wire.map((one) =>
-        fromWire(one, {
-          job: (id) => {
-            const job = jobs.find((row) => row.id === id);
-            return job === undefined ? undefined : plainTitle(job);
-          },
-          session: (id) => sessions.find((row) => row.id === id)?.title,
-        }),
-      ),
-    [wire, jobs, sessions],
-  );
+  const events = useMemo(() => {
+    // Only a pull request's opening and its merge carry its branch, so the other entries read it from those.
+    const branches = new Map(wire.flatMap((one) => (one.subject.kind === "pull_request" && one.detail !== undefined && (one.kind === "pr.opened" || one.kind === "pr.merged") ? [[one.subject.number, one.detail] as const] : [])));
+    return wire.flatMap((one) => {
+      const drawn = fromWire(one, {
+        job: (id) => {
+          const job = jobs.find((row) => row.id === id);
+          return job === undefined ? undefined : plainTitle(job);
+        },
+        session: (id) => sessions.find((row) => row.id === id)?.title,
+        pull: (number) => timelineOwner(views, jobs, sessions, number, branches.get(number)),
+      });
+      return drawn === undefined ? [] : [drawn];
+    });
+  }, [wire, jobs, views, sessions]);
   const lanes = useMemo(() => lanesFor(lanesOf(events, now), filter), [events, now, filter]);
   // Lanes open at now, the right-hand end; the older hour is a scroll back.
   const body = useRef<HTMLDivElement>(null);
@@ -349,8 +362,9 @@ export function Timeline({
   const open: Open = (subject) => {
     if (subject.kind === "job") onOpenJob(subject.id);
     else if (subject.kind === "session") onOpenSession(subject.id);
-    else if (subject.kind === "pull_request" && subject.url !== undefined) onOpenLink(subject.url);
   };
+  /** A pull request's mark opens the pull request; any other opens its subject. */
+  const press = (event: FleetEvent) => (event.pull?.url === undefined ? open(event.subject) : onOpenLink(event.pull.url));
   return (
     <div className="armada-view__timeline" data-recessed={recessed ? "" : undefined}>
       <section className="armada-tl" aria-label="Timeline" data-take={take}>
@@ -366,7 +380,7 @@ export function Timeline({
           </span>
         </header>
         <div className="armada-tl__body" key={take} ref={body} style={{ ["--span" as string]: MINUTES / SHOWN } as CSSProperties}>
-          {take === "feed" ? <Feed lanes={lanes} now={now} open={open} /> : take === "lanes" ? <Lanes lanes={lanes} now={now} open={open} /> : <Split lanes={lanes} now={now} open={open} />}
+          {take === "feed" ? <Feed lanes={lanes} now={now} open={open} /> : take === "lanes" ? <Lanes lanes={lanes} now={now} open={open} press={press} /> : <Split lanes={lanes} now={now} open={open} />}
         </div>
       </section>
     </div>

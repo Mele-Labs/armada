@@ -4,7 +4,7 @@
 // publishes the Job and the Session changing. The walk (`walks/piloting.ts`) proves what the screens
 // draw from fixtures; this proves they draw it from, and act on, what Fleet serves.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { completedSuccess } from "@armada/jobs/fixtures/build/index";
@@ -13,9 +13,11 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard, onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+// The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
+beforeEach(rememberingTheGrid);
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
