@@ -10,7 +10,6 @@ const sessions = region("Sessions");
 const row = (title: string) => inside(sessions, role("listitem", title));
 const call = (title: RegExp) => region(title);
 const reason = role("textbox", /^Reason for removing/);
-const toCockpit = { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back to the Cockpit" } as const;
 
 const needsMeRepliedAndDelete = walk("needs-me-replied-and-delete", [
   { press: tab("Active"), say: "Active, the filter that reads everything live" },
