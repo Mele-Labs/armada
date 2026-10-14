@@ -1,9 +1,9 @@
-// Bridge's own tests, in four projects that two Checks run: `desktop` and
-// `desktop (browser)` for what reads no surface, `smoke` and `smoke (browser)`
-// for what does. None runs with Electron.
+// Bridge's own tests, in four projects: `desktop` and `desktop (browser)` for
+// what reads no surface, a Check, and `smoke` and `smoke (browser)` for what
+// does, run by hand. None runs with Electron.
 //
-// **The split is by what a test imports, not by what it is about.** `apps/desktop/armada.yml`
-// says which paths hit which Check. A test belongs in `smoke` when the modules
+// **The split is by what a test imports, not by what it is about.** `apps/desktop/unit/armada.yml`
+// says which paths hit the Check. A test belongs in `smoke` when the modules
 // it loads reach a surface's code at runtime: every test under `mock/` (the
 // mock Fleet composes every surface through `fake.ts`, and `App` mounts them),
 // `annotate/Layer.test.tsx` (`openJobIn` from Jobs) and `left-column.test.ts`
