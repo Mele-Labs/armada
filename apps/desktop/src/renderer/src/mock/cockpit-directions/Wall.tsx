@@ -10,7 +10,7 @@ import { Kbd, Tooltip } from "@armada/components";
 
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { useCalls } from "./calls";
-import { ActBar, FixAct, KEYS, KeySheet, MarkGlyph, PeekPop, PrChip, ReplyBox, STATION_GLYPH, StationMark, stationLines, useShipActs, useShipKeys, useShipUi, type Acts, type ShipUi } from "./shared";
+import { ActBar, FixAct, KEYS, KeySheet, MarkGlyph, PeekPop, PrChip, ReplyBox, STATION_GLYPH, StationMark, StepsBar, stationLines, useShipActs, useShipKeys, useShipUi, type Acts, type ShipUi } from "./shared";
 import { stationsOf, useShip, type Bay, type Main, type Ship, type Station, type StationId, type Subject, type Vote } from "./ship";
 import "./wall.css";
 
@@ -48,15 +48,7 @@ function Row({ subject, selected, ui, acts }: { subject: Subject; selected: bool
         <span className="proto-row__facts">
           <span className="proto-row__repo">{subject.repo}</span>
           {subject.pr === undefined ? null : <PrChip pr={subject.pr} onOpen={() => acts.open({ ...subject, kind: "pr" })} />}
-          {subject.step === undefined ? null : (
-            <Tooltip label={`Step ${subject.step.at} of ${subject.step.of}: ${subject.step.label}`}>
-              <span className="proto-pips" role="img" aria-label={`Step ${subject.step.at} of ${subject.step.of}`}>
-                {Array.from({ length: subject.step.of }, (_, index) => (
-                  <span key={index} className="proto-pips__pip" data-state={index + 1 < subject.step!.at ? "done" : index + 1 === subject.step!.at ? "now" : "next"} />
-                ))}
-              </span>
-            </Tooltip>
-          )}
+          {subject.step === undefined ? null : <StepsBar step={subject.step} tone={subject.mark.tone} />}
           {subject.slot === undefined ? null : (
             <Tooltip label={`Bay ${subject.slot}`}>
               <span className="proto-slot" role="img" aria-label={`Bay ${subject.slot}`}>

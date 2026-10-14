@@ -20,8 +20,9 @@ import { sessionIdOf } from "../../cockpit/waiting";
 import type { CockpitProps } from "../../cockpit/body-seam";
 
 /** Where a subject stands in the one pipeline the strips board draws as columns. */
-export type Phase = "working" | "needs" | "checking" | "queue" | "landed";
-export const PHASES: readonly Phase[] = ["working", "needs", "checking", "queue", "landed"];
+/** Where a Job or Session stands, whatever path it is on: the words the timeline's groups use. */
+export type Phase = "needs" | "working" | "held" | "done";
+export const PHASES: readonly Phase[] = ["needs", "working", "held", "done"];
 
 /** Gray is calm. `ask` is waiting on him; `bad` is broken. Colour and motion are only for those two. */
 export type Tone = "calm" | "ask" | "bad";
@@ -225,14 +226,6 @@ export function shipOf(input: Inputs): Ship {
   const callOf = (find: (item: Item) => boolean) => calls.find(find)?.key;
 
   const subjects: Subject[] = [];
-  const phaseOf = (needs: boolean, alarm: boolean, pr: Pr | undefined): Phase => {
-    if (needs || alarm) return "needs";
-    if (pr === undefined) return "working";
-    if (pr.stage === "landed") return "landed";
-    if (pr.stage === "queued" || pr.stage === "ready") return "queue";
-    return "checking";
-  };
-
   for (const job of jobs) {
     if (/completed|killed|rejected|superseded|failed/.test(job.status)) continue;
     const mark = jobMark(job);
@@ -249,7 +242,7 @@ export function shipOf(input: Inputs): Ship {
       root,
       repo: nameOfRoot(root),
       mark,
-      phase: phaseOf(needs, false, pr),
+      phase: needs ? "needs" : job.status === "queued" ? "held" : "working",
       needs,
       alarm: false,
       ...(callOf((item) => item.job?.id === job.id) === undefined ? {} : { call: callOf((item) => item.job?.id === job.id)! }),
@@ -269,6 +262,7 @@ export function shipOf(input: Inputs): Ship {
     const own = attachmentsOf(session, "pull_request").find((one) => one.state !== "merged") ?? attachmentsOf(session, "pull_request")[0];
     const pr = prOf({ kind: "session", id: session.id }) ?? (own === undefined ? undefined : synth(own, rootOf(session.manifestId)));
     const needs = mark.tone === "ask";
+    const stuck = !stopped && stateOf(session).state === "stuck";
     const redPr = pr !== undefined && pr.stage === "red";
     const idle = session.turn.state === "idle" || stopped;
     const alarm = mark.tone === "bad" || (redPr && idle);
@@ -283,7 +277,7 @@ export function shipOf(input: Inputs): Ship {
       root,
       repo: nameOfRoot(root),
       mark,
-      phase: phaseOf(needs, alarm, pr),
+      phase: needs || (alarm && !stuck) ? "needs" : stuck ? "held" : session.turn.state === "working" && !stopped ? "working" : "done",
       needs,
       alarm,
       ...(call === undefined ? {} : { call }),
@@ -311,7 +305,7 @@ export function shipOf(input: Inputs): Ship {
       root: pr.root,
       repo: nameOfRoot(pr.root),
       mark,
-      phase: pr.stage === "red" ? "needs" : pr.stage === "landed" ? "landed" : mergeable ? "queue" : "checking",
+      phase: pr.stage === "red" ? "needs" : "done",
       needs: false,
       alarm: pr.stage === "red",
       pr,

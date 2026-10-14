@@ -6,7 +6,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, Check, CircleDot, ExternalLink, GitCommitHorizontal, GitMerge, GitPullRequest, Merge, Pause, Plane, Reply, Rows3, ShieldCheck, ShieldX, Square, SquareTerminal, Terminal, X, type LucideIcon } from "lucide-react";
-import { Button, Kbd, SessionThread, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Button, Kbd, SessionThread, StepBar, Textarea, Tooltip, forgetKept } from "@armada/components";
 import type { SessionThreadRow } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
@@ -17,6 +17,11 @@ import { threadRowsOf } from "../../session-thread-rows";
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { patchLocal, type Main, type Mark, type Pr, type Ship, type Station, type StationId, type Subject, type Vote } from "./ship";
 import "./proto.css";
+
+/** A Job's place in its workflow, in the step bar its row already wears. */
+export function StepsBar({ step, tone }: { step: NonNullable<Subject["step"]>; tone: Mark["tone"] }) {
+  return <StepBar total={step.of} current={step.at} activity={tone === "bad" ? "failed" : tone === "ask" ? "awaiting_human" : "running"} label={`Step ${step.at} of ${step.of}: ${step.label}`} />;
+}
 
 /** One state as its registry glyph, named by a tooltip and never by a word. */
 export function MarkGlyph({ mark, size = 16 }: { mark: Mark; size?: 12 | 16 | 20 }) {

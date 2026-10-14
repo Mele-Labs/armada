@@ -1,36 +1,36 @@
-// Direction A, the strips board: the air traffic controller's board. Columns are the phases of one
-// pipeline, Working, Needs you, Checking, In queue, Landed, and the last three are the merge line,
-// running on to a main marker. Every Job and Session is one strip in the column it is in; its pull
-// request is a chip on it and decides the column. A roll-call row along the top polls main, the merge
-// line, the bays and Autopilot as marks. Each strip carries its acts in place. Mock only.
+// Direction A, the strips board: the air traffic controller's board. Every Job and Session is one strip in
+// the one column its standing puts it in, the words the timeline's groups use: Needs you, Working, Stuck or
+// held, Done. A Job's workflow is its step bar inside the strip, never a column. The merge line is the one real
+// pipeline and is only about pull requests: a rail along the foot, Open, Checking, In queue, then the main
+// marker, each pull request a unit joined to its owner's strip by a chip and by hover or selection. A roll
+// call row along the top polls main, the merge line, the bays and Autopilot as marks. Mock only.
 // proto/cockpit-three-directions.
 
-import { Fragment } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 import { ChevronRight, Hammer, Rows3 } from "lucide-react";
-import { Kbd, Tooltip } from "@armada/components";
+import { Button, Kbd, Tooltip } from "@armada/components";
 
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { useCalls } from "./calls";
-import { ActBar, FixAct, KEYS, KeySheet, MarkGlyph, PeekPop, PrChip, ReplyBox, StationMark, useShipActs, useShipKeys, useShipUi, type Acts, type ShipUi } from "./shared";
-import { PHASES, stationsOf, useShip, type Main, type Phase, type Subject } from "./ship";
+import { ActBar, FixAct, KEYS, KeySheet, MarkGlyph, PeekPop, PrChip, ReplyBox, StationMark, StepsBar, useShipActs, useShipKeys, useShipUi, type Acts, type ShipUi } from "./shared";
+import { PHASES, stationsOf, useShip, type Main, type Phase, type Pr, type Station, type Subject } from "./ship";
 import "./strips.css";
 
-const COLUMN: Record<Phase, string> = { working: "Working", needs: "Needs you", checking: "Checking", queue: "In queue", landed: "Landed" };
+const COLUMN: Record<Phase, string> = { needs: "Needs you", working: "Working", held: "Stuck or held", done: "Done" };
 
-/** Steps as pips, a Job's place in its workflow without a figure beside it. */
-function Pips({ at, of, label }: { at: number; of: number; label: string }) {
-  return (
-    <Tooltip label={`Step ${at} of ${of}: ${label}`}>
-      <span className="proto-pips" role="img" aria-label={`Step ${at} of ${of}`}>
-        {Array.from({ length: of }, (_, index) => (
-          <span key={index} className="proto-pips__pip" data-state={index + 1 < at ? "done" : index + 1 === at ? "now" : "next"} />
-        ))}
-      </span>
-    </Tooltip>
-  );
-}
+/** The stage of the one pipeline a pull request is at. */
+type Stage = "open" | "checking" | "queue";
+const STAGES: readonly { id: Stage; said: string }[] = [
+  { id: "open", said: "Open" },
+  { id: "checking", said: "Checking" },
+  { id: "queue", said: "In queue" },
+];
+const stageOf = (pr: Pr): Stage | "main" => (pr.stage === "landed" ? "main" : pr.stage === "queued" || pr.stage === "ready" ? "queue" : pr.ci === "waiting_on_main" ? "open" : "checking");
 
-function Strip({ subject, selected, ui, acts }: { subject: Subject; selected: boolean; ui: ShipUi; acts: Acts }) {
+type Link = { setHover: (key: string | undefined) => void };
+
+function Strip({ subject, selected, linked, ui, acts, link }: { subject: Subject; selected: boolean; linked: boolean; ui: ShipUi; acts: Acts; link: Link }) {
   const tone = subject.alarm ? "bad" : subject.needs ? "ask" : "calm";
   return (
     <li
@@ -39,10 +39,13 @@ function Strip({ subject, selected, ui, acts }: { subject: Subject; selected: bo
       data-tone={tone}
       data-kind={subject.kind}
       data-selected={selected || undefined}
+      data-linked={linked || undefined}
       aria-label={subject.title}
       tabIndex={0}
       onFocus={() => ui.select(subject.key)}
       onClick={() => ui.select(subject.key)}
+      onPointerEnter={() => link.setHover(subject.key)}
+      onPointerLeave={() => link.setHover(undefined)}
     >
       <div className="proto-strip__band">
         <MarkGlyph mark={subject.mark} size={16} />
@@ -50,8 +53,8 @@ function Strip({ subject, selected, ui, acts }: { subject: Subject; selected: bo
       </div>
       <div className="proto-strip__body">
         <span className="proto-strip__repo">{subject.repo}</span>
-        {subject.pr === undefined ? null : <PrChip pr={subject.pr} onOpen={() => acts.open({ ...subject, kind: "pr" })} />}
-        {subject.step === undefined ? null : <Pips at={subject.step.at} of={subject.step.of} label={subject.step.label} />}
+        {subject.pr === undefined ? null : <PrChip pr={subject.pr} onOpen={() => ui.select(subject.key)} />}
+        {subject.step === undefined ? null : <StepsBar step={subject.step} tone={subject.mark.tone} />}
         {subject.slot === undefined ? null : (
           <Tooltip label={`Bay ${subject.slot}`}>
             <span className="proto-slot" role="img" aria-label={`Bay ${subject.slot}`}>
@@ -69,22 +72,50 @@ function Strip({ subject, selected, ui, acts }: { subject: Subject; selected: bo
   );
 }
 
-/** Main red, as a strip of its own at the head of Needs you: what failed, what broke it, and Fix. */
-function MainStrip({ main, acts }: { main: Main; acts: Acts }) {
-  const mark = { Glyph: Hammer, said: "Fixing", tone: "calm" as const };
+/** A pull request on the rail. Joined to its owner: hover or select either and both light. Merge acts here. */
+function Unit({ subject, pr, linked, ui, acts, link }: { subject: Subject; pr: Pr; linked: boolean; ui: ShipUi; acts: Acts; link: Link }) {
   return (
-    <li className="proto-strip" data-tone={main.fixing ? "calm" : "bad"} data-kind="main" aria-label={`Main is red in ${main.repo}`}>
-      <div className="proto-strip__band">
-        <StationMark station={{ id: "main", name: "Main", vote: "nogo", why: [`${main.check ?? "Check"} failing`] }} />
-        <span className="proto-strip__title">{main.check}</span>
-      </div>
-      <div className="proto-strip__body">
-        <span className="proto-strip__repo">{main.repo}</span>
-        {main.broke === undefined ? null : <span className="proto-strip__fact">#{main.broke.number}</span>}
-        {main.test === undefined ? null : <span className="proto-strip__fact proto-strip__fact--wide">{main.test}</span>}
-        <span className="proto-strip__acts">{main.fixing ? <MarkGlyph mark={mark} /> : <FixAct main={main} acts={acts} />}</span>
-      </div>
+    <li
+      className="proto-unit"
+      data-subject={subject.key}
+      data-stage={pr.stage}
+      data-linked={linked || undefined}
+      aria-label={`#${pr.number} ${pr.title}`}
+      tabIndex={0}
+      onFocus={() => ui.select(subject.key)}
+      onClick={() => ui.select(subject.key)}
+      onPointerEnter={() => link.setHover(subject.key)}
+      onPointerLeave={() => link.setHover(undefined)}
+    >
+      <PrChip pr={pr} />
+      <span className="proto-unit__title">{pr.owner?.title ?? pr.title}</span>
+      {subject.mergeable ? (
+        <Button variant="secondary" size="sm" aria-label={`Merge #${pr.number}`} onClick={() => acts.merge(subject)}>
+          Merge
+          <Kbd>{KEYS.merge}</Kbd>
+        </Button>
+      ) : null}
     </li>
+  );
+}
+
+/** Main, the end of the rail. Red, it is the alarm, and Fix is on it. */
+function MainMarker({ main, station, acts, children }: { main: Main | undefined; station: Station; acts: Acts; children: ReactNode }) {
+  return (
+    <div className="proto-rail__main" data-state={main?.state ?? "unknown"}>
+      <div className="proto-rail__mainhead">
+        <StationMark station={station} />
+        {main === undefined || main.state !== "red" ? null : (
+          <>
+            <span className="proto-rail__check">{main.check}</span>
+            {main.fixing ? <MarkGlyph mark={{ Glyph: Hammer, said: "Fixing main", tone: "calm" }} /> : <FixAct main={main} acts={acts} />}
+          </>
+        )}
+      </div>
+      <ul className="proto-rail__landed" aria-label="Landed">
+        {children}
+      </ul>
+    </div>
   );
 }
 
@@ -95,9 +126,14 @@ export function Strips(props: CockpitProps) {
   const ui = useShipUi();
   const acts = useShipActs(props);
   const calls = useCalls(props, ship);
+  const [hover, setHover] = useState<string | undefined>();
+  const link: Link = { setHover };
   const stations = stationsOf(ship);
-  const columns = PHASES.map((phase) => ({ phase, items: ship.subjects.filter((one) => one.phase === phase).sort((a, b) => rank(a) - rank(b)) }));
-  const order = columns.flatMap((column) => column.items);
+  const strips = ship.subjects.filter((one) => one.kind !== "pr");
+  const columns = PHASES.map((phase) => ({ phase, items: strips.filter((one) => one.phase === phase).sort((a, b) => rank(a) - rank(b)) }));
+  // A pull request nobody here owns has only its unit on the rail: the keys reach it after the strips.
+  const bare = ship.subjects.filter((one) => one.kind === "pr" && one.pr?.stage !== "landed");
+  const order = [...columns.flatMap((column) => column.items), ...bare];
   const current = useShipKeys({
     ship,
     order,
@@ -110,6 +146,7 @@ export function Strips(props: CockpitProps) {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return false;
       if (subject === undefined) return false;
       const here = columns.findIndex((column) => column.items.includes(subject));
+      if (here < 0) return false;
       const row = columns[here]!.items.indexOf(subject);
       const step = event.key === "ArrowRight" ? 1 : -1;
       for (let at = here + step; at >= 0 && at < columns.length; at += step) {
@@ -122,10 +159,17 @@ export function Strips(props: CockpitProps) {
       return true;
     },
   });
-  const red = ship.mains.filter((one) => one.state === "red");
-  const alarm = red.length > 0 || ship.subjects.some((one) => one.alarm);
+  const lit = hover ?? ui.selected;
+  // A landed pull request is drawn at main only where something here owns it: the history stays in the forge.
+  const units = (stage: Stage | "main") =>
+    ship.prs.flatMap((pr) => {
+      const subject = ship.subjects.find((one) => one.pr?.key === pr.key);
+      if (subject === undefined || stageOf(pr) !== stage || (subject.kind === "pr" && pr.stage === "landed")) return [];
+      return [<Unit key={pr.key} subject={subject} pr={pr} linked={lit === subject.key} ui={ui} acts={acts} link={link} />];
+    });
+  const alarm = ship.mains.some((one) => one.state === "red") || ship.subjects.some((one) => one.alarm);
   const waiting = ship.subjects.some((one) => one.needs) || calls.front !== undefined;
-  const main = ship.main;
+  const mainStation = stations.find((one) => one.id === "main")!;
   return (
     <div className="armada-cockpit proto" data-direction="strips">
       <section className="proto-view" aria-label="Dashboard" data-alarm={alarm || undefined} data-waiting={waiting || undefined}>
@@ -151,32 +195,39 @@ export function Strips(props: CockpitProps) {
             </Tooltip>
           </span>
         </header>
-        <div className="proto-stage">
+        <div className="proto-stage proto-board">
           <div className="proto-strips">
-            {columns.map(({ phase, items }, at) => (
-              <section key={phase} className="proto-col" data-phase={phase} data-line={at >= 2 || undefined} aria-label={COLUMN[phase]}>
+            {columns.map(({ phase, items }) => (
+              <section key={phase} className="proto-col" data-phase={phase} aria-label={COLUMN[phase]}>
                 <header className="proto-col__band">
                   <span>{COLUMN[phase]}</span>
-                  {phase === "landed" ? (
-                    <span className="proto-col__main">
-                      {main === undefined ? null : main.fixing ? <MarkGlyph mark={{ Glyph: Hammer, said: "Fixing main", tone: "calm" }} /> : <FixAct main={main} acts={acts} labeled={false} />}
-                      <StationMark station={stations.find((one) => one.id === "main")!} />
-                    </span>
-                  ) : at >= 2 ? (
-                    <ChevronRight size={14} aria-hidden className="proto-col__toward" />
-                  ) : null}
                 </header>
                 <ul className="proto-col__list" aria-label={COLUMN[phase]}>
-                  {phase === "needs" ? red.map((one) => <MainStrip key={one.root} main={one} acts={acts} />) : null}
                   {items.map((one) => (
-                    <Fragment key={one.key}>
-                      <Strip subject={one} selected={current?.key === one.key} ui={ui} acts={acts} />
-                    </Fragment>
+                    <Strip key={one.key} subject={one} selected={current?.key === one.key} linked={lit === one.key} ui={ui} acts={acts} link={link} />
                   ))}
                 </ul>
               </section>
             ))}
           </div>
+          <section className="proto-rail" aria-label="Merge line">
+            <ol className="proto-rail__stages">
+              {STAGES.map((stage) => (
+                <li key={stage.id} className="proto-rail__stage" data-stage={stage.id}>
+                  <span className="proto-rail__band">
+                    {stage.said}
+                    <ChevronRight size={14} aria-hidden />
+                  </span>
+                  <ul className="proto-rail__units" aria-label={stage.said}>
+                    {units(stage.id)}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+            <MainMarker main={ship.main} station={mainStation} acts={acts}>
+              {units("main")}
+            </MainMarker>
+          </section>
           {calls.tray}
           {calls.card}
           <KeySheet ui={ui} more={[[["←", "→"], "Next column"]]} />
@@ -185,4 +236,3 @@ export function Strips(props: CockpitProps) {
     </div>
   );
 }
-
