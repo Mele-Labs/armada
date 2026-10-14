@@ -11,7 +11,7 @@ use std::sync::Arc;
 use api::HostedSessions;
 use ipc::{
     AnswerSessionAsk, AskingToRun, HelmCallAnswer, QuestionAnswer, RunOrNot, SessionAskState,
-    SessionId, SessionRow,
+    SessionId, SessionRow, SessionVoice,
 };
 
 use super::session_host::{eventually, rig_placing, Rig};
@@ -147,6 +147,21 @@ async fn a_question_waits_for_the_person_in_every_mode_and_its_answers_go_into_t
     assert!(
         updated_input.get("questions").is_some(),
         "the questions are carried as they came"
+    );
+
+    // What was chosen is also the person's own message, where they read the thread.
+    let spoken: Vec<_> = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        spoken,
+        vec!["Which toppings?: cheese, ham\nWhich size?: Medium, if you have it".to_string()]
     );
 }
 

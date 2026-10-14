@@ -32,6 +32,20 @@ pub(crate) const POLL_LAPSE: Duration = Duration::from_secs(180);
 /// A kept terminal question that would not encode or read back.
 const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
 
+/// A line a question, `question: what was chosen`, for an answer that allowed it. Nothing where
+/// the call was a permission, which carries no answers, or was refused.
+fn answers_text(said: &Said) -> Option<String> {
+    if said.answer != HelmCallAnswer::AllowOnce || said.answers.is_empty() {
+        return None;
+    }
+    let lines: Vec<String> = said
+        .answers
+        .iter()
+        .map(|one| format!("{}: {}", one.question, one.chosen.join(", ")))
+        .collect();
+    Some(lines.join("\n"))
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -153,8 +167,10 @@ where
         let _ = self.published_hosted(&session.id).await;
 
         let held = asks.hold();
+        let mut said_aloud = None;
         let (decided, state) = match tokio::time::timeout(held, answer).await {
             Ok(Ok(said)) => {
+                said_aloud = answers_text(&said);
                 let state = match said.answer {
                     HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     HelmCallAnswer::Refuse => SessionAskState::Refused,
@@ -181,8 +197,25 @@ where
             held.answered_via.take()
         };
         self.row_put(id, put(state, via)).await;
+        if let Some(text) = said_aloud {
+            self.person_said(id, text).await;
+        }
         let _ = self.published_hosted(id).await;
         Ok(decided)
+    }
+
+    /// What the person chose, as a message of theirs in the thread: the ask row settles into a
+    /// collapsed tool line, which is not where a person looks for what they said.
+    async fn person_said(&self, id: &str, text: String) {
+        let row = SessionRow::Message {
+            id: self.row_id(id),
+            at: self.instant(),
+            from: ipc::SessionVoice::You,
+            text,
+            files: Vec::new(),
+            tags: Vec::new(),
+        };
+        self.row_put(id, row).await;
     }
 
     /// A terminal session's `AskUserQuestion`, put to Bridge while its own

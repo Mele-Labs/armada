@@ -695,6 +695,10 @@ export function sessionsStore(
         return questioned ? { ...rest, turn: { state: "working" } } : rest;
       });
       if (!questioned) return;
+      // What was chosen is the person's own message, as Fleet keeps it.
+      if (answer !== "refuse" && (answers ?? []).length > 0) {
+        addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: (answers ?? []).map((one) => `${one.question}: ${one.chosen.join(", ")}`).join("\n") }))]);
+      }
       // The agent carries on from what was chosen, or from having been told no.
       after(900, () => {
         addTo(id, [
