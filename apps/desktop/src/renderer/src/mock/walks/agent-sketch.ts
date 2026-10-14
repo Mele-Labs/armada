@@ -1,5 +1,5 @@
 // A Session's agent draws a sketch with `show_sketch`: a card in the thread where it did, the sketch open in the
-// panel and read-only with its steps, a second one with the same title that replaces the first, and a later one
+// panel and read-only with its steps (a sketch plays as it opens, a card plays while pointed at), a second one with the same title that replaces the first, and a later one
 // read as a change to it. Over the `agent-sketch` scenario.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
@@ -18,8 +18,8 @@ function steps(): Step[] {
     { press: drawn("Store clock reads"), say: "The card opens it beside the thread" },
     { look: inside(panel("Sketch Store clock reads"), role("group", "Sketch", { exact: true })), say: "Drawn by the sketch scene, read-only" },
     { look: inside(panel("Sketch Store clock reads"), text("fails when the second turns")), say: "Pan and zoom are the canvas's" },
-    { press: inside(panel("Sketch Store clock reads"), button("Play the steps")), say: "The steps play in the order the agent gave them" },
-    { look: inside(panel("Sketch Store clock reads"), button(/Stop the steps|Next step/)), say: "One part lit at a time, the rest stand back" },
+    { look: inside(panel("Sketch Store clock reads"), button(/Play the steps|Stop the steps|Next step/)), say: "The steps play as it opens, in the order the agent gave them, and loop" },
+    { press: inside(panel("Sketch Store clock reads"), button("Restart the steps")), say: "Restart takes it back to the first" },
     { press: close(panel("Sketch Store clock reads")), say: "Close" },
     { type: "Add the sleep you tried\n", into: message, say: "Asked again" },
     { look: inside(thread, text("Replaced")), say: "A sketch with the same title takes the first one's place: the first card is dashed and says so" },
@@ -35,6 +35,16 @@ function steps(): Step[] {
     { look: inside(panel("Sketch Pinned clock"), role("group", "Removed, sleep(1s)")), say: "What it drops is red, where it was" },
     { press: inside(panel("Sketch Pinned clock"), button("Whole")), say: "Whole shows the drawing alone" },
     { look: inside(panel("Sketch Pinned clock"), role("group", "FixedClock")), say: "No change marks" },
+    { press: close(panel("Sketch Pinned clock")), say: "Close" },
+    { type: "Draw how a session starts, as a sequence\n", into: message, say: "Asked for a sequence" },
+    { hover: drawn("Session start"), say: "Pointed at, the card plays: a dot crosses each message in order, and it stills when the pointer leaves" },
+    { press: drawn("Session start"), say: "Opened" },
+    { look: inside(panel("Sketch Session start"), button(/Play the steps|Stop the steps|Next step/)), say: "It plays as it opens: each message sends a dot, the part it reaches lights, the rest stand back" },
+    { press: close(panel("Sketch Session start")), say: "Close" },
+    { type: "And how a Job gets through its gates\n", into: message, say: "Asked for a workflow" },
+    { hover: drawn("Job gates"), say: "Pointed at, the card plays: Dispatch forks to Build and Test together, and both join at the Gate" },
+    { press: drawn("Job gates"), say: "Opened" },
+    { look: inside(panel("Sketch Job gates"), button(/Play the steps|Stop the steps|Next step/)), say: "The same, large, and looping" },
   ];
 }
 

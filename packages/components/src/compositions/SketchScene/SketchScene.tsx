@@ -1,6 +1,6 @@
 import { BaseEdge, Handle, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
-  Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, Scale,
+  Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, RotateCw, Scale,
   ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -44,6 +44,13 @@ export type SketchSceneProps = {
    * asking, and nothing in it to press or tab to. It is fitted again when its box changes size.
    */
   preview?: boolean;
+  /**
+   * Plays the steps as it opens and loops them, from the first again each time the scene is a different one. With
+   * reduced motion it plays nothing, and the rail's press steps one at a time.
+   */
+  autoplay?: boolean;
+  /** For a `preview`: the steps loop while this is true and the drawing is still while it is not. Never with reduced motion. */
+  playing?: boolean;
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -66,7 +73,7 @@ type NodeData = {
   onBody: (body: string) => void;
 };
 type SceneRfNode = Node<NodeData, "scene">;
-type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
+type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
 type SceneRfEdge = Edge<EdgeData, "flow">;
 
 function Sides({ type }: { type: "source" | "target" }) {
@@ -154,16 +161,17 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
 function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps<SceneRfEdge>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   if (data === undefined) return null;
-  const { edge, change, dim, asked, mine, struck, onPress } = data;
+  const { edge, change, dim, active, asked, mine, struck, onPress } = data;
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   return (
-    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-flow={edge.flow !== false || undefined}>
+    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-flow={edge.flow !== false || undefined}>
       <defs>
         <marker id={`head-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
         </marker>
       </defs>
       <BaseEdge id={id} path={path} markerEnd={`url(#head-${id})`} className="armada-scene-edge__line" />
+      {active ? <circle className="armada-scene-edge__dot" style={{ offsetPath: `path("${path}")` }} /> : null}
       {edge.label === undefined ? null : (
         <text className="armada-scene-edge__label" x={labelX} y={labelY}>
           {edge.label}
@@ -190,7 +198,11 @@ const FIT = { padding: 0.1 };
 const PAN = 80;
 
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-const STEP_MS = 1400;
+/** A step is as long as the pulse token: the dot crosses its edge in most of it and the rest holds the node lit. */
+const pulseMs = () => {
+  const read = typeof document === "undefined" ? NaN : Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--duration-pulse"), 10);
+  return Number.isNaN(read) ? 1600 : read;
+};
 
 function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance | null }; extent: string; preview: boolean }) {
   const flow = useReactFlow();
@@ -228,7 +240,7 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 }
 const JOINS_THE_PICK = ["Meta", "Control"];
 
-export function SketchScene({ scene: given, against, onAsk, marks, onMarks, preview = false }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -237,24 +249,44 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
   const composed = useMemo(() => (base === undefined ? undefined : withMarks(base, mark)), [base, mark]);
   const shown = composed?.scene;
   const [asked, setAsked] = useState<string | undefined>(undefined);
-  const [playing, setPlaying] = useState<number | undefined>(undefined);
+  const [stepAt, setStepAt] = useState<number | undefined>(undefined);
   const [pen, setPen] = useState(false);
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [joining, setJoining] = useState<string | undefined>(undefined);
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
-  const steps = useMemo(() => (shown?.nodes ?? []).filter((one) => one.step !== undefined).sort((a, b) => (a.step ?? 0) - (b.step ?? 0)), [shown]);
+  // **A step is a number a node or an arrow carries**, and the nodes and arrows with one number play together.
+  const steps = useMemo(
+    () => [...new Set([...(shown?.nodes ?? []).map((one) => one.step), ...(shown?.edges ?? []).map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b),
+    [shown],
+  );
   const extent = base === undefined ? "" : extentOf(base);
+  const loops = autoplay || (preview && playing);
+  const sceneKey = useMemo(() => JSON.stringify(given), [given]);
+
+  // Opening on a scene starts its steps where the host asks for it, and a different scene starts over.
+  const first = steps.length > 0 ? steps[0] : undefined;
+  useEffect(() => {
+    setStepAt(loops && first !== undefined && !reduced() ? 0 : undefined);
+  }, [loops, first, sceneKey]);
 
   useEffect(() => {
-    if (playing === undefined || reduced()) return;
-    const timer = setTimeout(() => setPlaying(playing + 1 < steps.length ? playing + 1 : undefined), STEP_MS);
+    if (stepAt === undefined || reduced()) return;
+    const timer = setTimeout(() => setStepAt(stepAt + 1 < steps.length ? stepAt + 1 : loops ? 0 : undefined), pulseMs());
     return () => clearTimeout(timer);
-  }, [playing, steps.length]);
+  }, [stepAt, steps.length, loops]);
 
   const edit = (next: SceneMarks) => onMarks?.(next);
   const onBody = (id: string, body: string) => edit({ ...mark, nodes: mark.nodes.map((one) => (one.id === id ? { ...one, body } : one)) });
-  const current = playing === undefined ? undefined : steps[playing]?.id;
+  const at = stepAt === undefined ? undefined : steps[stepAt];
+  // What this step lights: its own nodes, and where its arrows go.
+  const lit = useMemo(() => {
+    const ids = new Set<string>();
+    if (at === undefined) return ids;
+    for (const one of shown?.nodes ?? []) if (one.step === at) ids.add(one.id);
+    for (const one of shown?.edges ?? []) if (one.step === at) ids.add(one.to);
+    return ids;
+  }, [at, shown]);
   const fresh = useMemo<SceneRfNode[]>(
     () =>
       (shown?.nodes ?? []).map((node) => {
@@ -269,8 +301,9 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
           data: {
             node,
             change,
-            dim: (diff !== undefined && change === "same") || (current !== undefined && node.id !== current),
-            current: node.id === current,
+            // A group or a lane is the ground the steps happen on, and does not stand back.
+            dim: (diff !== undefined && change === "same") || (at !== undefined && !lit.has(node.id) && !GROUND.has(node.kind)),
+            current: lit.has(node.id),
             asked: node.id === asked,
             mine,
             struck,
@@ -283,7 +316,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `onBody` closes over `mark`, which `composed` already tracks
-    [shown, diff, current, asked, joining, composed],
+    [shown, diff, at, lit, asked, joining, composed],
   );
   // **React Flow holds what a node measures and whether it is picked**, and a graph that is handed its
   // nodes anew each render keeps neither unless it applies the changes itself, as the pad does.
@@ -305,7 +338,8 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         data: {
           edge,
           change,
-          dim: (diff !== undefined && change === "same") || (current !== undefined && edge.to !== current),
+          dim: (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
+          active: at !== undefined && edge.step === at,
           asked: edge.id === asked,
           mine: composed?.mine.has(edge.id) ?? false,
           struck: composed?.struck.has(edge.id) ?? false,
@@ -313,7 +347,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         },
       };
     });
-  }, [shown, diff, current, asked, composed]);
+  }, [shown, diff, at, asked, composed]);
 
   if (shown === undefined || base === undefined) return <figure className="armada-sketch" data-preview={preview || undefined} role="group" aria-label="Sketch" />;
 
@@ -386,12 +420,20 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         ]),
     {
       id: "play",
-      name: playing === undefined ? "Play the steps" : reduced() ? "Next step" : "Stop the steps",
-      icon: playing !== undefined && !reduced() ? Pause : Play,
-      pressed: playing !== undefined,
+      name: stepAt === undefined ? "Play the steps" : reduced() ? "Next step" : "Stop the steps",
+      icon: stepAt !== undefined && !reduced() ? Pause : Play,
+      pressed: stepAt !== undefined,
       disabled: steps.length === 0,
       why: "This sketch has no order to play.",
-      onPress: () => setPlaying(playing === undefined ? 0 : reduced() ? (playing + 1 < steps.length ? playing + 1 : undefined) : undefined),
+      onPress: () => setStepAt(stepAt === undefined ? 0 : reduced() ? (stepAt + 1 < steps.length ? stepAt + 1 : undefined) : undefined),
+    },
+    {
+      id: "restart",
+      name: "Restart the steps",
+      icon: RotateCw,
+      disabled: steps.length === 0,
+      why: "This sketch has no order to play.",
+      onPress: () => setStepAt(0),
     },
   ];
 

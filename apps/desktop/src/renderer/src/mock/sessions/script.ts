@@ -8,7 +8,7 @@
 
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
-import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE } from "./sketches";
+import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -613,9 +613,15 @@ export function sessionsStore(
           } else if (had === 1) {
             showSketch(id, READS_TITLE, READS_AGAIN);
             addTo(id, [said("Added the sleep I tried. It hides the failure and leaves the cause.")]);
-          } else {
+          } else if (had === 2) {
             showSketch(id, PINNED_TITLE, PINNED, { title: READS_TITLE, drawing: READS_AGAIN });
             addTo(id, [said("The clock is injected and the test pins it. The sleep is gone.")]);
+          } else if (had === 3) {
+            showSketch(id, SEQUENCE_TITLE, SEQUENCE);
+            addTo(id, [said("Bridge starts it, Fleet runs the Drone, and the Drone writes to the store.")]);
+          } else {
+            showSketch(id, WORKFLOW_TITLE, WORKFLOW);
+            addTo(id, [said("Build and Test run together, and the Gate waits for both.")]);
           }
           finishOf(id, "14:52");
         });

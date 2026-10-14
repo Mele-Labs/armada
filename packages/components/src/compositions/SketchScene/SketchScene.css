@@ -220,6 +220,22 @@
   animation: armada-scene-flow var(--duration-pulse) linear infinite;
 }
 
+/* The step's arrow: its line takes the focus hue and a dot crosses it, from where it starts to where it ends. */
+.armada-scene-edge[data-active] .armada-scene-edge__line {
+  stroke: var(--edge-focus);
+}
+
+.armada-scene-edge[data-active] .armada-scene-edge__head {
+  fill: var(--edge-focus);
+}
+
+.armada-scene-edge__dot {
+  r: var(--space-2);
+  fill: var(--edge-focus);
+  offset-rotate: 0deg;
+  animation: armada-scene-travel calc(var(--duration-pulse) * 0.75) var(--ease) both;
+}
+
 .armada-scene-edge[data-asked] .armada-scene-edge__line {
   stroke: var(--edge-focus);
 }
@@ -254,7 +270,20 @@
   }
 }
 
+@keyframes armada-scene-travel {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .armada-scene-edge__dot {
+    display: none;
+  }
+
   .armada-scene-edge[data-flow] .armada-scene-edge__line {
     animation: none;
     stroke-dasharray: none;

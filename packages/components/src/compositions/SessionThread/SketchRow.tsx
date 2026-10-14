@@ -8,13 +8,25 @@ import type { SessionThreadRow } from "./SessionThread";
 /**
  * A sketch the agent drew, where in the thread it did: a header band over the drawing itself, shrunk (`SketchScene`'s
  * `preview`, so the frames, icons, colours and edges are the panel's), and a
- * press that opens the sketch in the panel. **A card whose sketch was replaced is dashed and stands
+ * press that opens the sketch in the panel. It plays the sketch's steps while it is pointed at or focused. **A card whose sketch was replaced is dashed and stands
  * back**, because its press opens the sketch that took its place.
  */
 export function SketchRow({ row, onOpen }: { row: Extract<SessionThreadRow, { kind: "sketch" }>; onOpen?: (sketch: string) => void }) {
+  // The steps loop while the card is pointed at or focused, and the card is a still drawing the rest of the time.
+  const [pointed, setPointed] = useState(false);
+  const [focused, setFocused] = useState(false);
   return (
     <li className="armada-session-sketch" data-replaced={row.replaced || undefined}>
-      <button type="button" className="armada-session-sketch__press" aria-label={`Open sketch ${row.title}`} onClick={() => onOpen?.(row.sketch)}>
+      <button
+        type="button"
+        className="armada-session-sketch__press"
+        aria-label={`Open sketch ${row.title}`}
+        onClick={() => onOpen?.(row.sketch)}
+        onMouseEnter={() => setPointed(true)}
+        onMouseLeave={() => setPointed(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      >
         <span className="armada-session-sketch__band">
           <PencilRuler size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-sketch__title">{row.title}</span>
@@ -23,7 +35,7 @@ export function SketchRow({ row, onOpen }: { row: Extract<SessionThreadRow, { ki
           <span className="armada-session-sketch__at">{row.at}</span>
         </span>
         <span className="armada-session-sketch__glass">
-          <SketchScene scene={row.drawing} {...(row.againstScene === undefined ? {} : { against: row.againstScene })} preview />
+          <SketchScene scene={row.drawing} {...(row.againstScene === undefined ? {} : { against: row.againstScene })} preview playing={pointed || focused} />
         </span>
       </button>
     </li>
@@ -52,7 +64,7 @@ export function SketchReading({ scene, against }: { scene: unknown; against?: { 
           </span>
         </div>
       )}
-      <SketchScene scene={scene} {...(against === undefined || !changes ? {} : { against: against.scene })} />
+      <SketchScene scene={scene} autoplay {...(against === undefined || !changes ? {} : { against: against.scene })} />
     </div>
   );
 }

@@ -42,7 +42,11 @@ export type SceneNode = {
   step?: number;
 };
 
-export type SceneEdge = { id: string; from: string; to: string; label?: string; flow?: boolean };
+/**
+ * `step` puts an arrow in the order the scene plays: its step sends a pulse from `from` to `to` and lights `to`, beside
+ * any node of that step. An arrow with no step stays still.
+ */
+export type SceneEdge = { id: string; from: string; to: string; label?: string; flow?: boolean; step?: number };
 
 export type Scene = {
   nodes: readonly SceneNode[];
@@ -78,10 +82,15 @@ function nodeOf(value: unknown): SceneNode | undefined {
 
 function edgeOf(value: unknown): SceneEdge | undefined {
   if (!isRecord(value)) return undefined;
-  const { id, from, to, label, flow } = value;
+  const { id, from, to, label, flow, step } = value;
   if (!isText(id) || id === "" || !isText(from) || !isText(to)) return undefined;
-  if (!optional(label, isText) || !(flow === undefined || typeof flow === "boolean")) return undefined;
-  return { id, from, to, ...(label === undefined ? {} : { label: label as string }), ...(flow === undefined ? {} : { flow }) };
+  if (!optional(label, isText) || !(flow === undefined || typeof flow === "boolean") || !optional(step, isNumber)) return undefined;
+  return {
+    id, from, to,
+    ...(label === undefined ? {} : { label: label as string }),
+    ...(flow === undefined ? {} : { flow }),
+    ...(step === undefined ? {} : { step: step as number }),
+  };
 }
 
 function strokeOf(value: unknown): SketchStroke | undefined {
