@@ -420,7 +420,7 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 | Scene, written, with `against` | 32768 bytes |
 | Title | 120 characters |
 
-**It is kept as an artifact of form `sketch`**, `target` `sketch:<title>`, with `detail` of `by` `agent`, `title` and `scene`, the scene as JSON text, and `against` where the call named one. A second call with the same title replaces the first where it stands; another title adds one. It stays on the ledger after the session ends and survives a restart. Nothing is written to the thread and no window opens. Through the door the answer is a receipt of `session_id` and `sketch`.
+**It is kept as an artifact of form `sketch`**, `target` `sketch:<title>`, with `detail` of `by` `agent`, `title` and `scene`, the scene as JSON text, and `against` where the call named one. A second call with the same title replaces the first where it stands; another title adds one. It stays on the ledger after the session ends and survives a restart. The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`, the arguments unwrapped from the door's `body` and carried whole (`title`, `scene`, `against`; not `session_id`), which Bridge draws the sketch's card from. No window opens. Through the door the answer is a receipt of `session_id` and `sketch`.
 
 **`step` orders what plays.** It is a finite number on a node or an edge, with one numbering for both: everything with the same step plays together, in ascending order, the dot travels an edge from `from` to `to`, and an edge with no step never pulses. A sequence diagram is groups as lifelines, label nodes as points and stepped edges between them; a workflow steps its nodes and its arrows.
 
