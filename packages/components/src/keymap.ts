@@ -395,15 +395,21 @@ function chordsIn(slot: Slot): Chord[] {
 const sameChord = (a: Chord, b: Chord): boolean =>
   a.key === b.key && a.alt === b.alt && a.shift === b.shift && a.meta === b.meta && a.ctrl === b.ctrl;
 
-/** The other acts that answer the same key as this slot, somewhere both are listening. */
+/**
+ * The other acts that answer the same key as this slot, somewhere both are listening.
+ *
+ * **An act that is `unbuilt` listens to nothing**, so it neither conflicts nor is conflicted with: the
+ * registry is ahead of the code on purpose, and a key nothing answers cannot fight for one.
+ */
 export function conflictsOf(id: string, slot: Slot): Action[] {
   const act = ACTION[id];
-  if (act === undefined) return [];
+  if (act === undefined || act.unbuilt !== null) return [];
   const mine = chordsIn(slot);
   if (mine.length === 0) return [];
   return ACTIONS.filter(
     (other) =>
       other.id !== id &&
+      other.unbuilt === null &&
       overlaps(act.scope, other.scope) &&
       slotsOf(other.id).some((theirs) => chordsIn(theirs).some((chord) => mine.some((one) => sameChord(one, chord)))),
   );

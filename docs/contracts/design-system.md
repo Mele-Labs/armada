@@ -1463,6 +1463,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘Enter   send the message in the field that has focus
 ⌘N       dispatch from a field, where n would type
 ⌥1–3     filter by number  (dashboard only)
+⌘1–⌘4    go to a tab: Cockpit, Jobs, Sessions or System, with the rail off  (dashboard only) (not built)
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)
@@ -1525,6 +1526,11 @@ R              run                  (open studio only)
 m              switch between grid and timeline   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
+l b c q f a    go to a panel: list, bays, calls, queue, flight controls, Autopilot   (dashboard only) (not built)
+1–6            press a flight control   (dashboard only) (not built)
+v              switch a Job between mission and canvas   (dashboard only) (not built)
+t              show the timeline   (dashboard only) (not built)
+g              go to a page, then c, j, s or y   (dashboard only) (not built)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
@@ -1544,6 +1550,18 @@ never on a call Fleet raises about a state. On a Job's question they answer with
 `mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told. The panel's `[ ]` and `⌥1–3`
 move between its filters, `m` flips grid and timeline, `w` brings a waiting call
 back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
+
+**The flight deck's keys are in the `dashboard` scope, registered ahead of the deck
+(#2301).** `l b c q f a` go to a panel (`m`, the map, is the Dashboard's `m`), `1–6`
+press a flight control, `v` swaps a Job's mission and canvas, `t` shows the timeline,
+`g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or System, and with
+the rail off `⌘1–⌘4` are the title bar's four tabs. Each is `not built`, and an act
+that is `not built` listens to nothing, so the keymap does not count it against `t`
+(`attest`), `c` (`copy_debug_info`), `⌘1–⌘9` (`bridge_surfaces`) or any other key
+the deck takes. The conflict is real once the deck is wired, and wiring is where it is
+settled: the keymap holds places and not switches, and `g` is one key where the
+chord is two. The deck replaces the Dashboard's `[ ]` and `⌥1–3`, which retire with
+that panel.
 
 **This is the map, not a pattern.** It was settled by drawing the Job
 Board and the command palette together, which is what forced the two

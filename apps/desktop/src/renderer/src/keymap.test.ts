@@ -62,6 +62,15 @@ describe("reading the registry's spellings", () => {
       for (const slot of defaultSlotsOf(act.id)) expect(conflictsOf(act.id, slot).map((one) => one.id), act.id).toEqual([]);
     }
   });
+
+  it("counts an act whose row is unbuilt against no key: the deck's `t` waits for #2301 beside attest's", () => {
+    const timeline = ACTIONS.find((one) => one.id === "deck_timeline")!;
+    const attest = ACTIONS.find((one) => one.id === "attest")!;
+    expect(timeline.unbuilt).not.toBeNull();
+    expect(timeline.shortcut).toBe(attest.shortcut);
+    expect(conflictsOf("deck_timeline", defaultSlotsOf("deck_timeline")[0]!)).toEqual([]);
+    expect(conflictsOf("attest", defaultSlotsOf("attest")[0]!).map((one) => one.id)).not.toContain("deck_timeline");
+  });
 });
 
 describe("a press, as the shipped keys answer it", () => {

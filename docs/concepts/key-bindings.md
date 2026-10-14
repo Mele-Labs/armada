@@ -28,7 +28,7 @@ Esc lets go of a key without changing it and Delete unbinds it. Reset puts one a
 > **Rule.** A key two acts answer where both are listening is drawn as a warning on both rows, and kept.
 > Why: moving two keys at once passes through a moment where both hold one, and refusing it would make the swap impossible.
 
-Where an act listens is its scope. `o` opens a row on a list and the output on a Job, which are never the same screen, so the shipped map has no conflict; a test holds it to that.
+Where an act listens is its scope. `o` opens a row on a list and the output on a Job, which are never the same screen, so the shipped map has no conflict; a test holds it to that. An act whose row is `unbuilt` listens to nothing yet, so it counts against no key; it counts again the day its issue closes.
 
 ## Kept by Fleet
 
