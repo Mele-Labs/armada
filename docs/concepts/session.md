@@ -425,6 +425,35 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 **An agent that calls `show_window`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long session, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good. The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`), or `done` and `done_since`. It weighs the same on the first call and the thousandth. Bridge's routes and the mod's hook, which are not the door, are answered the row. Nothing reads these four answers today.
 
+## Working on
+
+**A hosted Session shows what it is doing, and Fleet detects it.** `SessionRecord.activity` (`SessionActivity`: `now?`, `todos[]`, `last_call_at?`) is built from the tool calls Fleet's PreToolUse gate sees, which is every tool call of a Session Fleet hosts. No tool asks the agent to say it, because Fleet does not rely on an agent calling a tool to know its state (the owner, 14 Oct 2026). The one thing the agent does say is its own to-do list, and Fleet reads that off the call too.
+
+| Field | Where it comes from | What it is |
+| --- | --- | --- |
+| `now` | Detected, from the call's tool and input | One short fact for the latest call Fleet can name. A call it cannot name leaves it as it was |
+| `last_call_at` | Detected, from any call | When the Session last made a tool call |
+| `todos` | Reported, as the agent's own `TodoWrite` list | Each `TodoWrite` replaces the whole list. `text` is the item's `content`, and `completed`, `in_progress` and `pending` are `done`, `doing` and `todo`. An empty list clears it. A `TodoWrite` never changes `now` |
+
+`now` reads in one of these forms, with no counts and no narration:
+
+| Tool | `now` |
+| --- | --- |
+| `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | `Editing gate.rs`, the file's name without its directory |
+| `Read` | `Reading gate.rs` |
+| `Bash` | `Running cargo check`: the command's name, and its subcommand where it is a tool that has them (`git`, `cargo`, `pnpm`, `armada` and the like) and the next word is a plain one. A leading `cd x &&`, an environment assignment or a wrapper such as `time` is skipped, and a line with nothing in it that runs a command leaves `now` alone |
+| `Grep`, `Glob` | `Searching` |
+| `WebFetch`, `WebSearch` | `Fetching` |
+| `Agent`, `Task` | `Running a subagent` |
+
+**It is kept with the rest of a Session's runtime state, in memory.** It is not in the store, a Fleet restart starts it empty, and it is dropped when the Session ends. The gate notes a call only for a Session that is hosted and open, after the check that already passes an unknown or ended one, and does so whatever the gate then decides about the call.
+
+**A call does not publish a row.** The row is large and goes out whole with every `session.changed`, and a busy Session makes many calls. A change to `now` or `todos` publishes at once when the Session's row has not gone out for what it is doing within the last two seconds. Otherwise one publish follows when those two seconds are up, carrying the latest, so the last change is never lost and a burst costs two rows. `last_call_at` alone never publishes: it rides the next row, and a reader takes it as no fresher than the row it is on. The gate takes a lock for a moment and awaits nothing, and the publish is a task of its own, so the answer to the call is not held for it.
+
+**Bridge draws nothing for a Session whose turn is not running.** Fleet does not clear `now` or `todos` when a turn ends, because an idle agent's last list is still its list for the next turn. Whether a line, a band or a quiet mark is drawn is Bridge's rule, read off `hosted.turn` and these fields.
+
+**Only a hosted Session is covered.** A Session run in a terminal makes its tool calls in a process Fleet does not host. Its mod reports a few tools through `report_session` and does not call the gate, so such a row carries no `activity`.
+
 ## What fills the context window
 
 **A Session's context figure opens onto what fills it, the way `/context` shows it.** The mod asks the engine for a `summary` breakdown, estimated locally and never `full`, which would call the token-count API for every tool and file. It asks when the throttle lets a measurement through and the context moved, and sends `SessionRecord.context_breakdown`: `categories` (`name`, `tokens`, and a `kind` of `used`, `free`, `buffer` or `deferred` that Bridge branches on, never the name), `memory_files` (`path`, `tokens`), the ten `mcp_tools` that weigh most (`name`, `server`, `tokens`), `total_tokens`, `max_tokens` and `autocompact_threshold?`. **Names, paths and counts only**: no message text, prompt or file contents leave the mod. The live token count is the `context_tokens` already on `usage`.

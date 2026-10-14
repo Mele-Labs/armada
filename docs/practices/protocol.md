@@ -3927,6 +3927,23 @@ Since 13 Oct 2026. `docs/concepts/fleet.md`, *Rescuing a stranded slot*. **Addit
 
 **Who reads the route.** Bridge's main process (`apps/desktop/src/main/sessions.ts`) and Pocket send no `view` and are unchanged. Fleet's own readers (`read_thought`, the routing of a thought) call the daemon's `list_sessions` directly and never this route.
 
+## What a Session is doing, from its tool calls
+
+Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: one optional field on `SessionRecord` and three types. No operation, event kind or error is new. Bridge's half is `packages/protocol/src/session-activity.ts` and `sessions.ts`, written by hand. There is no number to take: the protocol ID moves with `crates/ipc/src/session_activity.rs`.
+
+| Where | Carries | Absent |
+| --- | --- | --- |
+| `SessionRecord.activity` (`session.changed`, `get_session`, `list_sessions`) | `SessionActivity`: `now?`, `todos[]`, `last_call_at?` | Before a hosted Session's first tool call, on a Session a terminal runs, and once it ends |
+| `SessionActivity.now` | One short fact for the latest call Fleet can name: `Editing gate.rs`, `Reading gate.rs`, `Running cargo check`, `Searching`, `Fetching`, `Running a subagent` | A call Fleet cannot name leaves it as it was; the field is left out until one is |
+| `SessionActivity.todos` | `SessionTodo`: `text`, `state` (`done`, `doing` or `todo`) | Left out while empty |
+| `SessionActivity.last_call_at` | An instant: the Session's latest tool call of any kind | Left out until a call is made |
+
+**`state` is a plain enum Bridge matches on**, as `WaitingMode` is, because no registry declares the set. **The gate that detects it is `gate_session_call`**, and its route is unchanged: Fleet notes the call before it decides it.
+
+**Publishing is coalesced.** A change to `now` or `todos` publishes `session.changed` at once when none went out for the Session's activity within two seconds, and otherwise once, when the two seconds are up. A call that changes neither publishes nothing, so `last_call_at` is as fresh as the last row, never fresher. A Fleet restart starts the field empty.
+
+**Skew.** A Bridge that predates this ignores an `activity` it does not read. A Fleet that predates it sends none, and Bridge treats that as no activity. The same change moves `HostedSessions::gate_session_call` to `self: Arc<Self>` in `crates/api`, which is Rust only and not on the wire.
+
 ## Helm is a Session
 
 `docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`. Helm's dock moves off its own host and socket onto the hosted-Session engine. Bridge has moved with it: the dock reads the Helm Session through the Sessions pipeline and calls only the routes below.

@@ -4,9 +4,11 @@
 //! **Beside Helm and changing nothing about it.** A hosted session is a ledger
 //! row with `origin` `bridge`, and a live process, a thread and a lease taken
 //! on its first write besides. `serving` is every command, `hearing` turns what
-//! a process says into rows and turns, `gate` is the lease, `asking` is the
-//! permission door and `rows` writes the thread.
+//! a process says into rows and turns, `gate` is the lease, `activity` is what
+//! its tool calls show it doing, `asking` is the permission door and `rows`
+//! writes the thread.
 
+pub(crate) mod activity;
 mod agent_starting;
 mod asking;
 mod cut_off;
@@ -81,6 +83,8 @@ pub struct Hosts {
     slot_queue: Arc<queueing::SlotQueue>,
     /// Held while a repository's Helm Session is looked for and made, so two first messages make one.
     helm_starting: tokio::sync::Mutex<()>,
+    /// The most often a session's row goes out for what it is doing, in milliseconds.
+    activity_every: AtomicU64,
 }
 
 impl Hosts {
@@ -97,7 +101,18 @@ impl Hosts {
             plan: Mutex::new(ipc::PlanUsage::default()),
             slot_queue: Arc::default(),
             helm_starting: tokio::sync::Mutex::new(()),
+            activity_every: AtomicU64::new(activity::PUBLISH_EVERY.as_millis() as u64),
         }
+    }
+
+    pub(crate) fn activity_every(&self) -> Duration {
+        Duration::from_millis(self.activity_every.load(Ordering::Relaxed))
+    }
+
+    /// A shorter wait than the shipped one, so a test does not sit through it.
+    #[cfg(test)]
+    pub(crate) fn publish_activity_every(&self, every: Duration) {
+        self.activity_every.store(every.as_millis() as u64, Ordering::Relaxed);
     }
 
     pub(crate) fn helm_starting(&self) -> &tokio::sync::Mutex<()> {
@@ -275,6 +290,8 @@ pub(crate) struct State {
     pub helm: bool,
     /// What its last `get_events_since` was answered, kept for Helm's debug record. In memory.
     pub polled: Option<ipc::EventsSince>,
+    /// What its tool calls show it doing. In memory.
+    pub activity: activity::Activity,
 }
 
 impl State {
@@ -311,6 +328,7 @@ impl State {
             turn_began: None,
             helm: false,
             polled: None,
+            activity: activity::Activity::default(),
         }
     }
 }

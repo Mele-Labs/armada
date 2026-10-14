@@ -198,7 +198,7 @@ impl Rig {
             id.as_str(),
         );
         let gate: SessionGate = ipc::decode("a gate", call.as_bytes()).expect("a gate");
-        self.fleet.gate_session_call(gate).await.expect("answered")
+        Arc::clone(&self.fleet).gate_session_call(gate).await.expect("answered")
     }
 
     pub(super) async fn turn(&self, id: &SessionId) -> SessionTurn {

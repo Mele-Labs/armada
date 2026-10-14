@@ -582,6 +582,10 @@ pub struct SessionRecord {
     /// dock, and at most one is live per `manifest_id`. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub helm: bool,
+    /// What a hosted session is doing, as Fleet's gate saw its tool calls. Absent before the first
+    /// call, on a session a terminal runs and once the session ends. Since 14 Oct 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub activity: Option<crate::session_activity::SessionActivity>,
 }
 
 /// `list_sessions`: the most recently seen first.

@@ -92,6 +92,7 @@ fn long_lived() -> SessionRecord {
         held_until: None,
         context_breakdown: None,
         helm: false,
+        activity: None,
     }
 }
 
