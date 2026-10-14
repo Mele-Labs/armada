@@ -1,0 +1,65 @@
+/* Direction B as a navigation model: the layer bar over a page, the calls over every layer, and the wall of
+   places on the Cockpit. Tokens only. proto/cockpit-three-directions. */
+
+.armada-screen__mounted:has(> .proto-app-overlay) { position: relative; }
+
+/* The calls: over whatever is open, and nothing that is behind them stops being pressable. */
+.proto-app-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  min-height: 0;
+  pointer-events: none;
+}
+.proto-app-overlay .proto-tray { z-index: 3; }
+
+/* ---- The layer bar -------------------------------------------------------------------------------- */
+
+.proto-layerbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.proto-layerbar > .proto-band__marks { margin-left: auto; }
+.proto-layerbar__acts { display: inline-flex; gap: var(--space-2); margin-left: auto; }
+.proto-layerbar__acts + .proto-band__marks { margin-left: 0; }
+.proto-crumbs { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; list-style: none; }
+.proto-crumbs__one { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; white-space: nowrap; }
+.proto-crumbs__one[data-here] { color: var(--fg-default); font-weight: var(--weight-heading); overflow: hidden; text-overflow: ellipsis; }
+.proto-crumbs__press { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.proto-crumbs__press:hover { color: var(--fg-default); }
+.proto-crumbs__press:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* A station's mark as a press. */
+.proto-roll { display: inline-flex; align-items: center; padding: var(--space-1); border: 0; border-radius: var(--radius-sm); background: none; cursor: pointer; }
+.proto-roll:hover { background: var(--bg-overlay); }
+.proto-roll:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* ---- The wall, where a place in trouble draws its strips -------------------------------------------- */
+
+.proto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 6), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+}
+.proto-rail--lead { border-top: 0; padding-bottom: var(--space-3); background: transparent; }
+
+/* Over a page the tray comes in from the top, under the bar, so it never sits on a page's own foot. */
+.proto-app-overlay[data-layer] .proto-tray { top: calc(var(--h-row) * 1.25 + var(--space-4) + var(--space-4) + var(--space-2)); bottom: auto; }
+.proto-app-overlay[data-layer] .proto-tray__strip[data-arrived] { animation-name: proto-transmit-down, proto-lit; }
+@keyframes proto-transmit-down {
+  from { transform: translateY(calc((var(--h-control) + var(--space-6)) * -1)); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}

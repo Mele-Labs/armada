@@ -16,14 +16,14 @@ import "./wall.css";
 
 const RANK: Record<Vote, number> = { go: 0, off: 0, hold: 1, nogo: 2 };
 /** Where a tie goes first: main, then the merge line, then the work. */
-const PRIORITY: readonly StationId[] = ["main", "merge", "sessions", "jobs", "bays", "autopilot"];
+const PRIORITY: readonly StationId[] = ["main", "merge", "sessions", "jobs", "checks", "bays", "autopilot"];
 
 const rankSubject = (one: Subject) => (one.alarm ? 0 : one.needs ? 1 : 2);
 
 /** The subjects a station draws: all of them, what is wrong first. */
-function subjectsOf(station: StationId, ship: Ship): Subject[] {
+export function subjectsOf(station: StationId, ship: Ship): Subject[] {
   const all =
-    station === "sessions" ? ship.subjects.filter((one) => one.kind === "session") : station === "jobs" ? ship.subjects.filter((one) => one.kind === "job") : station === "merge" ? ship.subjects.filter((one) => one.pr !== undefined) : [];
+    station === "sessions" ? ship.subjects.filter((one) => one.kind === "session") : station === "jobs" ? ship.subjects.filter((one) => one.kind === "job") : station === "merge" ? ship.subjects.filter((one) => one.pr !== undefined) : station === "checks" ? stationsOf(ship).find((one) => one.id === "checks")?.exceptions ?? [] : [];
   const landed = (one: Subject) => (one.pr?.stage === "landed" ? 1 : 0);
   return [...all].sort((a, b) => landed(a) - landed(b) || rankSubject(a) - rankSubject(b));
 }
@@ -66,7 +66,7 @@ function Row({ subject, selected, ui, acts }: { subject: Subject; selected: bool
 }
 
 /** Main's tile: what failed, what broke it, and Fix. */
-function MainBody({ main, acts }: { main: Main; acts: Acts }) {
+export function MainBody({ main, acts }: { main: Main; acts: Acts }) {
   return (
     <div className="proto-main" data-state={main.state}>
       {main.state === "red" ? (
@@ -107,7 +107,7 @@ function MainBody({ main, acts }: { main: Main; acts: Acts }) {
 }
 
 /** The bays, as the pool draws them: a held one under its holder, a free one open. */
-function BaysBody({ bays }: { bays: readonly Bay[] }) {
+export function BaysBody({ bays }: { bays: readonly Bay[] }) {
   return (
     <ul className="proto-bays" aria-label="Worktree slots">
       {bays.map((bay) => (
@@ -124,14 +124,14 @@ function BaysBody({ bays }: { bays: readonly Bay[] }) {
 }
 
 /** What a station on the edge shows of itself: its mark and only what is wrong. */
-function EdgeTile({ station, ship, onPromote }: { station: Station; ship: Ship; onPromote: () => void }) {
+export function EdgeTile({ station, ship, onPress }: { station: Station; ship: Ship; onPress: () => void }) {
   const Glyph = STATION_GLYPH[station.id];
   const lines =
     station.id === "main"
       ? ship.mains.filter((one) => one.state === "red").map((one) => ({ key: one.root, mark: undefined, text: one.check ?? "" }))
       : station.exceptions.slice(0, 3).map((one) => ({ key: one.key, mark: one.mark, text: one.title }));
   return (
-    <button type="button" className="proto-tile" data-vote={station.vote} data-station={station.id} aria-label={stationLines(station).join("; ")} onClick={onPromote}>
+    <button type="button" className="proto-tile" data-vote={station.vote} data-station={station.id} aria-label={stationLines(station).join("; ")} onClick={onPress}>
       <span className="proto-tile__band">
         <Glyph size={16} aria-hidden />
         <span>{station.name}</span>
@@ -250,7 +250,7 @@ export function Wall(props: CockpitProps) {
             )}
             <div className="proto-edge" data-calm={lead === undefined || undefined}>
               {edge.map((one) => (
-                <EdgeTile key={one.id} station={one} ship={ship} onPromote={() => setPin(one.id)} />
+                <EdgeTile key={one.id} station={one} ship={ship} onPress={() => setPin(one.id)} />
               ))}
             </div>
           </div>

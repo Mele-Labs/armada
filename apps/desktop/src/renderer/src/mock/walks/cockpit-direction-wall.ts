@@ -3,7 +3,7 @@
 // transmission and answered from its card, a Peek, a reply in place, a pull request landing, main going red
 // and Fix, and the stuck Session found and stopped. A throwaway prototype on proto/cockpit-three-directions.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, inside, region, role, text, walk } from "../walk";
 
 const glass = region("Dashboard");
 const station = (name: string) => region(name);
@@ -25,9 +25,9 @@ const cockpitDirectionWall = walk("cockpit-ship", [
   { look: subject("Jobs", "Add the pause marker column"), say: "Jobs on the large tile: a review, a failed Check" },
   { press: tile(/^Sessions/), say: "And back to Sessions" },
   { key: "p", on: subject("Sessions", "Migration notes"), say: "Peek on a working Session" },
-  { look: dialog("Peek at Migration notes"), say: "The end of its thread, with its working mark and its own box" },
-  { look: inside(dialog("Peek at Migration notes"), text(/0044 drops the legacy index/)), say: "A row lands while it is open, and the thread follows its end" },
-  { key: "Escape", on: dialog("Peek at Migration notes"), say: "Put away" },
+  { look: region("Peek at Migration notes"), say: "The end of its thread, with its working mark and its own box" },
+  { look: inside(region("Peek at Migration notes"), text(/0044 drops the legacy index/)), say: "A row lands while it is open, and the thread follows its end" },
+  { key: "Escape", on: region("Peek at Migration notes"), say: "Put away" },
   { key: "r", on: subject("Sessions", "Fix the reconnect wait"), say: "Reply in place on its line" },
   { type: "Fix the desktop_test failure.\n", into: role("textbox", "Reply to Fix the reconnect wait"), say: "Sent where its page's box sends" },
   { look: subject("Sessions", "Fix the reconnect wait"), say: "It is at work on the red pull request" },

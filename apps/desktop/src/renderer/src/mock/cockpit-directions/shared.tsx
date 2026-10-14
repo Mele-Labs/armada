@@ -3,7 +3,7 @@
 // the keys, and the key sheet. Nothing here is registered in the real keymap: the keys are handlers on
 // this mock's window. Mock only. proto/cockpit-three-directions.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Box, Check, CircleDot, ExternalLink, GitCommitHorizontal, GitMerge, GitPullRequest, Merge, Pause, Plane, Reply, Rows3, ShieldCheck, ShieldX, Square, SquareTerminal, Terminal, X, type LucideIcon } from "lucide-react";
 import { Button, Kbd, SessionThread, StepBar, Textarea, Tooltip, forgetKept } from "@armada/components";
@@ -122,15 +122,63 @@ export type ShipUi = {
   setPeeking: (key: string | undefined) => void;
   sheet: boolean;
   setSheet: (on: boolean) => void;
+  /** The station held on the large tile by hand, over what the alarms would put there. */
+  pin: StationId | undefined;
+  setPin: (id: StationId | undefined) => void;
+  /** A call's card is open, wherever the window is. */
+  cardOpen: boolean;
+};
+
+/**
+ * The window's view state lives here and not in the body that draws it, so a body that unmounts while the owner
+ * is on another page comes back to the same selection, the same open Peek and Reply, and the same station.
+ */
+type UiState = { selected?: string; replying?: string; peeking?: string; sheet: boolean; pin?: StationId; cardOpen: boolean; scroll: Readonly<Record<string, number>> };
+const FRESH: UiState = { sheet: false, cardOpen: false, scroll: {} };
+let uiState: UiState = FRESH;
+const uiListeners = new Set<() => void>();
+const uiSubscribe = (on: () => void) => (uiListeners.add(on), () => void uiListeners.delete(on));
+const setUi = (change: Partial<UiState>) => {
+  uiState = { ...uiState, ...change };
+  uiListeners.forEach((one) => one());
+};
+export const forgetUi = () => {
+  uiState = FRESH;
+  uiListeners.forEach((one) => one());
+};
+export const setCardOpen = (open: boolean) => {
+  if (uiState.cardOpen !== open) setUi({ cardOpen: open });
+};
+/** Where a pane was scrolled to, kept for the body that comes back. Held without a render. */
+export const scrolled = {
+  get: (key: string) => uiState.scroll[key] ?? 0,
+  set: (key: string, top: number) => {
+    uiState = { ...uiState, scroll: { ...uiState.scroll, [key]: top } };
+  },
 };
 
 export function useShipUi(): ShipUi {
-  const [selected, select] = useState<string>();
-  const [replying, setReplying] = useState<string>();
-  const [peeking, setPeeking] = useState<string>();
-  const [sheet, setSheet] = useState(false);
-  return { selected, select, replying, setReplying, peeking, setPeeking, sheet, setSheet };
+  const now = useSyncExternalStore(uiSubscribe, () => uiState);
+  return useMemo(
+    () => ({
+      selected: now.selected,
+      select: (key) => setUi({ selected: key }),
+      replying: now.replying,
+      setReplying: (key) => setUi({ replying: key }),
+      peeking: now.peeking,
+      setPeeking: (key) => setUi({ peeking: key }),
+      sheet: now.sheet,
+      setSheet: (on) => setUi({ sheet: on }),
+      pin: now.pin,
+      setPin: (id) => setUi({ pin: id }),
+      cardOpen: now.cardOpen,
+    }),
+    [now],
+  );
 }
+
+/** `g` has been pressed and the next key names a place: the keys of a body stand down, and the one that took it is named. */
+export const chord: { armed: boolean; took: KeyboardEvent | undefined } = { armed: false, took: undefined };
 
 /** The mark a key stands for on the strip, in the tooltip and on the sheet. */
 const KEYS = {
@@ -258,7 +306,7 @@ export function PeekPop({ subject, ui, acts }: { subject: Subject; ui: ShipUi; a
   );
   if (rows.length === 0) return null;
   return createPortal(
-    <div ref={panel} className="proto-peek" role="dialog" aria-label={`Peek at ${subject.title}`} style={at === undefined ? { visibility: "hidden" } : at}>
+    <div ref={panel} className="proto-peek" role="region" aria-label={`Peek at ${subject.title}`} style={at === undefined ? { visibility: "hidden" } : at}>
       <header className="proto-peek__band">
         <span>{subject.title}</span>
         <Tooltip label="Open">
@@ -308,7 +356,7 @@ type KeysOf = {
 export function useShipKeys({ ship, order, ui, acts, cardOpen, openCall, extra }: KeysOf): Subject | undefined {
   const current = order.find((one) => one.key === ui.selected) ?? order[0];
   useListKeydown((event) => {
-    if (cardOpen || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (cardOpen || chord.armed || chord.took === event || event.metaKey || event.ctrlKey || event.altKey) return;
     if (holdsText(event.target)) return;
     const aimed = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-subject]")?.dataset.subject;
     const subject = order.find((one) => one.key === aimed) ?? current;
@@ -410,6 +458,7 @@ export function KeySheet({ ui, more = [] }: { ui: ShipUi; more?: readonly (reado
 export const STATION_GLYPH: Record<StationId, LucideIcon> = {
   sessions: SquareTerminal,
   jobs: Box,
+  checks: ShieldCheck,
   merge: Merge,
   main: GitCommitHorizontal,
   bays: Rows3,

@@ -374,16 +374,17 @@ const slotsOf = (state: CockpitProps["state"], picked: CockpitProps["picked"]): 
   state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [];
 
 /** The ship, live. `hosts` is what `useItems` raises calls through. */
-export function useShip(props: CockpitProps): Ship {
+export function useShip(props: CockpitProps, hold = true): Ship {
   const { state, now, picked, nowViews, nows } = props;
   const hosts: Hosts = props;
   const sessions = useSessions();
   // Fleet serves the worktree pool only while someone draws the bays, and these bodies draw them.
   const { onWantHeld } = props;
   useEffect(() => {
+    if (!hold) return;
     onWantHeld?.(true);
     return () => onWantHeld?.(false);
-  }, [onWantHeld]);
+  }, [onWantHeld, hold]);
   const calls = useItems("command-central", state, picked, nowViews, hosts, NONE);
   const held = useSyncExternalStore(subscribe, () => local);
   return useMemo(
@@ -404,7 +405,7 @@ export function useShip(props: CockpitProps): Ship {
   );
 }
 
-export type StationId = "sessions" | "jobs" | "merge" | "main" | "bays" | "autopilot";
+export type StationId = "sessions" | "jobs" | "checks" | "merge" | "main" | "bays" | "autopilot";
 /** One station's call, as a flight director polls it: go, hold, no-go, or off where nothing runs. */
 export type Vote = "go" | "hold" | "nogo" | "off";
 export type Station = {
@@ -432,11 +433,14 @@ export function stationsOf(ship: Ship): Station[] {
   const lineTrouble = ship.subjects.filter((one) => one.pr !== undefined && one.pr.stage === "red" && one.alarm);
   const free = ship.bays.some((one) => one.state === "free");
   const said = (list: readonly Subject[]) => list.slice(0, 3).map(saidOf);
+  // A Check that failed, on a Job or on a pull request: the Checks page's own business.
+  const failing = ship.subjects.filter((one) => one.mark.said === "Check failed" || one.pr?.stage === "red");
   const checks = ship.mains.filter((one) => one.state === "red").map((one) => `${one.check ?? "Check"} failing`);
   const running = ship.mains.some((one) => one.state !== "green" && one.state !== "red");
   return [
     { id: "sessions", name: "Sessions", vote: worst(sessions), exceptions: trouble(sessions), why: said(trouble(sessions)) },
     { id: "jobs", name: "Jobs", vote: worst(jobs), exceptions: trouble(jobs), why: said(trouble(jobs)) },
+    { id: "checks", name: "Checks", vote: failing.length > 0 ? "nogo" : "go", exceptions: failing, why: said(failing) },
     { id: "merge", name: "Merge line", vote: red ? "nogo" : lineTrouble.length > 0 ? "hold" : "go", exceptions: lineTrouble, why: red ? ["Stopped for main"] : said(lineTrouble) },
     { id: "main", name: "Main", vote: red ? "nogo" : running ? "hold" : "go", exceptions: [], why: red ? checks.slice(0, 3) : running ? ["Checks running"] : [] },
     { id: "bays", name: "Bays", vote: free ? "go" : "hold", exceptions: [], why: free ? [] : ["None free"] },

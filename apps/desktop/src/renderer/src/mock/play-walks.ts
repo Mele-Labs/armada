@@ -10,6 +10,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { pace } from "@armada/jobs/fake";
 import { settle } from "../cockpit/CallAlerts";
+import { appSeam } from "../cockpit/app-seam";
 import { cockpitBody } from "../cockpit/body-seam";
 import { installDirection } from "./cockpit-directions/install";
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -99,6 +100,8 @@ export function playWalks(part: number, of: number): void {
       installDirection(name, null);
       onTestFinished(() => {
         cockpitBody.current = undefined;
+        appSeam.current = undefined;
+        appSeam.hideWork = false;
       });
       mount(script.scenario);
       await onScreen();

@@ -19,7 +19,7 @@ import "./strips.css";
 
 const COLUMN: Record<Phase, string> = { needs: "Needs you", working: "Working", held: "Stuck or held", done: "Done" };
 
-function Strip({ subject, selected, linked, ui, acts, link }: { subject: Subject; selected: boolean; linked: boolean; ui: ShipUi; acts: Acts; link: Link }) {
+export function Strip({ subject, selected, linked, ui, acts, link }: { subject: Subject; selected: boolean; linked: boolean; ui: ShipUi; acts: Acts; link: Link }) {
   const tone = subject.alarm ? "bad" : subject.needs ? "ask" : "calm";
   return (
     <li

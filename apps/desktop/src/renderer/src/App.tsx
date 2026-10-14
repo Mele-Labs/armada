@@ -40,6 +40,7 @@ import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
 import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } from "./app-effects";
 import { CallAlerts } from "./cockpit/CallAlerts";
+import { appSeam } from "./cockpit/app-seam";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -240,7 +241,7 @@ export function App({ draft }: AppProps = {}) {
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const [sessioning, setSessioning] = useState(false); const [jobbing, setJobbing] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
-  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined)]; // Left off the rail and the palette.
+  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined), ...(appSeam.hideWork ? [SURFACE.overview, SURFACE.jobs, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks, SURFACE.sessions] : [])]; // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -613,7 +614,7 @@ export function App({ draft }: AppProps = {}) {
   const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }) === SURFACE.overview; // Its call is already in front.
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
-  useHistory(
+  const back = useHistory(
     { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
@@ -724,6 +725,16 @@ export function App({ draft }: AppProps = {}) {
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
+            {appSeam.current === undefined ? null : (
+              <appSeam.current
+                filter="command-central" onFilter={() => undefined} state={state} now={now} picked={pickedRepository}
+                nowViews={nowing.feed.calls} nows={nowing.feed.nows}
+                onOpen={setOpenJob} onOpenSession={openSession} onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)} onWantHeld={readHeld} onTell={tell}
+                onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
+                showing={showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring })}
+                openJobId={openJob} openSessionId={sessionOpen} goTo={goTo} back={back}
+              />
+            )}
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
@@ -1242,7 +1253,7 @@ export function App({ draft }: AppProps = {}) {
           onCopied={setCopied}
         >
           <DownshiftAlert choose={openModelSetting} />
-          <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
+          {appSeam.current !== undefined ? null : <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />}
         </Toasts>
         </DispatchingProvider>
         </SessionsOwnership>

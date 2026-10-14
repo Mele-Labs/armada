@@ -77,7 +77,7 @@ export function openingOf(place: Place): { tab?: DetailTab; task?: string; step?
  * somewhere is a visit — and bind `⌘[`, `⌘]`, the mouse buttons and the OS swipe to `restore`. A place `valid`
  * refuses (its Job is gone) is stepped over.
  */
-export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): void {
+export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): () => void {
   const held = useRef<History>(start(current));
   const latest = useRef({ restore, valid });
   latest.current = { restore, valid };
@@ -100,4 +100,5 @@ export function useHistory(current: Place, restore: (place: Place) => void, vali
   useHistoryKeys(() => go("back"), () => go("forward"));
   // A swipe or browser key only main hears.
   useEffect(() => window.armada.onHistory((step) => go(step)), []); // eslint-disable-line react-hooks/exhaustive-deps
+  return () => go("back");
 }
