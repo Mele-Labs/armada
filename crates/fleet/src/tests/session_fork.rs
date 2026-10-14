@@ -89,6 +89,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: Some(ForkFrom {
                     session_id: SessionId::carried(id),
@@ -143,6 +144,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -286,6 +288,7 @@ async fn a_closed_hosted_session_forks_and_a_live_one_does_not() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

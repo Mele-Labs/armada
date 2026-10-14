@@ -37,6 +37,11 @@ export type StartSession = {
    * is left as it was. Refused 422 `fleet.fork_point_unwritten` where no message has that id.
    */
   fork?: { session_id: string; at?: string };
+  /**
+   * Start Setup's session in a served repository with no `armada.yml` yet. It runs in `root`, carries no
+   * Manifest, and `manifest_id` is not read. A root that has one by now starts as a plain start on it.
+   */
+  root?: string;
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";

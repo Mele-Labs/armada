@@ -109,7 +109,18 @@ where
             }
         }
         let (session, hosting) = self.session_and_hosting(id).await?;
-        let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
+        let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
+        let (held, root) = match &served {
+            Ok(served) => (
+                self.held_directories(id, served, &hosting),
+                served.root().to_string(),
+            ),
+            // Setup's session holds no slot: the root it was started in is where it works.
+            Err(_) if hosting.manifest_id.is_empty() => {
+                (vec![session.cwd.clone()], session.cwd.clone())
+            }
+            Err(why) => return Err(why.clone()),
+        };
         let mode = mode_of(&hosting.mode);
         // A question is for the person whatever the mode: nothing else can
         // answer it, and the agent is told what they chose.
@@ -123,12 +134,11 @@ where
             || match mode {
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
                 SessionMode::Auto | SessionMode::Plan => {
-                    let held = self.held_directories(id, &served, &hosting);
                     let held: Vec<&str> = held.iter().map(String::as_str).collect();
                     // A branch is looked up only for a line that names one.
-                    let merged = match asking.detail().is_some_and(|line| line.contains("branch")) {
-                        true => self.own_merged_branches(id, &served, &hosting).await,
-                        false => Vec::new(),
+                    let merged = match (asking.detail().is_some_and(|line| line.contains("branch")), &served) {
+                        (true, Ok(served)) => self.own_merged_branches(id, served, &hosting).await,
+                        _ => Vec::new(),
                     };
                     let merged: Vec<&str> = merged.iter().map(String::as_str).collect();
                     let started = self.started_by(id);
@@ -184,7 +194,7 @@ where
                     HelmCallAnswer::AllowOnce => SessionAskState::AllowedOnce,
                     HelmCallAnswer::Refuse => SessionAskState::Refused,
                     HelmCallAnswer::AllowAndRemember => {
-                        let at = adapters::personal_settings(served.root());
+                        let at = adapters::personal_settings(&root);
                         // A settings file that will not be written is not a
                         // refusal: the person said yes.
                         let _ = adapters::remember_the_rule(&at, &waiting.rule);

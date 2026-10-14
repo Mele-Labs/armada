@@ -65,6 +65,7 @@ pub(super) async fn rig(judge: FakeJudge) -> (Arc<Hosted>, SessionId, TempDir) {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

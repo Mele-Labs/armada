@@ -127,12 +127,21 @@ fn rig() -> Rig {
 
 /// A rig whose callers and process trees are placed by a plant the test holds.
 pub(super) fn rig_placing(peers: Option<Arc<crate::tests::peer::Placing>>) -> Rig {
+    rig_fitted(|fittings| {
+        if let Some(peers) = peers {
+            fittings.peers = peers;
+        }
+    })
+}
+
+/// A rig over fittings the test changes first.
+pub(super) fn rig_fitted(
+    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
-    if let Some(peers) = peers {
-        fittings.peers = peers;
-    }
+    fit(&mut fittings);
     let fleet = Fleet::assembled(fittings).hosting_sessions_on(
         Arc::new(Shared(Arc::clone(&stand_in))),
         Duration::from_secs(600),
@@ -162,6 +171,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                root: None,
                 pilot: None,
                 fork: None,
             })
@@ -631,6 +641,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             model: None,
             effort: None,
             mode: None,
+            root: None,
             pilot: None,
             fork: None,
         })

@@ -60,6 +60,12 @@ pub struct StartSession {
     /// absent. `manifest_id` is read as for any start.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fork: Option<ForkFrom>,
+    /// Start in a served repository that has no `armada.yml` yet, so the
+    /// session can write one. The session runs in `root`, carries no
+    /// Manifest, and `manifest_id` is not read. A `root` that has a Manifest
+    /// by now starts as a plain start on it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
 }
 
 /// The session a new one is forked from. Since 23.69.

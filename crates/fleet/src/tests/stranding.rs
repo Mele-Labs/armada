@@ -41,6 +41,7 @@ async fn a_session(fleet: &Arc<Rescued>) -> String {
             effort: None,
             mode: None,
             pilot: None,
+            root: None,
             fork: None,
         })
         .await

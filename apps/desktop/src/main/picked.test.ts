@@ -17,7 +17,7 @@ import { CheckoutRunCommands, CheckoutRunSocket, CheckoutSheetReader, DriftReade
 import { JobCommands, type Board } from "./command";
 import { ManifestFileCommands } from "./editing";
 import { servedRoot } from "./annotations";
-import { Picked, repositoryToStart } from "./picked";
+import { Picked, repositoryToStart, startOn } from "./picked";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { composingOf, holdingsOf, manifestReadingOf } from "./request";
 import { ServerCommands } from "./servers";
@@ -431,5 +431,17 @@ describe("the repository a Session starts on", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the start a Session sends", () => {
+  it("names the Manifest of a repository that has one, root or none", () => {
+    expect(startOn(SET_UP, "T")).toEqual({ manifest_id: "store-01", title: "T" });
+    expect(startOn(SET_UP, undefined, SET_UP.root)).toEqual({ manifest_id: "store-01" });
+  });
+
+  it("is Setup's, in the root, for a named repository with no Manifest, and none where no root is named", () => {
+    expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
+    expect(startOn(NOT_SET_UP, "T")).toBeNull();
   });
 });
