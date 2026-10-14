@@ -85,17 +85,17 @@ export const syncSaid = (state: SyncState): string => STATE[state].said;
  */
 export function SyncMarks({ row, onCompare }: { row: SharedRow; onCompare: (row: SharedRow) => void }) {
   const { Glyph, said } = STATE[row.state];
-  const glyph = <Glyph size={12} strokeWidth={2} aria-hidden="true" />;
+  const glyph = <Glyph size={16} strokeWidth={2} aria-hidden="true" />;
   return (
     <span className="armada-sync-marks">
       {row.keyHere === true ? (
-        <Tooltip label="Needs its key on this machine">
+        <Tooltip beside label="Needs its key on this machine">
           <span className="armada-sync-mark" data-sync="key" role="img" aria-label="Needs its key on this machine">
-            <Key size={12} strokeWidth={2} aria-hidden="true" />
+            <Key size={16} strokeWidth={2} aria-hidden="true" />
           </span>
         </Tooltip>
       ) : null}
-      <Tooltip label={said}>
+      <Tooltip beside label={said}>
         {row.state === "differs" ? (
           <button type="button" className="armada-sync-mark" data-sync="differs" aria-label={`${said}, ${row.name}`} onClick={() => onCompare(row)}>
             {glyph}

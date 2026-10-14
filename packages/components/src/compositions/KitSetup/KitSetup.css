@@ -277,7 +277,7 @@
    marks stand in one line down a tile. The name and where it came from keep the first line, what it
    says the second, and the act a row offers a third. */
 .armada-kit-setup__item[data-sync] {
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) var(--space-8);
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) var(--space-12);
   /* A row beside a taller one keeps its own lines together rather than spreading them. */
   align-content: start;
 }

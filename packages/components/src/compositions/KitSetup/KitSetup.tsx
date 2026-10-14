@@ -121,8 +121,8 @@ const KIND_NONE: Record<KitSetupKindWord, string> = {
 };
 
 /**
- * Against a shared home the read gains Workflows, Memory and Global instructions, and Global
- * instructions stands where the agent file did: it is that file.
+ * Against a shared home the read gains Workflows, Memory and Global instructions, the last
+ * beside the agent file. The owner's decision, 13 Oct: both tiles draw.
  */
 function withHomeKinds(kinds: KitSetupKind[], rows: SharedRow[]): KitSetupKind[] {
   const tile = (kind: KitSetupKindWord): KitSetupKind[] => {
@@ -130,7 +130,7 @@ function withHomeKinds(kinds: KitSetupKind[], rows: SharedRow[]): KitSetupKind[]
     return here.length === 0 ? [] : [{ kind, read: { what: "read", items: [], unreadable: [] } }];
   };
   return kinds.flatMap((one) => {
-    if (one.kind === "agent_file") return tile("global_instructions");
+    if (one.kind === "agent_file") return [one, ...tile("global_instructions")];
     if (one.kind === "commands") return [one, ...tile("workflows")];
     if (one.kind === "allowlist") return [one, ...tile("memory")];
     return [one];
