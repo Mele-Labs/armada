@@ -119,7 +119,7 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
-    async fn gate_session_call(&self, _gate: SessionGate) -> Result<GateAnswer, Refusal> {
+    async fn gate_session_call(self: Arc<Self>, _gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(GateAnswer::pass())
     }
 

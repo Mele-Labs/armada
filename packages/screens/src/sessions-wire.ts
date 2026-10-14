@@ -6,7 +6,7 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SentFile, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
@@ -15,6 +15,7 @@ import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import type {
   Session,
+  SessionActivity,
   SessionAsk,
   SessionAttachment,
   SessionChecks,
@@ -476,6 +477,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const title = cleanTitle(record.title);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture, beside.repository);
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
+  const activity = activityOf(record.activity);
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -508,10 +510,25 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.usage.context_tokens === undefined || record.usage.context_window === undefined
       ? {}
       : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
+    ...(activity === undefined ? {} : { activity }),
     ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
     ...(ended || record.standing === undefined ? {} : { standing: record.standing }),
+  };
+}
+
+/**
+ * What Fleet detected a Session doing, as the view-model draws it. **Whole every time**: a row's activity
+ * replaces the last one, so a todo the agent dropped does not outlive its list. Nothing to say is `undefined`.
+ */
+export function activityOf(wire: WireActivity | undefined): SessionActivity | undefined {
+  if (wire === undefined) return undefined;
+  const todos = wire.todos ?? [];
+  if (wire.now === undefined && todos.length === 0) return undefined;
+  return {
+    ...(wire.now === undefined ? {} : { now: wire.now }),
+    ...(todos.length === 0 ? {} : { todos }),
   };
 }
 

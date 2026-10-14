@@ -445,6 +445,34 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - **The open pull requests are held in memory.** A Fleet restarted shows main at once and the list from its next visit to that repository.
 - **The draining queue draws where it did**, beneath the hub, so nothing in flight disappears.
 
+### Fixing a red across machines
+
+**A take is claimed in the central store, so a Fleet on another machine knows the red is held and refuses a second fix.** `main_ci_fixes` is one machine's record; two Fleets serving one repository never read each other's. #2248.
+
+**Nothing is written to the repository.** No ref, no issue, no label and no comment, because a work repository must carry no trace of Armada. The claim is a row in the same store that holds a [pull request's registered owner](session.md#which-machine-owned-a-pull-request), opened by [signing in](account.md) and behind the same *Pull request owners* switch in the Manifest. The store sits behind the `Delivery` port, so Fleet asks it to claim and meets no store of its own.
+
+| Piece | What it is |
+|---|---|
+| The key | Two opaque hashes: the repository, and the commit main went red at (`MainCi::red_commit()`). `red_at` is each Fleet's own clock and is never shared. |
+| The lock | One call, **claim if nobody holds this red**, answered atomically by the store. The first take wins and the other is told who holds it. |
+| The holder | The same row: `session` or `job`, its short id, the machine, and when. No title, no Check or test name, no pull request and no repository name. |
+| The machine | The host's name, or `machine.name` in settings where two hosts share one. |
+
+**A row never holds work.** Both machines read the same red from the same forge, so the Check, the test and the culprit are each drawn from that machine's own reading. A holder's title is drawn only by the machine that holds it, from its own ledger.
+
+**A claim is made on any take, whoever turned main red.** Blame decides only whether the automatic send-back fires; it is often wrong, and a red nobody local caused is still taken by a person's dispatch or a Session, and claimed then.
+
+- **The claim comes before the Job.** Each way in claims before `approve` or the send-back, and a red already held refuses the take as `MainNotFixable::TakenElsewhere`, naming the machine, holder and age. The automatic pickup skips silently, as it skips a red already held here.
+- **A store that cannot be reached refuses the take** (the owner, 13 Oct 2026). A fix nobody else can see is the double fix this exists to stop.
+- **A repository with the switch off claims nothing, and shows nothing of another machine's claim.** Its takes proceed on this machine alone, as they did before the store. A machine signed out of the store is the same.
+- **A Session takes a red with `take_main_red`**, which `agent_access` opens to agents as `claim_pull_request` is opened. It writes the same row, with `session_id` where a Job's take has `job_id`, and the same claim. A Session is told who holds the red when it is refused, and not before.
+- **A take over is asked for, never assumed.** `take_over: true` on `fix_main` or `take_main_red` replaces the other machine's row with this one's. A claim shows its age so a stale one reads as stale.
+- **Reading the other machine's claim** rides the reading that finds the red: one read of the row for that repository and commit. `hub.fixing_elsewhere` `{machine, holder, since}` carries it beside `hub.fixing`. A remote claim is seen as late as the rotation reaches its repository; a take is never late, because it meets the store itself.
+- **A take that ends gives its claim back**: its Fleet deletes the row, so the other machine may take the red.
+- **Green clears every claim.** Any Fleet that reads green deletes every row under that repository's hash, its own or not, so a claim left by a machine that is asleep still ends.
+
+**The proof is two Fleets on one scripted store** (`crates/acceptance`): A takes the red and B's hub names A; B's `fix_main` and `take_main_red` are refused naming A; a store that refuses every call refuses the take; a repository with the switch off claims nothing; green clears both.
+
 ## What it depends on
 
 - `concepts/fleet.md` — *Write-scope overlap*, *Catching a branch up*, and what Fleet knows after a merge.

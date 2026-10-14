@@ -14,6 +14,8 @@
 //! again: it is denied, told its place and told to stop, and Fleet leases and moves
 //! it when a slot frees.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec};
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting};
@@ -58,14 +60,17 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    pub(crate) async fn gated(&self, gate: SessionGate) -> GateAnswer {
+    pub(crate) async fn gated(self: &Arc<Self>, gate: SessionGate) -> GateAnswer {
         let id = gate.session_id.clone();
         let Ok((session, mut hosting)) = self.session_and_hosting(&id).await else {
             return GateAnswer::pass();
         };
-        if session.state == store::SessionState::Ended
-            || mode_of(&hosting.mode) == SessionMode::Plan
-        {
+        if session.state == store::SessionState::Ended {
+            return GateAnswer::pass();
+        }
+        // Every call of a hosted session that is open, whatever the gate then decides.
+        self.call_seen(&gate);
+        if mode_of(&hosting.mode) == SessionMode::Plan {
             return GateAnswer::pass();
         }
         let served = match self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {

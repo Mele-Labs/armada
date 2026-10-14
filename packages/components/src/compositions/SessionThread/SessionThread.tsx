@@ -15,6 +15,7 @@ import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
+import { TASK_GLYPH, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
@@ -108,6 +109,9 @@ export type SessionThreadRow =
       narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
     };
 
+/** One todo of the agent's list, in the order the band draws it. */
+export type WorkingTodo = { key: string; text: string; state: "done" | "doing" | "todo" };
+
 /** Where a Check the agent ran stands. */
 export type CheckRunState = "running" | "passed" | "failed";
 
@@ -152,6 +156,11 @@ export type SessionThreadProps = {
    * a band of one glyph per item, which a press opens to the ledger's own rows. Empty or absent draws none.
    */
   waiting?: readonly LedgerEntry[];
+  /**
+   * What the agent reports it is working on, from its own todo list: a band of one glyph per todo over
+   * the box, the one being done first, which a press opens to the rows. Empty or absent draws none.
+   */
+  workingOn?: { todos: readonly WorkingTodo[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -695,7 +704,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -794,6 +803,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
           />
         </Card>
       )}
+      {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
       {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
@@ -874,6 +884,53 @@ function NeedsYou({ rows }: { rows: readonly LedgerEntry[] }) {
         <div className="armada-session-needs__rows">
           <LedgerRows kind="waiting" Glyph={BellRing} rows={rows} />
         </div>
+      ) : null}
+    </section>
+  );
+}
+
+const TASK_OF: Record<WorkingTodo["state"], TaskMarkState> = { done: "done", doing: "working", todo: "open" };
+
+/** A todo's state as `TaskMark` draws a task's, named with its words on hover. Only the one being done breathes. */
+function TodoMark({ todo, tone }: { todo: WorkingTodo; tone?: true }) {
+  const task = TASK_OF[todo.state];
+  const Glyph = TASK_GLYPH[task];
+  const said = `${taskMarkSaid(task)}: ${todo.text}`;
+  return (
+    <Tooltip label={said}>
+      <span className={tone === undefined ? "armada-session-mark" : "armada-session-mark armada-task-mark"} data-state={task} data-pulsing={todo.state === "doing" || undefined} role="img" aria-label={said}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** Folded, the band shows a glyph per todo, named on hover; a press on the band opens the rows. Nothing is drawn for a list that is empty. */
+function WorkingOn({ todos }: { todos: readonly WorkingTodo[] }) {
+  const [open, setOpen] = useState(false);
+  const Fold = open ? ChevronDown : ChevronUp;
+  return (
+    <section className="armada-session-working" aria-label="Working on">
+      <button type="button" className="armada-session-working__band" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="armada-session-working__label">Working on</span>
+        {open ? null : (
+          <span className="armada-session-working__glyphs">
+            {todos.map((todo) => (
+              <TodoMark key={todo.key} todo={todo} />
+            ))}
+          </span>
+        )}
+        <Fold className="armada-session-working__fold" size={12} strokeWidth={2} aria-hidden />
+      </button>
+      {open ? (
+        <ul className="armada-session-working__rows">
+          {todos.map((todo) => (
+            <li key={todo.key} className="armada-session-working__row" data-state={todo.state}>
+              <TodoMark todo={todo} tone />
+              <span className="armada-session-working__text">{todo.text}</span>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </section>
   );
