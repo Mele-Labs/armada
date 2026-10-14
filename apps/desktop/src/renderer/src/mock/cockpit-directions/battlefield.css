@@ -1,123 +1,177 @@
-/* The flight deck's battlefield. Dark ground, quiet; lit only where something works or calls. Gray is the baseline;
-   amber is a drone that holds a call or is stuck, red is a Check failing now; the accent is where he is looking.
-   Motion is CSS transform and opacity only, on drones that work or call, and on the plays the events drive.
+/* The flight deck's battlefield: a plane in perspective. Dark ground, quiet; lit only where something works or calls. Gray is
+   the baseline; amber is a drone that holds a call or is stuck, red is a Check failing now; the accent is where he is looking.
+   The 3D is CSS alone: preserve-3d down to every part, billboards counter-rotated by the camera's own pitch and yaw. Motion is
+   transform and opacity only, on the plane, on drones that work or call and on the plays the events drive; never a loop in
+   script, and nothing in the chain from the plane to a part may flatten it (no opacity, filter or clip above a 3D child).
    Tokens only. proto/cockpit-flight-deck. */
 
 .bf {
+  --cam-time: calc(var(--duration-pulse) * 0.7);
+  --cam-ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --move: calc(var(--duration-pulse) * 0.5);
+  --rise: calc(var(--duration-pulse) * 0.45);
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  perspective-origin: 50% 50%;
   background: radial-gradient(ellipse 85% 75% at 50% 40%, color-mix(in srgb, var(--accent) 7%, var(--bg-base)), var(--bg-base) 78%);
 }
 .bf-grain { position: absolute; inset: 0; opacity: 0.04; pointer-events: none; }
-.bf-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: transform calc(var(--duration-pulse) * 0.6) cubic-bezier(0.22, 0.8, 0.24, 1); }
-.bf-field { display: block; overflow: visible; outline: none; }
+/* The camera drifts a degree or two over twenty seconds, about the point it looks at. */
+.bf-sway { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; animation: bf-sway 20s ease-in-out infinite alternate; }
+.bf-cam { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; transition: transform var(--cam-time) var(--cam-ease); }
+.bf-plane { position: absolute; left: 0; top: 0; transform-style: preserve-3d; outline: none; }
 /* Far haze at the top, and a vignette at the edges. */
 .bf-haze {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(to bottom, color-mix(in srgb, var(--accent) 10%, transparent), transparent 32%),
+    linear-gradient(to bottom, var(--bg-base), color-mix(in srgb, var(--bg-base) 70%, transparent) 9%, color-mix(in srgb, var(--accent) 7%, transparent) 20%, transparent 38%),
     radial-gradient(ellipse 75% 70% at 50% 52%, transparent 58%, color-mix(in srgb, var(--bg-base) 88%, transparent) 100%);
 }
 
+/* A part that stands upright however the camera is turned: the plane's own tilt and yaw undone, on the same clock as the camera. */
+.bf-bb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: rotateZ(calc(var(--yaw) * -1)) rotateX(calc(var(--pitch) * -1));
+  transition: transform var(--cam-time) var(--cam-ease);
+}
+.bf-at { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; }
+.bf-sprite { display: block; overflow: visible; pointer-events: none; }
+
 /* ---- The ground ---------------------------------------------------------------------------------------- */
 
-.bf-grid path { fill: none; stroke: var(--fg-default); stroke-opacity: 0.11; stroke-width: 1; }
-.bf-stop-pool-calm { stop-color: var(--fg-default); }
-.bf-stop-pool-ask { stop-color: var(--status-awaiting-review); }
-.bf-stop-pool-bad { stop-color: var(--status-completed-failed); }
-.bf-stop-cone-a { stop-color: var(--fg-default); stop-opacity: 0.34; }
-.bf-stop-cone-b { stop-color: var(--fg-default); stop-opacity: 0; }
-
-/* The territory's front line, and its plots: one for each directory, quiet ground with a contour or two. A plot lifts
-   where a working drone is over it; where two drones are changing the same one it is amber and hatched. */
+.bf-floor {
+  position: absolute;
+  transform: translateZ(-1px);
+  pointer-events: none;
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--fg-default) 10%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--fg-default) 10%, transparent) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 48%, #000 22%, transparent 74%);
+}
+.bf-ground { position: absolute; left: 0; top: 0; overflow: visible; }
 .bf-front { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.5; stroke-width: 1.2; stroke-dasharray: 1.5 7; stroke-linecap: round; }
-.bf-plot__ground { fill: color-mix(in srgb, var(--fg-default) var(--tint, 4%), transparent); stroke: var(--fg-default); stroke-opacity: 0.13; stroke-width: 1; transition: fill var(--duration-sheet) var(--ease); }
-.bf-plot__contour { fill: none; stroke: var(--fg-default); stroke-opacity: 0.07; stroke-width: 1; }
-.bf-plot[data-lit] .bf-plot__ground { fill: color-mix(in srgb, var(--fg-default) 9%, transparent); stroke-opacity: 0.22; }
-.bf-plot:hover .bf-plot__ground { stroke-opacity: 0.35; }
-.bf-plot[data-clash] .bf-plot__ground { fill: color-mix(in srgb, var(--status-awaiting-review) 14%, transparent); stroke: var(--status-awaiting-review); stroke-opacity: 0.6; }
-.bf-plot__hatch { stroke: none; pointer-events: none; }
-.bf-hatch-line { stroke: var(--status-awaiting-review); stroke-opacity: 0.38; stroke-width: 1.4; }
-.bf-plot__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
-.bf-group { fill: none; stroke: var(--fg-default); stroke-opacity: 0.2; stroke-width: 1.2; pointer-events: none; }
-/* What a drone is changing: a dotted beam to each plot, the biggest share brightest. The line between two drones that clash. */
-.bf-lines { pointer-events: none; }
-.bf-touch path { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.32; stroke-width: 1.1; stroke-dasharray: 1.2 4.5; stroke-linecap: round; }
-.bf-touch ellipse { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.4; stroke-width: 1.1; }
-.bf-touch[data-main] path { stroke-opacity: 0.6; }
+.bf-group { fill: none; stroke: var(--fg-default); stroke-opacity: 0.18; stroke-width: 1.2; pointer-events: none; }
+
+/* ---- The slabs: a plot for each directory ------------------------------------------------------------- */
+
+/* Its top is lit, its south face darker, its west face darker still. The height is --h, set from what works over it. */
+.bf-slab { position: absolute; transform-style: preserve-3d; pointer-events: none; --top: color-mix(in srgb, var(--fg-default) var(--tint, 6%), var(--bg-base)); --side: color-mix(in srgb, var(--fg-default) calc(var(--tint, 6%) * 0.5), var(--bg-base)); }
+.bf-top,
+.bf-face { position: absolute; transition: transform var(--rise) var(--ease), background-color var(--rise) var(--ease); }
+.bf-top { inset: 0; transform: translateZ(calc(var(--h) * 1px)); background: var(--top); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg-default) 18%, transparent); pointer-events: auto; }
+.bf-contour { position: absolute; inset: 9px; border: 1px solid color-mix(in srgb, var(--fg-default) 8%, transparent); border-radius: 12px; }
+.bf-face { background: var(--side); border-top: 1px solid color-mix(in srgb, var(--fg-default) 16%, transparent); pointer-events: none; }
+.bf-face[data-side="south"] { left: 0; bottom: 0; width: 100%; height: 60px; transform-origin: 50% 100%; transform: rotateX(-90deg) scaleY(calc(var(--h) / 60)); }
+.bf-face[data-side="west"] { top: 0; left: 0; width: 60px; height: 100%; transform-origin: 0 50%; transform: rotateY(-90deg) scaleX(calc(var(--h) / 60)); background: color-mix(in srgb, var(--fg-default) calc(var(--tint, 6%) * 0.3), var(--bg-base)); border-top: 0; border-right: 1px solid color-mix(in srgb, var(--fg-default) 12%, transparent); }
+.bf-slab:hover .bf-top { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg-default) 38%, transparent); }
+/* Lifted where a working drone is over it. */
+.bf-slab[data-lit] { --top: color-mix(in srgb, var(--fg-default) 17%, var(--bg-base)); --side: color-mix(in srgb, var(--fg-default) 8%, var(--bg-base)); }
+/* Where two drones are changing the same directory: the tallest slab, amber, hatched on top. */
+.bf-slab[data-clash] { --top: color-mix(in srgb, var(--status-awaiting-review) 30%, var(--bg-base)); --side: color-mix(in srgb, var(--status-awaiting-review) 17%, var(--bg-base)); }
+.bf-slab[data-clash] .bf-top { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--status-awaiting-review) 70%, transparent); background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--status-awaiting-review) 40%, transparent) 0 1.5px, transparent 1.5px 9px); }
+.bf-slab[data-clash] .bf-contour { border-color: color-mix(in srgb, var(--status-awaiting-review) 30%, transparent); }
+.bf-slab[data-clash] .bf-face { border-color: color-mix(in srgb, var(--status-awaiting-review) 45%, transparent); }
+/* A Check, a turn or a launch under it, or a merge's wave: it rises a little and settles. */
+.bf-slab[data-bump] .bf-top { animation: bf-rise-top calc(var(--duration-pulse) * 0.9) var(--ease) var(--wait, 0ms) 1 backwards; }
+.bf-slab[data-bump] .bf-face[data-side="south"] { animation: bf-rise-south calc(var(--duration-pulse) * 0.9) var(--ease) var(--wait, 0ms) 1 backwards; }
+.bf-slab[data-bump] .bf-face[data-side="west"] { animation: bf-rise-west calc(var(--duration-pulse) * 0.9) var(--ease) var(--wait, 0ms) 1 backwards; }
+.bf-plotname { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform: translate3d(6px, 5px, calc(var(--h) * 1px)); transition: transform var(--rise) var(--ease); }
+.bf-plotname .bf-bb { top: -15px; transform-origin: 0 100%; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: 14px; color: var(--fg-muted); text-shadow: 0 0 3px var(--bg-base), 0 0 3px var(--bg-base), 0 0 6px var(--bg-base); }
+.bf-slab[data-clash] .bf-plotname .bf-bb { color: var(--status-awaiting-review); }
+
+/* ---- Lifted lines: what drones leave in the air --------------------------------------------------------- */
+
+.bf-lift { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; transition: opacity calc(var(--duration-sheet) * 1.2) var(--ease); }
+.bf-lift[data-easing] { opacity: 0; }
+.bf-touch path { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.34; stroke-width: 1.1; stroke-dasharray: 1.2 4.5; stroke-linecap: round; }
+.bf-touch ellipse { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.45; stroke-width: 1.1; }
+.bf-touch[data-main] path { stroke-opacity: 0.62; }
 .bf-touch[data-lit] path,
 .bf-touch[data-lit] ellipse { stroke: var(--accent); stroke-opacity: 0.85; }
-.bf-clash__line { fill: none; stroke: var(--status-awaiting-review); stroke-opacity: 0.85; stroke-width: 1.8; stroke-dasharray: 5 4; stroke-linecap: round; }
+.bf-clash__line { fill: none; stroke: var(--status-awaiting-review); stroke-opacity: 0.9; stroke-width: 1.8; stroke-dasharray: 5 4; stroke-linecap: round; }
 .bf-clash__hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: default; }
+.bf-trail { fill: none; stroke: var(--fg-muted); stroke-width: 1.3; stroke-linecap: round; }
+.bf-trail[data-launching] { stroke-dasharray: 1; animation: bf-draw calc(var(--duration-pulse) * 1.2) linear both; animation-delay: var(--wait, 0ms); }
+.bf-tether { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.55; stroke-width: 1.1; stroke-dasharray: 1 4; stroke-linecap: round; }
+.bf-formation { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.55; stroke-width: 1.3; stroke-dasharray: 1.5 5; stroke-linecap: round; }
+.bf-formation[data-lit] { stroke: var(--accent); stroke-opacity: 0.9; }
+.bf-lift [data-dim] { opacity: 0.12; }
+.bf-tracer { fill: none; stroke: var(--fg-default); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 100; animation: bf-trace calc(var(--duration-pulse) * 0.85) ease-in-out 3 both; }
+.bf-route { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.45; stroke-width: 1.2; stroke-dasharray: 1 6; stroke-linecap: round; }
+.bf-route[data-stage="red"] { stroke: var(--status-completed-failed); stroke-opacity: 0.55; }
 
 /* ---- A base: its compound, its hangar, its pads ------------------------------------------------------- */
 
 .bf-base { cursor: default; }
-.bf-slab { fill: color-mix(in srgb, var(--fg-default) 3.5%, transparent); stroke: var(--fg-subtle); stroke-opacity: 0.4; stroke-width: 1; stroke-dasharray: 3 5; }
-.bf-slab[data-inner] { fill: color-mix(in srgb, var(--fg-default) 3%, transparent); stroke-dasharray: none; stroke-opacity: 0.22; }
+.bf-slab-base { fill: color-mix(in srgb, var(--fg-default) 4%, transparent); stroke: var(--fg-subtle); stroke-opacity: 0.45; stroke-width: 1; stroke-dasharray: 3 5; }
+.bf-slab-base[data-inner] { fill: color-mix(in srgb, var(--fg-default) 3%, transparent); stroke-dasharray: none; stroke-opacity: 0.25; }
 .bf-hangar { stroke: var(--fg-subtle); stroke-opacity: 0.6; stroke-width: 1; stroke-linejoin: round; }
 .bf-hangar[data-face="top"] { fill: color-mix(in srgb, var(--fg-default) 24%, var(--bg-base)); }
 .bf-hangar[data-face="left"] { fill: color-mix(in srgb, var(--fg-default) 13%, var(--bg-base)); }
 .bf-hangar[data-face="right"] { fill: color-mix(in srgb, var(--fg-default) 7%, var(--bg-base)); }
 .bf-mast-line { stroke: var(--fg-subtle); stroke-width: 1.2; }
 .bf-mast-dot { fill: var(--fg-muted); }
-.bf-name { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); pointer-events: none; }
+.bf-name { left: -80px; top: -16px; width: 160px; transform-origin: 50% 100%; text-align: center; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); line-height: 14px; pointer-events: none; text-shadow: 0 0 3px var(--bg-base), 0 0 6px var(--bg-base); }
 
 .bf-pad { cursor: pointer; outline: none; }
-.bf-pad__ring { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.65; stroke-width: 1.4; }
+.bf-pad__ring { fill: color-mix(in srgb, var(--fg-default) 4%, transparent); stroke: var(--fg-subtle); stroke-opacity: 0.7; stroke-width: 1.4; }
 .bf-pad__core { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.4; stroke-width: 1; }
 .bf-pad[data-bay="held"] .bf-pad__ring,
 .bf-pad[data-bay="kept"] .bf-pad__ring,
 .bf-pad[data-bay="busy"] .bf-pad__ring { stroke: var(--fg-muted); stroke-opacity: 1; }
 .bf-pad[data-bay="held"] .bf-pad__core,
 .bf-pad[data-bay="kept"] .bf-pad__core,
-.bf-pad[data-bay="busy"] .bf-pad__core { fill: color-mix(in srgb, var(--fg-default) 22%, transparent); stroke-opacity: 0.8; }
+.bf-pad[data-bay="busy"] .bf-pad__core { fill: color-mix(in srgb, var(--fg-default) 24%, transparent); stroke-opacity: 0.8; }
 .bf-pad[data-bay="ghost"] .bf-pad__ring { stroke-dasharray: 2 3; }
 .bf-pad[data-bay="stranded"] .bf-pad__ring,
 .bf-pad[data-bay="closed"] .bf-pad__ring { stroke: var(--status-completed-failed); stroke-opacity: 0.9; }
 .bf-pad:hover .bf-pad__ring { stroke: var(--fg-default); stroke-opacity: 1; }
 
-/* ---- What drones leave on the ground ------------------------------------------------------------------- */
-
-.bf-trail { fill: none; stroke: var(--fg-muted); stroke-width: 1.3; stroke-linecap: round; }
-.bf-trail[data-launching] { stroke-dasharray: 1; animation: bf-draw calc(var(--duration-pulse) * 1.1) ease-out both; animation-delay: var(--wait, 0ms); }
-.bf-tether { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.45; stroke-width: 1; stroke-dasharray: 1 4; stroke-linecap: round; }
-.bf-formation { fill: none; stroke: var(--fg-muted); stroke-opacity: 0.55; stroke-width: 1.3; stroke-dasharray: 1.5 5; stroke-linecap: round; }
-.bf-formation[data-lit] { stroke: var(--accent); stroke-opacity: 0.9; }
-.bf-lines [data-dim] { opacity: 0.12; }
-
-.bf-sweep { transform-origin: 0 0; animation: bf-sweep calc(var(--duration-pulse) * 2.1) linear 1 both; }
-.bf-tracer { fill: none; stroke: var(--fg-default); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 100; animation: bf-trace calc(var(--duration-pulse) * 0.85) ease-in-out 3 both; }
-.bf-blip { fill: none; stroke: var(--fg-default); stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; animation: bf-blip calc(var(--duration-pulse) * 0.9) ease-out 2 both; }
-
 /* ---- The objective ------------------------------------------------------------------------------------- */
 
-.bf-goal { cursor: pointer; outline: none; }
-.bf-zone { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.5; stroke-width: 1.2; stroke-dasharray: 1.5 6; stroke-linecap: round; }
-.bf-goal .bf-rim { fill: color-mix(in srgb, var(--fg-default) 8%, transparent); stroke: var(--fg-muted); stroke-width: 1.4; }
+.bf-goal { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; cursor: pointer; outline: none; }
+.bf-goal i { position: absolute; border-radius: 50%; pointer-events: none; }
+.bf-zone { left: -64px; top: -64px; width: 128px; height: 128px; border: 1.2px dotted color-mix(in srgb, var(--fg-subtle) 80%, transparent); }
+.bf-goal-rim { left: -28px; top: -28px; width: 56px; height: 56px; background: color-mix(in srgb, var(--fg-default) 8%, transparent); border: 1.4px solid var(--fg-muted); pointer-events: auto !important; }
 .bf-pole { stroke: var(--fg-muted); stroke-width: 2; stroke-linecap: round; }
 .bf-pennant { fill: var(--fg-default); fill-opacity: 0.82; }
 .bf-beacon { fill: var(--fg-default); }
 .bf-goal[data-red] .bf-pennant,
 .bf-goal[data-red] .bf-beacon { fill: var(--status-completed-failed); fill-opacity: 1; }
-.bf-goal[data-red] .bf-rim { stroke: var(--status-completed-failed); }
+.bf-goal[data-red] .bf-goal-rim { border-color: var(--status-completed-failed); }
 .bf-goal[data-red] .bf-beacon { animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite; }
 .bf-goal:hover .bf-pennant { fill-opacity: 1; }
-.bf-capture * { opacity: 0; transform-box: fill-box; transform-origin: center; }
-.bf-flash { fill: var(--fg-default); animation: bf-flash calc(var(--duration-pulse) * 0.9) ease-out both; animation-delay: var(--d, 0ms); }
-.bf-shock { fill: none; stroke: var(--fg-default); stroke-width: 2; animation: bf-shock calc(var(--duration-pulse) * 1.1) ease-out both; animation-delay: var(--d, 0ms); }
-.bf-column { fill: var(--fg-default); transform-origin: 50% 100%; animation: bf-column calc(var(--duration-pulse) * 0.9) ease-out both; animation-delay: var(--d, 0ms); }
+/* A merge: a flash, a shockwave across the plane, a column of light up the flag. */
+.bf-flash { left: -44px; top: -44px; width: 88px; height: 88px; background: radial-gradient(circle, var(--fg-default), transparent 70%); opacity: 0; animation: bf-flash calc(var(--duration-pulse) * 0.9) ease-out backwards; animation-delay: var(--d, 0ms); }
+.bf-quake { left: -260px; top: -260px; width: 520px; height: 520px; border: 2px solid var(--fg-default); opacity: 0; animation: bf-quake calc(var(--duration-pulse) * 1.7) ease-out backwards; animation-delay: var(--d, 0ms); }
+.bf-quake[data-late] { border-width: 1px; }
+.bf-column {
+  position: absolute;
+  left: -4px;
+  top: -170px;
+  width: 8px;
+  height: 170px;
+  transform-origin: 50% 100%;
+  transform: rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(0);
+  background: linear-gradient(to top, color-mix(in srgb, var(--fg-default) 80%, transparent), transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: bf-column calc(var(--duration-pulse) * 0.9) ease-out backwards;
+  animation-delay: var(--d, 0ms);
+}
 
 /* A pull request: hollow while its Checks run, filled once it is ready or queued, red when they failed. */
-.bf-payload { cursor: pointer; outline: none; }
-.bf-route { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.4; stroke-width: 1.2; stroke-dasharray: 1 6; stroke-linecap: round; }
-.bf-route[data-stage="red"] { stroke: var(--status-completed-failed); stroke-opacity: 0.5; }
-.bf-routes [data-dim] { opacity: 0.15; pointer-events: none; }
+.bf-payload { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; cursor: pointer; outline: none; }
+.bf-hop { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.bf-routing { display: contents; }
+.bf-routing[data-dim] .bf-bb svg { opacity: 0.15; }
+.bf-routing[data-dim] .bf-payload { pointer-events: none; }
 .bf-crate__box { fill: var(--bg-base); stroke: var(--fg-muted); stroke-width: 1.5; stroke-linejoin: round; }
 .bf-crate__dot { fill: var(--fg-muted); }
 .bf-payload[data-stage="ready"] .bf-crate__box,
@@ -129,8 +183,9 @@
 .bf-payload[data-stage="red"] .bf-crate__box { fill: color-mix(in srgb, var(--status-completed-failed) 28%, var(--bg-base)); stroke: var(--status-completed-failed); }
 .bf-payload[data-stage="red"] .bf-crate__dot { fill: var(--status-completed-failed); }
 .bf-payload:hover .bf-crate__box { stroke: var(--fg-default); }
-.bf-crate[data-fresh] { animation: bf-fly calc(var(--duration-pulse) * 1.5) cubic-bezier(0.3, 0.1, 0.2, 1) both; animation-delay: var(--wait, 0ms); }
-.bf-crate[data-arriving] { animation: bf-fly calc(var(--duration-pulse) * 0.7) ease-in both, bf-gone 160ms linear both; animation-delay: var(--wait, 0ms), calc(var(--wait, 0ms) + var(--duration-pulse) * 0.7); }
+.bf-hop[data-fresh] { animation: bf-hop calc(var(--duration-pulse) * 1.5) linear backwards; animation-delay: var(--wait, 0ms); }
+.bf-hop[data-arriving] { animation: bf-hop calc(var(--duration-pulse) * 0.7) linear backwards; animation-delay: var(--wait, 0ms); }
+.bf-hop[data-arriving] svg { animation: bf-gone 160ms linear both; animation-delay: calc(var(--wait, 0ms) + var(--duration-pulse) * 0.7); }
 
 .bf-hit { fill: transparent; stroke: none; pointer-events: all; }
 .bf-pad:focus-visible .bf-hit,
@@ -140,38 +195,63 @@
 
 /* ---- A drone -------------------------------------------------------------------------------------------- */
 
-.bf-drone { --hue: var(--fg-muted); cursor: pointer; outline: none; transition: opacity var(--duration-sheet) var(--ease); }
+.bf-drone { --hue: var(--fg-muted); position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; cursor: pointer; outline: none; transition: transform var(--move) var(--ease); }
 .bf-drone[data-hue="ask"] { --hue: var(--status-awaiting-review); }
 .bf-drone[data-hue="bad"] { --hue: var(--status-completed-failed); }
-.bf-drone[data-muted] { opacity: 0.6; }
-.bf-drone[data-away] { opacity: 0.12; pointer-events: none; }
-.bf-drone[data-hue="ask"][data-muted],
-.bf-drone[data-hue="bad"][data-muted] { opacity: 0.85; }
+.bf-drone[data-muted] .bf-sprite { opacity: 0.6; }
+.bf-drone[data-hue="ask"][data-muted] .bf-sprite,
+.bf-drone[data-hue="bad"][data-muted] .bf-sprite { opacity: 0.85; }
+.bf-drone[data-away] { pointer-events: none; }
+.bf-drone[data-away] .bf-sprite,
+.bf-drone[data-away] .bf-gnd,
+.bf-drone[data-away] .bf-beam3 { opacity: 0.12; }
+.bf-sprite { transition: opacity var(--duration-sheet) var(--ease); animation: bf-settle calc(var(--duration-pulse) * 0.5) var(--ease) calc(var(--i, 0) * 45ms) backwards; }
 
-.bf-place { transition: transform calc(var(--duration-pulse) * 0.5) var(--ease); }
-.bf-settle { animation: bf-settle calc(var(--duration-pulse) * 0.5) var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
-.bf-launch[data-launching] { animation: bf-launch calc(var(--duration-pulse) * 1.1) cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: var(--wait, 0ms); }
+/* The altitude: it flies --alt above the plot, bobbing while it hovers, and a launch lifts it from its pad on a rising arc. */
+.bf-alt { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--alt) * 1px)); transition: transform var(--move) var(--ease); }
+.bf-drone[data-hover] .bf-alt { animation: bf-bob calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -310ms); }
+.bf-drone[data-launching] .bf-alt {
+  animation:
+    bf-ascend calc(var(--duration-pulse) * 1.2) linear backwards,
+    bf-bob calc(var(--duration-pulse) * 2) ease-in-out infinite alternate;
+  animation-delay: var(--wait, 0ms), calc(var(--wait, 0ms) + var(--duration-pulse) * 1.2);
+}
+.bf-drone[data-launching] .bf-sprite { animation: bf-arrive calc(var(--duration-pulse) * 0.35) linear backwards; animation-delay: var(--wait, 0ms); }
+.bf-drone[data-launching] .bf-gnd,
+.bf-drone[data-launching] .bf-beam3 { animation: bf-arrive calc(var(--duration-pulse) * 0.5) ease-out backwards; animation-delay: calc(var(--wait, 0ms) + var(--duration-pulse) * 0.7); }
 
-/* The ground under it: a pool of light where it works or calls, the disc, its rim. */
-.bf-pool { fill: url(#bf-pool-calm); opacity: 0; transition: opacity var(--duration-sheet) var(--ease); }
+/* The beam stands vertical from its shadow up to the drone: a plane turned to face the camera's side, --beam tall. */
+.bf-beam3 {
+  position: absolute;
+  left: -1px;
+  top: -100px;
+  width: 2px;
+  height: 100px;
+  transform-origin: 50% 100%;
+  transform: translateZ(calc(var(--floor) * 1px)) rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(calc(var(--beam) / 100));
+  background: repeating-linear-gradient(to bottom, var(--hue) 0 3px, transparent 3px 8px);
+  opacity: 0;
+  transition: transform var(--move) var(--ease), opacity var(--duration-sheet) var(--ease);
+  pointer-events: none;
+}
+.bf-drone[data-hover] .bf-beam3 { opacity: 0.85; }
+
+/* The ground under it, lying on its plot: a pool of light where it works or calls, its shadow, the disc, its rim. */
+.bf-gnd { position: absolute; left: calc(var(--r) * -3); top: calc(var(--r) * -3); width: calc(var(--r) * 6); height: calc(var(--r) * 6); transform: translateZ(calc(var(--floor) * 1px + 1px)); transition: transform var(--rise) var(--ease), opacity var(--duration-sheet) var(--ease); }
+.bf-gnd i { position: absolute; left: calc(50% - var(--r)); top: calc(50% - var(--r)); width: calc(var(--r) * 2); height: calc(var(--r) * 2); border-radius: 50%; pointer-events: none; }
+.bf-pool { transform: scale(2.4); background: radial-gradient(circle, color-mix(in srgb, var(--hue) 30%, transparent), transparent 68%); opacity: 0; transition: opacity var(--duration-sheet) var(--ease); }
 .bf-drone[data-hover] .bf-pool,
 .bf-drone[data-ping] .bf-pool { opacity: 1; }
-.bf-drone[data-hue="ask"] .bf-pool { fill: url(#bf-pool-ask); }
-.bf-drone[data-hue="bad"] .bf-pool { fill: url(#bf-pool-bad); }
-.bf-spot { fill: color-mix(in srgb, var(--fg-default) 9%, transparent); }
-.bf-rim { fill: none; stroke: var(--hue); stroke-opacity: 0.7; stroke-width: 1.4; }
+/* Its shadow is tight and dark when it stands low, wide and soft when it flies high. */
+.bf-shadow { transform: scale(0.8); background: radial-gradient(circle, color-mix(in srgb, var(--bg-base) 95%, transparent) 0, color-mix(in srgb, var(--bg-base) 70%, transparent) 38%, transparent 66%); transition: transform var(--move) var(--ease), opacity var(--move) var(--ease); }
+.bf-drone[data-hover] .bf-shadow { transform: scale(1.3); opacity: 0.5; animation: bf-shade calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -310ms); }
+.bf-spot { background: color-mix(in srgb, var(--fg-default) 9%, transparent); pointer-events: auto !important; }
+.bf-rim { border: 1.4px solid color-mix(in srgb, var(--hue) 70%, transparent); }
 .bf-drone:hover .bf-rim,
-.bf-drone:focus-visible .bf-rim { stroke: var(--fg-default); stroke-opacity: 1; }
-.bf-drone[data-selected] .bf-rim { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2; }
-.bf-ticks { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: 1.2 7; stroke-linecap: round; opacity: 0.9; }
+.bf-drone:focus-visible .bf-rim { border-color: var(--fg-default); }
+.bf-drone[data-selected] .bf-rim { border: 2px solid var(--accent); }
+.bf-ticks { transform: scale(1.9); border: 2.4px dotted var(--accent); opacity: 0.9; }
 .bf-reticle path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.bf-beam { stroke: var(--hue); stroke-width: 1.7; stroke-dasharray: 1.4 4.6; stroke-linecap: round; transform-origin: 0 0; transform: scaleY(0); opacity: 0; transition: transform calc(var(--duration-pulse) * 0.45) var(--ease), opacity var(--duration-sheet) var(--ease); }
-.bf-drone[data-hover] .bf-beam { transform: scaleY(1); opacity: 0.85; }
-
-.bf-shadow { fill: var(--bg-base); opacity: 0.7; transform-origin: 0 0; transition: transform calc(var(--duration-pulse) * 0.45) var(--ease), opacity calc(var(--duration-pulse) * 0.45) var(--ease); }
-.bf-drone[data-hover] .bf-shadow { transform: scale(0.8); opacity: 0.45; }
-.bf-lift { transform: translateY(-4px); transition: transform calc(var(--duration-pulse) * 0.45) var(--ease); }
-.bf-drone[data-hover] .bf-lift { transform: translateY(-34px); }
 
 /* The quad. Gray shell; the nose lens and the LED carry the hue. */
 .bf-arm { fill: none; stroke: var(--fg-muted); stroke-width: 2.6; stroke-linecap: round; }
@@ -190,21 +270,28 @@
 /* A Session is the smaller silhouette, so its disc and arms are lighter. */
 .bf-glyph[data-kind="session"] .bf-arm { stroke-width: 2; }
 
-/* The beacon of a drone that holds a call: rings going out on the ground, and a lit antenna. */
-.bf-ping { fill: none; stroke: var(--hue); stroke-width: 1.7; opacity: 0; transform-origin: 0 0; animation: bf-ping calc(var(--duration-pulse) * 1.7) ease-out infinite; }
+/* The beacon of a drone that holds a call: rings going out on the plot, and a lit antenna. */
+.bf-ping { border: 1.7px solid var(--hue); opacity: 0; animation: bf-ping calc(var(--duration-pulse) * 1.7) ease-out infinite; }
 .bf-ping[data-late] { animation-delay: calc(var(--duration-pulse) * 0.85); }
 .bf-mast line { stroke: var(--hue); stroke-width: 1.5; stroke-linecap: round; }
 .bf-tip { fill: var(--hue); animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite; }
 /* Stuck: it hovers with its rotors stalled and an amber ring breathing round it. */
-.bf-stall { fill: none; stroke: var(--status-awaiting-review); stroke-width: 2; transform-origin: 0 0; animation: bf-breathe calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
+.bf-stall { transform: scale(1.5); border: 2px solid var(--status-awaiting-review); animation: bf-breathe calc(var(--duration-pulse) * 1.5) ease-in-out infinite; }
 /* A failing Check: a red flare above it. */
-.bf-flare circle { fill: url(#bf-pool-bad); opacity: 0.9; transform-origin: 0 -2px; animation: bf-flicker calc(var(--duration-pulse) * 1.2) ease-in-out infinite; }
-.bf-flare path { fill: none; stroke: var(--status-completed-failed); stroke-width: 1.7; stroke-linecap: round; animation: bf-flicker calc(var(--duration-pulse) * 0.95) ease-in-out infinite; }
+.bf-glow { position: absolute; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--status-completed-failed) 55%, transparent), transparent 68%); opacity: 0.9; pointer-events: none; animation: bf-glow calc(var(--duration-pulse) * 1.2) ease-in-out infinite; }
+.bf-flare path { fill: none; stroke: var(--status-completed-failed); stroke-width: 1.7; stroke-linecap: round; animation: bf-glow calc(var(--duration-pulse) * 0.95) ease-in-out infinite; }
 
 .bf-label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3.5; stroke-linejoin: round; pointer-events: none; }
 .bf-drone[data-hue="ask"] .bf-label,
 .bf-drone[data-hue="bad"] .bf-label,
 .bf-drone[data-selected] .bf-label { fill: var(--fg-default); }
+
+/* ---- Plays on the plane -------------------------------------------------------------------------------- */
+
+.bf-at i { position: absolute; border-radius: 50%; }
+.bf-cone { left: -110px; top: -110px; width: 220px; height: 220px; opacity: 0; background: conic-gradient(from 0deg, color-mix(in srgb, var(--fg-default) 36%, transparent), transparent 62deg, transparent); animation: bf-sweep calc(var(--duration-pulse) * 2.1) linear 1 backwards; }
+.bf-ripple { left: -80px; top: -80px; width: 160px; height: 160px; border: 1.5px solid var(--fg-default); opacity: 0; animation: bf-ripple calc(var(--duration-pulse) * 0.9) ease-out 2 backwards; }
+.bf-ripple[data-tile] { left: -100px; top: -100px; width: 200px; height: 200px; border-color: var(--accent); animation: bf-ripple calc(var(--duration-pulse) * 1.3) ease-out 1 backwards; }
 
 /* ---- The tip and the buttons --------------------------------------------------------------------------- */
 
@@ -231,26 +318,63 @@
 
 /* ---- Motion --------------------------------------------------------------------------------------------- */
 
+@keyframes bf-sway {
+  from { transform: rotateZ(-1.1deg) rotateX(-0.7deg); }
+  to { transform: rotateZ(1.1deg) rotateX(0.7deg); }
+}
 @keyframes bf-spin { to { transform: rotate(360deg); } }
+@keyframes bf-bob {
+  from { transform: translateZ(calc(var(--alt) * 1px)); }
+  to { transform: translateZ(calc(var(--alt) * 1px + 5px)); }
+}
+@keyframes bf-shade {
+  from { transform: scale(1.3); }
+  to { transform: scale(1.18); }
+}
 @keyframes bf-ping {
   0% { transform: scale(0.5); opacity: 0.85; }
   100% { transform: scale(2.7); opacity: 0; }
 }
 @keyframes bf-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.95; }
-  50% { transform: scale(1.12); opacity: 0.25; }
+  0%, 100% { transform: scale(1.5); opacity: 0.95; }
+  50% { transform: scale(1.68); opacity: 0.25; }
 }
 @keyframes bf-tip { 50% { opacity: 0.3; } }
-@keyframes bf-flicker {
-  0%, 100% { opacity: 0.25; transform: scale(0.92); }
-  40% { opacity: 0.8; transform: scale(1.12); }
-  65% { opacity: 0.4; transform: scale(1); }
+@keyframes bf-glow {
+  0%, 100% { opacity: 0.25; }
+  40% { opacity: 0.8; }
+  65% { opacity: 0.4; }
 }
-@keyframes bf-settle { from { opacity: 0; transform: translateY(-14px); } }
-@keyframes bf-launch {
-  from { opacity: 0; transform: translate(var(--lx), var(--ly)); }
-  14% { opacity: 1; }
-  to { opacity: 1; transform: none; }
+@keyframes bf-settle { from { opacity: 0; } }
+@keyframes bf-arrive { from { opacity: 0; } }
+/* From its pad, on an arc that rises 46 above the line between, to its altitude over its plot. */
+@keyframes bf-ascend {
+  0% { transform: translate3d(var(--lx), var(--ly), calc(var(--zs) * 1px)); }
+  25% { transform: translate3d(calc(var(--lx) * 0.75), calc(var(--ly) * 0.75), calc((var(--zs) * 0.75 + var(--alt) * 0.25 + 34) * 1px)); }
+  50% { transform: translate3d(calc(var(--lx) * 0.5), calc(var(--ly) * 0.5), calc((var(--zs) * 0.5 + var(--alt) * 0.5 + 46) * 1px)); }
+  75% { transform: translate3d(calc(var(--lx) * 0.25), calc(var(--ly) * 0.25), calc((var(--zs) * 0.25 + var(--alt) * 0.75 + 34) * 1px)); }
+  100% { transform: translate3d(0, 0, calc(var(--alt) * 1px)); }
+}
+/* A pull request's hop to its place on the route, an arc rising 34. */
+@keyframes bf-hop {
+  0% { transform: translate3d(var(--fx), var(--fy), calc(var(--fz) * 1px)); }
+  25% { transform: translate3d(calc(var(--fx) * 0.75), calc(var(--fy) * 0.75), calc((var(--fz) * 0.75 + 25.5) * 1px)); }
+  50% { transform: translate3d(calc(var(--fx) * 0.5), calc(var(--fy) * 0.5), calc((var(--fz) * 0.5 + 34) * 1px)); }
+  75% { transform: translate3d(calc(var(--fx) * 0.25), calc(var(--fy) * 0.25), calc((var(--fz) * 0.25 + 25.5) * 1px)); }
+  100% { transform: none; }
+}
+@keyframes bf-gone { to { opacity: 0; } }
+@keyframes bf-rise-top {
+  0%, 100% { transform: translateZ(calc(var(--h) * 1px)); }
+  38% { transform: translateZ(calc((var(--h) + var(--amp, 14)) * 1px)); }
+}
+@keyframes bf-rise-south {
+  0%, 100% { transform: rotateX(-90deg) scaleY(calc(var(--h) / 60)); }
+  38% { transform: rotateX(-90deg) scaleY(calc((var(--h) + var(--amp, 14)) / 60)); }
+}
+@keyframes bf-rise-west {
+  0%, 100% { transform: rotateY(-90deg) scaleX(calc(var(--h) / 60)); }
+  38% { transform: rotateY(-90deg) scaleX(calc((var(--h) + var(--amp, 14)) / 60)); }
 }
 @keyframes bf-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes bf-sweep {
@@ -263,53 +387,67 @@
   12% { opacity: 1; }
   100% { opacity: 0.2; stroke-dashoffset: -100; }
 }
-@keyframes bf-blip {
-  0% { opacity: 0.85; transform: scale(0.5); }
-  100% { opacity: 0; transform: scale(2.4); }
+@keyframes bf-ripple {
+  0% { opacity: 0.85; transform: scale(0.15); }
+  100% { opacity: 0; transform: scale(1.7); }
 }
-@keyframes bf-fly { from { transform: translate(var(--fx), var(--fy)); } to { transform: none; } }
-@keyframes bf-gone { to { opacity: 0; } }
 @keyframes bf-flash {
   0% { opacity: 0; transform: scale(0.4); }
   14% { opacity: 0.9; }
   100% { opacity: 0; transform: scale(1.9); }
 }
-@keyframes bf-shock {
-  0% { opacity: 0.9; transform: scale(0.5); }
-  100% { opacity: 0; transform: scale(3.1); }
+@keyframes bf-quake {
+  0% { opacity: 0.9; transform: scale(0.08); }
+  100% { opacity: 0; transform: scale(1.5); }
 }
 @keyframes bf-column {
-  0% { opacity: 0; transform: scaleY(0); }
-  25% { opacity: 0.55; transform: scaleY(1); }
-  100% { opacity: 0; transform: scaleY(1); }
+  0% { opacity: 0; transform: rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(0); }
+  25% { opacity: 0.6; transform: rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(1); }
+  100% { opacity: 0; transform: rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(1); }
 }
 
-/* No motion: states stay readable by shape. A calling drone keeps one ring and its lit tip, a stuck one its ring,
-   a failing one its glow; rotors are still; effects of events do not play. */
+/* No motion: a still pose. The plane keeps its tilt and the drones their altitude; the camera does not drift or ease, nothing
+   bobs, and the effects of events do not play. States stay readable by shape: a calling drone keeps one ring and its lit tip,
+   a stuck one its ring, a failing one its glow; rotors are still. */
 @media (prefers-reduced-motion: reduce) {
-  .bf-world { transition: none; }
-  .bf-place,
-  .bf-settle,
-  .bf-launch[data-launching],
+  .bf-sway,
+  .bf-sprite,
+  .bf-drone[data-hover] .bf-alt,
+  .bf-drone[data-hover] .bf-shadow,
+  .bf-drone[data-launching] .bf-alt,
+  .bf-drone[data-launching] .bf-sprite,
+  .bf-drone[data-launching] .bf-gnd,
+  .bf-drone[data-launching] .bf-beam3,
+  .bf-slab[data-bump] .bf-top,
+  .bf-slab[data-bump] .bf-face,
   .bf-trail[data-launching],
-  .bf-crate[data-fresh],
-  .bf-crate[data-arriving],
+  .bf-hop[data-fresh],
+  .bf-hop[data-arriving],
   .bf-drone[data-spin] .bf-blades,
   .bf-ping,
   .bf-tip,
   .bf-stall,
-  .bf-flare circle,
+  .bf-glow,
   .bf-flare path,
   .bf-goal[data-red] .bf-beacon { animation: none; }
+  .bf-cam,
+  .bf-bb,
+  .bf-drone,
+  .bf-alt,
+  .bf-top,
+  .bf-face,
+  .bf-plotname,
+  .bf-beam3,
+  .bf-shadow,
+  .bf-lift { transition: none; }
   .bf-ping { opacity: 0.75; transform: scale(1.7); }
   .bf-ping[data-late] { display: none; }
   .bf-stall { opacity: 0.9; }
-  .bf-flare circle { opacity: 0.45; }
-  .bf-sweep,
+  .bf-glow { opacity: 0.45; }
+  .bf-cone,
   .bf-tracer,
-  .bf-blip,
-  .bf-capture { display: none; }
-  .bf-lift,
-  .bf-beam,
-  .bf-shadow { transition: none; }
+  .bf-ripple,
+  .bf-flash,
+  .bf-quake,
+  .bf-column { display: none; }
 }

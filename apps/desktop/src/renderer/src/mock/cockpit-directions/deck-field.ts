@@ -263,33 +263,55 @@ export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], s
   for (const key of keys) {
     const p = place.get(key)!;
     const root = drones.find((one) => one.key === key)!.root;
-    // Nearer the bottom of the field is nearer the viewer: a little larger.
-    at.set(key, { x: p.x, y: p.y, s: 0.84 + 0.3 * Math.min(1, Math.max(0, p.y / size.height)), root });
+    at.set(key, { x: p.x, y: p.y, s: 1, root });
   }
   return { territories, at, over, clashes };
 }
 
-/** A camera over the field: the translation that puts `aim` in the middle at zoom `z`, kept inside the field. */
-export function cameraOf(size: Size, z: number, aim: Point): { x: number; y: number } {
-  const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
-  return { x: clamp(size.width / 2 - aim.x * z, size.width - size.width * z, 0), y: clamp(size.height / 2 - aim.y * z, size.height - size.height * z, 0) };
+// ---- The camera, the ground's height and the curves above it --------------------------------------------
+
+/** The camera in degrees: its pitch over the whole field and closer to a drone, and a slight yaw. `fit` trims how far the ground is stretched toward the viewer. */
+export const CAM = { wide: 54, near: 60, yaw: 5, fit: 0.94 };
+
+/** The layout is drawn as if seen from the viewer; the ground is tilted away, so it is stretched by this to read the same height. */
+export const FLAT = CAM.fit / Math.cos((CAM.wide * Math.PI) / 180);
+
+/** A point on the ground plane, and how high above it. */
+export type P3 = { x: number; y: number; z: number };
+
+/** The point `t` of the way from a to b, rising `lift` at the middle. */
+export function alongOf(a: P3, b: P3, lift: number, t: number): P3 {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t + 4 * lift * t * (1 - t) };
 }
 
-/** The bend of a gentle arc between two points, for a line that is not to read as a ruler. */
-function bendOf(a: Point, b: Point, bow: number): Point {
-  return { x: (a.x + b.x) / 2 - (b.y - a.y) * bow, y: (a.y + b.y) / 2 + (b.x - a.x) * bow - Math.abs(b.x - a.x) * 0.08 };
-}
+/** How tall each plot stands: low where it is quiet, taller where drones work over it and where a Check or a turn has just touched it, the tallest where two clash. */
+export const SLAB = { low: 3, high: 30 };
 
-export function arcOf(a: Point, b: Point, bow = 0.14): string {
-  const c = bendOf(a, b, bow);
-  return `M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${c.x.toFixed(1)},${c.y.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
-}
-
-/** The point `t` of the way along `arcOf(a, b, bow)`. */
-export function arcAt(a: Point, b: Point, t: number, bow = 0.14): Point {
-  const c = bendOf(a, b, bow);
-  const u = 1 - t;
-  return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y };
+export function heightsOf(layout: Layout, drones: readonly DroneIn[], plays: readonly Play[]): Map<string, number> {
+  const busy = new Map<string, number>();
+  const add = (path: string, amount: number) => busy.set(path, (busy.get(path) ?? 0) + amount);
+  for (const drone of drones) {
+    if (!drone.shown) continue;
+    const list = layout.over.get(drone.key) ?? [];
+    const total = list.reduce((sum, one) => sum + one.w, 0) || 1;
+    const state = drone.spin ? 1 : drone.hover ? 0.6 : 0.2;
+    for (const { tile, w } of list) add(tile.path, state * (0.4 + 0.6 * (w / total)));
+  }
+  for (const play of plays) {
+    if (play.key === undefined || (play.kind !== "sweep" && play.kind !== "tracer" && play.kind !== "launch")) continue;
+    for (const { tile } of layout.over.get(play.key) ?? []) add(tile.path, 0.35);
+  }
+  const out = new Map<string, number>();
+  let tallest = 0;
+  for (const territory of layout.territories) {
+    for (const tile of territory.tiles) {
+      const height = SLAB.low + 12 * Math.min(busy.get(tile.path) ?? 0, 2.2);
+      out.set(tile.path, height);
+      tallest = Math.max(tallest, height);
+    }
+  }
+  for (const clash of layout.clashes) out.set(clash.path, Math.min(SLAB.high, Math.max(tallest + 4, 24)));
+  return out;
 }
 
 // ---- Pull requests as payloads -------------------------------------------------------------------------

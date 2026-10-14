@@ -12,7 +12,7 @@ const stage = (name: string | RegExp) => region(name);
 
 const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { look: inside(places, tab("Cockpit")), say: "The Cockpit tab is raised: filled and weighed. Jobs, Sessions and System are quiet beside it" },
-  { look: role("listbox", "Map"), say: "Nothing picked, so the area is a battlefield. Each repository is a territory laid out as its own directories, a plot for each, its base along the near edge with a pad for each bay and its main as the flag. A drone hovers over the directories it is changing, a Job large and a Session small, and a dotted line runs from a bay to the drone that holds it. Where two drones change the same directory the plot is amber and hatched" },
+  { look: role("listbox", "Map"), say: "Nothing picked, so the area is a battlefield seen on a tilted plane. Each repository is a territory laid out as its own directories, a raised slab for each that stands taller with recent activity, its base along the near edge with a pad for each bay and its main as the flag. A drone flies above the plane with its shadow below, over the directories it is changing, a Job large and a Session small, and a dotted line runs from a bay to the drone that holds it. Where two drones change the same directory the slab is the tallest, amber and hatched" },
   { press: inside(list, button("Shorten the reconnect wait")), say: "Pick a Job from the column" },
   { look: inside(stage(/^Job: Shorten the reconnect wait/), role("group", "Canvas")), say: "A small Job canvas: the step it is on is live, the rest are quiet" },
   { look: inside(stage(/^Job: Shorten the reconnect wait/), role("group", "Running now")), say: "And what it is running now, beside it" },
@@ -23,7 +23,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { type: "Good. Merge it.\n", into: inside(stage(/^Session: Pin the store clock/), role("textbox", "Message")), say: "Answered in the Session's own box" },
   { press: inside(stage(/^Session: Pin the store clock/), button("Back to the map")), say: "Back to the map" },
   { look: role("listbox", "Map"), say: "The Session he answered is locked on: the reticle is on it, the camera has eased to it and the others are dimmed" },
-  { later: places, say: "A Job is dispatched and a pull request merges: a drone lifts from the base and settles over the directories it touches, and the pull request flies to the flag, which flashes" },
+  { later: places, say: "A Job is dispatched and a pull request merges: the camera backs off a little, a drone climbs from the base on an arc and settles over the directories it touches, the slab rises, and the pull request arcs to the flag, which flashes and sends a ripple across the plane and a column of light up" },
   { key: "ArrowDown", on: list, say: "Down moves through the column" },
   { key: "Enter", on: list, say: "Enter opens the row in the area" },
   { look: stage(/^(Job|Session): /), say: "A Job or a Session, in the same place" },
