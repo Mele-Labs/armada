@@ -22,14 +22,14 @@ import type { CockpitProps } from "../../cockpit/body-seam";
 import { viewsOf } from "../../merge-line";
 import { SessionMini } from "../../sessions";
 import { useSessions } from "../../sessions-draft";
-import { answered, select, useDeck } from "./deck-model";
+import { answered, leaveAutopilot, select, useDeck } from "./deck-model";
 import { MarkGlyph, PrChip, StepsBar, type Acts } from "./shared";
 import type { Pr, Ship, Subject } from "./ship";
 import { toneOf } from "./tabs-model";
 
 /** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
 export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {
-  const { view } = useDeck();
+  const { view, sel } = useDeck();
   return (
     <header className="deck-band deck-pane__head">
       <Tooltip label={kind}>
@@ -43,7 +43,7 @@ export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: {
       <span className="deck-pane__acts">
         {children}
         <Tooltip label={`Back to the ${view}`} shortcut="Esc">
-          <Button variant="ghost" size="sm" iconOnly aria-label={`Back to the ${view}`} onClick={() => select(undefined)}>
+          <Button variant="ghost" size="sm" iconOnly aria-label={`Back to the ${view}`} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : select(undefined))}>
             <X size={16} aria-hidden />
           </Button>
         </Tooltip>

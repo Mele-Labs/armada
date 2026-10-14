@@ -199,59 +199,10 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 
 .deck-map,
 .deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
-/* The map runs edge to edge in its pane, with room round it. */
-.deck-map { padding: var(--space-3); overflow: hidden; }
+/* The battlefield runs edge to edge in its pane. */
+.deck-map { padding: 0; overflow: hidden; }
 .deck-timeline > * { flex: 1 1 auto; min-width: 0; }
 
-.armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.armada-map__field { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
-.armada-map__field:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-map__dust { fill: var(--fg-subtle); opacity: 0.35; }
-.armada-map__cluster rect { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
-.armada-map__cluster text { fill: var(--fg-subtle); text-transform: none; font-family: var(--font-mono); font-size: var(--text-xs); }
-.armada-map__link { stroke: var(--fg-subtle); stroke-width: 1; opacity: 0.55; }
-.armada-map__link[data-kind="dispatched"] { stroke: var(--fg-muted); stroke-width: 1.5; opacity: 0.85; }
-.armada-map__link[data-kind="waits"] { stroke-dasharray: 5 4; }
-.armada-map__link[data-kind="works"] { stroke: var(--fg-subtle); opacity: 0.55; }
-.armada-map__link[data-kind="line"] { stroke: var(--fg-subtle); stroke-dasharray: 1 5; stroke-linecap: round; opacity: 0.7; }
-
-/* A star: gray, and amber or red only where he is owed or a Check is failing. The glow is how much it wants him. */
-.armada-star { cursor: pointer; }
-.armada-star__core { fill: var(--hue); }
-.armada-star__halo { fill: var(--hue); opacity: 0.14; }
-.armada-star__halo[data-inner] { opacity: 0.24; }
-.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0.8; }
-.armada-star__brackets { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); pointer-events: none; }
-.armada-star[data-lit] .armada-star__label,
-.armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
-.armada-star:hover .armada-star__core { stroke: var(--fg-default); stroke-width: 1; }
-.armada-map__landmark text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
-.armada-map__main { fill: var(--fg-subtle); }
-.armada-map__landmark[data-red] .armada-map__main { fill: var(--status-completed-failed); }
-.armada-map__branch { fill: var(--fg-subtle); }
-.armada-map__tip {
-  position: absolute;
-  z-index: 2;
-  transform: translate(-50%, calc(-100% - var(--space-2)));
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
-  pointer-events: none;
-  white-space: nowrap;
-}
-.armada-map__tip span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
-.armada-map__zoom { position: absolute; top: var(--space-2); right: var(--space-2); z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); }
-.armada-map__zoom .armada-button { border: var(--border-width) solid var(--border-glass); border-radius: 50%; background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card); }
-.armada-map__key { position: absolute; left: var(--space-2); bottom: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
-.armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
 
 /* ---- The merge queue: one row in a glass panel under the map, as dots or as chips -------------------- */
 
@@ -331,11 +282,11 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
 
 /* The foot: the controls and Autopilot, side by side across the centre column. */
-.deck-foot { display: flex; flex: none; gap: var(--space-3); }
+.deck-foot { --tile: calc(var(--space-12) + var(--space-2)); display: flex; flex: none; gap: var(--space-3); }
 
-/* Two rows of three equal square tiles, in the middle of the panel. A tile is a glyph over its word, rounded and a little raised. */
-.deck-controls { flex: none; --tile: calc(var(--space-12) + var(--space-4)); }
-.deck-controls__block { display: grid; flex: 1 1 auto; grid-template-columns: repeat(3, var(--tile)); grid-auto-rows: var(--tile); justify-content: center; align-content: center; gap: var(--space-2); padding: var(--space-1) var(--space-4) var(--space-4); }
+/* One row of six equal tiles. A tile is a glyph over its word, rounded and a little raised. */
+.deck-controls { flex: 6 1 0; }
+.deck-controls__block { display: grid; flex: 1 1 auto; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: var(--tile); align-content: center; gap: var(--space-2); padding: var(--space-1) var(--space-3) var(--space-3); }
 .deck-tile {
   display: flex;
   flex-direction: column;
@@ -357,13 +308,12 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* Pressed is lit. */
 .deck-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 1px 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
 
-/* Autopilot: the switch is its title, the arrow opens its lane in the area above, and under them the repository, how it stands, and a thin bar. */
-.deck-autopilot { flex: 1 1 0; }
+/* Autopilot: compact, the height of the controls beside it: the switch is its title, then the repository and how it stands over a thin bar. */
+.deck-autopilot { flex: 4 1 0; }
 .deck-autopilot > .deck-band { justify-content: space-between; }
 .deck-autopilot > .deck-band .armada-switch { min-height: 0; gap: var(--space-3); color: var(--fg-muted); font: inherit; letter-spacing: inherit; text-transform: inherit; }
-.deck-autopilot > .deck-band .armada-button[aria-pressed="true"] { background: var(--accent-muted); }
-.deck-autopilot__body { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: var(--space-4); padding: var(--space-2) var(--space-4) var(--space-4); }
-.deck-autopilot__repo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
+.deck-autopilot__body { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: var(--space-3); padding: var(--space-1) var(--space-3) var(--space-3); }
+.deck-autopilot__repo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: calc(var(--tile) - var(--space-3) - var(--space-1)); padding: var(--space-2) var(--space-3); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
 .deck-autopilot__name { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
 .deck-autopilot__bar { height: var(--space-1); border-radius: var(--space-1); background: color-mix(in srgb, var(--fg-default) 10%, transparent); overflow: hidden; }
 .deck-autopilot__fill { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--fg-subtle); }

@@ -27,9 +27,11 @@ type State = {
   held: ReadonlyMap<string, number>;
   /** The Cockpit is the page in front, so the deck's keys are the window's. */
   here: boolean;
+  /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
+  before: { sel: Sel | undefined; view: DeckView } | undefined;
 };
 
-const FRESH: State = { sel: undefined, cursor: undefined, view: "map", only: undefined, needs: false, visited: new Set(), held: new Map(), here: true };
+const FRESH: State = { sel: undefined, cursor: undefined, view: "map", only: undefined, needs: false, visited: new Set(), held: new Map(), here: true, before: undefined };
 let state: State = FRESH;
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
@@ -42,7 +44,22 @@ const set = (change: Partial<State>) => {
 const firstSeen = new Map<string, number>();
 let settled = false;
 
+/**
+ * What the field remembers between its mounts, so a drone stays where it was put and a play is played once: the unit
+ * positions of the drones, the events and arrivals already shown, and the drones and landed pull requests there were.
+ */
+export const scene = {
+  memory: new Map<string, { u: number; v: number }>(),
+  seen: new Set<string>(),
+  drones: undefined as Set<string> | undefined,
+  landed: undefined as Set<string> | undefined,
+};
+
 export const forgetDeck = () => {
+  scene.memory.clear();
+  scene.seen.clear();
+  scene.drones = undefined;
+  scene.landed = undefined;
   state = FRESH;
   firstSeen.clear();
   settled = false;
@@ -55,6 +72,17 @@ export const select = (sel: Sel | undefined) => set({ sel, ...(sel === undefined
 export const moveCursor = (key: string | undefined) => set({ cursor: key });
 /** Choosing a view is going back to it: what was open in the area is put away. */
 export const setView = (view: DeckView) => set({ view, sel: undefined });
+/** Autopilot's configuration takes the area, and what was open is kept to come back to. */
+export const enterAutopilot = () => {
+  if (state.sel?.kind === "autopilot") return;
+  set({ before: { sel: state.sel, view: state.view }, sel: { kind: "autopilot", key: "autopilot" } });
+};
+/** Autopilot is put away: the area is as it was left. */
+export const leaveAutopilot = () => {
+  const before = state.before;
+  set({ sel: before?.sel, view: before?.view ?? state.view, before: undefined });
+};
+
 export const toggleOnly = (only: Only) => set({ only: state.only === only ? undefined : only });
 export const toggleNeeds = () => set({ needs: !state.needs });
 export const setHere = (here: boolean) => {

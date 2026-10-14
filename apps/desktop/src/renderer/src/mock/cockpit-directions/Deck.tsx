@@ -5,26 +5,25 @@
 // that are incoming. Esc returns to the map or timeline exactly as it was left. The state is held in
 // `deck-model.ts`, so the top bar, the body and the keys are one thing. Mock only. proto/cockpit-flight-deck.
 
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpRight, Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, Button, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
+import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Badge, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
-import { age, useItems, type Item } from "../../Dashboard";
+import { age, type Item } from "../../Dashboard";
 import type { AppSeamProps } from "../../cockpit/app-seam";
 import { useAutopilotLane } from "../../cockpit/AutopilotLane";
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { holdFor } from "../../cockpit/Cockpit";
 import { dotsOf } from "../../cockpit/horizon";
-import type { Field } from "../../cockpit/map-layout";
-import { deckSkyOf } from "./deck-sky";
+import { useFleetEvents } from "../../cockpit/fleet-events";
+import { MOST_PLAYING, droneOf, playsOf, trailsOf, type Play } from "./deck-field";
 import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
-import { sessionIdOf } from "../../cockpit/waiting";
 import { viewsOf } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
 import { CallPane, ChecksPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./deck-panes";
@@ -32,12 +31,15 @@ import {
   arrivedLate,
   callOfSubject,
   deckNow,
+  enterAutopilot,
   incomingOf,
+  leaveAutopilot,
   listOf,
   moveCursor,
   noteCalls,
   openCall,
   release,
+  scene,
   select,
   selOfPr,
   selOfSubject,
@@ -52,10 +54,9 @@ import {
 import { MarkGlyph, useShipActs } from "./shared";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import { toneOf } from "./tabs-model";
-import { StarMap } from "./StarMap";
+import { Battlefield, type GoalIn, type PadIn, type PrIn } from "./Battlefield";
 import "./deck.css";
-
-const NONE: ReadonlySet<string> = new Set();
+import "./battlefield.css";
 
 const PLACES = [
   { id: "cockpit", label: "Cockpit" },
@@ -144,7 +145,7 @@ export function DeckChrome(props: AppSeamProps) {
   useListKeydown((event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const state = deckNow();
-    if (holdsText(event.target)) {
+    if (holdsText(event.target) && (event.target as HTMLElement).getAttribute("role") !== "switch") {
       // The first Esc leaves the box, the next one leaves the pane.
       if (event.key === "Escape" && state.here && state.sel !== undefined && state.sel.kind !== "call") {
         event.preventDefault();
@@ -179,7 +180,10 @@ export function DeckChrome(props: AppSeamProps) {
         return;
       }
       case "Escape":
-        if (state.sel !== undefined) {
+        if (state.sel?.kind === "autopilot") {
+          event.preventDefault();
+          leaveAutopilot();
+        } else if (state.sel !== undefined) {
           event.preventDefault();
           select(undefined);
         }
@@ -266,37 +270,93 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
 
 // ---- The dynamic area ---------------------------------------------------------------------------------
 
-const subjectKeyOf = (item: Item): string | undefined => {
-  if (item.job !== undefined) return `job:${item.job.id}`;
-  const id = sessionIdOf(item.key);
-  return id === undefined ? undefined : `session:${id}`;
+/** What the field plays, from the events and from what changes while it is drawn: each played once, and the most that move at once is capped. */
+function usePlays(candidates: readonly Play[], drones: readonly string[], landed: ReadonlyMap<number, string>): Play[] {
+  const [plays, setPlays] = useState<Play[]>(() => candidates.filter((one) => !scene.seen.has(one.id)));
+  const shown = useRef(plays);
+  shown.current = plays;
+  // What is shown now is shown: it is not played again when the field is drawn another time.
+  useEffect(() => {
+    for (const one of plays) scene.seen.add(one.id);
+    if (plays.length === 0) return;
+    const timer = window.setTimeout(() => setPlays([]), 8000);
+    return () => window.clearTimeout(timer);
+  }, [plays]);
+  // Arrivals: a drone that was not there, a pull request that has landed, an event that was not there.
+  useEffect(() => {
+    const was = scene.drones;
+    const landedWas = scene.landed;
+    scene.drones = new Set(drones);
+    scene.landed = new Set([...landed.keys()].map(String));
+    const arrived: Play[] = [];
+    if (was !== undefined) for (const key of drones) if (!was.has(key)) arrived.push({ id: `arrived:${key}`, kind: "launch", key, at: Date.now(), delay: 0 });
+    if (landedWas !== undefined) for (const [number, root] of landed) if (!landedWas.has(String(number)) && !scene.seen.has(`merged:${number}`)) arrived.push({ id: `merged:${number}`, kind: "capture", root, number, at: Date.now(), delay: 0 });
+    const late = [...candidates.filter((one) => !scene.seen.has(one.id) && !shown.current.some((p) => p.id === one.id)), ...arrived].filter((one) => !scene.seen.has(one.id));
+    if (late.length > 0) setPlays((now) => [...now, ...late].slice(-MOST_PLAYING));
+  }, [candidates, drones, landed]);
+  return plays;
 }
 
 function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
+  const deck = useDeck();
   const sessions = useSessions();
-  const running = useItems("running", props.state, props.picked, props.nowViews, props, NONE);
-  const [field, setField] = useState<Field>({ width: 900, height: 560 });
+  const events = useFleetEvents();
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
-  const items = useMemo(() => {
-    const owned = new Set(ship.calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
-    return [...ship.calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key))].filter((one) => {
-      const key = subjectKeyOf(one);
-      return key !== undefined && shown.has(key);
+  const slots = slotsOf(props);
+  const repositories = props.state.holds.repositories ?? [];
+  const rootOfManifest = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+
+  const drones = useMemo(() => {
+    const all = ship.subjects.filter((one) => one.kind !== "pr");
+    const has = new Set(all.map((one) => one.key));
+    const holder = new Map(
+      slots.flatMap((slot) => {
+        const held = slot.held;
+        const key = held.state === "job" ? `job:${held.job_id}` : held.state === "hosted_session" ? `session:${held.session_id}` : undefined;
+        return key === undefined ? [] : [[key, slotKey(slot)] as const];
+      }),
+    );
+    return all.map((one) => {
+      const attached = one.kind === "session" ? sessions.find((row) => row.id === one.id)?.attachments.find((a) => a.kind === "job" && a.looking !== true) : undefined;
+      const made = one.kind === "job" ? props.state.jobs.find((job) => job.id === one.id)?.dispatched_by : undefined;
+      const parent = attached !== undefined && attached.kind === "job" ? `job:${attached.id}` : made === undefined ? undefined : `job:${made}`;
+      return droneOf(one, callOfSubject(one, deck.held) !== undefined, { parent: parent !== undefined && has.has(parent) ? parent : undefined, slot: holder.get(one.key), shown: shown.has(one.key) });
     });
-  }, [ship.calls, running, shown]);
-  const sky = useMemo(
-    () =>
-      deckSkyOf(
-        items,
-        sessions,
-        viewsOf(props.state),
-        (root) => props.state.holds.repositories?.find((one) => one.root === root)?.manifest?.id,
-        (manifest) => props.state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest,
-        field,
-      ),
-    [items, sessions, props.state, field],
-  );
-  const star = sky.stars.find((one) => subjectKeyOf(one.item) === cursor)?.key;
+  }, [ship.subjects, sessions, slots, props.state.jobs, deck.held, shown]);
+
+  const repos = useMemo(() => {
+    const roots = [...new Set([...ship.subjects.filter((one) => one.kind !== "pr").map((one) => one.root), ...ship.mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
+    return roots.map((root) => ({
+      root,
+      name: ship.repos.find((one) => one.root === root)?.name ?? ship.subjects.find((one) => one.root === root)?.repo ?? root,
+      pads: slots.filter((one) => (rootOfManifest(one.manifest_id) ?? one.manifest_id) === root).sort((a, b) => a.slot - b.slot).map(slotKey),
+      goal: ship.mains.some((one) => one.root === root),
+    }));
+  }, [ship.subjects, ship.mains, ship.repos, slots, repositories]);
+
+  const pads = useMemo(() => {
+    const out = new Map<string, PadIn>();
+    for (const slot of slots) {
+      const state = bayStateOf({ slot });
+      const held = slot.held;
+      const holder = held.state === "job" ? (held.job_title ?? held.job_id) : held.state === "hosted_session" ? (held.session_title ?? held.session_id) : undefined;
+      out.set(slotKey(slot), { key: slotKey(slot), slot: slot.slot, bay: slot.closed === true ? "closed" : state.bay, word: slot.closed === true ? "Closed" : state.word, repo: repoNameOf(props, slot.manifest_id), ...(holder === undefined ? {} : { holder }) });
+    }
+    return out;
+  }, [slots]);
+
+  const goals = useMemo(() => new Map<string, GoalIn>(ship.mains.map((main) => [main.root, { root: main.root, red: main.state === "red", said: main.state === "red" ? `Main is red in ${main.repo}` : `Main is green in ${main.repo}` }])), [ship.mains]);
+
+  const prs = useMemo<PrIn[]>(() => ship.prs.map((pr) => ({ key: pr.key, number: pr.number, stage: pr.stage, root: pr.root, ...(pr.owner === undefined ? {} : { owner: `${pr.owner.kind}:${pr.owner.id}` }) })), [ship.prs]);
+  const landed = useMemo(() => new Map(ship.prs.filter((pr) => pr.stage === "landed").map((pr) => [pr.number, pr.root] as const)), [ship.prs]);
+  const ownerOf = (number: number) => {
+    const pr = ship.prs.find((one) => one.number === number);
+    return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
+  };
+  const candidates = useMemo(() => playsOf(events, props.now, ownerOf, rootOfManifest), [events, props.now, ship.prs, repositories]);
+  const trails = useMemo(() => trailsOf(events, props.now, ownerOf), [events, props.now, ship.prs]);
+  const plays = usePlays(candidates, useMemo(() => drones.map((one) => one.key), [drones]), landed);
+
   return (
     <section className="deck-pane" aria-label="Flight map">
       <header className="deck-band deck-pane__head">
@@ -304,15 +364,27 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
         <h2 className="deck-pane__title">Map</h2>
       </header>
       <div className="deck-map">
-        <StarMap
-          sky={sky}
-          field={field}
-          onField={setField}
-          selected={star}
+        <Battlefield
+          repos={repos}
+          drones={drones}
+          pads={pads}
+          goals={goals}
+          prs={prs}
+          trails={trails}
+          plays={plays}
+          selected={cursor}
           onSelect={(key) => {
-            const found = sky.stars.find((one) => one.key === key);
-            const subject = found === undefined ? undefined : ship.subjects.find((one) => one.key === subjectKeyOf(found.item));
+            const subject = ship.subjects.find((one) => one.key === key);
             if (subject !== undefined) select(selOfSubject(subject));
+          }}
+          onPad={(key) => select({ kind: "slot", key })}
+          onGoal={(root) => {
+            const pr = ship.prs.find((one) => one.root === root && one.stage !== "landed") ?? ship.prs.find((one) => one.root === root);
+            if (pr !== undefined) select(selOfPr(pr));
+          }}
+          onPr={(key) => {
+            const pr = ship.prs.find((one) => one.key === key);
+            if (pr !== undefined) select(selOfPr(pr));
           }}
         />
       </div>
@@ -523,7 +595,7 @@ function Tile({ label, text, keys, pressed, onPress, children }: { label: string
   );
 }
 
-/** The four filters and the view switch, as two rows of equal square tiles in the middle of the panel. */
+/** The four filters and the view switch: one row of six equal tiles. */
 function FlightControl() {
   const deck = useDeck();
   return (
@@ -580,25 +652,27 @@ function RepositoryPicker({ props, autopilot }: { props: CockpitProps; autopilot
   );
 }
 
-/** Autopilot as a card beside the controls: its switch in the header, the repository, how it stands, and a thin bar for what it is doing. */
+/**
+ * Autopilot as a compact card beside the controls: the switch is its title, and under it the repository, how it
+ * stands and a thin bar. Switching it on gives the area to its configuration; off, the area is as it was.
+ */
 function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: ReturnType<typeof useAutopilotLane> }) {
   const deck = useDeck();
   const control = autopilot.control;
   const open = deck.sel?.kind === "autopilot";
   const state = control?.state ?? "off";
   const badge = STATE_BADGE[state];
-  const lane = () => select(open ? undefined : { kind: "autopilot", key: "autopilot" });
+  const flip = () => {
+    if (!open) return enterAutopilot();
+    leaveAutopilot();
+    if (control?.open === true) control.toggle();
+  };
   return (
     <section className="deck-panel deck-autopilot" aria-label="Autopilot">
       <header className="deck-band">
-        <Switch checked={state !== "off"} onChange={lane} disabled={control === undefined}>
+        <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot
         </Switch>
-        <Tooltip label={open ? "Back to the map" : "Open the Autopilot lane"} asChild>
-          <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Close the Autopilot lane" : "Open the Autopilot lane"} aria-pressed={open} onClick={lane}>
-            <ArrowUpRight size={16} aria-hidden />
-          </Button>
-        </Tooltip>
       </header>
       <div className="deck-autopilot__body">
         <div className="deck-autopilot__repo">

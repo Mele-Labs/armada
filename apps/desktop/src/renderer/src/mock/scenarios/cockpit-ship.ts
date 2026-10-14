@@ -41,6 +41,8 @@ const reconnect = live(asRow(running(), 83, "reconnect", "Shorten the reconnect 
 /** Not started: waiting for a bay in the pocket repository. */
 const code = live(asRow(queued(), 84, "code", "Read the pairing code from the runtime file"), 4, undefined, { owner_manifest_id: POCKET });
 const JOBS = [cache, pause, reconnect, code];
+/** Dispatched at the flight deck's second moment: a drone that was not there lifts from its base. */
+const lease = live(asRow(running(), 85, "lease", "Retry the claim on a stale lease"), 0, "fix", { branch: "armada/85-lease" });
 
 const say = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "agent" }, text }) as const;
 const ask = (id: string, at: string, text: string) => ({ id, at, kind: "message", from: { kind: "you" }, text }) as const;
@@ -449,7 +451,7 @@ function build(variant: Variant = "rest"): Scenario {
     state: { ...base.state, repository: null, jobs, mergeLines: lines("rest") },
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands.
-    later: [{}, { mergeLines: lines("red") }, { mergeLines: lines("fixed") }],
+    later: [{}, { mergeLines: lines("red"), ...(variant === "deck" ? { jobs: [...jobs, lease.job] } : {}) }, { mergeLines: lines("fixed"), ...(variant === "deck" ? { jobs: [...jobs, lease.job] } : {}) }],
     draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, tabs ? SESSIONS_TABS : SESSIONS), ...(variant === "deck" ? { events: EVENTS } : {}) },
     ...(variant === "deck" ? { behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }) } : {}),
   };
