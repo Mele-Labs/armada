@@ -456,6 +456,20 @@ fn api_reads(segment: &str) -> bool {
     })
 }
 
+/// A `git` subcommand that reads only when its first argument says so, or when it has none:
+/// `git worktree list` reads and `git worktree add` does not.
+fn git_lists(segment: &str) -> bool {
+    let mut words = segment.split_whitespace().skip(1);
+    match (words.next(), words.next()) {
+        (Some("worktree" | "stash"), Some("list")) => true,
+        (Some("tag"), Some("-l" | "--list")) => true,
+        (Some("tag" | "remote"), None) => true,
+        (Some("remote"), Some("get-url" | "show")) => true,
+        (Some("config"), Some("--get" | "--get-all" | "--list" | "-l")) => true,
+        _ => false,
+    }
+}
+
 /// Whether a `sed` only prints lines: `-n` and a script that is an address and `p`, such as
 /// `sed -n 10,40p file`. Any other script can write a file (`w`) or run one (`e`).
 fn sed_reads(segment: &str) -> bool {
@@ -498,6 +512,9 @@ fn reads(segment: &str) -> bool {
     {
         return true;
     }
+    if git_lists(segment) {
+        return true;
+    }
     if segment.starts_with("find ") && (segment.contains("-delete") || segment.contains("-exec")) {
         return false;
     }
@@ -530,6 +547,15 @@ const READS: &[&str] = &[
     "sort",
     "uniq",
     "cut",
+    "tr",
+    "jq",
+    "du",
+    "df",
+    "uname",
+    "basename",
+    "dirname",
+    "realpath",
+    "readlink",
     "date",
     "whoami",
     "printenv",
@@ -549,6 +575,17 @@ const READS: &[&str] = &[
     "git fetch",
     "git merge-base",
     "git remote -v",
+    "git for-each-ref",
+    "git ls-tree",
+    "git cat-file",
+    "git grep",
+    "git shortlog",
+    "git rev-list",
+    "git show-ref",
+    "git name-rev",
+    "git ls-remote",
+    "git diff-tree",
+    "git check-ignore",
     "gh pr view",
     "gh pr list",
     "gh pr diff",

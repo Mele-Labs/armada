@@ -239,7 +239,10 @@ The same slots decide for **every write path alike**:
 a session's calls**: a line that goes into the main checkout or a slot the session does
 not hold, and a line that goes nowhere while the call already stands in a slot it does not
 hold, is held if it then runs anything that is not a read. `cd <slot> && git status` is a
-read and runs. **Not covered**: a path or a `cd` target built from a variable or a
+read and runs. **A relative `cd` after another is read from where the first left the line**,
+and so is a `..` path after it, never from where the call began. Every part of a line is told
+read from write before the slot rule applies, and `git worktree list`, `git stash list`,
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
 substitution, a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
@@ -247,7 +250,11 @@ writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-q
 overwrites something outside the slots the session holds and `/tmp`: **every** slot the
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
-written at all is the gate's.
+written at all is the gate's. **What the session started or made is its own to remove**
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
+branch and the branches of slots it holds, once the base holds every commit on them, and
+`rm` under `$TMPDIR` as under `/tmp`.
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
@@ -364,6 +371,16 @@ so the next message starts a new keeper instead of reattaching to an agent that
 is going. The keeper's own stderr, the agent's and how the agent exited go to
 `<id>.log` beside the spool; Fleet puts its last lines in the thread's
 "process ended" row.
+
+**A process Fleet replaces takes its subagents with it.** A subagent runs inside
+its agent's process, so the keeper only carries it across a Fleet restart. A tune,
+a quiet spell, the move into a slot at the first write and a lost keeper each end
+the process, and the one that resumes has never heard of the subagents that were
+working. When Fleet starts a process for a session that has run, every `subagent`
+row still `standing` whose transcript shows no finished turn was cut off. Fleet
+gives those rows back, keeps their type, description and id in the restart's
+note (so the retro lists them), and puts the same list ahead of the agent's next
+turn, once, so it can start again what it still needs.
 
 **Not covered**: a keeper's own death (the agent loses its pipes and exits), and
 an agent whose hooks name a Fleet port that changed.
