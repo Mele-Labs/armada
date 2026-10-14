@@ -26,6 +26,8 @@ export function QuestionDeck({
 }) {
   const [front, setFront] = useState(0);
   const [open, setOpen] = useState(true);
+  // The option the person is pointing at or has focused, on the card it was on.
+  const [looking, setLooking] = useState<{ at: number; label: string } | null>(null);
   const [picked, setPicked] = useState<readonly (readonly string[])[]>(() => questions.map(() => []));
   const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
   const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
@@ -37,6 +39,7 @@ export function QuestionDeck({
   const last = front === questions.length - 1;
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
+  const previewed = looking?.at === front ? one.options.find((option) => option.label === looking.label) : undefined;
   const behind = questions.slice(front + 1, front + 1 + BEHIND);
 
   const choose = (label: string) => {
@@ -116,6 +119,8 @@ export function QuestionDeck({
                     className="armada-question-deck__answer"
                     data-on={on || undefined}
                     onClick={() => choose(option.label)}
+                    onMouseEnter={() => setLooking({ at: front, label: option.label })}
+                    onFocus={() => setLooking({ at: front, label: option.label })}
                   >
                     <kbd>{index + 1}</kbd>
                     <span className="armada-question-deck__option">
@@ -140,6 +145,11 @@ export function QuestionDeck({
                 </span>
               </button>
             </div>
+            {previewed?.preview === undefined || previewed.preview === "" ? null : (
+              <pre className="armada-question-deck__preview" role="region" aria-label="Preview">
+                {previewed.preview}
+              </pre>
+            )}
             {using[front] === true ? (
               <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
             ) : null}

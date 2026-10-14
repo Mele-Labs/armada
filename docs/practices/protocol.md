@@ -3652,7 +3652,7 @@ Additive only. The repository moved to the forge's merge queue, so `hub.pull_req
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `HelmCallInFlight.questions` (`hosted.asked`, `session.row` ask) | `AskedQuestion`: `question`, `header`, `multi_select`, `options` (`label`, `description`) | Present where the call is the agent's `AskUserQuestion`; absent for every other call. `offers` is `allow_once`, `refuse` and nothing else |
+| `HelmCallInFlight.questions` (`hosted.asked`, `session.row` ask) | `AskedQuestion`: `question`, `header`, `multi_select`, `options` (`label`, `description`, and `preview` where the agent sent one) | Present where the call is the agent's `AskUserQuestion`; absent for every other call. `offers` is `allow_once`, `refuse` and nothing else |
 | `answer_session_ask` (`POST /sessions/ask/answer`) | `answers?`: `QuestionAnswer` `question`, `chosen[]` | One entry per question. `allow_once` without every question answered is a 422 `fleet.session_answer_incomplete`. Free text is an entry in `chosen` |
 
 Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest.
