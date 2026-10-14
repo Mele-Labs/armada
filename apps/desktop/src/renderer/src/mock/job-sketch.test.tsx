@@ -28,7 +28,7 @@ async function drawn(): Promise<void> {
 
 const leave = () => page.getByRole("heading", { name: "Now" }).hover();
 
-// One name, so the whole file runs as one Check: `armada check app_smoke "job sketch"`.
+// One name, so the whole file runs as one Check: `pnpm exec vitest run --project \'smoke*\' -t "job sketch"`.
 describe("job sketch", () => {
   test("a Plan decision draws its sketch, Next changes it, and a decision with none gives the canvas back", async () => {
     mount("job-sketch-plan");
