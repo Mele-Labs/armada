@@ -8,7 +8,7 @@ import type { SharedRow } from "@armada/components";
 
 import { KIT_INVENTORY, manifesting } from "../manifest-fake";
 import type { Scenario } from "../moment";
-import { PERSONAL_ITEMS } from "../onboarding-items";
+import { PERSONAL_ITEMS, withPlanUsage } from "../onboarding-items";
 
 const SOURCE = "/Users/user/.agent/skills";
 
@@ -54,6 +54,7 @@ function build(): Scenario {
     ...base,
     name: "onboarding-work",
     says: "The work machine on first run: the work account signs in alone, and the personal login is added on purpose",
+    behaves: withPlanUsage(base.behaves),
     draft: {
       ...(base.draft ?? {}),
       sharedHome: { account: "mele-work", repository: "armada-home", rows: ROWS },
