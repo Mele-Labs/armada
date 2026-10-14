@@ -9,7 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
-import type { PullRequestPage, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { PullRequestPage, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -257,6 +257,12 @@ export type Session = {
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /**
+   * What Fleet read the Session to be doing: working, stuck, replied, done or idle. **The one answer**
+   * the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not
+   * say, and the Session is then read from its turn alone.
+   */
+  standing?: SessionStanding;
+  /**
    * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
    * Absent once it is sent, or on a Session nobody's agent started.
    */
@@ -497,6 +503,21 @@ export function attachmentsOf<K extends SessionAttachmentKind>(
 ): Extract<SessionAttachment, { kind: K }>[] {
   return session.attachments.filter((one): one is Extract<SessionAttachment, { kind: K }> => one.kind === kind);
 }
+
+/**
+ * What the person is owed besides the reply and the done Fleet derives from the turn: the agent's own
+ * items, an open card, a walk, a question asked in the window. `replied` and `done` are read from the
+ * thread and the turn, so a surface that draws the thread (its last message, its done callout) leaves them out.
+ */
+export const owesOf = (session: Session): readonly WaitingItem[] =>
+  (session.waitingFor ?? []).filter((one) => one.source !== "replied" && one.source !== "done");
+
+/**
+ * What the Session is doing: Fleet's reading where it gave one, else what the turn alone says. A Fleet
+ * that predates `standing` never says `replied` or `stuck`, and a Session it called done still is.
+ */
+export const standingOf = (session: Session): SessionStanding =>
+  session.standing ?? (session.turn.state === "working" ? "working" : session.done !== undefined ? "done" : "idle");
 
 function names(attachment: SessionAttachment, ref: ChipRef): boolean {
   switch (ref.kind) {
