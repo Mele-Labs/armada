@@ -1,38 +1,43 @@
-// What a send leaves where the bar was: a slim strip with the kind's mark, the Job's title or the
+// What a send leaves over the title bar's field: a slim strip with the kind's mark, the Job's title or the
 // Autopilot's repository, and Open. ↵ or a press opens it; typing again or Esc lets it go. A Session
-// opens itself and leaves none. Over `dispatch-panel-from-either-bar`.
+// opens itself and leaves none. Over `dispatch-panel-from-either-bar`, a name from when the Cockpit had
+// a bar of its own.
 
 import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
 
 const frame = role("region", "Dispatch", { exact: true });
-const request = role("textbox", "Request");
 const strip = role("group", "Last dispatch");
+const cockpit = region("Dashboard");
 const bar = inside(dialog("Command palette"), role("combobox"));
 const panel = dialog("Dispatch");
 const inPanel = (target: ReturnType<typeof role>) => inside(panel, target);
 const title = "Show the Drone's branch on each Bridge cockpit tile";
 
 const dispatchedStripOpensIt = walk("dispatch-panel-from-either-bar", [
-  // (a) The Cockpit's bar, a Job.
-  { type: title, into: request, say: "The Cockpit's dispatch bar, a request naming Bridge" },
+  // (a) A Job.
+  { key: "n", on: cockpit, say: "N opens the title bar's field" },
+  { type: title, into: bar, say: "A request naming Bridge" },
+  { key: "Meta+Enter", on: bar, say: "Press ⌘↵" },
   { look: inside(frame, button("Repository armada")), say: "Read as the armada repository" },
   { press: inside(frame, button("Dispatch", { exact: true })), say: "Dispatch" },
-  { look: inside(strip, text(title)), say: "The bar is a strip holding the Job's title" },
+  { look: inside(strip, text(title)), say: "A strip over the field holds the Job's title" },
   { hover: inside(strip, button("Dismiss")), say: "The tooltip names the dismiss" },
-  { key: "Enter", on: request, say: "Press ↵" },
+  { key: "Enter", on: strip, say: "Press ↵" },
   { look: role("heading", /Show the Drone's branch/), say: "The Job is open" },
   { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back on the Cockpit" },
-  { look: request, say: "The bar is a bar again" },
+  { look: cockpit, say: "The strip is gone with the Job opened" },
 
-  // (b) The strip lets go on typing.
-  { type: "Pin the Bridge store clock", into: request, say: "A Job sent" },
+  // (b) The strip lets go on Esc.
+  { key: "n", on: cockpit, say: "N opens the title bar's field" },
+  { type: "Rename the Bridge tile legend", into: bar, say: "A Job sent" },
+  { key: "Meta+Enter", on: bar, say: "Press ⌘↵" },
   { press: inside(frame, button("Dispatch", { exact: true })), say: "Dispatch" },
   { look: strip, say: "The strip holds the latest send" },
-  { key: "Escape", on: request, say: "Press Esc" },
-  { look: request, say: "The strip has gone" },
+  { key: "Escape", on: strip, say: "Press Esc" },
+  { look: cockpit, say: "The strip has gone" },
 
-  // (c) The title bar: an Autopilot.
-  { key: "Meta+k", on: request, say: "Press ⌘K" },
+  // (c) An Autopilot.
+  { key: "Meta+k", on: cockpit, say: "Press ⌘K" },
   { type: "Work through the open Bridge bugs until 7am", into: bar, say: "Words for Autopilot" },
   { key: "Meta+Enter", on: bar, say: "Press ⌘↵" },
   { press: inPanel(tab("Autopilot")), say: "Autopilot chosen in the band" },

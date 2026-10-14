@@ -1,14 +1,15 @@
-// One dispatch panel over one draft, from either bar. The Cockpit's bar grows into it where it stands,
-// and the title bar's one bar grows it down from its own field once something is chosen to dispatch.
-// A Job, a Session and an Autopilot are the panel's kinds, switched in its band or with Tab. The
-// repository is a chip read from the words, and asked inline when the send has none, whatever its
+// One dispatch panel over one draft, grown down from the title bar's own field once something is chosen
+// to dispatch. A Job, a Session and an Autopilot are the panel's kinds, switched in its band or with Tab.
+// The repository is a chip read from the words, and asked inline when the send has none, whatever its
 // kind. Autopilot reads its settings in the panel and starts from it. Over
-// `dispatch-panel-from-either-bar`.
+// `dispatch-panel-from-either-bar`, a name from when the Cockpit had a bar of its own.
 
 import { button, dialog, inside, region, role, tab, walk } from "../walk";
 
 const frame = role("region", "Dispatch", { exact: true });
 const request = role("textbox", "Request");
+const strip = role("group", "Last dispatch");
+const cockpit = region("Dashboard");
 const chip = (name: string) => inside(frame, button(name));
 const act = (name: string) => inside(frame, button(name, { exact: true }));
 const kind = (name: string) => inside(frame, tab(name));
@@ -19,19 +20,23 @@ const panel = dialog("Dispatch");
 const inPanel = (target: ReturnType<typeof role>) => inside(panel, target);
 
 const dispatchPanelFromEitherBar = walk("dispatch-panel-from-either-bar", [
-  // (a) The Cockpit's bar, a Job.
-  { look: request, say: "The Cockpit's dispatch bar, no repository chosen" },
-  { type: "Show the Drone's branch on each Bridge cockpit tile", into: request, say: "The first words, naming Bridge" },
-  { look: chip("Repository, finding"), say: "The bar has grown into the panel in place, the words and the cursor kept. The chip's ring turns while the words are read" },
+  // (a) A Job, from the title bar.
+  { key: "n", on: cockpit, say: "N opens the title bar's field, Dispatch leading" },
+  { type: "Show the Drone's branch on each Bridge cockpit tile", into: bar, say: "The first words, naming Bridge" },
+  { key: "Meta+Enter", on: bar, say: "Press ⌘↵" },
+  { look: inPanel(request), say: "The panel grows down from the title bar's field, holding the words" },
+  { look: chip("Repository, finding"), say: "The chip's ring turns while the words are read" },
   { look: chip("Repository armada"), say: "Read as the armada repository" },
   { hover: chip("Repository armada"), say: "The tooltip says where it came from" },
   { look: kind("Job"), say: "A Job, with Session and Autopilot beside it" },
   { press: act("Dispatch"), say: "Dispatch sends the request to armada" },
-  { look: request, say: "The panel is the bar again, the request empty" },
+  { look: strip, say: "The panel has gone and a strip over the field holds the Job's title" },
 
   // (b) A Session on All: it starts in a repository, so one naming none asks, as a Job does.
-  { type: "Check the migration order", into: request, say: "Words that name no repository" },
-  { key: "Tab", on: request, say: "Press Tab" },
+  { key: "n", on: strip, say: "N starts the next draft" },
+  { type: "Check the migration order", into: bar, say: "Words that name no repository" },
+  { key: "Meta+Enter", on: bar, say: "Press ⌘↵" },
+  { key: "Tab", on: inPanel(request), say: "Press Tab" },
   { look: kind("Session"), say: "A Session is chosen" },
   { look: chip("Repository, not found"), say: "The chip is an empty outline" },
   { press: act("Start"), say: "Start asks where the Session starts" },
@@ -61,13 +66,15 @@ const dispatchPanelFromEitherBar = walk("dispatch-panel-from-either-bar", [
   { look: region("Autopilot"), say: "Autopilot is running on armada" },
 
   // (e) A vague Job: Dispatch asks inline.
-  { type: "Clean up the old retry logic", into: request, say: "A request that names no repository, in the Cockpit's bar" },
+  { key: "n", on: cockpit, say: "N opens the title bar's field" },
+  { type: "Clean up the old retry logic", into: bar, say: "A request that names no repository" },
+  { key: "Meta+Enter", on: bar, say: "Press ⌘↵" },
   { look: chip("Repository, not found"), say: "The chip stays an empty dashed outline" },
   { hover: chip("Repository, not found"), say: "The tooltip names it" },
   { press: act("Dispatch"), say: "Dispatch builds nothing without a repository" },
   { look: choices, say: "The panel asks in place: the frame and band take the call's hue and the set-up repositories list, armada first" },
   { press: inside(choices, role("option", /storefront/)), say: "Picking one sends the request" },
-  { look: request, say: "The panel is the bar again, the request empty" },
+  { look: strip, say: "A strip holds the Job's title where the panel was" },
 ]);
 
 export { dispatchPanelFromEitherBar as "dispatch-panel-from-either-bar" };

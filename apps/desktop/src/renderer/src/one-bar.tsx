@@ -1,8 +1,8 @@
 // The title bar's one bar: search and dispatch in one field, proposal D (the owner, 10 Oct 2026). It
-// replaced the Dashboard's dispatch bar and the title bar's Dispatch button. The palette is the field,
+// replaced the Dashboard's dispatch bar and the title bar's Dispatch button; the Cockpit has no bar of its own now. The palette is the field,
 // and a dispatch row chosen in it (↵ on the row, ⌘↵, a pasted link) does not send: it grows the dispatch
 // panel down from the field, holding the words, in the kind Tab chose. The panel, its draft and the
-// sends are `dispatch-panel/`; the Cockpit's bar is the same panel in place.
+// sends are `dispatch-panel/`.
 
 import { useEffect, useRef, useState } from "react";
 import { isPressed, type PaletteDispatch } from "@armada/components";
@@ -20,7 +20,7 @@ export function useOneBar({
   dispatching,
 }: {
   palette: { open: boolean; onOpen: () => void };
-  /** Off the line, `n` keeps the Board's own meaning, as it did beside the dispatch bar. */
+  /** Off the line, `n` keeps the Board's own meaning, as it did before the one bar. */
   live: boolean;
   /** The full composer, holding the words. */
   compose: (words: string) => void;
