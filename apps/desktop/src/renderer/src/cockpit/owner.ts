@@ -39,6 +39,24 @@ export function workOwner(views: readonly Seen[], jobs: readonly Pick<JobSummary
   return held === undefined ? undefined : { kind: "session", id: held.id, title: held.title ?? held.id };
 }
 
+/**
+ * Whoever a pull request on the timeline belongs to, open or merged: the Job the line names for it, else
+ * whoever `workOwner` finds by the number or the branch. The branch is the one the entry carried, else the
+ * one the line lists the number under. Undefined where nobody holds it.
+ */
+export function timelineOwner(
+  views: readonly (Seen & Pick<MergeLineView, "line" | "landed">)[],
+  jobs: readonly Pick<JobSummary, "id" | "title" | "branch">[],
+  sessions: readonly Session[],
+  number: number,
+  branch: string | undefined,
+): Owner | undefined {
+  const listed = views.flatMap((view) => [...view.line, ...view.landed]).find((entry) => entry.pr?.number === number);
+  if (listed?.job !== undefined) return { kind: "job", id: listed.job.id, title: listed.job.title };
+  const known = branch ?? views.flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === number)?.branch ?? listed?.branch;
+  return known === undefined ? pullOwner(views, sessions, number) : workOwner(views, jobs, sessions, number, known);
+}
+
 /** Whoever owns the branch that broke main, found the same way through the pull request that merged it. */
 export function mainOwner(views: readonly Seen[], sessions: readonly Session[], root: string): Owner | undefined {
   const main = views.find((view) => view.root === root)?.hub?.main;
