@@ -1,7 +1,7 @@
 //! `finish_up`: a hosted session gives back the slots it holds, the branches already in the base
 //! and the servers running in those slots, in one call on Fleet's door. A write in the checkout
 //! cannot do this: once the slot is released, the next write takes a new lease for the session.
-//! `docs/concepts/session.md`, *Finishing up*.
+//! `docs/concepts/session.md`.
 
 use std::sync::Arc;
 

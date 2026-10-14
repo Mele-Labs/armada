@@ -1,5 +1,5 @@
 //! A hosted session giving back what it is finished with in one call: the slots the pool holds for
-//! it, and nothing of anyone else's. `docs/concepts/session.md`, *Finishing up*.
+//! it, and nothing of anyone else's. `docs/concepts/session.md`.
 
 use std::sync::Arc;
 

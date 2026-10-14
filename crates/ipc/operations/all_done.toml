@@ -10,7 +10,7 @@ notes = """
 
 **It is a statement, not an act.** Fleet ends nothing. Bridge draws a callout at the foot of the thread, End session or Keep going, and the person decides.
 
-**It stops standing** when the person sends the session a message, when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again. `SessionChanged` is published each time `done_since` appears or clears.
+**It stops standing** when the person sends the session a message, when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again, except a turn Fleet's own news starts (a pull request merged, a build moved). `SessionChanged` is published each time `done_since` appears or clears.
 
 `agent_access` is `Yes`: the agent is the one that knows nothing is running or owed.
 """
