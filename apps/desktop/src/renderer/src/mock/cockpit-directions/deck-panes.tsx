@@ -5,11 +5,11 @@
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, NowPanel, Tooltip, isPressed, pressedDigit } from "@armada/components";
+import { Button, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
-import type { WorktreeSlot } from "@armada/protocol";
+import type { JobDetail, WorktreeSlot } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
-import { droneViewsOf } from "@armada/jobs/draft/drone";
+import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
@@ -22,7 +22,7 @@ import type { CockpitProps } from "../../cockpit/body-seam";
 import { viewsOf } from "../../merge-line";
 import { SessionMini } from "../../sessions";
 import { useSessions } from "../../sessions-draft";
-import { answered, leaveAutopilot, select, useDeck } from "./deck-model";
+import { answered, leaveAutopilot, select, setJobView, useDeck } from "./deck-model";
 import { MarkGlyph, PrChip, StepsBar, type Acts } from "./shared";
 import type { Pr, Subject } from "./ship";
 import { toneOf } from "./tabs-model";
@@ -107,9 +107,11 @@ function CallStrip({ item, props }: { item: Item; props: CockpitProps }) {
   );
 }
 
-/** The Job's run, the canvas its own page draws, read from the Job Bridge is watching; the pane asks Fleet to watch it. */
-function RunCanvas({ subject, props }: { subject: Subject; props: CockpitProps }) {
-  const { watched, jobDrones, holds } = props.state;
+/** What the Job's run is, read from the Job Bridge is watching; the pane asks Fleet to watch it. Both the mission and the canvas draw from it. */
+export type Run = { whole: JobDetail | null; drones: DroneView[] };
+
+function useRun(subject: Subject, props: CockpitProps): Run {
+  const { watched, jobDrones } = props.state;
   const whole = detailOf(watched, subject.id);
   const watching = watched.state === "read" ? watched.jobId : undefined;
   // Fleet watches one Job. Say which one this is, and say it again if the page or another pane moved it.
@@ -117,6 +119,13 @@ function RunCanvas({ subject, props }: { subject: Subject; props: CockpitProps }
     if (watching !== subject.id) void window.armada.watchJob(subject.id);
   }, [subject.id, watching]);
   const drones = useMemo(() => droneViewsOf(jobDrones?.state === "read" && jobDrones.jobId === subject.id ? jobDrones.drones : undefined, whole ?? undefined), [jobDrones, subject.id, whole]);
+  return { whole, drones };
+}
+
+/** The Job's run, the canvas its own page draws. */
+function RunCanvas({ subject, props, run }: { subject: Subject; props: CockpitProps; run: Run }) {
+  const { holds } = props.state;
+  const { whole, drones } = run;
   if (whole === null) return <div className="deck-job__reading" role="status" aria-busy aria-label="Reading the run" />;
   return (
     <JobRun
@@ -131,26 +140,42 @@ function RunCanvas({ subject, props }: { subject: Subject; props: CockpitProps }
   );
 }
 
-export function JobPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
+/** The two takes of a Job's run, in its head: the mission across the field it works, and the canvas of its steps. `v` swaps them. */
+const JOB_VIEWS = [
+  { id: "mission", label: "Mission", hint: "Mission view" },
+  { id: "canvas", label: "Canvas", hint: "Canvas view" },
+];
+
+/** `mission` draws the Job's mission from the run it is handed: it lives with the field's readings, in the Deck. */
+export function JobPane({ subject, props, acts, onPr, call, mission }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; mission: (run: Run) => ReactNode }) {
   const nowing = nowPanelOf(props.nows?.[subject.id], { onOpenJob: props.onOpen, onSaid: () => {} });
   const tone = toneOf(subject);
+  const { jobView } = useDeck();
+  const run = useRun(subject, props);
   return (
     <section className="deck-pane" aria-label={`Job: ${subject.title}`}>
       <PaneHead glyph={Box} kind="Job" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone }} />}>
+        <Tabs items={JOB_VIEWS} value={jobView} onChange={(id) => setJobView(id === "canvas" ? "canvas" : "mission")} />
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
       {call === undefined || (nowing?.asks?.length ?? 0) > 0 ? null : <CallStrip item={call} props={props} />}
       <div className="deck-job">
-        <div className="deck-job__canvas" role="group" aria-label="Canvas">
-          {subject.step === undefined ? null : (
-            <div className="deck-job__steps">
-              <StepsBar step={subject.step} tone={tone} />
-            </div>
-          )}
-          <div className="deck-job__run">
-            <RunCanvas subject={subject} props={props} />
+        {jobView === "mission" ? (
+          <div className="deck-job__mission" role="group" aria-label="Mission">
+            {mission(run)}
           </div>
-        </div>
+        ) : (
+          <div className="deck-job__canvas" role="group" aria-label="Canvas">
+            {subject.step === undefined ? null : (
+              <div className="deck-job__steps">
+                <StepsBar step={subject.step} tone={tone} />
+              </div>
+            )}
+            <div className="deck-job__run">
+              <RunCanvas subject={subject} props={props} run={run} />
+            </div>
+          </div>
+        )}
         <div className="deck-job__now" role="group" aria-label="Running now">
           {nowing === undefined ? null : <NowPanel {...nowing} />}
         </div>

@@ -14,14 +14,16 @@
 // Mock only. proto/cockpit-flight-deck.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Crosshair, Megaphone, Minus, Plus, ShieldCheck, ShieldX } from "lucide-react";
-import { Button, Tooltip } from "@armada/components";
+import { Crosshair, Megaphone, Minus, Plus, Scan, ShieldCheck, ShieldX } from "lucide-react";
+import { Button, Tooltip, WorkflowStepCard } from "@armada/components";
 
 import { aimAt, camera } from "./deck-model";
 import { GLYPH as DOING_GLYPH, MOST_LOOPS, WORD as DOING_WORD } from "./deck-doing";
 import { Callout, type Anchor, type Glyph, type Tip } from "./Callout";
 import { STAGE } from "./shared";
 import { Sprite, keyed, onPlane, px, vars } from "./bf-parts";
+import { sceneOf, type SceneIn } from "./deck-mission";
+import { Pins, RouteLegs, tipOf } from "./Route";
 import { ALONG, CAM, FLAT, SLAB, STAGE_SAID, TRAIL_MS, alongOf, bigOf, heightsOf, layoutOf, rand, type DroneIn, type P3, type Placed, type Play, type Point, type RepoIn, type Size, type Territory, type Tile } from "./deck-field";
 
 export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; Glyph: Glyph; holder?: string };
@@ -52,6 +54,8 @@ const HOME_MARGIN = 0.035;
 const READABLE = 0.72;
 /** How close lock-on stands. */
 const LOCK_EYE = 1.5;
+/** How close a mission opens on the step at work. */
+const MISSION_EYE = 0.85;
 /** How much one press of + or - zooms, and how far an arrow key pans, in screen pixels. */
 const ZOOM_STEP = 1.25;
 const KEY_PAN = 90;
@@ -577,6 +581,7 @@ export function Battlefield({
   calls,
   focus,
   selected,
+  scene,
   onSelect,
   onPad,
   onGoal,
@@ -595,6 +600,11 @@ export function Battlefield({
   /** The drone a picked event is about. */
   focus?: string | undefined;
   selected: string | undefined;
+  /**
+   * A Job's mission, in place of the whole field: the same plane, cut down to the plots one Job touches and laid with its route. The
+   * layout and the world come from the route, the camera opens on the step at work, and a pin can be pressed.
+   */
+  scene?: Omit<SceneIn, "big" | "wide"> | undefined;
   onSelect: (key: string) => void;
   onPad: (key: string) => void;
   onGoal: (root: string) => void;
@@ -602,11 +612,13 @@ export function Battlefield({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
+  const [measured, setMeasured] = useState(false);
   useLayoutEffect(() => {
     const one = host.current;
     if (one === null) return;
     const read = () => {
       const box = one.getBoundingClientRect();
+      if (box.width > 0 && box.height > 0) setMeasured(true);
       if (box.width > 0 && box.height > 0) setSize((was) => (Math.round(box.width) === was.width && Math.round(box.height) === was.height ? was : { width: Math.round(box.width), height: Math.round(box.height) }));
     };
     read();
@@ -617,8 +629,12 @@ export function Battlefield({
 
   const big = bigOf(size);
   // The world is larger than the pane: drones and plots are laid out at their own size and he pans and zooms for the rest.
-  const world = useMemo<Size>(() => ({ width: Math.round(size.width * WORLD), height: Math.round(size.height * WORLD) }), [size]);
-  const layout = useMemo(() => layoutOf(repos, drones, world, big, prs), [repos, drones, world, big, prs]);
+  const sized = useMemo<Size>(() => ({ width: Math.round(size.width * WORLD), height: Math.round(size.height * WORLD) }), [size]);
+  // A Job's mission lays its own world round its route; the whole field lays out every repository to fit the pane.
+  const wide = size.width >= size.height * 1.4;
+  const built = useMemo(() => (scene === undefined ? undefined : sceneOf({ ...scene, big, wide })), [scene, big, wide]);
+  const world = built?.world ?? sized;
+  const layout = useMemo(() => built?.layout ?? layoutOf(repos, drones, world, big, prs), [built, repos, drones, world, big, prs]);
   const plane = { width: world.width, height: world.height * FLAT };
   const territory = new Map(layout.territories.map((one) => [one.root, one] as const));
   const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, onPlane(pad)] as const)));
@@ -640,7 +656,8 @@ export function Battlefield({
     const reach = tiles.filter((t) => t.rect.x < at.x + 170 && t.rect.x + t.rect.w > at.x - 170 && t.rect.y < at.y + 90 && t.rect.y + t.rect.h > at.y - 60);
     const clear = Math.max(floorAt(at), ...reach.map((t) => heights.get(t.path) ?? 0));
     // Reading, it dips toward the plot it is probing.
-    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0);
+    // On a mission the Job's drone hovers clear of the pin it is over, so that the pin can be pressed.
+    return clear + FOOT + MARGIN + (drone.hover ? Math.round((drone.doing === "read" ? 6 : 18) * big) : 0) + (scene?.job === drone.key ? Math.round(30 * big) : 0);
   };
   const droneBy = new Map(drones.map((one) => [one.key, one] as const));
   const flying = (drone: DroneIn): P3 | undefined => {
@@ -724,7 +741,7 @@ export function Battlefield({
   // Out as far as the whole field, which is where it rests; in as far as a drone is large.
   const eyes = { least: Math.min(home.eye, Math.max(0.3, Math.min(size.width / world.width, size.height / (plane.height * COS)) * 0.92)) * 0.98, most: 2.6 };
   const fit = (c: Cam): Cam => ({ ...c, eye: Math.min(eyes.most, Math.max(eyes.least, c.eye)), x: Math.min(plane.width, Math.max(0, c.x)), y: Math.min(plane.height, Math.max(0, c.y)) });
-  const [held, setHeld] = useState<Cam | undefined>(camera.current);
+  const [held, setHeld] = useState<Cam | undefined>(scene === undefined ? camera.current : undefined);
   const [live, setLive] = useState(false);
   const [grab, setGrab] = useState(false);
   // A dispatch or a merge that happens while he watches is shown whole: the camera pulls back to it, the event plays, it returns.
@@ -768,7 +785,7 @@ export function Battlefield({
     const target = fit(to);
     latest.current = target;
     next.current = target;
-    camera.current = target;
+    if (scene === undefined) camera.current = target;
     if (by === "hand") {
       setLive(true);
       window.clearTimeout(quiet.current);
@@ -816,16 +833,22 @@ export function Battlefield({
     window.clearTimeout(quiet.current);
     window.cancelAnimationFrame(frame.current);
     frame.current = 0;
-    camera.current = undefined;
+    if (scene === undefined) camera.current = undefined;
     latest.current = home;
     next.current = home;
     setLive(false);
     setPulled(false);
     setHeld(undefined);
   };
-  const toSelection = () => (lockX === undefined || lockY === undefined ? homeAgain() : go({ x: lockX, y: (lockY - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease"));
+  // The mission opens on the step at work, close enough to read it, and returns there when asked.
+  const liveAt = built?.route.live;
+  const toLive = () => (liveAt === undefined ? homeAgain() : go({ x: liveAt.x, y: (liveAt.y - 30) * FLAT, eye: Math.max(MISSION_EYE, home.eye * 1.3), tilt: false }, "ease"));
+  useEffect(() => {
+    if (measured && liveAt !== undefined) toLive();
+  }, [measured, liveAt?.x, liveAt?.y]);
+  const toSelection = () => (scene !== undefined ? toLive() : lockX === undefined || lockY === undefined ? homeAgain() : go({ x: lockX, y: (lockY - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease"));
   // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
-  const first = useRef(camera.current !== undefined);
+  const first = useRef(scene === undefined && camera.current !== undefined);
   useEffect(() => {
     if (lockX === undefined || lockY === undefined) return;
     if (first.current) {
@@ -836,7 +859,7 @@ export function Battlefield({
   }, [selected, lockX, lockY]);
   // `w` named a drone to go to: the camera eases to it once the map is drawn.
   useEffect(() => {
-    const key = aimAt.key;
+    const key = scene === undefined ? aimAt.key : undefined;
     const at = key === undefined ? undefined : layout.at.get(key);
     if (at === undefined) return;
     aimAt.key = undefined;
@@ -922,10 +945,22 @@ export function Battlefield({
     if (next === undefined || target === undefined) return setTip(undefined);
     setTip({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) } });
   };
-  // Esc puts the callout away; it comes back when the pointer or focus comes to something again.
+  // A pin pressed: its step's card stays open beside it until Esc, a press on the ground, or another pin.
+  const [pinned, setPinned] = useState<{ id: string; target: Element }>();
+  const open = useRef(pinned);
+  open.current = pinned;
+  const pin = pinned === undefined ? undefined : built?.route.pins.find((one) => one.id === pinned.id);
+  const card = useMemo<Tip | undefined>(() => (pin === undefined ? undefined : { ...tipOf(pin), node: <WorkflowStepCard {...pin.card} /> }), [pin]);
+  // Esc puts the callout away; it comes back when the pointer or focus comes to something again. A card pressed open goes first, and is the whole of that Esc.
   useEffect(() => {
     const away = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (open.current !== undefined) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setPinned(undefined);
+        return;
+      }
       setTip(undefined);
       setHot(undefined);
     };
@@ -1078,7 +1113,7 @@ export function Battlefield({
       </svg>
       <div className="bf-sway">
         <div className="bf-cam" style={{ transform: cam }}>
-          <div className="bf-plane" role="listbox" aria-label="Map" style={{ width: plane.width, height: plane.height }}>
+          <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => (event.target as Element).closest("[role=option]") === null && setPinned(undefined)} style={{ width: plane.width, height: plane.height }}>
             <div className="bf-floor" style={{ left: -plane.width * 0.6, top: -plane.height * 0.9, width: plane.width * 2.2, height: plane.height * 2.1 }} />
 
             {/* The ground itself: each territory's front line, the border round each top directory, the bases and their pads. */}
@@ -1091,6 +1126,7 @@ export function Battlefield({
                   ))}
                 </g>
               ))}
+              {built === undefined ? null : <RouteLegs route={built.route} />}
               {layout.territories.map((one) => (
                 <Base key={one.root} territory={one} onTip={showTip} />
               ))}
@@ -1300,7 +1336,7 @@ export function Battlefield({
                 const home = territory.get(pr.root);
                 if (home?.goal === undefined || (pr.stage === "landed" && !landing.has(pr.number))) return null;
                 const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-                const start = (owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE };
+                const start = built !== undefined ? { ...onPlane(built.route.crate), z: ROUTE } : ((owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE });
                 const end: P3 = { ...onPlane(home.goal), z: ROUTE };
                 return pr.stage === "landed" ? null : <path key={pr.key} className="bf-route" data-stage={pr.stage} data-dim={(owner !== undefined && !owner.shown) || undefined} d={curve(start, end, 34)} />;
               })}
@@ -1318,7 +1354,7 @@ export function Battlefield({
               const home = territory.get(pr.root);
               if (home?.goal === undefined) return null;
               const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-              const start = (owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE };
+              const start = built !== undefined ? { ...onPlane(built.route.crate), z: ROUTE } : ((owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE });
               const end: P3 = { ...onPlane(home.goal), z: ROUTE };
               const landed = pr.stage === "landed";
               if (landed && !landing.has(pr.number)) return null;
@@ -1331,6 +1367,19 @@ export function Battlefield({
                 </div>
               );
             })}
+
+            {built === undefined ? null : (
+              <Pins
+                route={built.route}
+                pinned={pinned?.id}
+                readable={readable}
+                onPress={(one, target) => {
+                  setTip(undefined);
+                  setPinned((was) => (was?.id === one.id ? undefined : { id: one.id, target }));
+                }}
+                onTip={(next, target) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target))}
+              />
+            )}
 
             {sorted.map((drone, index) => {
               const at = layout.at.get(drone.key);
@@ -1425,6 +1474,7 @@ export function Battlefield({
         );
       })}
       {tip === undefined || host.current === null ? null : <Callout tip={tip.tip} anchor={tip.anchor} host={host.current} />}
+      {pinned === undefined || card === undefined || host.current === null ? null : <Callout key={pinned.id} tip={card} anchor={{ target: pinned.target }} host={host.current} pinned />}
       <div className="bf-zoom">
         <Tooltip label="Zoom in" shortcut="+" asChild>
           <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= eyes.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>
@@ -1436,11 +1486,18 @@ export function Battlefield({
             <Minus size={16} aria-hidden />
           </Button>
         </Tooltip>
-        <Tooltip label={lock === undefined ? "Back to the whole field" : "Locate the selection"} shortcut="Home" asChild>
-          <Button variant="ghost" iconOnly aria-label={lock === undefined ? "Back to the whole field" : "Locate the selection"} onClick={toSelection}>
+        <Tooltip label={scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection"} shortcut="Home" asChild>
+          <Button variant="ghost" iconOnly aria-label={scene !== undefined ? "Back to the step at work" : lock === undefined ? "Back to the whole field" : "Locate the selection"} onClick={toSelection}>
             <Crosshair size={16} aria-hidden />
           </Button>
         </Tooltip>
+        {scene === undefined ? null : (
+          <Tooltip label="Whole route" shortcut="0" asChild>
+            <Button variant="ghost" iconOnly aria-label="Whole route" onClick={homeAgain}>
+              <Scan size={16} aria-hidden />
+            </Button>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

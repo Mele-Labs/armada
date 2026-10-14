@@ -50,11 +50,13 @@ type State = {
   held: ReadonlyMap<string, number>;
   /** The Cockpit is the page in front, so the deck's keys are the window's. */
   here: boolean;
+  /** How a Job's pane draws its run: the mission across the plane, or the canvas. Kept for the window. */
+  jobView: "mission" | "canvas";
   /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
   before: { sel: Sel | undefined; view: DeckView } | undefined;
 };
 
-const FRESH: State = { sel: undefined, focus: undefined, replay: undefined, cursor: undefined, view: "map", only: undefined, needs: false, checks: false, visited: new Set(), held: new Map(), here: true, before: undefined };
+const FRESH: State = { sel: undefined, focus: undefined, replay: undefined, cursor: undefined, view: "map", only: undefined, needs: false, checks: false, visited: new Set(), held: new Map(), here: true, jobView: "mission", before: undefined };
 let state: State = FRESH;
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
@@ -131,6 +133,8 @@ export const changeReplay = (change: Partial<Replay>) => {
 /** Back to Live: plain, with no picked event left over it. */
 export const stopReplay = () => set({ replay: undefined, focus: undefined });
 
+export const setJobView = (jobView: State["jobView"]) => set({ jobView });
+export const toggleJobView = () => set({ jobView: state.jobView === "mission" ? "canvas" : "mission" });
 export const toggleOnly = (only: Only) => set({ only: state.only === only ? undefined : only });
 export const toggleNeeds = () => set({ needs: !state.needs });
 /** The Checks tile is a plain filter, as Jobs only and Sessions only are: what is not running a Check dims, and the list and the feed narrow to the rest. */

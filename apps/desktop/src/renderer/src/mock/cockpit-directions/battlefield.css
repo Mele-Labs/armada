@@ -617,6 +617,52 @@
 @keyframes bf-call-in { from { opacity: 0; } }
 @keyframes bf-call-out { to { opacity: 0; } }
 
+/* ---- A Job's mission: the route and its pins ------------------------------------------------------------ */
+
+/* The route lies on the ground, dotted: green where the Job has been over it, grey ahead, a dashed accent where a gate sends work back. */
+.bf-way { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.6; stroke-width: 2.2; stroke-dasharray: 1 7; stroke-linecap: round; }
+.bf-way[data-done] { stroke: var(--status-completed-success); stroke-opacity: 0.85; }
+.bf-way[data-back] { stroke: var(--accent); stroke-opacity: 0.75; stroke-dasharray: 5 6; stroke-width: 1.6; }
+
+/* A pin: upright on the ground at its step, on a disc that lies on the plot. */
+.bf-pin { --tone: var(--status-not-started); position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; cursor: pointer; outline: none; }
+.bf-pin[data-state="done"] { --tone: var(--status-completed-success); }
+.bf-pin[data-state="live"] { --tone: var(--status-escalated); }
+.bf-pin[data-state="failed"] { --tone: var(--status-completed-failed); }
+.bf-pin[data-state="ask"] { --tone: var(--status-awaiting-review); }
+.bf-pin__ground { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; transform: translateZ(1px); pointer-events: none; }
+.bf-pin__ground i { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+.bf-pin__disc { border: 1.4px solid color-mix(in srgb, var(--tone) 70%, transparent); background: color-mix(in srgb, var(--tone) 10%, transparent); }
+.bf-pin[data-state="done"] .bf-pin__disc { background: radial-gradient(circle, color-mix(in srgb, var(--tone) 46%, transparent), color-mix(in srgb, var(--tone) 14%, transparent) 70%); box-shadow: 0 0 16px color-mix(in srgb, var(--tone) 50%, transparent); }
+.bf-pin[data-state="live"] .bf-pin__disc { background: radial-gradient(circle, color-mix(in srgb, var(--tone) 36%, transparent), transparent 72%); box-shadow: 0 0 20px color-mix(in srgb, var(--tone) 55%, transparent); }
+.bf-pin[data-state="next"] .bf-pin__disc { border-style: dashed; background: none; }
+.bf-pin[data-state="failed"] .bf-pin__disc { background: color-mix(in srgb, var(--tone) 22%, transparent); }
+.bf-pin:hover .bf-pin__disc,
+.bf-pin:focus-visible .bf-pin__disc,
+.bf-pin[data-pinned] .bf-pin__disc { border-color: var(--fg-default); }
+.bf-pin[data-pinned] .bf-pin__disc { box-shadow: 0 0 0 2px var(--accent); }
+/* Waiting on him: rings going out from the ground, as a beacon does. */
+.bf-pin__ping { border: 2.2px solid var(--tone); opacity: 0; animation: bf-ping calc(var(--duration-pulse) * 2.2) ease-out infinite; }
+.bf-pin__ping[data-late] { animation-delay: calc(var(--duration-pulse) * 1.1); }
+.bf-pin__body { fill: var(--tone); stroke: var(--bg-base); stroke-width: 1.6; stroke-linejoin: round; }
+.bf-pin[data-state="next"] .bf-pin__body { fill: color-mix(in srgb, var(--tone) 55%, var(--bg-base)); }
+.bf-pin__mark { fill: none; stroke: var(--bg-base); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.bf-pin__core { fill: var(--bg-base); }
+.bf-pin__flare path { fill: none; stroke: var(--status-completed-failed); stroke-width: 1.7; stroke-linecap: round; animation: bf-glow calc(var(--duration-pulse) * 0.95) ease-in-out infinite; }
+.bf-pin:hover .bf-pin__body,
+.bf-pin:focus-visible .bf-pin__body,
+.bf-pin[data-pinned] .bf-pin__body { stroke: var(--fg-default); }
+.bf-pin:focus-visible .bf-hit { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 3 3; }
+.bf-pin__name { transform-box: fill-box; transform-origin: 50% 0; scale: clamp(1, 0.72 / var(--eye, 1), 1.7); fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3.5; stroke-linejoin: round; pointer-events: none; }
+.bf-pin[data-state="live"] .bf-pin__name,
+.bf-pin[data-state="ask"] .bf-pin__name,
+.bf-pin[data-state="failed"] .bf-pin__name,
+.bf-pin[data-pinned] .bf-pin__name { fill: var(--fg-default); }
+/* A step's card, pressed open: the real node card, beside the pin, and it can be pressed. */
+.bf-callout[data-pinned] .bf-callout__card { pointer-events: auto; }
+.bf-callout[data-node] .bf-callout__card { width: max-content; max-width: calc(100% - 20px); padding: var(--space-2) var(--space-3) var(--space-3); }
+.bf-callout__node { display: flex; }
+
 @media (prefers-reduced-motion: reduce) {
   .bf-slab[data-pulse] .bf-top,
   .bf-callout[data-placed] .bf-callout__card,
@@ -638,6 +684,8 @@
   .bf-hop[data-arriving],
   .bf-drone[data-spin] .bf-blades,
   .bf-ping,
+  .bf-pin__ping,
+  .bf-pin__flare path,
   .bf-tip,
   .bf-stall,
   .bf-glow,
@@ -673,6 +721,8 @@
   .bf-edge[data-leaving] { opacity: 0; }
   .bf-ping { opacity: 0.75; transform: scale(1.7); }
   .bf-ping[data-late] { display: none; }
+  .bf-pin__ping { opacity: 0.7; transform: scale(1.5); }
+  .bf-pin__ping[data-late] { display: none; }
   .bf-stall { opacity: 0.9; }
   .bf-glow { opacity: 0.45; }
   .bf-cone,

@@ -212,6 +212,7 @@ const GROUPS: readonly { head: string; rows: readonly Row[] }[] = [
       [["+", "-"], "Zoom"],
       [["0"], "Whole field, or a Job's whole run"],
       [["Home"], "Locate"],
+      [["v"], "A Job's mission or canvas"],
       [["t"], "Timeline"],
     ],
   },

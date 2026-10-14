@@ -210,6 +210,8 @@ body:has(.deck-chrome) .armada-title-bar__search-label { display: none; }
 .deck-job__run { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
 .deck-job__run > .armada-approval-canvas { flex: 1 1 0; min-width: 0; block-size: 100%; }
 .deck-job__reading { flex: 1 1 auto; }
+/* The mission: the battlefield's own plane, cut down to the one Job, in the canvas's place. */
+.deck-job__mission { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; border-right: var(--border-width) solid var(--border-default); }
 .deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
 
 /* A Session: its own thread, and the box to answer it. */

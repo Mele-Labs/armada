@@ -3,7 +3,7 @@
 // drawn in screen space, outside the tilted scene, and follows its anchor as the camera moves. Mock only.
 // proto/cockpit-flight-deck.
 
-import { useLayoutEffect, useRef, type ComponentType } from "react";
+import { useLayoutEffect, useRef, type ComponentType, type ReactNode } from "react";
 
 export type Glyph = ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean }>;
 /** What colours the card's top edge and its glow. Quiet is gray: a thing with no state to speak of. */
@@ -28,6 +28,8 @@ export type Tip = {
   /** The last hour of its events, oldest first, one bar for each five minutes. */
   ticks?: readonly number[];
   lines?: readonly string[];
+  /** A card of its own, drawn under the kind in place of the title and the state: a step's real node card. */
+  node?: ReactNode;
 };
 
 /** What the callout hangs from: the element hovered or focused, or a point where the pointer was for a thing too large to have a middle. */
@@ -45,7 +47,8 @@ function boxOf({ target, at }: Anchor): { x: number; y: number; w: number; h: nu
   return r.width === 0 && r.height === 0 ? undefined : { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
 }
 
-export function Callout({ tip, anchor, host }: { tip: Tip; anchor: Anchor; host: HTMLElement }) {
+/** `pinned` is one a press opened: it stays, and what is in it can be pressed. */
+export function Callout({ tip, anchor, host, pinned }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const lead = useRef<SVGGElement>(null);
@@ -99,7 +102,7 @@ export function Callout({ tip, anchor, host }: { tip: Tip; anchor: Anchor; host:
 
   const most = Math.max(1, ...(tip.ticks ?? [0]));
   return (
-    <div ref={root} className="bf-callout" data-hue={tip.hue} role="tooltip">
+    <div ref={root} className="bf-callout" data-hue={tip.hue} data-pinned={pinned || undefined} data-node={tip.node !== undefined || undefined} role={pinned ? "group" : "tooltip"} aria-label={pinned ? tip.title : undefined}>
       <svg className="bf-callout__lead" aria-hidden="true">
         <g ref={lead}>
           <line ref={line} />
@@ -109,8 +112,8 @@ export function Callout({ tip, anchor, host }: { tip: Tip; anchor: Anchor; host:
       <div ref={card} className="bf-callout__card">
         <i className="bf-callout__glow" aria-hidden="true" />
         <div className="bf-callout__kind">{tip.label}</div>
-        <div className="bf-callout__title">{tip.title}</div>
-        {tip.state === undefined ? null : (
+        {tip.node !== undefined ? <div className="bf-callout__node">{tip.node}</div> : <div className="bf-callout__title">{tip.title}</div>}
+        {tip.node !== undefined || tip.state === undefined ? null : (
           <div className="bf-callout__state" data-tone={tip.state.tone}>
             <tip.state.Glyph size={16} strokeWidth={2} aria-hidden />
             {tip.state.said}

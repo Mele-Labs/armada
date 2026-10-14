@@ -21,11 +21,13 @@ import type { CockpitProps } from "../../cockpit/body-seam";
 import { holdFor } from "../../cockpit/Cockpit";
 import { dotsOf } from "../../cockpit/horizon";
 import { useFleetEvents } from "../../cockpit/fleet-events";
-import { MOST_PLAYING, droneOf, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./deck-field";
+import { MOST_PLAYING, droneOf, droneOfEvent, playOfEvent, playsOf, trailsOf, type DroneIn, type Play } from "./deck-field";
+import { missionOf, type SceneIn } from "./deck-mission";
+import { taskGroupsOf } from "@armada/jobs/draft/group";
 import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
 import { viewsOf } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
-import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./deck-panes";
+import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane, type Run } from "./deck-panes";
 import {
   arrivedLate,
   callTrail,
@@ -52,6 +54,7 @@ import {
   settle,
   slotKey,
   toggleChecks,
+  toggleJobView,
   toggleNeeds,
   toggleOnly,
   useDeck,
@@ -234,9 +237,14 @@ export function DeckChrome(props: AppSeamProps) {
       event.preventDefault();
       return TILES[Number(event.key) - 1]!.press();
     }
-    // In a Job's pane, 0 is the canvas's own Fit: the whole run in the frame, from the step at work it opens on.
+    // In a Job's pane, v swaps its mission and its canvas, from anywhere in the pane.
+    if (event.key === "v" && !event.shiftKey && state.sel?.kind === "job" && (panel?.id === "map" || target === document.body)) {
+      event.preventDefault();
+      return toggleJobView();
+    }
+    // In a Job's pane, 0 is the canvas's own Fit, or the mission's whole route: the whole run in the frame, from the step at work it opens on.
     if (event.key === "0" && !event.shiftKey && state.sel?.kind === "job") {
-      const fit = document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job:"] .deck-job__canvas button[aria-label="Fit"]');
+      const fit = document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job:"] :is(.deck-job__canvas button[aria-label="Fit"], .deck-job__mission button[aria-label="Whole route"])');
       if (fit !== null) {
         event.preventDefault();
         return fit.click();
@@ -300,6 +308,8 @@ export function DeckChrome(props: AppSeamProps) {
         return;
       }
       case "Escape":
+        // A step's card pressed open on a Job's mission goes first; the map takes that Esc.
+        if (document.querySelector(".bf-callout[data-pinned]") !== null) return;
         if (state.sel?.kind === "autopilot") {
           event.preventDefault();
           leaveAutopilot();
@@ -626,6 +636,99 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
   );
 }
 
+/**
+ * A Job's mission: the battlefield's world cut down to the one Job. Its workflow is laid along a route of pins, the plots it touches
+ * stand beside the route, its drone hovers over the step at work, and its Sessions and Drones stand near the steps they serve. The
+ * same acts, the same feed and the same replay as the map; the field is read once, by the same hook, and cut to what is the Job's own.
+ */
+function JobMission({ props, ship, listed, subject, run }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; subject: Subject; run: Run }) {
+  const { replay, ordered, picked, calls, drones: flying, pads, goals, crates, flightTrails, drawn, facts, focusKey } = useField(props, ship, listed);
+  const job = subject.key;
+  const begun = flying.some((one) => one.key === job);
+  const mission = useMemo(() => (run.whole === null ? undefined : missionOf(run.whole, run.drones, begun)), [run.whole, run.drones, begun]);
+  // The Job's drone, what it dispatched or was attached, and a small drone for each Drone working a task of a step.
+  const cluster = useMemo<DroneIn[]>(() => {
+    const own = flying.filter((one) => one.key === job || one.parent === job).map((one) => ({ ...one, shown: true }));
+    const tasks = run.whole === null ? [] : taskGroupsOf(run.whole).flatMap((group) => group.tasks.map((task) => ({ task, group: group.id })));
+    const extra = run.drones
+      .filter((one) => one.state === "running" && one.task !== undefined && one.id !== run.whole?.job.assigned_drone)
+      .map<DroneIn>((one) => ({
+        key: `drone:${one.id}`,
+        kind: "session",
+        title: tasks.find((t) => t.task.id === one.task)?.task.title ?? one.id,
+        root: subject.root,
+        said: "Working",
+        hue: "calm",
+        spin: true,
+        hover: true,
+        ping: false,
+        stuck: false,
+        flare: false,
+        working: true,
+        parent: job,
+        touches: [],
+        shown: true,
+      }));
+    return [...own, ...extra];
+  }, [flying, job, run.drones, run.whole, subject.root]);
+  const serves = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const one of run.drones) {
+      if (one.task === undefined) continue;
+      const group = run.whole === null ? undefined : taskGroupsOf(run.whole).find((g) => g.tasks.some((t) => t.id === one.task));
+      const pin = group === undefined ? undefined : `group:${group.id}`;
+      out.set(`drone:${one.id}`, pin !== undefined && mission?.fans.size ? pin : `step:${one.step}`);
+    }
+    return out;
+  }, [run.drones, run.whole, mission]);
+  const scene = useMemo<Omit<SceneIn, "big" | "wide"> | undefined>(
+    () => (mission === undefined ? undefined : { mission, repo: { root: subject.root, name: subject.repo }, drones: cluster, job, serves, pad: cluster.find((one) => one.key === job)?.slot }),
+    [mission, cluster, job, serves, subject.root, subject.repo],
+  );
+  const keys = useMemo(() => new Set(cluster.map((one) => one.key)), [cluster]);
+  const mine = useMemo(() => crates.filter((pr) => pr.owner === job), [crates, job]);
+  const numbers = new Set(mine.map((pr) => pr.number));
+  const bay = scene?.pad;
+  const bays = useMemo(() => new Map([...pads].filter(([key]) => key === bay)), [pads, bay]);
+  const trails = useMemo(() => new Map([...flightTrails].filter(([key]) => keys.has(key))), [flightTrails, keys]);
+  const asking = useMemo(() => new Map([...calls].filter(([key]) => keys.has(key))), [calls, keys]);
+  if (scene === undefined) return <div className="deck-job__reading" role="status" aria-busy aria-label="Reading the run" />;
+  return (
+    <>
+      {replay === undefined ? null : <ReplayMark />}
+      {replay !== undefined || picked === undefined ? null : <FocusChip event={picked} now={props.now} onReplay={() => startReplay(Date.parse(picked.at))} />}
+      {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} end={props.now} onLive={stopReplay} />}
+      <Battlefield
+        repos={[]}
+        drones={cluster}
+        pads={bays}
+        goals={goals}
+        prs={mine}
+        trails={trails}
+        plays={drawn.filter((play) => (play.key !== undefined && keys.has(play.key)) || (play.number !== undefined && numbers.has(play.number)))}
+        facts={facts}
+        calls={asking}
+        focus={replay === undefined && focusKey !== undefined && keys.has(focusKey) ? focusKey : undefined}
+        selected={undefined}
+        scene={scene}
+        onSelect={(key) => {
+          const other = key === job ? undefined : ship.subjects.find((one) => one.key === key);
+          if (other !== undefined) select(selOfSubject(other));
+        }}
+        onPad={(key) => select({ kind: "slot", key })}
+        onGoal={() => {
+          const pr = mine[0] === undefined ? undefined : ship.prs.find((one) => one.key === mine[0]!.key);
+          if (pr !== undefined) select(selOfPr(pr));
+        }}
+        onPr={(key) => {
+          const pr = ship.prs.find((one) => one.key === key);
+          if (pr !== undefined) select(selOfPr(pr));
+        }}
+      />
+    </>
+  );
+}
+
 function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
   const views = useMemo(() => viewsOf(props.state), [props.state]);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
@@ -690,7 +793,7 @@ function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; 
   const onPr = (one: Pr) => select(selOfPr(one));
   const owed = subject === undefined ? undefined : callOfSubject(subject, deck.held);
   const asked = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed);
-  if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
+  if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
   if (slot !== undefined) return <SlotPane slot={slot} repo={repoNameOf(props, slot.manifest_id)} now={props.now} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
