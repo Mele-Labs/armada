@@ -98,6 +98,10 @@ export const DECK_VIEW_KEY = "armada.bridge.deck-view";
 export const DECK_JOB_VIEW_KEY = "armada.bridge.deck-job-view";
 export const DECK_ONLY_KEY = "armada.bridge.deck-only";
 export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
+/** The preview switch: the flight deck in place of the classic Cockpit and the rail. Off where nothing is stored. */
+export const DECK_PREVIEW_KEY = "armada.bridge.deck-preview";
+/** The System page the System tab opens on: the last one used. */
+export const DECK_SYSTEM_KEY = "armada.bridge.deck-system";
 
 /** What was stored under `key`, on whatever the reader makes of it. A failed read is the default. */
 export function readRemembered<T extends string>(key: string, named: (value: string | null) => T): T {

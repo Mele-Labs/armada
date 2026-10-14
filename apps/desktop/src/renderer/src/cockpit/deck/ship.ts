@@ -19,6 +19,8 @@ import type { Cockpit } from "../Cockpit";
 import { sessionIdOf } from "../waiting";
 
 type CockpitProps = ComponentProps<typeof Cockpit>;
+/** What the ship reads: the window's state and the hosts `useItems` raises its calls through, so the title bar can read it without the Cockpit's other props. */
+export type ShipProps = Pick<CockpitProps, "state" | "now" | "picked" | "nowViews" | "nows" | "onWantHeld"> & Hosts;
 
 /** Where a subject stands in the one pipeline the strips board draws as columns. */
 /** Where a Job or Session stands, whatever path it is on: the words the timeline's groups use. */
@@ -365,7 +367,7 @@ const slotsOf = (state: CockpitProps["state"], picked: CockpitProps["picked"]): 
   state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [];
 
 /** The ship, live. `hosts` is what `useItems` raises calls through. */
-export function useShip(props: CockpitProps, hold = true): Ship {
+export function useShip(props: ShipProps, hold = true): Ship {
   const { state, now, picked, nowViews, nows } = props;
   const hosts: Hosts = props;
   const sessions = useSessions();

@@ -10,9 +10,11 @@ import "./deck-chrome.css";
 /** What the Cockpit tab's pip says: a call is waiting while the window is somewhere else. */
 const WAITING = "A call is waiting";
 
-export function TabBar({ showing, onGoTo, waiting = false }: {
+export function TabBar({ showing, onGoTo, waiting = false, away = false }: {
   /** The surface that is up. */
   showing: string;
+  /** A page opened from the Cockpit stands over it: pressing Cockpit then is the way back to it, not a press on the place it is already in. */
+  away?: boolean;
   /** Opens a surface, as the rail's rows do. */
   onGoTo: (surface: string) => void;
   /** Whether a call waits on the person. The pip shows on Cockpit when the window is not already there. */
@@ -30,7 +32,7 @@ export function TabBar({ showing, onGoTo, waiting = false }: {
         {...(place === undefined ? {} : { value: place })}
         onChange={(id) => {
           const tab = DECK_TABS.find((one) => one.id === id);
-          if (tab !== undefined && tab.id !== place) onGoTo(tab.surface);
+          if (tab !== undefined && (tab.id !== place || (tab.id === "cockpit" && away))) onGoTo(tab.surface);
         }}
       />
     </nav>

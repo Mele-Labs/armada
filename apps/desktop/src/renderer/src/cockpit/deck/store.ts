@@ -235,6 +235,17 @@ export function listOf(ship: Ship, deck: Pick<State, "only" | "needs" | "checks"
   return orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)));
 }
 
+/**
+ * What the feed and the stage's timeline keep: the subjects the list draws, and main's own events only while no filter narrows
+ * the list. **One predicate for the three**, so the Jobs-only, Sessions-only, Calls and Checks filters narrow the list, the
+ * feed and the stage together.
+ */
+export function keepOf(listed: readonly Subject[], deck: Pick<State, "only" | "needs" | "checks">): (subject: { kind: string; id?: string }) => boolean {
+  const shown = new Set(listed.map((one) => one.key));
+  const whole = deck.only === undefined && !deck.needs && !deck.checks;
+  return (subject) => (subject.kind === "main" ? whole : shown.has(`${subject.kind}:${subject.id}`));
+}
+
 /** The selection of a subject: its own key, which is what the list and the map both carry. */
 export const selOfSubject = (subject: Subject): Sel => ({ kind: subject.kind === "job" ? "job" : "session", key: subject.key });
 export const selOfPr = (pr: Pr): Sel => ({ kind: "pr", key: pr.key });
