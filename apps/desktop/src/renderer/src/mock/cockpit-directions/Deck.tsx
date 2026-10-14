@@ -411,6 +411,7 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
       <header className="deck-band">Activity</header>
       <ActivityFeed
+        stacked
         now={props.now}
         jobs={props.state.jobs}
         views={views}
