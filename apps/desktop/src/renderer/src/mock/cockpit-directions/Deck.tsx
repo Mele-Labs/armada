@@ -679,7 +679,7 @@ const mergeTake = (): "dots" | "chips" => (new URLSearchParams(window.location.s
 
 /**
  * The merge queue: one row across the repositories, one mark for each pull request, each repository's nearest main
- * first, ending at one light for main, red if any is. A press opens the pull request in the area. No count.
+ * first, ending at one light for main, red if any is (the chips take puts main first, to the left). A press opens the pull request in the area. No count.
  */
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
@@ -737,7 +737,6 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         <div className="deck-queue__row">
           <GitMerge size={16} aria-hidden="true" />
           <ol className="deck-chips">
-            {marks}
             <li>
               <Tooltip label={mainSaid} asChild>
                 <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
@@ -746,6 +745,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
                 </span>
               </Tooltip>
             </li>
+            {marks}
           </ol>
           <PanelKey id="queue" />
         </div>
