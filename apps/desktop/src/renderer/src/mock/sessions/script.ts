@@ -276,17 +276,16 @@ export function sessionsStore(
     );
     openWindow(id, url);
   };
-  /** The agent calls `show_sketch`: a card in the thread, and a row on the ledger that a sketch of the same title replaces. */
+  /**
+   * The agent calls `show_sketch`: the call is a tool row that carries its arguments, as Fleet's thread does, and
+   * the sketch is a row on the ledger that a sketch of the same title replaces. The card is drawn from the row.
+   */
   const showSketch = (id: string, title: string, drawing: Scene, against?: { title: string; drawing: Scene }) => {
-    const key = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const key = `sketch:${title}`;
     const sketch: SessionAttachment = { kind: "sketch", id: key, title, by: "agent", drawing, ...(against === undefined ? {} : { against }) };
     edit(id, (one) => ({
       ...one,
-      rows: [
-        ...one.rows,
-        tool(`show_sketch ${title}`),
-        row((rid, stamp) => ({ id: rid, at: stamp, kind: "sketch", sketch: key, title, drawing, ...(against === undefined ? {} : { against: against.title }) })),
-      ],
+      rows: [...one.rows, tool(`show_sketch ${JSON.stringify({ title, scene: drawing, ...(against === undefined ? {} : { against: against.title }) })}`)],
       attachments: one.attachments.some((a) => a.kind === "sketch" && a.id === key)
         ? one.attachments.map((a) => (a.kind === "sketch" && a.id === key ? sketch : a))
         : [...one.attachments, sketch],

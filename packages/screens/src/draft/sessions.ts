@@ -66,6 +66,7 @@ export type SessionAttachment =
   /**
    * A sketch the agent published into the Session, or one the person shared with it.
    * **The agent's is a scene, and a second one with the same title replaces the first under the same `id`.**
+   * Its thread card is derived from the `show_sketch` call's tool row (`sketchCallOf`), never a row of its own.
    * `against` is the sketch it is read as a change to, held whole so a later replacement does not move it.
    */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
@@ -195,11 +196,6 @@ export type SessionRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
-  /**
-   * The agent called `show_sketch`: where in the thread it did. `sketch` is the ledger row's `id`, `drawing` what
-   * was drawn at that point, and `against` the title of the sketch it was read against, where it was.
-   */
-  | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */

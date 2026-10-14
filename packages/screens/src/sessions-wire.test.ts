@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, lapsedAnswerText, lapsedOf, numberOf, rowsOfThread, sceneOfWire, sessionOfRecord, sessionsOfRecords, sketchCallOf, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -655,5 +655,98 @@ describe("a question that lapsed", () => {
     expect(lapsedAnswerText([{ question: "Which night?", chosen: ["Friday", "Sat"] }, { question: "Where?", chosen: ["Home"] }])).toBe(
       'Answering your earlier question "Which night?": Friday, Sat\nAnswering your earlier question "Where?": Home',
     );
+  });
+});
+
+const SCENE = {
+  nodes: [
+    { id: "a", kind: "box", x: 0, y: 0, title: "Bridge" },
+    { id: "b", kind: "box", x: 300, y: 0, title: "Fleet" },
+  ],
+  edges: [{ id: "a-b", from: "a", to: "b", label: "start", step: 1 }],
+};
+const EARLIER = { nodes: [{ id: "a", kind: "box", x: 0, y: 0, title: "Bridge" }], edges: [] };
+
+/** A sketch row as Fleet writes it: `detail` holds strings only, so `scene` is JSON text and `against` is JSON text of `{ title, scene }`. */
+const sketchRow = (title: string, detail: Record<string, string>) => held("artifact", `sketch:${title}`, { form: "sketch", by: "agent", title, ...detail });
+const againstText = (title: string, scene: string) => JSON.stringify({ title, scene });
+
+describe("a sketch on the ledger", () => {
+  it("is the agent's, read from the scene's JSON text, under its title", () => {
+    const attachments = attachmentsOfRecord(record("a", { attachments: [sketchRow("Request flow", { scene: JSON.stringify(SCENE) })] }), beside());
+    expect(attachments).toEqual([{ kind: "sketch", id: "sketch:Request flow", title: "Request flow", by: "agent", drawing: SCENE }]);
+  });
+
+  it("keeps the step an arrow carries", () => {
+    const [one] = attachmentsOfRecord(record("a", { attachments: [sketchRow("Request flow", { scene: JSON.stringify(SCENE) })] }), beside());
+    expect(one).toMatchObject({ drawing: { edges: [{ id: "a-b", step: 1 }] } });
+  });
+
+  it("holds the sketch it was drawn against, whole, with its title", () => {
+    const [one] = attachmentsOfRecord(
+      record("a", { attachments: [sketchRow("After", { scene: JSON.stringify(SCENE), against: againstText("Before", JSON.stringify(EARLIER)) })] }),
+      beside(),
+    );
+    expect(one).toMatchObject({ against: { title: "Before", drawing: EARLIER } });
+  });
+
+  it("draws an empty frame for a scene that does not parse, and keeps the row", () => {
+    const text = (scene: string) => attachmentsOfRecord(record("a", { attachments: [sketchRow("Flow", { scene })] }), beside());
+    const empty = [{ kind: "sketch", id: "sketch:Flow", title: "Flow", by: "agent", drawing: { nodes: [], edges: [] } }];
+    expect(text("{not json")).toEqual(empty);
+    expect(text(JSON.stringify({ nodes: [{ id: "a", kind: "blob", x: 0, y: 0 }], edges: [] }))).toEqual(empty);
+    // An arrow that joins a node the scene does not hold fails the whole of it, and nothing partial is drawn.
+    expect(text(JSON.stringify({ nodes: SCENE.nodes, edges: [{ id: "x", from: "a", to: "gone" }] }))).toEqual(empty);
+    expect(text(JSON.stringify({ ...SCENE, edges: [{ id: "a-b", from: "a", to: "b", step: "one" }] }))).toEqual(empty);
+  });
+
+  it("leaves a bad `against` off and keeps the sketch", () => {
+    const [one] = attachmentsOfRecord(record("a", { attachments: [sketchRow("After", { scene: JSON.stringify(SCENE), against: againstText("Before", "{no") })] }), beside());
+    expect(one).toMatchObject({ kind: "sketch", drawing: SCENE });
+    expect(one).not.toHaveProperty("against");
+    for (const against of ["{no", "[]", JSON.stringify({ scene: JSON.stringify(EARLIER) })]) {
+      const [kept] = attachmentsOfRecord(record("a", { attachments: [sketchRow("After", { scene: JSON.stringify(SCENE), against })] }), beside());
+      expect(kept).toMatchObject({ kind: "sketch", drawing: SCENE });
+      expect(kept).not.toHaveProperty("against");
+    }
+  });
+
+  it("stays on the ledger once the session has ended, as the other things it made do", () => {
+    const given = { ...sketchRow("Flow", { scene: JSON.stringify(SCENE) }), state: "given_back" as const };
+    expect(attachmentsOfRecord(record("a", { attachments: [given] }), beside())).toHaveLength(1);
+  });
+
+  it("is told from a page or a file by its form, and a form this build does not know is left out", () => {
+    const unknown = held("artifact", "sketch:Flow", { form: "hologram" });
+    expect(attachmentsOfRecord(record("a", { attachments: [unknown] }), beside())).toEqual([]);
+  });
+
+  it("is read from JSON text or from a scene already read, and from nothing else", () => {
+    expect(sceneOfWire(JSON.stringify(SCENE))).toEqual(SCENE);
+    expect(sceneOfWire(SCENE)).toEqual(SCENE);
+    expect(sceneOfWire(undefined)).toBeUndefined();
+    expect(sceneOfWire(7)).toBeUndefined();
+  });
+});
+
+describe("a show_sketch call in the thread", () => {
+  const call = (args: unknown, tool = "mcp__armada-fleet__show_sketch") => `${tool} ${JSON.stringify(args)}`;
+
+  it("is read from the tool's name and its arguments as JSON", () => {
+    expect(sketchCallOf(call({ title: "Request flow", scene: SCENE }))).toEqual({ title: "Request flow", scene: SCENE });
+    expect(sketchCallOf(call({ title: " Request flow ", scene: JSON.stringify(SCENE) }, "show_sketch"))).toEqual({ title: "Request flow", scene: SCENE });
+  });
+
+  it("names the sketch it was drawn against, by title", () => {
+    expect(sketchCallOf(call({ title: "After", scene: SCENE, against: "Before" }))).toMatchObject({ against: "Before" });
+    expect(sketchCallOf(call({ title: "After", scene: SCENE, against: "" }))).not.toHaveProperty("against");
+  });
+
+  it("is not a call of another tool, and not one with nothing to draw", () => {
+    expect(sketchCallOf(call({ title: "Flow", scene: SCENE }, "mcp__armada-fleet__show_window"))).toBeUndefined();
+    expect(sketchCallOf("mcp__armada-fleet__show_sketch")).toBeUndefined();
+    expect(sketchCallOf("mcp__armada-fleet__show_sketch {not json")).toBeUndefined();
+    expect(sketchCallOf(call({ scene: SCENE }))).toBeUndefined();
+    expect(sketchCallOf(call({ title: "Flow", scene: { nodes: "no", edges: [] } }))).toBeUndefined();
   });
 });

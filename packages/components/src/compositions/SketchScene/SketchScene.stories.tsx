@@ -146,6 +146,66 @@ export const FlowAndSteps: Story = {
   },
 };
 
+/** A sequence: lifelines for the parts, and an arrow between two points on them for each message, in order. */
+const SEQUENCE: Scene = {
+  nodes: [
+    { id: "left", kind: "group", x: 0, y: 0, w: 200, h: 260, title: "Bridge" },
+    { id: "right", kind: "group", x: 300, y: 0, w: 200, h: 260, title: "Fleet" },
+    { id: "m1-from", kind: "label", x: 96, y: 100, title: "•" },
+    { id: "m1-to", kind: "label", x: 396, y: 100, title: "•" },
+    { id: "m2-from", kind: "label", x: 396, y: 180, title: "•" },
+    { id: "m2-to", kind: "label", x: 96, y: 180, title: "•" },
+  ],
+  edges: [
+    { id: "m1", from: "m1-from", to: "m1-to", label: "start", flow: false, step: 1 },
+    { id: "m2", from: "m2-from", to: "m2-to", label: "changed", flow: false, step: 2 },
+  ],
+};
+
+/** An arrow with a step sends a dot along itself and lights where it ends; the panel plays as it opens. */
+export const StepsOnArrows: Story = {
+  args: { scene: SEQUENCE, autoplay: true },
+  parameters: { motion: "on" },
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active] .armada-scene-edge__dot")).not.toBeNull());
+    expect(canvasElement.querySelector("[data-current]")?.textContent).toContain("•");
+    // Each step lasts the pulse token, and the second arrow takes the first's place.
+    await waitFor(() => expect(canvasElement.querySelector('.armada-scene-edge[data-active] [aria-label="Changed"], .armada-scene-edge[data-active] [aria-label="changed"]')).not.toBeNull(), { timeout: 4000 });
+    expect(canvas.getByRole("button", { name: "Stop the steps" })).toBeEnabled();
+    expect(canvas.getByRole("button", { name: "Restart the steps" })).toBeEnabled();
+  },
+};
+
+/** An edge-only scene can be played, which a scene with a step on no node could not before. */
+export const StepsOnArrowsPlayByHand: Story = {
+  args: { scene: SEQUENCE },
+  play: async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("button", { name: /Play the steps|Next step/ }));
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).not.toBeNull());
+  },
+};
+
+/** A preview is the same drawing in a card's box: still until it is told to play, and nothing in it is operable. */
+export const PreviewStill: Story = {
+  args: { scene: SEQUENCE, preview: true, playing: false },
+  parameters: { motion: "on" },
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(6));
+    expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).toBeNull();
+    expect(canvasElement.querySelector("figure")).toHaveAttribute("inert");
+    expect(canvas.queryAllByRole("button")).toHaveLength(0);
+    expect(canvasElement.querySelectorAll('[tabindex]:not([tabindex="-1"])')).toHaveLength(0);
+  },
+};
+
+export const PreviewPlaying: Story = {
+  args: { scene: SEQUENCE, preview: true, playing: true },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).not.toBeNull());
+  },
+};
+
 /** The owner's marks, held as a host holds them. */
 function Held(args: React.ComponentProps<typeof SketchScene>) {
   const [marks, setMarks] = useState<SceneMarks>(NO_MARKS);

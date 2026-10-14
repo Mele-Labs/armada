@@ -57,7 +57,7 @@ A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is def
 |---|---|
 | Scene | `nodes`, `edges`, optional `strokes` |
 | Node | `id`, `kind`, `x`, `y`, optional `w`, `h`, `title`, `body`, `icon`, `lang`, `wire`, `step` |
-| Edge | `id`, `from`, `to`, optional `label`, `flow` |
+| Edge | `id`, `from`, `to`, optional `label`, `flow`, `step` |
 | Stroke | `id`, `points` of `x` and `y` |
 
 | Node kind | Draws |
@@ -83,8 +83,38 @@ Why: ids are unique per list, every edge joins two nodes the scene holds, and an
 **Rule.** With an `against` scene, the sketch is read as a change to it, by node and edge id: added is green, removed red, changed amber, and unchanged dimmed.
 Why: a node that moved or was reworded counts as changed, and a removed part stays drawn where it was.
 
-**Rule.** Nodes carrying `step` play in that order from the rail, one lit at a time and the rest dimmed.
-Why: with reduced motion the same act steps one node per press.
+**Rule.** Nodes and edges carrying `step` play in that order from the rail. A step lights its own nodes and the node each of its edges ends at, sends a dot along its edges, and dims the rest. Groups and lanes never dim.
+Why: a step is a distinct number, and what shares one plays together. An edge `step` must be a finite number, or the whole scene fails.
+
+**Rule.** The panel plays on open and loops, with Play or Stop and Restart on the rail. It draws no step counter.
+
+**Rule.** A step lasts the `--duration-pulse` token, and the dot takes three quarters of it.
+
+**Rule.** With reduced motion nothing plays by itself, no dot is drawn, and the same act steps one step per press.
+
+## Agent sketches
+
+**Rule.** An agent's sketch is served by Fleet through `show_sketch`, and reaches Bridge twice: as an artifact on the Session ledger, and as the tool call in the thread.
+
+| Where | Carries |
+|---|---|
+| Ledger | An artifact `sketch:<title>`, form `sketch`, with `detail` keys `by`, `form`, `title`, `scene` and optionally `against` |
+| Thread | The `show_sketch` tool row, whose arguments are `title`, `scene` and optionally `against`, a title |
+
+**Rule.** `detail` holds strings only: `scene` is the scene as JSON text, and `against` is JSON text of `{ title, scene }` with the scene as JSON text again.
+
+**Rule.** The same title is the same ledger row, and a later call replaces it.
+
+**Rule.** The thread draws a card at the point of the call, and a later card with the same title marks the earlier one Replaced.
+
+**Rule.** A card's `against` is the latest earlier card of the title it names, else the ledger's `against` snapshot, else none.
+
+**Rule.** A call with no sketch of its title on the ledger draws no card.
+Why: the wire row carries no tool result, so the ledger standing for the title is how a refused call shows.
+
+**Rule.** The card and the ledger row open the same panel, the panel reading as a change when it has an `against`, with a switch to the whole.
+
+**Rule.** The card's thumbnail is the real `SketchScene` with `preview`: fitted, no rail and no pan or pick, inert. It shows the first step and plays while the card is hovered or focused.
 
 **Rule.** Pan, zoom and fit are `GraphCanvas`'s, and the keys `+`, `-`, `0` and the arrows act on a focused sketch.
 

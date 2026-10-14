@@ -2,10 +2,14 @@
 
 import { seedDraft } from "@armada/components";
 import type { ForkPick, SessionThreadRow } from "@armada/components";
-import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { sketchCallOf } from "@armada/screens/src/sessions-wire";
+import { sceneOfSketch } from "./session-sketch";
+
+type SketchCard = Extract<SessionThreadRow, { kind: "sketch" }>;
 
 export function threadRowsOf(session: Session): SessionThreadRow[] {
-  return threadRowsFrom(session.rows);
+  return threadRowsFrom(session.rows, session.attachments);
 }
 
 /** The rows up to and including the one with this id; all of them with no id. **An id no row has gives none**: a cut that cannot be found must not show what came after it. */
@@ -15,20 +19,47 @@ export function upTo<T extends { id: string }>(rows: readonly T[], at: string | 
   return end < 0 ? [] : rows.slice(0, end + 1);
 }
 
-export function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
-  // A sketch card is replaced where a later card holds the same sketch.
+/**
+ * The card a `show_sketch` call is, where the thread carries the call as its tool row. **Only a call the ledger
+ * holds a sketch for draws one**: Fleet keeps the sketch it accepted under the call's title, so a call it refused
+ * is no card, and neither is one whose scene would not draw.
+ */
+function sketchCardOf(row: { id: string; at: string; text: string }, ledger: readonly SessionAttachment[]): SketchCard | undefined {
+  const call = sketchCallOf(row.text);
+  if (call === undefined) return undefined;
+  const sketch = `sketch:${call.title}`;
+  if (!ledger.some((one) => one.kind === "sketch" && one.id === sketch)) return undefined;
+  return { id: row.id, at: row.at, kind: "sketch", sketch, title: call.title, drawing: call.scene, ...(call.against === undefined ? {} : { against: call.against }) };
+}
+
+/**
+ * A card is replaced where a later card holds the same sketch. What it was drawn against is the latest card before it
+ * with the title it names, as it was drawn then, else the sketch the ledger keeps the earlier scene of.
+ */
+function withSketchState(rows: SessionThreadRow[], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
   const last = new Map(rows.flatMap((row) => (row.kind === "sketch" ? [[row.sketch, row.id] as const] : [])));
   return rows.map((row, at): SessionThreadRow => {
-    if (row.kind === "sketch") {
-      // What it was drawn against is the latest card before it with that title, as it was drawn then.
-      const before = row.against === undefined ? undefined : rows.slice(0, at).reverse().find((one) => one.kind === "sketch" && one.title === row.against);
-      return {
-        ...row,
-        ...(before?.kind === "sketch" ? { againstScene: before.drawing } : {}),
-        ...(last.get(row.sketch) === row.id ? {} : { replaced: true as const }),
-      };
-    }
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" ||row.kind === "check" || row.kind === "retro") return row;
+    if (row.kind !== "sketch") return row;
+    const before = row.against === undefined ? undefined : rows.slice(0, at).reverse().find((one) => one.kind === "sketch" && one.title === row.against);
+    const held = ledger.find((one) => one.kind === "sketch" && one.id === row.sketch);
+    const kept = held?.kind === "sketch" && held.against !== undefined && held.against.title === row.against ? sceneOfSketch(held.against.drawing) : undefined;
+    const earlier = before?.kind === "sketch" ? before.drawing : kept;
+    return {
+      ...row,
+      ...(earlier === undefined ? {} : { againstScene: earlier }),
+      ...(last.get(row.sketch) === row.id ? {} : { replaced: true as const }),
+    };
+  });
+}
+
+export function threadRowsFrom(rows: Session["rows"], ledger: readonly SessionAttachment[] = []): SessionThreadRow[] {
+  return withSketchState(rowsDrawn(rows, ledger), ledger);
+}
+
+function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]): SessionThreadRow[] {
+  return rows.map((row): SessionThreadRow => {
+    if (row.kind === "tool") return sketchCardOf(row, ledger) ?? row;
+    if (row.kind === "lease" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" ||row.kind === "check" || row.kind === "retro") return row;
     if (row.kind === "sent") {
       const { files, sketches, tags, ...rest } = row;
       return {

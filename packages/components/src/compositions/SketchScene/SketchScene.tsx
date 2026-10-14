@@ -73,7 +73,7 @@ type NodeData = {
   onBody: (body: string) => void;
 };
 type SceneRfNode = Node<NodeData, "scene">;
-type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
+type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; still: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
 type SceneRfEdge = Edge<EdgeData, "flow">;
 
 function Sides({ type }: { type: "source" | "target" }) {
@@ -161,7 +161,7 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
 function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps<SceneRfEdge>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   if (data === undefined) return null;
-  const { edge, change, dim, active, asked, mine, struck, onPress } = data;
+  const { edge, change, dim, active, still, asked, mine, struck, onPress } = data;
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   return (
     <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-flow={edge.flow !== false || undefined}>
@@ -177,6 +177,7 @@ function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePos
           {edge.label}
         </text>
       )}
+      {still ? null : (
       <path
         className="armada-scene-edge__hit"
         d={path}
@@ -188,6 +189,7 @@ function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePos
           if (event.key === "Enter" || event.key === " ") onPress(edge.id);
         }}
       />
+      )}
     </g>
   );
 }
@@ -340,6 +342,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
           change,
           dim: (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
           active: at !== undefined && edge.step === at,
+          still: preview,
           asked: edge.id === asked,
           mine: composed?.mine.has(edge.id) ?? false,
           struck: composed?.struck.has(edge.id) ?? false,
@@ -347,7 +350,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         },
       };
     });
-  }, [shown, diff, at, asked, composed]);
+  }, [shown, diff, at, asked, composed, preview]);
 
   if (shown === undefined || base === undefined) return <figure className="armada-sketch" data-preview={preview || undefined} role="group" aria-label="Sketch" />;
 
