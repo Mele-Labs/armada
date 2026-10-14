@@ -1,7 +1,7 @@
 // The Cockpit on All repositories with nothing waiting on the owner, three set-up repositories served
 // (armada with a Job at work and one done, storefront and billing with none) and Sessions served. No
 // repository is picked, so the dispatch panel reads one from the words, grown from the title bar's
-// field. The scenario's name is from when the Cockpit had a bar of its own. The walks `dispatch-panel-from-either-bar` and `dispatched-strip-opens-it` play it.
+// field. The walks `dispatch-panel-from-the-title-bar` and `dispatched-strip-opens-it` play it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -35,7 +35,7 @@ function elsewhere(name: string): RepositorySummary {
 const SERVED = [repository(), elsewhere("storefront"), elsewhere("billing")];
 
 const base = holding(
-  "dispatch-panel-from-either-bar",
+  "dispatch-panel-from-the-title-bar",
   "The Cockpit on All repositories, nothing needing the owner: the dispatch panel from the title bar, over three set-up repositories",
   [uncleared(working), { ...done, job: { ...done.job, owner_manifest_id: repository().manifest!.id } }],
 );
@@ -43,7 +43,7 @@ const base = holding(
 // The fixtures' own repositories are replaced by the three, so the inline list names exactly these.
 const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
 
-export const s209DispatchPanelFromEitherBar: Scenario = {
+export const s209DispatchPanelFromTheTitleBar: Scenario = {
   ...base,
   state: { ...base.state, holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) } },
   draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, [], board, [], [], []) },

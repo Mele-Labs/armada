@@ -23,6 +23,7 @@ import { Nows, useBoardKeys, useCursor, useItems, type Hosts, type Item } from "
 import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
+import { useDispatching } from "../dispatch-panel/dispatching";
 import { CallCard, type CardKeys } from "./CallCard";
 import { Queue } from "./consoles";
 import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
@@ -205,6 +206,13 @@ export function Cockpit({
   const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
   const autopilot = useAutopilotLane({ picked, state, now });
+  // An Autopilot's strip, opened, brings the bar up for it once.
+  const dispatching = useDispatching();
+  useEffect(() => {
+    if (dispatching?.autopilotAsked !== true || autopilot.control === undefined) return;
+    autopilot.control.openNext();
+    dispatching.autopilotShown();
+  });
   const [recent, remember] = useRecentRepositories();
   const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
   const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);

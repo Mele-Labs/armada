@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { failedAt, isOnIt, mainOwner, pullOwner, workOwner, type Owner } from "./owner";
+import { failedAt, isOnIt, mainOwner, pullOwner, timelineOwner, workOwner, type Owner } from "./owner";
 
 type Views = Parameters<typeof pullOwner>[0];
 type Sessions = Parameters<typeof pullOwner>[1];
@@ -155,5 +155,38 @@ describe("whether the owner is already on the failure", () => {
   test("a pull request is dated by its updated_at, and main without `since` has no date", () => {
     expect(failedAt(views([{ number: 7, updatedAt: "2026-10-13T13:00:00Z" }]), "pull:7")).toBe(FAILED);
     expect(failedAt(views([], { state: "red", red: { check: "x" } }), "main:/armada")).toBeUndefined();
+  });
+});
+
+describe("whose a pull request on the timeline is", () => {
+  const lines = (pulls: unknown[], landed: unknown[] = [], line: unknown[] = []) =>
+    [{ root: "/armada", hub: { pulls }, line, landed, sentBack: [] }] as unknown as Parameters<typeof timelineOwner>[0];
+  const jobs = [{ id: "j9", title: "Pin the clock", branch: "fix/pin-clock" }];
+
+  test("the Job the open pull request names", () => {
+    const seen = lines([{ number: 3, branch: "b", job: { id: "j1", title: "T" } }]);
+    expect(timelineOwner(seen, [], [], 3, undefined)).toEqual({ kind: "job", id: "j1", title: "T" });
+  });
+
+  test("the Job a landed row names, once the pull request has left the open list", () => {
+    const seen = lines([], [{ branch: "b", state: "landed", pr: { number: 4, url: "u" }, job: { id: "j2", title: "Landed" } }]);
+    expect(timelineOwner(seen, [], [], 4, undefined)).toEqual({ kind: "job", id: "j2", title: "Landed" });
+  });
+
+  test("the Job whose branch the entry carried, and a Session that works on the branch", () => {
+    expect(timelineOwner(lines([]), jobs, [], 5, "fix/pin-clock")).toEqual({ kind: "job", id: "j9", title: "Pin the clock" });
+    const held = [session("s1", "Flaky store", [{ kind: "branch", name: "fix/flaky" }])];
+    expect(timelineOwner(lines([]), jobs, held, 6, "fix/flaky")).toEqual({ kind: "session", id: "s1", title: "Flaky store" });
+  });
+
+  test("the branch the open list gives the number, where the entry carried none", () => {
+    const seen = lines([{ number: 7, branch: "fix/pin-clock" }]);
+    expect(timelineOwner(seen, jobs, [], 7, undefined)?.id).toBe("j9");
+  });
+
+  test("nobody, where no Job or Session is on it", () => {
+    expect(timelineOwner(lines([{ number: 8, branch: "chore/bump" }]), jobs, [session("s2", "Other", [])], 8, undefined)).toBeUndefined();
+    expect(timelineOwner(lines([]), jobs, [], 9, undefined)).toBeUndefined();
+    expect(timelineOwner(lines([]), jobs, [], 10, "chore/else")).toBeUndefined();
   });
 });

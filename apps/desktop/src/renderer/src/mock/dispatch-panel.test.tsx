@@ -1,7 +1,8 @@
-// The dispatch panel through `App` on the mock Fleet's `dispatch-panel-from-either-bar` scenario, three
-// set-up repositories with armada busiest: the chip's repository as Fleet reads it, asked inline when
-// it cannot tell, the three kinds, the strip a send leaves, and the draft. The look is the two walks'
-// (`dispatch-panel-from-either-bar`, `dispatched-strip-opens-it`); this holds what they decided.
+// The dispatch panel through `App` on the mock Fleet's `dispatch-panel-from-the-title-bar` scenario, three
+// set-up repositories with armada busiest: the title bar is the one place to dispatch from, the chip's
+// repository as Fleet reads it, asked inline when it cannot tell, the three kinds, the strip a send
+// leaves, and the draft. The look is the two walks' (`dispatch-panel-from-the-title-bar`,
+// `dispatched-strip-opens-it`); this holds what they decided.
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -11,7 +12,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const SCENARIO = "dispatch-panel-from-either-bar";
+const SCENARIO = "dispatch-panel-from-the-title-bar";
 const NAMING_BRIDGE = "Show the Drone's branch on each Bridge cockpit tile";
 const NAMING_NOTHING = "Clean up the old retry logic";
 const ARMADA = repository().root;
@@ -24,11 +25,37 @@ const act = (name: string) => frame().getByRole("button", { name, exact: true })
 const strip = () => page.getByRole("group", { name: "Last dispatch" });
 const choices = () => frame().getByRole("listbox", { name: "Repository" });
 
+const palette = () => page.getByRole("dialog", { name: "Command palette" });
+
+/** N, the words into the title bar's field, then ⌘↵: the panel grows down from the field holding them. */
+async function dispatchFromTheTitleBar(words: string) {
+  await userEvent.keyboard("n");
+  await palette().getByRole("combobox").fill(words);
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(request()).toHaveValue(words);
+}
+
 async function cockpit() {
   const app = mount(SCENARIO);
   await onScreen();
+  await dispatchFromTheTitleBar("Draft");
   return app;
 }
+
+test("the Cockpit has no dispatch bar of its own: N reaches the title bar's field, and ⌘↵ grows the panel from it", async () => {
+  mount(SCENARIO);
+  await onScreen();
+  // Nothing to type a request into until the title bar's field is opened.
+  expect(request().query()).toBeNull();
+  expect(frame().query()).toBeNull();
+
+  await userEvent.keyboard("n");
+  await expect.element(palette().getByRole("option", { name: /^Dispatch/ }).first()).toBeVisible();
+  await palette().getByRole("combobox").fill(NAMING_BRIDGE);
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(request()).toHaveValue(NAMING_BRIDGE);
+  await expect.element(frame()).toBeVisible();
+});
 
 test("the words are read for their repository, and a request naming none is left unresolved", async () => {
   await cockpit();
@@ -146,6 +173,11 @@ test("an Autopilot is read first, and started from what was read", async () => {
   await expect.element(strip()).toHaveTextContent("armada");
   expect(start).toHaveBeenCalledTimes(1);
   expect(start.mock.calls[0]![0]).toBe(repository().manifest!.id);
+
+  // Opening it from the strip puts the Cockpit's Autopilot bar up for that repository.
+  expect(page.getByRole("region", { name: "Autopilot" }).query()).toBeNull();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("region", { name: "Autopilot" })).toBeVisible();
 });
 
 test("a Job sent leaves a strip, and Enter opens the Job the call named", async () => {
@@ -154,7 +186,8 @@ test("a Job sent leaves a strip, and Enter opens the Job the call named", async 
   await expect.element(chip("Repository armada")).toBeVisible();
   await act("Dispatch").click();
   await expect.element(strip()).toHaveTextContent(NAMING_BRIDGE);
-  await expect.element(request()).toHaveValue("");
+  // The panel has gone with the send, and the strip stands over the field where it was.
+  expect(frame().query()).toBeNull();
 
   // The Job's id is the one the call carries, and the Board's row for it is what the strip draws.
   const state = await app.api.state();
@@ -175,7 +208,7 @@ test("Escape lets the strip go, and typing starts a new draft over it", async ()
   await userEvent.keyboard("{Escape}");
   expect(strip().query()).toBeNull();
 
-  await request().fill(NAMING_BRIDGE);
+  await dispatchFromTheTitleBar(NAMING_BRIDGE);
   await expect.element(chip("Repository armada")).toBeVisible();
   await act("Dispatch").click();
   await expect.element(strip()).toBeVisible();
@@ -184,21 +217,20 @@ test("Escape lets the strip go, and typing starts a new draft over it", async ()
   await expect.element(request()).toHaveValue("x");
 });
 
-test("the draft is kept when the panel is put back, and cleared by a send", async () => {
+test("Escape puts the panel away, and the field opens empty after a send", async () => {
   await cockpit();
   await request().fill(NAMING_NOTHING);
   await expect.element(act("Dispatch")).toBeVisible();
   await userEvent.keyboard("{Escape}");
-  await expect.element(frame()).not.toHaveAttribute("data-open");
-  await expect.element(request()).toHaveValue(NAMING_NOTHING);
+  expect(frame().query()).toBeNull();
+  expect(request().query()).toBeNull();
 
-  await request().click();
-  await expect.element(frame()).toHaveAttribute("data-open");
-  await expect.element(request()).toHaveValue(NAMING_NOTHING);
-
-  await request().fill(NAMING_BRIDGE);
+  await dispatchFromTheTitleBar(NAMING_BRIDGE);
   await expect.element(chip("Repository armada")).toBeVisible();
   await act("Dispatch").click();
-  await expect.element(request()).toHaveValue("");
-  await expect.element(frame()).not.toHaveAttribute("data-open");
+  await expect.element(strip()).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  expect(strip().query()).toBeNull();
+  await userEvent.keyboard("n");
+  await expect.element(palette().getByRole("combobox")).toHaveValue("");
 });

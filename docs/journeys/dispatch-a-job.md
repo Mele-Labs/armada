@@ -58,7 +58,7 @@ Tab steps through the kinds on offer, and Autopilot is chosen for one opening on
 
 The full composer below is the way to say what a line cannot: `⇧↵` on the one bar opens it holding the words, and a Studio's Sketch opens it with the drawing attached.
 
-The code is `apps/desktop/src/renderer/src/dispatch-panel/`, and the mock walks are `dispatch-panel-from-either-bar` and `dispatched-strip-opens-it`.
+The code is `apps/desktop/src/renderer/src/dispatch-panel/`, and the mock walks are `dispatch-panel-from-the-title-bar` and `dispatched-strip-opens-it`.
 
 See [Job Board](../concepts/job-board.md) for the full board mechanics — what a row says, status states, origin tags. It is a concept rather than a page since 28 Sep 2026; Overview is where the list is read.
 

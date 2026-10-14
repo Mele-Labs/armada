@@ -69,6 +69,9 @@ export type Dispatching = {
   sent: SentView | undefined;
   openSent: () => void;
   dismissSent: () => void;
+  /** An Autopilot sent was opened from its strip: the Cockpit puts its bar up once, then lets this go. */
+  autopilotAsked: boolean;
+  autopilotShown: () => void;
 };
 
 const Held = createContext<Dispatching | undefined>(undefined);
@@ -98,6 +101,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   const [picked, pick, clearPicked] = useKept<string | null>("dispatch:repository", null);
   const [settings, setSettings, clearSettings] = useKept<DispatchSettingsValue>("dispatch:job-settings", {});
   const [titled, setTitled] = useState(false);
+  const [autopilotAsked, setAutopilotAsked] = useState(false);
   const [titleGrown, setTitleGrown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [asking, setAsking] = useState<"send" | "chip" | false>(false);
@@ -186,7 +190,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     if (latest.kind === "job") {
       if (latest.jobId === undefined) return;
       openJob(latest.jobId);
-    } else if (latest.root !== undefined) openAutopilot(latest.root);
+    } else if (latest.root !== undefined) (openAutopilot(latest.root), setAutopilotAsked(true));
     setLatest(undefined);
   }
 
@@ -366,5 +370,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     sent: sentView,
     openSent,
     dismissSent: () => setLatest(undefined),
+    autopilotAsked,
+    autopilotShown: () => setAutopilotAsked(false),
   };
 }

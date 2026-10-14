@@ -1,7 +1,6 @@
 // What a send leaves over the title bar's field: a slim strip with the kind's mark, the Job's title or the
 // Autopilot's repository, and Open. ↵ or a press opens it; typing again or Esc lets it go. A Session
-// opens itself and leaves none. Over `dispatch-panel-from-either-bar`, a name from when the Cockpit had
-// a bar of its own.
+// opens itself and leaves none. Over `dispatch-panel-from-the-title-bar`.
 
 import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
 
@@ -13,7 +12,7 @@ const panel = dialog("Dispatch");
 const inPanel = (target: ReturnType<typeof role>) => inside(panel, target);
 const title = "Show the Drone's branch on each Bridge cockpit tile";
 
-const dispatchedStripOpensIt = walk("dispatch-panel-from-either-bar", [
+const dispatchedStripOpensIt = walk("dispatch-panel-from-the-title-bar", [
   // (a) A Job.
   { key: "n", on: cockpit, say: "N opens the title bar's field" },
   { type: title, into: bar, say: "A request naming Bridge" },
