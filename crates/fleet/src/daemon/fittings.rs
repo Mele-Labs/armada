@@ -317,6 +317,9 @@ pub struct Fittings<H, V, W> {
     /// settings.json, already read. Every live dial above is what ships, and
     /// what the file chose is put over it here and at every save or hand edit.
     pub settings: crate::settings::MachineSettings,
+    /// Signing in to an account, through the forge and the store, in the machine
+    /// directory. **A seam so a test can plant both** — see [`crate::signing_in`].
+    pub signing_in: crate::signing_in::SigningIn,
     /// How long a hosted session's process may sit with no turn before Fleet
     /// ends it. `timeouts.sessionQuietSeconds`, read at start.
     pub session_quiet: std::time::Duration,
@@ -398,6 +401,7 @@ where
             tuning: std::sync::RwLock::new(tuning),
             shipped_tuning,
             settings: fittings.settings,
+            signing_in: fittings.signing_in,
             judge: fittings.judge,
             permission_hold: fittings.permission_hold,
             aloft: Aloft::default(),

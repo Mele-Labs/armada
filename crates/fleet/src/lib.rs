@@ -255,6 +255,8 @@ pub mod preparing;
 /// **Not Doctor**, whose grid is ten modules and is not built.
 mod probing;
 pub mod process;
+/// The profiles a machine has joined, each with a directory of its own for its key.
+pub mod profiles;
 /// Starting a scout on a Studio, recording what it read, and stopping it.
 mod promoting;
 /// The prompts a person may override in settings.json: what ships, and what is in force.
@@ -365,6 +367,8 @@ mod settling;
 pub mod showing;
 /// A person asking a Job to show its work, off the turn loop — `#603`.
 mod showing_again;
+/// Signing in to an account with the forge's device flow, and enrolling the machine with the store.
+pub mod signing_in;
 pub mod silence;
 pub mod slots;
 mod sleeping;

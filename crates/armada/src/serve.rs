@@ -51,11 +51,15 @@ use fleet::{
     Mint, Noticing, Polling, PortRange, Reclaiming, Spare, StepNorms, SystemClock, TheMachine,
     TheVolume, UlidMint,
 };
+use fleet::signing_in::{OverHttp, SigningIn};
 use ipc::ProtocolId;
 use store::Store;
 
 use crate::agent::agent_binary_named_by;
 use crate::AGENT_BINARY;
+
+/// How long the forge or the central store may take to answer one sign-in call.
+const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// The store, beside the runtime file rather than inside the repository.
 ///
@@ -749,6 +753,15 @@ fn assemble(
         models,
         events: api::Broadcaster::new(),
         session_quiet: at_start.get(keys::SESSION_QUIET_SECONDS),
+        // The forge's device flow and the central store, in the machine
+        // directory. Neither is reached until a person starts a sign-in, and
+        // both are made for each call so none is held across an async worker.
+        signing_in: SigningIn::new(
+            machine,
+            Arc::new(adapters::ForgeSignIn::new(SIGN_IN_TIMEOUT)),
+            Arc::new(OverHttp::within(SIGN_IN_TIMEOUT)),
+            Arc::new(SystemClock::new()),
+        ),
         settings,
     });
     Ok(fleet)

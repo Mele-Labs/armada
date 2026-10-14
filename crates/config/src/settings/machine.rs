@@ -20,6 +20,10 @@ pub const OPEN_PULL_REQUESTS_IN: Words = Words("links.openPullRequestsIn");
 
 pub const MACHINE_NAME: Words = Words("machine.name");
 
+pub const ACCOUNT_CLIENT_ID: Words = Words("account.clientId");
+
+pub const STORE_URL: Words = Words("store.url");
+
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.
 pub const TERMINALS: &[&str] = &["Terminal", "iTerm", "Ghostty", "Warp", "WezTerm", "Custom"];
@@ -174,5 +178,29 @@ pub(super) const MACHINE: &[Entry] = &[Entry {
     shipped: Shipped::Text(""),
     applies: Applies::Live,
     row: Some("machine-name"),
+    env: None,
+}];
+
+pub(super) const ACCOUNT: &[Entry] = &[Entry {
+    key: ACCOUNT_CLIENT_ID.0,
+    section: Section::Account,
+    title: "Sign-in app",
+    description: "The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable until an app is registered.",
+    kind: Kind::Text,
+    shipped: Shipped::Text(""),
+    applies: Applies::Live,
+    row: Some("account-client-id"),
+    env: None,
+}];
+
+pub(super) const STORE: &[Entry] = &[Entry {
+    key: STORE_URL.0,
+    section: Section::Store,
+    title: "Store address",
+    description: "The address of the central store your machines share. Blank leaves sign-in unavailable until a store is deployed.",
+    kind: Kind::Text,
+    shipped: Shipped::Text(""),
+    applies: Applies::Live,
+    row: Some("store-url"),
     env: None,
 }];

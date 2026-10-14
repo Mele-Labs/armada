@@ -1517,3 +1517,33 @@ read_by = "fleet"
 notes = """
 `policy.pull_request_owners` in the root `armada.yml`. **On**, this repository's claims on a red main and its pull requests' registered owners go to the central store, so a Fleet on another machine signed in to the same account sees them. **Off**, nothing is claimed or registered and nothing of another machine's is shown: takes proceed on this machine alone. A workspace's file may not say it. Read at each take, so turning it off is answered at the next one. `docs/capabilities/merge-line.md`, *Fixing a red across machines*.
 """
+
+[settings.account-client-id]
+name = "Sign-in app"
+scope = "Machine"
+default = "blank"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable: starting one is refused with a plain reason until the owner has registered an app with the device flow enabled. It is not a secret, and the device flow holds no client secret. `docs/concepts/account.md`, *Sign-in*.
+
+**The value lives in settings.json under `account.clientId`** (live), read when a sign-in starts.
+"""
+
+[settings.store-url]
+name = "Store address"
+scope = "Machine"
+default = "blank"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+The address of the central store the machines signed in to one account share (`docs/contracts/central-store.md`). Blank leaves sign-in unavailable: a sign-in enrols this machine with the store, so starting one is refused with a plain reason until a store is deployed.
+
+**The value lives in settings.json under `store.url`** (live), read when a sign-in starts.
+"""

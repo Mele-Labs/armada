@@ -1,6 +1,7 @@
 //! The Machine's settings: the rows of [`SERVED`](super::SERVED) under
 //! `/settings`, and the older `/limits` and `/preferences` that read and write
-//! the same file. Fleet's own, not a Job's, so none takes a path parameter; each
+//! the same file. `/accounts` rides here too: the account is the Machine's, and
+//! its two settings, `account.clientId` and `store.url`, are keys of that file. Fleet's own, not a Job's, so none takes a path parameter; each
 //! save spells its act in the last segment, as `/manifest/save_file` does.
 
 use super::Route;
@@ -38,5 +39,27 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "save_preferences",
         method: "POST",
         path: "/preferences/save",
+    },
+    // Who this machine is signed in as. `get_accounts` is read by whoever draws the
+    // title bar menu; the three acts are a person's.
+    Route {
+        operation: "get_accounts",
+        method: "GET",
+        path: "/accounts",
+    },
+    Route {
+        operation: "start_sign_in",
+        method: "POST",
+        path: "/accounts/start_sign_in",
+    },
+    Route {
+        operation: "sign_out",
+        method: "POST",
+        path: "/accounts/sign_out",
+    },
+    Route {
+        operation: "set_active_account",
+        method: "POST",
+        path: "/accounts/set_active_account",
     },
 ];
