@@ -183,6 +183,7 @@ async fn a_hosted_sessions_calls_are_entered_where_its_turn_ends() {
     let started = Arc::clone(&fleet)
         .start_session(ipc::StartSession {
             manifest_id: ipc::ManifestId::carried(&manifest),
+            root: None,
             title: None,
             model: None,
             effort: None,
