@@ -88,6 +88,7 @@ import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
+import { nowOf, quietOf, todosOf } from "./session-activity";
 import { useViewing } from "./cockpit/viewed";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -422,6 +423,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
+    const doing = { now: nowOf(session), quiet: quietOf(session) };
     return {
       id: session.id,
       ...(session.address === undefined ? {} : { address: session.address }),
@@ -435,6 +437,8 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
       ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
+      ...(doing.now === undefined ? {} : { now: doing.now }),
+      ...(doing.quiet === undefined ? {} : { quiet: doing.quiet }),
       ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
       ...(session.helm === true ? { helm: true } : {}),
     };
@@ -892,6 +896,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const doneShown = !(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined);
   // Until the done callout shows, what waits on the person sits at the foot of the thread and not in the ledger, less a question or permission its own card already shows.
   const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || one.source === "permission").map((one) => `waiting${one.id}`));
+  const todos = todosOf(session);
+  const quiet = quietOf(session);
   const needs = doneShown ? [] : entries.filter((one) => one.kind === "waiting" && !carded.has(one.key));
   const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
   return (
@@ -977,6 +983,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}
             waiting={needs}
+            {...(todos.length === 0 ? {} : { workingOn: { todos, ...(quiet === undefined ? {} : { quiet }) } })}
             {...(!doneShown
               ? {}
               : {

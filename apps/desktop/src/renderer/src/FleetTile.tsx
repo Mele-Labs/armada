@@ -3,10 +3,10 @@
 // pips or a Session's activity, with the age. The state is in the frame: a tile that needs the owner
 // is lit. A write clash is the mark beside the kind. A Session never draws pips, and a Job draws them only from two steps. A Job whose workflow
 // is still being settled holds the pips' place with the blinking caret, and no step stands in for it.
-// Props are plain so any grid can lay tiles out.
+// A running Session adds one line under its title, with a clock when it has gone quiet. Props are plain so any grid can lay tiles out.
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { LoaderCircle, SquareTerminal, Workflow } from "lucide-react";
+import { Clock, LoaderCircle, SquareTerminal, Workflow } from "lucide-react";
 import { ClashMark, SettlingMark, Tooltip } from "@armada/components";
 
 import { age, type Item } from "./Dashboard";
@@ -69,6 +69,22 @@ export function FleetTile({
         </span>
       </div>
       <span className="armada-tile__title">{item.title}</span>
+      {item.line === undefined && item.quiet === undefined ? null : (
+        <span className="armada-tile__line">
+          {item.line === undefined ? null : (
+            <Tooltip label={item.line}>
+              <span className="armada-tile__line-text">{item.line}</span>
+            </Tooltip>
+          )}
+          {item.quiet === undefined ? null : (
+            <Tooltip label={item.quiet}>
+              <span className="armada-tile__quiet" role="img" aria-label={item.quiet}>
+                <Clock size={12} strokeWidth={2} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      )}
       <div className="armada-tile__foot">
         {steps !== undefined ? (
           <ol className="armada-tile__pips" aria-label="Steps">
