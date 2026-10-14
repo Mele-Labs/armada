@@ -15,6 +15,14 @@ use super::rows::UserLine;
 use super::{address_of, Move, Runtime};
 use crate::daemon::Fleet;
 
+/// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
+/// queued line at once, so a longer wait is a line it folded into the turn that just ended.
+const NEXT_TURN_WITHIN: std::time::Duration = if cfg!(test) {
+    std::time::Duration::from_millis(300)
+} else {
+    std::time::Duration::from_secs(10)
+};
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -287,6 +295,35 @@ where
             return;
         }
         let _ = self.published_hosted(id).await;
+        if runtime.state().queued > 0 {
+            self.next_turn_awaited(id, runtime);
+        }
+    }
+
+    /// A turn ended with lines Fleet wrote still uncounted by a start. The process folds lines that
+    /// reach it together into one turn, so Fleet's count can sit above its turns for good, and the
+    /// session would read as working with nothing running. **If no turn has begun within
+    /// [`NEXT_TURN_WITHIN`], the count is wrong and the session is idle.**
+    fn next_turn_awaited(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>) {
+        let (fleet, id, runtime) = (Arc::clone(self), id.to_string(), Arc::clone(runtime));
+        tokio::spawn(async move {
+            tokio::time::sleep(NEXT_TURN_WITHIN).await;
+            let missed = {
+                let mut state = runtime.state();
+                let missed = state.queued > 0
+                    && state.turn_began.is_none()
+                    && matches!(state.turn, SessionTurn::Working { .. });
+                if missed {
+                    state.queued = 0;
+                    state.unstarted.clear();
+                    state.turn = SessionTurn::Idle;
+                }
+                missed
+            };
+            if missed {
+                let _ = fleet.published_hosted(&id).await;
+            }
+        });
     }
 
     /// The turn that held a write is over: end the process and resume the
