@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -531,6 +532,38 @@ class RestartAdopt(unittest.TestCase):
         code, said = self.restart("--dry-run")
         self.assertEqual(code, 0, said)
         self.assertIn("out if it is loaded, then bootstrap it from", said)
+
+    def built_bridge(self, built_for):
+        """A Bridge in `out/` built for `built_for`, stamped after every source, in a tree whose
+        wire files hash to `wire1`."""
+        desktop = os.path.join(self.tree, "apps", "desktop")
+        os.makedirs(os.path.join(desktop, "codegen"))
+        with open(os.path.join(desktop, "codegen", "protocol-id.mjs"), "w") as f:
+            f.write('console.log("wire1")\n')
+        os.makedirs(os.path.join(desktop, "out", "main"))
+        with open(os.path.join(desktop, "out", "main", "index.js"), "w") as f:
+            f.write(f'const PROTOCOL_ID = "{built_for}";\n')
+        stamp = os.path.join(desktop, "out", ".armada-restart-stamp")
+        open(stamp, "w").close()
+        later = time.time() + 60
+        os.utime(stamp, (later, later))
+        with open(os.path.join(self.support, "restart-source"), "w") as f:
+            f.write(self.tree)
+
+    def test_a_bridge_built_for_another_protocol_is_rebuilt_though_no_source_moved(self):
+        self.fleet({"j1": "escalated"})
+        self.built_bridge("wire0")
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would build Bridge from", said)
+        self.assertIn("built for another protocol than wire1", said)
+
+    def test_a_bridge_built_for_the_trees_protocol_is_left(self):
+        self.fleet({"j1": "escalated"})
+        self.built_bridge("wire1")
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would not build Bridge", said)
 
     def test_adopt_with_no_drone_working_prints_no_costs(self):
         self.fleet({"j1": "escalated"})
