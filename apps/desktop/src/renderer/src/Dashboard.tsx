@@ -245,7 +245,8 @@ export function useBoardKeys(
   listening = true,
 ): void {
   useListKeydown((event) => {
-    if (!listening) return;
+    // A press something under the Board has already taken (the dispatch strip's ↵) is not the Board's too.
+    if (!listening || event.defaultPrevented) return;
     const read = boardPressOf(event);
     if (read === null) return;
     const here = rows[at];
