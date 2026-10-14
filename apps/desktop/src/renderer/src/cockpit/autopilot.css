@@ -1,8 +1,8 @@
-/* Autopilot on the Cockpit, #2092: the bar's place above the glass on every filter, and its additions
+/* Autopilot on the Cockpit, #2092: the bar's place at the very top, above the filter band and outside the glass, on every filter, and its additions
    to the Bays metro — the faint Next up station, the glyph on its lines, the dashed stop of a pick not
    started, and the two sidings under the lines. A file of its own so `cockpit.css` is not touched. */
 
-.armada-autopilot-lane { display: grid; flex: none; gap: var(--space-2); padding: var(--space-2) var(--space-4) 0; }
+.armada-autopilot-lane { display: grid; flex: none; gap: var(--space-2); padding: 0 0 var(--space-4); }
 
 /* One more station, before Waiting, only while an Autopilot is on. */
 .armada-metro[data-next-up] .armada-metro__head,

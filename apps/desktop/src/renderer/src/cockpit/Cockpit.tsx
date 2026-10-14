@@ -464,6 +464,7 @@ export function Cockpit({
 
   return (
     <div className="armada-cockpit" data-hue={frame} data-settles>
+      {autopilot.bar}
       <section className="armada-view" aria-label="Dashboard" data-hue={frame} data-waiting={frame === undefined ? undefined : ""}>
         <header className="armada-view__band">
           <span className="armada-view__filters">
@@ -503,7 +504,6 @@ export function Cockpit({
             </Tooltip>
           </span>
         </header>
-        {autopilot.bar}
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
             {filter === "bays" ? (

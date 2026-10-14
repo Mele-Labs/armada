@@ -1,5 +1,5 @@
 // Autopilot's lane on the Cockpit, #2092: what Fleet holds of each repository's Autopilot, kept current
-// by `autopilot.changed`, and the three places it is drawn — the bar above the glass on every filter,
+// by `autopilot.changed`, and the three places it is drawn — the bar at the top of the Cockpit, above the filter band and outside the glass, on every filter,
 // its marks and sidings on the Bays metro, and each set-aside pick as a tile in Your move. One hook, so
 // `Cockpit.tsx` adds a line where each is drawn and nothing else.
 
@@ -64,7 +64,7 @@ const NO_ASIDES: Item[] = [];
 type Pressing = { manifest: string; press: AutopilotPress } | undefined;
 
 export type AutopilotLane = {
-  /** The bar, or bars on All, drawn above the glass on every filter. */
+  /** The bar, or bars on All, drawn at the top of the Cockpit on every filter. */
   bar: ReactNode;
   /** The metro's Autopilot parts, while one is on. */
   bays: BaysAutopilot | undefined;
