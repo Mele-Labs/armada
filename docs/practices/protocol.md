@@ -3517,6 +3517,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
 
+## Protocol 23.86: a Session's standing, and the replied and done items
+
+`docs/concepts/session.md`. **Additive only**: one optional field, one enum, two `WaitingSource` values. No new operation. **Nothing the owner sees may depend on an agent making a tool call**: Fleet reads what a Session is doing from the turn, the thread and `done_since`, and the agent's own `waiting_for` and `all_done` only add detail.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `SessionRecord.standing?` | `SessionStanding`: `working`, `stuck`, `replied`, `done`, `idle` | The one answer the Sessions list, the Cockpit's tiles, lanes and calls all draw. Absent from a Fleet that does not say, and Bridge then reads the turn alone |
+| `WaitingItem.source` | `replied`, `done` | Derived on every read, never kept. Ids `replied:<turn end>` and `done:<done_since>`; `since` is that instant. `replied` carries the first line of the agent's last message as `text` and is answered with words, which reach the Session as a message. `done` carries `Done`; Bridge offers End session (`close_session`) and Keep going (`dismiss_waiting`). Both are dismissable, and a dismissed id never returns |
+
+**Skew.** A Fleet before 23.86 serves neither, and Bridge reads a Session as before. The IDs differ, so the two are refused regardless, and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest. **Declared here and not yet served**: the field and the two sources are on the wire, and Fleet's derivation of them is the next piece.
+
 ## Protocol 23.85: the model a hosted Session resolved
 
 `docs/concepts/session.md`, *Which model, and a fresh start*. **Additive only**: one optional field on `HostedFacts`. No operation, event or error is new.

@@ -408,13 +408,37 @@ pub enum WaitingSource {
     /// Fleet: another Session's agent started this one and its first message has not been sent.
     /// The item has no reply, since sending that message is the answer. Since 23.80.
     FirstMessage,
+    /// Fleet: the Session's turn ended on a message of the agent's and the person has not answered it.
+    /// Derived on every read from the turn and the thread, never kept, so it does not depend on the
+    /// agent calling any tool. Id `replied:<turn end>`, text the first line of that message.
+    Replied,
+    /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
+    /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
+    Done,
+}
+
+/// What a Session is doing, read from what happened and never from what the agent said. One answer,
+/// for every surface that draws a Session: the Sessions list, the Cockpit's tiles, lanes and calls.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionStanding {
+    /// A turn is running.
+    Working,
+    /// A turn is running and nothing has happened for the quiet threshold.
+    Stuck,
+    /// The turn ended on a message of the agent's and the person has not answered since.
+    Replied,
+    /// The agent said, through `all_done`, that nothing is left, and the person has not answered.
+    Done,
+    /// Nothing is owed. What a `replied` or `done` becomes once the person dismisses it.
+    Idle,
 }
 
 /// One thing a session is waiting on the person for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
     /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
-    /// `window_ask:<row>`, `unsent:<session>`.
+    /// `window_ask:<row>`, `unsent:<session>`, `replied:<turn end>`, `done:<done_since>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.
@@ -569,6 +593,11 @@ pub struct SessionRecord {
     /// person's next message, by a non-empty `waiting_for`, and by a hosted turn starting again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub done_since: Option<Instant>,
+    /// What the Session is doing, derived by Fleet on every read from its turn, its thread and
+    /// `done_since`. Absent from a Fleet that predates it, and Bridge then draws the Session as it
+    /// drew it before. Since 23.86.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub standing: Option<SessionStanding>,
     /// The plan's limit stopped this session, and Fleet wakes it with `Continue` a minute after this
     /// instant, when the limit has reset. Cleared by a turn, a message from the person, the wake
     /// and the session ending. Absent on a session that is not held.
