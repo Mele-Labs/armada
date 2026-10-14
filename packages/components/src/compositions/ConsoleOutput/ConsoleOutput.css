@@ -12,6 +12,13 @@
   overflow: hidden;
 }
 
+/* In a sheet that bleeds, the well is the panel: it fills what the lines leave
+   and meets the edges, so a short log is not a small box in the middle. */
+.armada-sheet__body[data-bleed] > .armada-console {
+  flex: 1;
+  border-radius: 0;
+}
+
 /* The tools. Present only at the expanded size — the inline size composes the
    page and a tool bar there would make a quoted region look like a workbench. */
 .armada-console__tools {
