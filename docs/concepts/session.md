@@ -121,7 +121,7 @@ The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`).
 | machine | The machine's name |
 | since | When the claim was made |
 
-**A row never holds a title, a repository name or code.** The machine that owns the pull request draws its title from its own ledger, and any other machine draws only the stored facts. A repository registers nothing until its Manifest turns it on, and the switch is off by default.
+**A row never holds a title, a repository name or code.** The machine that owns the pull request draws its title from its own ledger, and any other machine draws only the stored facts. A repository registers nothing until its Manifest turns it on, and the switch is off by default. With it off, the repository registers none and shows no owners at all, those another machine registered included.
 
 **Bridge draws a row as a chip.** The kind's glyph (`square-terminal` for a Session, `box` for a Job) and the short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name. A pull request with no row draws no chip, in the merge line's open pull requests and in the Pull request panel. The switch is *Pull request owners* in the Policy section of the Manifest form.
 
