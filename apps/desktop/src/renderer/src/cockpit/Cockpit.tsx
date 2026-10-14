@@ -5,8 +5,8 @@
 // dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, SquareTerminal } from "lucide-react";
-import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
+import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, Plane, SquareTerminal } from "lucide-react";
+import { Button, DropdownMenu, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
@@ -29,7 +29,7 @@ import { Bays } from "./BaysView"; import { useAutopilotLane } from "./Autopilot
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
 import { Timeline } from "./Timeline";
-import { useLayout } from "@armada/shell";
+import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
@@ -205,6 +205,7 @@ export function Cockpit({
   const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
   const autopilot = useAutopilotLane({ picked, state, now });
+  const [recent, remember] = useRecentRepositories();
   const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
   const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
   const carriedOver = useItems("done", state, picked, nowViews, hosts, NONE);
@@ -478,6 +479,32 @@ export function Cockpit({
             </Tooltip>
           </span>
           <span className="armada-view__keys">
+            {autopilot.control === undefined ? null : (
+              <Tooltip label={autopilot.control.state === "off" ? "Autopilot" : `Autopilot, ${autopilot.control.state}`}>
+                <span>
+                  {picked === null ? (
+                    <DropdownMenu
+                      align="end"
+                      portal
+                      icon={Plane}
+                      triggerLabel="Autopilot"
+                      searchLabel={FIND_A_REPOSITORY}
+                      entries={repositoryEntries(state.holds.repositories ?? [], { onlySetUp: true, recent })}
+                      onSelect={(chosen) => {
+                        const root = rootOf(chosen);
+                        remember(root);
+                        autopilot.control?.openNext();
+                        hosts.onPickRepository?.(root);
+                      }}
+                    />
+                  ) : (
+                    <Button variant="ghost" size="sm" iconOnly aria-label="Autopilot" aria-pressed={autopilot.control.open} data-autopilot={autopilot.control.state} onClick={autopilot.control.toggle}>
+                      <Plane size={16} aria-hidden="true" />
+                    </Button>
+                  )}
+                </span>
+              </Tooltip>
+            )}
             {filter === "bays" ? null : (
               <span className="armada-view__toggle" role="group" aria-label="View">
                 <Tooltip label="Grid">

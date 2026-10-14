@@ -1,6 +1,7 @@
 // Autopilot's lane on the Cockpit, #2092: what Fleet holds of each repository's Autopilot, kept current
-// by `autopilot.changed`, and the three places it is drawn — the bar at the top of the Cockpit, above the filter band and outside the glass, on every filter,
-// its marks and sidings on the Bays metro, and each set-aside pick as a tile in Your move. One hook, so
+// by `autopilot.changed`, and the places it is drawn — the control in the header band, which opens the bar
+// for the picked repository at the top of the Cockpit, above the filter band and outside the glass, on every
+// filter; its marks and sidings on the Bays metro; and each set-aside pick as a tile in Your move. One hook, so
 // `Cockpit.tsx` adds a line where each is drawn and nothing else.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -63,9 +64,21 @@ const NO_ASIDES: Item[] = [];
 
 type Pressing = { manifest: string; press: AutopilotPress } | undefined;
 
+/** The header band's control: how the picked repository's Autopilot stands, and whether its bar is open. */
+export type AutopilotControl = {
+  state: "off" | "running" | "paused";
+  open: boolean;
+  /** Opens the bar, or puts it away. Putting it away stops nothing. */
+  toggle: () => void;
+  /** The press with no repository picked opens the bar for the one about to be. */
+  openNext: () => void;
+};
+
 export type AutopilotLane = {
-  /** The bar, or bars on All, drawn at the top of the Cockpit on every filter. */
+  /** The picked repository's bar, drawn at the top of the Cockpit while the control has it open. Null otherwise. */
   bar: ReactNode;
+  /** Absent where Fleet serves no Autopilot. */
+  control: AutopilotControl | undefined;
   /** The metro's Autopilot parts, while one is on. */
   bays: BaysAutopilot | undefined;
   /** Each set-aside pick, as a tile in Your move. */
@@ -87,6 +100,11 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
   const [reading, setReading] = useState<AutopilotReading>();
   /** The repository whose Edit caps is open. */
   const [editing, setEditing] = useState<string>();
+  const [open, setOpen] = useState(false);
+  // With no repository picked there is no bar to have open.
+  useEffect(() => {
+    if (manifestId === null) setOpen(false);
+  }, [manifestId]);
 
   /** Sends one act, folds Fleet's answer, and says a refusal where the press was. */
   const act = useCallback(
@@ -150,13 +168,12 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
     });
   };
 
-  const barOf = (manifest: string, autopilot: Autopilot | undefined, named: boolean) => {
+  const barOf = (manifest: string, autopilot: Autopilot | undefined) => {
     const live = isOn(autopilot);
     const mine = pressing?.manifest === manifest ? pressing.press : undefined;
     return (
       <AutopilotBar
         key={manifest}
-        repository={named ? nameOf(manifest) : undefined}
         state={!live ? "off" : autopilot.state === "paused" ? "paused" : "running"}
         instruction={autopilot?.instruction}
         capped={autopilot === undefined ? undefined : cappedOf(autopilot)}
@@ -168,7 +185,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
         onPause={() => acted(manifest, "pause", () => window.armada.pauseAutopilot(manifest))}
         onResume={() => acted(manifest, "resume", () => window.armada.resumeAutopilot(manifest))}
         onStop={() => acted(manifest, "stop", () => window.armada.stopAutopilot(manifest))}
-        starting={!named && starting}
+        starting={starting}
         onStarting={(open) => {
           setStarting(open);
           if (!open) setReading(undefined);
@@ -216,13 +233,17 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
   }));
   const marks = useMemo(() => (metro: Parameters<BaysAutopilot["mark"]>[0]) => withAutopilot(metro, on), [on]);
 
-  if (!served()) return { bar: null, bays: undefined, asides: NO_ASIDES };
-  // All, with none on anywhere: one quiet line where the bars would be, since an Autopilot is one repository's.
-  if (manifestId === null && on.length === 0) {
-    return { bar: <p className="armada-autopilot-lane armada-autopilot-lane__none">Pick a repository to start Autopilot</p>, bays: undefined, asides: NO_ASIDES };
-  }
+  if (!served()) return { bar: null, control: undefined, bays: undefined, asides: NO_ASIDES };
+  const mine = manifestId === null ? undefined : held.get(manifestId);
+  const control: AutopilotControl = {
+    state: !isOn(mine) ? "off" : mine.state === "paused" ? "paused" : "running",
+    open: open && manifestId !== null,
+    toggle: () => setOpen(!open),
+    openNext: () => setOpen(true),
+  };
   return {
-    bar: <div className="armada-autopilot-lane">{manifestId === null ? on.map((one) => barOf(one.manifest_id, one, true)) : barOf(manifestId, held.get(manifestId), false)}</div>,
+    bar: open && manifestId !== null ? <div className="armada-autopilot-lane">{barOf(manifestId, mine)}</div> : null,
+    control,
     bays: on.length === 0 ? undefined : { mark: marks, sidings: <AutopilotSidings sidings={sidings} pending={aside} onRun={(manifest, pick) => onAside(manifest, pick, "run")} onDismiss={(manifest, pick) => onAside(manifest, pick, "dismiss")} /> },
     asides: asideItems,
   };

@@ -30,7 +30,7 @@ A request is dispatched from a panel, not a screen. The title row's one bar grow
 | --- | --- |
 | The title row's one bar | `n` or `⌘N` opens the bar ready for the work, and `⌘↵` on a row that dispatches grows the panel down from the bar's field, holding the words |
 
-The Cockpit had a dispatch bar of its own that grew the same panel in place. The owner removed it on 13 Oct 2026, and Autopilot's bar took its place at the top of the Cockpit.
+The Cockpit had a dispatch bar of its own that grew the same panel in place. The owner removed it on 13 Oct 2026. Autopilot's bar opens at that place, from a control in the Cockpit's header band, and is not drawn at rest.
 
 **The line never moves.** The request is one text field that is not remounted as the panel grows, so the words and the caret stay where they were. Under it a band holds the kind, the repository chip and the act, and a body that depends on the kind.
 

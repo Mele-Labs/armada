@@ -56,6 +56,7 @@ export function Overview({
   onBrought,
   onWantHeld,
   onReleaseSlot,
+  onPickRepository,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
   bring?: { key: string; at: number } | null;
@@ -109,6 +110,8 @@ export function Overview({
   /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
   onWantHeld?: (want: boolean) => void;
   onReleaseSlot?: Hosts["onReleaseSlot"];
+  /** Picks a repository, as the title row's picker does: Autopilot's control asks for one on All. */
+  onPickRepository?: Hosts["onPickRepository"];
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -229,6 +232,7 @@ export function Overview({
             onCursor={onCursor}
             onWantHeld={onWantHeld}
             onReleaseSlot={onReleaseSlot}
+            onPickRepository={onPickRepository}
           />
         )}
         <KeySheet open={keys.sheet} onClose={keys.closeSheet} />

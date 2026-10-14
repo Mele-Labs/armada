@@ -1,4 +1,4 @@
-/* Autopilot on the Cockpit, #2092: the bar's place at the very top, above the filter band and outside the glass, on every filter, and its additions
+/* Autopilot on the Cockpit, #2092: the bar's place at the very top, above the filter band and outside the glass, while the header band's control has it open, and its additions
    to the Bays metro — the faint Next up station, the glyph on its lines, the dashed stop of a pick not
    started, and the two sidings under the lines. A file of its own so `cockpit.css` is not touched. */
 
@@ -39,5 +39,6 @@
 .armada-autopilot-aside__acts { display: flex; gap: var(--space-1); }
 .armada-autopilot-aside__row > .armada-autopilot-aside__acts { grid-column: 3; grid-row: 1 / span 2; }
 
-/* All, with no Autopilot on anywhere: one quiet line where the bars would be. #2105. */
-.armada-autopilot-lane__none { margin: 0; color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); }
+/* The header band's control: the Plane glyph takes the running hue while an Autopilot runs and the not-started hue while it is paused, as the bar's edge does. */
+.armada-view__keys .armada-button[data-autopilot="running"] { color: var(--status-running); }
+.armada-view__keys .armada-button[data-autopilot="paused"] { color: var(--status-not-started); }
