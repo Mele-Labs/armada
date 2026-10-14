@@ -376,8 +376,13 @@ where
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
                     return Err(self.ledger_unnamed("a kind and a target on an attachment"));
                 }
-                // A branch or pull request read from a slot the lease is another's is theirs.
-                let backed = !matches!(attachment.kind.as_str(), "branch" | "pr")
+                // A branch or pull request read from a slot the lease is another's is theirs, but a
+                // pull request the session opened itself is its own wherever it stood: the mod read
+                // its address off `gh pr create`, so no directory is being trusted.
+                let opened = attachment.kind == "pr"
+                    && attachment.detail.get("created").is_some_and(|one| one == "true");
+                let backed = opened
+                    || !matches!(attachment.kind.as_str(), "branch" | "pr")
                     || pool_backs(&store, &session, &roots);
                 if backed {
                     changed |= store

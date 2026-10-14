@@ -137,6 +137,7 @@ async fn tests_pass_merges_nothing_the_forge_has_not_actually_passed() {
         WhatTheForgeRan::SomeFailed {
             failed: vec![FromOutside::verbatim("a_word_we_have_none_for")],
             checks: 3,
+            weight: adapter_traits::FailureWeight::Required,
         },
         WhatTheForgeRan::Unreadable,
     ] {

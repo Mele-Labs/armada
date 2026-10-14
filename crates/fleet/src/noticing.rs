@@ -188,7 +188,7 @@ fn ci_of(ran: &adapter_traits::WhatTheForgeRan) -> ipc::PullRequestChecks {
         adapter_traits::WhatTheForgeRan::StillWaiting { finished, checks } => {
             (*checks, Some(*finished), Vec::new())
         }
-        adapter_traits::WhatTheForgeRan::SomeFailed { failed, checks } => (
+        adapter_traits::WhatTheForgeRan::SomeFailed { failed, checks, .. } => (
             *checks,
             None,
             failed

@@ -6,7 +6,7 @@
 //! a paragraph is a paragraph again, and totalling a rollup of checks written in
 //! two different shapes into the one answer a caller acts on.
 
-use adapter_traits::{ReviewVerdict, WhatPeopleSaid, WhatTheForgeRan};
+use adapter_traits::{FailureWeight, ReviewVerdict, WhatPeopleSaid, WhatTheForgeRan};
 
 use crate::under_review::{as_written, folded, what_people_said, what_review_verdict, Checks};
 
@@ -49,7 +49,7 @@ fn one_failure_beside_six_pending_is_a_failure() {
     for _ in 0..6 {
         checks.saw("test", "IN_PROGRESS", "");
     }
-    let WhatTheForgeRan::SomeFailed { failed, checks } = checks.totalled() else {
+    let WhatTheForgeRan::SomeFailed { failed, checks, .. } = checks.totalled() else {
         panic!("a check that failed does not become a pass when the rest finish");
     };
     assert_eq!(failed.len(), 1);
@@ -82,6 +82,25 @@ fn a_conclusion_this_build_has_no_word_for_is_not_reported_as_a_pass() {
     ));
 }
 
+#[test]
+fn a_failure_decides_unless_a_gate_has_not_failed() {
+    let weight = |seen: &[(&str, &str, &str)]| {
+        let mut checks = Checks::default();
+        for (name, status, conclusion) in seen {
+            checks.saw(name, status, conclusion);
+        }
+        match checks.totalled() {
+            WhatTheForgeRan::SomeFailed { weight, .. } => weight,
+            other => panic!("expected a failure, got {other:?}"),
+        }
+    };
+    let shard = ("app_smoke_shard (2)", "COMPLETED", "FAILURE");
+    assert_eq!(weight(&[shard]), FailureWeight::Required);
+    assert_eq!(weight(&[shard, ("ci", "IN_PROGRESS", "")]), FailureWeight::WhileRunning);
+    assert_eq!(weight(&[shard, ("ci", "COMPLETED", "SUCCESS")]), FailureWeight::AfterRequired);
+    assert_eq!(weight(&[shard, ("ci", "COMPLETED", "FAILURE")]), FailureWeight::Required);
+}
+
 // --------------------------------------- the records the reduction prints
 
 /// Exactly what `jq` printed for a pull request with a change requested, a
@@ -108,7 +127,7 @@ fn what_the_reduction_printed() -> Vec<String> {
 fn the_records_fold_into_one_reading() {
     let read = folded(&what_the_reduction_printed());
     assert_eq!(read.people, WhatPeopleSaid::ChangesRequested);
-    let WhatTheForgeRan::SomeFailed { failed, checks } = &read.checks else {
+    let WhatTheForgeRan::SomeFailed { failed, checks, .. } = &read.checks else {
         panic!("the status context failed, whatever the two check runs did");
     };
     assert_eq!(failed[0].as_written(), "ci/legacy");

@@ -9,7 +9,7 @@ import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useTileGrid } from "../../tile-grid";
 import { ClashMark } from "../ClashMark/ClashMark";
-import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
+import { Chip, type OwnerChipRef, type RedChecks } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
@@ -35,7 +35,7 @@ export type SessionRowView = {
   said: string;
   slots: readonly number[];
   /** A merged one is on the Session's ledger and not on its row. */
-  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; state?: "open" | "draft" | "merged" }[];
+  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks; state?: "open" | "draft" | "merged" }[];
   /** What the search matched in this Session, where it matched an attachment. */
   matched?: OwnerChipRef;
   /** The clock time of the last turn, which the tooltip keeps. */
@@ -179,7 +179,7 @@ function itemsOf(row: SessionRowView): Item[] {
       label: `#${pr.number}`,
       node: (
         <span className="armada-session-list__pr" data-checks={pr.checks}>
-          <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said }} />
+          <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
         </span>
       ),
     });

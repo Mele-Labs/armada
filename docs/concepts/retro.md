@@ -379,7 +379,9 @@ Helm may when a person asks. So are the two calls under *Reviewing*.
 together.** The owner's decision, 10 Oct 2026, after the page listed every open
 item with its repeats and its stale ones. `review_lessons` reads the open items
 as `list_lessons` does, with the same narrowing by repository, and asks the
-retro model once. Fleet stores nothing: Bridge holds the answer for as long as
+retro model once, over the newest 50 (200 open items took longer than the 120 s
+call budget); the rest are read on the `Review again` that follows once those are
+answered. Fleet stores nothing: Bridge holds the answer for as long as
 the window is open (*Where Bridge draws it*), and asks again only on `Review
 again`.
 

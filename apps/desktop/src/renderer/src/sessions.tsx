@@ -104,19 +104,25 @@ function stateOf(session: Session): { state: SessionState; said: string } {
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
+  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
 
-const checksSaid = (checks: Checks) =>
-  checks.state === "failed" ? `Checks failed: ${checks.failing}` : checks.state === "pending" ? "Checks running" : "Checks passed";
+const checksSaid = (checks: Checks) => {
+  if (checks.state === "failed") return `Checks failed: ${checks.failing}`;
+  const red = checks.red === undefined ? "" : checks.state === "pending" ? `; failing: ${checks.red}` : `; not required, failing: ${checks.red}`;
+  return `${checks.state === "pending" ? "Checks running" : "Checks passed"}${red}`;
+};
+
+const redOf = (checks: Checks): { red?: "running" | "advisory" } =>
+  checks.state === "failed" || checks.red === undefined ? {} : { red: checks.state === "pending" ? "running" : "advisory" };
 
 const pullRequestsOf = (session: Session) =>
-  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks) }));
+  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks) }));
 
 function summaryOf(session: Session): OwnerSummary {
   return {
@@ -259,9 +265,10 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
+  { label: "Needs you", has: (state) => state === "waiting" },
   { label: "Running", has: (state) => state === "working" || state === "limited" },
-  { label: "Idle", has: (state) => state === "idle" },
+  // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
+  { label: "Idle", has: (state) => state === "idle" || state === "failing" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
@@ -422,7 +429,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), state: one.state })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),

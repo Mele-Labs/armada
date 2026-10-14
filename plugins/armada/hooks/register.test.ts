@@ -170,7 +170,31 @@ test('a pull request a session opens is attached from the address gh printed', a
 
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
-    attachment: { kind: 'pr', target: '1853', detail: { url: URL } },
+    attachment: { kind: 'pr', target: '1853', detail: { url: URL, created: 'true' } },
+  })
+})
+
+test('a pull request a session opens is read by its address, so it carries its title from any slot', async ($, on) => {
+  const { posts, processes, clock } = world(on, {
+    cwd: () => '/repos/armada/.armada/slots/slot-2',
+    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock' }),
+  })
+  on('tool.call', { tool: 'Bash' }, () => ({
+    result: { stdout: URL, stderr: '', interrupted: false },
+    text: URL,
+  }))
+  await $.session.start({ cwd: '/repos/armada/.armada/slots/slot-2', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'cd /repos/armada/.armada/slots/slot-4 && gh pr create --base main' })
+  await clock.settle()
+
+  expect(processes.some(one => one.argv.join(' ').includes(`gh pr view ${URL}`))).toBe(true)
+  expect(facts(posts)).toContainEqual({
+    kind: 'attached',
+    attachment: {
+      kind: 'pr',
+      target: '1853',
+      detail: { url: URL, address: URL, state: 'open', title: 'Pin the store clock', branch: 'fix/store-clock', created: 'true' },
+    },
   })
 })
 

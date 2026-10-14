@@ -35,7 +35,7 @@ export type OwnerSummary = {
   /** What the state's mark says on hover. */
   said: string;
   slots: readonly number[];
-  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string }[];
+  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks }[];
   jobs: readonly { id: string; number: number }[];
   lastTurn?: string;
 };
@@ -104,13 +104,16 @@ const TEXT = (chip: OwnerChipRef): string => {
   }
 };
 
+/** A check red that does not decide the pull request: while the run goes on, or after the required ones passed. */
+export type RedChecks = "running" | "advisory";
+
 const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
 
 /**
  * A chip drawn whole: its glyph and its figure, named for what it is. Never a bare figure.
  * **A pull request's Checks sit inside it**, at its right end past a divider, coloured by how they stand.
  */
-export function Chip({ chip, matched = false, checks }: { chip: OwnerChipRef; matched?: boolean; checks?: { state: "pending" | "passed" | "failed"; said: string } }) {
+export function Chip({ chip, matched = false, checks }: { chip: OwnerChipRef; matched?: boolean; checks?: { state: "pending" | "passed" | "failed"; said: string; red?: RedChecks } }) {
   const Glyph = GLYPH[chip.kind];
   const Shield = checks === undefined || chip.kind !== "pull_request" ? undefined : CHECKS[checks.state];
   return (
@@ -119,7 +122,7 @@ export function Chip({ chip, matched = false, checks }: { chip: OwnerChipRef; ma
       {TEXT(chip)}
       {Shield === undefined || checks === undefined ? null : (
         <Tooltip label={checks.said}>
-          <span className="armada-ref-chip__checks" data-checks={checks.state}>
+          <span className="armada-ref-chip__checks" data-checks={checks.state} data-red={checks.red}>
             <Shield size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -156,7 +159,7 @@ export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: 
           {owner.pullRequests.map((pr) => {
             return (
               <li key={pr.number}>
-                <Chip chip={{ kind: "pull_request", number: pr.number }} checks={{ state: pr.checks, said: pr.said }} />
+                <Chip chip={{ kind: "pull_request", number: pr.number }} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
               </li>
             );
           })}
