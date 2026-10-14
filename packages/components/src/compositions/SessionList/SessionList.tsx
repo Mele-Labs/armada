@@ -268,7 +268,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
       </div>
       <div className="armada-session-list__glass">
         {drawn.map((group) => (
-          <div className="armada-session-list__group" key={group.label}>
+          <div className="armada-session-list__group" key={group.label} role="group" aria-label={group.label}>
             <h3 className="armada-session-list__eyebrow">{group.label}</h3>
             <ul className="armada-session-list__rows">
               {group.rows.map((row) => {

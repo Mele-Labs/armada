@@ -30,8 +30,11 @@ const asked = (id: string, at: string, text: string) => ({ id, at, kind: "messag
 
 /** Its turn ended on a message to him, 6 minutes ago. */
 const REPLIED_AT = ago(6);
+/** The ids Fleet gives the reply and the done as items, for a test that dismisses them. */
+export const REPLIED_ITEM = `replied:${REPLIED_AT}`;
 /** It said nothing is left, 4 minutes ago. */
 const DONE_AT = ago(4);
+export const DONE_ITEM = `done:${DONE_AT}`;
 
 const replied: Session = {
   id: "r1",
@@ -45,7 +48,7 @@ const replied: Session = {
     said("r1-a", "14:12:09", "The clock is pinned in all four store tests and the fixture is gone.\nTwo files changed, and the suite passes."),
   ],
   attachments: [],
-  waitingFor: [{ id: `replied:${REPLIED_AT}`, text: "The clock is pinned in all four store tests and the fixture is gone.", since: REPLIED_AT, source: "replied" }],
+  waitingFor: [{ id: REPLIED_ITEM, text: "The clock is pinned in all four store tests and the fixture is gone.", since: REPLIED_AT, source: "replied" }],
 };
 
 const done: Session = {
@@ -61,7 +64,7 @@ const done: Session = {
     said("d1-a", "14:14:30", "The script is merged. There is nothing left to do."),
   ],
   attachments: [],
-  waitingFor: [{ id: `done:${DONE_AT}`, text: "Done", since: DONE_AT, source: "done" }],
+  waitingFor: [{ id: DONE_ITEM, text: "Done", since: DONE_AT, source: "done" }],
 };
 
 const asking: Session = {

@@ -87,17 +87,19 @@ test("an option is picked and then sent, so a pick alone sends nothing", async (
 });
 
 test("Dismiss is under a cover: the first press lifts it and the second dismisses", async () => {
-  const app = await consoles();
-  const dismissed = vi.spyOn(app.api, "dismissWaiting");
-  await reach(/^Session/);
+  await consoles();
+  const kept = () => JSON.parse(localStorage.getItem("armada.bridge.dismissed-calls") ?? "[]") as string[];
+  // A call Fleet raised about a state: an agent's own item is removed with a reason instead, which has no cover.
+  await reach(/^Drone stuck/);
   const cap = () => key(/Dismiss/).element().closest(".armada-keycap")!;
   expect(cap().getAttribute("data-cover")).toBe("down");
   await key(/Dismiss/).click();
   expect(cap().getAttribute("data-cover")).toBe("lifted");
-  await expect.element(call(/^Session/)).toBeVisible();
-  expect(dismissed).not.toHaveBeenCalled();
+  await expect.element(call(/^Drone stuck/)).toBeVisible();
+  expect(kept()).toEqual([]);
   await key(/Dismiss/).click();
-  await expect.poll(() => dismissed.mock.calls.length).toBe(1);
+  await expect.element(call(/^Drone stuck/)).not.toBeInTheDocument();
+  expect(kept()).toHaveLength(1);
 });
 
 test("a Job's box is hidden until t, and its words go to the Drone, or start the step again where it has none", async () => {
