@@ -275,7 +275,7 @@
 
 /* A row with its marks in a column of its own at the line's end, the same width on every row so the
    marks stand in one line down a tile. The name and where it came from keep the first line, what it
-   says the second, and the act a row offers a third. */
+   says the second, and the act a row offers sits under its marks. */
 .armada-kit-setup__item[data-sync] {
   grid-template-columns: minmax(0, auto) minmax(0, 1fr) var(--space-12);
   /* A row beside a taller one keeps its own lines together rather than spreading them. */
@@ -294,9 +294,9 @@
 }
 
 .armada-kit-setup__item-act {
-  grid-column: 1 / -1;
-  grid-row: 3;
-  justify-self: start;
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: end;
 }
 
 /* A tile holding a row the person has to pick a side for takes the amber on its frame, as a

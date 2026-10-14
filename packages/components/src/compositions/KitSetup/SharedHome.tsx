@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import { Check, House, Key, Laptop, RotateCw, Split } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Check, House, Key, Laptop, RotateCw, Split } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
@@ -110,23 +110,22 @@ export function SyncMarks({ row, onCompare }: { row: SharedRow; onCompare: (row:
   );
 }
 
-/** The act a row offers: Add to home where it is only here, Bring here where it is only there. */
+/**
+ * The act a row offers, as an icon button with its tooltip and no text: up out of this machine
+ * where the row is only here, down onto it where the row is only in the home.
+ */
 export function SyncAct({ row, acts }: { row: SharedRow; acts: SharedHomeActs }) {
-  if (row.state === "here") {
-    return (
-      <Button variant="ghost" size="sm" aria-label={`Add ${row.name} to the home`} onClick={() => acts.add(row)}>
-        Add to home
+  if (row.state !== "here" && row.state !== "home") return null;
+  const up = row.state === "here";
+  const said = up ? "Add to the home" : "Add to this machine";
+  const Glyph = up ? ArrowUpFromLine : ArrowDownToLine;
+  return (
+    <Tooltip beside label={said}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={`${said} ${row.name}`} onClick={() => (up ? acts.add(row) : acts.bring(row))}>
+        <Glyph size={16} strokeWidth={2} aria-hidden="true" />
       </Button>
-    );
-  }
-  if (row.state === "home") {
-    return (
-      <Button variant="ghost" size="sm" aria-label={`Bring ${row.name} here`} onClick={() => acts.bring(row)}>
-        Bring here
-      </Button>
-    );
-  }
-  return null;
+    </Tooltip>
+  );
 }
 
 /** The account the home belongs to, and Sync. */
