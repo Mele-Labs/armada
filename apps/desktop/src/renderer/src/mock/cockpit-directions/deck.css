@@ -140,7 +140,8 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 .deck-activity { flex: none; height: calc(var(--space-12) * 5); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 .deck-activity .armada-tl__body { flex: 1 1 0; min-height: 0; }
-.deck-activity .armada-tl__part { padding: 0 var(--space-2); }
+.deck-activity .armada-tl__block { padding: 0 var(--space-2) var(--space-1); }
+.deck-activity .armada-tl__part { padding: 0 var(--space-3); }
 .deck-activity .armada-tl__event {
   margin-bottom: var(--space-1);
   border-radius: calc(var(--radius-lg) * 1.5);
@@ -153,7 +154,11 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 .deck-activity .armada-tl__age { grid-column: 1; grid-row: 1; width: auto; }
 .deck-activity .armada-tl__spine { grid-column: 2; grid-row: 1 / span 2; }
 .deck-activity .armada-tl__who { grid-column: 3; grid-row: 1; }
-.deck-activity .armada-tl__says { grid-column: 3; grid-row: 2; }
+.deck-activity .armada-tl__who { overflow: hidden; }
+.deck-activity .armada-tl__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* One line to an event, a step smaller, cut with an ellipsis: the whole of it is in the tooltip. */
+.deck-activity .armada-tl__says { grid-column: 3; grid-row: 2; font-size: var(--text-2xs); text-overflow: ellipsis; }
+.deck-activity .armada-tl__says .armada-tl__detail { flex: 0 1 auto; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
 
@@ -194,9 +199,8 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 
 .deck-map,
 .deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
-/* The map runs edge to edge, with room round it, and stops above the pins that stand over its foot. */
+/* The map runs edge to edge in its pane, with room round it. */
 .deck-map { padding: var(--space-3); overflow: hidden; }
-.deck-stage:has(.deck-queue[data-over]) .deck-map { padding-bottom: calc(var(--space-12) * 2); }
 .deck-timeline > * { flex: 1 1 auto; min-width: 0; }
 
 .armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
@@ -249,37 +253,46 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 .armada-map__key { position: absolute; left: var(--space-2); bottom: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
 .armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
 
-/* ---- The merge queue: waypoints ---------------------------------------------------------------------- */
+/* ---- The merge queue: one row in a glass panel under the map, as dots or as chips -------------------- */
 
-/* A row of pins on a dotted line. Over the map it stands on the foot of it, with nothing behind it; elsewhere it is a glass strip below the pane. */
-.deck-queue { flex: none; }
-.deck-queue:not([data-over]) { padding: var(--space-2) var(--space-4); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 1.5); background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card); }
-.deck-queue[data-over] { position: absolute; right: 0; bottom: var(--space-3); left: 0; z-index: 1; pointer-events: none; }
-.deck-queue__pins { position: relative; display: flex; align-items: flex-end; justify-content: space-evenly; gap: var(--space-4); max-width: calc(var(--space-12) * 14); margin: 0 auto; padding: 0 var(--space-4); list-style: none; }
-.deck-queue__pins::before { content: ""; position: absolute; right: var(--space-6); bottom: calc(var(--space-2) - var(--border-width)); left: var(--space-6); border-top: var(--border-width) dotted var(--fg-subtle); opacity: 0.7; }
-.deck-queue__gap { flex: none; width: 0; }
-.deck-pin { --stood: var(--fg-subtle); position: relative; display: flex; pointer-events: auto; }
-.deck-pin[data-stood="ready"] { --stood: var(--status-completed-success); }
-.deck-pin[data-stood="active"] { --stood: var(--status-awaiting-review); }
-.deck-pin[data-stood="failing"] { --stood: var(--status-completed-failed); }
-.deck-pin__body { display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-span.deck-pin__body { cursor: default; }
-.deck-pin__body:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-lg); }
-.deck-pin__label {
-  padding: var(--space-1) var(--space-3);
-  border-radius: calc(var(--radius-lg) * 2);
-  background: var(--bg-overlay);
+.deck-queue { flex: none; min-height: var(--h-control); justify-content: center; }
+.deck-queue .armada-view__dot[data-state] { --dot: var(--fg-subtle); }
+.deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
+.deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
+.deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
+.deck-queue .armada-view__main { background: var(--fg-subtle); }
+.deck-queue .armada-view__main[data-red] { background: var(--status-completed-failed); }
+.deck-queue__gap { flex: none; width: var(--space-4); }
+
+.deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
+.deck-chips { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; }
+.deck-chips > .deck-queue__gap { width: var(--space-2); }
+.deck-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-badge);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--h-badge) / 2);
+  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
   color: var(--fg-muted);
+  font: inherit;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  line-height: var(--leading-xs);
-  box-shadow: var(--shadow-card);
+  line-height: 1;
+  cursor: pointer;
 }
-.deck-pin:not([data-stood="waiting"]) .deck-pin__label { background: var(--stood); color: var(--fg-inverse); font-weight: var(--weight-heading); }
-.deck-pin__stem { width: var(--border-width); height: var(--space-2); background: var(--stood); }
-.deck-pin__disc { width: var(--space-6); height: var(--space-2); border-radius: 50%; background: color-mix(in srgb, var(--stood) 35%, transparent); box-shadow: 0 0 0 var(--border-width) var(--stood), 0 0 var(--space-3) color-mix(in srgb, var(--stood) 40%, transparent); }
-.deck-pin[data-selected] .deck-pin__label { box-shadow: 0 0 0 var(--space-1) var(--accent); }
-.deck-pin__body:hover .deck-pin__label { filter: brightness(1.15); }
+span.deck-chip { cursor: default; }
+button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); }
+.deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+/* Selected is lit with the accent's ground. */
+.deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+.deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
+.deck-chip__dot[data-queued],
+.deck-chip__dot:not([data-state]) { background: var(--dot); }
+.deck-chip__dot[data-tone="ask"] { --dot: var(--status-awaiting-review); }
+.deck-chip__dot[data-tone="bad"] { --dot: var(--status-completed-failed); }
 
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 
@@ -458,3 +471,10 @@ span.deck-pin__body { cursor: default; }
 /* Running and passed are gray: only a Check that failed is a colour. */
 .deck-check[data-state="running"] .armada-step-mark,
 .deck-check[data-state="passed"] .armada-step-mark { color: var(--fg-subtle); }
+
+/* ---- A call's strip: its own answers, over the Job or Session it is about ----------------------------- */
+
+.deck-callstrip { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0 var(--space-3) var(--space-2); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--hue); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-callstrip__ask { min-width: 0; flex: 1 1 auto; color: var(--fg-default); font-weight: var(--weight-medium); }
+.deck-callstrip__target { min-width: 0; max-width: 100%; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.deck-callstrip__acts { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }

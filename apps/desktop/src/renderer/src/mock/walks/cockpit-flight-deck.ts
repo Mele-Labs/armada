@@ -1,5 +1,5 @@
 // The Cockpit as a flight deck: the places as tabs in the title bar, every Job and Session in a column on the left,
-// the map until something is picked and then that thing, the merge queue as waypoints over the map, the bays with the incoming calls under them, and the
+// the map until something is picked and then that thing, the merge queue as one row of dots or chips under it, the bays with the incoming calls under them, and the
 // flight control tiles and Autopilot under it. A throwaway prototype on proto/cockpit-flight-deck.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
@@ -19,9 +19,10 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { look: inside(region("Activity"), text(/Shorten the reconnect wait/)), say: "Activity is the Cockpit's feed, newest first, in the column under the list" },
   { later: places, say: "A Session replies" },
   { look: inside(incoming, button(/Pin the store clock/)), say: "A call arrives in the panel under the Bays and rings until he opens it" },
-  { press: inside(incoming, button(/Pin the store clock/)), say: "Open it" },
-  { type: "Good. Merge it.\n", into: inside(stage(/^Call: Pin the store clock/), role("textbox", "Message")), say: "The real call card, answered here" },
-  { look: role("listbox", "Map"), say: "Answered: the call is gone from Incoming calls, and the area is back on the map" },
+  { press: inside(incoming, button(/Pin the store clock/)), say: "Pressing a call opens the Session it is about, as a row of the column does. That is the visit, so the call leaves Incoming calls" },
+  { type: "Good. Merge it.\n", into: inside(stage(/^Session: Pin the store clock/), role("textbox", "Message")), say: "Answered in the Session's own box" },
+  { press: inside(stage(/^Session: Pin the store clock/), button("Back to the map")), say: "Back to the map" },
+  { look: role("listbox", "Map"), say: "The map again" },
   { key: "ArrowDown", on: list, say: "Down moves through the column" },
   { key: "Enter", on: list, say: "Enter opens the row in the area" },
   { look: stage(/^(Job|Session): /), say: "A Job or a Session, in the same place" },
@@ -30,7 +31,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { look: inside(stage(/^Session: Migration notes/), role("textbox", "Message")), say: "Its thread and its box, as the Session's page has them" },
   { press: inside(region("Bays"), button(/^slot-2/)), say: "A bay" },
   { look: stage("Bay: slot-2"), say: "What holds it, and since when" },
-  { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row of pins over the map: a pin for each pull request, one for main. Green is ready, orange is running, red is failing, gray is waiting" },
+  { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row under the map: a mark for each pull request, one light for main" },
   { look: stage("Pull request #1896"), say: "What the forge says about it" },
   { press: inside(controls, button("Checks")), say: "Checks, from the flight controls" },
   { look: inside(stage("Checks"), region("Running")), say: "What is running now is in one band, what has finished under it" },

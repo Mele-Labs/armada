@@ -94,6 +94,20 @@ export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, num
     .map(({ one }) => one);
 }
 
+/**
+ * Opens a call by opening what it is about, as a row of the list does: its Job or Session, else the pull request it names,
+ * and the card itself only where there is neither. Opening it is the visit, so it leaves the tray.
+ */
+export function openCall(ship: Ship, item: Item): void {
+  visit(item.key);
+  const owner = item.ownedBy;
+  const subject = ship.subjects.find((one) => one.kind !== "pr" && one.call === item.key) ?? (owner === undefined ? undefined : ship.subjects.find((one) => one.kind === owner.kind && one.id === owner.id));
+  if (subject !== undefined) return select(selOfSubject(subject));
+  const number = /^pull:(\d+)$/.exec(item.key)?.[1];
+  const pr = number === undefined ? undefined : ship.prs.find((one) => one.number === Number(number));
+  select(pr === undefined ? { kind: "call", key: item.key } : selOfPr(pr));
+}
+
 /** The call that is about a Job or Session, while it is not answered. */
 export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number>): string | undefined => (subject.call === undefined || held.has(subject.call) ? undefined : subject.call);
 

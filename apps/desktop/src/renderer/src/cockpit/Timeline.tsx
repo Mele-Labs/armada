@@ -156,7 +156,7 @@ const bucketOf = (event: FleetEvent, now: number): string => {
 };
 
 /** Every event of `lanes`, newest first, in blocks by how long ago; the newest of each subject carries how it stands. */
-function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open: Open }) {
+function Feed({ lanes, now, open, tips = false }: { lanes: readonly Lane[]; now: number; open: Open; /** Each event's whole line, in a tooltip: for a column that cuts it short. */ tips?: boolean }) {
   const standing = new Map(lanes.map((lane) => [lane.events[0]!.id, lane.standing]));
   const events = lanes.flatMap((lane) => lane.events).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const blocks: { said: string; rows: FleetEvent[] }[] = [];
@@ -178,10 +178,19 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
                 <i className="armada-tl__mark" data-shape={shapeOf(event)} />
               </span>
               <Who subject={event.subject} open={open} />
-              <span className="armada-tl__says">
-                {event.says}
-                {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
-              </span>
+              {tips ? (
+                <Tooltip label={[event.says, event.detail].filter((one) => one !== undefined && one !== "").join(" ")} asChild>
+                  <span className="armada-tl__says">
+                    {event.says}
+                    {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
+                  </span>
+                </Tooltip>
+              ) : (
+                <span className="armada-tl__says">
+                  {event.says}
+                  {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
+                </span>
+              )}
             </li>
           ))}
         </ol>
@@ -419,7 +428,7 @@ export function ActivityFeed({ now, jobs, views = NO_VIEWS, filter, keep, onOpen
   return (
     <section className="armada-tl" aria-label="Activity feed" data-take="feed">
       <div className="armada-tl__body">
-        <Feed lanes={lanes} now={now} open={open} />
+        <Feed lanes={lanes} now={now} open={open} tips />
       </div>
     </section>
   );

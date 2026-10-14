@@ -14,6 +14,7 @@ import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import { age, type Item } from "../../Dashboard";
+import { useAnswering } from "../../cockpit/answers";
 import { CallCard, type CardKeys } from "../../cockpit/CallCard";
 import { dotsOf } from "../../cockpit/horizon";
 import { heldFor } from "../../cockpit/metro";
@@ -90,7 +91,38 @@ function stepsOf(props: CockpitProps, subject: Subject) {
   });
 }
 
-export function JobPane({ subject, props, acts, onPr }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void }) {
+/**
+ * A slim strip of the call's own answers, over a Job's or Session's pane, for a call whose act lives only on the call
+ * card: an option, a permission, an approval. The answers are the card's, from the same hook, so answering clears it.
+ */
+function CallStrip({ item, props }: { item: Item; props: CockpitProps }) {
+  const finish = () => answered(item.key);
+  const answer = useAnswering(item, props, props.state, finish, finish);
+  if (answer.answers.length === 0) return null;
+  const held = answer.pending !== undefined;
+  return (
+    <div className="deck-callstrip" data-hue={item.hue} role="group" aria-label={`Call: ${item.title}`}>
+      <span className="deck-callstrip__ask">{answer.ask}</span>
+      {answer.target === undefined ? null : <code className="deck-callstrip__target">{answer.target}</code>}
+      <span className="deck-callstrip__acts">
+        {answer.answers.map((one) => {
+          const button = (
+            <Button key={one.id} size="sm" variant={one.recommended === true ? "primary" : "secondary"} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} onClick={() => one.run()}>
+              {one.label}
+            </Button>
+          );
+          return one.says === undefined ? button : (
+            <Tooltip key={one.id} label={one.says}>
+              {button}
+            </Tooltip>
+          );
+        })}
+      </span>
+    </div>
+  );
+}
+
+export function JobPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
   const run = useMemo(() => stepsOf(props, subject), [props, subject]);
   const live = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -103,6 +135,7 @@ export function JobPane({ subject, props, acts, onPr }: { subject: Subject; prop
       <PaneHead glyph={Box} kind="Job" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone }} />}>
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
+      {call === undefined || (nowing?.asks?.length ?? 0) > 0 ? null : <CallStrip item={call} props={props} />}
       <div className="deck-job">
         <div className="deck-job__canvas" role="group" aria-label="Canvas">
           {subject.step === undefined ? null : (
@@ -128,13 +161,14 @@ export function JobPane({ subject, props, acts, onPr }: { subject: Subject; prop
 
 // ---- A Session -----------------------------------------------------------------------------------------
 
-export function SessionPane({ subject, props, acts, onPr }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void }) {
+export function SessionPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
   const tone = toneOf(subject);
   return (
     <section className="deck-pane" aria-label={`Session: ${subject.title}`}>
       <PaneHead glyph={SquareTerminal} kind="Session" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone }} />}>
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
+      {call === undefined ? null : <CallStrip item={call} props={props} />}
       <div className="deck-session">
         <SessionMini sessionId={subject.id} onOpen={props.onOpenSession} fill />
       </div>
