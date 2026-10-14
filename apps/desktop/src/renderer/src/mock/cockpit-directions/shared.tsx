@@ -35,7 +35,7 @@ export function MarkGlyph({ mark, size = 16 }: { mark: Mark; size?: 12 | 16 | 20
   );
 }
 
-const STAGE: Record<Pr["stage"], { Glyph: LucideIcon; said: string }> = {
+export const STAGE: Record<Pr["stage"], { Glyph: LucideIcon; said: string }> = {
   checking: { Glyph: CircleDot, said: "Checks running" },
   red: { Glyph: ShieldX, said: "Checks failed" },
   queued: { Glyph: GitMerge, said: "In the merge queue" },

@@ -8,12 +8,15 @@
 body:has(.deck-chrome) .armada-shell__left,
 body:has(.deck-chrome) .armada-shell__left-handle,
 body:has(.deck-chrome) .armada-title-bar__picker,
-body:has(.deck-chrome) .armada-title-bar__search,
 body:has(.deck-chrome) .armada-title-bar__helm,
 body:has(.deck-chrome) .armada-title-bar__sleep,
 body:has(.deck-chrome) .armada-title-bar__lockup,
 body:has(.deck-chrome) .armada-title-bar__mark { display: none; }
 body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
+/* The real search trigger, as an icon and its key: right of the places, left of the plan meters. Its label is hidden, its tooltip is set by the deck. */
+body:has(.deck-chrome) .armada-title-bar__search { order: 2; flex: none; width: auto; height: calc(var(--h-control) + var(--space-1) / 2); gap: var(--space-2); padding-inline: var(--space-3); border-color: var(--border-glass); border-radius: calc(var(--radius-lg) * 2); background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight); color: var(--fg-muted); }
+body:has(.deck-chrome) .armada-title-bar__search:hover { background: var(--bg-hover); color: var(--fg-default); }
+body:has(.deck-chrome) .armada-title-bar__search-label { display: none; }
 
 .deck-wordmark {
   color: var(--fg-default);
@@ -185,7 +188,11 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 .deck-job { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .deck-job__canvas { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); padding: var(--space-3); border-right: var(--border-width) solid var(--border-default); overflow-y: auto; }
 .deck-job__steps { flex: none; }
-.deck-job__run { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+/* The run is the Job page's own canvas, read-only, taking what the pane has left under the step marks. */
+.deck-job__canvas { overflow: hidden; }
+.deck-job__run { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
+.deck-job__run > .armada-approval-canvas { flex: 1 1 0; min-width: 0; block-size: 100%; }
+.deck-job__reading { flex: 1 1 auto; }
 .deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
 
 /* A Session: its own thread, and the box to answer it. */
@@ -207,12 +214,11 @@ body:has(.deck-chrome) .armada-title-bar__menu { display: block; }
 /* ---- The merge queue: one row in a glass panel under the map, as dots or as chips -------------------- */
 
 .deck-queue { flex: none; min-height: var(--h-control); justify-content: center; }
-.deck-queue .armada-view__dot[data-state] { --dot: var(--fg-subtle); }
+/* ViewSheet draws a diff row with the same class name and is loaded after the Cockpit's: the belt's row is put back. */
+.deck-queue .armada-view__line { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding-inline: 0; white-space: normal; color: var(--fg-muted); }
 .deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
 .deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
 .deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
-.deck-queue .armada-view__main { background: var(--fg-subtle); }
-.deck-queue .armada-view__main[data-red] { background: var(--status-completed-failed); }
 .deck-queue__gap { flex: none; width: var(--space-4); }
 
 .deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
@@ -242,8 +248,15 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
 .deck-chip__dot[data-queued],
 .deck-chip__dot:not([data-state]) { background: var(--dot); }
+.deck-chip__dot[data-state="blocked"] { --dot: var(--status-escalated); }
+.deck-chip__dot[data-state="running"] { --dot: var(--status-running); }
+.deck-chip__dot[data-state="ready"] { --dot: var(--status-completed-success); }
+.deck-chip__dot[data-state="failing"] { --dot: var(--status-completed-failed); }
 .deck-chip__dot[data-tone="ask"] { --dot: var(--status-awaiting-review); }
 .deck-chip__dot[data-tone="bad"] { --dot: var(--status-completed-failed); }
+/* Main's chip: the Cockpit's own green with its glow, red when it is red. */
+.deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
+.deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
 
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 
@@ -428,3 +441,73 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-callstrip__ask { min-width: 0; flex: 1 1 auto; color: var(--fg-default); font-weight: var(--weight-medium); }
 .deck-callstrip__target { min-width: 0; max-width: 100%; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .deck-callstrip__acts { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* ---- Keys: where focus is, the panel is lit ------------------------------------------------------------- */
+
+/* One focus state: the heading lit and a hairline frame in the accent. The thing focused inside keeps its own ring. */
+.deck-panel:focus,
+.deck-pane:focus,
+.bf:focus { outline: none; }
+.deck-panel:focus-within,
+.deck-stage > .deck-pane:focus-within { border-color: var(--accent); box-shadow: inset 0 1px 0 var(--border-highlight), 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+.deck-panel:focus-within > .deck-band,
+.deck-stage > .deck-pane:focus-within > .deck-band { background: var(--accent-muted); color: var(--fg-default); }
+/* A key is a quiet cap at the end of a heading, and in the corner of a tile. */
+.deck-band .armada-kbd { opacity: 0.7; }
+.deck-band .armada-kbd + .armada-kbd { margin-left: 0; }
+.deck-tile { position: relative; }
+.deck-tile__key { position: absolute; top: var(--space-1); right: var(--space-1); opacity: 0.6; }
+.deck-tile[aria-pressed="true"] .deck-tile__key { opacity: 0.9; }
+
+/* The key sheet: six groups in two columns, so it is read in one look. */
+.deck-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-6) var(--space-6); }
+.deck-keys .armada-keys__row { grid-template-columns: calc(var(--space-12) * 1.75) minmax(0, 1fr); }
+.deck-keys .armada-keys__row dt { flex-wrap: wrap; }
+
+/* ---- A picked event, and a replay ----------------------------------------------------------------------- */
+
+/* The Activity row picked, or the one the playhead last passed, stays lit. */
+.deck-activity .armada-tl__event { cursor: pointer; }
+.deck-activity .armada-tl__event[data-lit] { background: var(--accent-muted); box-shadow: inset 2px 0 0 var(--accent); }
+
+.deck-focus,
+.deck-replay,
+.deck-replay-mark {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 2);
+  background: color-mix(in srgb, var(--bg-base) 86%, transparent);
+  box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card);
+  backdrop-filter: blur(8px);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+/* The caption: the picked event's sentence and its age, with the way into a replay. Top middle of the map. */
+.deck-focus { top: var(--space-3); left: 50%; translate: -50% 0; max-width: calc(100% - var(--space-12) * 3); padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4); }
+.deck-focus__who { color: var(--fg-default); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-focus__says { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-focus__ago { flex: none; color: var(--fg-subtle); }
+/* The marker, so a replayed field is never taken for the live one. */
+.deck-replay-mark { top: var(--space-3); left: var(--space-3); padding: var(--space-1) var(--space-4) var(--space-1) var(--space-3); color: var(--accent); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+/* The bar, along the bottom of the map above the merge queue. */
+.deck-replay { bottom: var(--space-3); left: var(--space-4); right: var(--space-4); padding: var(--space-1) var(--space-3); }
+.deck-replay__speeds { display: flex; flex: none; padding: 2px; border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 2); }
+.deck-replay__speed { min-width: var(--space-8); height: var(--space-6); padding: 0 var(--space-2); border: 0; border-radius: calc(var(--radius-lg) * 2); background: transparent; color: var(--fg-muted); font: inherit; cursor: pointer; }
+.deck-replay__speed[aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); }
+.deck-replay__speed:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-replay__track { position: relative; flex: 1 1 0; min-width: 0; height: var(--space-6); cursor: pointer; touch-action: none; }
+.deck-replay__track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; translate: 0 -50%; border-radius: 1px; background: color-mix(in srgb, var(--fg-default) 14%, transparent); }
+.deck-replay__fill { position: absolute; left: 0; top: 50%; height: 2px; translate: 0 -50%; border-radius: 1px; background: var(--accent); transition: width 120ms linear; }
+.deck-replay__tick { position: absolute; top: 50%; width: 2px; height: var(--space-3); translate: -1px -50%; border-radius: 1px; background: var(--fg-subtle); }
+.deck-replay__tick[data-passed] { background: var(--accent); }
+.deck-replay__head { position: absolute; top: 50%; width: var(--space-3); height: var(--space-3); translate: -50% -50%; border-radius: 50%; background: var(--accent); box-shadow: 0 0 var(--space-3) var(--accent); transition: left 120ms linear; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .deck-replay__fill,
+  .deck-replay__head { transition: none; }
+}

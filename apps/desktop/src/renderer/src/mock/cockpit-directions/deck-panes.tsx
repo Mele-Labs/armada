@@ -5,11 +5,11 @@
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, ShieldCheck, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, NowPanel, RunNode, StepActivityMark, Tooltip, isPressed, pressedDigit } from "@armada/components";
-import type { RunNodeState, StepActivity } from "@armada/components";
+import { Button, NowPanel, StepActivityMark, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolSlots/PoolTile";
 import type { WorktreeSlot } from "@armada/protocol";
-import { nowPanelOf } from "@armada/jobs";
+import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
+import { droneViewsOf } from "@armada/jobs/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
@@ -65,8 +65,8 @@ function SubjectActs({ subject, acts, onPr }: { subject: Subject; acts: Acts; on
           </Button>
         </Tooltip>
       ) : null}
-      <Tooltip label={`Open the ${kind}`}>
-        <Button variant="ghost" size="sm" iconOnly aria-label={`Open the ${kind}`} onClick={() => acts.open(subject)}>
+      <Tooltip label={`Open the ${kind} page`}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Open the ${kind} page`} onClick={() => acts.open(subject)}>
           <ExternalLink size={16} aria-hidden />
         </Button>
       </Tooltip>
@@ -75,21 +75,6 @@ function SubjectActs({ subject, acts, onPr }: { subject: Subject; acts: Acts; on
 }
 
 // ---- A Job ---------------------------------------------------------------------------------------------
-
-/** Where each step of the Job's workflow stands: the ones before it done, the one it is at live, the rest not reached. */
-function stepsOf(props: CockpitProps, subject: Subject) {
-  const job = props.state.jobs.find((one) => one.id === subject.id);
-  const steps = props.state.holds.workflows.find((one) => one.id === job?.workflow_id)?.steps ?? [];
-  const at = steps.findIndex((step) => step.step_id === job?.current_step_id);
-  const tone = toneOf(subject);
-  return steps.map((step, index) => {
-    const here = index === at;
-    const state: RunNodeState = index < at ? "done" : here ? "live" : "upcoming";
-    const activity: StepActivity = index < at ? "advanced" : here ? (tone === "bad" ? "failed" : tone === "ask" ? "awaiting_human" : "running") : "not_started";
-    const said = index < at ? "Done" : here ? (tone === "bad" ? "Check failed" : tone === "ask" ? "Waiting on you" : "Running") : "Not started";
-    return { step, state, activity, said, here };
-  });
-}
 
 /**
  * A slim strip of the call's own answers, over a Job's or Session's pane, for a call whose act lives only on the call
@@ -122,12 +107,32 @@ function CallStrip({ item, props }: { item: Item; props: CockpitProps }) {
   );
 }
 
-export function JobPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
-  const run = useMemo(() => stepsOf(props, subject), [props, subject]);
-  const live = useRef<HTMLLIElement>(null);
+/** The Job's run, the canvas its own page draws, read from the Job Bridge is watching; the pane asks Fleet to watch it. */
+function RunCanvas({ subject, props }: { subject: Subject; props: CockpitProps }) {
+  const { watched, jobDrones, holds } = props.state;
+  const whole = detailOf(watched, subject.id);
+  const watching = watched.state === "read" ? watched.jobId : undefined;
+  // Fleet watches one Job. Say which one this is, and say it again if the page or another pane moved it.
   useEffect(() => {
-    live.current?.scrollIntoView?.({ block: "center" });
-  }, [subject.key]);
+    if (watching !== subject.id) void window.armada.watchJob(subject.id);
+  }, [subject.id, watching]);
+  const drones = useMemo(() => droneViewsOf(jobDrones?.state === "read" && jobDrones.jobId === subject.id ? jobDrones.drones : undefined, whole ?? undefined), [jobDrones, subject.id, whole]);
+  if (whole === null) return <div className="deck-job__reading" role="status" aria-busy aria-label="Reading the run" />;
+  return (
+    <JobRun
+      whole={whole}
+      drones={drones}
+      board={props.state.jobs}
+      now={props.nows?.[subject.id]}
+      workflows={holds.workflows}
+      manifest={holds.manifests.find((one) => one.id === whole.job.owner_manifest_id)}
+      onOpenJob={props.onOpen}
+      wholeRun
+    />
+  );
+}
+
+export function JobPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
   const nowing = nowPanelOf(props.nows?.[subject.id], { onOpenJob: props.onOpen, onSaid: () => {} });
   const tone = toneOf(subject);
   return (
@@ -143,13 +148,9 @@ export function JobPane({ subject, props, acts, onPr, call }: { subject: Subject
               <StepsBar step={subject.step} tone={tone} />
             </div>
           )}
-          <ol className="deck-job__run">
-            {run.map(({ step, state, activity, said, here }) => (
-              <li key={step.step_id} ref={here ? live : undefined} className="deck-job__node">
-                <RunNode kind="step" name={step.label} id={step.step_id} activity={activity} said={said} state={state} narrow />
-              </li>
-            ))}
-          </ol>
+          <div className="deck-job__run">
+            <RunCanvas subject={subject} props={props} />
+          </div>
         </div>
         <div className="deck-job__now" role="group" aria-label="Running now">
           {nowing === undefined ? null : <NowPanel {...nowing} />}

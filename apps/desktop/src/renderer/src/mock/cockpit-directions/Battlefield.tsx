@@ -13,13 +13,18 @@
 // one layer above the slabs and shifted by the height they stand for. Calm at rest: only what is working or calling moves.
 // Mock only. proto/cockpit-flight-deck.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Crosshair, Minus, Plus } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { Crosshair, Minus, Plus, ShieldCheck, ShieldX } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
+import { camera } from "./deck-model";
+import { Callout, type Anchor, type Glyph, type Tip } from "./Callout";
+import { STAGE } from "./shared";
 import { ALONG, CAM, FLAT, SLAB, STAGE_SAID, TRAIL_MS, alongOf, bigOf, heightsOf, layoutOf, rand, type DroneIn, type P3, type Placed, type Play, type Point, type RepoIn, type Size, type Territory, type Tile } from "./deck-field";
 
-export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; holder?: string };
+export type PadIn = { key: string; slot: number; bay: string; word: string; repo: string; Glyph: Glyph; holder?: string };
+/** What a drone's callout says beyond the drone itself: its state as the list draws it, the call it holds, what it last did and when, its last hour. */
+export type DroneFacts = { state: { Glyph: Glyph; said: string; tone: "calm" | "ask" | "bad" }; call?: string; last?: { says: string; ago: string }; ticks: readonly number[]; bay?: { slot: number; Glyph: Glyph; word: string } };
 export type PrIn = { key: string; number: number; stage: keyof typeof ALONG; root: string; owner?: string };
 export type GoalIn = { root: string; said: string; red: boolean };
 
@@ -36,9 +41,30 @@ const MARGIN = 10;
 /** The least height a pull request flies at: its picture clear of every slab. */
 const ROUTE = SLAB.high + 22;
 const SIN = Math.sin((CAM.wide * Math.PI) / 180);
+const COS = Math.cos((CAM.wide * Math.PI) / 180);
+/** How much larger the field is than the pane, each way. */
+const WORLD = 1.8;
+/** How far the camera stands at home: back far enough to take the field in, never so far that a drone is too small to hit. */
+const HOME = { least: 0.6, most: 0.92 };
+/** The least a drone's hit box may stand on the screen at home, in pixels tall. */
+const HIT_LEAST = 56;
+/** How close lock-on stands. */
+const LOCK_EYE = 1.5;
+/** How much one press of + or - zooms, and how far an arrow key pans, in screen pixels. */
+const ZOOM_STEP = 1.25;
+const KEY_PAN = 90;
+/** A press that moves less than this is a click. */
+const DRAG = 4;
+type Cam = { x: number; y: number; eye: number; tilt: boolean };
 
-type Tip = { said: string; title: string; left: number; top: number };
-type Target = Element;
+/** Raised by a thing that is hovered or focused: what to say, what it hangs from, and where the pointer was if it is too large to have a middle. */
+type OnTip = (tip: Tip | undefined, target?: Element, at?: { x: number; y: number }) => void;
+/** The directories a drone touches, the biggest two, each shortened from the left. */
+const pillsOf = (drone: DroneIn): string[] =>
+  [...drone.touches]
+    .sort((a, b) => b.w - a.w)
+    .slice(0, 2)
+    .map((one) => (one.path.length > 26 ? `…${one.path.slice(-25)}` : one.path));
 
 const vars = (values: Record<string, string | number>) => values as CSSProperties;
 const px = (value: number) => `${value.toFixed(1)}px`;
@@ -155,7 +181,10 @@ function Drone({
   labelled,
   muted,
   away,
+  focused,
+  dim,
   play,
+  facts,
   onSelect,
   onTip,
 }: {
@@ -175,13 +204,31 @@ function Drone({
   labelled: boolean;
   muted: boolean;
   away: boolean;
+  /** The drone a picked event is about: a ping ring at it. Every other drone is `dim`. */
+  focused: boolean;
+  dim: boolean;
   play: Play | undefined;
+  facts: DroneFacts | undefined;
   onSelect: () => void;
-  onTip: (tip: Tip | undefined, target?: Target) => void;
+  onTip: OnTip;
 }) {
   const wide = drone.kind === "job" ? 26 : 20;
   const said = `${drone.kind === "job" ? "Job" : "Session"}, ${drone.said}`;
-  const show = (event: { currentTarget: Element }) => onTip({ said, title: drone.title, left: 0, top: 0 }, event.currentTarget);
+  const show = (event: { currentTarget: Element }) =>
+    onTip(
+      {
+        label: drone.kind === "job" ? "Job" : "Session",
+        title: drone.title,
+        hue: drone.hue,
+        state: facts?.state ?? { Glyph: ShieldCheck, said: drone.said, tone: drone.hue },
+        pills: pillsOf(drone),
+        ...(facts?.bay === undefined ? {} : { bay: facts.bay }),
+        ...(facts?.last === undefined ? {} : { last: facts.last }),
+        ...(facts?.call === undefined ? {} : { call: facts.call }),
+        ...(facts === undefined ? {} : { ticks: facts.ticks }),
+      },
+      event.currentTarget,
+    );
   const launching = play?.kind === "launch" && from !== undefined;
   return (
     <div
@@ -201,6 +248,8 @@ function Drone({
       data-selected={selected || undefined}
       data-muted={muted || undefined}
       data-away={away || undefined}
+      data-focus={focused || undefined}
+      data-dim={dim || undefined}
       data-hot={hot || undefined}
       data-launching={launching || undefined}
       style={vars({
@@ -230,6 +279,12 @@ function Drone({
           </>
         ) : null}
         {drone.stuck ? <i className="bf-stall" /> : null}
+        {focused ? (
+          <>
+            <i className="bf-ping" data-focus />
+            <i className="bf-ping" data-focus data-late />
+          </>
+        ) : null}
         <i className="bf-shadow" />
         <i className="bf-spot" />
         <i className="bf-rim" />
@@ -254,6 +309,10 @@ function Drone({
             ) : null}
             {selected ? (
               <g className="bf-reticle">
+                <path d={bracketsOf(wide + 14, -34, 22)} />
+              </g>
+            ) : hot ? (
+              <g className="bf-reticle" data-flick>
                 <path d={bracketsOf(wide + 14, -34, 22)} />
               </g>
             ) : null}
@@ -282,6 +341,7 @@ function Slab({
   lit,
   clash,
   named,
+  pulse,
   bump,
   room,
   onEnter,
@@ -292,9 +352,11 @@ function Slab({
   lit: boolean;
   clash: boolean;
   named: boolean;
+  /** A picked event touched it: its edge glows. */
+  pulse: boolean;
   bump: { wait: number; amp: number } | undefined;
   room: number;
-  onEnter: (event: { currentTarget: Element }) => void;
+  onEnter: (event: ReactMouseEvent) => void;
   onLeave: () => void;
 }) {
   const { rect } = tile;
@@ -304,6 +366,7 @@ function Slab({
       className="bf-slab"
       data-lit={lit || undefined}
       data-clash={clash || undefined}
+      data-pulse={pulse || undefined}
       data-bump={bump !== undefined || undefined}
       style={vars({ left: rect.x, top: rect.y * FLAT, width: rect.w, height: rect.h * FLAT, "--h": height.toFixed(2), "--tint": `${(5 + rand(tile.path, 1) * 3).toFixed(1)}%`, ...(bump === undefined ? {} : { "--wait": `${bump.wait}ms`, "--amp": bump.amp }) })}
       onMouseEnter={onEnter}
@@ -322,14 +385,14 @@ function Slab({
 }
 
 /** The compound on the ground: two plates, where the pads are set. */
-function Base({ territory, onTip }: { territory: Territory; onTip: (tip: Tip | undefined, target?: Target) => void }) {
+function Base({ territory, onTip }: { territory: Territory; onTip: OnTip }) {
   const { base } = territory;
   const centre = onPlane({ x: base.x, y: base.y + 4 });
   const width = base.w + 24;
   return (
     <g
       className="bf-base"
-      onMouseEnter={(event) => onTip({ said: "Repository", title: territory.name, left: 0, top: 0 }, event.currentTarget)}
+      onMouseEnter={(event) => onTip({ label: "Repository", title: territory.name, hue: "quiet" }, event.currentTarget, { x: event.clientX, y: event.clientY })}
       onMouseLeave={() => onTip(undefined)}
     >
       <rect className="bf-slab-base" x={centre.x - width / 2} y={centre.y - 27 * FLAT} width={width} height={54 * FLAT} rx={36} />
@@ -364,18 +427,20 @@ function Hangar({ territory }: { territory: Territory }) {
 function Goal({
   at,
   goal,
+  repo,
   capture,
   onPress,
   onTip,
 }: {
   at: Point;
   goal: GoalIn;
+  repo: string;
   capture: Play | undefined;
   onPress: () => void;
-  onTip: (tip: Tip | undefined, target?: Target) => void;
+  onTip: OnTip;
 }) {
-  const said = goal.said;
-  const tip = { said: "Objective", title: said, left: 0, top: 0 };
+  const said = `main in ${repo}: ${goal.red ? "red" : "green"}`;
+  const tip: Tip = { label: "Main", title: `main in ${repo}`, hue: goal.red ? "bad" : "good", state: { Glyph: goal.red ? ShieldX : ShieldCheck, said: goal.red ? "Red" : "Green", tone: goal.red ? "bad" : "good" } };
   return (
     <div
       className="bf-goal"
@@ -408,14 +473,15 @@ function Goal({
           <path className="bf-pennant" d="M0,-52 L26,-45 L0,-37 Z" />
           <circle className="bf-beacon" cy={-54} r={2.6} />
         </g>
-        <rect className="bf-hit" x={-62} y={-92} width={124} height={92} />
+        <text className="bf-flag-name" x={40} y={-62}>main</text>
+        <rect className="bf-hit" x={-14} y={-84} width={92} height={90} />
       </Sprite>
     </div>
   );
 }
 
-function Pad({ pad, at, onPress, onTip }: { pad: PadIn; at: Point; onPress: () => void; onTip: (tip: Tip | undefined, target?: Target) => void }) {
-  const tip = { said: pad.word, title: `slot-${pad.slot}, ${pad.repo}`, left: 0, top: 0 };
+function Pad({ pad, at, onPress, onTip }: { pad: PadIn; at: Point; onPress: () => void; onTip: OnTip }) {
+  const tip: Tip = { label: "Bay", title: `slot-${pad.slot}`, hue: pad.bay === "held" ? "calm" : "quiet", state: { Glyph: pad.Glyph, said: pad.word, tone: "calm" }, pills: [pad.repo], ...(pad.holder === undefined ? {} : { lines: [pad.holder] }) };
   return (
     <g
       className="bf-pad"
@@ -440,10 +506,10 @@ function Pad({ pad, at, onPress, onTip }: { pad: PadIn; at: Point; onPress: () =
 }
 
 /** A pull request: a small crate flying its route to the objective, further along the nearer it is to merging. */
-function Payload({ at, from, pr, arriving, fresh, onPress, onTip }: { at: P3; from: P3; pr: PrIn; arriving: Play | undefined; fresh: Play | undefined; onPress: () => void; onTip: (tip: Tip | undefined, target?: Target) => void }) {
+function Payload({ at, from, pr, arriving, fresh, onPress, onTip }: { at: P3; from: P3; pr: PrIn; arriving: Play | undefined; fresh: Play | undefined; onPress: () => void; onTip: OnTip }) {
   const said = STAGE_SAID[pr.stage];
   const title = `#${pr.number}`;
-  const tip = { said, title: `Pull request ${title}`, left: 0, top: 0 };
+  const tip: Tip = { label: "Pull request", title, hue: pr.stage === "red" ? "bad" : "calm", state: { Glyph: STAGE[pr.stage].Glyph, said: STAGE[pr.stage].said, tone: pr.stage === "red" ? "bad" : "calm" } };
   const hop = arriving ?? fresh;
   return (
     <div
@@ -487,6 +553,8 @@ export function Battlefield({
   prs,
   trails,
   plays,
+  facts,
+  focus,
   selected,
   onSelect,
   onPad,
@@ -500,6 +568,9 @@ export function Battlefield({
   prs: readonly PrIn[];
   trails: ReadonlyMap<string, number>;
   plays: readonly Play[];
+  facts: ReadonlyMap<string, DroneFacts>;
+  /** The drone a picked event is about. */
+  focus?: string | undefined;
   selected: string | undefined;
   onSelect: (key: string) => void;
   onPad: (key: string) => void;
@@ -522,13 +593,15 @@ export function Battlefield({
   }, []);
 
   const big = bigOf(size);
-  const layout = useMemo(() => layoutOf(repos, drones, size, big), [repos, drones, size, big]);
-  const plane = { width: size.width, height: size.height * FLAT };
+  // The world is larger than the pane: drones and plots are laid out at their own size and he pans and zooms for the rest.
+  const world = useMemo<Size>(() => ({ width: Math.round(size.width * WORLD), height: Math.round(size.height * WORLD) }), [size]);
+  const layout = useMemo(() => layoutOf(repos, drones, world, big, prs), [repos, drones, world, big, prs]);
+  const plane = { width: world.width, height: world.height * FLAT };
   const territory = new Map(layout.territories.map((one) => [one.root, one] as const));
   const padAt = new Map(layout.territories.flatMap((one) => one.pads.map((pad) => [pad.key, onPlane(pad)] as const)));
   const baseOf = (root: string): P3 => {
     const t = territory.get(root);
-    const at = onPlane(t === undefined ? { x: size.width / 2, y: size.height } : { x: t.base.x - t.base.w / 2 + 36, y: t.base.y + 8 });
+    const at = onPlane(t === undefined ? { x: world.width / 2, y: world.height } : { x: t.base.x - t.base.w / 2 + 36, y: t.base.y + 8 });
     return { ...at, z: 20 };
   };
   const heights = heightsOf(layout, drones, plays);
@@ -553,43 +626,178 @@ export function Battlefield({
   const sorted = [...drones].sort((a, b) => (layout.at.get(a.key)?.y ?? 0) - (layout.at.get(b.key)?.y ?? 0));
   const playOf = (key: string, kind: Play["kind"]) => plays.find((one) => one.key === key && one.kind === kind);
 
-  // The camera: the whole field, or the locked drone closer and lower. Zoom is the camera's distance, one more step in or out.
-  const [zoom, setZoom] = useState(1);
-  const [aim, setAim] = useState<Point | undefined>();
+  // The camera: where it looks on the plane and how far it stands. The field's own framing is home; a pinch, the wheel, a drag or a
+  // key moves it; lock-on and an arrival ease it, and a hand on it takes over. One state, one transform, drawn at most once a frame.
   const lock = selected === undefined ? undefined : layout.at.get(selected);
   const lockX = lock?.x;
   const lockY = lock?.y;
-  const first = useRef(true);
-  useLayoutEffect(() => {
-    if (lockX === undefined || lockY === undefined) return;
-    // The first frame is the whole field; the camera eases to the lock one frame later.
-    const go = () => {
-      setAim({ x: lockX, y: lockY - 30 });
-      setZoom((was) => Math.max(was, 1.7));
-    };
-    if (first.current) {
-      first.current = false;
-      const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(go));
-      return () => window.cancelAnimationFrame(frame);
-    }
-    go();
-  }, [selected, lockX, lockY]);
-  // A dispatch or a merge that happens while he watches is shown whole: the camera pulls back a little, the event plays, it returns.
-  const arrival = plays.some((one) => one.id.startsWith("arrived:") || one.id.startsWith("merged:"));
+  const home = useMemo<Cam>(() => {
+    const marks: Point[] = layout.territories.flatMap((one) => [{ x: one.rect.x, y: one.rect.y }, { x: one.rect.x + one.rect.w, y: one.rect.y + one.rect.h + 40 }]);
+    if (marks.length === 0) return { x: plane.width / 2, y: plane.height / 2, eye: 0.8, tilt: false };
+    const l = Math.min(...marks.map((m) => m.x));
+    const r = Math.max(...marks.map((m) => m.x));
+    const t = Math.min(...marks.map((m) => m.y));
+    const b = Math.max(...marks.map((m) => m.y));
+    const fitted = Math.min(size.width / (r - l), size.height / ((b - t) * FLAT * COS)) * 0.82;
+    const floor = Math.max(HOME.least, HIT_LEAST / (56 * big));
+    if (fitted >= floor) return { x: (l + r) / 2, y: ((t + b) / 2) * FLAT, eye: Math.min(HOME.most, fitted), tilt: false };
+    // Too much field for the pane at a size a drone can be read at: stand at that size over the drones, the flags and the bases.
+    const action: Point[] = [...layout.at.values(), ...layout.territories.flatMap((one) => [...(one.goal === undefined ? [] : [one.goal]), { x: one.base.x, y: one.base.y }])];
+    const ax = (Math.min(...action.map((m) => m.x)) + Math.max(...action.map((m) => m.x))) / 2;
+    const ay = (Math.min(...action.map((m) => m.y)) + Math.max(...action.map((m) => m.y))) / 2;
+    return { x: ax, y: ay * FLAT, eye: floor, tilt: false };
+  }, [layout, plane.width, plane.height, size, big]);
+  const eyes = { least: Math.max(0.3, Math.min(size.width / world.width, size.height / (plane.height * COS)) * 0.92), most: 2.6 };
+  const fit = (c: Cam): Cam => ({ ...c, eye: Math.min(eyes.most, Math.max(eyes.least, c.eye)), x: Math.min(plane.width, Math.max(0, c.x)), y: Math.min(plane.height, Math.max(0, c.y)) });
+  const [held, setHeld] = useState<Cam | undefined>(camera.current);
+  const [live, setLive] = useState(false);
+  const [grab, setGrab] = useState(false);
+  // A dispatch or a merge that happens while he watches is shown whole: the camera pulls back to it, the event plays, it returns.
+  const arrival = plays.filter((one) => one.id.startsWith("arrived:") || one.id.startsWith("merged:"));
+  const arriving = arrival.length > 0;
   const [pulled, setPulled] = useState(false);
   useEffect(() => {
-    if (!arrival) return;
+    if (!arriving) return;
     setPulled(true);
     const timer = window.setTimeout(() => setPulled(false), 3600);
     return () => window.clearTimeout(timer);
-  }, [arrival]);
-  // At zoom 1 the camera stands far enough back to hold the whole field; an arrival backs it off a little more.
-  const eye = pulled ? 0.76 : zoom * 0.86;
-  const pitch = !pulled && zoom > 1.2 ? CAM.near : CAM.wide;
-  const clamp = (value: number, half: number, whole: number) => (half * 2 >= whole ? whole / 2 : Math.min(whole - half, Math.max(half, value)));
-  const look = pulled || aim === undefined ? { x: size.width / 2, y: size.height * 0.6 } : aim;
-  const ax = clamp(look.x, size.width / 2 / eye, plane.width);
-  const ay = clamp(look.y * FLAT, plane.height / 2 / eye, plane.height);
+  }, [arriving]);
+  const resting = held === undefined ? home : fit(held);
+  const pull = (() => {
+    if (!pulled || arrival.length === 0) return undefined;
+    const marks: Point[] = [];
+    for (const play of arrival) {
+      const own = play.key === undefined ? undefined : layout.at.get(play.key);
+      const root = play.root ?? own?.root ?? prs.find((pr) => pr.number === play.number)?.root;
+      if (own !== undefined) marks.push(own);
+      const goal = root === undefined ? undefined : territory.get(root)?.goal;
+      if (goal !== undefined) marks.push(goal);
+    }
+    if (marks.length === 0) return undefined;
+    const l = Math.min(...marks.map((m) => m.x)) - 220;
+    const r = Math.max(...marks.map((m) => m.x)) + 220;
+    const t = Math.min(...marks.map((m) => m.y)) - 200;
+    const b = Math.max(...marks.map((m) => m.y)) + 160;
+    const fitted = Math.min(size.width / (r - l), size.height / ((b - t) * FLAT * COS)) * 0.92;
+    return fit({ x: (l + r) / 2, y: ((t + b) / 2) * FLAT, eye: Math.min(resting.eye, fitted), tilt: false });
+  })();
+  const eff = pull ?? resting;
+  const latest = useRef(eff);
+  latest.current = eff;
+  const frame = useRef<number>(0);
+  const next = useRef<Cam>(eff);
+  const quiet = useRef<number>(0);
+  const pitch = eff.tilt ? CAM.near : CAM.wide;
+  // Move the camera. A hand on it is `live`: no easing, it follows at once. Anything else eases, unless motion is off.
+  const go = (to: Cam, by: "hand" | "ease") => {
+    const target = fit(to);
+    latest.current = target;
+    next.current = target;
+    camera.current = target;
+    if (by === "hand") {
+      setLive(true);
+      window.clearTimeout(quiet.current);
+      quiet.current = window.setTimeout(() => setLive(false), 180);
+    } else {
+      window.clearTimeout(quiet.current);
+      setLive(false);
+    }
+    setPulled(false);
+    if (frame.current === 0) {
+      frame.current = window.requestAnimationFrame(() => {
+        frame.current = 0;
+        setHeld(next.current);
+      });
+    }
+  };
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(frame.current);
+      window.clearTimeout(quiet.current);
+    },
+    [],
+  );
+  const centred = () => {
+    const box = host.current?.getBoundingClientRect();
+    return box === undefined ? { x: 0, y: 0 } : { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  };
+  /**
+   * Where a screen offset from the middle of the pane lies on the plane, from the aim, in plane units at an eye of one: the camera's own
+   * projection undone (the yaw, the tilt and the perspective), so a point held under the pointer stays under it however far it is from the middle.
+   */
+  const unproject = (sx: number, sy: number, tilt: boolean): Point => {
+    const phi = ((tilt ? CAM.near : CAM.wide) * Math.PI) / 180;
+    const yaw = (CAM.yaw * Math.PI) / 180;
+    const depth = size.width * 2.8;
+    const y1 = (sy * depth) / (depth * Math.cos(phi) + sy * Math.sin(phi));
+    const x1 = (sx * (depth - y1 * Math.sin(phi))) / depth;
+    return { x: x1 * Math.cos(yaw) + y1 * Math.sin(yaw), y: -x1 * Math.sin(yaw) + y1 * Math.cos(yaw) };
+  };
+  /** Zoom by a factor, keeping the point of the plane under (x, y) on the screen where it is. */
+  const zoomAt = (factor: number, x: number, y: number, by: "hand" | "ease" = "hand") => {
+    const c = latest.current;
+    const eye = Math.min(eyes.most, Math.max(eyes.least, c.eye * factor));
+    if (eye === c.eye) return;
+    const mid = centred();
+    const under = unproject(x - mid.x, y - mid.y, c.tilt);
+    const spread = 1 / c.eye - 1 / eye;
+    go({ ...c, eye, x: c.x + under.x * spread, y: c.y + under.y * spread }, by);
+  };
+  /** Move the camera so what lay under the middle of the pane now lies a (dx, dy) of the screen away: a drag, or a scroll. */
+  const panBy = (dx: number, dy: number, by: "hand" | "ease" = "hand", from: Cam = latest.current) => {
+    const there = unproject(dx, dy, from.tilt);
+    go({ ...from, x: from.x + there.x / from.eye, y: from.y + there.y / from.eye }, by);
+  };
+  const homeAgain = () => go(home, "ease");
+  const toSelection = () => (lockX === undefined || lockY === undefined ? homeAgain() : go({ x: lockX, y: (lockY - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease"));
+  // Lock-on: the camera eases to the drone picked, closer and lower. Not at the mount while the camera was left somewhere.
+  const first = useRef(camera.current !== undefined);
+  useEffect(() => {
+    if (lockX === undefined || lockY === undefined) return;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    go({ x: lockX, y: (lockY - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease");
+  }, [selected, lockX, lockY]);
+  // The hand: a drag, the wheel and a pinch.
+  const press = useRef<{ id: number; x: number; y: number; at: Cam; moved: boolean } | null>(null);
+  const swallow = useRef(false);
+  useEffect(() => {
+    const one = host.current;
+    if (one === null) return;
+    const wheel = (event: WheelEvent) => {
+      if ((event.target as Element).closest?.(".bf-zoom") !== null) return;
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1;
+      const dx = event.deltaX * unit;
+      const dy = event.deltaY * unit;
+      // A pinch arrives as a wheel with ctrl held; a mouse wheel as large whole steps; two fingers sliding as the small rest.
+      const wheelStep = event.deltaMode !== 0 || (dx === 0 && Math.abs(dy) >= 50 && Number.isInteger(dy));
+      if (event.ctrlKey) zoomAt(Math.exp(-dy * 0.012), event.clientX, event.clientY);
+      else if (wheelStep) zoomAt(Math.exp(-Math.sign(dy) * Math.min(Math.abs(dy), 160) * 0.0032), event.clientX, event.clientY);
+      else panBy(dx, dy);
+      setTip(undefined);
+    };
+    let from = 1;
+    const began = (event: Event) => {
+      event.preventDefault();
+      from = latest.current.eye;
+    };
+    const changed = (event: Event) => {
+      event.preventDefault();
+      const at = centred();
+      zoomAt((from * (event as unknown as { scale: number }).scale) / latest.current.eye, at.x, at.y);
+    };
+    one.addEventListener("wheel", wheel, { passive: false });
+    one.addEventListener("gesturestart", began);
+    one.addEventListener("gesturechange", changed);
+    return () => {
+      one.removeEventListener("wheel", wheel);
+      one.removeEventListener("gesturestart", began);
+      one.removeEventListener("gesturechange", changed);
+    };
+  });
   // The lifted lines are hidden while the pitch eases, since they are drawn for the pitch it is going to.
   const [easing, setEasing] = useState(false);
   const eased = useRef(pitch);
@@ -606,19 +814,28 @@ export function Battlefield({
     return `M${points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L")}`;
   };
 
-  const [tip, setTip] = useState<Tip>();
+  const [tip, setTip] = useState<{ tip: Tip; anchor: Anchor }>();
   const [hot, setHot] = useState<string>();
-  const showTip = (next: Tip | undefined, target?: Target) => {
+  const showTip: OnTip = (next, target, at) => {
     if (next === undefined || target === undefined) return setTip(undefined);
-    const box = target.getBoundingClientRect();
-    const base = host.current?.getBoundingClientRect();
-    if (base !== undefined) setTip({ ...next, left: box.x - base.x + box.width / 2, top: box.y - base.y });
+    setTip({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) } });
   };
+  // Esc puts the callout away; it comes back when the pointer or focus comes to something again.
+  useEffect(() => {
+    const away = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setTip(undefined);
+      setHot(undefined);
+    };
+    window.addEventListener("keydown", away, true);
+    return () => window.removeEventListener("keydown", away, true);
+  }, []);
 
   const locked = selected !== undefined && lock !== undefined;
   const [hotTile, setHotTile] = useState<string>();
   // The plots: a name for those the selected drone is over and those a calling drone is over, a lift for those a working
   // drone is over, an amber slab for those two or more are changing.
+  const pulsing = new Set((focus === undefined ? [] : (layout.over.get(focus) ?? [])).map((one) => one.tile.path));
   const clashAt = new Map(layout.clashes.map((one) => [one.path, one] as const));
   const labelled = new Set<string>();
   const lit = new Set<string>();
@@ -670,10 +887,84 @@ export function Battlefield({
     }
   }
   const landing = new Set(plays.filter((one) => one.kind === "capture" && one.number !== undefined).map((one) => one.number));
-  const cam = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eye}, ${eye}, ${eye}) translate3d(${px(-ax)}, ${px(-ay)}, 0px)`;
+  // The pointer: a press that moves less than DRAG is still a click on whatever it landed on; past it, it is a drag, and nothing is picked.
+  const zoomMid = (factor: number) => {
+    const mid = centred();
+    zoomAt(factor, mid.x, mid.y, "ease");
+  };
+  const onDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.pointerType === "mouse" && event.button !== 0) || (event.target as Element).closest(".bf-zoom") !== null) return;
+    press.current = { id: event.pointerId, x: event.clientX, y: event.clientY, at: latest.current, moved: false };
+  };
+  const onMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const one = press.current;
+    if (one === null || one.id !== event.pointerId) return;
+    const dx = event.clientX - one.x;
+    const dy = event.clientY - one.y;
+    if (!one.moved) {
+      if (Math.hypot(dx, dy) < DRAG) return;
+      one.moved = true;
+      host.current?.setPointerCapture(event.pointerId);
+      setGrab(true);
+      setTip(undefined);
+      setHot(undefined);
+    }
+    const mid = centred();
+    const from = unproject(one.x - mid.x, one.y - mid.y, one.at.tilt);
+    const to = unproject(event.clientX - mid.x, event.clientY - mid.y, one.at.tilt);
+    go({ ...one.at, x: one.at.x + (from.x - to.x) / one.at.eye, y: one.at.y + (from.y - to.y) / one.at.eye }, "hand");
+  };
+  const onUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const one = press.current;
+    if (one === null || one.id !== event.pointerId) return;
+    press.current = null;
+    if (!one.moved) return;
+    swallow.current = true;
+    window.setTimeout(() => (swallow.current = false), 0);
+    host.current?.releasePointerCapture?.(event.pointerId);
+    setGrab(false);
+  };
+  const onClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!swallow.current) return;
+    event.stopPropagation();
+    event.preventDefault();
+  };
+  const onDouble = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if ((event.target as Element).closest("[role=option], .bf-zoom") === null) homeAgain();
+  };
+  // The keys: arrows pan, + and - zoom, 0 and Home go back, and nothing here reaches the deck's own.
+  const onKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const step = KEY_PAN * (event.shiftKey ? 3 : 1);
+    const pan: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const move = pan[event.key];
+    if (move !== undefined) panBy(move[0], move[1], "ease");
+    else if (event.key === "+" || event.key === "=") zoomMid(ZOOM_STEP);
+    else if (event.key === "-" || event.key === "_") zoomMid(1 / ZOOM_STEP);
+    else if (event.key === "0") homeAgain();
+    else if (event.key === "Home") toSelection();
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const cam = `rotateX(${pitch}deg) rotateZ(${CAM.yaw}deg) scale3d(${eff.eye}, ${eff.eye}, ${eff.eye}) translate3d(${px(-eff.x)}, ${px(-eff.y)}, 0px)`;
 
   return (
-    <div ref={host} className="bf" data-locked={locked || undefined} style={vars({ "--pitch": `${pitch}deg`, "--yaw": `${CAM.yaw}deg`, perspective: `${Math.round(size.width * 2.8)}px` })}>
+    <div
+      ref={host}
+      className="bf"
+      tabIndex={-1}
+      data-locked={locked || undefined}
+      data-live={live || undefined}
+      data-grab={grab || undefined}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+      onClickCapture={onClick}
+      onDoubleClick={onDouble}
+      onKeyDown={onKeys}
+      style={vars({ "--pitch": `${pitch}deg`, "--yaw": `${CAM.yaw}deg`, perspective: `${Math.round(size.width * 2.8)}px` })}>
       <svg className="bf-grain" aria-hidden="true" width="100%" height="100%">
         <filter id="bf-noise" x="0" y="0" width="100%" height="100%">
           <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="5" />
@@ -727,11 +1018,12 @@ export function Battlefield({
                     lit={lit.has(tile.path)}
                     clash={clash !== undefined}
                     named={named}
+                    pulse={pulsing.has(tile.path)}
                     bump={bump.get(tile.path)}
                     room={room}
                     onEnter={(event) => {
                       setHotTile(tile.path);
-                      showTip(clash === undefined ? { said: "Directory", title: tile.path, left: 0, top: 0 } : { said: "Write clash", title: `Both are changing ${tile.path}`, left: 0, top: 0 }, event.currentTarget);
+                      showTip(clash === undefined ? { label: "Directory", title: tile.path, hue: "quiet" } : { label: "Write clash", title: tile.path, hue: "ask", lines: ["Two drones are changing it"] }, event.currentTarget, { x: event.clientX, y: event.clientY });
                     }}
                     onLeave={() => {
                       setHotTile(undefined);
@@ -815,11 +1107,11 @@ export function Battlefield({
                 const from = a === undefined ? undefined : flying(a);
                 const to = b === undefined ? undefined : flying(b);
                 if (from === undefined || to === undefined) return null;
-                const tipped = { said: "Write clash", title: `Both are changing ${clash.path}`, left: 0, top: 0 };
+                const tipped: Tip = { label: "Write clash", title: clash.path, hue: "ask", lines: ["Two drones are changing it"] };
                 return (
                   <g key={clash.path} className="bf-clash">
                     <path className="bf-clash__line" d={curve(from, to, 22)} />
-                    <path className="bf-clash__hit" d={curve(from, to, 22)} onMouseEnter={(event) => showTip(tipped, event.currentTarget)} onMouseLeave={() => showTip(undefined)} />
+                    <path className="bf-clash__hit" d={curve(from, to, 22)} onMouseEnter={(event) => showTip(tipped, event.currentTarget, { x: event.clientX, y: event.clientY })} onMouseLeave={() => showTip(undefined)} />
                   </g>
                 );
               })}
@@ -846,7 +1138,26 @@ export function Battlefield({
               const goal = goals.get(one.root);
               if (goal === undefined || one.goal === undefined) return null;
               const capture = plays.find((p) => p.kind === "capture" && (p.root === one.root || (p.number !== undefined && prs.some((pr) => pr.number === p.number && pr.root === one.root))));
-              return <Goal key={one.root} at={onPlane(one.goal)} goal={goal} capture={capture} onPress={() => onGoal(one.root)} onTip={showTip} />;
+              return <Goal key={one.root} at={onPlane(one.goal)} goal={goal} repo={one.name} capture={capture} onPress={() => onGoal(one.root)} onTip={showTip} />;
+            })}
+
+            {/* Pull requests in the air, on the route from the drone that owns one, or from the base where none does, to the objective. */}
+            {prs.map((pr) => {
+              const home = territory.get(pr.root);
+              if (home?.goal === undefined) return null;
+              const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
+              const start = (owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE };
+              const end: P3 = { ...onPlane(home.goal), z: ROUTE };
+              const landed = pr.stage === "landed";
+              if (landed && !landing.has(pr.number)) return null;
+              const rest = alongOf(start, end, 34, landed ? ALONG.queued : ALONG[pr.stage]);
+              const arrival = plays.find((p) => p.kind === "capture" && p.number === pr.number);
+              const opened = plays.find((p) => p.kind === "payload" && p.number === pr.number);
+              return (
+                <div key={pr.key} className="bf-routing" data-dim={(owner !== undefined && !owner.shown) || undefined}>
+                  <Payload at={landed ? end : rest} from={landed ? rest : start} pr={pr} arriving={landed ? arrival : undefined} fresh={landed ? undefined : opened} onPress={() => onPr(pr.key)} onTip={showTip} />
+                </div>
+              );
             })}
 
             {sorted.map((drone, index) => {
@@ -874,7 +1185,10 @@ export function Battlefield({
                   labelled={labels.has(drone.key)}
                   muted={drone.shown && locked && !on && !asks}
                   away={!drone.shown}
+                  focused={focus === drone.key}
+                  dim={focus !== undefined && focus !== drone.key}
                   play={launch}
+                  facts={facts.get(drone.key)}
                   onSelect={() => onSelect(drone.key)}
                   onTip={(next, target) => {
                     setHot(next === undefined ? undefined : drone.key);
@@ -884,66 +1198,24 @@ export function Battlefield({
               );
             })}
 
-            {/* Pull requests in the air, on the route from the drone that owns one, or from the base where none does, to the objective. */}
-            {prs.map((pr) => {
-              const home = territory.get(pr.root);
-              if (home?.goal === undefined) return null;
-              const owner = pr.owner === undefined ? undefined : droneBy.get(pr.owner);
-              const start = (owner === undefined ? undefined : flying(owner)) ?? { ...baseOf(pr.root), z: ROUTE };
-              const end: P3 = { ...onPlane(home.goal), z: ROUTE };
-              const landed = pr.stage === "landed";
-              if (landed && !landing.has(pr.number)) return null;
-              const rest = alongOf(start, end, 34, landed ? ALONG.queued : ALONG[pr.stage]);
-              const arrival = plays.find((p) => p.kind === "capture" && p.number === pr.number);
-              const opened = plays.find((p) => p.kind === "payload" && p.number === pr.number);
-              return (
-                <div key={pr.key} className="bf-routing" data-dim={(owner !== undefined && !owner.shown) || undefined}>
-                  <Payload at={landed ? end : rest} from={landed ? rest : start} pr={pr} arriving={landed ? arrival : undefined} fresh={landed ? undefined : opened} onPress={() => onPr(pr.key)} onTip={showTip} />
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
       <div className="bf-haze" aria-hidden="true" />
-      {tip === undefined ? null : (
-        <div className="bf-hover" style={{ left: tip.left, top: tip.top }} role="tooltip">
-          <span>{tip.said}</span>
-          {tip.title}
-        </div>
-      )}
+      {tip === undefined || host.current === null ? null : <Callout tip={tip.tip} anchor={tip.anchor} host={host.current} />}
       <div className="bf-zoom">
-        <Tooltip label="Zoom in" asChild>
-          <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={zoom >= 3} onClick={() => setZoom((was) => Math.min(3, was + 0.5))}>
+        <Tooltip label="Zoom in" shortcut="+" asChild>
+          <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= eyes.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>
             <Plus size={16} aria-hidden />
           </Button>
         </Tooltip>
-        <Tooltip label="Zoom out" asChild>
-          <Button
-            variant="ghost"
-            iconOnly
-            aria-label="Zoom out"
-            disabled={zoom <= 1}
-            onClick={() => {
-              setZoom((was) => Math.max(1, was - 0.5));
-              if (zoom <= 1.5) setAim(undefined);
-            }}
-          >
+        <Tooltip label="Zoom out" shortcut="-" asChild>
+          <Button variant="ghost" iconOnly aria-label="Zoom out" disabled={eff.eye <= eyes.least + 0.001} onClick={() => zoomMid(1 / ZOOM_STEP)}>
             <Minus size={16} aria-hidden />
           </Button>
         </Tooltip>
-        <Tooltip label="Locate the selection" asChild>
-          <Button
-            variant="ghost"
-            iconOnly
-            aria-label="Locate the selection"
-            disabled={lock === undefined}
-            onClick={() => {
-              if (lock === undefined) return;
-              setAim({ x: lock.x, y: lock.y - 30 });
-              setZoom((was) => Math.max(was, 1.45));
-            }}
-          >
+        <Tooltip label={lock === undefined ? "Back to the whole field" : "Locate the selection"} shortcut="Home" asChild>
+          <Button variant="ghost" iconOnly aria-label={lock === undefined ? "Back to the whole field" : "Locate the selection"} onClick={toSelection}>
             <Crosshair size={16} aria-hidden />
           </Button>
         </Tooltip>

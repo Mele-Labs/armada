@@ -72,6 +72,15 @@ export function droneOf(subject: Subject, owed: boolean, extra: { parent?: strin
 
 const MARGIN = 14;
 
+type Box = { l: number; t: number; r: number; b: number };
+/** A margin kept round what a drone must stay clear of. */
+const EXCLUDE = 16;
+const boxOf = (l: number, t: number, r: number, b: number, pad: number): Box => ({ l: l - pad, t: t - pad, r: r + pad, b: b + pad });
+/** How far above its ground point a drone is drawn, and the height and arc a pull request flies at: where each lands on the screen. */
+const DRONE_UP = 50;
+const ROUTE_UP = 52;
+const ROUTE_ARC = 34;
+
 /** A fixed number in [0, 1) from a key, so a tile or a drone is put the same way every time. */
 export function rand(key: string, salt: number): number {
   let hash = 2166136261 ^ Math.imul(salt + 1, 40503);
@@ -151,7 +160,7 @@ export const bigOf = (size: Size): number => Math.min(1.55, Math.max(1.05, Math.
  * of the plots it touches, weighted by how much it touches each, and is held apart from the others; one with nothing
  * touched yet stays near its base pad.
  */
-export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], size: Size, big: number): Layout {
+export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], size: Size, big: number, prs: readonly { root: string; owner?: string | undefined; stage: Pr["stage"] }[] = []): Layout {
   const rects = new Map<string, Rect>();
   const filesOf = (repo: RepoIn) => repo.tree.reduce((sum, area) => sum + (area.kids.length === 0 ? (repo.bare[area.dir] ?? 8) : area.kids.reduce((s, k) => s + k[1], 0)), 0);
   const weights = repos.map((repo) => ({ id: repo.root, weight: 3 + drones.filter((one) => one.root === repo.root).length + 0.35 * Math.sqrt(filesOf(repo)) }));
@@ -178,7 +187,7 @@ export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], s
     // The strip above the base where a drone with nothing touched stands, and the flag's band above the plots.
     const strip = 64 + 22 * big;
     const plots: Rect = { x: rect.x + 8, y: rect.y + 98, w: rect.w - 16, h: Math.max(60, by - strip - (rect.y + 98)) };
-    const goal = repo.goal ? { x: rect.x + rect.w * (0.5 + (rand(repo.root, 7) - 0.5) * 0.3), y: rect.y + 84 } : undefined;
+    const goal = repo.goal ? { x: rect.x + rect.w / 2, y: rect.y + 84 } : undefined;
 
     // Top directories by their files, then the directories inside each.
     const sizeOf = (area: RepoIn["tree"][number]) => (area.kids.length === 0 ? (repo.bare[area.dir] ?? 8) : area.kids.reduce((sum, k) => sum + k[1], 0));
@@ -230,28 +239,73 @@ export function layoutOf(repos: readonly RepoIn[], drones: readonly DroneIn[], s
     territories.push({ root: repo.root, name: repo.name, rect, groups, tiles, base: { x: bx, y: by, w: baseW }, pads, goal });
   }
 
-  // Held apart: drones over the same plot, or close, are pushed from each other, a few passes, the same way every time.
+  // Held apart by rule, not by hope: no two drones' hit boxes or label strips meet, and no drone stands over a flag, a pad, a crate or
+  // a route that is not its own. Rects are in the layout's own units, a drone's lifted to where it is drawn.
   const keys = [...want.keys()].sort();
   const place = new Map(keys.map((key) => [key, { ...want.get(key)! }]));
-  const apart = 64 * big;
-  for (let pass = 0; pass < 24; pass += 1) {
-    for (let i = 0; i < keys.length; i += 1) {
-      for (let j = i + 1; j < keys.length; j += 1) {
-        const a = place.get(keys[i]!)!;
-        const b = place.get(keys[j]!)!;
-        const dx = (b.x - a.x) / 1.5;
-        const dy = b.y - a.y;
-        const gap = Math.hypot(dx, dy);
-        if (gap >= apart) continue;
-        const turn = rand(keys[i]! + keys[j]!, 3) * Math.PI * 2;
-        const ux = gap < 1 ? Math.cos(turn) : dx / gap;
-        const uy = gap < 1 ? Math.sin(turn) : dy / gap;
-        const push = (apart - gap) / 2;
-        a.x -= ux * push * 1.5;
-        a.y -= uy * push;
-        b.x += ux * push * 1.5;
-        b.y += uy * push;
+  const owner = new Map(drones.map((one) => [one.key, one] as const));
+  const goals = new Map(territories.flatMap((one) => (one.goal === undefined ? [] : [[one.root, one.goal] as const])));
+  const homes = new Map(territories.map((one) => [one.root, { x: one.base.x - one.base.w / 2 + 36, y: one.base.y + 8 }] as const));
+  const free = prs.filter((pr) => pr.stage !== "landed");
+  const statics: Box[] = [
+    ...territories.flatMap((one) => (one.goal === undefined ? [] : [boxOf(one.goal.x - 34, one.goal.y - 92, one.goal.x + 96, one.goal.y + 8, EXCLUDE)])),
+    ...territories.flatMap((one) => one.pads.map((pad) => boxOf(pad.x - 17, pad.y - 17, pad.x + 17, pad.y + 17, EXCLUDE))),
+    ...territories.map((one) => boxOf(one.base.x - one.base.w / 2, one.base.y - 30, one.base.x + one.base.w / 2, one.base.y + 40, 0)),
+  ];
+  /** Where a pull request's crate and route lie, for the drones that are not its own. */
+  const routesOf = (): { by: string | undefined; box: Box }[] => {
+    const out: { by: string | undefined; box: Box }[] = [];
+    for (const pr of free) {
+      const end = goals.get(pr.root);
+      if (end === undefined) continue;
+      const from = pr.owner === undefined ? homes.get(pr.root) : place.get(pr.owner);
+      if (from === undefined) continue;
+      const steps = Math.max(2, Math.round(Math.hypot(end.x - from.x, end.y - from.y) / 44));
+      for (let i = 0; i <= steps; i += 1) {
+        const t = i / steps;
+        const x = from.x + (end.x - from.x) * t;
+        const y = from.y + (end.y - from.y) * t - 0.81 * (ROUTE_UP + 4 * ROUTE_ARC * t * (1 - t));
+        out.push({ by: pr.owner, box: boxOf(x - 14, y - 14, x + 14, y + 14, EXCLUDE) });
       }
+    }
+    return out;
+  };
+  const reach = (key: string, at: Point): Box => {
+    const job = owner.get(key)?.kind === "job";
+    const half = Math.max(((job ? 26 : 20) + 12) * big, 80);
+    // From the top of its name to the pool of light on the ground under it, which takes the pointer too.
+    return boxOf(at.x - half, at.y - DRONE_UP - 34 * big - 46, at.x + half, at.y + 20 * big, 10);
+  };
+  const push = (a: Box, b: Box, mover: Point, other?: Point): void => {
+    const px = Math.min(a.r - b.l, b.r - a.l);
+    const py = Math.min(a.b - b.t, b.b - a.t);
+    if (px <= 0 || py <= 0) return;
+    const share = other === undefined ? 1 : 0.5;
+    if (px < py) {
+      const sign = (a.l + a.r) / 2 >= (b.l + b.r) / 2 ? 1 : -1;
+      mover.x += sign * px * share;
+      if (other !== undefined) other.x -= sign * px * share;
+    } else {
+      const sign = (a.t + a.b) / 2 >= (b.t + b.b) / 2 ? 1 : -1;
+      mover.y += sign * py * share;
+      if (other !== undefined) other.y -= sign * py * share;
+    }
+  };
+  for (let pass = 0; pass < 160; pass += 1) {
+    const routes = routesOf();
+    for (let i = 0; i < keys.length; i += 1) {
+      const a = place.get(keys[i]!)!;
+      for (let j = i + 1; j < keys.length; j += 1) {
+        const b = place.get(keys[j]!)!;
+        if (Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1) a.x += (rand(keys[i]! + keys[j]!, 3) - 0.5) * 6;
+        push(reach(keys[i]!, a), reach(keys[j]!, b), a, b);
+      }
+    }
+    // What is fixed is settled last, so a drone is moved off a flag before it is moved against another drone.
+    for (const key of keys) {
+      const a = place.get(key)!;
+      for (const box of statics) push(reach(key, a), box, a);
+      for (const route of routes) if (route.by !== key) push(reach(key, a), route.box, a);
     }
     for (const key of keys) {
       const p = place.get(key)!;
@@ -347,7 +401,7 @@ export type Play = {
   delay: number;
 };
 
-const PLAYS: Partial<Record<TimelineKind, PlayKind>> = {
+export const PLAYS: Partial<Record<TimelineKind, PlayKind>> = {
   "job.created": "launch",
   "session.started": "launch",
   "slot.leased": "launch",
@@ -383,6 +437,16 @@ export function droneOfEvent(event: TimelineEvent, ownerOf: (number: number) => 
   if (subject.kind === "session") return `session:${subject.id}`;
   if (subject.kind === "pull_request") return ownerOf(subject.number);
   return undefined;
+}
+
+/** One event as the play it is, or nothing where it only leaves a trail. A replay and a focused row both play events this way. */
+export function playOfEvent(event: TimelineEvent, id: string, ownerOf: (number: number) => string | undefined, rootOf: (manifest: string | undefined) => string | undefined): Play | undefined {
+  const kind = PLAYS[event.kind];
+  if (kind === undefined) return undefined;
+  const key = droneOfEvent(event, ownerOf);
+  const root = rootOf(event.manifest_id);
+  const number = event.subject.kind === "pull_request" ? event.subject.number : undefined;
+  return { id, kind, at: Date.now(), delay: 0, ...(key === undefined ? {} : { key }), ...(root === undefined ? {} : { root }), ...(number === undefined ? {} : { number }) };
 }
 
 /** The events recent enough to move, newest first, as plays. */

@@ -150,6 +150,12 @@ export type WorkflowCanvasProps = {
    * canvas's wave, 4 Oct 2026).
    */
   downOnly?: boolean;
+  /**
+   * Fit the whole run in the frame, however small. **A miniature**, for a surface that shows the run
+   * beside something else: the legibility floor that narrows a long run to the step at work is lifted
+   * to the furthest zoom out. Absent keeps the floor.
+   */
+  wholeRun?: boolean;
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
@@ -439,6 +445,7 @@ export function WorkflowCanvas({
   centred = false,
   downOnly = false,
   reveals = null,
+  wholeRun = false,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -499,8 +506,8 @@ export function WorkflowCanvas({
   }, [given, givenEdges, nodes, runsDown, downOnly]);
 
   const fitViewOptions = useMemo(
-    () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),
-    [],
+    () => ({ maxZoom: 1, minZoom: wholeRun ? FURTHEST_OUT : SMALLEST_READABLE }),
+    [wholeRun],
   );
 
   // **Its own group under the view group, and not inside it.** A zoom acts
@@ -535,7 +542,7 @@ export function WorkflowCanvas({
       railBelow={stay}
       fitViewOptions={fitViewOptions}
     >
-      <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
+      <FitsTheFrame options={fitViewOptions} opensOn={wholeRun ? undefined : opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
       <Follows running={running} following={following} />
       <Reveals node={reveals} />
     </GraphCanvas>

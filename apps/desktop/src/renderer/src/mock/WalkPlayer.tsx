@@ -167,6 +167,8 @@ export function WalkPlayer({ name, script, autoplay: startPlaying, from = 0 }: {
         return;
       }
       if (!event.isTrusted) return;
+      // A surface that takes its own keys in front of this (the flight deck's) has taken it.
+      if (event.defaultPrevented) return;
       const key = event.key.toLowerCase();
       // Enter on one of the card's own buttons presses it.
       if (key === "enter" && event.target instanceof HTMLElement && event.target.closest(`[${WALK_UI}] button`) !== null) return;

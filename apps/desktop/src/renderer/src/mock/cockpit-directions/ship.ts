@@ -105,6 +105,8 @@ export type Ship = {
   calls: readonly Item[];
   prs: readonly Pr[];
   repos: readonly { root: string; name: string }[];
+  /** The Jobs and Sessions with a Check running now: a Job's own, or one on the pull request a Job or Session holds. */
+  running: ReadonlySet<string>;
 };
 
 /** What the owner did here that Fleet would otherwise answer. */
@@ -352,7 +354,13 @@ export function shipOf(input: Inputs): Ship {
     };
   });
 
-  return { subjects, mains, main, bays, autopilot: "off", calls, prs, repos };
+  const running = new Set<string>();
+  for (const job of jobs) if ((nows?.[job.id]?.running ?? []).some((one) => one.of === "check" && one.state === "running")) running.add(`job:${job.id}`);
+  for (const pr of prs) if (pr.stage === "checking" && pr.owner !== undefined) running.add(`${pr.owner.kind}:${pr.owner.id}`);
+  // A Session counts for the Jobs it owns.
+  for (const session of sessions) if (session.attachments.some((a) => a.kind === "job" && running.has(`job:${a.id}`))) running.add(`session:${session.id}`);
+
+  return { subjects, mains, main, bays, autopilot: "off", calls, prs, repos, running };
 }
 
 /** A pull request a Session holds that the forge's listing does not carry any more. */

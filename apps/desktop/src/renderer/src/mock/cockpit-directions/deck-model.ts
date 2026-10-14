@@ -6,6 +6,7 @@
 import { useSyncExternalStore } from "react";
 import type { WorktreeSlot } from "@armada/protocol";
 import type { Item } from "../../Dashboard";
+import type { Play } from "./deck-field";
 import type { Pr, Ship, Subject } from "./ship";
 import { orderOf, toneOf } from "./tabs-model";
 
@@ -14,13 +15,35 @@ export type Sel = { kind: "job" | "session" | "slot" | "pr" | "call" | "checks" 
 export type DeckView = "map" | "timeline";
 export type Only = "jobs" | "sessions";
 
+/**
+ * A replay: the field as it was at `at`, playing forward through the events to now. Mock only: the real source is Fleet's event
+ * timeline with each slot's observed writes over time, and where a drone stands here derives from the mock's touched paths, so
+ * a real replay needs touches recorded with their times.
+ */
+export type Replay = {
+  /** Where it began, and the playhead. Both are instants, in ms. */
+  from: number;
+  at: number;
+  playing: boolean;
+  speed: 1 | 4 | 16;
+  /** The effects of the events the playhead has passed, the latest few. */
+  plays: readonly Play[];
+  /** Which start it is, so a replayed effect is a new one. */
+  run: number;
+};
+
 type State = {
   sel: Sel | undefined;
+  /** The feed row picked: the event the map shows what moved for. */
+  focus: string | undefined;
+  replay: Replay | undefined;
   /** The row the arrow keys are on in the list. Enter opens it. */
   cursor: string | undefined;
   view: DeckView;
   only: Only | undefined;
   needs: boolean;
+  /** Narrowed to what has a Check running now. */
+  checks: boolean;
   /** Calls opened once: they leave Incoming calls, and the Job or Session that holds one keeps its mark. */
   visited: ReadonlySet<string>;
   /** Calls answered, and when: held out until Fleet stops carrying them. */
@@ -31,7 +54,7 @@ type State = {
   before: { sel: Sel | undefined; view: DeckView } | undefined;
 };
 
-const FRESH: State = { sel: undefined, cursor: undefined, view: "map", only: undefined, needs: false, visited: new Set(), held: new Map(), here: true, before: undefined };
+const FRESH: State = { sel: undefined, focus: undefined, replay: undefined, cursor: undefined, view: "map", only: undefined, needs: false, checks: false, visited: new Set(), held: new Map(), here: true, before: undefined };
 let state: State = FRESH;
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
@@ -54,7 +77,17 @@ export const scene = {
   landed: undefined as Set<string> | undefined,
 };
 
+/** Where the map's camera was left, so a pane opened over it and closed finds the map as it was. Not state: nothing draws from it. */
+export type Camera = { x: number; y: number; eye: number; tilt: boolean };
+export const camera = { current: undefined as Camera | undefined };
+
+/** The calls `w` has opened, oldest first, and which one is on show: `w` goes on, Shift+W goes back. */
+export const callTrail = { keys: [] as string[], at: -1 };
+
 export const forgetDeck = () => {
+  camera.current = undefined;
+  callTrail.keys = [];
+  callTrail.at = -1;
   scene.seen.clear();
   scene.drones = undefined;
   scene.landed = undefined;
@@ -81,8 +114,25 @@ export const leaveAutopilot = () => {
   set({ sel: before?.sel, view: before?.view ?? state.view, before: undefined });
 };
 
+/** Picks an event, or puts it away when it is the one picked. Choosing one brings the map back and the subject's drone in. */
+export const setFocus = (id: string | undefined, subject?: string) => set({ focus: state.focus === id ? undefined : id, ...(id === undefined || state.focus === id ? {} : { view: "map" as const, sel: undefined, ...(subject === undefined ? {} : { cursor: subject }) }) });
+let runs = 0;
+export const startReplay = (from: number) => {
+  runs += 1;
+  set({ replay: { from, at: from, playing: true, speed: 1, plays: [], run: runs }, view: "map", sel: undefined });
+};
+export const changeReplay = (change: Partial<Replay>) => {
+  if (state.replay !== undefined) set({ replay: { ...state.replay, ...change } });
+};
+export const stopReplay = () => set({ replay: undefined });
+
 export const toggleOnly = (only: Only) => set({ only: state.only === only ? undefined : only });
 export const toggleNeeds = () => set({ needs: !state.needs });
+/** The Checks tile is a filter and opens the running Checks in the area; pressed again it is put away. */
+export const toggleChecks = () => {
+  const on = !state.checks;
+  set({ checks: on, sel: on ? { kind: "checks", key: "checks" } : state.sel?.kind === "checks" ? undefined : state.sel });
+};
 export const setHere = (here: boolean) => {
   if (state.here !== here) set({ here });
 };
@@ -140,8 +190,8 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 // ---- The list ------------------------------------------------------------------------------------------
 
 /** The Jobs and Sessions the list draws, in standing order, narrowed by the three filters. The map and the timeline keep the same ones. */
-export function listOf(ship: Ship, deck: Pick<State, "only" | "needs" | "held">): Subject[] {
-  return orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined));
+export function listOf(ship: Ship, deck: Pick<State, "only" | "needs" | "checks" | "held">): Subject[] {
+  return orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)));
 }
 
 export { toneOf };

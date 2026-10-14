@@ -193,9 +193,12 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onHoldAct?: HoldActCall;
   /** Go to a firing's line in the Job's log. */
   onOpenTriggerLog?: OpenTriggerLog;
+  /** Draw the whole run in the frame, as a miniature, in place of the band round the step at work. */
+  wholeRun?: boolean;
 };
 
 export function ApprovalCanvas({
+  wholeRun = false,
   life,
   lit,
   onOpenJob,
@@ -539,6 +542,7 @@ export function ApprovalCanvas({
         runsDown
         downOnly
         centred
+        wholeRun={wholeRun}
         opensOn={[opensOnOf(nodes, layout.places)]}
         reveals={added.reveal === null ? branch.asking : addedNodeId(added.reveal)}
       />

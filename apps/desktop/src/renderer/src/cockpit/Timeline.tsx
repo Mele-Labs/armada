@@ -156,7 +156,7 @@ const bucketOf = (event: FleetEvent, now: number): string => {
 };
 
 /** Every event of `lanes`, newest first, in blocks by how long ago; the newest of each subject carries how it stands. */
-function Feed({ lanes, now, open, tips = false }: { lanes: readonly Lane[]; now: number; open: Open; /** Each event's whole line, in a tooltip: for a column that cuts it short. */ tips?: boolean }) {
+function Feed({ lanes, now, open, tips = false, onPick, lit }: { lanes: readonly Lane[]; now: number; open: Open; /** Each event's whole line, in a tooltip: for a column that cuts it short. */ tips?: boolean; /** A press on a row, where the row is the event and not only its subject. */ onPick?: (event: FleetEvent) => void; /** The row held lit. */ lit?: string }) {
   const standing = new Map(lanes.map((lane) => [lane.events[0]!.id, lane.standing]));
   const events = lanes.flatMap((lane) => lane.events).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const blocks: { said: string; rows: FleetEvent[] }[] = [];
@@ -172,7 +172,7 @@ function Feed({ lanes, now, open, tips = false }: { lanes: readonly Lane[]; now:
         <ol key={block.said} className="armada-tl__block" aria-label={block.said}>
           <li className="armada-tl__part">{block.said}</li>
           {block.rows.map((event) => (
-            <li key={event.id} className="armada-tl__event" data-current={standing.get(event.id)} style={toneOf(event.tone)}>
+            <li key={event.id} className="armada-tl__event" data-current={standing.get(event.id)} data-event={event.id} data-lit={lit === event.id || undefined} style={toneOf(event.tone)} {...(onPick === undefined ? {} : { onClick: () => onPick(event) })}>
               <Age event={event} now={now} />
               <span className="armada-tl__spine">
                 <i className="armada-tl__mark" data-shape={shapeOf(event)} />
@@ -419,16 +419,17 @@ export function Timeline({
 }
 
 /** The Feed take on its own, for a narrow column: one row for each event, newest first. A press names the Job or Session it is about. */
-export function ActivityFeed({ now, jobs, views = NO_VIEWS, filter, keep, onOpenJob, onOpenSession }: { now: number; jobs: readonly JobSummary[]; views?: readonly MergeLineView[]; filter: DashboardTab; keep?: (subject: Subject) => boolean; onOpenJob: (id: string) => void; onOpenSession: (id: string) => void }) {
+export function ActivityFeed({ now, jobs, views = NO_VIEWS, filter, keep, onOpenJob, onOpenSession, onPick, lit }: { now: number; jobs: readonly JobSummary[]; views?: readonly MergeLineView[]; filter: DashboardTab; keep?: (subject: Subject) => boolean; onOpenJob: (id: string) => void; onOpenSession: (id: string) => void; /** The flight deck's: a press on a row picks the event, and `lit` is the one held. */ onPick?: (event: FleetEvent) => void; lit?: string }) {
   const lanes = useLanes(now, jobs, views, filter, keep);
   const open: Open = (subject) => {
+    if (onPick !== undefined) return;
     if (subject.kind === "job") onOpenJob(subject.id);
     else if (subject.kind === "session") onOpenSession(subject.id);
   };
   return (
     <section className="armada-tl" aria-label="Activity feed" data-take="feed">
       <div className="armada-tl__body">
-        <Feed lanes={lanes} now={now} open={open} tips />
+        <Feed lanes={lanes} now={now} open={open} tips {...(onPick === undefined ? {} : { onPick })} {...(lit === undefined ? {} : { lit })} />
       </div>
     </section>
   );

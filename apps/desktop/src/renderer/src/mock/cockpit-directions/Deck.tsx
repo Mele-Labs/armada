@@ -5,7 +5,7 @@
 // that are incoming. Esc returns to the map or timeline exactly as it was left. The state is held in
 // `deck-model.ts`, so the top bar, the body and the keys are one thing. Mock only. proto/cockpit-flight-deck.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, DropdownMenu, Kbd, Switch, Tabs, Tooltip } from "@armada/components";
@@ -13,7 +13,6 @@ import { stateOf as bayStateOf } from "@armada/components/src/compositions/PoolS
 import type { WorktreeSlot } from "@armada/protocol";
 import { FIND_A_REPOSITORY, SURFACE, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
-import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import { age, type Item } from "../../Dashboard";
 import type { AppSeamProps } from "../../cockpit/app-seam";
@@ -22,13 +21,14 @@ import type { CockpitProps } from "../../cockpit/body-seam";
 import { holdFor } from "../../cockpit/Cockpit";
 import { dotsOf } from "../../cockpit/horizon";
 import { useFleetEvents } from "../../cockpit/fleet-events";
-import { MOST_PLAYING, droneOf, playsOf, trailsOf, type Play } from "./deck-field";
+import { MOST_PLAYING, droneOf, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./deck-field";
 import { ActivityFeed, Timeline } from "../../cockpit/Timeline";
 import { viewsOf } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
 import { CallPane, ChecksPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./deck-panes";
 import {
   arrivedLate,
+  callTrail,
   callOfSubject,
   deckNow,
   enterAutopilot,
@@ -43,10 +43,14 @@ import {
   select,
   selOfPr,
   selOfSubject,
+  setFocus,
   setHere,
+  startReplay,
+  stopReplay,
   setView,
   settle,
   slotKey,
+  toggleChecks,
   toggleNeeds,
   toggleOnly,
   useDeck,
@@ -55,7 +59,10 @@ import { MarkGlyph, useShipActs } from "./shared";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import { toneOf } from "./tabs-model";
 import { BARE, TREES, touchesOf } from "./deck-paths";
-import { Battlefield, type GoalIn, type PadIn, type PrIn } from "./Battlefield";
+import { Battlefield, type DroneFacts, type GoalIn, type PadIn, type PrIn } from "./Battlefield";
+import { DeckKeySheet, PANELS, PanelKey, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys, type PanelId } from "./deck-keys";
+import { claimsReplay, fieldAt, inOrder, useReplayDriver, useReplayKeys } from "./deck-replay";
+import { FocusChip, ReplayBar, ReplayMark } from "./deck-replay-bar";
 import "./deck.css";
 import "./battlefield.css";
 
@@ -83,6 +90,8 @@ function placeOf(showing: string): string {
   return SYSTEM.some((one) => one.id === showing) ? "system" : "";
 }
 
+const SEARCH_TIP = "Search, or describe work to dispatch (⌘K)";
+
 /** The real title bar's two ends, found once it is drawn. The tabs and the wordmark are portalled into them. */
 function useTitleBar(): { start: HTMLElement | undefined; centre: HTMLElement | undefined } {
   const [hosts, setHosts] = useState<{ start: HTMLElement | undefined; centre: HTMLElement | undefined }>({ start: undefined, centre: undefined });
@@ -90,6 +99,12 @@ function useTitleBar(): { start: HTMLElement | undefined; centre: HTMLElement | 
     const find = () => {
       const start = document.querySelector<HTMLElement>(".armada-title-bar__start") ?? undefined;
       const centre = document.querySelector<HTMLElement>(".armada-title-bar__center") ?? undefined;
+      // The search trigger is the bar's own button, its label hidden by the deck's stylesheet: the tooltip names it and its key.
+      const search = document.querySelector<HTMLElement>(".armada-title-bar__search");
+      if (search !== null && search.title !== SEARCH_TIP) {
+        search.title = SEARCH_TIP;
+        search.setAttribute("aria-label", SEARCH_TIP);
+      }
       setHosts((was) => (was.start === start && was.centre === centre ? was : { start, centre }));
     };
     find();
@@ -135,45 +150,130 @@ export function DeckChrome(props: AppSeamProps) {
   };
 
   const incoming = incomingOf(ship.calls, deck.held, deck.visited);
-  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.held]);
-  const openNext = () => {
-    const next = incoming[0];
-    if (next === undefined) return;
-    openCall(ship, next);
+  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.checks, deck.held]);
+  // `w` goes on to the next call, or forward along the ones it has opened; Shift+W goes back along them. A call answered since is passed over.
+  const walkCalls = (by: 1 | -1) => {
+    const live = (key: string) => ship.calls.find((one) => one.key === key && !deckNow().held.has(key));
+    // The opened ones in the direction asked, from the one on show; the first still carried is the one.
+    const order = by === -1 ? callTrail.keys.map((_, at) => at).filter((at) => at < (callTrail.at < 0 ? callTrail.keys.length : callTrail.at)).reverse() : callTrail.keys.map((_, at) => at).filter((at) => callTrail.at >= 0 && at > callTrail.at);
+    const at = order.find((one) => live(callTrail.keys[one]!) !== undefined);
+    let to = at === undefined ? undefined : live(callTrail.keys[at]!);
+    if (at !== undefined) callTrail.at = at;
+    else if (by === 1 && incoming[0] !== undefined) {
+      to = incoming[0];
+      callTrail.keys.push(to.key);
+      callTrail.at = callTrail.keys.length - 1;
+    }
+    if (to === undefined) return;
+    openCall(ship, to);
     if (!deckNow().here) props.goTo(SURFACE.overview);
   };
+  const [keySheet, setKeySheet] = useState(false);
+  useEffect(() => {
+    const noted = (event: FocusEvent) => remember(event.target);
+    document.addEventListener("focusin", noted);
+    return () => document.removeEventListener("focusin", noted);
+  }, []);
+  /** Focus goes where the key said once the area has drawn what it was asked to. */
+  const focusSoon = (id: PanelId) => window.requestAnimationFrame(() => focusPanel(id, deckNow().cursor));
+  /** Pick a row of the list: the cursor moves with focus, and the row is brought into view. */
+  const rowFocus = (key: string) => {
+    moveCursor(key);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)?.focus());
+  };
 
-  useListKeydown((event) => {
+  useDeckKeys((event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const state = deckNow();
-    if (holdsText(event.target) && (event.target as HTMLElement).getAttribute("role") !== "switch") {
-      // The first Esc leaves the box, the next one leaves the pane.
-      if (event.key === "Escape" && state.here && state.sel !== undefined && state.sel.kind !== "call") {
+    const target = event.target as HTMLElement;
+    if (holdsText(event.target) && target.getAttribute("role") !== "switch") {
+      // The first Esc leaves the box, the next one acts.
+      if (event.key === "Escape" && state.here && state.sel?.kind !== "call" && target.closest(".deck") !== null) {
         event.preventDefault();
-        (event.target as HTMLElement).blur();
+        target.blur();
       }
       return;
     }
-    if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return;
-    if (event.key === "w") {
+    if (target.closest?.('[role="menu"]') != null) return;
+    if (event.key === "w" || event.key === "W") {
       event.preventDefault();
-      return openNext();
+      return walkCalls(event.key === "w" ? 1 : -1);
     }
-    if (!state.here || state.sel?.kind === "call") return;
-    const target = event.target as HTMLElement;
+    // Two keys: the page in front reads neither (`armChord` takes the second before it can). Not over a Job's page, where `g` is its own.
+    if (event.key === "g" && props.openJobId === null) {
+      event.preventDefault();
+      return armChord({ c: () => go("cockpit"), j: () => go("jobs"), s: () => go("sessions"), y: () => go("system") });
+    }
+    if (!state.here) return;
+    if (event.key === "?") {
+      event.preventDefault();
+      return setKeySheet(true);
+    }
+    if (state.sel?.kind === "call") return;
+    const panel = panelAt(target);
+    // A replay's own keys, taken by it where it is up.
+    if (state.replay !== undefined && claimsReplay(event, panel?.id)) return;
+    if (event.key === "Tab" || event.key === "F6") {
+      // Tab goes round the panels from any of them but the area while it holds a page of its own, whose controls it is left to reach; F6 always.
+      if (event.key === "Tab" && (panel === undefined || (panel.id === "map" && state.sel !== undefined))) return;
+      event.preventDefault();
+      return focusPanel(cycleFrom(panel?.id, event.shiftKey ? -1 : 1), state.cursor);
+    }
+    if (/^[1-6]$/.test(event.key) && !event.shiftKey) {
+      event.preventDefault();
+      return TILES[Number(event.key) - 1]!.press();
+    }
+    // Zoom is the map's wherever focus is, while the map is what is showing.
+    if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && state.sel === undefined && state.view === "map") {
+      const host = document.querySelector(".bf");
+      if (host !== null && !host.contains(target)) {
+        event.preventDefault();
+        host.dispatchEvent(new KeyboardEvent("keydown", { key: event.key, bubbles: true, cancelable: true }));
+      }
+      return;
+    }
+    const goes = event.shiftKey ? undefined : PANELS.find((one) => one.key === event.key && one.id !== "map");
+    if (goes !== undefined) {
+      event.preventDefault();
+      return focusPanel(goes.id, state.cursor);
+    }
     switch (event.key) {
       case "ArrowDown":
-      case "ArrowUp": {
+      case "ArrowUp":
+      case "ArrowLeft":
+      case "ArrowRight":
+      case "j":
+      case "k": {
+        // j and k are down and up, and next and previous along a row. The map's arrows pan, and a page in the area has its own. Outside the deck, they are not ours.
+        if (panel?.id === "map" || (panel === undefined && target !== document.body && target.closest(".deck") === null)) return;
+        // With nothing focused, left and right are not ours: a walk's, if one is playing.
+        if (panel === undefined && (event.key === "ArrowLeft" || event.key === "ArrowRight")) return;
         event.preventDefault();
+        const letter = event.key === "j" || event.key === "k";
+        const down = event.key === "ArrowDown" || event.key === "j";
+        if (panel !== undefined && panel.id !== "list") return letter ? stepBy(panel, target, down ? 1 : -1) : stepIn(panel, target, event.key);
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") return;
         const at = listed.findIndex((one) => one.key === state.cursor);
-        const next = listed[Math.min(listed.length - 1, Math.max(0, at < 0 ? (event.key === "ArrowDown" ? 0 : listed.length - 1) : at + (event.key === "ArrowDown" ? 1 : -1)))];
-        if (next === undefined) return;
-        moveCursor(next.key);
-        window.requestAnimationFrame(() => document.querySelector(`[data-row="${next.key}"]`)?.scrollIntoView?.({ block: "nearest" }));
+        const next = listed[Math.min(listed.length - 1, Math.max(0, at < 0 ? (down ? 0 : listed.length - 1) : at + (down ? 1 : -1)))];
+        if (next !== undefined) rowFocus(next.key);
         return;
       }
       case "Enter": {
-        if (target.tagName === "BUTTON" || target.tagName === "A") return;
+        // Pressed on a button of the deck: the press, taken here so a walk playing does not also step on it.
+        if (target.tagName === "BUTTON" || target.tagName === "A") {
+          if (target.closest(".deck") === null) return;
+          event.preventDefault();
+          return target.click();
+        }
+        // A thing on the map has its own Enter.
+        if (panel?.id === "map") return;
+        if (panel !== undefined && panel.id !== "list") {
+          // Pressed on the panel itself rather than on a thing in it: the thing focus is on.
+          const item = document.activeElement instanceof HTMLElement && panel.items !== undefined ? document.activeElement.closest<HTMLElement>(panel.items) : null;
+          if (item === null) return;
+          event.preventDefault();
+          return item.click();
+        }
         const row = listed.find((one) => one.key === state.cursor);
         if (row === undefined) return;
         event.preventDefault();
@@ -187,14 +287,24 @@ export function DeckChrome(props: AppSeamProps) {
         } else if (state.sel !== undefined) {
           event.preventDefault();
           select(undefined);
+          // What had focus may have been what was just put away: the list has it then.
+          window.requestAnimationFrame(() => panelAt(document.activeElement) === undefined && focusPanel("list", deckNow().cursor));
+        } else if (state.focus !== undefined) {
+          event.preventDefault();
+          setFocus(undefined);
+        } else if ((panel !== undefined && panel.id !== "list") || target === document.body) {
+          event.preventDefault();
+          focusPanel("list", state.cursor);
         }
         return;
       case "m":
         event.preventDefault();
-        return setView("map");
+        setView("map");
+        return focusSoon("map");
       case "t":
         event.preventDefault();
-        return setView("timeline");
+        setView("timeline");
+        return focusSoon("map");
     }
   });
 
@@ -209,6 +319,7 @@ export function DeckChrome(props: AppSeamProps) {
             </nav>,
             bar.centre,
           )}
+      <DeckKeySheet open={keySheet} onClose={() => setKeySheet(false)} />
       <div className="deck-chrome">
         {place !== "system" ? null : (
           <nav className="deck-system" aria-label="System">
@@ -224,8 +335,11 @@ export function DeckChrome(props: AppSeamProps) {
 
 function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subject[]; cursor: string | undefined; selected: string | undefined; onPick: (subject: Subject) => void }) {
   return (
-    <section className="deck-panel deck-list" aria-label="Jobs and Sessions">
-      <header className="deck-band">Jobs and Sessions</header>
+    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1}>
+      <header className="deck-band">
+        Jobs and Sessions
+        <PanelKey id="list" />
+      </header>
       <ul className="deck-list__rows">
         {subjects.map((one) => {
           const Kind = one.kind === "job" ? Box : SquareTerminal;
@@ -233,7 +347,7 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
           const said = quiet.length > 9 ? "" : quiet;
           return (
             <li key={one.key}>
-              <button type="button" className="deck-row" data-row={one.key} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)}>
+              <button type="button" className="deck-row" data-row={one.key} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
                 <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
                   <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
                     <Kind size={14} aria-hidden />
@@ -256,15 +370,35 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   const deck = useDeck();
   const views = useMemo(() => viewsOf(props.state), [props.state]);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
-  const keep = useMemo(() => (subject: { kind: string; id?: string }) => (subject.kind === "main" ? deck.only === undefined && !deck.needs : shown.has(`${subject.kind}:${subject.id}`)), [shown, deck.only, deck.needs]);
+  const keep = useMemo(() => (subject: { kind: string; id?: string }) => (subject.kind === "main" ? deck.only === undefined && !deck.needs && !deck.checks : shown.has(`${subject.kind}:${subject.id}`)), [shown, deck.only, deck.needs, deck.checks]);
   const pick = (key: string) => {
     const subject = ship.subjects.find((one) => one.key === key);
     if (subject !== undefined && subject.kind !== "pr") select(selOfSubject(subject));
   };
+  // The row held lit: the one picked, or the one the playhead has last passed. It is brought into view.
+  const events = useFleetEvents();
+  const lit = useMemo(() => {
+    if (deck.replay === undefined) return deck.focus;
+    const { at } = deck.replay;
+    return inOrder(events).filter((one) => Date.parse(one.at) <= at).at(-1)?.id.toString();
+  }, [events, deck.focus, deck.replay === undefined ? undefined : deck.replay.at]);
+  useEffect(() => {
+    if (lit !== undefined) document.querySelector(`.deck-activity [data-event="${CSS.escape(lit)}"]`)?.scrollIntoView?.({ block: "nearest" });
+  }, [lit]);
   return (
-    <section className="deck-panel deck-activity" aria-label="Activity">
+    <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
       <header className="deck-band">Activity</header>
-      <ActivityFeed now={props.now} jobs={props.state.jobs} views={views} filter="running" keep={keep as never} onOpenJob={(id) => pick(`job:${id}`)} onOpenSession={(id) => pick(`session:${id}`)} />
+      <ActivityFeed
+        now={props.now}
+        jobs={props.state.jobs}
+        views={views}
+        filter="running"
+        keep={keep as never}
+        onOpenJob={(id) => pick(`job:${id}`)}
+        onOpenSession={(id) => pick(`session:${id}`)}
+        onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
+        {...(lit === undefined ? {} : { lit })}
+      />
     </section>
   );
 }
@@ -343,7 +477,7 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
       const state = bayStateOf({ slot });
       const held = slot.held;
       const holder = held.state === "job" ? (held.job_title ?? held.job_id) : held.state === "hosted_session" ? (held.session_title ?? held.session_id) : undefined;
-      out.set(slotKey(slot), { key: slotKey(slot), slot: slot.slot, bay: slot.closed === true ? "closed" : state.bay, word: slot.closed === true ? "Closed" : state.word, repo: repoNameOf(props, slot.manifest_id), ...(holder === undefined ? {} : { holder }) });
+      out.set(slotKey(slot), { key: slotKey(slot), slot: slot.slot, bay: slot.closed === true ? "closed" : state.bay, word: slot.closed === true ? "Closed" : state.word, repo: repoNameOf(props, slot.manifest_id), Glyph: state.Glyph, ...(holder === undefined ? {} : { holder }) });
     }
     return out;
   }, [slots]);
@@ -360,21 +494,74 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
   const trails = useMemo(() => trailsOf(events, props.now, ownerOf), [events, props.now, ship.prs]);
   const plays = usePlays(candidates, useMemo(() => drones.map((one) => one.key), [drones]), landed);
 
+  // A picked event, and a replay: the field as it was at the playhead, from the events up to it.
+  const ordered = useMemo(() => inOrder(events), [events]);
+  const replay = deck.replay;
+  const passed = replay === undefined ? 0 : ordered.filter((one) => Date.parse(one.at) <= replay.at).length;
+  const before = useMemo(() => (replay === undefined ? ordered : ordered.filter((one) => Date.parse(one.at) <= replay.at)), [ordered, replay === undefined, passed]);
+  const field = useMemo(() => (replay === undefined ? undefined : fieldAt(ordered, replay.at, drones, prs, ownerOf)), [ordered, replay === undefined, replay?.run, passed, drones, prs]);
+  const flying = field?.drones ?? drones;
+  const crates = field?.prs ?? prs;
+  const flightTrails = useMemo(() => (replay === undefined ? trails : trailsOf(before, replay.at, ownerOf)), [trails, replay === undefined, passed]);
+  const picked = deck.focus === undefined ? undefined : ordered.find((one) => String(one.id) === deck.focus);
+  const focusKey = picked === undefined ? undefined : droneOfEvent(picked, ownerOf);
+  // The event's own effect, once, where it is picked.
+  const focusPlays = useMemo(() => {
+    const play = picked === undefined ? undefined : playOfEvent(picked, `focus:${picked.id}`, ownerOf, rootOfManifest);
+    return play === undefined ? [] : [play];
+  }, [deck.focus]);
+  const drawn = replay === undefined ? [...plays, ...focusPlays] : replay.plays;
+  const clock = replay?.at ?? props.now;
+  // What each drone's callout says besides the drone: its state as the list draws it, the call it holds, its last event, the hour of events as bars.
+  const facts = useMemo(() => {
+    const out = new Map<string, DroneFacts>();
+    const HOUR = 60 * 60_000;
+    const BUCKETS = 12;
+    for (const drone of flying) {
+      const subject = ship.subjects.find((one) => one.key === drone.key);
+      if (subject === undefined) continue;
+      const mine = before.filter((event) => droneOfEvent(event, ownerOf) === drone.key && Date.parse(event.at) <= clock + 60_000);
+      const latest = mine.reduce<(typeof mine)[number] | undefined>((best, event) => (best === undefined || Date.parse(event.at) > Date.parse(best.at) ? event : best), undefined);
+      const ticks = Array.from({ length: BUCKETS }, () => 0);
+      for (const event of mine) {
+        const ago = clock - Date.parse(event.at);
+        if (ago >= 0 && ago < HOUR) ticks[BUCKETS - 1 - Math.floor(ago / (HOUR / BUCKETS))]! += 1;
+      }
+      const owed = callOfSubject(subject, deck.held);
+      const call = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed)?.title;
+      const pad = drone.slot === undefined ? undefined : pads.get(drone.slot);
+      out.set(drone.key, {
+        state: { Glyph: subject.mark.Glyph, said: subject.mark.said, tone: toneOf(subject) },
+        ticks,
+        ...(call === undefined ? {} : { call }),
+        ...(latest === undefined ? {} : { last: { says: latest.says, ago: age(latest.at, clock) } }),
+        ...(pad === undefined ? {} : { bay: { slot: pad.slot, Glyph: pad.Glyph, word: pad.word } }),
+      });
+    }
+    return out;
+  }, [flying, ship.subjects, ship.calls, before, replay === undefined ? props.now : passed, deck.held, pads, ship.prs]);
+
   return (
     <section className="deck-pane" aria-label="Flight map">
       <header className="deck-band deck-pane__head">
         <Orbit size={16} aria-hidden />
         <h2 className="deck-pane__title">Map</h2>
+        <PanelKey id="map" />
       </header>
       <div className="deck-map">
+        {replay === undefined ? null : <ReplayMark />}
+        {replay !== undefined || picked === undefined ? null : <FocusChip event={picked} now={props.now} onReplay={() => startReplay(Date.parse(picked.at))} />}
+        {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} end={props.now} onLive={stopReplay} />}
         <Battlefield
           repos={repos}
-          drones={drones}
+          drones={flying}
           pads={pads}
           goals={goals}
-          prs={prs}
-          trails={trails}
-          plays={plays}
+          prs={crates}
+          trails={flightTrails}
+          plays={drawn}
+          facts={facts}
+          focus={replay === undefined ? focusKey : undefined}
           selected={cursor}
           onSelect={(key) => {
             const subject = ship.subjects.find((one) => one.key === key);
@@ -400,8 +587,8 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
   const deck = useDeck();
   const keep = useMemo(
-    () => (subject: { kind: string; id?: string }) => (subject.kind === "main" ? deck.only === undefined && !deck.needs : shown.has(`${subject.kind}:${subject.id}`)),
-    [shown, deck.only, deck.needs],
+    () => (subject: { kind: string; id?: string }) => (subject.kind === "main" ? deck.only === undefined && !deck.needs && !deck.checks : shown.has(`${subject.kind}:${subject.id}`)),
+    [shown, deck.only, deck.needs, deck.checks],
   );
   const pick = (key: string) => {
     const subject = ship.subjects.find((one) => one.key === key);
@@ -412,6 +599,9 @@ function TimelineView({ props, ship, listed }: { props: CockpitProps; ship: Ship
       <header className="deck-band deck-pane__head">
         <ChartNoAxesGantt size={16} aria-hidden />
         <h2 className="deck-pane__title">Timeline</h2>
+        <Tooltip label="Timeline" shortcut="t">
+          <Kbd>t</Kbd>
+        </Tooltip>
       </header>
       <div className="deck-timeline">
         <Timeline
@@ -525,7 +715,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     }),
   ]);
   return (
-    <section className={`deck-panel deck-queue${take === "dots" ? " armada-view__horizon" : ""}`} data-take={take} aria-label="Merge queue">
+    <section className={`deck-panel deck-queue${take === "dots" ? " armada-view__horizon" : ""}`} data-take={take} aria-label="Merge queue" tabIndex={-1}>
       {take === "chips" ? (
         <div className="deck-queue__row">
           <GitMerge size={16} aria-hidden="true" />
@@ -540,6 +730,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
               </Tooltip>
             </li>
           </ol>
+          <PanelKey id="queue" />
         </div>
       ) : (
         <div className="armada-view__line">
@@ -548,6 +739,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
           <Tooltip label={mainSaid}>
             <span className="armada-view__main" data-red={red.length > 0 || undefined} />
           </Tooltip>
+          <PanelKey id="queue" />
         </div>
       )}
     </section>
@@ -559,8 +751,11 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
 function Bays({ props, selected }: { props: CockpitProps; selected: string | undefined }) {
   const slots = slotsOf(props);
   return (
-    <section className="deck-panel deck-bays" aria-label="Bays">
-      <header className="deck-band">Bays</header>
+    <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
+      <header className="deck-band">
+        Bays
+        <PanelKey id="bays" />
+      </header>
       <ul className="deck-bays__rows">
         {slots.map((slot) => {
           const state = bayStateOf({ slot });
@@ -587,42 +782,38 @@ function Bays({ props, selected }: { props: CockpitProps; selected: string | und
   );
 }
 
-function Tile({ label, text, keys, pressed, onPress, children }: { label: string; text: string; keys?: string; pressed: boolean; onPress: () => void; children: ReactNode }) {
-  return (
-    <Tooltip label={label} {...(keys === undefined ? {} : { shortcut: keys })} asChild>
-      <button type="button" className="deck-tile" aria-label={label} aria-pressed={pressed} onClick={onPress}>
-        {children}
-        <span className="deck-tile__text">{text}</span>
-      </button>
-    </Tooltip>
-  );
-}
+type Deck = ReturnType<typeof deckNow>;
+/** The six tiles in the order their keys, 1 to 6, press them. */
+const TILES: readonly { label: string; tip?: string; text: string; Glyph: typeof Box; also?: string; pressed: (deck: Deck) => boolean; press: () => void }[] = [
+  { label: "Jobs only", text: "Jobs", Glyph: Box, pressed: (deck) => deck.only === "jobs", press: () => toggleOnly("jobs") },
+  { label: "Sessions only", text: "Sessions", Glyph: SquareTerminal, pressed: (deck) => deck.only === "sessions", press: () => toggleOnly("sessions") },
+  { label: "Checks", tip: "Checks: only what is running one", text: "Checks", Glyph: ShieldCheck, pressed: (deck) => deck.checks, press: toggleChecks },
+  { label: "Needs me", text: "Calls", Glyph: Megaphone, pressed: (deck) => deck.needs, press: toggleNeeds },
+  { label: "Map", text: "Map", Glyph: Orbit, also: "m", pressed: (deck) => deck.view === "map", press: () => setView("map") },
+  { label: "Timeline", text: "Timeline", Glyph: ChartNoAxesGantt, also: "t", pressed: (deck) => deck.view === "timeline", press: () => setView("timeline") },
+];
 
 /** The four filters and the view switch: one row of six equal tiles. */
 function FlightControl() {
   const deck = useDeck();
   return (
-    <section className="deck-panel deck-controls" aria-label="Flight controls">
-      <header className="deck-band">Flight control</header>
+    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
+      <header className="deck-band">
+        Flight control
+        <PanelKey id="controls" />
+      </header>
       <div className="deck-controls__block">
-        <Tile label="Jobs only" text="Jobs" pressed={deck.only === "jobs"} onPress={() => toggleOnly("jobs")}>
-          <Box size={20} aria-hidden />
-        </Tile>
-        <Tile label="Sessions only" text="Sessions" pressed={deck.only === "sessions"} onPress={() => toggleOnly("sessions")}>
-          <SquareTerminal size={20} aria-hidden />
-        </Tile>
-        <Tile label="Checks" text="Checks" pressed={deck.sel?.kind === "checks"} onPress={() => select(deck.sel?.kind === "checks" ? undefined : { kind: "checks", key: "checks" })}>
-          <ShieldCheck size={20} aria-hidden />
-        </Tile>
-        <Tile label="Needs me" text="Calls" pressed={deck.needs} onPress={toggleNeeds}>
-          <Megaphone size={20} aria-hidden />
-        </Tile>
-        <Tile label="Map" text="Map" keys="m" pressed={deck.view === "map"} onPress={() => setView("map")}>
-          <Orbit size={20} aria-hidden />
-        </Tile>
-        <Tile label="Timeline" text="Timeline" keys="t" pressed={deck.view === "timeline"} onPress={() => setView("timeline")}>
-          <ChartNoAxesGantt size={20} aria-hidden />
-        </Tile>
+        {TILES.map((tile, at) => (
+          <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={tile.also === undefined ? String(at + 1) : `${at + 1} / ${tile.also}`} asChild>
+            <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
+              <tile.Glyph size={20} aria-hidden />
+              <span className="deck-tile__text">{tile.text}</span>
+              <Kbd className="deck-tile__key" aria-hidden="true">
+                {at + 1}
+              </Kbd>
+            </button>
+          </Tooltip>
+        ))}
       </div>
     </section>
   );
@@ -671,11 +862,12 @@ function AutopilotPanel({ props, autopilot }: { props: CockpitProps; autopilot: 
     if (control?.open === true) control.toggle();
   };
   return (
-    <section className="deck-panel deck-autopilot" aria-label="Autopilot">
+    <section className="deck-panel deck-autopilot" aria-label="Autopilot" tabIndex={-1}>
       <header className="deck-band">
         <Switch checked={open || state !== "off"} onChange={flip} disabled={control === undefined}>
           Autopilot
         </Switch>
+        <PanelKey id="autopilot" />
       </header>
       <div className="deck-autopilot__body">
         <div className="deck-autopilot__repo">
@@ -713,10 +905,11 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
 
 function Incoming({ calls, now, ship }: { calls: readonly Item[]; now: number; ship: Ship }) {
   return (
-    <section className="deck-panel deck-incoming" aria-label="Incoming calls">
+    <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1}>
       <header className="deck-band">
         Incoming calls
-        <Tooltip label="Open the next call">
+        <PanelKey id="calls" />
+        <Tooltip label="Open the next call" shortcut="w">
           <Kbd>w</Kbd>
         </Tooltip>
       </header>
@@ -758,9 +951,19 @@ export function DeckBody(props: CockpitProps) {
   const acts = useShipActs(props);
   const autopilot = useAutopilotLane({ picked: props.picked, state: props.state, now: props.now });
   noteCalls(ship.calls);
+  // A replay runs from here, not from the map: it carries on while another page of the area is open.
+  const events = useFleetEvents();
+  const repositories = props.state.holds.repositories ?? [];
+  const ownerOf = (number: number) => {
+    const owned = ship.prs.find((one) => one.number === number)?.owner;
+    return owned === undefined ? undefined : `${owned.kind}:${owned.id}`;
+  };
+  const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  useReplayDriver(events, props.now, ownerOf, rootOf);
+  useReplayKeys(deck.replay !== undefined, events, ownerOf, rootOf, (target) => panelAt(target)?.id);
   // The first frame is over: a call that turns up from here on has arrived, and hails.
   useEffect(() => settle(), []);
-  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.held]);
+  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.checks, deck.held]);
   const incoming = incomingOf(ship.calls, deck.held, deck.visited);
   const selected = deck.sel?.key;
   return (

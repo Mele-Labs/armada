@@ -16,8 +16,14 @@
   min-height: 0;
   overflow: hidden;
   perspective-origin: 50% 50%;
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
   background: radial-gradient(ellipse 85% 75% at 50% 40%, color-mix(in srgb, var(--accent) 7%, var(--bg-base)), var(--bg-base) 78%);
 }
+.bf[data-grab] { cursor: grabbing; }
+/* A hand on the camera follows at once; anything else eases. */
+.bf[data-live] .bf-cam { transition: none; }
 .bf-grain { position: absolute; inset: 0; opacity: 0.04; pointer-events: none; }
 /* The camera drifts a degree or two over twenty seconds, about the point it looks at. */
 .bf-sway { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; animation: bf-sway 20s ease-in-out infinite alternate; }
@@ -138,13 +144,16 @@
 .bf-goal { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; cursor: pointer; outline: none; }
 .bf-goal i { position: absolute; border-radius: 50%; pointer-events: none; }
 .bf-zone { left: -64px; top: -64px; width: 128px; height: 128px; border: 1.2px dotted color-mix(in srgb, var(--fg-subtle) 80%, transparent); }
-.bf-goal-rim { left: -28px; top: -28px; width: 56px; height: 56px; background: color-mix(in srgb, var(--fg-default) 8%, transparent); border: 1.4px solid var(--fg-muted); pointer-events: auto !important; }
-.bf-pole { stroke: var(--fg-muted); stroke-width: 2; stroke-linecap: round; }
-.bf-pennant { fill: var(--fg-default); fill-opacity: 0.82; }
-.bf-beacon { fill: var(--fg-default); }
+.bf-goal-rim { left: -28px; top: -28px; width: 56px; height: 56px; background: color-mix(in srgb, var(--fg-default) 8%, transparent); border: 1.4px solid var(--status-completed-success); box-shadow: 0 0 18px color-mix(in srgb, var(--status-completed-success) 45%, transparent), inset 0 0 14px color-mix(in srgb, var(--status-completed-success) 22%, transparent); pointer-events: auto !important; }
+.bf-flag-name { fill: var(--status-completed-success); font-family: var(--font-mono); font-size: var(--text-2xs); paint-order: stroke; stroke: var(--bg-base); stroke-width: 3.5; stroke-linejoin: round; pointer-events: none; }
+.bf-goal[data-red] .bf-flag-name { fill: var(--status-completed-failed); }
+.bf-pole { stroke: var(--status-completed-success); stroke-width: 2; stroke-linecap: round; }
+.bf-pennant { fill: var(--status-completed-success); fill-opacity: 0.9; }
+.bf-beacon { fill: var(--status-completed-success); }
 .bf-goal[data-red] .bf-pennant,
 .bf-goal[data-red] .bf-beacon { fill: var(--status-completed-failed); fill-opacity: 1; }
-.bf-goal[data-red] .bf-goal-rim { border-color: var(--status-completed-failed); }
+.bf-goal[data-red] .bf-pole { stroke: var(--status-completed-failed); }
+.bf-goal[data-red] .bf-goal-rim { border-color: var(--status-completed-failed); box-shadow: 0 0 18px color-mix(in srgb, var(--status-completed-failed) 45%, transparent), inset 0 0 14px color-mix(in srgb, var(--status-completed-failed) 22%, transparent); }
 .bf-goal[data-red] .bf-beacon { animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite; }
 .bf-goal:hover .bf-pennant { fill-opacity: 1; }
 /* A merge: a flash, a shockwave across the plane, a column of light up the flag. */
@@ -201,6 +210,13 @@
 .bf-drone[data-muted] .bf-sprite { opacity: 0.6; }
 .bf-drone[data-hue="ask"][data-muted] .bf-sprite,
 .bf-drone[data-hue="bad"][data-muted] .bf-sprite { opacity: 0.85; }
+.bf-drone[data-dim] .bf-sprite,
+.bf-drone[data-dim] .bf-gnd,
+.bf-drone[data-dim] .bf-beam3 { opacity: 0.4; }
+.bf-ping[data-focus] { border: 2.2px solid var(--accent); }
+.bf-slab[data-pulse] .bf-top { box-shadow: inset 0 0 0 2.5px var(--accent), 0 0 26px color-mix(in srgb, var(--accent) 60%, transparent); animation: bf-pulse calc(var(--duration-pulse) * 0.9) ease-in-out infinite alternate; }
+.bf-slab[data-pulse] .bf-face { box-shadow: inset 0 0 0 2px var(--accent); }
+@keyframes bf-pulse { to { box-shadow: inset 0 0 0 2.5px var(--accent), 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent); } }
 .bf-drone[data-away] { pointer-events: none; }
 .bf-drone[data-away] .bf-sprite,
 .bf-drone[data-away] .bf-gnd,
@@ -295,24 +311,73 @@
 
 /* ---- The tip and the buttons --------------------------------------------------------------------------- */
 
-.bf-hover {
+/* The callout: a leader and a card, in screen space. Dark glass like the panels, sans throughout, a thin edge in the state's colour. */
+.bf-callout { --tip: var(--accent); position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.bf-callout[data-hue="ask"] { --tip: var(--status-awaiting-review); }
+.bf-callout[data-hue="bad"] { --tip: var(--status-completed-failed); }
+.bf-callout[data-hue="quiet"] { --tip: var(--fg-muted); }
+.bf-callout[data-hue="good"] { --tip: var(--status-completed-success); }
+.bf-callout:not([data-placed]) { visibility: hidden; }
+.bf-callout__lead { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bf-callout__lead line { stroke: var(--tip); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.9; }
+.bf-callout__lead circle { fill: var(--tip); }
+.bf-callout__card {
   position: absolute;
-  z-index: 2;
-  transform: translate(-50%, calc(-100% - var(--space-2)));
+  left: 0;
+  top: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  gap: var(--space-2);
+  width: calc(var(--space-12) * 5);
+  padding: var(--space-3) var(--space-4) var(--space-3);
+  border: var(--border-width) solid var(--border-glass);
+  border-top: 2px solid var(--tip);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: color-mix(in srgb, var(--bg-base) 88%, transparent);
+  box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-overlay);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
   color: var(--fg-default);
-  pointer-events: none;
-  white-space: nowrap;
+  transform-origin: var(--ox, 0) var(--oy, 0);
+  overflow: hidden;
 }
-.bf-hover span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
+.bf-callout[data-placed] .bf-callout__card,
+.bf-callout[data-placed] .bf-callout__lead { animation: bf-callout-in 120ms var(--ease) backwards; }
+@keyframes bf-callout-in {
+  from { opacity: 0; scale: 0.55; }
+  to { opacity: 1; scale: 1; }
+}
+/* A soft glow in the state's colour behind the card, breathing slowly. */
+.bf-callout__glow { position: absolute; left: 50%; top: -60%; width: 140%; aspect-ratio: 1; translate: -50% 0; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--tip) 24%, transparent), transparent 62%); opacity: 0.8; animation: bf-callout-glow calc(var(--duration-pulse) * 3) ease-in-out infinite alternate; pointer-events: none; }
+@keyframes bf-callout-glow { to { opacity: 0.35; } }
+.bf-callout__card > * { position: relative; }
+.bf-callout__card > .bf-callout__glow { position: absolute; }
+.bf-callout__kind { color: var(--tip); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.bf-callout__title { font-size: var(--text-base); line-height: var(--leading-base); font-weight: var(--weight-heading); overflow-wrap: anywhere; }
+.bf-callout__state { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+.bf-callout__state[data-tone="good"] { color: var(--status-completed-success); }
+.bf-callout__state[data-tone="ask"] { color: var(--status-awaiting-review); }
+.bf-callout__state[data-tone="bad"] { color: var(--status-completed-failed); }
+.bf-callout__line { color: var(--fg-muted); }
+.bf-callout__pills { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.bf-callout__pill { display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; padding: 0 var(--space-3); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 2); background: color-mix(in srgb, var(--fg-default) 7%, transparent); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bf-callout__pill[data-bay] { color: var(--fg-default); }
+.bf-callout__last { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.bf-callout__last span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bf-callout__last time { flex: none; color: var(--fg-subtle); }
+.bf-callout__call { display: flex; align-items: center; gap: var(--space-2); color: var(--status-awaiting-review); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.bf-callout__call i { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: currentColor; animation: bf-tip calc(var(--duration-pulse) * 0.8) ease-in-out infinite; }
+.bf-callout__ticks { width: 100%; height: var(--space-4); }
+.bf-callout__ticks rect { fill: var(--tip); }
+.bf-callout__ticks rect[data-empty] { opacity: 0.3; }
+/* The flick of the brackets on the drone itself as the callout opens. */
+.bf-reticle[data-flick] { transform-box: view-box; transform-origin: 0 0; animation: bf-flick 140ms var(--ease) backwards; }
+@keyframes bf-flick {
+  from { opacity: 0; scale: 1.35; }
+  to { opacity: 1; scale: 1; }
+}
 .bf-zoom { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); }
 .bf-zoom .armada-button { border: var(--border-width) solid var(--border-glass); border-radius: 50%; background: var(--bg-glass); box-shadow: inset 0 1px 0 var(--border-highlight), var(--shadow-card); }
 
@@ -410,6 +475,11 @@
    bobs, and the effects of events do not play. States stay readable by shape: a calling drone keeps one ring and its lit tip,
    a stuck one its ring, a failing one its glow; rotors are still. */
 @media (prefers-reduced-motion: reduce) {
+  .bf-slab[data-pulse] .bf-top,
+  .bf-callout[data-placed] .bf-callout__card,
+  .bf-callout[data-placed] .bf-callout__lead,
+  .bf-callout__glow,
+  .bf-reticle[data-flick] { animation: none; }
   .bf-sway,
   .bf-sprite,
   .bf-drone[data-hover] .bf-alt,
