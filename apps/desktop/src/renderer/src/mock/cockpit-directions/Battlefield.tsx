@@ -14,10 +14,10 @@
 // Mock only. proto/cockpit-flight-deck.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Crosshair, Minus, Plus, ShieldCheck, ShieldX } from "lucide-react";
+import { Crosshair, Megaphone, Minus, Plus, ShieldCheck, ShieldX } from "lucide-react";
 import { Button, Tooltip } from "@armada/components";
 
-import { camera } from "./deck-model";
+import { aimAt, camera } from "./deck-model";
 import { GLYPH as DOING_GLYPH, MOST_LOOPS, WORD as DOING_WORD } from "./deck-doing";
 import { Callout, type Anchor, type Glyph, type Tip } from "./Callout";
 import { STAGE } from "./shared";
@@ -165,6 +165,8 @@ function Drone({
   play,
   facts,
   loop,
+  call,
+  leaving,
   onSelect,
   onTip,
 }: {
@@ -191,6 +193,10 @@ function Drone({
   facts: DroneFacts | undefined;
   /** Its action runs as a loop, rather than as the still form. */
   loop: boolean;
+  /** It holds a call that has not been opened: the marker over it, amber while it is owed and red while its Check is failing. */
+  call: "ask" | "bad" | undefined;
+  /** The call was just opened or answered: the marker fades. */
+  leaving: boolean;
   onSelect: () => void;
   onTip: OnTip;
 }) {
@@ -260,8 +266,8 @@ function Drone({
         <i className="bf-pool" />
         {drone.ping ? (
           <>
-            <i className="bf-ping" />
-            <i className="bf-ping" data-late />
+            <i className="bf-ping" data-call={call !== undefined || undefined} />
+            <i className="bf-ping" data-late data-call={call !== undefined || undefined} />
           </>
         ) : null}
         {drone.stuck ? <i className="bf-stall" /> : null}
@@ -277,8 +283,32 @@ function Drone({
         {selected ? <i className="bf-ticks" /> : null}
       </div>
       <div className="bf-beam3" aria-hidden="true" />
+      {call === undefined ? null : <i className="bf-pillar" data-tone={call} data-leaving={leaving || undefined} style={vars({ "--up": Math.max(0, alt - floor) + 40 * big })} aria-hidden="true" />}
       {/* The air: the drone on its altitude, a billboard so it stands upright. */}
       <div className="bf-alt">
+        {call === undefined ? null : (
+          <div className="bf-bb bf-call-at" data-tone={call} data-leaving={leaving || undefined} style={vars({ "--head": Math.round(40 * big) })}>
+            <div className="bf-call-foot">
+              <div
+                className="bf-call"
+                role="button"
+                tabIndex={leaving ? -1 : 0}
+                aria-label={`${drone.title} needs you`}
+                onClick={onSelect}
+                onKeyDown={(event) => keyed(event, onSelect)}
+                onMouseEnter={show}
+                onMouseLeave={() => onTip(undefined)}
+                onFocus={show}
+                onBlur={() => onTip(undefined)}
+              >
+                <i className="bf-call__stem" />
+                <span className="bf-call__badge">
+                  <Megaphone size={18} strokeWidth={2.2} aria-hidden />
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
         <Sprite x={BOX.x} y={BOX.y} w={BOX.w} h={BOX.h}>
           <g transform={`scale(${big})`}>
             {drone.flare ? (
@@ -544,6 +574,7 @@ export function Battlefield({
   trails,
   plays,
   facts,
+  calls,
   focus,
   selected,
   onSelect,
@@ -559,6 +590,8 @@ export function Battlefield({
   trails: ReadonlyMap<string, number>;
   plays: readonly Play[];
   facts: ReadonlyMap<string, DroneFacts>;
+  /** The drones that hold a call he has not opened, and whether it is owed to him or its Check is failing. */
+  calls: ReadonlyMap<string, "ask" | "bad">;
   /** The drone a picked event is about. */
   focus?: string | undefined;
   selected: string | undefined;
@@ -670,7 +703,11 @@ export function Battlefield({
       for (const x of [rect.x, rect.x + rect.w]) for (const y of [rect.y, rect.y + rect.h + 40]) marks.push({ x, y: y * FLAT, z: 0 });
       if (one.goal !== undefined) marks.push({ x: one.goal.x, y: one.goal.y * FLAT, z: 78 }, { x: one.goal.x + 100, y: one.goal.y * FLAT, z: 40 });
     }
-    for (const at of layout.at.values()) marks.push({ x: at.x - 38 * big, y: at.y * FLAT, z: reach + 40 * big }, { x: at.x + 38 * big, y: at.y * FLAT, z: reach + 40 * big }, { x: at.x, y: at.y * FLAT, z: 0 });
+    for (const [key, at] of layout.at) {
+      // A drone holding a call carries its badge over it, which is a size on the screen and not on the plane: room for it above.
+      const over = calls.has(key) ? 150 : 0;
+      marks.push({ x: at.x - 38 * big, y: at.y * FLAT, z: reach + 40 * big + over }, { x: at.x + 38 * big, y: at.y * FLAT, z: reach + 40 * big + over }, { x: at.x, y: at.y * FLAT, z: 0 });
+    }
     if (marks.length === 0) return { x: plane.width / 2, y: plane.height / 2, eye: 0.8, tilt: false };
     let cam: Cam = { x: marks.reduce((sum, m) => sum + m.x, 0) / marks.length, y: marks.reduce((sum, m) => sum + m.y, 0) / marks.length, eye: 0.6, tilt: false };
     for (let pass = 0; pass < 8; pass += 1) {
@@ -683,7 +720,7 @@ export function Battlefield({
       cam = { ...cam, eye, x: cam.x + there.x / cam.eye, y: cam.y + there.y / cam.eye };
     }
     return cam;
-  }, [layout, plane.width, plane.height, size, big]);
+  }, [layout, plane.width, plane.height, size, big, calls]);
   // Out as far as the whole field, which is where it rests; in as far as a drone is large.
   const eyes = { least: Math.min(home.eye, Math.max(0.3, Math.min(size.width / world.width, size.height / (plane.height * COS)) * 0.92)) * 0.98, most: 2.6 };
   const fit = (c: Cam): Cam => ({ ...c, eye: Math.min(eyes.most, Math.max(eyes.least, c.eye)), x: Math.min(plane.width, Math.max(0, c.x)), y: Math.min(plane.height, Math.max(0, c.y)) });
@@ -797,6 +834,15 @@ export function Battlefield({
     }
     go({ x: lockX, y: (lockY - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease");
   }, [selected, lockX, lockY]);
+  // `w` named a drone to go to: the camera eases to it once the map is drawn.
+  useEffect(() => {
+    const key = aimAt.key;
+    const at = key === undefined ? undefined : layout.at.get(key);
+    if (at === undefined) return;
+    aimAt.key = undefined;
+    first.current = false;
+    go({ x: at.x, y: (at.y - 30) * FLAT, eye: Math.max(latest.current.eye, LOCK_EYE), tilt: true }, "ease");
+  }, [layout]);
   // The hand: a drag, the wheel and a pinch.
   const press = useRef<{ id: number; x: number; y: number; at: Cam; moved: boolean } | null>(null);
   const swallow = useRef(false);
@@ -853,6 +899,17 @@ export function Battlefield({
 
   const [tip, setTip] = useState<{ tip: Tip; anchor: Anchor }>();
   const [hot, setHot] = useState<string>();
+  // A marker whose call was opened or answered stays a moment and fades.
+  const [gone, setGone] = useState<ReadonlyMap<string, "ask" | "bad">>(new Map());
+  const marked = useRef(calls);
+  useEffect(() => {
+    const left = [...marked.current].filter(([key]) => !calls.has(key));
+    marked.current = calls;
+    if (left.length === 0) return;
+    setGone((was) => new Map([...was, ...left]));
+    window.setTimeout(() => setGone((was) => new Map([...was].filter(([key]) => !left.some(([one]) => one === key)))), 320);
+  }, [calls]);
+  const callOf = (key: string) => calls.get(key) ?? gone.get(key);
   const loops = new Set(
     [...doers]
       .sort((a, b) => (a.key === focus ? 0 : a.key === selected ? 1 : a.key === hot ? 2 : 3) - (b.key === focus ? 0 : b.key === selected ? 1 : b.key === hot ? 2 : 3))
@@ -940,7 +997,7 @@ export function Battlefield({
     zoomAt(factor, mid.x, mid.y, "ease");
   };
   const onDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if ((event.pointerType === "mouse" && event.button !== 0) || (event.target as Element).closest(".bf-zoom") !== null) return;
+    if ((event.pointerType === "mouse" && event.button !== 0) || (event.target as Element).closest(".bf-zoom, .bf-edge") !== null) return;
     press.current = { id: event.pointerId, x: event.clientX, y: event.clientY, at: latest.current, moved: false };
   };
   const onMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -977,7 +1034,7 @@ export function Battlefield({
     event.preventDefault();
   };
   const onDouble = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if ((event.target as Element).closest("[role=option], .bf-zoom") === null) homeAgain();
+    if ((event.target as Element).closest("[role=option], .bf-zoom, .bf-edge") === null) homeAgain();
   };
   // The keys: arrows pan, + and - zoom, 0 and Home go back, and nothing here reaches the deck's own.
   const onKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -1309,6 +1366,8 @@ export function Battlefield({
                   play={launch}
                   facts={facts.get(drone.key)}
                   loop={loop}
+                  call={callOf(drone.key)}
+                  leaving={!calls.has(drone.key)}
                   onSelect={() => onSelect(drone.key)}
                   onTip={(next, target) => {
                     setHot(next === undefined ? undefined : drone.key);
@@ -1331,6 +1390,40 @@ export function Battlefield({
         </div>
       </div>
       <div className="bf-haze" aria-hidden="true" />
+      {/* A drone that holds a call and is outside the pane: its badge at the border, an arrow toward it. Pressing it eases the camera there. */}
+      {[...new Map([...gone, ...calls])].map(([key, tone]) => {
+        const drone = droneBy.get(key);
+        const at = layout.at.get(key);
+        if (drone === undefined || at === undefined) return null;
+        const there = projectOf({ x: at.x, y: at.y * FLAT, z: altOf(drone) + 40 * big }, eff);
+        const sy = there.y - 46;
+        const room = { x: size.width / 2 - 26, y: size.height / 2 - 26 };
+        if (Math.abs(there.x) <= room.x && Math.abs(sy) <= room.y) return null;
+        const k = Math.min(room.x / (Math.abs(there.x) || 1e-6), room.y / (Math.abs(sy) || 1e-6));
+        const angle = (Math.atan2(sy, there.x) * 180) / Math.PI;
+        const leaving = !calls.has(key);
+        const tipped: Tip = { label: drone.kind === "job" ? "Job" : "Session", title: drone.title, hue: tone, lines: ["Needs you"] };
+        return (
+          <button
+            key={key}
+            type="button"
+            className="bf-edge"
+            data-tone={tone}
+            data-leaving={leaving || undefined}
+            tabIndex={leaving ? -1 : 0}
+            aria-label={`${drone.title} needs you`}
+            style={{ left: size.width / 2 + there.x * k, top: size.height / 2 + sy * k }}
+            onClick={() => go({ x: at.x, y: (at.y - 30) * FLAT, eye: latest.current.eye, tilt: latest.current.tilt }, "ease")}
+            onMouseEnter={(event) => showTip(tipped, event.currentTarget)}
+            onMouseLeave={() => showTip(undefined)}
+            onFocus={(event) => showTip(tipped, event.currentTarget)}
+            onBlur={() => showTip(undefined)}
+          >
+            <Megaphone size={16} strokeWidth={2.2} aria-hidden />
+            <i className="bf-edge__arrow" style={{ transform: `rotate(${angle.toFixed(1)}deg) translateX(24px)` }} />
+          </button>
+        );
+      })}
       {tip === undefined || host.current === null ? null : <Callout tip={tip.tip} anchor={tip.anchor} host={host.current} />}
       <div className="bf-zoom">
         <Tooltip label="Zoom in" shortcut="+" asChild>

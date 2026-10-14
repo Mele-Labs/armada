@@ -81,11 +81,15 @@ export const scene = {
 export type Camera = { x: number; y: number; eye: number; tilt: boolean };
 export const camera = { current: undefined as Camera | undefined };
 
+/** A drone the camera is asked to ease to when the map is next drawn: `w` names the one it goes to. Not state: nothing draws from it. */
+export const aimAt = { key: undefined as string | undefined };
+
 /** The calls `w` has opened, oldest first, and which one is on show: `w` goes on, Shift+W goes back. */
 export const callTrail = { keys: [] as string[], at: -1 };
 
 export const forgetDeck = () => {
   camera.current = undefined;
+  aimAt.key = undefined;
   callTrail.keys = [];
   callTrail.at = -1;
   scene.seen.clear();

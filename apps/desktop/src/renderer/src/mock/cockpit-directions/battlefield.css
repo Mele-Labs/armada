@@ -548,6 +548,75 @@
 /* No motion: a still pose. The plane keeps its tilt and the drones their altitude; the camera does not drift or ease, nothing
    bobs, and the effects of events do not play. States stay readable by shape: a calling drone keeps one ring and its lit tip,
    a stuck one its ring, a failing one its glow; rotors are still. */
+/* ---- A call: the one thing on the field that is lit ------------------------------------------------------ */
+
+/* A drone that holds a call he has not opened carries a badge over it at one size on the screen however far the camera stands, a stem
+   to the drone, and a pillar of light from its ground up through the badge, so it is found across the field. Amber is owed to him; red is
+   a Check failing. Nothing else draws a pillar. The pillar is one gradient element and everything moves by transform or opacity alone. */
+.bf-ping[data-call] { border-width: 2.4px; scale: 2; animation-duration: calc(var(--duration-pulse) * 3.4); }
+.bf-ping[data-call][data-late] { animation-delay: calc(var(--duration-pulse) * 1.7); }
+.bf-call-at,
+.bf-pillar,
+.bf-edge { --tone: var(--status-awaiting-review); }
+.bf-call-at[data-tone="bad"],
+.bf-pillar[data-tone="bad"],
+.bf-edge[data-tone="bad"] { --tone: var(--status-completed-failed); }
+.bf-pillar {
+  position: absolute;
+  left: calc(-6px / var(--eye, 1));
+  top: -100px;
+  width: calc(12px / var(--eye, 1));
+  height: 100px;
+  transform-origin: 50% 100%;
+  transform: translateZ(calc(var(--floor) * 1px)) rotateZ(calc(var(--yaw) * -1)) rotateX(-90deg) scaleY(calc((var(--up) + 90 / var(--eye, 1)) / 100));
+  background: linear-gradient(to top, color-mix(in srgb, var(--tone) 62%, transparent), color-mix(in srgb, var(--tone) 24%, transparent) 60%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 38%, #000 62%, transparent);
+  pointer-events: none;
+  animation: bf-call-in calc(var(--duration-pulse) * 0.6) var(--ease) backwards;
+}
+.bf-call-at { left: -90px; top: -360px; width: 180px; height: 360px; transform-origin: 90px 360px; pointer-events: none; animation: bf-call-in calc(var(--duration-pulse) * 0.45) var(--ease) backwards; }
+.bf-call-foot { position: absolute; left: 90px; top: 360px; transform: translateY(calc(var(--head) * -1px)); }
+.bf-call {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  width: 0;
+  transform: translateY(-100%);
+  transform-origin: 0 0;
+  scale: calc(1 / var(--eye, 1));
+  cursor: pointer;
+  outline: none;
+  pointer-events: auto;
+}
+.bf-call__stem { width: 2px; height: 16px; background: var(--tone); }
+.bf-call__badge,
+.bf-edge {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--tone);
+  color: var(--bg-base);
+  box-shadow: 0 0 0 2px var(--bg-base), 0 0 20px color-mix(in srgb, var(--tone) 70%, transparent);
+}
+.bf-call__badge { flex: none; width: 34px; height: 34px; animation: bf-call-bob calc(var(--duration-pulse) * 1.4) ease-in-out infinite alternate; }
+.bf-call:hover .bf-call__badge,
+.bf-call:focus-visible .bf-call__badge,
+.bf-edge:hover,
+.bf-edge:focus-visible { box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent), 0 0 20px color-mix(in srgb, var(--tone) 70%, transparent); }
+.bf-call-at[data-leaving],
+.bf-pillar[data-leaving],
+.bf-edge[data-leaving] { animation: bf-call-out calc(var(--duration-pulse) * 0.45) var(--ease) forwards; pointer-events: none; }
+.bf-call-at[data-leaving] .bf-call { pointer-events: none; }
+/* Outside the pane: the badge at its border with an arrow toward the drone. */
+.bf-edge { position: absolute; z-index: 2; translate: -50% -50%; width: 30px; height: 30px; padding: 0; border: 0; cursor: pointer; outline: none; animation: bf-call-in calc(var(--duration-pulse) * 0.45) var(--ease) backwards; }
+.bf-edge__arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -5px 0 0 -4px; border: 5px solid transparent; border-left: 9px solid var(--tone); border-right: 0; pointer-events: none; }
+@keyframes bf-call-bob { to { transform: translateY(-5px); } }
+@keyframes bf-call-in { from { opacity: 0; } }
+@keyframes bf-call-out { to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .bf-slab[data-pulse] .bf-top,
   .bf-callout[data-placed] .bf-callout__card,
@@ -573,6 +642,10 @@
   .bf-stall,
   .bf-glow,
   .bf-flare path,
+  .bf-call__badge,
+  .bf-call-at,
+  .bf-pillar,
+  .bf-edge,
   .bf-goal[data-red] .bf-beacon,
   .bf-orbit[data-circling],
   .bf-orbit[data-circling] > .bf-orbit__face,
@@ -595,6 +668,9 @@
   .bf-beam3,
   .bf-shadow,
   .bf-lift { transition: none; }
+  .bf-call-at[data-leaving],
+  .bf-pillar[data-leaving],
+  .bf-edge[data-leaving] { opacity: 0; }
   .bf-ping { opacity: 0.75; transform: scale(1.7); }
   .bf-ping[data-late] { display: none; }
   .bf-stall { opacity: 0.9; }

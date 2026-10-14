@@ -30,6 +30,7 @@ import {
   arrivedLate,
   callTrail,
   callOfSubject,
+  aimAt,
   deckNow,
   enterAutopilot,
   incomingOf,
@@ -169,6 +170,10 @@ export function DeckChrome(props: AppSeamProps) {
     }
     if (to === undefined) return;
     openCall(ship, to);
+    // The map, when it is next drawn, eases to the drone the call is about.
+    const owner = to.ownedBy;
+    const about = ship.subjects.find((one) => one.kind !== "pr" && (one.call === to.key || (owner !== undefined && one.kind === owner.kind && one.id === owner.id)));
+    aimAt.key = about?.key;
     if (!deckNow().here) props.goTo(SURFACE.overview);
   };
   const [keySheet, setKeySheet] = useState(false);
@@ -559,11 +564,26 @@ function useField(props: CockpitProps, ship: Ship, listed: readonly Subject[]) {
     return out;
   }, [flying, ship.subjects, ship.calls, before, replay === undefined ? props.now : passed, deck.held, pads, ship.prs]);
 
-  return { deck, repos, pads, goals, crates, drones: flying, flightTrails, drawn, facts, focusKey, replay, ordered, picked, ownerOf, rootOfManifest };
+  // The drones that hold a call he has not opened: a call is marked until it is visited or answered. In a replay, those that were calling at the playhead.
+  const calls = useMemo(() => {
+    const out = new Map<string, "ask" | "bad">();
+    for (const drone of flying) {
+      if (!drone.shown) continue;
+      if (replay !== undefined) {
+        if (drone.ping) out.set(drone.key, drone.flare ? "bad" : "ask");
+        continue;
+      }
+      const subject = ship.subjects.find((one) => one.key === drone.key);
+      const owed = subject === undefined ? undefined : callOfSubject(subject, deck.held);
+      if (owed !== undefined && !deck.visited.has(owed)) out.set(drone.key, drone.flare ? "bad" : "ask");
+    }
+    return out;
+  }, [flying, ship.subjects, deck.held, deck.visited, replay === undefined]);
+  return { deck, calls, repos, pads, goals, crates, drones: flying, flightTrails, drawn, facts, focusKey, replay, ordered, picked, ownerOf, rootOfManifest };
 }
 
 function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
-  const { replay, ordered, picked, repos, drones: flying, pads, goals, crates, flightTrails, drawn, facts, focusKey } = useField(props, ship, listed);
+  const { replay, ordered, picked, calls, repos, drones: flying, pads, goals, crates, flightTrails, drawn, facts, focusKey } = useField(props, ship, listed);
   return (
     <section className="deck-pane" aria-label="Flight map">
       <header className="deck-band deck-pane__head">
@@ -584,6 +604,7 @@ function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: S
           trails={flightTrails}
           plays={drawn}
           facts={facts}
+          calls={calls}
           focus={replay === undefined ? focusKey : undefined}
           selected={cursor}
           onSelect={(key) => {
