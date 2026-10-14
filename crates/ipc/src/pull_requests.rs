@@ -39,7 +39,23 @@ pub enum ForgeChecks {
     /// At least one did not pass, named as the forge names it.
     Failed {
         failing: Vec<String>,
+        /// How much the failure decides. A merge is refused on any of them; this is for display.
+        #[serde(default)]
+        weight: FailureWeight,
     },
+}
+
+/// How much a failed check decides about the pull request. With a gate named, only the gate does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureWeight {
+    /// The gate failed, or there is no gate.
+    #[default]
+    Required,
+    /// A check outside the gate failed and the gate has not finished.
+    WhileRunning,
+    /// A check outside the gate failed after the gate passed.
+    AfterRequired,
 }
 
 /// One pull request as the forge shows it now. `get_pull_request`, and what

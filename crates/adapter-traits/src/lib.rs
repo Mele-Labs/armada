@@ -95,8 +95,8 @@ pub use slots::{
     SlotStanding, StrandedWork, WorkShown,
 };
 pub use under_review::{
-    FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
-    WhatPeopleSaid, WhatTheForgeRan,
+    FailureWeight, FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy,
+    UnderReview, WhatPeopleSaid, WhatTheForgeRan,
 };
 pub use work_product::{
     BranchWork, Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured,

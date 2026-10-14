@@ -22,8 +22,10 @@ use crate::prompts::Prompts;
 /// The model's call failed, or its answer would not read. A 500.
 const REVIEW_FAILED: &str = "fleet.lesson_review_failed";
 
-/// How many open items one review reads: the Retros page's own bound.
-const OPEN_MOST: u32 = 200;
+/// How many open items one review reads, newest first. All 200 the Retros page
+/// lists took longer than the Judge's 120 s to read; the rest are read on the
+/// next `Review again`, once these are answered.
+const OPEN_MOST: u32 = 50;
 
 /// The reason on an open item the model left out of every list.
 pub(crate) const NOT_RANKED: &str = "not ranked";

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
+import { PrOwnerRegistryProvider } from "../RegisteredOwner/RegisteredOwner";
 import { ManifestForm, type ManifestFormDraft } from "./ManifestForm";
 
 /**
@@ -81,7 +82,14 @@ const BASE = {
 };
 
 /** Nothing touched: Save and Discard wait for a change. */
-export const AtRest: Story = { name: "At rest", args: BASE };
+export const AtRest: Story = {
+  name: "At rest",
+  args: BASE,
+  // Fleet serves no such key, so without the registry the form draws no switch for it.
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByRole("switch", { name: "Pull request owners" })).toBeNull();
+  },
+};
 
 /** A change not yet saved. */
 export const Changed: Story = {
@@ -117,6 +125,23 @@ export const BelowAPastJob: Story = {
     budgetWarnings: [
       "The costliest of this repository's 41 past Jobs cost ~$7.12, more than this cap. A Job like it would stop before it finished.",
     ],
+  },
+};
+
+/** A window that holds the owner registry draws the switch in Policy, off until the repository turns it on. */
+export const RegisteringOwners: Story = {
+  name: "Registering pull request owners",
+  args: BASE,
+  decorators: [
+    (Story) => (
+      <PrOwnerRegistryProvider value={{ ownerOf: () => undefined, registering: true, setRegistering: noop }}>
+        <Story />
+      </PrOwnerRegistryProvider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const policy = within(within(canvasElement).getByRole("region", { name: "Policy" }));
+    await expect(policy.getByRole("switch", { name: "Pull request owners" })).toBeChecked();
   },
 };
 

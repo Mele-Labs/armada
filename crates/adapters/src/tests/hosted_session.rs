@@ -325,6 +325,11 @@ fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
         "gh api repos/Mele-Labs/armada/pulls/2234",
         "gh api -X GET repos/Mele-Labs/armada/pulls --jq '.[].number'",
         "gh api --paginate repos/Mele-Labs/armada/issues",
+        "sed -n 250,420p crates/fleet/src/session_host/hearing.rs",
+        "sed -n '10,40p' file | head",
+        "sed -n '$p' file",
+        "ls",
+        "git log",
     ] {
         assert!(reads_only(read), "{read}");
     }
@@ -339,6 +344,12 @@ fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
         "cd /repo && git commit -m x",
         "cd /repo && sed -i s/a/b/ file",
         "sed -i s/a/b/ file",
+        "sed s/a/b/ file",
+        "sed -n -i 1p file",
+        "sed -n 'w out' file",
+        "sed -n '1,3p;w out' file",
+        "sed -n 1e file",
+        "sed -n p file",
         "cd /repo && echo x > file",
         "gh pr create --fill",
         "gh pr merge 12",

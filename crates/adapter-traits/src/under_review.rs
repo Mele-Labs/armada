@@ -151,11 +151,26 @@ pub enum WhatTheForgeRan {
     SomeFailed {
         failed: Vec<FromOutside>,
         checks: usize,
+        /// How much the failure decides. Read for display only: **every `SomeFailed` is
+        /// refused alike**, whatever it weighs.
+        weight: FailureWeight,
     },
     /// Nothing on this machine could say. **Not
     /// [`NothingRan`](WhatTheForgeRan::NothingRan)**, for
     /// [`WhatPeopleSaid::Unreadable`]'s reason.
     Unreadable,
+}
+
+/// How much a failed check decides about the pull request. Where a repository names one check
+/// as its gate, only the gate decides; with none, every check does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FailureWeight {
+    /// The gate failed, or there is no gate: the pull request has failed.
+    Required,
+    /// A check outside the gate failed and the gate has not finished.
+    WhileRunning,
+    /// A check outside the gate failed after the gate passed.
+    AfterRequired,
 }
 
 impl WhatTheForgeRan {
@@ -411,7 +426,7 @@ impl UnderReview {
                 out.push_str(" checks have finished");
                 out
             }
-            WhatTheForgeRan::SomeFailed { failed, checks } => {
+            WhatTheForgeRan::SomeFailed { failed, checks, .. } => {
                 let mut out = count("", failed.len(), " of its ");
                 out.push_str(&checks.to_string());
                 out.push_str(" checks did not pass");
@@ -465,6 +480,7 @@ mod tests {
             checks: WhatTheForgeRan::SomeFailed {
                 failed: alloc::vec![FromOutside::verbatim("build")],
                 checks: 3,
+                weight: FailureWeight::Required,
             },
             remarks: Vec::new(),
             verdicts: Vec::new(),

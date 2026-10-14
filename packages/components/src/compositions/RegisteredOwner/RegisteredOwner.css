@@ -1,0 +1,35 @@
+/* A pull request's registered owner: the kind and short id, then the machine past a divider. The
+   reference chip's own frame, so the two read as one family on a row. */
+
+.armada-registered-owner {
+  display: inline-flex;
+  align-items: stretch;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+
+.armada-registered-owner__who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+}
+
+.armada-registered-owner__machine {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border-inline-start: var(--border-width) solid var(--border-default);
+  color: var(--fg-subtle);
+}
+
+/* This machine's own rows take the foreground, so the other machine's recede. */
+.armada-registered-owner__machine[data-here] {
+  color: var(--fg-default);
+}

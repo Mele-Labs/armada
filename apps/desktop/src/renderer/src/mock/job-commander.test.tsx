@@ -16,7 +16,7 @@ const CARD = "01M3WJ6FGZ0CARD0000000T7C1";
 const commander = () => page.getByRole("region", { name: "Commander", exact: true });
 const now = () => page.getByRole("region", { name: "Now" });
 
-// One name, so the whole file runs as one Check: `armada check app_smoke "job commander"`.
+// One name, so the whole file runs as one Check: `pnpm exec vitest run --project \'smoke*\' -t "job commander"`.
 describe("job commander", () => {
   test("a Job's Commander is drawn over its canvas once its thread is open", async () => {
     mount("job-commander-woken");

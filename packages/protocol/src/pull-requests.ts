@@ -11,7 +11,10 @@ export type PullRequestStanding = "draft" | "open" | "merged" | "closed";
  * What the forge's own checks have come to. Not Armada's Checks. A repository
  * that runs nothing reads `pending`, because nothing passed.
  */
-export type ForgeChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string[] };
+export type ForgeChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string[]; weight?: FailureWeight };
+
+/** How much a failed check decides: with a gate named, only the gate does. Fleet refuses a merge on any of them. */
+export type FailureWeight = "required" | "while_running" | "after_required";
 
 /** `get_pull_request`, and what `ready_pull_request`, `merge_pull_request_by_number` and `enable_auto_merge` answer with: the pull request as the forge shows it afterwards. */
 export type PullRequestState = {

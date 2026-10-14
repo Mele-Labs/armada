@@ -43,6 +43,15 @@
   color: var(--status-awaiting-review);
 }
 
+/* Red without deciding: a check failed while the run goes on, weightier than one that failed after the required ones passed. */
+.armada-ref-chip__checks[data-red="running"] {
+  color: color-mix(in srgb, var(--status-completed-failed) 70%, var(--fg-muted));
+}
+
+.armada-ref-chip__checks[data-red="advisory"] {
+  color: color-mix(in srgb, var(--status-completed-failed) 35%, var(--status-completed-success));
+}
+
 .armada-owner-chip {
   position: relative;
   display: inline-flex;

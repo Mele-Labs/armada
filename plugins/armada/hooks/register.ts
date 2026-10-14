@@ -248,8 +248,12 @@ async function branchOf($: Dollar, cwd: string): Promise<string | undefined> {
   return ran.exitCode === 0 && name !== '' && name !== 'HEAD' ? name : undefined
 }
 
-async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string): Promise<void> {
-  const ran = await $.process.run(['gh', 'pr', 'view', '--json', 'number,url,state,title,headRefName,isDraft'], {
+/**
+ * The pull request on the branch checked out in `cwd`, or the one `ref` names. `created` marks one this
+ * session opened, which Fleet credits wherever the session stood.
+ */
+async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string, ref?: string, created = false): Promise<void> {
+  const ran = await $.process.run(['gh', 'pr', 'view', ...(ref === undefined ? [] : [ref]), '--json', 'number,url,state,title,headRefName,isDraft'], {
     cwd,
     timeoutMs: 10_000,
   })
@@ -271,6 +275,7 @@ async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string): Pr
     state: view.isDraft === true && view.state === 'OPEN' ? 'draft' : (view.state ?? '').toLowerCase(),
     ...(view.title === undefined ? {} : { title: view.title }),
     ...(view.headRefName === undefined ? {} : { branch: view.headRefName }),
+    ...(created ? { created: 'true' } : {}),
   }
   one.prs.set(number, detail)
   say($, id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } })
@@ -499,10 +504,12 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
   }
   const act = ghAct(command)
   if (act?.act === 'create') {
+    // What `gh pr create` printed is this session's own, whichever slot the command ran in.
     for (const pr of pullRequestsIn(text)) {
-      const detail = { url: pr.url }
+      const detail = { url: pr.url, created: 'true' }
       one.prs.set(pr.number, detail)
       say($, id, { kind: 'attached', attachment: { kind: 'pr', target: pr.number, detail } })
+      await pullRequestOn($, id, one, await $.session.cwd(), pr.url, true).catch(() => undefined)
     }
   }
   if (act?.act === 'merge' || act?.act === 'close') {

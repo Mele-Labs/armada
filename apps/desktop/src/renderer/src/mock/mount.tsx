@@ -38,6 +38,7 @@ import { createMockDownshift } from "./downshift";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
 import { SharedHomeFrom } from "./shared-home";
+import { PrOwnersFrom } from "./pr-owners";
 import type { Scenario } from "./scenario";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -142,7 +143,9 @@ export function mountApp(
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
                                 <SharedHomeFrom home={chosen.draft?.sharedHome}>
-                                  <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                  <PrOwnersFrom owners={chosen.draft?.prOwners}>
+                                    <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                  </PrOwnersFrom>
                                 </SharedHomeFrom>
                               </ClashesFrom>
                             </SessionsHere>
