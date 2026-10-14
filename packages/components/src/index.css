@@ -310,6 +310,7 @@
    import note above. #1275. */
 @import "./compositions/KitServers/KitServers.css";
 @import "./compositions/KitSetup/KitSetup.css";
+@import "./compositions/KitSetup/SharedHome.css";
 /* One Helm session as one quotable record, on the layer wide enough to read
    it. #1367. */
 @import "./compositions/HelmRecord/HelmRecord.css";
@@ -433,4 +434,3 @@
 @import "./compositions/StopCard/StopCard.css";
 @import "./compositions/PullRequestPanel/PullRequestPanel.css";
 @import "./compositions/PullRequestPanel/PullRequestTabs.css";
-@import "./compositions/KitSetup/SharedHome.css";

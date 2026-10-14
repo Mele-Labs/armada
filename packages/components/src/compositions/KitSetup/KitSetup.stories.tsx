@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { KitSetup, type KitSetupRead } from "./KitSetup";
+import { SharedHomeProvider, type SharedHome, type SharedRow } from "./SharedHome";
 
 /**
  * The setup a person already works with, drawn beside what Armada itself holds
@@ -209,5 +210,112 @@ export const AllowlistEmpty: Story = {
     await expect(kit.getByRole("heading", { name: "Allowlist" })).toBeVisible();
     await expect(canvasElement.querySelector(".armada-kit-setup__none")).toBeNull();
     await expect(kit.queryByRole("listitem")).toBeNull();
+  },
+};
+
+const ACTS = { choose: fn(), add: fn(), bring: fn(), sync: fn() };
+const row = (kind: string, name: string, state: SharedRow["state"], more: Partial<SharedRow> = {}): SharedRow => ({ kind, name, state, ...more });
+const HOME_ROWS: SharedRow[] = [
+  row("skills", "humanizer", "same"),
+  row("mcp_servers", "gitnexus", "same", { keyHere: true }),
+  row("allowlist", "git log --oneline", "here"),
+  row("allowlist", "gh run view", "home", { source: "always allow" }),
+  row("global_instructions", "AGENTS.md", "differs", {
+    says: "21 lines",
+    source: "/Users/user/.agent/AGENTS.md",
+    here: "# Global Instructions\nQuestions go last.",
+    there: "# Global Instructions\nQuestions go last, in the prompt.",
+  }),
+];
+const HOME: SharedHome = { account: "nickmele", repository: "armada-home", rows: HOME_ROWS, syncing: false, ...ACTS };
+
+/**
+ * **Each row says how it stands against the home in a glyph with a tooltip and no word on
+ * screen.** The acts are icons too, named by their tooltip and the row. A row that differs is the
+ * one mark that opens the two versions, and picking a side is the only way it settles.
+ */
+export const AgainstASharedHome: Story = {
+  name: "Against a shared home",
+  args: {
+    setup: {
+      ...FULL,
+      kinds: [
+        { kind: "skills", read: { what: "read", items: [{ name: "humanizer", source: "/Users/user/.agent/skills/humanizer" }], unreadable: [] } },
+        // Global instructions is drawn beside the agent file, so the read has to carry one.
+        FULL.kinds.find((one) => one.kind === "agent_file")!,
+        { kind: "mcp_servers", read: { what: "read", items: [{ name: "gitnexus", says: "gitnexus-mcp", source: "/Users/user/.agent.json" }], unreadable: [] } },
+        { kind: "allowlist", read: { what: "read", items: [{ name: "git log --oneline", source: "always allow" }], unreadable: [] } },
+      ],
+    },
+  },
+  decorators: [
+    (Story) => (
+      <SharedHomeProvider value={HOME}>
+        <Story />
+      </SharedHomeProvider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const kit = within(canvasElement);
+    await expect(kit.getByText("nickmele")).toBeVisible();
+    await expect(within(kit.getByRole("region", { name: "Skills" })).getByRole("img", { name: "Same as the home" })).toBeVisible();
+    await expect(kit.getByRole("img", { name: "Needs its key on this machine" })).toBeVisible();
+    await expect(kit.getByRole("img", { name: "Only on this machine" })).toBeVisible();
+    await expect(kit.getByRole("img", { name: "Only in the home" })).toBeVisible();
+
+    // An act is an icon: named, and carrying no text.
+    const up = kit.getByRole("button", { name: "Add to the home git log --oneline" });
+    await expect(up.textContent).toBe("");
+    await userEvent.click(up);
+    await expect(ACTS.add).toHaveBeenCalledWith(expect.objectContaining({ name: "git log --oneline" }));
+    await userEvent.click(kit.getByRole("button", { name: "Add to this machine gh run view" }));
+    await expect(ACTS.bring).toHaveBeenCalledWith(expect.objectContaining({ name: "gh run view" }));
+    await userEvent.click(kit.getByRole("button", { name: "Sync" }));
+    await expect(ACTS.sync).toHaveBeenCalled();
+
+    // A row that differs opens both versions, and a side is picked, never merged.
+    await userEvent.click(kit.getByRole("button", { name: "Differs from the home, AGENTS.md" }));
+    const sheet = within(await within(document.body).findByRole("dialog", { name: "AGENTS.md" }));
+    await expect(sheet.getByRole("region", { name: "This machine" })).toBeVisible();
+    await expect(sheet.getByRole("region", { name: "The home" })).toBeVisible();
+    await userEvent.click(sheet.getByRole("button", { name: /^Use the home.s$/ }));
+    await expect(ACTS.choose).toHaveBeenCalledWith(expect.objectContaining({ name: "AGENTS.md" }), "there");
+    await waitFor(() => expect(within(document.body).queryByRole("dialog", { name: "AGENTS.md" })).toBeNull());
+  },
+};
+
+const MANY = Array.from({ length: 50 }, (_, at) => {
+  const name = `skill-${String(at + 1).padStart(2, "0")}`;
+  return { name, source: `/Users/user/.agent/skills/${name}` };
+});
+
+/**
+ * **A long list scrolls inside its tile and the tile keeps its place.** The list is a Tab stop
+ * only while it has more than it shows; a tile whose rows fit has no second stop in it.
+ */
+export const ALongListScrollsInsideItsTile: Story = {
+  name: "A long list scrolls inside its tile",
+  args: {
+    setup: {
+      ...FULL,
+      kinds: [
+        { kind: "skills", read: { what: "read", items: MANY, unreadable: [] } },
+        { kind: "plugins", read: { what: "read", items: [{ name: "code-simplifier@official", source: "/Users/user/.agent/plugins/cache" }], unreadable: [] } },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const kit = within(canvasElement);
+    const skills = kit.getByRole("region", { name: "Skills" });
+    skills.focus();
+    await userEvent.tab();
+    const scroller = document.activeElement as HTMLElement;
+    await expect(skills.contains(scroller) && scroller !== skills).toBe(true);
+    await expect(scroller.scrollHeight).toBeGreaterThan(scroller.clientHeight);
+
+    const plugins = kit.getByRole("region", { name: "Plugins" });
+    plugins.focus();
+    await userEvent.tab();
+    await expect(plugins.contains(document.activeElement)).toBe(false);
   },
 };

@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { allowlistRead, KIT_SERVERS, manifesting, mount, unmountAfterEach } from "@armada/desktop/mock";
+import { allowlistRead, KIT_INVENTORY, KIT_SERVERS, manifesting, mount, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
@@ -123,4 +123,35 @@ test("a field hands the keys back to the tiles on Esc, and on Down when it is em
   // The tile last held.
   await expect.element(page.getByRole("row", { name: /nexus/ })).toHaveFocus();
   await expect.element(name).toHaveValue("abc");
+});
+
+/**
+ * **A long list scrolls inside its tile** and the keys reach it: Down moves the list a little while
+ * it has more that way, and PageDown a screen, without moving on to another tile.
+ */
+test("a tile's long list scrolls on the arrows while it has more", async () => {
+  const names = Array.from({ length: 50 }, (_, at) => `skill-${String(at + 1).padStart(2, "0")}`);
+  const long = {
+    ...KIT_INVENTORY,
+    kinds: KIT_INVENTORY.kinds.map((one) =>
+      one.kind === "skills" && one.read.what === "read"
+        ? { ...one, read: { ...one.read, items: names.map((name) => ({ name, source: `/skills/${name}` })), unreadable: [] } }
+        : one,
+    ),
+  };
+  mount(manifesting({ kitInventory: long }), SLICES);
+  await page.getByRole("button", { name: "Kit", exact: true }).click();
+  await expect.element(region("Skills")).toBeVisible();
+
+  const list = region("Skills").element().querySelector<HTMLElement>("[data-scrolls]");
+  expect(list).not.toBeNull();
+  expect(list!.scrollHeight).toBeGreaterThan(list!.clientHeight);
+
+  list!.focus();
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.poll(() => list!.scrollTop).toBeGreaterThan(0);
+  const one = list!.scrollTop;
+  await userEvent.keyboard("{PageDown}");
+  await expect.poll(() => list!.scrollTop).toBeGreaterThan(one);
+  expect(document.activeElement).toBe(list);
 });
