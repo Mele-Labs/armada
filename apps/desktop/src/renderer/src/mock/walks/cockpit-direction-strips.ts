@@ -3,7 +3,7 @@
 // pull request landing from its strip, main going red and Fix, and the stuck Session found and stopped.
 // A throwaway prototype on proto/cockpit-three-directions.
 
-import { button, dialog, inside, region, role, walk } from "../walk";
+import { button, dialog, inside, region, role, text, walk } from "../walk";
 
 const glass = region("Dashboard");
 const column = (name: string) => inside(glass, role("list", name));
@@ -21,7 +21,8 @@ const cockpitDirectionStrips = walk("cockpit-ship", [
   { type: "Good. Merge it.\n", into: inside(call(/^Session: Pin the store clock/), role("textbox", "Message")), say: "Answered in words" },
   { look: strip("Working", "Pin the store clock"), say: "The Session is at work again, in Working" },
   { key: "p", on: strip("Working", "Migration notes"), say: "Peek on a working Session" },
-  { look: dialog("Peek at Migration notes"), say: "Its last lines, without opening it" },
+  { look: dialog("Peek at Migration notes"), say: "The end of its thread, with its working mark and its own box" },
+  { look: inside(dialog("Peek at Migration notes"), text(/0044 drops the legacy index/)), say: "A row lands while it is open, and the thread follows its end" },
   { key: "Escape", on: dialog("Peek at Migration notes"), say: "Put away" },
   { key: "r", on: strip("Needs you", "Fix the reconnect wait"), say: "Reply in place on its strip" },
   { type: "Fix the desktop_test failure.\n", into: role("textbox", "Reply to Fix the reconnect wait"), say: "Sent where its page's box sends" },

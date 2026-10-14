@@ -68,7 +68,7 @@ function Row({ subject, selected, ui, acts }: { subject: Subject; selected: bool
         <ActBar subject={subject} acts={acts} ui={ui} />
       </div>
       {ui.replying === subject.key ? <ReplyBox subject={subject} acts={acts} ui={ui} /> : null}
-      {ui.peeking === subject.key ? <PeekPop subject={subject} ui={ui} /> : null}
+      {ui.peeking === subject.key ? <PeekPop subject={subject} ui={ui} acts={acts} /> : null}
     </li>
   );
 }

@@ -6,11 +6,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, Check, CircleDot, ExternalLink, GitCommitHorizontal, GitMerge, GitPullRequest, Merge, Pause, Plane, Reply, Rows3, ShieldCheck, ShieldX, Square, SquareTerminal, Terminal, X, type LucideIcon } from "lucide-react";
-import { Button, Kbd, Textarea, Tooltip, forgetKept } from "@armada/components";
+import { Button, Kbd, SessionThread, Textarea, Tooltip, forgetKept } from "@armada/components";
+import type { SessionThreadRow } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
-import { useSessionsDraft } from "../../sessions-draft";
+import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { SessionBox } from "../../sessions";
+import { threadRowsOf } from "../../session-thread-rows";
 import type { CockpitProps } from "../../cockpit/body-seam";
 import { patchLocal, type Main, type Mark, type Pr, type Ship, type Station, type StationId, type Subject, type Vote } from "./ship";
 import "./proto.css";
@@ -204,18 +207,29 @@ export function ReplyBox({ subject, acts, ui }: { subject: Subject; acts: Acts; 
   );
 }
 
-/** The last lines of what a subject is doing, in a small popover beside it. */
-export function PeekPop({ subject, ui }: { subject: Subject; ui: ShipUi }) {
-  const [at, setAt] = useState<{ top: number; left: number } | undefined>();
+/** How many of a thread's last rows a Peek draws. */
+const PEEK_ROWS = 6;
+/** Room a Peek wants below its anchor to open downward. */
+const PEEK_ROOM = 440;
+
+/**
+ * Peek: the end of a Session's own thread, drawn by the thread's own rows, with the live working mark while
+ * its turn runs, rows landing at the end as they arrive, and the Session's own box at the foot. A Job has no
+ * thread, so its last lines are drawn as the thread's tool rows. Nothing here is a row style of its own.
+ */
+export function PeekPop({ subject, ui, acts }: { subject: Subject; ui: ShipUi; acts: Acts }) {
+  const [at, setAt] = useState<{ top?: number; bottom?: number; left: number } | undefined>();
   const panel = useRef<HTMLDivElement>(null);
+  const draft = useSessionsDraft();
+  const session = useSessions().find((one) => one.id === subject.id && subject.kind === "session");
+  useEffect(() => draft?.watch?.(subject.id), [draft, subject.id]);
   useLayoutEffect(() => {
     const anchor = document.querySelector<HTMLElement>(`[data-subject="${subject.key}"]`);
     if (anchor === null) return;
     const box = anchor.getBoundingClientRect();
-    const width = 320;
+    const width = 440;
     const left = Math.min(Math.max(8, box.right - width), window.innerWidth - width - 8);
-    const top = box.bottom + 4 + 120 > window.innerHeight ? Math.max(8, box.top - 4 - 112) : box.bottom + 4;
-    setAt({ top, left });
+    setAt(box.bottom + 4 + PEEK_ROOM > window.innerHeight ? { bottom: Math.max(8, window.innerHeight - box.top + 4), left } : { top: box.bottom + 4, left });
   }, [subject.key]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -233,15 +247,36 @@ export function PeekPop({ subject, ui }: { subject: Subject; ui: ShipUi }) {
       window.removeEventListener("mousedown", onDown);
     };
   }, [ui]);
-  if (subject.peek.length === 0) return null;
+  const rows: SessionThreadRow[] = useMemo(
+    () => (session === undefined ? subject.peek.map((text, index): SessionThreadRow => ({ id: `${subject.key}:${index}`, at: "", kind: "tool", text })) : threadRowsOf(session).slice(-PEEK_ROWS)),
+    [session, subject.key, subject.peek],
+  );
+  if (rows.length === 0) return null;
   return createPortal(
     <div ref={panel} className="proto-peek" role="dialog" aria-label={`Peek at ${subject.title}`} style={at === undefined ? { visibility: "hidden" } : at}>
-      <header className="proto-peek__band">{subject.title}</header>
-      <ol className="proto-peek__lines">
-        {subject.peek.map((line, index) => (
-          <li key={index}>{line}</li>
-        ))}
-      </ol>
+      <header className="proto-peek__band">
+        <span>{subject.title}</span>
+        <Tooltip label="Open">
+          <Button variant="ghost" size="sm" iconOnly aria-label={`Open ${subject.title}`} onClick={() => acts.open(subject)}>
+            <ExternalLink size={14} aria-hidden />
+          </Button>
+        </Tooltip>
+      </header>
+      <div className="proto-peek__thread">
+        <SessionThread
+          sessionId={subject.id}
+          rows={rows}
+          working={session === undefined ? subject.stoppable : session.turn.state === "working"}
+          onAnswer={() => {}}
+          onOpenSession={() => acts.open(subject)}
+          agentName={session === undefined ? "Drone" : "Agent"}
+        />
+      </div>
+      {session === undefined ? null : (
+        <div className="proto-peek__foot">
+          <SessionBox session={session} onOpen={() => acts.open(subject)} />
+        </div>
+      )}
     </div>,
     document.body,
   );

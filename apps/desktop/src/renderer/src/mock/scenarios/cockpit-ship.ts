@@ -205,8 +205,20 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const own = new Set(SESSIONS.map((one) => one.id));
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
+  // Its turn is running, so rows keep arriving once something watches it: a Peek that is open sees them land.
+  let fed = false;
+  const feed = [
+    tool("w1-t4", "14:17:40", "Read crates/store/migrations/0044.sql"),
+    say("w1-b", "14:18:05", "0044 drops the legacy index and adds no columns."),
+    tool("w1-t5", "14:18:30", "Grep crates/store -e legacy_index"),
+  ] as const;
   return {
     ...store,
+    watch: (id: string) => {
+      if (id !== "w1" || fed) return;
+      fed = true;
+      feed.forEach((row, at) => window.setTimeout(() => store.edit("w1", (one) => (one.turn.state === "working" ? { ...one, rows: [...one.rows, row] } : one)), 1500 * (at + 1)));
+    },
     get: () => {
       const all = store.get();
       if (all !== from) {

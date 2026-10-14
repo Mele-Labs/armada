@@ -129,7 +129,9 @@ button.proto-pr:hover { border-color: var(--border-strong); color: var(--fg-defa
 .proto-peek {
   position: fixed;
   z-index: var(--z-menu);
-  width: calc(var(--space-12) * 6.5);
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--space-12) * 9);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--bg-overlay);
@@ -137,7 +139,12 @@ button.proto-pr:hover { border-color: var(--border-strong); color: var(--fg-defa
   overflow: hidden;
 }
 .proto-peek__band {
-  padding: var(--space-1) var(--space-3);
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
   border-bottom: var(--border-width) solid var(--border-default);
   background: var(--bg-raised);
   color: var(--fg-muted);
@@ -145,12 +152,11 @@ button.proto-pr:hover { border-color: var(--border-strong); color: var(--fg-defa
   font-size: var(--text-2xs);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.proto-peek__lines { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-default); }
-.proto-peek__lines li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proto-peek__band > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The thread keeps its own height and scrolls to its end. */
+.proto-peek__thread { display: flex; flex-direction: column; height: calc(var(--space-12) * 5); padding: var(--space-2) var(--space-3); }
+.proto-peek__foot { flex: none; padding: var(--space-2) var(--space-3) var(--space-3); border-top: var(--border-width) solid var(--border-subtle); }
 
 /* ---- The tray: a call arrives as a transmission along the foot of the glass ------------------- */
 
