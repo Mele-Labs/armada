@@ -2,7 +2,7 @@
 // a glyph, and the kind of whoever holds it; line two is the facts behind the state, in muted sans, each with its tooltip. Nothing is
 // worded beyond the facts and nothing is counted beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, Box, FilePen, Flame, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { ArrowUpFromLine, Box, FilePenLine, Flame, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
 import { Tooltip } from "@armada/components";
 
@@ -77,7 +77,7 @@ export function BayFacts({ view }: { view: BayView }) {
         <span className="deck-bay__marks">
           {(view.dirty ?? 0) > 0 ? (
             <Mark said={`${plural(view.dirty!, "file", "files")} uncommitted`}>
-              <FilePen size={12} aria-hidden />
+              <FilePenLine size={12} aria-hidden />
             </Mark>
           ) : null}
           {(view.unpushed ?? 0) > 0 ? (
