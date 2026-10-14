@@ -29,6 +29,7 @@ import { withThreadRow } from "@armada/screens/src/retro-row";
 
 import type { SessionActed } from "../../../shared/api/sessions";
 import { retroFrames } from "./session-retro-script";
+import { removedSaid } from "./sessions/removed";
 import { onTimePassing } from "./time-passes";
 import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
@@ -308,6 +309,11 @@ export class FakeSessionsFleet {
           },
           dismissWaiting: async (dismiss) => {
             this.calls.dismissed.push(dismiss);
+            const removed = this.records.find((one) => one.id === dismiss.session_id)?.waiting_for?.find((item) => item.id === dismiss.item_id);
+            // Fleet tells the agent of an item it stated, in the person's words; a reply or a done is only dropped.
+            if (removed?.source === "agent") {
+              this.row(dismiss.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: removedSaid(removed.text, dismiss.reason) });
+            }
             return this.change(dismiss.session_id, (one) => ({
               ...one,
               waiting_for: (one.waiting_for ?? []).filter((item) => item.id !== dismiss.item_id),

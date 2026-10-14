@@ -410,7 +410,7 @@ async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
     show(&rig, &id, url).await;
     let before = rig.rows(&id).await.len();
     let gone = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}") })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None })
         .await
         .unwrap();
     assert!(gone.waiting_for.is_empty());
@@ -418,7 +418,7 @@ async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
     assert!(again.session.waiting_for.is_empty(), "the derived item does not return on the next read");
     assert_eq!(again.rows.len(), before, "nothing was said to the agent");
     let twice = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}") })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}"), reason: None })
         .await;
     assert!(matches!(twice, Err(api::Refusal::IllegalMove(_))), "nothing holds it any more");
 }
@@ -429,7 +429,7 @@ async fn a_dismissed_agent_item_is_gone_and_stays_gone_when_the_agent_says_it_ag
     let id = rig.start().await;
     rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
     let after = Arc::clone(&rig.fleet)
-        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "a".into() })
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "a".into(), reason: None })
         .await
         .unwrap();
     assert_eq!(ids(&after), ["b"]);
@@ -460,4 +460,53 @@ async fn an_answered_agent_item_leaves_the_list_at_once_and_stays_gone_when_rest
     assert!(last.ends_with("Fleet took this off your waiting list."), "{last}");
     let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
     assert_eq!(ids(&restated), ["b"]);
+}
+
+/// What the person has said to the session so far, oldest first.
+async fn said_by_the_person(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
+    rig.rows(id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+fn removal(id: &ipc::SessionId, item: &str, reason: Option<&str>) -> DismissWaiting {
+    DismissWaiting { session_id: id.clone(), item_id: item.into(), reason: reason.map(str::to_string) }
+}
+
+#[tokio::test]
+async fn removing_an_agent_item_with_a_reason_tells_the_agent_what_and_why() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    let after = Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, "a", Some("  already ran them  "))).await.unwrap();
+    assert_eq!(ids(&after), ["b"]);
+    assert_eq!(said_by_the_person(&rig, &id).await, [r#"Owner removed "Run the tests": already ran them"#]);
+}
+
+#[tokio::test]
+async fn removing_an_agent_item_without_a_reason_tells_the_agent_only_what() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, "a", None)).await.unwrap();
+    rig.fleet.waiting_for(None, set(&id, &[("b", "Look"), ("c", "Check")])).await.unwrap();
+    Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, "b", Some("   "))).await.unwrap();
+    assert_eq!(said_by_the_person(&rig, &id).await, [r#"Owner removed "Run the tests""#, r#"Owner removed "Look""#]);
+}
+
+#[tokio::test]
+async fn removing_a_done_fleet_derived_tells_the_agent_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let since = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()) }).await.unwrap().done_since.expect("when");
+    let item = format!("done:{}", since.as_str());
+    let before = said_by_the_person(&rig, &id).await;
+    let gone = Arc::clone(&rig.fleet).dismiss_waiting(removal(&id, &item, Some("not yet"))).await.unwrap();
+    assert!(gone.waiting_for.is_empty());
+    assert_eq!(said_by_the_person(&rig, &id).await, before, "the reason has nobody to go to");
 }

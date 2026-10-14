@@ -90,6 +90,32 @@ export const WaitingReply: Story = {
   },
 };
 
+const removed = fn();
+/** An item the agent stated has Remove: a press opens a one-line reason box, Enter removes with the words or without, and Esc removes nothing. */
+export const WaitingRemove: Story = {
+  args: {
+    entries: [{ key: "w6", kind: "waiting", name: "Pick a name for the cache table", text: "Pick a name for the cache table", onRemove: removed, onOpen: open }],
+  },
+  play: async ({ canvas }) => {
+    removed.mockClear();
+    const act = canvas.getByRole("button", { name: "Remove Pick a name for the cache table" });
+    const reason = () => canvas.queryByRole("textbox", { name: "Reason for removing Pick a name for the cache table" });
+    await userEvent.click(act);
+    await expect(reason()).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(reason()).not.toBeInTheDocument();
+    await expect(removed).not.toHaveBeenCalled();
+    await userEvent.click(act);
+    await userEvent.type(reason()!, "The cache tests still read it.{Enter}");
+    await expect(removed).toHaveBeenLastCalledWith("The cache tests still read it.");
+    await expect(reason()).not.toBeInTheDocument();
+    await userEvent.click(act);
+    await userEvent.keyboard("{Enter}");
+    await expect(removed).toHaveBeenLastCalledWith("");
+    await expect(removed).toHaveBeenCalledTimes(2);
+  },
+};
+
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
 export const Blank: Story = {
   args: { entries: [] },

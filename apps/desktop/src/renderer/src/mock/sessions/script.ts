@@ -8,6 +8,7 @@
 
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
+import { removedSaid } from "./removed";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
@@ -17,7 +18,8 @@ export type SessionsStore = SessionsDraft & {
   later: () => void;
   dispose: () => void;
   attach: (id: string, attachment: SessionAttachment) => void;
-  drop: (id: string, itemId: string) => void;
+  /** Fleet drops an item for good. One the agent stated also reaches it as the person's message, with `reason` where he gave one. */
+  drop: (id: string, itemId: string, reason?: string) => void;
   /** Changes a Session as it stands, for a scenario that scripts one Session of its own. */
   edit: (id: string, change: (one: Session) => Session) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
@@ -792,14 +794,17 @@ export function sessionsStore(
     attach: (id, attachment) => addTo(id, [], [attachment]),
     edit,
     // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
-    drop: (id, itemId) =>
+    drop: (id, itemId, reason) => {
+      const stated = now.find((one) => one.id === id)?.waitingFor?.find((it) => it.id === itemId && it.source === "agent");
       edit(id, (one) => {
         const { asked, ...rest } = one;
         const own = one.waitingFor?.some((it) => it.id === itemId) === true;
         // A reply or a done he dismissed is settled: the Session stands as idle, as Fleet reads it.
         const settled = itemId.startsWith("replied:") || itemId.startsWith("done:");
         return own ? { ...one, ...(settled ? { standing: "idle" as const } : {}), waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
-      }),
+      });
+      if (stated !== undefined) addTo(id, [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: removedSaid(stated.text, reason) }))]);
+    },
   };
   return store;
 }

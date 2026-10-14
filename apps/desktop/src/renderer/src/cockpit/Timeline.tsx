@@ -125,8 +125,8 @@ const STANDING_MARK: Record<Standing, { icon: typeof Clock; said: string }> = {
 
 /** How a subject stands now: the one live mark, which turns only while it is working. */
 function Stand({ lane, now }: { lane: Lane; now: number }) {
-  // A Session that replied or is done is in Needs you with its own mark, the one the Sessions list wears.
-  const { icon: Icon, said } = lane.session === "replied" ? { icon: Reply, said: "Replied" } : lane.session === "done" ? { icon: Power, said: "Done" } : STANDING_MARK[lane.standing];
+  // A Session that is done is in Needs you with its own mark, and one with an unread reply wears its own, the ones the Sessions list wears.
+  const { icon: Icon, said } = lane.session === "replied" ? { icon: Reply, said: "Unread reply" } : lane.session === "done" ? { icon: Power, said: "Done" } : STANDING_MARK[lane.standing];
   const failed = lane.standing === "done" && lane.head.tone === "bad";
   const Shown = failed ? CircleX : Icon;
   const tone: EventTone = failed ? "bad" : lane.standing === "run" ? "run" : lane.standing === "ask" ? "ask" : lane.standing === "bad" ? "bad" : lane.standing === "done" ? "ok" : "idle";

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
@@ -115,6 +115,13 @@ export type LedgerEntry = {
   restart?: { command: string; runner?: CodeRunner };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
+  /**
+   * A `waiting` row the agent stated: the person takes it off, with a reason for the agent that may be empty.
+   * The row then draws Remove at its end, and its press opens the reason box.
+   */
+  onRemove?: (reason: string) => void;
+  /** What the reason box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
+  removeKeep?: string;
   onOpen: () => void;
 };
 
@@ -308,6 +315,14 @@ export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string
 /** A section's rows, also drawn by the thread's Needs you panel so a waiting item reads and acts the same in both. */
 export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: LucideIcon; rows: readonly LedgerEntry[] }) {
   const [replying, setReplying] = useState<string>();
+  const [removing, setRemoving] = useState<string>();
+  // Remove at a row's end, and the reason box under it while it is open.
+  const removal = (row: LedgerEntry) =>
+    row.onRemove === undefined ? null : (
+      <RemoveAct name={row.name} open={removing === row.key} onPress={() => setRemoving(removing === row.key ? undefined : row.key)} />
+    );
+  const reasoning = (row: LedgerEntry) =>
+    removing === row.key && row.onRemove !== undefined ? <RemoveBox name={row.name} keep={row.removeKeep} onRemove={row.onRemove} onClose={() => setRemoving(undefined)} /> : null;
   return (
     <ul className="armada-session-ledger__rows">
       {rows.map((row) => {
@@ -323,15 +338,17 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
             </div>
           );
           return (
-            <li key={row.key} className="armada-session-ledger__run" aria-label={row.name}>
+            <li key={row.key} className="armada-session-ledger__run" aria-label={row.name} data-removable={row.onRemove !== undefined || undefined}>
               {row.card === undefined ? block : <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>{block}</Tooltip>}
+              {removal(row)}
+              {reasoning(row)}
             </li>
           );
         }
         if (kind === "waiting" && row.options !== undefined) {
           const { options } = row;
           return (
-            <li key={row.key} aria-label={row.name}>
+            <li key={row.key} aria-label={row.name} className="armada-session-ledger__held" data-removable={row.onRemove !== undefined || undefined}>
               <QuestionDeck
                 questions={[{ question: row.name, header: "", multi_select: false, options: options.map((one) => ({ label: one.label, description: one.description ?? "" })) }]}
                 canSkip={false}
@@ -344,6 +361,8 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
                   else row.onOther?.(chosen);
                 }}
               />
+              {removal(row)}
+              {reasoning(row)}
             </li>
           );
         }
@@ -423,10 +442,12 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
                 {opener}
               </Tooltip>
             )}
+            {removal(row)}
             {row.exits}
             {replies && replying === row.key && row.onReply !== undefined ? (
               <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
             ) : null}
+            {reasoning(row)}
           </li>
         );
       })}
@@ -522,6 +543,52 @@ function ReplyBox({ name, keep, onSend, onClose }: { name: string; keep: string 
       <Button variant="secondary" size="sm" disabled={text.trim() === ""} onClick={send}>
         Send
       </Button>
+    </div>
+  );
+}
+
+/** Takes an item the agent stated off the list. Its tooltip names it; the reason box opens under the row. */
+export function RemoveAct({ name, open, onPress }: { name: string; open: boolean; onPress: () => void }) {
+  return (
+    <Tooltip label="Remove">
+      <Button variant="ghost" size="sm" iconOnly aria-label={`Remove ${name}`} aria-expanded={open} onClick={onPress}>
+        <Trash2 size={12} strokeWidth={2} aria-hidden />
+      </Button>
+    </Tooltip>
+  );
+}
+
+/**
+ * The reason box under a removed item: one line, whose words go to the agent. **Enter removes it, and an
+ * empty reason is fine.** Esc puts the box away and removes nothing; what was typed is kept for next time.
+ */
+export function RemoveBox({ name, keep, onRemove, onClose }: { name: string; keep: string | undefined; onRemove: (reason: string) => void; onClose: () => void }) {
+  const [text, setText] = useState("");
+  const remove = () => {
+    onRemove(text.trim());
+    if (keep !== undefined) forgetKept(keep);
+    onClose();
+  };
+  return (
+    <div className="armada-session-ledger__remove">
+      <Textarea
+        autoFocus
+        rows={1}
+        keep={keep ?? false}
+        aria-label={`Reason for removing ${name}`}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          } else if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            remove();
+          }
+        }}
+      />
     </div>
   );
 }
