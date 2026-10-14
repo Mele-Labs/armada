@@ -77,13 +77,31 @@ export function openingOf(place: Place): { tab?: DetailTab; task?: string; step?
  * somewhere is a visit — and bind `⌘[`, `⌘]`, the mouse buttons and the OS swipe to `restore`. A place `valid`
  * refuses (its Job is gone) is stepped over.
  */
-export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): () => void {
+/**
+ * The place replacing the layers over the Cockpit: what is behind the last Cockpit visit stays, the layers after it
+ * go, and `place` stands where they were, so Back from a sibling place returns to the Cockpit and not to the last one.
+ */
+export function collapse(history: History, place: Place): History {
+  const cockpit = (one: Place) => one.surface === "overview" && one.job === null;
+  let at = history.back.length - 1;
+  while (at >= 0 && !cockpit(history.back[at]!)) at -= 1;
+  if (at < 0) return { back: history.back, at: place, forward: [] };
+  return { back: history.back.slice(0, cockpit(place) ? at : at + 1), at: place, forward: [] };
+}
+
+export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): { back: () => void; replaceNext: () => void } {
   const held = useRef<History>(start(current));
   const latest = useRef({ restore, valid });
   latest.current = { restore, valid };
 
   // Restoring sets `held.at` first, so the render it causes finds `current` equal to it.
+  const replacing = useRef(false);
   useEffect(() => {
+    if (replacing.current) {
+      replacing.current = false;
+      held.current = collapse(held.current, current);
+      return;
+    }
     held.current = fold(held.current, { kind: "visited", place: current });
   }, [current.surface, current.job, current.tab, current.item, current.session, current.studio, current.studioNode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -100,5 +118,12 @@ export function useHistory(current: Place, restore: (place: Place) => void, vali
   useHistoryKeys(() => go("back"), () => go("forward"));
   // A swipe or browser key only main hears.
   useEffect(() => window.armada.onHistory((step) => go(step)), []); // eslint-disable-line react-hooks/exhaustive-deps
-  return () => go("back");
+  return {
+    back: () => go("back"),
+    // The next place visited replaces the layers over the Cockpit; a press that goes nowhere lets go of it.
+    replaceNext: () => {
+      replacing.current = true;
+      window.setTimeout(() => (replacing.current = false), 200);
+    },
+  };
 }

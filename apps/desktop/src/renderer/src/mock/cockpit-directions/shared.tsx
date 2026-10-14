@@ -433,7 +433,7 @@ const SHEET: readonly (readonly [readonly string[], string])[] = [
 export function KeySheet({ ui, more = [] }: { ui: ShipUi; more?: readonly (readonly [readonly string[], string])[] }) {
   if (!ui.sheet) return null;
   return (
-    <div className="proto-sheet" role="dialog" aria-label="Keys">
+    <div className="proto-sheet" role="region" aria-label="Keys">
       <header className="proto-sheet__band">Keys</header>
       <dl className="proto-sheet__rows">
         {[...SHEET, ...more].map(([keys, does]) => (

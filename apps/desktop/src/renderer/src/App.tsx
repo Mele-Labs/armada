@@ -614,7 +614,7 @@ export function App({ draft }: AppProps = {}) {
   const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }) === SURFACE.overview; // Its call is already in front.
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
-  const back = useHistory(
+  const navigate = useHistory(
     { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
@@ -732,7 +732,7 @@ export function App({ draft }: AppProps = {}) {
                 onOpen={setOpenJob} onOpenSession={openSession} onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)} onWantHeld={readHeld} onTell={tell}
                 onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 showing={showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring })}
-                openJobId={openJob} openSessionId={sessionOpen} goTo={goTo} back={back}
+                openJobId={openJob} openSessionId={sessionOpen} goTo={goTo} back={navigate.back} replace={(surface) => (navigate.replaceNext(), goTo(surface))}
               />
             )}
             <Standing

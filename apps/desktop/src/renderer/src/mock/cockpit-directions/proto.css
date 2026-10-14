@@ -231,7 +231,8 @@ button.proto-pr:hover { border-color: var(--border-strong); color: var(--fg-defa
   border-radius: var(--radius-md);
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
-  overflow: hidden;
+  overflow: auto;
+  max-height: calc(100% - var(--space-8));
 }
 .proto-sheet__band {
   padding: var(--space-1) var(--space-3);
@@ -244,6 +245,6 @@ button.proto-pr:hover { border-color: var(--border-strong); color: var(--fg-defa
   text-transform: uppercase;
 }
 .proto-sheet__rows { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); }
-.proto-sheet__row { display: grid; grid-template-columns: calc(var(--space-12) * 2.5) 1fr; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--fg-muted); }
-.proto-sheet__row dt { display: inline-flex; gap: var(--space-1); margin: 0; }
+.proto-sheet__row { flex-shrink: 0; display: grid; grid-template-columns: calc(var(--space-12) * 3) 1fr; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--fg-muted); }
+.proto-sheet__row dt { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; }
 .proto-sheet__row dd { margin: 0; }

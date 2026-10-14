@@ -18,6 +18,8 @@ export type AppSeamProps = ComponentProps<typeof Cockpit> & {
   goTo: (surface: string) => void;
   /** One place back, as `⌘[` goes. */
   back: () => void;
+  /** Goes to a place in place of the layers over the Cockpit, so Back still returns to the Cockpit. */
+  replace: (surface: string) => void;
 };
 
 export const appSeam: { current: ComponentType<AppSeamProps> | undefined; hideWork: boolean } = { current: undefined, hideWork: false };
