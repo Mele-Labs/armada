@@ -168,7 +168,7 @@ Two mechanisms, both carried over from the v1 prototype:
 
 ### The shared home
 
-**The git-repo mechanism is a private repository on the person's own GitHub account, `<gh login>/armada-home`, and every machine signed in to that account reads and writes it.** The identity is the `gh` login; Armada holds no account of its own. It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement for either: each machine keeps its own `~/.claude` and `~/.armada`, and the repository is what they are compared against.
+**The git-repo mechanism is a private repository on the person's own GitHub account, `<gh login>/armada-home`, and every machine signed in to that account reads and writes it.** Signing in, the identity and the profiles a machine joins are [Account](account.md); Armada holds no account of its own. It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement for either: each machine keeps its own `~/.claude` and `~/.armada`, and the repository is what they are compared against.
 
 | Carried | Not carried |
 | --- | --- |

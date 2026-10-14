@@ -43,6 +43,11 @@ impl Placed {
         !matches!(self, Placed::Anyone)
     }
 
+    /// Whether the caller is a session Fleet hosts for Bridge, rather than Helm.
+    pub(crate) fn is_a_hosted_session(&self) -> bool {
+        matches!(self, Placed::Helm(reach) if reach.is_a_hosted_session())
+    }
+
     pub(crate) fn may(&self, operation: &str) -> bool {
         match self {
             Placed::Anyone => true,

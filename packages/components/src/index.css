@@ -451,3 +451,6 @@
 @import "./compositions/StopCard/StopCard.css";
 @import "./compositions/PullRequestPanel/PullRequestPanel.css";
 @import "./compositions/PullRequestPanel/PullRequestTabs.css";
+@import "./compositions/Account/Account.css";
+@import "./compositions/TitleBar/TitleMenu.css";
+@import "./compositions/TheShell/RepositoryPanel.css";

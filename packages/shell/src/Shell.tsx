@@ -61,7 +61,7 @@
 // out of the composer, the reports and the held worktrees — sit at the top of
 // each screen's own content instead. `App.tsx` is where that moved.
 
-import { FileCog } from "lucide-react";
+import { FileCog, FolderGit2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Button,
@@ -70,6 +70,7 @@ import {
   isPressed,
   keyFor,
   TheShell,
+  Tooltip,
   useKeyBindings,
   type DockQuestion,
   type FleetPanelProps,
@@ -290,6 +291,8 @@ export function Shell({
             // The trigger leads the title row, so the menu hangs from its leading
             // edge: trailing-flush ran off the window's left edge for a short name.
             align="start"
+            // In the rail's panel, whose column scrolls and would clip a menu hung inside it.
+            portal
             triggerLabel={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}
             entries={pickerEntries}
             // Disabled where nothing behind it is actionable — Add a
@@ -321,6 +324,30 @@ export function Shell({
           )}
         </>
       }
+      repositoryPickerCollapsed={
+        <Tooltip label={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}>
+          <DropdownMenu
+            align="start"
+            portal
+            icon={FolderGit2}
+            triggerLabel={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}
+            entries={
+              onOpenManifest === undefined
+                ? pickerEntries
+                : [...pickerEntries, { kind: "separator", id: "manifest-rule" }, { kind: "item", id: MANIFEST_ID, label: MANIFEST_SAID, disabled: repositories.length === 0 }]
+            }
+            disabled={machineWide || (repositories.length === 0 && onAddRepository === undefined)}
+            onSelect={(picked) => (picked === MANIFEST_ID ? onOpenManifest?.() : pick(picked))}
+            {...(searchLabel === undefined ? {} : { searchLabel })}
+          />
+        </Tooltip>
+      }
+      menu={{
+        settings: {
+          onOpen: () => onSurface?.(SURFACE.settings),
+          ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),
+        },
+      }}
       onSearch={onSearch}
       {...(sleep === undefined ? {} : { sleep })}
       {...(planUsage === undefined ? {} : { planUsage })}
@@ -340,6 +367,9 @@ export function Shell({
  */
 const MANIFEST_SURFACE = SURFACES.find((one) => one.id === SURFACE.manifest);
 const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
+const MANIFEST_ID = "open-manifest";
+/** Settings, read off the same roster, so the menu's entry and the rail's row share one key. */
+const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
 /** The trigger's own label: the picked repository, All, or why there is nothing to pick yet. */

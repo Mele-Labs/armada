@@ -25,13 +25,15 @@ async function opened(within: ReturnType<typeof page.elementLocator> | typeof pa
   // row first: `query` does not, and the window may not have drawn yet.
   const root = "element" in within ? (within.element() as HTMLElement) : document.body;
   await expect.poll(() => root.querySelector(".armada-title-bar")).not.toBeNull();
-  const menu = within.getByRole("button", { name: "Menu" });
-  if (menu.query() !== null) {
-    await menu.click();
-    await within.getByRole("button", { name: "Add a repository" }).click();
-  } else {
-    await within.getByRole("button", { name: pickerLabel }).click();
+  // The picker is drawn even when a narrow window hides it, so wait for it to exist before asking whether it shows.
+  await expect.element(within.getByRole("button", { name: pickerLabel, exact: true, includeHidden: true })).toBeInTheDocument();
+  const picker = within.getByRole("button", { name: pickerLabel });
+  if (picker.query() !== null) {
+    await picker.click();
     await page.getByRole("menuitem", { name: "Add a repository" }).click();
+  } else {
+    await within.getByRole("button", { name: "Menu" }).click();
+    await within.getByRole("button", { name: "Add a repository" }).click();
   }
   await entered(dialog());
   return dialog();

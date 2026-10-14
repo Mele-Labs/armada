@@ -299,6 +299,8 @@ export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
 // Kit against the shared home: how each row stands, and the two versions of one that differs.
 export * from "./compositions/KitSetup/SharedHome";
+// The account a machine is signed in to: the title bar's spot, its profiles and What syncs.
+export * from "./compositions/Account/Account";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.

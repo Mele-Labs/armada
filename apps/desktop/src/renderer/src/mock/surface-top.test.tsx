@@ -18,15 +18,15 @@ const top = (element: Element): number => element.getBoundingClientRect().top;
 
 test("Manifest's ask on All repositories starts level with the left column, not against the title bar", async () => {
   mount("job/running");
-  // The rail row went when Navigation split in two; the control beside the
-  // title row's picker is how the surface is reached now (#1595).
+  // The control beside the picker, in the rail's repository panel, is how the
+  // surface is reached (#1595).
   await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
 
   const ask = page.getByRole("status").filter({ hasText: "Pick a repository to open its Manifest" });
   await expect.element(ask).toBeVisible();
-  const navigation = page.getByRole("navigation").first();
-  await expect.element(navigation).toBeVisible();
+  const first = page.getByRole("region", { name: "Repository" });
+  await expect.element(first).toBeVisible();
 
-  // Level with Navigation, which the title bar does not touch.
-  expect(top(ask.element())).toBe(top(navigation.element()));
+  // Level with the rail's first panel, which the title bar does not touch.
+  expect(top(ask.element())).toBe(top(first.element()));
 });

@@ -1,0 +1,32 @@
+/* The repository panel at the top of the left column: the picker and the Manifest's own button, in
+   the same flat recipe as Navigation under it. At the 48px rail it is the repository as one glyph. */
+.armada-shell__repository {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  min-width: 0;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+}
+
+.armada-shell__repository[data-collapsed] {
+  justify-content: center;
+}
+
+.armada-shell__repository .armada-dropdown-menu {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-shell__repository[data-collapsed] .armada-dropdown-menu {
+  flex: none;
+}
+
+.armada-shell__repository .armada-dropdown-menu__trigger {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+}

@@ -1,4 +1,4 @@
-import { BellRing, Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
+import { BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
@@ -8,10 +8,10 @@ import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
-import { Popover } from "../../primitives/Popover/Popover";
 import { StopCard, useCardOpen, type StopCardRow } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
+import { TitleMenu } from "./TitleMenu";
 
 /**
  * The title row — what used to be macOS's grey bar saying only "Armada".
@@ -170,13 +170,20 @@ export type TitleBarProps = {
     onOpen: () => void;
   };
   /**
-   * Sleep mode, beside Helm: the machine keeps working until it is blocked on
-   * the owner. **Absent draws no control**, so a Bridge with no sleep to offer
-   * shows none.
+   * Sleep mode, an entry in the row's menu: the machine keeps working until it
+   * is blocked on the owner. While on, the menu's button carries the moon.
+   * **Absent draws no entry**, so a Bridge with no sleep to offer shows none.
    */
   sleep?: {
     on: boolean;
     onToggle: () => void;
+  };
+  /**
+   * What the row's one menu opens besides the account and Sleep. **Absent draws no entry**: a Bridge with
+   * no Settings page to offer shows none.
+   */
+  menu?: {
+    settings?: { onOpen: () => void; /** `⌘3` or whichever digit the person has it on. */ shortcut?: string };
   };
   /**
    * The plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
@@ -211,6 +218,7 @@ export function TitleBar({
   dispatchDisabled = false,
   helm,
   sleep,
+  menu,
   planUsage,
   fleet,
 }: TitleBarProps) {
@@ -235,22 +243,6 @@ export function TitleBar({
 
       <div className="armada-title-bar__end">
         {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
-
-        {sleep === undefined ? null : (
-          <div className="armada-title-bar__sleep">
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label="Sleep mode"
-              title={sleep.on ? "Sleep mode on" : "Sleep mode off"}
-              aria-pressed={sleep.on}
-              onClick={sleep.onToggle}
-            >
-              <Moon size={16} strokeWidth={2} fill={sleep.on ? "currentColor" : "none"} aria-hidden />
-            </Button>
-          </div>
-        )}
 
         {helm === undefined ? null : (
           <button
@@ -309,60 +301,39 @@ export function TitleBar({
           )}
         </span>
 
-        {/* The narrow bar's one control: everything the row above carries, in
-            a panel. Drawn always and shown by the stylesheet, like the mark. */}
-        <div className="armada-title-bar__menu">
-          <Popover
-            align="end"
-            label="Menu"
-            trigger={
-              <Button variant="ghost" size="sm" iconOnly aria-label="Menu" title="Menu">
-                <Menu size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            }
-          >
-            {(close) => (
-              <div
-                className="armada-title-bar__menu-panel"
-                // Any act closes the panel.
-                onClick={(event) => {
-                  if ((event.target as Element).closest("button:not(:disabled)") !== null) close();
-                }}
-              >
-                {repositoryMenu === undefined ? null : <RepositoryRows {...repositoryMenu} />}
-                {onSearch === undefined ? null : (
-                  <button type="button" className="armada-title-bar__menu-item" onClick={onSearch}>
-                    <Search size={16} strokeWidth={2} aria-hidden />
-                    <span>Search</span>
-                    <KbdCmd shortcut="⌘K" />
-                  </button>
-                )}
-                {onDispatch === undefined ? null : (
-                  <button
-                    type="button"
-                    className="armada-title-bar__menu-item"
-                    onClick={onDispatch}
-                    disabled={dispatchDisabled}
-                  >
-                    <Plus size={16} strokeWidth={2} aria-hidden />
-                    <span>Dispatch</span>
-                    <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
-                  </button>
-                )}
-                {helm === undefined ? null : (
-                  <button type="button" className="armada-title-bar__menu-item" onClick={helm.onOpen}>
-                    <MessageSquare size={16} strokeWidth={2} aria-hidden />
-                    <span>Helm</span>
-                    {helm.questions > 0 ? (
-                      <span className="armada-title-bar__helm-count">{helm.questions}</span>
-                    ) : null}
-                    {helm.binding === undefined ? null : <KbdCmd shortcut={helm.binding} />}
-                  </button>
-                )}
-              </div>
-            )}
-          </Popover>
-        </div>
+        {/* The row's one menu, at every width: the account, Sleep and Settings, and under them, where the
+            row is narrow, everything the row above carries. */}
+        <TitleMenu
+          {...(sleep === undefined ? {} : { sleep })}
+          {...(menu?.settings === undefined ? {} : { settings: menu.settings })}
+          narrow={
+            <>
+              {repositoryMenu === undefined ? null : <RepositoryRows {...repositoryMenu} />}
+              {onSearch === undefined ? null : (
+                <button type="button" className="armada-title-bar__menu-item" onClick={onSearch}>
+                  <Search size={16} strokeWidth={2} aria-hidden />
+                  <span>Search</span>
+                  <KbdCmd shortcut="⌘K" />
+                </button>
+              )}
+              {onDispatch === undefined ? null : (
+                <button type="button" className="armada-title-bar__menu-item" onClick={onDispatch} disabled={dispatchDisabled}>
+                  <Plus size={16} strokeWidth={2} aria-hidden />
+                  <span>Dispatch</span>
+                  <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
+                </button>
+              )}
+              {helm === undefined ? null : (
+                <button type="button" className="armada-title-bar__menu-item" onClick={helm.onOpen}>
+                  <MessageSquare size={16} strokeWidth={2} aria-hidden />
+                  <span>Helm</span>
+                  {helm.questions > 0 ? <span className="armada-title-bar__helm-count">{helm.questions}</span> : null}
+                  {helm.binding === undefined ? null : <KbdCmd shortcut={helm.binding} />}
+                </button>
+              )}
+            </>
+          }
+        />
       </div>
     </div>
   );
