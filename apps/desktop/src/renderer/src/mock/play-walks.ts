@@ -10,6 +10,8 @@ import { page, userEvent } from "vitest/browser";
 
 import { pace } from "@armada/jobs/fake";
 import { settle } from "../cockpit/CallAlerts";
+import { cockpitBody } from "../cockpit/body-seam";
+import { installDirection } from "./cockpit-directions/install";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
 import type { Walk } from "./walk";
@@ -93,6 +95,11 @@ export function playWalks(part: number, of: number): void {
         await page.viewport(script.viewport.width, script.viewport.height);
         onTestFinished(() => page.viewport(1440, 900));
       }
+      // A Cockpit body prototype is mounted by its walk's name, as the mock's page does, and put away after.
+      installDirection(name, null);
+      onTestFinished(() => {
+        cockpitBody.current = undefined;
+      });
       mount(script.scenario);
       await onScreen();
       await walkThrough(script.steps);
