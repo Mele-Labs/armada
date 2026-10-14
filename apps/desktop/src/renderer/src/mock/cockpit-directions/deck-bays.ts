@@ -101,7 +101,7 @@ export function ledgerOf(slot: WorktreeSlot, key: string, field: readonly Holder
   }
   const given = now === undefined && out.length === 0;
   const total = 3 + Math.floor(rand(key, 14) * 4);
-  const strands = rand(key, 15) > 0.55;
+  const strands = rand(key, 15) > 0.55 || key.endsWith("/3");
   const used = new Set(out.map((one) => one.holder.id));
   for (let i = 0; out.length < total; i += 1) {
     const to = given && i === 0 ? edge : edge - Math.round(4 + rand(key, 20 + i) * 30) * MIN;

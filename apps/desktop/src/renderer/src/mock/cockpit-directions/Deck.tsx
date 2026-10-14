@@ -36,6 +36,7 @@ import {
   aimAt,
   deckNow,
   enterAutopilot,
+  goBack,
   incomingOf,
   leaveAutopilot,
   listOf,
@@ -316,7 +317,7 @@ export function DeckChrome(props: AppSeamProps) {
           leaveAutopilot();
         } else if (state.sel !== undefined) {
           event.preventDefault();
-          select(undefined);
+          goBack();
           // What had focus may have been what was just put away: the list has it then.
           window.requestAnimationFrame(() => panelAt(document.activeElement) === undefined && focusPanel("list", deckNow().cursor));
         } else if (state.focus !== undefined) {
@@ -810,7 +811,7 @@ function Stage({ props, ship, listed, acts, autopilot }: { props: CockpitProps; 
   if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
   const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
-  if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} />;
+  if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={deck.replay?.at ?? props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;

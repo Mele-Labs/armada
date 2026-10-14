@@ -50,13 +50,15 @@ type State = {
   held: ReadonlyMap<string, number>;
   /** The Cockpit is the page in front, so the deck's keys are the window's. */
   here: boolean;
+  /** What was open when a holder was opened from it (a bay's history), so that back returns to it and not to the map. */
+  from: Sel | undefined;
   /** How a Job's pane draws its run: the mission across the plane, or the canvas. Kept for the window. */
   jobView: "mission" | "canvas";
   /** What the area held when Autopilot took it over, and comes back to when it is switched off. */
   before: { sel: Sel | undefined; view: DeckView } | undefined;
 };
 
-const FRESH: State = { sel: undefined, focus: undefined, replay: undefined, cursor: undefined, view: "map", only: undefined, needs: false, checks: false, visited: new Set(), held: new Map(), here: true, jobView: "mission", before: undefined };
+const FRESH: State = { sel: undefined, focus: undefined, replay: undefined, cursor: undefined, view: "map", only: undefined, needs: false, checks: false, visited: new Set(), held: new Map(), here: true, from: undefined, jobView: "mission", before: undefined };
 let state: State = FRESH;
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
@@ -105,10 +107,14 @@ export const forgetDeck = () => {
 export const useDeck = () => useSyncExternalStore(subscribe, () => state);
 export const deckNow = () => state;
 
-export const select = (sel: Sel | undefined) => set({ sel, ...(sel === undefined ? {} : { cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor }) });
+export const select = (sel: Sel | undefined) => set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor }) });
+/** Opens a thing from what is open, which back returns to: a holder in a bay's history. */
+export const openFrom = (sel: Sel) => set({ from: state.sel, sel, cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor });
+/** Back from what is open: to what it was opened from, else to the map or timeline. */
+export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined }));
 export const moveCursor = (key: string | undefined) => set({ cursor: key });
 /** Choosing a view is going back to it: what was open in the area is put away. */
-export const setView = (view: DeckView) => set({ view, sel: undefined });
+export const setView = (view: DeckView) => set({ view, sel: undefined, from: undefined });
 /** Autopilot's configuration takes the area, and what was open is kept to come back to. */
 export const enterAutopilot = () => {
   if (state.sel?.kind === "autopilot") return;

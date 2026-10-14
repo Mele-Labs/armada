@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
 import { Button, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { ScrapConfirm, SlotFinding } from "@armada/components/src/compositions/PoolSlots/SlotFinding";
-import { clockOf, shortOf, spanOf, type BayView, type Holder as BayHolder } from "./deck-bays";
+import { clockOf, shortOf, spanOf, type BayView, type Holder as BayHolder, type Lease } from "./deck-bays";
+import { SlotHistory } from "./SlotHistory";
 import type { JobDetail } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
 import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
@@ -23,14 +24,15 @@ import type { CockpitProps } from "../../cockpit/body-seam";
 import { viewsOf } from "../../merge-line";
 import { SessionMini } from "../../sessions";
 import { useSessions } from "../../sessions-draft";
-import { answered, leaveAutopilot, select, setJobView, useDeck } from "./deck-model";
+import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck } from "./deck-model";
 import { MarkGlyph, PrChip, StepsBar, type Acts } from "./shared";
 import type { Pr, Subject } from "./ship";
 import { toneOf } from "./tabs-model";
 
 /** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
 export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {
-  const { view, sel } = useDeck();
+  const { view, sel, from } = useDeck();
+  const back = from === undefined ? `Back to the ${view}` : "Back to the bay";
   return (
     <header className="deck-band deck-pane__head">
       <Tooltip label={kind}>
@@ -43,8 +45,8 @@ export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: {
       {where === undefined ? null : <span className="deck-pane__where">{where}</span>}
       <span className="deck-pane__acts">
         {children}
-        <Tooltip label={`Back to the ${view}`} shortcut="Esc">
-          <Button variant="ghost" size="sm" iconOnly aria-label={`Back to the ${view}`} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : select(undefined))}>
+        <Tooltip label={back} shortcut="Esc">
+          <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : goBack())}>
             <X size={16} aria-hidden />
           </Button>
         </Tooltip>
@@ -232,7 +234,7 @@ function Holder({ kind, id, title }: { kind: "job" | "session"; id: string; titl
 
 // ---- A bay ---------------------------------------------------------------------------------------------
 
-export function SlotPane({ view, repo, known }: { view: BayView; repo: string; known: ReadonlySet<string> }) {
+export function SlotPane({ view, ledger, clock, repo, known }: { view: BayView; ledger: readonly Lease[]; clock: number; repo: string; known: ReadonlySet<string> }) {
   const slot = view.slot;
   const [asked, setAsked] = useState<string>();
   const [scrapping, setScrapping] = useState(false);
@@ -297,6 +299,7 @@ export function SlotPane({ view, repo, known }: { view: BayView; repo: string; k
             )}
           </div>
         )}
+        <SlotHistory ledger={ledger} clock={clock} known={known} onOpen={(one) => openFrom({ kind: one.kind, key: `${one.kind}:${one.id}` })} />
       </div>
     </section>
   );

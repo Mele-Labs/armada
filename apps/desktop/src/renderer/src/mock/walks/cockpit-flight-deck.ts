@@ -46,6 +46,7 @@ const cockpitFlightDeck = walk("cockpit-ship-flightdeck", [
   { look: stage("Bay: slot-6"), say: "The pane has the same facts in full: who held it last, whether they were told, what is uncommitted and unpushed, what stranded means, and the acts the Bays page offers for it: Pick up, Stash and Scrap. Scrap asks first, naming what would go" },
   { press: inside(region("Bays"), button(/^slot-2, armada, Held/)), say: "A leased bay" },
   { look: stage("Bay: slot-2"), say: "What holds it, and since when" },
+  { look: inside(stage("Bay: slot-2"), region("History")), say: "Under the facts, the bay's history: a strip of the last day in a block for each holder, so quiet and busy stretches read at a glance, and below it the holders newest first on a rail. Each row is the holder, its branch, from when to when and for how long, and how it ended as a glyph: still held, given back clean, given back with its branch kept, stranded, or taken by the owner. A holder the ship still has opens on a press, and Esc comes back to the bay. j and k move through the rows. In a replay it is the history as of the playhead" },
   { press: inside(region("Merge queue"), button(/^#1896/)), say: "The merge queue is one row under the map: a mark for each pull request, one light for main" },
   { look: stage("Pull request #1896"), say: "What the forge says about it" },
   { press: inside(controls, button("Checks")), say: "Checks, from the flight controls, is a plain filter like Jobs, Sessions and Calls. It opens nothing and the area stays on the map" },
