@@ -512,15 +512,18 @@ export function sessionsStore(
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
       edit(id, (one) => {
-        const { pendingTags, done, lapsed, ...rest } = one;
+        const { pendingTags, done, lapsed, standing, ...rest } = one;
         void pendingTags;
         void done;
         void lapsed;
+        // A message from the person ends the reply and the done Fleet read off the turn before it.
+        void standing;
         const looking = taggedJobs
           .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
           .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));
         return {
           ...rest,
+          ...(one.waitingFor === undefined ? {} : { waitingFor: one.waitingFor.filter((it) => it.source !== "replied" && it.source !== "done") }),
           rows: [
             ...one.rows,
             row((rid, stamp) => ({
@@ -646,6 +649,8 @@ export function sessionsStore(
     answerWaiting: (id, itemId, given) => {
       const item = now.find((one) => one.id === id)?.waitingFor?.find((one) => one.id === itemId);
       if (item === undefined) return;
+      // A reply to a replied or done Session is a message from him, which wakes it.
+      if (item.source === "replied" || item.source === "done") return store.send(id, { text: given.text ?? "", files: [], sketches: [], tags: [] });
       const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
       edit(id, (one) => {
         const { asked, ...rest } = one;
@@ -749,7 +754,9 @@ export function sessionsStore(
       edit(id, (one) => {
         const { asked, ...rest } = one;
         const own = one.waitingFor?.some((it) => it.id === itemId) === true;
-        return own ? { ...one, waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
+        // A reply or a done he dismissed is settled: the Session stands as idle, as Fleet reads it.
+        const settled = itemId.startsWith("replied:") || itemId.startsWith("done:");
+        return own ? { ...one, ...(settled ? { standing: "idle" as const } : {}), waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
       }),
   };
   return store;
