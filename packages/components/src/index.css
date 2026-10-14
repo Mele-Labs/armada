@@ -396,6 +396,7 @@
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/SessionThread/SessionThread.css";
 @import "./compositions/SessionThread/StartedRow.css";
+@import "./compositions/SessionThread/SketchRow.css";
 @import "./compositions/CommanderPanel/CommanderPanel.css";
 @import "./compositions/AskCard/AskCard.css";
 @import "./compositions/SessionRetroRow/SessionRetroRow.css";

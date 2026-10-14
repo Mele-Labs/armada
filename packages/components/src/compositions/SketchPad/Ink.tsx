@@ -1,6 +1,8 @@
 import { ViewportPortal, useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { SketchPoint, SketchStroke } from "./ink-types";
+
 /**
  * The pen on the sketch pad: every line already drawn by hand, the one being
  * drawn, and the layer that catches the pointer while the pen is down.
@@ -13,11 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * `docs/journeys/dispatch-a-job.md`, The sketch, has the two rules.
  */
 
-/** One place on the pad, in the same coordinates a box's `x` and `y` are in. */
-export type SketchPoint = { x: number; y: number };
-
-/** One line drawn by hand, kept as the line rather than as a picture of it. */
-export type SketchStroke = { id: string; points: readonly SketchPoint[] };
+export type { SketchPoint, SketchStroke } from "./ink-types";
 
 /**
  * What one stroke is, for somebody who cannot see it. Never "a line": a join

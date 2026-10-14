@@ -25,6 +25,7 @@ import {
   SessionThread,
   SketchPad,
   SketchPreview,
+  SketchReading,
   TileSheet,
   pressedSlot,
   useKept,
@@ -53,6 +54,7 @@ import { handoffOf } from "./session-handoff";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
+import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
@@ -522,6 +524,8 @@ export function ReadingSheet({
             ? one.title
             : "";
   const artifact = one?.kind === "artifact" ? one : undefined;
+  // The agent's sketch is a scene, which wants the width.
+  const drawnByAgent = one?.kind === "sketch" && (one.by === "agent" || "nodes" in one.drawing);
   const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
     <Sheet
@@ -530,7 +534,8 @@ export function ReadingSheet({
       floating
       floor={floor}
       title={title}
-      bleed={artifact !== undefined || one?.kind === "subagent"}
+      {...(drawnByAgent ? { size: "wide" as const } : {})}
+      bleed={artifact !== undefined || one?.kind === "subagent" || drawnByAgent}
       {...(Glyph === undefined ? {} : { leading: <Glyph size={16} strokeWidth={2} aria-hidden /> })}
       {...(artifact !== undefined && isAddress(artifact.form)
         ? {
@@ -548,7 +553,11 @@ export function ReadingSheet({
       onClose={onClose}
     >
       {one?.kind === "sketch" ? (
-        <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
+        one.by === "agent" || "nodes" in one.drawing ? (
+          <SketchReading {...readingOfSketch(one)} />
+        ) : (
+          <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
+        )
       ) : one?.kind === "subagent" ? (
         <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
       ) : one?.kind === "artifact" ? (
@@ -963,6 +972,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
+            onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.stop === undefined ? {} : { onStop: () => draft.stop!(session.id) })}

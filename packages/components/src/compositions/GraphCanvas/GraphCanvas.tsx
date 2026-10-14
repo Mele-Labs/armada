@@ -95,6 +95,11 @@ export type GraphCanvasProps<N extends Node, E extends Edge> = {
   /** A kind is armed: the canvas draws a crosshair, which says the next press puts it down. */
   placing?: boolean;
   /**
+   * A picture of the graph and nothing to do with it: no rail, and no pan, zoom, pick or focus. For a
+   * surface that draws the graph small inside something that is itself the press.
+   */
+  still?: boolean;
+  /**
    * A surface's own control over the top-right corner — a Studio's Run.
    * **Never the field behind a rail press**: that is put down on the canvas
    * itself (the owner, 1 Oct 2026).
@@ -247,6 +252,7 @@ function Surface<N extends Node, E extends Edge>({
   onPanePress,
   onNodePress,
   placing = false,
+  still = false,
   aside,
   children,
 }: GraphCanvasProps<N, E>) {
@@ -326,7 +332,20 @@ function Surface<N extends Node, E extends Edge>({
       {...(onPanePress === undefined ? {} : { onPaneClick })}
       {...(onNodePress === undefined ? {} : { onNodeClick })}
       nodesConnectable={false}
-      nodesDraggable={nodesDraggable}
+      nodesDraggable={nodesDraggable && !still}
+      {...(still
+        ? {
+            panOnDrag: false,
+            panOnScroll: false,
+            zoomOnScroll: false,
+            zoomOnPinch: false,
+            zoomOnDoubleClick: false,
+            preventScrolling: false,
+            nodesFocusable: false,
+            edgesFocusable: false,
+            elementsSelectable: false,
+          }
+        : {})}
       multiSelectionKeyCode={multiSelectionKeyCode}
       edgesReconnectable={false}
       deleteKeyCode={null}
@@ -361,15 +380,17 @@ function Surface<N extends Node, E extends Edge>({
  * something into.
  */
 export function GraphCanvas<N extends Node, E extends Edge>(props: GraphCanvasProps<N, E>) {
-  const { rail, railBelow } = props;
+  const { rail, railBelow, still } = props;
   return (
     <div className="armada-graph-canvas-frame">
       <ReactFlowProvider>
-        <div className="armada-graph-rail">
-          {rail}
-          <ViewGroup />
-          {railBelow}
-        </div>
+        {still === true ? null : (
+          <div className="armada-graph-rail">
+            {rail}
+            <ViewGroup />
+            {railBelow}
+          </div>
+        )}
         <div className="armada-graph-canvas-frame__pane">
           <Surface {...props} />
         </div>

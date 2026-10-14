@@ -1,0 +1,127 @@
+/* A sketch the agent drew, as a card in the thread: a header band over a sunken glass holding a small
+   drawing, the Pool slots' frame at a thread row's size. State is carried in the frame: a card whose
+   sketch was replaced is dashed and stands back. Tokens only. */
+.armada-session-sketch {
+  display: flex;
+  min-width: 0;
+}
+
+.armada-session-sketch__press {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.armada-session-sketch__press:hover {
+  border-color: var(--accent);
+}
+
+.armada-session-sketch__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-sketch__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-sketch__title {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-sketch__state,
+.armada-session-sketch__at {
+  flex: none;
+}
+
+.armada-session-sketch__glass {
+  display: block;
+  box-sizing: border-box;
+  block-size: calc(var(--h-row) * 8);
+  padding: var(--space-2);
+}
+
+.armada-session-sketch[data-replaced] .armada-session-sketch__press {
+  border-style: dashed;
+}
+
+.armada-session-sketch[data-replaced] .armada-session-sketch__glass,
+.armada-session-sketch[data-replaced] .armada-session-sketch__title {
+  opacity: 0.5;
+}
+
+/* The panel's reading: the scene fills what the sheet gives it, under a band when it is a change. */
+.armada-session-sketch-read {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.armada-session-sketch-read > .armada-sketch {
+  flex: 1;
+  block-size: auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.armada-session-sketch-read__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-sketch-read__against {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-sketch-read__reads {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+}

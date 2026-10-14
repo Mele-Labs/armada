@@ -23,8 +23,8 @@ export const lane = (id: string, x: number, y: number, w: number, h: number, tit
 });
 export const label = (id: string, x: number, y: number, title: string): SceneNode => ({ id, kind: "label", x, y, title });
 export const wire = (id: string, x: number, y: number, part: WirePart, title: string): SceneNode => ({ id, kind: "wire", x, y, wire: part, title });
-export const arrow = (from: string, to: string, text?: string, flow?: boolean): SceneEdge => ({
-  id: `${from}-${to}`, from, to, ...(text === undefined ? {} : { label: text }), ...(flow === undefined ? {} : { flow }),
+export const arrow = (from: string, to: string, text?: string, flow?: boolean, step?: number): SceneEdge => ({
+  id: `${from}-${to}`, from, to, ...(text === undefined ? {} : { label: text }), ...(flow === undefined ? {} : { flow }), ...(step === undefined ? {} : { step }),
 });
 export const scene = (nodes: SceneNode[], edges: SceneEdge[]): Scene => ({ nodes, edges });
 
