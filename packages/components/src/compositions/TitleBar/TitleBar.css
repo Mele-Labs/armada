@@ -39,6 +39,7 @@
  * `Button` takes no `className` to carry a title-bar-only hook on, so the
  * picker and sleep get a wrapper `<div>` this row owns itself. */
 .armada-title-bar__picker,
+.armada-title-bar__places,
 .armada-title-bar__search,
 .armada-title-bar__helm,
 .armada-title-bar__menu,
@@ -126,6 +127,44 @@
   text-align: left;
 }
 
+
+/* A word at the row's start, standing for the lockup: the Cockpit's own mark, mono capitals. */
+.armada-title-bar__wordmark {
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-title-bar__places {
+  display: flex;
+  align-items: center;
+}
+
+/* With places, the trigger is an icon and its key, right of them: glass, like the places beside it. Its
+ * label is hidden and its tooltip names it. */
+.armada-title-bar[data-places] .armada-title-bar__search {
+  flex: none;
+  width: auto;
+  height: calc(var(--h-control) + var(--space-1) / 2);
+  padding-inline: var(--space-3);
+  border-color: var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 2);
+  background: var(--bg-glass);
+  box-shadow: inset 0 1px 0 var(--border-highlight);
+  color: var(--fg-muted);
+}
+
+.armada-title-bar[data-places] .armada-title-bar__search:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-title-bar[data-places] .armada-title-bar__search-label {
+  display: none;
+}
 
 /* The right region: Helm's reopen control, drawn only while the caller says
  * the dock is closed, and the logo. */
@@ -437,5 +476,15 @@
   /* The other two regions are gone, so this one takes the whole row. */
   .armada-title-bar__end {
     grid-column: 1 / -1;
+  }
+
+  /* Places stay: they are how the window is moved about, and there is no rail under the row to do it. */
+  .armada-title-bar[data-places] .armada-title-bar__center {
+    display: flex;
+    grid-column: 1;
+  }
+
+  .armada-title-bar[data-places] .armada-title-bar__end {
+    grid-column: 2 / -1;
   }
 }

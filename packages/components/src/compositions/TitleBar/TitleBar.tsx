@@ -139,7 +139,21 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   );
 }
 
+/** What the search trigger is called when it draws as an icon and its key, with its label hidden. */
+const SEARCH_ONLY = "Search, or describe work to dispatch (⌘K)";
+
 export type TitleBarProps = {
+  /**
+   * The places the window has, drawn in the centre before the search trigger (`TabBar` is the Cockpit's).
+   * **Absent draws the centre as it was.** Present, the trigger shrinks to an icon and its key, named by
+   * its tooltip, and the centre stays on the row below the narrow breakpoint, where the picker's does not.
+   */
+  places?: ReactNode;
+  /**
+   * A word at the row's start, after the traffic lights. **It stands for the brand lockup and mark**, so
+   * the row draws neither beside it. Absent draws the lockup and the mark as they were.
+   */
+  wordmark?: ReactNode;
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
   repositoryPicker?: ReactNode;
   /**
@@ -221,19 +235,28 @@ export function TitleBar({
   menu,
   planUsage,
   fleet,
+  places,
+  wordmark,
 }: TitleBarProps) {
   const revealing = useShortcutReveal();
   return (
-    <div className="armada-title-bar">
+    <div className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
       <div className="armada-title-bar__start">
+        {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
         {repositoryPicker === undefined ? null : (
           <div className="armada-title-bar__picker">{repositoryPicker}</div>
         )}
       </div>
 
       <div className="armada-title-bar__center">
+        {places === undefined ? null : <div className="armada-title-bar__places">{places}</div>}
         {onSearch === undefined ? null : (
-          <button type="button" className="armada-title-bar__search" onClick={onSearch}>
+          <button
+            type="button"
+            className="armada-title-bar__search"
+            onClick={onSearch}
+            {...(places === undefined ? {} : { title: SEARCH_ONLY, "aria-label": SEARCH_ONLY })}
+          >
             <Search size={16} strokeWidth={2} aria-hidden />
             <span className="armada-title-bar__search-label">Search, or describe work to dispatch</span>
             <KbdCmd shortcut="⌘K" />
@@ -267,13 +290,17 @@ export function TitleBar({
           </button>
         )}
 
-        {/* Both drawn; the stylesheet shows one by the bar's width. */}
-        <span className="armada-title-bar__lockup">
-          <ArmadaLockupHorizontal height={20} title="Armada" />
-        </span>
-        <span className="armada-title-bar__mark">
-          <ArmadaMark size={20} title="Armada" />
-        </span>
+        {/* Both drawn; the stylesheet shows one by the bar's width. A wordmark stands for them. */}
+        {wordmark !== undefined ? null : (
+          <>
+            <span className="armada-title-bar__lockup">
+              <ArmadaLockupHorizontal height={20} title="Armada" />
+            </span>
+            <span className="armada-title-bar__mark">
+              <ArmadaMark size={20} title="Armada" />
+            </span>
+          </>
+        )}
 
         {/* Last, on the bar's own trailing edge — where the owner put it on
             17 Sep 2026. The dot is `--dot`, the same 6px the panel and the

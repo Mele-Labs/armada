@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 import { FLEET_DOT_TONE, type FleetState } from "../FleetPanel/FleetPanel";
 import { Select } from "../../primitives/Select/Select";
+import { Tabs } from "../../primitives/Tabs/Tabs";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
 import { AccountProvider, type Account } from "../Account/Account";
 import { TitleBar } from "./TitleBar";
@@ -453,5 +454,62 @@ export const PlanUsageAbsent: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: /limit/ })).not.toBeInTheDocument();
+  },
+};
+
+const PLACES = [
+  { id: "cockpit", label: "Cockpit" },
+  { id: "jobs", label: "Jobs" },
+  { id: "sessions", label: "Sessions" },
+  { id: "system", label: "System" },
+];
+
+/**
+ * The places slot and the wordmark slot filled, as the Cockpit's own window draws them: the word at the
+ * start in place of the lockup, the tabs in the centre, and the search trigger shrunk to an icon and its
+ * key to their right. The picker, Helm and the plan's meters are not here: that window carries them elsewhere.
+ */
+export const WithPlaces: Story = {
+  args: {
+    wordmark: "Armada",
+    places: <Tabs items={PLACES} value="jobs" />,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+  },
+  play: async ({ canvas }) => {
+    const tabs = canvas.getByRole("tablist");
+    const search = canvas.getByRole("button", { name: "Search, or describe work to dispatch (⌘K)" });
+    await expect(canvas.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
+    // The places come first, then the trigger, and the trigger's label is not drawn.
+    await expect(tabs.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(search).toHaveAttribute("title", "Search, or describe work to dispatch (⌘K)");
+    await expect(canvas.queryByText("Search, or describe work to dispatch")).not.toBeVisible();
+    // The word stands for the lockup and the mark.
+    await expect(canvas.getByText("Armada")).toBeVisible();
+    await expect(canvas.queryByRole("img", { name: "Armada" })).not.toBeInTheDocument();
+  },
+};
+
+/** The same row under the narrow breakpoint: the places stay, where the picker's start and the lockup go. */
+export const WithPlacesInASlimWindow: Story = {
+  args: WithPlaces.args!,
+  render: (args) => (
+    <div style={{ width: "calc(var(--window-floor) - var(--space-12) * 5)" }}>
+      <TitleBar {...args} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("tablist")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Menu" })).toBeVisible();
+  },
+};
+
+/** Without the slots the row is what it was: the lockup, no tabs, the trigger with its label. */
+export const WithoutPlaces: Story = {
+  args: Full.args!,
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("tablist")).not.toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Armada" })).toBeInTheDocument();
+    await expect(canvas.getByText("Search, or describe work to dispatch")).toBeVisible();
   },
 };
