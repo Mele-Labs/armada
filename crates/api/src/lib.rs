@@ -132,7 +132,7 @@ pub use daemon::{
     PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios, Tools, COMMANDER_ALLOWED,
 };
-pub use door::{door_within, offered, Scope, DOOR_PATH};
+pub use door::{door_within, door_without_a_manifest, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};
 pub use journal::{Journal, Reading, Window, FOLLOW};
 pub use mcp::{Caller, MCP_PATH};

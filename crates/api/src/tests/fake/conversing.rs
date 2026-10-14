@@ -33,6 +33,10 @@ impl FakeDaemon {
 
 impl crate::Admitting for FakeDaemon {
     fn helm_at(&self, caller: crate::Caller) -> Option<crate::HelmReach> {
+        let session = *self.session_on.lock().expect("not poisoned");
+        if session.is_some() && caller.port() == session {
+            return Some(crate::HelmReach::of_a_hosted_session());
+        }
         let planted = *self.helm_on.lock().expect("not poisoned");
         let (port, may) = planted?;
         (caller.port() == Some(port)).then(|| crate::HelmReach::deciding(may, "a test withheld it"))

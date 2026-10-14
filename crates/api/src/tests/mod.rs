@@ -20,6 +20,7 @@ mod conversing;
 mod door;
 mod door_scope;
 mod door_sessions;
+mod door_without_manifest;
 mod fake;
 mod following;
 mod helm_kills;

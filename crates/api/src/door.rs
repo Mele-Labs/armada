@@ -122,6 +122,28 @@ pub fn door_within(manifest_id: &str) -> String {
     format!("{DOOR_PATH}?manifest_id={}", door::encoded(manifest_id))
 }
 
+/// The door path a relay standing in no Manifest posts to: a hosted session's,
+/// in a root Setup has not written `armada.yml` in yet.
+///
+/// **Said rather than left absent**, because an absent `?manifest_id=` is
+/// answered inside the first Manifest, which is another repository's.
+pub fn door_without_a_manifest() -> String {
+    format!("{DOOR_PATH}?{WITHOUT_A_MANIFEST}=true")
+}
+
+const WITHOUT_A_MANIFEST: &str = "without_manifest";
+
+/// What a hosted session standing in no Manifest is offered: the permission
+/// tool its `--permission-prompt-tool` names, and its own acts, each placed by
+/// its connection and none read inside a Manifest.
+const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
+    door::ASKS_A_PERSON,
+    "waiting_for",
+    "all_done",
+    "show_window",
+    "ask_in_window",
+];
+
 /// The routes that read `?manifest_id=` and, absent it, answer about every
 /// repository or the first. The door always names its scope on these.
 const NAMES_ITS_SCOPE: &[&str] = &[
@@ -225,6 +247,14 @@ async fn called<D: Queries + Admitting>(
         // Answered as unreadable bytes, `crate::mcp`'s shape for the same case.
         Err(_) => Bytes::new(),
     };
+    if Query::<Relayed>::try_from_uri(&parts.uri)
+        .is_ok_and(|Query(relayed)| relayed.without_manifest)
+    {
+        return match without_a_manifest(&doorway, &body, &placed, caller).await {
+            Some(answered) => answering(answered),
+            None => StatusCode::ACCEPTED.into_response(),
+        };
+    }
     // **A Helm session or a Commander reads against everything it could be
     // offered**, so a call outside its reach is refused by name below rather
     // than answered as a tool that does not exist.
@@ -262,12 +292,77 @@ async fn called<D: Queries + Admitting>(
             Ok(scope) => match within_scope(&call, &scope) {
                 Ok(call) => Answered::Served {
                     id,
-                    answer: doorway.through(&call, &placed, &scope, caller).await,
+                    answer: doorway.through(&call, &placed, Some(&scope), caller).await,
                 },
                 Err(why) => Answered::Refused { id, why },
             },
         },
     };
+    answering(answered)
+}
+
+/// `?without_manifest=` on the door, which [`door_without_a_manifest`] sets.
+#[derive(serde::Deserialize)]
+struct Relayed {
+    #[serde(default)]
+    without_manifest: bool,
+}
+
+/// One message from a relay standing in no Manifest.
+///
+/// **Only a hosted session is answered**, because what is offered is that
+/// session's own acts and nothing else here has any. Anyone else is told so at
+/// the handshake and listed nothing.
+async fn without_a_manifest<D: Queries>(
+    doorway: &Doorway<D>,
+    body: &[u8],
+    placed: &Placed,
+    caller: crate::mcp::Caller,
+) -> Option<Answered> {
+    let session = placed.is_a_hosted_session();
+    let shapes = match session {
+        true => shaped(
+            crate::daemon::offerable()
+                .filter(|row| WITHOUT_A_MANIFEST_OFFERS.contains(&row.operation)),
+        ),
+        false => Vec::new(),
+    };
+    Some(match door::read(body, &shapes) {
+        Asked::Nothing => return None,
+        Asked::Ping { id } => Answered::Ping { id },
+        Asked::Tools { id } => Answered::Tools { id, shapes },
+        Asked::NoSuchMethod { id, named } => Answered::NoSuchMethod { id, named },
+        Asked::Unreadable { why } => Answered::Unreadable { why },
+        Asked::Handshake { id, revision } if session => {
+            Answered::WithoutAManifest { id, revision }
+        }
+        Asked::Handshake { id, revision } => Answered::Unreachable {
+            id,
+            revision,
+            why: String::from(NO_SESSION_HERE),
+        },
+        Asked::NotACall { id, why } if session => Answered::Refused {
+            id,
+            why: format!(
+                "{why}. This repository has no armada.yml yet, so only this session's own acts \
+                 are served here"
+            ),
+        },
+        Asked::NotACall { id, .. } => Answered::Refused {
+            id,
+            why: String::from(NO_SESSION_HERE),
+        },
+        Asked::Call { id, call } => Answered::Served {
+            id,
+            answer: doorway.through(&call, placed, None, caller).await,
+        },
+    })
+}
+
+const NO_SESSION_HERE: &str = "this directory has no armada.yml, and this connection is not a \
+     session Armada is hosting, so nothing here is answered";
+
+fn answering(answered: Answered) -> Response {
     match door::answer(answered) {
         Ok(body) => (
             StatusCode::OK,
@@ -313,13 +408,18 @@ impl<D: Queries> Doorway<D> {
         &self,
         call: &door::Call,
         placed: &Placed,
-        scope: &Scope,
+        scope: Option<&Scope>,
         caller: crate::mcp::Caller,
     ) -> Answer {
-        if let Some(why) = self.elsewhere(call, scope).await {
-            return refused_here(call, &why);
+        if let Some(scope) = scope {
+            if let Some(why) = self.elsewhere(call, scope).await {
+                return refused_here(call, &why);
+            }
         }
-        let path = as_an_agent_reads(call, scoped_path(call, scope));
+        let path = match scope {
+            Some(scope) => as_an_agent_reads(call, scoped_path(call, scope)),
+            None => call.path.clone(),
+        };
         let request = Request::builder()
             .method(call.method)
             .uri(&path)
@@ -335,9 +435,11 @@ impl<D: Queries> Doorway<D> {
         request
             .extensions_mut()
             .insert(crate::acting::DoorCaller(caller));
-        request
-            .extensions_mut()
-            .insert(Scoped(ManifestId::carried(scope.named())));
+        if let Some(scope) = scope {
+            request
+                .extensions_mut()
+                .insert(Scoped(ManifestId::carried(scope.named())));
+        }
         // Infallible: the surface's error type is `Infallible`, so a failure
         // here is a request that was never made rather than a route that
         // refused — and a refusal comes back as a status like any other.

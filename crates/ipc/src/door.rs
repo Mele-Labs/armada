@@ -181,6 +181,13 @@ pub enum Answered {
         revision: String,
         why: String,
     },
+    /// A handshake for a hosted session standing in no Manifest: Setup's, in a
+    /// root it has not written `armada.yml` in yet. Its own acts are served, and
+    /// nothing that is answered inside a Manifest.
+    WithoutAManifest {
+        id: CallId,
+        revision: String,
+    },
     Ping {
         id: CallId,
     },
@@ -421,6 +428,15 @@ pub fn answer(answered: Answered) -> Result<String, Unencodable> {
                 "instructions": why,
             }),
         ),
+        Answered::WithoutAManifest { id, revision } => result(
+            id,
+            json!({
+                "protocolVersion": revision,
+                "capabilities": { "tools": {} },
+                "serverInfo": { "name": SERVER, "version": env!("CARGO_PKG_VERSION") },
+                "instructions": WITHOUT_A_MANIFEST,
+            }),
+        ),
         Answered::Ping { id } => result(id, json!({})),
         Answered::Tools { id, shapes } => result(id, json!({ "tools": listed(&shapes) })),
         Answered::Served { id, answer } => result(id, served(&answer)),
@@ -447,6 +463,12 @@ fn instructions(scope: &str) -> String {
          bytes is cut and says so, naming the route that serves it whole."
     )
 }
+
+/// What a session standing in no Manifest is told at the handshake.
+const WITHOUT_A_MANIFEST: &str = "This repository has no armada.yml yet, so nothing here is \
+     answered inside a Manifest: no Jobs, Drones, runs or servers. This session's own acts are \
+     served — what it is waiting for, that it is done, and a page shown or asked about in the \
+     window — and those are the only tools listed.";
 
 /// One sentence added to an answer a relay is carrying through.
 ///
