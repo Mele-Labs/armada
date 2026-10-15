@@ -496,3 +496,27 @@ fn a_changed_tracker_or_gate_is_reported_and_not_adopted() {
     assert_eq!(manifest.tracker(), None);
     assert_eq!(adopted.at_restart(), [Frozen::Tracker, Frozen::CiGate]);
 }
+
+/// An edit sent as a pull request is not in the file yet, so the text it holds
+/// is read in place of the file until it is cleared, and the file after that.
+#[test]
+fn held_text_is_read_in_place_of_the_file_until_it_is_cleared() {
+    let repository = Repository::holding(PATIENT);
+    let (manifest, reloads) = reloadable(&repository.manifest());
+    assert_eq!(manifest.auto_merge(), AutoMerge::Never);
+
+    reloads.hold(Some(format!("{PATIENT}auto_merge: checks-pass\n")));
+    reloads.reread().expect("the held text reads");
+    assert_eq!(manifest.auto_merge(), AutoMerge::ChecksPass);
+
+    // The file changing under it, as a catch-up does, does not undo it.
+    repository.save(&PATIENT.replace("poke_limit: 2", "poke_limit: 5"));
+    reloads.reread().expect("it reads");
+    assert_eq!(manifest.auto_merge(), AutoMerge::ChecksPass);
+    assert_eq!(manifest.poke_limit(), Some(2), "the file's own change waits");
+
+    reloads.hold(None);
+    reloads.reread().expect("the file reads");
+    assert_eq!(manifest.auto_merge(), AutoMerge::Never);
+    assert_eq!(manifest.poke_limit(), Some(5));
+}

@@ -169,6 +169,17 @@ impl Op {
 }
 
 impl Edit {
+    /// What a commit message says this edit did: the key, and the word it was
+    /// set to where it is a policy or the base.
+    pub fn said(&self) -> String {
+        match self {
+            Edit::AutoMerge(Some(word)) => format!("auto_merge {}", word.as_written()),
+            Edit::ReviewGate(Some(word)) => format!("review_gate {}", word.as_written()),
+            Edit::Base(Some(base)) => format!("base {base}"),
+            other => other.key(),
+        }
+    }
+
     /// The key a refusal about the whole edit names.
     fn key(&self) -> String {
         match self {

@@ -288,6 +288,11 @@ pub trait Locating: Send + Sync {
     /// Fleet now serves the Manifest at `root`: watch it, and publish what a
     /// repository Fleet serves is given.
     fn serving(&self, root: &str);
+    /// Read the live keys of the `armada.yml` at `root` again: from `text` where
+    /// an edit sent as a pull request is not in the file yet, from the file
+    /// where it is `None`. **Nothing by default**, so a locator that holds no
+    /// reload handle moves nothing.
+    fn reload_from(&self, _root: &str, _text: Option<&str>) {}
 }
 
 /// One repository Fleet serves.
@@ -301,6 +306,9 @@ pub struct Repository {
     reading: Mutex<Option<ipc::ManifestReading>>,
     /// The `armada.yml` proposals Setup is iterating here, by workspace.
     proposals: crate::manifest_proposal::Held,
+    /// A form's edit to `armada.yml` sent as a pull request and not yet in the
+    /// checkout — `crate::pending_edit`.
+    pending_edit: crate::pending_edit::Held,
 }
 
 impl Repository {
@@ -311,6 +319,7 @@ impl Repository {
             set_up: OnceLock::new(),
             reading: Mutex::new(None),
             proposals: Default::default(),
+            pending_edit: Default::default(),
         };
         if let Some(set_up) = set_up {
             let _ = repository.set_up.set(set_up);
@@ -332,6 +341,10 @@ impl Repository {
 
     pub(crate) fn proposals(&self) -> &crate::manifest_proposal::Held {
         &self.proposals
+    }
+
+    pub(crate) fn pending_edit(&self) -> &crate::pending_edit::Held {
+        &self.pending_edit
     }
 
     pub(crate) fn reading(&self) -> Option<ipc::ManifestReading> {

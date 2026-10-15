@@ -43,6 +43,7 @@ mod delivered;
 mod delivering;
 mod failed;
 mod main_ci;
+mod manifest_edits;
 mod merging;
 mod pull_requests;
 mod scripting;
@@ -108,6 +109,8 @@ pub struct FakeVcs {
     /// holding this fake exists, so it is scripted through `&self` and a
     /// consuming builder could not express the case at all.
     merging: Mutex<Merging>,
+    /// What a form's edit to the Manifest comes to.
+    manifest_edits: Mutex<manifest_edits::ManifestEdits>,
     /// What the forge says about one pull request and does when it is readied.
     pull_requests: Mutex<pull_requests::PullRequests>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
@@ -683,6 +686,27 @@ impl Delivery for FakeVcs {
             .expect("not poisoned")
             .held_back
             .clone()
+    }
+
+    fn manifest_by_pull_request(&self, _in_repo: &str, _file: &str) -> bool {
+        self.manifest_goes_by_pull_request()
+    }
+
+    fn manifest_on_the_base(
+        &self,
+        _in_repo: &str,
+        _base: &str,
+        _file: &str,
+    ) -> Result<adapter_traits::ManifestOnTheBase, NotDelivered> {
+        self.manifest_on_the_base_is()
+    }
+
+    fn send_manifest_edit(
+        &self,
+        _in_repo: &str,
+        sending: &adapter_traits::ManifestEditToSend,
+    ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
+        self.manifest_edit_sent(sending)
     }
 }
 

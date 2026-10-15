@@ -399,6 +399,27 @@ impl Delivery for GitVcs {
     fn held_back(&self, in_repo: &str, base: &str) -> Option<adapter_traits::HeldBack> {
         crate::landing::held_back(in_repo, base)
     }
+
+    fn manifest_by_pull_request(&self, in_repo: &str, file: &str) -> bool {
+        crate::manifest_edit::goes_by_pull_request(in_repo, file)
+    }
+
+    fn manifest_on_the_base(
+        &self,
+        in_repo: &str,
+        base: &str,
+        file: &str,
+    ) -> Result<adapter_traits::ManifestOnTheBase, NotDelivered> {
+        crate::manifest_edit::on_the_base(in_repo, base, file)
+    }
+
+    fn send_manifest_edit(
+        &self,
+        in_repo: &str,
+        sending: &adapter_traits::ManifestEditToSend,
+    ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
+        crate::manifest_edit::send(in_repo, sending)
+    }
 }
 
 /// Ask the forge one thing about one pull request, named as the forge names

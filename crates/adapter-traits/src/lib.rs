@@ -42,6 +42,7 @@ mod judge;
 mod landable;
 mod link_lookup;
 mod main_ci;
+mod manifest_edit;
 mod pull_request;
 mod pull_request_detail;
 mod pull_watch;
@@ -80,6 +81,7 @@ pub use main_ci::{
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
     StatusState,
 };
+pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
