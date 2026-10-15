@@ -310,12 +310,17 @@ this window, and that is another security review. `#1294`.
 > **Rule.** A page the window cannot show is told to whoever opened the walk:
 > a Session as `window_failed`, which Fleet passes on as its own notice, and a
 > Job as `walk_failed`, which wakes its Commander. A load that failed, an HTTP
-> status of 400 or more on the page, or the page's process gone counts; a
-> subframe's failure and a load this window refused do not. Told once until a
-> page on the window's origin loads. A Studio's window has nobody to tell, and
-> a Run that ended is already known. `capture/failed.ts`.
+> status of 400 or more on the page, or the page's process gone counts, and so
+> does a loaded page that shows Vite's error overlay or draws nothing two looks
+> running. Main looks every two seconds, never while the page is still
+> changing, and the look answers one of three fixed words, never the page's
+> text. A subframe's failure and a load this window refused do not count. Told
+> once until the page is seen working: on the window's origin, under 400, and
+> read fine. A Studio's window has nobody to tell, and a Run that ended is
+> already known. `capture/failed.ts`.
 > Why: the person should not have to notice a dead page and carry the news
-> back. Electron's events are read, never the page's word.
+> back. Electron's events and main's own looks are read, never the page's word;
+> the owner, 15 Oct 2026, chose the overlay and the blank page as well.
 
 > **Rule.** The window draws no rail and reaches two Armada surfaces: the card
 > of a question its Session asked about the page, drawn on the bar, and the

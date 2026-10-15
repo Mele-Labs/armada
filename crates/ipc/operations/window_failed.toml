@@ -6,7 +6,7 @@ description = "Tell the session that showed a window that the window could not s
 notes = """
 `POST /sessions/window/failed`, body `WindowFailed`: `session_id`, `url`, the address the window was loading, and `why`, what Bridge saw in one line. Answered with `WalkTold`.
 
-**Bridge detects it; no agent is asked.** Bridge's main process sends it when the page in a session's window does not load, answers with an HTTP status of 400 or more, or its process goes away. Once per window until a page there loads again, so a person pressing Reload on a dead server does not tell the session twice.
+**Bridge detects it; no agent is asked.** Bridge's main process sends it when the page in a session's window does not load, answers with an HTTP status of 400 or more, its process goes away, or, once loaded, it shows Vite's error overlay or draws nothing. Bridge looks at a loaded page every two seconds, never while it is still changing, and the look answers a fixed word rather than the page's text. Once per window until the page is seen working again, so a person pressing Reload on a dead server does not tell the session twice.
 
 **Fleet tells the session in its own voice**, as a Fleet notice that wakes it, never as the person's message: the person said nothing. A hosted session takes a turn; a terminal one has it held for its mod. `told` is `false` where the session has ended or a terminal one is not listening. The walk stays open: the window is still on the person's screen, and the session's next `show_window` replaces it. A session Fleet does not know is refused.
 """

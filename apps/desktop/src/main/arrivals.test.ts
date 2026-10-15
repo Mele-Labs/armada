@@ -17,10 +17,13 @@ import type {
   CommandInFlight,
   JobSummary,
   JudgeQuestion,
+  HeldWorktrees,
   ModelChoices,
   ModSummary,
   ProposalSettled,
   QuestionInFlight,
+  WorktreesHeld,
+  WorktreeSlot,
 } from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../shared/bridge";
 import { applyArrival, type ArrivalHost } from "./arrivals";
@@ -28,6 +31,7 @@ import type { RehearsalConnection } from "./rehearsal";
 import type { RepositoryReads } from "./repositories";
 import { Modding } from "./mods";
 import { Questions } from "./questions";
+import { HeldReader } from "./holding";
 import type { ReviewMaterial } from "./review";
 
 const JOB_ID = "01M1HQZAKN001AJ5MT3PT09KKY";
@@ -108,7 +112,7 @@ function fakeHost(
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
     sessions: { again: async () => {}, changed: () => {}, row: () => {} },
-    held: { warm: async () => {} },
+    held: { warm: async () => {}, again: async () => {} },
     fleetBuild: { watch: () => {} },
     mods,
     material: {} as unknown as ReviewMaterial,
@@ -500,5 +504,82 @@ describe("the models Fleet holds, read again when what sets them moves", () => {
     // The other reads in the same arm settle on the same server; give them the same moment.
     await new Promise((done) => setTimeout(done, 50));
     expect(state().holds.models).toEqual(OPUS);
+  });
+});
+
+describe("the pool's bays, read again when Fleet says a slot was leased or given back", () => {
+  let server: Server | null = null;
+  afterEach(async () => {
+    const held = server;
+    server = null;
+    if (held === null) return;
+    held.closeAllConnections();
+    await new Promise<void>((done) => held.close(() => done()));
+  });
+
+  /** `list_worktrees` as Fleet answers it for a Session that took slot 4 on its first write. */
+  const taken: WorktreeSlot = {
+    manifest_id: "armada",
+    slot: 4,
+    path: "/p/slot-4",
+    held: { state: "hosted_session", session_id: "d02bc3e3-94ce-4972-896c-9df4056ecf28" },
+    branch: "armada/session-d02bc3e3",
+    since: "2026-10-15T12:05:12Z",
+    base: "main",
+    warm: true,
+  };
+  const pool = (...slots: WorktreeSlot[]): WorktreesHeld => ({ worktrees: [], slots });
+
+  async function poolAnswering(answer: { body: WorktreesHeld }): Promise<number> {
+    server = createServer((request, response) => {
+      response.writeHead(request.url === "/worktrees" ? 200 : 404, { "content-type": "application/json" });
+      response.end(JSON.stringify(request.url === "/worktrees" ? answer.body : {}));
+      request.resume();
+    });
+    const listening = server;
+    await new Promise<void>((done) => listening.listen(0, "127.0.0.1", () => done()));
+    return (listening.address() as AddressInfo).port;
+  }
+
+  const slotEvent = (kind: "slot.leased" | "slot.released" | "job.started") =>
+    JSON.stringify({
+      message: "event",
+      cursor: 11,
+      event: {
+        kind: "timeline.appended",
+        event: { id: 12, at: "2026-10-15T12:05:12Z", kind, subject: { kind: "session", id: "d02bc3e3-94ce-4972-896c-9df4056ecf28" }, tone: "idle", says: kind, detail: "slot-4", manifest_id: "armada", live: true },
+      },
+    });
+
+  const slotsOf = (one: HeldWorktrees | undefined) => (one?.state === "read" ? one.held.slots : undefined);
+
+  it("draws a slot a Session took after the surface opened, and draws it gone once it is given back", async () => {
+    const answer = { body: pool() };
+    const port = await poolAnswering(answer);
+    const drawn: HeldWorktrees[] = [];
+    const reader = new HeldReader((one) => drawn.push(one));
+    const { host } = fakeHost([]);
+    await reader.want(port, true);
+    expect(slotsOf(drawn.at(-1))).toEqual([]);
+
+    answer.body = pool(taken);
+    applyArrival({ ...host, held: reader }, slotEvent("slot.leased"), { ...FLEET, port });
+    await vi.waitFor(() => expect(slotsOf(drawn.at(-1))).toEqual([taken]));
+
+    answer.body = pool({ ...taken, held: { state: "free" } });
+    applyArrival({ ...host, held: reader }, slotEvent("slot.released"), { ...FLEET, port });
+    await vi.waitFor(() => expect(slotsOf(drawn.at(-1))?.[0]?.held).toEqual({ state: "free" }));
+  });
+
+  it("reads the pool for a lease or a release and for nothing else on the timeline", () => {
+    const again = vi.fn(async () => {});
+    const { host } = fakeHost([]);
+    const told = { ...host, held: { warm: async () => {}, again } };
+    applyArrival(told, slotEvent("job.started"), FLEET);
+    expect(again).not.toHaveBeenCalled();
+    applyArrival(told, slotEvent("slot.leased"), FLEET);
+    applyArrival(told, slotEvent("slot.released"), FLEET);
+    expect(again).toHaveBeenCalledTimes(2);
+    expect(again).toHaveBeenCalledWith(FLEET.port);
   });
 });

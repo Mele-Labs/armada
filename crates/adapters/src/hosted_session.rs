@@ -331,9 +331,7 @@ pub fn reads_only(line: &str) -> bool {
         .iter()
         .map(|segment| segment.trim())
         .filter(|segment| !segment.is_empty())
-        // A redirect, a substitution or a chain that this reading cannot follow; a quoted one
-        // counts too, since a quote is no proof the shell leaves it alone.
-        .all(|segment| !segment.contains(['>', '`']) && !segment.contains("$(") && reads(segment))
+        .all(reads)
 }
 
 /// Redirects that write nothing: to the null device, or one descriptor onto another.
@@ -362,7 +360,8 @@ fn harmless_redirect(rest: &str) -> Option<usize> {
 }
 
 /// The line cut at `|`, `;`, `&` and newline outside quotes, with the harmless redirects
-/// taken out. `None` for a quote left open, which this cannot say the end of.
+/// taken out. `None` for a quote left open, a redirect, or a substitution the shell would run:
+/// a `>` inside quotes is text, and so is a backtick or `$(` inside single quotes.
 fn segments(line: &str) -> Option<Vec<String>> {
     let mut segments = vec![String::new()];
     let mut quote: Option<char> = None;
@@ -374,6 +373,7 @@ fn segments(line: &str) -> Option<Vec<String>> {
             continue;
         }
         let current = segments.last_mut()?;
+        let substitutes = c == '`' || line[at..].starts_with("$(");
         if c == '\\' && quote != Some('\'') {
             current.push(c);
             current.extend(chars.next().map(|(_, escaped)| escaped));
@@ -381,6 +381,7 @@ fn segments(line: &str) -> Option<Vec<String>> {
             continue;
         }
         match quote {
+            Some('"') if substitutes => return None,
             Some(open) => {
                 current.push(c);
                 if c == open {
@@ -393,6 +394,9 @@ fn segments(line: &str) -> Option<Vec<String>> {
                         skip_to = at + len;
                         continue;
                     }
+                }
+                if c == '>' || substitutes {
+                    return None;
                 }
                 match c {
                     '|' | ';' | '&' | '\n' => {
