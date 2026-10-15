@@ -1150,7 +1150,7 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={lands.landed}
                   bring={lands.bringing}
                   onBrought={lands.brought}
-                  onOpenLink={openProseLink} onFix={(fix) => commands.fixMain(fix)}
+                  onOpenLink={openProseLink} onFix={(fix) => commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)}
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
                   onPickRepository={pick}

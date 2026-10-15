@@ -37,6 +37,7 @@ import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { SessionTiles } from "./SessionTiles";
+import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOfSubject, enterAutopilot, incomingOf, keepOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
@@ -276,8 +277,8 @@ function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps
 
 /**
  * The merge queue: one row across the repositories, main first and then one chip for each pull request, each repository's
- * nearest main first. Main is one light, green while every main is and red if any is. A press opens the pull request on the
- * stage. No count.
+ * nearest main first. Main is one light, green while every main is and red if any is; a red one opens a card with the Merge line's
+ * panel for each red (`MainLight`). A press on a chip opens the pull request on the stage. No count.
  */
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
@@ -285,7 +286,10 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   // A layout that hides the merge line's panel hides this queue, its one counterpart.
   const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
   if (views.length === 0 || !shown) return null;
-  const red = views.filter((view) => view.hub?.main?.state === "red").map((view) => ship.repos.find((one) => one.root === view.root)?.name ?? view.root);
+  const reds = views.flatMap((view) =>
+    view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: ship.repos.find((one) => one.root === view.root)?.name ?? view.root }],
+  );
+  const red = reds.map((one) => one.name);
   const mainSaid = red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green";
   const marks = views.flatMap((view, at) => [
     ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
@@ -330,12 +334,16 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         )}
         <ol className="deck-chips">
           <li>
-            <Tooltip label={mainSaid} asChild>
-              <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
-                <span className="deck-chip__dot" data-tone={red.length > 0 ? "bad" : "calm"} aria-hidden="true" />
-                <span>main</span>
-              </span>
-            </Tooltip>
+            {reds.length > 0 ? (
+              <MainLight props={props} ship={ship} reds={reds} said={mainSaid} />
+            ) : (
+              <Tooltip label={mainSaid} asChild>
+                <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
+                  <span className="deck-chip__dot" data-tone="calm" aria-hidden="true" />
+                  <span>main</span>
+                </span>
+              </Tooltip>
+            )}
           </li>
           {marks}
         </ol>

@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
-import { MergeLine, useTileGrid, type FixRefusal } from "@armada/components";
+import { MergeLine, useTileGrid, type FixChoice, type FixRefusal } from "@armada/components";
 import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
@@ -96,6 +96,28 @@ export function MergeLinePanel({
   );
 }
 
+/**
+ * What the band's choices do for one repository: a Job is dispatched, or sent the work back, by `fix_main`; a Session is sent it as a
+ * message; a new Session opens the Dispatch panel on the brief. **The Merge line's own routes, held once so the Cockpit's card sends
+ * the same ones.** Absent where nothing listens for `fix_main`, so the band offers none.
+ */
+export function useFixChoice(
+  root: string,
+  onFix: ((fix: FixMain) => void | Promise<FixRefusal | undefined | void>) | undefined,
+  onSendToSession: ((sessionId: string, message: string) => void) | undefined,
+): ((choice: FixChoice) => void | Promise<FixRefusal | undefined | void>) | undefined {
+  const dispatching = useDispatching();
+  if (onFix === undefined) return undefined;
+  return (choice) =>
+    choice.kind === "session"
+      ? onSendToSession?.(choice.session, choice.message)
+      : choice.kind === "newSession"
+        ? (dispatching?.choose("session"), dispatching?.openTitled(choice.request, root))
+        : choice.kind === "takeOver"
+          ? onFix({ root, take_over: true })
+          : onFix({ root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) });
+}
+
 /** One repository's panel, folded on its own. */
 function OneLine({
   view,
@@ -122,7 +144,7 @@ function OneLine({
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
   // The Sessions work can be sent back to are the ones the window already holds, the one that merged among them.
   const sessions = useSessions();
-  const dispatching = useDispatching();
+  const fix = useFixChoice(view.root, onFix, onSendToSession);
   const culprit = view.hub?.main?.state === "red" ? view.hub.main.red.merge?.session : undefined;
   const hub = useMemo(() => (view.hub === undefined ? undefined : { ...view.hub, recentSessions: recentSessionsOf(sessions, culprit) }), [view.hub, sessions, culprit]);
   const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack, ...(view.hub?.pulls ?? [])].some((one) => one.branch === focus);
@@ -144,18 +166,7 @@ function OneLine({
       open={open}
       {...(pinned === undefined ? {} : { pinned })}
       {...(holds ? { focus } : {})}
-      {...(onFix === undefined
-        ? {}
-        : {
-            onFix: (choice) =>
-              choice.kind === "session"
-                ? onSendToSession?.(choice.session, choice.message)
-                : choice.kind === "newSession"
-                  ? (dispatching?.choose("session"), dispatching?.openTitled(choice.request, view.root))
-                  : choice.kind === "takeOver"
-                    ? onFix({ root: view.root, take_over: true })
-                    : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
-          })}
+      {...(fix === undefined ? {} : { onFix: fix })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
       onOpenCheck={onOpenCheck}

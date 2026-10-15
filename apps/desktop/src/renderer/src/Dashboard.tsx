@@ -34,7 +34,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, limitHeldSaid } from "@armada/components";
+import { Button, Radio, RadioGroup, limitHeldSaid, type FixRefusal } from "@armada/components";
 import type { FixMain, JobSummary, Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
@@ -175,7 +175,9 @@ export type Hosts = {
   onOpenSession: (sessionId: string) => void;
   onOpenLink: (address: string) => void;
   /** Hands main's red to a Job, as the merge line's band does. */
-  onFix?: ((fix: FixMain) => void) | undefined;
+  onFix?: ((fix: FixMain) => void | Promise<FixRefusal | undefined | void>) | undefined;
+  /** Sends main's red to a Session as a message, as the merge line's band does. */
+  onSendToSession?: ((sessionId: string, message: string) => void) | undefined;
   /** Puts a request on the approval gate, as the composer does. */
   onPropose?: ((request: string) => void) | undefined;
   /** A Job's row acts, each asking as the Board row's does. */
