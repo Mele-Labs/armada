@@ -103,7 +103,7 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
     openSetting: (setting: BlankSetting) => openSettingsAt(setting, () => undefined),
     // A repository is bound to a profile and the machine has none that is active, so there is nothing to switch.
     switchTo: () => {},
-    bind: (repository: string, login: string | null) => void bind(repository, login),
+    bind: (root: string, login: string | null) => void bind(root, login),
     // What syncs is not served yet.
     choose: () => {},
     closeSyncs: () => {},
@@ -118,9 +118,9 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
       login: one.login,
       chosen: one.chosen,
       active: false,
-      repositories: one.repositories.map((bound) => ({ name: bound.name, by: bound.how })),
+      repositories: one.repositories.map((bound) => ({ root: bound.root, name: bound.name, by: bound.how })),
     }));
-    const unbound: UnboundRepository[] = from.unmatched.map((loose) => ({ name: loose.name, ...(loose.none_chosen ? { none: true } : {}) }));
+    const unbound: UnboundRepository[] = from.unmatched.map((loose) => ({ root: loose.root, name: loose.name, ...(loose.none_chosen ? { none: true } : {}) }));
     const ended = from.flow.phase === "idle" ? from.flow.ended : undefined;
     const blank = said === undefined ? [] : blankIn(said);
     // A refusal that names no blank setting is the forge declining to begin: it ends the sign-in, refused.
@@ -210,12 +210,11 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
     return answer;
   };
 
-  // The composition names a repository by its folder name and a profile by its login; Fleet names them by
-  // root and account id. Two repositories with one folder name are told apart by Fleet, not here.
-  const bind = async (repository: string, login: string | null): Promise<void> => {
-    const root = [...(wire?.profiles.flatMap((one) => one.repositories) ?? []), ...(wire?.unmatched ?? [])].find((one) => one.name === repository)?.root;
+  // The composition names a repository by its root and a profile by its login; Fleet names a profile by
+  // its account id. A login Fleet no longer lists asks nothing.
+  const bind = async (root: string, login: string | null): Promise<void> => {
     const account = login === null ? null : wire?.profiles.find((one) => one.login === login)?.account_id;
-    if (root === undefined || account === undefined) return;
+    if (account === undefined) return;
     const at = ++issued;
     const answer = await fleet.setRepositoryProfile(root, account);
     // Fleet's refusal is shown as the page shows the others.

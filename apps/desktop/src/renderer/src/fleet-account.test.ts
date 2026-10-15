@@ -259,10 +259,13 @@ describe("the profiles", () => {
     await settled();
     const account = source.get()?.account;
     expect(account?.profiles.map((one) => [one.login, one.repositories])).toEqual([
-      ["mele-work", [{ name: "armada", by: "matched" }]],
-      ["nickmele", [{ name: "site", by: "chosen" }]],
+      ["mele-work", [{ root: "/r/armada", name: "armada", by: "matched" }]],
+      ["nickmele", [{ root: "/r/site", name: "site", by: "chosen" }]],
     ]);
-    expect(account?.unbound).toEqual([{ name: "shared" }, { name: "scratch", none: true }]);
+    expect(account?.unbound).toEqual([
+      { root: "/r/shared", name: "shared" },
+      { root: "/r/scratch", name: "scratch", none: true },
+    ]);
   });
 
   it("draws no unbound repositories when every one is bound", async () => {
@@ -273,7 +276,7 @@ describe("the profiles", () => {
     expect(source.get()?.account.unbound).toBeUndefined();
   });
 
-  it("binds a repository by its name and a profile by its login, and moves it from one profile to another", async () => {
+  it("binds a repository by its root and a profile by its login, and moves it from one profile to another", async () => {
     const fleet = fake({
       profiles: [{ ...work, repositories: [{ root: "/r/armada", name: "armada", how: "matched" }] }, personal],
       unmatched: [{ root: "/r/shared", name: "shared", candidates: [1001, 1002], none_chosen: false }],
@@ -283,7 +286,7 @@ describe("the profiles", () => {
     source.subscribe(() => undefined);
     await settled();
 
-    source.get()?.account.bind?.("shared", "nickmele");
+    source.get()?.account.bind?.("/r/shared", "nickmele");
     await settled();
     expect(fleet.asked).toEqual(["get", "bind /r/shared 1002"]);
     expect(source.get()?.account.unbound).toBeUndefined();
@@ -292,7 +295,7 @@ describe("the profiles", () => {
       [["shared", "chosen"]],
     ]);
 
-    source.get()?.account.bind?.("armada", "nickmele");
+    source.get()?.account.bind?.("/r/armada", "nickmele");
     await settled();
     expect(fleet.asked.at(-1)).toBe("bind /r/armada 1002");
     expect(source.get()?.account.profiles.map((one) => one.repositories?.map((bound) => [bound.name, bound.by]))).toEqual([
@@ -311,21 +314,43 @@ describe("the profiles", () => {
     source.subscribe(() => undefined);
     await settled();
 
-    source.get()?.account.bind?.("armada", null);
+    source.get()?.account.bind?.("/r/armada", null);
     await settled();
     expect(fleet.asked).toEqual(["get", "bind /r/armada null"]);
     expect(source.get()?.account.profiles[0]?.repositories).toEqual([]);
-    expect(source.get()?.account.unbound).toEqual([{ name: "armada", none: true }]);
+    expect(source.get()?.account.unbound).toEqual([{ root: "/r/armada", name: "armada", none: true }]);
   });
 
-  it("asks Fleet nothing for a repository or a login it does not hold, and shows a refusal as it shows the others", async () => {
+  it("moves the checkout it is told to when two share a folder name", async () => {
+    const mine = { root: "/home/a/armada", name: "armada", how: "matched" as const };
+    const other = { root: "/home/b/armada", name: "armada", how: "matched" as const };
+    const fleet = fake({ profiles: [{ ...work, repositories: [mine, other] }, personal], unmatched: [], flow: IDLE });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+    expect(source.get()?.account.profiles[0]?.repositories?.map((one) => one.root)).toEqual(["/home/a/armada", "/home/b/armada"]);
+
+    source.get()?.account.bind?.("/home/b/armada", "nickmele");
+    await settled();
+    expect(fleet.asked).toEqual(["get", "bind /home/b/armada 1002"]);
+    expect(source.get()?.account.profiles.map((one) => one.repositories?.map((bound) => bound.root))).toEqual([
+      ["/home/a/armada"],
+      ["/home/b/armada"],
+    ]);
+
+    source.get()?.account.bind?.("/home/a/armada", null);
+    await settled();
+    expect(source.get()?.account.unbound).toEqual([{ root: "/home/a/armada", name: "armada", none: true }]);
+    expect(source.get()?.account.profiles[1]?.repositories?.map((bound) => bound.root)).toEqual(["/home/b/armada"]);
+  });
+
+  it("asks Fleet nothing for a login it does not hold, and shows a refusal as it shows the others", async () => {
     const fleet = fake({ profiles: [work], unmatched: [{ root: "/r/shared", name: "shared", candidates: [], none_chosen: false }], flow: IDLE });
     const source = createFleetAccount(fleet.fleet, clock().later);
     source.subscribe(() => undefined);
     await settled();
 
-    source.get()?.account.bind?.("elsewhere", "mele-work");
-    source.get()?.account.bind?.("shared", "nobody");
+    source.get()?.account.bind?.("/r/shared", "nobody");
     await settled();
     expect(fleet.asked).toEqual(["get"]);
 
@@ -336,10 +361,10 @@ describe("the profiles", () => {
     const again = createFleetAccount(refused.fleet, clock().later);
     again.subscribe(() => undefined);
     await settled();
-    again.get()?.account.bind?.("shared", "mele-work");
+    again.get()?.account.bind?.("/r/shared", "mele-work");
     await settled();
     expect(again.get()?.refused).toBe("This machine has not joined account 1001.");
-    expect(again.get()?.account.unbound).toEqual([{ name: "shared" }]);
+    expect(again.get()?.account.unbound).toEqual([{ root: "/r/shared", name: "shared" }]);
   });
 
   it("adds a profile by the same sign-in, and shows the profile list again once it is done", async () => {
