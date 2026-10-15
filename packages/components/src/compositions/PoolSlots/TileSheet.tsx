@@ -1,19 +1,10 @@
 import { Folder, GitBranch } from "lucide-react";
-import { useContext, useState } from "react";
-import { releasable, releaseHolder } from "@armada/protocol";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
-import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
-import { ChipOwnership } from "../OwnerChip/OwnerChip";
 import { PausedMark } from "../PausedMark/PausedMark";
 import { JobLink, jobOf, stateOf } from "./PoolTile";
-import { ScrapConfirm, SlotFinding } from "./SlotFinding";
-import { TileActs, rescuable } from "./TileActs";
-import type { Confirming } from "./TileActs";
-import { ReleaseConfirm } from "./ReleaseConfirm";
-import { TileConfirm } from "./TileConfirm";
-import { TileHolds } from "./TileHolds";
+import { useTileManage } from "./TileManage";
 import { nameOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
@@ -31,6 +22,9 @@ import type { TileRow } from "./tiles";
  * **Pick up is offered where there is work to continue**: a verdict of
  * Unfinished, or no verdict and the Scout's own words. Scraps has nothing to
  * continue, and a Finding with neither has nothing to brief a Job with.
+ *
+ * The acts and their confirms are `useTileManage`'s, which a bay's pane on the
+ * Cockpit draws too.
  */
 export type TileSheetProps = {
   row: TileRow;
@@ -81,63 +75,11 @@ function Copied({ Glyph, said, value, onCopied }: { Glyph: typeof Folder; said: 
 
 export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onRelease, onDeleteBranch, onForget, onPause, onResume, onCopied, onClose }: TileSheetProps) {
   const { slot, held } = row;
-  /** The confirm open on this tile, if one is. */
-  const [confirming, setConfirming] = useState<Confirming | null>(null);
-  /** Where a Session is opened from, when the window serves any. */
-  const ownership = useContext(ChipOwnership);
-  /** The Scrap's confirm is open. */
-  const [scrapping, setScrapping] = useState(false);
   const state = stateOf(row);
   const job = jobOf(row);
-  const waiting = row.acting === true || confirming !== null || scrapping;
-  const rescue = slot !== undefined && rescuable(slot) ? slot.rescue : undefined;
-  const reading = rescue?.state === "reading";
-  const toContinue =
-    rescue?.verdict === "unfinished" ||
-    (rescue?.verdict === undefined && (rescue?.summary !== undefined || (rescue?.items ?? []).length > 0));
-  const unmerged = held?.held.find((reason) => reason.why === "unmerged");
   const path = slot?.path ?? held?.path;
   const branch = slot?.branch ?? held?.branch;
-
-  const send = () => {
-    const which = confirming;
-    setConfirming(null);
-    if (which === "release") {
-      const holder = slot === undefined ? undefined : releaseHolder(slot);
-      if (slot !== undefined && holder !== undefined) onRelease?.(slot.slot, holder);
-      return;
-    }
-    if (held === undefined) return;
-    if (which === "pause") onPause?.(held.job_id);
-    else if (which === "clear") onClear?.(held.job_id);
-    else if (which === "branch" && unmerged !== undefined) onDeleteBranch?.(held.job_id, unmerged.tip);
-    else if (which === "forget") onForget?.(held.job_id);
-  };
-  const rescued = (which: RescueAct) => {
-    setScrapping(false);
-    if (slot !== undefined) onRescue?.(which, slot.slot);
-  };
-
-  const foot =
-    onRescue === undefined || slot === undefined || rescue === undefined || scrapping || confirming !== null ? undefined : reading ? (
-      <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stop")}>
-        Stop
-      </Button>
-    ) : (
-      <>
-        {toContinue ? (
-          <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("pick_up")}>
-            Pick up
-          </Button>
-        ) : null}
-        <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stash")}>
-          Stash
-        </Button>
-        <Button variant="destructive" size="sm" disabled={row.acting === true} onClick={() => setScrapping(true)}>
-          Scrap
-        </Button>
-      </>
-    );
+  const { body, foot } = useTileManage({ row, onAct, onRescue, onClear, onRelease, onDeleteBranch, onForget, onPause, onResume });
 
   return (
     <Sheet
@@ -161,42 +103,7 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
       onClose={onClose}
     >
       <div className="armada-tile-sheet__body">
-        <TileActs
-          row={row}
-          waiting={waiting}
-          onAct={onAct}
-          onRescue={onRescue}
-          onResume={held === undefined || onResume === undefined ? undefined : () => onResume(held.job_id)}
-          onConfirm={held === undefined && !(slot !== undefined && releasable(slot) && onRelease !== undefined) ? undefined : (which) => setConfirming(which)}
-        />
-        {row.refused === undefined ? null : (
-          <>
-            <p className="armada-tile-sheet__refused" role="alert">
-              {row.refused}
-            </p>
-            {row.openSession === undefined || ownership === null ? null : (
-              <Button variant="secondary" size="sm" onClick={() => ownership.open(row.openSession!)}>
-                Open Session
-              </Button>
-            )}
-          </>
-        )}
-        {row.said === undefined && row.receipt === undefined ? null : (
-          <ul className="armada-tile-sheet__said" role="status">
-            {[...(row.said === undefined ? [] : [row.said]), ...(row.receipt ?? [])].map((one) => (
-              <li key={one}>{one}</li>
-            ))}
-          </ul>
-        )}
-        {confirming === "release" ? <ReleaseConfirm row={row} onSend={send} onCancel={() => setConfirming(null)} /> : null}
-        {confirming === null || confirming === "release" || held === undefined ? null : (
-          <TileConfirm which={confirming} row={row} cost={row.cost ?? { files: [] }} onSend={send} onCancel={() => setConfirming(null)} />
-        )}
-        {held === undefined ? null : <TileHolds reasons={held.held} sat={row.sat} status={held.status} job={row.job} />}
-        {slot === undefined || rescue === undefined ? null : <SlotFinding slot={slot} />}
-        {scrapping && slot !== undefined ? (
-          <ScrapConfirm slot={slot} onScrap={() => rescued("scrap")} onCancel={() => setScrapping(false)} />
-        ) : null}
+        {body}
         <div className="armada-tile-sheet__where">
           {path === undefined ? null : <Copied Glyph={Folder} said="path" value={path} {...(onCopied === undefined ? {} : { onCopied })} />}
           {branch === undefined ? null : <Copied Glyph={GitBranch} said="branch" value={branch} {...(onCopied === undefined ? {} : { onCopied })} />}
