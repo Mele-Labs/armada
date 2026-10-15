@@ -161,6 +161,9 @@ pub(crate) struct Sweep {
     /// Another machine's claim on each repository's red, as last read from the
     /// store, by root. `crate::red_claim`. Never holds this machine's own.
     pub(crate) elsewhere: BTreeMap<String, adapter_traits::Holder>,
+    /// Each served checkout main moved past and that could not be caught up,
+    /// by root, and why. `crate::catching_up`.
+    pub(crate) held_back: BTreeMap<String, adapter_traits::HeldBack>,
 }
 
 /// What the record's state says on the wire, where it says anything.

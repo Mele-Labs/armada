@@ -75,6 +75,8 @@ mod building;
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
 mod carrying_on;
+/// The served checkout caught up whenever main moves.
+mod catching_up;
 /// A person's skip or retry on the Checks a gate is running.
 mod check_acts;
 mod check_history;

@@ -1,7 +1,7 @@
 //! What a fake repository looks like before a test says otherwise.
 
 use adapter_traits::{
-    Base, BranchMerged, BroughtUpToDate, KeptCurrent, Landing, Mergeable, Opened, Pushed, Remark,
+    Base, BranchMerged, BroughtUpToDate, HeldBack, KeptCurrent, Landing, Mergeable, Opened, Pushed, Remark,
     RepositoryStanding, Standing, UnderReview,
 };
 
@@ -63,6 +63,11 @@ pub struct Delivering {
     pub kept_current: KeptCurrent,
     /// What catching the repository up comes to.
     pub repository: RepositoryStanding,
+    /// The commit checked out in the served repository. `None` by default, a
+    /// checkout that has every commit asked about.
+    pub checkout: Option<String>,
+    /// Why the served repository could not be caught up, when asked.
+    pub held_back: Option<HeldBack>,
     /// What merging one local branch into another comes to.
     pub branch_merge: BranchMerged,
 }
@@ -103,6 +108,8 @@ impl Default for Delivering {
                 commits: 1,
             },
             branch_merge: BranchMerged::Merged,
+            checkout: None,
+            held_back: None,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
                 // A commit-shaped string, because `#474` keys a proof by it and
