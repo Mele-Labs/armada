@@ -10,7 +10,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { pace } from "@armada/jobs/fake";
 import { settle } from "../cockpit/CallAlerts";
-import { mount, onScreen, remembering, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
 import type { Walk } from "./walk";
 import { WALKS } from "./walks";
@@ -93,7 +93,6 @@ export function playWalks(part: number, of: number): void {
         await page.viewport(script.viewport.width, script.viewport.height);
         onTestFinished(() => page.viewport(1440, 900));
       }
-      remembering(script.remembering ?? {});
       mount(script.scenario);
       await onScreen();
       await walkThrough(script.steps);

@@ -1,3 +1,5 @@
+@import "@xterm/xterm/css/xterm.css";
+
 /* A command running in a terminal of its own. The frame is here; the screen is the caller's, in the body.
    The body is a well, as a code block is, and the mark takes the hue of a run started by hand. */
 .armada-terminal {
@@ -137,4 +139,24 @@
 .armada-terminal-dock__handle:focus-visible {
   outline: var(--focus-ring);
   outline-offset: calc(var(--border-width) * -2);
+}
+
+/* The terminal screen: xterm fits itself to this well, and the well pads it, which the fit reads off the screen's own padding. */
+.armada-xterm {
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--space-12) * 3);
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  cursor: text;
+}
+
+.armada-xterm .xterm {
+  height: 100%;
+  padding: var(--space-2) var(--space-3);
+}
+
+.armada-xterm .xterm-viewport {
+  border-radius: inherit;
 }

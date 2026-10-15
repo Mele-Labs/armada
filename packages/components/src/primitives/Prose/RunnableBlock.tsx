@@ -3,18 +3,26 @@ import { Check, ChevronDown, CircleCheck, CircleX, Copy, Play, RotateCcw, Square
 
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
-import { DockedMark, InlineTerminal, ProseTerminal } from "./TerminalRun";
+import { DockedMark, ProseTerminal } from "./TerminalRun";
+import { plainOf } from "./plain";
 
-/** What a run says: a chunk of output, then how it ended. `code` is null where it was stopped. */
+/** What a run says: a chunk of the terminal's bytes, escapes intact, then how it ended. `code` is null where it was stopped. */
 export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: number | null };
+
+/** A terminal's size in cells. */
+export type TerminalSize = { cols: number; rows: number };
 
 /**
  * Runs a command where the Session works and reports back. The person's own act, so nothing
  * here reaches the agent, unless Bridge's runner settles a waiting item that asked for the command.
- * Bridge provides one per Session; absent, a block draws without Run. `write` sends a key to a run
- * that takes them, which a terminal's does.
+ * Bridge provides one per Session; absent, a block draws without Run. The run is on a terminal:
+ * `size` is the screen it starts at, `write` sends it keys and `resize` tells it the screen changed.
  */
-export type CodeRunner = (command: string, on: (event: CodeRunEvent) => void) => { stop: () => void; write?: (data: string) => void };
+export type CodeRunner = (
+  command: string,
+  on: (event: CodeRunEvent) => void,
+  size?: TerminalSize,
+) => { stop: () => void; write?: (data: string) => void; resize?: (cols: number, rows: number) => void };
 
 export const ProseRunner = createContext<CodeRunner | null>(null);
 
@@ -89,14 +97,19 @@ export type CodePhase = { state: "idle" } | { state: "running" } | { state: "end
 /** One run's state: what it has printed and how it stands. `RunnableBlock` and a card that runs a command from its own key both draw it. */
 export type CodeRun = {
   phase: CodePhase;
+  /** Everything it has printed, as the terminal's bytes. */
   out: string;
+  /** How many runs this has started: what `out` is of. */
+  runs: number;
   open: boolean;
   setOpen: (open: boolean) => void;
-  /** Starts the command, stopping one already going. */
-  start: (command: string) => void;
+  /** Starts the command, stopping one already going, on a terminal of `size`. */
+  start: (command: string, size?: TerminalSize) => void;
   stop: () => void;
-  /** A key for a run in a terminal. */
+  /** Keys for the run's terminal. */
   write: (data: string) => void;
+  /** The terminal's screen changed size. */
+  resize: (cols: number, rows: number) => void;
   /** Puts a run that has ended away: back to idle, with nothing printed. */
   close: () => void;
 };
@@ -104,25 +117,42 @@ export type CodeRun = {
 export function useCodeRun(runner: CodeRunner | null | undefined): CodeRun {
   const [phase, setPhase] = useState<CodePhase>({ state: "idle" });
   const [out, setOut] = useState("");
+  const [runs, setRuns] = useState(0);
   const [open, setOpen] = useState(true);
-  const handle = useRef<{ stop: () => void; write?: (data: string) => void } | null>(null);
+  const handle = useRef<ReturnType<CodeRunner> | null>(null);
   useEffect(() => () => handle.current?.stop(), []);
-  const start = (command: string) => {
+  const start = (command: string, size?: TerminalSize) => {
     if (runner === null || runner === undefined) return;
     handle.current?.stop();
     setOut("");
+    setRuns((had) => had + 1);
     setOpen(true);
     setPhase({ state: "running" });
-    handle.current = runner(command, (event) => {
-      if (event.kind === "out") setOut((had) => had + event.text);
-      else setPhase({ state: "ended", code: event.code });
-    });
+    handle.current = runner(
+      command,
+      (event) => {
+        if (event.kind === "out") setOut((had) => had + event.text);
+        else setPhase({ state: "ended", code: event.code });
+      },
+      size,
+    );
   };
   const close = () => {
     setPhase({ state: "idle" });
     setOut("");
   };
-  return { phase, out, open, setOpen, start, stop: () => handle.current?.stop(), write: (data) => handle.current?.write?.(data), close };
+  return {
+    phase,
+    out,
+    runs,
+    open,
+    setOpen,
+    start,
+    stop: () => handle.current?.stop(),
+    write: (data) => handle.current?.write?.(data),
+    resize: (cols, rows) => handle.current?.resize?.(cols, rows),
+    close,
+  };
 }
 
 /** The panel under a run: its mark (running, or the exit code), a fold, and the output scrolled to its end. */
@@ -158,7 +188,7 @@ export function RunOutput({ run }: { run: CodeRun }) {
       </div>
       {open ? (
         <pre ref={log} className="armada-prose__run-out" role="log" aria-label="Output" tabIndex={0}>
-          {out}
+          {plainOf(out)}
         </pre>
       ) : null}
     </div>
@@ -204,7 +234,7 @@ export function RunnableBlock({ command, runner, run: held, copy, children }: { 
   const terminal = useContext(ProseTerminal);
   const run = held ?? own;
   // A docked pane holds one run for the view, and a block shows it only while it is of this command.
-  const dock = held === undefined && terminal?.place === "docked" ? terminal.dock : null;
+  const dock = held === undefined && terminal !== null ? terminal.dock : null;
   const docked = dock !== null && dock.command === command ? dock.run : null;
   const { phase } = dock === null ? run : (docked ?? { phase: { state: "idle" } as const });
   const running = phase.state === "running";
@@ -239,7 +269,7 @@ export function RunnableBlock({ command, runner, run: held, copy, children }: { 
           )}
         </span>
       </div>
-      {terminal?.place === "inline" && held === undefined ? <InlineTerminal run={run} command={command} terminal={terminal} /> : dock !== null ? null : <RunOutput run={run} />}
+      {dock === null ? <RunOutput run={run} /> : null}
     </div>
   );
 }

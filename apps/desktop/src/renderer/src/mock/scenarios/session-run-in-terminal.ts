@@ -1,15 +1,12 @@
 // A Session waiting on the person to sign in to Cloudflare and deploy, with the one command in its message
-// and in Needs you. Run, it opens a terminal that takes keys: wrangler's login, then its three prompts.
-// When it ends the Session is told the exit and the last lines, as a `ran` row, and answers. Over the
-// `sessions` scenario. The walks `run-in-terminal-inline` and `run-in-terminal-docked` play it, one for each
-// place the pane opens.
+// and in Needs you. Run, it opens a terminal that takes keys, docked above the box: wrangler's login, then
+// its three prompts. When it ends the Session is told the exit and the last lines, as a `ran` row, and
+// answers. Over the `sessions` scenario. The walk `run-in-terminal-docked` plays it.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
 import { tailOf } from "../terminal-run/ansi";
-import { FakeScreen } from "../terminal-run/FakeScreen";
-import { placeOf } from "../terminal-run/place";
 import { startDeploy, type Deploy } from "../terminal-run/wrangler";
 import { s200Sessions } from "./sessions";
 
@@ -70,9 +67,9 @@ function sessionsOf(board: Parameters<NonNullable<NonNullable<Scenario["draft"]>
 
   return {
     ...store,
-    terminal: { Screen: FakeScreen, place: placeOf() },
+    terminalRuns: true as const,
     run: (id: string, command: string, on: Parameters<NonNullable<typeof store.run>>[2]) => {
-      if (!command.includes("wrangler deploy")) return store.run!(id, command, on);
+      if (!command.includes("wrangler deploy")) return store.run!(id, command, (event) => on(event.kind === "out" ? { kind: "out", text: event.text.replaceAll("\n", "\r\n") } : event));
       let printed = "";
       const program = startDeploy(
         command,

@@ -907,10 +907,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   // **Up to and including the message it was forked at**, and not what was said after it.
   const startedBy = useStartedBy(session, sessions, onOpen);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
-  // A run drawn as a terminal. Inline, the item it settles waits until the pane is put away, so the exit stays in view; docked, the pane is the view's own.
-  const settling = useRef<(() => void) | null>(null);
-  const inline = draft?.terminal?.place === "inline";
-  const runner = draft === undefined ? undefined : runnerOf(draft, session, inline ? (now) => void (settling.current = now) : undefined);
+  // A run drawn as a terminal: the pane is the view's own, docked above its box.
+  const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
@@ -920,19 +918,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     setLedgerOpen(false);
     open(...args);
   };
-  const terminal: ProseTerminalValue | null =
-    draft.terminal === undefined
-      ? null
-      : draft.terminal.place === "docked"
-        ? { place: "docked", Screen: draft.terminal.Screen, dock }
-        : {
-            place: "inline",
-            Screen: draft.terminal.Screen,
-            onClosed: () => {
-              settling.current?.();
-              settling.current = null;
-            },
-          };
+  const terminal: ProseTerminalValue | null = draft.terminalRuns === undefined ? null : { dock };
   const hours = session.trail === undefined ? 0 : Math.floor((Date.now() - Date.parse(session.trail.started)) / 3_600_000);
   const tokens = session.context?.tokens ?? 0;
   const lastRow = thread[thread.length - 1];
@@ -1116,7 +1102,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                 })}
             onOpenSession={onOpen}
           />
-          {terminal?.place === "docked" ? <DockedTerminal dock={terminal.dock} Screen={terminal.Screen} /> : null}
+          {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}

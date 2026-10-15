@@ -5,8 +5,6 @@
 
 import { GUIDES } from "@armada/components";
 
-import { PLACE_KEY } from "./terminal-run/place";
-
 /** What `guidance.tsx` writes. */
 const GUIDES_KEY = "armada.bridge.guides";
 
@@ -27,7 +25,6 @@ const REMEMBERED = [
   "armada.bridge.recent-repositories",
   "armada.bridge.sessions-view",
   "armada.bridge.sheet-width",
-  PLACE_KEY,
 ];
 
 /** Forget how the window was last read: its widths, its arrangements, what was open. */

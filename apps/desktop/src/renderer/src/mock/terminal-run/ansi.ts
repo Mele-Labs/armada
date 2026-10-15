@@ -1,10 +1,10 @@
-// What a terminal makes of the bytes a program printed: the few escapes a prompt library sends, and the
-// controls that move the cursor. Mock-only: the real terminal is xterm.js, which reads all of them.
-// Cells are kept so a prompt rewritten in place (`\r`, erase to the end of the line) reads as it does there.
+// What a terminal's screen reads as in plain text, for the tail the mock's Fleet tells a Session of a run
+// (`plain::last_lines` in Fleet): the few escapes a prompt library sends, and the controls that move the
+// cursor. Cells are kept so a prompt rewritten in place (`\r`, erase to the end of the line) reads as it does there.
 
-export type Style = { bold?: true; dim?: true; underline?: true; color?: "cyan" | "green" | "red" };
-export type Cell = { ch: string; style: Style };
-export type Screen = { lines: Cell[][]; cursor: { line: number; col: number } };
+type Style = { bold?: true; dim?: true; underline?: true; color?: "cyan" | "green" | "red" };
+type Cell = { ch: string; style: Style };
+type Screen = { lines: Cell[][]; cursor: { line: number; col: number } };
 
 const ESC = "\x1b";
 
@@ -25,7 +25,7 @@ function applied(code: number, style: Style): Style {
   return style;
 }
 
-export function screenOf(out: string): Screen {
+function screenOf(out: string): Screen {
   const lines: Cell[][] = [[]];
   let line = 0;
   let col = 0;

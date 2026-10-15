@@ -35,7 +35,6 @@ if (script !== undefined) {
   forgetAllKept();
   forgetHowItWasRead();
   meetEveryGuide();
-  for (const [key, value] of Object.entries(script.remembering ?? {})) window.localStorage.setItem(key, value);
 }
 
 // `?step=<n>` starts a walk on step n, the steps before it run straight through: what Back does.

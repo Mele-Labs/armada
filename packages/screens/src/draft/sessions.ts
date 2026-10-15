@@ -10,7 +10,6 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { TerminalScreen } from "@armada/components/src/primitives/TerminalPane/TerminalPane";
 import type { PullRequestFilePatch, PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -497,18 +496,24 @@ export type SessionsDraft = {
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
-   * slot if it has one), and reports output and the exit as they come. The person's own act: nothing
-   * is sent to the agent. Absent where nothing serves it, and the block is left without Run.
-   * Fleet answers it with a Session run (`start_session_run`, `observe_session_run`,
+   * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as
+   * they come. `write` types into the terminal and `resize` tells it the screen changed. The person's
+   * own act: nothing is sent to the agent by the run, though Fleet tells the Session how it ended.
+   * Absent where nothing serves it, and the block is left without Run. Fleet answers it with a Session
+   * run (`start_session_run`, `observe_session_run`, `write_session_run`, `resize_session_run`,
    * `stop_session_run`).
    */
-  run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void; write?: (data: string) => void };
+  run?: (
+    id: string,
+    command: string,
+    on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void,
+    size?: { cols: number; rows: number },
+  ) => { stop: () => void; write?: (data: string) => void; resize?: (cols: number, rows: number) => void };
   /**
-   * The screen a run is drawn on, where one is served: a command run from the thread or the band then
-   * opens as a terminal that takes keys, and `place` is where. `inline` is under the block that was
-   * run, `docked` at the foot of the Session's view. Absent, a run draws its output as lines.
+   * Whether a run is drawn as a terminal that takes keys, docked at the foot of the Session's view, as
+   * opposed to lines of output under the block. Set where `run` answers with the terminal's bytes.
    */
-  terminal?: { Screen: TerminalScreen; place: "inline" | "docked" };
+  terminalRuns?: true;
   /**
    * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
    * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,

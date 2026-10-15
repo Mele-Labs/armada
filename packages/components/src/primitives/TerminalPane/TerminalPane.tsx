@@ -1,4 +1,4 @@
-import { useRef, useState, type ComponentType, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { CircleCheck, CircleX, RotateCcw, Square, SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../Button/Button";
@@ -6,13 +6,6 @@ import { Tooltip } from "../Tooltip/Tooltip";
 
 /** How a terminal run stands. `code` is null where it was stopped. */
 export type TerminalPhase = { state: "running" } | { state: "ended"; code: number | null };
-
-/**
- * What a terminal's body is given: everything the run has printed, as the bytes it printed them, and
- * the way to send it a key. The body is xterm.js in the app and a scripted screen in the mock.
- */
-export type TerminalScreenProps = { out: string; running: boolean; write: (data: string) => void };
-export type TerminalScreen = ComponentType<TerminalScreenProps>;
 
 const exitSaid = (phase: TerminalPhase) => (phase.state === "running" ? "Running" : phase.code === null ? "Stopped" : `Exit ${phase.code}`);
 
@@ -40,9 +33,9 @@ export type TerminalPaneProps = {
 };
 
 /**
- * **A command running in a terminal of its own**, drawn under a Session's block or docked in its view.
- * The frame is this and the body is the caller's: the mark, the command on one line, and the keys that
- * end or repeat the run. Stop while it runs; Run again and Close once it has ended.
+ * **A command running in a terminal of its own**, docked in a Session's view. The frame is this and the
+ * body is the caller's, the terminal screen: the mark, the command on one line, and the keys that end
+ * or repeat the run. Stop while it runs; Run again and Close once it has ended.
  */
 export function TerminalPane({ command, phase, onStop, onRerun, onClose, children }: TerminalPaneProps) {
   const running = phase.state === "running";
