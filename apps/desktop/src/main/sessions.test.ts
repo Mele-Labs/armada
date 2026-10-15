@@ -375,7 +375,7 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
     sent.push({ method: "UPGRADE", path: request.url ?? "", body: undefined });
     sockets.handleUpgrade(request, socket, head, (ws) => {
       ws.send(JSON.stringify({ kind: "opened", protocol_id: "p", run_id: "r1" }));
-      ws.send(JSON.stringify({ kind: "lines", lines: ["hi"] }));
+      ws.send(JSON.stringify({ kind: "output", text: "hi\r\n" }));
       ws.send(JSON.stringify({ kind: "exited", code: 0 }));
       ws.close();
     });
@@ -394,12 +394,35 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
   );
   expect(await sessions.startRun({ session_id: "a", command: "echo hi" })).toEqual({ ok: true, value: { run_id: "r1" } });
   await closed;
-  expect(heard.map((one) => one.kind)).toEqual(["opened", "lines", "exited"]);
+  expect(heard.map((one) => one.kind)).toEqual(["opened", "output", "exited"]);
   expect(heard[2]).toEqual({ kind: "exited", code: 0 });
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/run/start", "UPGRADE /sessions/run/r1/observe"]);
   expect(await sessions.startRun({ session_id: "ended", command: "ls" })).toMatchObject({ ok: false, outcome: { ok: false, why: "refused" } });
   expect(await host(null).sessions.startRun({ session_id: "a", command: "ls" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   sockets.close();
+});
+
+it("types into a run and resizes its terminal, and says so where nothing is connected", async () => {
+  const sent: Sent[] = [];
+  const server = createServer((request, response) => {
+    let raw = "";
+    request.on("data", (chunk) => (raw += String(chunk)));
+    request.on("end", () => {
+      sent.push({ method: request.method ?? "", path: request.url ?? "", body: JSON.parse(raw) });
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ run_id: "r1" }));
+    });
+  });
+  listening = server;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  const { sessions } = host((server.address() as AddressInfo).port);
+  expect(await sessions.writeRun({ run_id: "r1", data: "ls\r" })).toEqual({ ok: true, value: { run_id: "r1" } });
+  expect(await sessions.resizeRun({ run_id: "r1", cols: 100, rows: 30 })).toEqual({ ok: true, value: { run_id: "r1" } });
+  expect(sent).toEqual([
+    { method: "POST", path: "/sessions/run/write", body: { run_id: "r1", data: "ls\r" } },
+    { method: "POST", path: "/sessions/run/resize", body: { run_id: "r1", cols: 100, rows: 30 } },
+  ]);
+  expect(await host(null).sessions.writeRun({ run_id: "r1", data: "x" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
 });
 
 it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {

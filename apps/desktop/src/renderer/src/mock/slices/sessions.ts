@@ -46,6 +46,8 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     writePullRequest: async () => ({ ok: false, outcome: unanswered("/pull_request_writes") }),
     startSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/start") }),
     stopSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/stop") }),
+    writeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/write") }),
+    resizeSessionRun: async () => ({ ok: false, outcome: unanswered("/sessions/run/resize") }),
     onSessionRunMessage: () => () => undefined,
   }),
 };

@@ -139,6 +139,10 @@ export type SessionsApi = {
   startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Ends a run's process group. */
   stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
+  /** Types into a run's terminal: the keys as a string, written as they are. Refused where the run has ended. */
+  writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
+  /** Tells a run's terminal its size in cells. */
+  resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
   /** What every run this window started prints, by run id, ending with `exited`. Returns its remover. */
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 };
@@ -198,5 +202,7 @@ export const SESSIONS_CHANNELS = {
   writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
   stopSessionRun: "bridge:stop-session-run",
+  writeSessionRun: "bridge:write-session-run",
+  resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
 } as const;

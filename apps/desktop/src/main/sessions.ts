@@ -38,12 +38,14 @@ import type {
   SessionSubagent,
   SessionThread,
   StartSession,
+  ResizeSessionRun,
   StartSessionRun,
   StopSessionRun,
   TuneSession,
   WindowClosed,
   WindowFailed,
   WindowTake,
+  WriteSessionRun,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
@@ -147,6 +149,22 @@ export class SessionsHost {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/sessions/run/stop", stop);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionRunUnderway } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** Keys the person typed into a run's terminal. */
+  async writeRun(write: WriteSessionRun): Promise<SessionActed<SessionRunUnderway>> {
+    return await this.actOnRun("/sessions/run/write", write);
+  }
+
+  async resizeRun(resize: ResizeSessionRun): Promise<SessionActed<SessionRunUnderway>> {
+    return await this.actOnRun("/sessions/run/resize", resize);
+  }
+
+  private async actOnRun(path: string, body: WriteSessionRun | ResizeSessionRun): Promise<SessionActed<SessionRunUnderway>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", path, body);
     return answer.ok === true ? { ok: true, value: answer.body as SessionRunUnderway } : { ok: false, outcome: answer.outcome };
   }
 

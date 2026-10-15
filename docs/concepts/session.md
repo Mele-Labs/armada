@@ -346,9 +346,11 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 |---|---|
 | `start_session` | A row for one repository, with optional title, model, effort and mode |
 | `rename_session` | A person's name for a Session, hosted or in a terminal; stands until the next terminal `/rename` |
-| `start_session_run` | A shell block run from a Session's thread, in its slot worktree or directory; output is held in memory only |
+| `start_session_run` | A shell block run from a Session's thread, on a terminal of its own, in its slot worktree or directory; output is held in memory only |
 | `stop_session_run` | Ends a run's process group |
-| `observe_session_run` | A run's output, then how it ended, on a socket of its own |
+| `write_session_run` | Keys typed into a run's terminal |
+| `resize_session_run` | The run's terminal changed size |
+| `observe_session_run` | A run's terminal output as it arrives, then how it ended, on a socket of its own |
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
 | `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
@@ -808,7 +810,9 @@ A terminal Session's thread is its transcript and carries no `check` row; its ru
 
 A fenced shell block in a Session's thread shows Run when the block is hovered or focused. Pressing it runs the command in the Session's working directory, its slot if it has one, and the output prints under the block as it arrives. A finished run carries a mark with the exit code on its tooltip, and Run again sits where Run was. A run that goes on shows Stop in Run's place, and a stopped run ends with no exit code.
 
-**It is the person's own act.** Nothing is sent to the agent, no row is added to the thread, and the Session's record does not change, with one exception: **a run that exits 0 settles the waiting item whose `run` act names that command**, from the thread or from the Needs you band, where the item is the command's own block with Run. Bridge answers it with `answer_waiting` and `text` `Ran: exit 0`, so the agent is told. Bridge starts the run with `start_session_run` (`POST /sessions/run/start`) and reads what it prints on `observe_session_run`, a socket of its own, until `exited`. A Session that has ended, or a run Fleet does not know, is refused in the same words as any other act on a Session.
+**It is the person's own act, and the command runs on a terminal.** It is the session leader of a pseudo-terminal with `TERM=xterm-256color`, so a program sees a tty, keys written with `write_session_run` reach it (Ctrl-C as an interrupt) and `resize_session_run` changes the size it sees. Output is the terminal's bytes with the escapes intact, held as the last 256 KiB. Bridge starts the run with `start_session_run` (`POST /sessions/run/start`) and reads what it prints on `observe_session_run`, a socket of its own, until `exited`. A Session that has ended, or a run Fleet does not know, is refused in the same words as any other act on a Session.
+
+**When the run ends, Fleet tells the Session** as it tells it anything (`told_by_fleet`, which wakes a hosted Session and is held for a terminal one's mod): the command, `Exit <code>.` or `Stopped.`, and the last 40 lines as a person would have read them, escapes and carriage-return overwrites resolved. **A run that exits 0 also takes the waiting item whose `run` act names that command off the Session's list**, from the thread or from the Needs you band, in the same moment, and the message says so; Bridge answers nothing. A Session that has ended by then is not told.
 
 The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 

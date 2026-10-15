@@ -238,6 +238,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::stop_session_run::<D>),
         )
         .route(
+            "/sessions/run/write",
+            post(crate::sessions::write_session_run::<D>),
+        )
+        .route(
+            "/sessions/run/resize",
+            post(crate::sessions::resize_session_run::<D>),
+        )
+        .route(
             "/sessions/run/:run_id/observe",
             get(crate::sessions::observe_session_run::<D>),
         )
