@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { ArrowUpToLine, Split } from "lucide-react";
 
 import { SessionThread, type SessionThreadRow } from "./SessionThread";
@@ -510,5 +510,98 @@ export const StartedSessionOpens: Story = {
     await expect(args.onOpenSession).toHaveBeenLastCalledWith("new-1");
     await userEvent.click(canvas.getByRole("button", { name: "Try the other store" }));
     await expect(args.onOpenSession).toHaveBeenLastCalledWith("new-2");
+  },
+};
+
+/** The page's clipboard, replaced by one that keeps what it was given, and the way back. */
+function stubClipboard() {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+  });
+  return { written, restore: () => void Reflect.deleteProperty(navigator, "clipboard") };
+}
+
+/** A pointer selection as the page hears it: a press on `at`, the words selected, the button let go. */
+function selectWith(words: Node, at: Element) {
+  press(at);
+  window.getSelection()?.selectAllChildren(words);
+  release(at);
+}
+
+/** Raw mouse events, since a pointer helper moves the selection on its own at both ends. */
+const press = (at: Element) => void at.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+const release = (at: Element) => void at.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+
+/** **Words selected in the thread go to the clipboard when the selection ends**, with or without a Fork bar, and the selection stays. */
+export const SelectedWordsAreCopied: Story = {
+  args: { rows: ROWS },
+  play: async ({ canvas }) => {
+    const { written, restore } = stubClipboard();
+    try {
+      const words = canvas.getByText("The test reads the wall clock.");
+      selectWith(words, words);
+      await expect(written).toEqual(["The test reads the wall clock."]);
+      await expect(window.getSelection()?.toString()).toBe("The test reads the wall clock.");
+    } finally {
+      restore();
+    }
+  },
+};
+
+export const SelectedWordsAreCopiedBesideTheForkBar: Story = {
+  args: { rows: ROWS, onForkAt: fn() },
+  play: async ({ canvas }) => {
+    const { written, restore } = stubClipboard();
+    try {
+      const words = canvas.getByText("The test reads the wall clock.");
+      selectWith(words, words);
+      await expect(written).toEqual(["The test reads the wall clock."]);
+      await waitFor(() => expect(within(document.body).getByRole("toolbar", { name: "Selection" })).toBeVisible());
+      await expect(window.getSelection()?.toString()).toBe("The test reads the wall clock.");
+    } finally {
+      restore();
+    }
+  },
+};
+
+/** What does not happen: no copy for a press with no selection, a selection outside the thread, or words in a field the person types in. */
+export const NothingElseIsCopied: Story = {
+  args: { rows: ROWS },
+  play: async ({ canvas, canvasElement }) => {
+    const { written, restore } = stubClipboard();
+    const thread = canvasElement.querySelector(".armada-session-thread")!;
+    const field = document.createElement("textarea");
+    field.value = "typed words";
+    const editable = document.createElement("div");
+    editable.contentEditable = "true";
+    editable.textContent = "edited words";
+    const outside = document.createElement("p");
+    outside.textContent = "words outside";
+    thread.append(field, editable);
+    document.body.append(outside);
+    try {
+      const message = canvas.getByText("The test reads the wall clock.");
+      // A press that selects nothing.
+      window.getSelection()?.removeAllRanges();
+      press(message);
+      release(message);
+      // Words outside the thread.
+      selectWith(outside, message);
+      // Words in a textarea, which holds the focus after they are selected.
+      press(message);
+      field.focus();
+      field.select();
+      release(message);
+      // Words in a contenteditable.
+      selectWith(editable, message);
+      await expect(written).toEqual([]);
+    } finally {
+      field.remove();
+      editable.remove();
+      outside.remove();
+      restore();
+    }
   },
 };
