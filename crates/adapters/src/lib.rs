@@ -104,6 +104,8 @@ pub mod snapshot;
 mod store;
 mod store_device;
 mod store_signing;
+/// The directories of a repository's base and the paths an agent has changed in a slot.
+pub mod territory;
 /// A terminal session's thread, drawn from the transcript its agent CLI keeps.
 pub mod terminal_thread;
 mod tracker_providers;

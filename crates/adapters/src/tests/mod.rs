@@ -62,6 +62,7 @@ mod standing;
 mod sign_in;
 mod store;
 mod store_vector;
+mod territory;
 mod terminal_follow;
 mod terminal_thread;
 mod transcript;
