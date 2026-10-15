@@ -5,8 +5,9 @@
 // view, how a Job draws its run, the filters) are remembered through `remembered-views.ts`. #2301.
 
 import { useSyncExternalStore } from "react";
-import type { Item } from "../../Dashboard";
+import type { Hosts, Item } from "../../Dashboard";
 import { DECK_FILTERS_KEY, DECK_JOB_VIEW_KEY, DECK_ONLY_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
+import { sessionIdOf } from "../waiting";
 import { orderOf } from "./order";
 import type { Play } from "./plays";
 import type { Pr, Ship, Subject } from "./ship";
@@ -213,17 +214,38 @@ export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, num
 
 /**
  * Opens a call by opening what it is about, as a row of the list does: its Job or Session, else the pull request it names,
- * and the card itself only where there is neither. Opening it is the visit, so it leaves the tray.
+ * and the card itself only where there is none of them. Opening it is the visit, so it leaves the tray.
+ *
+ * **A subject carries one call, and a Session or Job can raise several** (a Session that asks twice, a Job with a question and a
+ * failed Check), so the call is matched to its owner by what the Item names: the Session in its key (`session:<id>:<item>`), the
+ * Job it was raised for, and `ownedBy` on a pull request's or main's call. A Session or Job the ship does not hold (Helm's own
+ * Session, a Job that has just ended) is opened by `hosts`, the way a link to it is, and never by the card.
  */
-export function openCall(ship: Ship, item: Item): void {
+export function openCall(ship: Ship, item: Item, hosts?: Pick<Hosts, "onOpen" | "onOpenSession">): boolean {
   visit(item.key);
   const owner = item.ownedBy;
-  const subject = ship.subjects.find((one) => one.kind !== "pr" && one.call === item.key) ?? (owner === undefined ? undefined : ship.subjects.find((one) => one.kind === owner.kind && one.id === owner.id));
-  if (subject !== undefined) return select(selOfSubject(subject));
+  const sessionId = sessionIdOf(item.key);
+  const jobId = item.job?.id;
+  const held = (kind: "job" | "session", id: string) => ship.subjects.find((one) => one.kind === kind && one.id === id);
+  const subject =
+    ship.subjects.find((one) => one.kind !== "pr" && one.call === item.key) ??
+    (sessionId === undefined ? undefined : held("session", sessionId)) ??
+    (jobId === undefined ? undefined : held("job", jobId)) ??
+    (owner === undefined ? undefined : held(owner.kind, owner.id));
+  if (subject !== undefined) return picked(selOfSubject(subject));
+  const named = sessionId !== undefined ? { kind: "session" as const, id: sessionId } : jobId !== undefined ? { kind: "job" as const, id: jobId } : undefined;
+  if (named !== undefined && hosts !== undefined) return handed(named, hosts);
   const number = /^pull:(\d+)$/.exec(item.key)?.[1];
   const pr = number === undefined ? undefined : ship.prs.find((one) => one.number === Number(number));
-  select(pr === undefined ? { kind: "call", key: item.key } : selOfPr(pr));
+  if (pr !== undefined) return picked(selOfPr(pr));
+  if (owner !== undefined && hosts !== undefined) return handed(owner, hosts);
+  return picked({ kind: "call", key: item.key });
 }
+
+/** Drawn on the deck's stage: the caller may bring the deck up. */
+const picked = (sel: Sel): boolean => (select(sel), true);
+/** Opened by the window as a link is: the deck's stage is not where it went. */
+const handed = (one: { kind: "job" | "session"; id: string }, hosts: Pick<Hosts, "onOpen" | "onOpenSession">): boolean => (one.kind === "session" ? hosts.onOpenSession(one.id) : hosts.onOpen(one.id), false);
 
 /** The call that is about a Job or Session, while it is not answered. */
 export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number>): string | undefined => (subject.call === undefined || held.has(subject.call) ? undefined : subject.call);

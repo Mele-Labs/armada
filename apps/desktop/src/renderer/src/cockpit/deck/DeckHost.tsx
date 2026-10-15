@@ -77,13 +77,16 @@ export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: strin
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo }: Where & {
+export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
   hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
   here: boolean;
   openJobId: string | null;
   onGoTo: (surface: string) => void;
+  /** Where a call about a Job or Session the deck does not list goes, as a link to it does. */
+  onOpen: (jobId: string) => void;
+  onOpenSession: (sessionId: string) => void;
 }) {
   const ship = useShip({ ...NO_HOSTS, state, now, picked, nowViews, nows }, false);
   const deck = useDeck();
@@ -135,8 +138,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
       callTrail.at = callTrail.keys.length - 1;
     }
     if (to === undefined) return;
-    openCall(ship, to);
-    if (!deckNow().here) onGoTo(SURFACE.overview);
+    if (openCall(ship, to, { onOpen, onOpenSession }) && !deckNow().here) onGoTo(SURFACE.overview);
   };
 
   useDeckKeys((event) => {

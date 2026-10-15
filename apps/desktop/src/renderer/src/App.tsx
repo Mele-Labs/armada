@@ -1263,7 +1263,7 @@ export function App({ draft }: AppProps = {}) {
           onCopied={setCopied}
         >
           <DownshiftAlert choose={openModelSetting} />
-          <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} />
+          <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>
