@@ -1,5 +1,5 @@
-import { Fragment, useState } from "react";
-import { Box, GitMerge, Hammer, SquareTerminal } from "lucide-react";
+import { Fragment, useState, type ReactNode } from "react";
+import { Box, Clock, GitMerge, Hammer, Monitor, SquareTerminal } from "lucide-react";
 
 import { CHECK_OUTCOME } from "../../generated/vocabulary";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -8,6 +8,8 @@ import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { RegisteredOwner, type RegisteredOwnerRow } from "../RegisteredOwner/RegisteredOwner";
+import { since } from "../SessionList/SessionList";
 
 /**
  * Main's state at the head of the merge line, as the hub draws it. Fleet serves it as the line's
@@ -62,6 +64,19 @@ export type MainRed = {
   };
 };
 
+/**
+ * Another machine's claim on main's red, from the central store: who holds it, where, and since when
+ * (RFC 3339). No title, since only the holder can say what it is called.
+ */
+export type HeldElsewhere = {
+  machine: string;
+  holder: { kind: "session" | "job"; id: string };
+  since: string;
+};
+
+/** A claim older than this reads as stale. */
+const STALE_AFTER_MS = 60 * 60_000;
+
 /** A newer commit on main whose CI is still running: its pull request where the forge named one, else the commit. */
 export type MainChecking = { commit: string; number?: number; url?: string };
 
@@ -73,7 +88,7 @@ export type MainState =
    * newer run may already have fixed it, so the band is caution, says so, and offers no way to hand
    * it to a Job. Absent or empty is a red to act on.
    */
-  | { state: "red"; red: MainRed; taken?: HubJob; checking?: readonly MainChecking[] };
+  | { state: "red"; red: MainRed; taken?: HubJob; elsewhere?: HeldElsewhere; checking?: readonly MainChecking[] };
 
 /**
  * What the owner chose: a new Job with this brief, an earlier Job to send the work back to, a
@@ -83,7 +98,21 @@ export type FixChoice =
   | { kind: "new"; request: string }
   | { kind: "back"; job: string }
   | { kind: "session"; session: string; message: string }
-  | { kind: "newSession"; request: string };
+  | { kind: "newSession"; request: string }
+  /** Replace the claim another machine holds, and dispatch a new Job on the facts Fleet read. */
+  | { kind: "takeOver" };
+
+/**
+ * What Fleet said to a press, where the band draws it: the store that holds claims could not be
+ * reached, or another machine's claim was not yet in the hub when the press was made.
+ */
+export type FixRefusal = "claim_not_made" | "taken_elsewhere";
+
+/** What the band says of each refusal. */
+const REFUSED: Record<FixRefusal, string> = {
+  claim_not_made: "Not made, store unreachable",
+  taken_elsewhere: "Held on another machine",
+};
 
 const MARK = 16;
 const SMALL = 12;
@@ -154,16 +183,38 @@ export type MainRedBandProps = {
    * Told the owner's choice. **The two ways to hand the red to a Job draw only where something
    * listens**: a Fleet that cannot take one offers none, and a button that does nothing is worse.
    */
-  onFix?: (choice: FixChoice) => void;
+  onFix?: (choice: FixChoice) => void | Promise<FixRefusal | undefined | void>;
+  /** The moment ages are counted from; the clock, unless a story fixes it. */
+  now?: number;
 };
 
-export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onOpenCheck, onOpenJob, onOpenSession, onFix }: MainRedBandProps) {
-  const { red, taken } = main;
+export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onOpenCheck, onOpenJob, onOpenSession, onFix, now }: MainRedBandProps) {
+  const { red, taken, elsewhere } = main;
   const checking = main.checking ?? [];
   const held = checking.length > 0;
   // The acts draw only where something listens, and not where a held red or a Job on it makes them moot.
-  const asks = !held && taken === undefined && onFix !== undefined;
-  const [asking, setAsking] = useState<"new" | "back" | null>(null);
+  const free = !held && taken === undefined && onFix !== undefined;
+  // Another machine holds the red: its Job is not ours to start, and the one act left is to take it over.
+  const asks = free && elsewhere === undefined;
+  const takesOver = free && elsewhere !== undefined;
+  const [asking, setAsking] = useState<"new" | "back" | "takeOver" | null>(null);
+  // The press Fleet refused, kept so Try again sends the same one.
+  const [refused, setRefused] = useState<{ choice: FixChoice; why: FixRefusal } | null>(null);
+  const send = async (choice: FixChoice) => {
+    setRefused(null);
+    const why = await onFix?.(choice);
+    if (why === "claim_not_made" || why === "taken_elsewhere") setRefused({ choice, why });
+  };
+  const claim =
+    elsewhere === undefined || taken !== undefined ? null : (
+      <HeldBy held={elsewhere} {...(now === undefined ? {} : { now })}>
+        {!takesOver ? null : (
+          <Button variant="ghost" size="sm" ground="sunken" onClick={() => setAsking("takeOver")}>
+            Take over
+          </Button>
+        )}
+      </HeldBy>
+    );
   const link = (url: string) => (event: { preventDefault: () => void }) => {
     event.preventDefault();
     onOpenLink(url);
@@ -198,7 +249,7 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job
               </Button>
-              <Button variant="secondary" size="sm" ground="sunken" onClick={() => onFix?.({ kind: "newSession", request: briefOf(red) })}>
+              <Button variant="secondary" size="sm" ground="sunken" onClick={() => void send({ kind: "newSession", request: briefOf(red) })}>
                 Dispatch a new Session
               </Button>
               {red.merge !== undefined ? null : (
@@ -267,6 +318,23 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
               </dd>
             </>
           )}
+          {refused === null || taken !== undefined || elsewhere !== undefined ? null : (
+            <>
+              <dt>Claim</dt>
+              <dd className="armada-main-red__taken">
+                <span>{REFUSED[refused.why]}</span>
+                <Button variant="ghost" size="sm" ground="sunken" onClick={() => void send(refused.choice)}>
+                  Try again
+                </Button>
+              </dd>
+            </>
+          )}
+          {claim === null ? null : (
+            <>
+              <dt>Fixing</dt>
+              <dd className="armada-main-red__taken">{claim}</dd>
+            </>
+          )}
           {taken === undefined ? null : (
             <>
               <dt>Fixing</dt>
@@ -288,7 +356,18 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
           )}
         </dl>
       </div>
-      {asking === null ? null : (
+      {asking !== "takeOver" || elsewhere === undefined ? null : (
+        <TakeOverDialog
+          held={elsewhere}
+          {...(now === undefined ? {} : { now })}
+          onCancel={() => setAsking(null)}
+          onConfirm={() => {
+            setAsking(null);
+            void send({ kind: "takeOver" });
+          }}
+        />
+      )}
+      {asking === null || asking === "takeOver" ? null : (
         <FixDialog
           kind={asking}
           red={red}
@@ -297,11 +376,59 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
           onCancel={() => setAsking(null)}
           onFix={(choice) => {
             setAsking(null);
-            onFix?.(choice);
+            void send(choice);
           }}
         />
       )}
     </div>
+  );
+}
+
+/** The holder's registry chip, as a pull request's owner is drawn: kind and short id, then `monitor` and the machine's name. */
+const chipOf = (held: HeldElsewhere): RegisteredOwnerRow => ({ kind: held.holder.kind, id: held.holder.id, machine: { name: held.machine, here: false } });
+
+/** Another machine's claim: who holds it, and for how long. A claim long held reads as stale by its mark and age alone. */
+function HeldBy({ held, now = Date.now(), children }: { held: HeldElsewhere; now?: number; children?: ReactNode }) {
+  const age = since(held.since, now);
+  const stale = now - Date.parse(held.since) >= STALE_AFTER_MS;
+  return (
+    <span className="armada-main-red__held" data-stale={stale || undefined}>
+      <RegisteredOwner row={chipOf(held)} />
+      {age === undefined ? null : (
+        <Tooltip label={stale ? `Claimed ${age} ago, stale` : `Claimed ${age} ago`} asChild>
+          <span className="armada-main-red__age" role="img" aria-label={stale ? `Claimed ${age} ago, stale` : `Claimed ${age} ago`}>
+            {!stale ? null : <Clock size={SMALL} strokeWidth={STROKE} aria-hidden />}
+            <span className="mono">{age}</span>
+          </span>
+        </Tooltip>
+      )}
+      {children}
+    </span>
+  );
+}
+
+/** Asked once, with the claim's age in it, before another machine's claim is replaced. */
+function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewhere; now?: number; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <Dialog
+      open
+      tone="neutral"
+      title={`Take over from ${held.machine}`}
+      titleNode={
+        <>
+          Take over from{" "}
+          <span className="armada-main-red__machine">
+            <Monitor size={SMALL} strokeWidth={STROKE} aria-hidden />
+            {held.machine}
+          </span>
+        </>
+      }
+      confirmLabel="Take over"
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    >
+      <HeldBy held={held} {...(now === undefined ? {} : { now })} />
+    </Dialog>
   );
 }
 
