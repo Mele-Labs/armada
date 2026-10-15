@@ -173,6 +173,7 @@ export function dormantIn(where: {
 /** What the app has to be able to do for a chosen row to mean anything. */
 export type PaletteHands = {
   openJob: (jobId: string) => void;
+  openSession: (sessionId: string) => void;
   closeJob: () => void;
   compose: () => void;
   /**
@@ -243,6 +244,9 @@ export function carryOut(choice: PaletteChoice, job: string | null, hands: Palet
   switch (choice.of) {
     case "job":
       hands.openJob(choice.id);
+      return;
+    case "session":
+      hands.openSession(choice.id);
       return;
     case "surface":
       hands.surface(choice.id);
