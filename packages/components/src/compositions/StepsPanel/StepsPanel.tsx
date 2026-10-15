@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, ExternalLink, Plus, SquarePen, Trash2, Undo2, UserPen } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ExternalLink, Plus, SquarePen, Trash2, Undo2, UserPen } from "lucide-react";
 
 import { forgetKept, useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Input } from "../../primitives/Input/Input";
+import { CopyAct } from "../../primitives/Prose/Prose";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -80,20 +81,8 @@ export function partsOf(line: string): { words: ReactNode[]; commands: string[] 
   return { words, commands };
 }
 
-/**
- * The command, wrapped rather than cut, with the key that copies it over the block's corner as a fenced
- * block's is. The key is its own until `CopyAct` (Prose's fenced blocks, session 5a5e08bf) lands.
- */
+/** The command, wrapped rather than cut, with the key that copies it over the block's corner as a fenced block's is. */
 function CommandToCopy({ command, label }: { command: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  const copy = () => {
-    void Promise.resolve(navigator.clipboard?.writeText(command)).catch(() => undefined);
-    setCopied(true);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setCopied(false), 1500);
-  };
   return (
     <div className="armada-prose__run">
       <div className="armada-prose__run-block">
@@ -101,11 +90,7 @@ function CommandToCopy({ command, label }: { command: string; label: string }) {
           <code>{command}</code>
         </pre>
         <span className="armada-prose__run-acts">
-          <Tooltip label={copied ? "Copied" : "Copy"}>
-            <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={copy}>
-              {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
-            </Button>
-          </Tooltip>
+          <CopyAct text={command} label={label} />
         </span>
       </div>
     </div>
