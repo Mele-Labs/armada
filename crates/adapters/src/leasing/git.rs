@@ -58,11 +58,62 @@ pub(super) fn git_ok(at: &Path, args: &[&str]) -> bool {
 /// Whether `path` is the top of a checkout of its own, rather than a directory
 /// inside the repository's main one.
 pub(super) fn is_checkout(path: &Path) -> bool {
+    // In process first: this runs for every slot on every read of the pool, and a
+    // process is what costs the machine, not the question.
+    if let Ok(repo) = git2::Repository::open(path) {
+        let top = repo.workdir().and_then(|top| top.canonicalize().ok());
+        return top.is_some() && top == path.canonicalize().ok();
+    }
     let Ok(top) = read(path, &["rev-parse", "--show-toplevel"]) else {
         return false;
     };
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     Path::new(&top).canonicalize().is_ok_and(|top| top == path)
+}
+
+/// Whether `reference` exists in the repository at `at`. `None` where libgit2
+/// could not say, so the caller asks git instead.
+pub(super) fn ref_exists(at: &Path, reference: &str) -> Option<bool> {
+    let repo = git2::Repository::open(at).ok()?;
+    let found = repo.find_reference(reference).map(|_| ());
+    match found {
+        Ok(()) => Some(true),
+        Err(why) if why.code() == git2::ErrorCode::NotFound => Some(false),
+        Err(_) => None,
+    }
+}
+
+/// `git rev-list --count HEAD..<base>`: how far HEAD is behind. The outer `None`
+/// is libgit2 unable to say; the inner is git's own failure reading as unknown.
+pub(super) fn behind_in_process(at: &Path, base: &str) -> Option<Option<u32>> {
+    let repo = git2::Repository::open(at).ok()?;
+    let head = match repo.head().and_then(|head| head.peel_to_commit()) {
+        Ok(head) => head.id(),
+        Err(_) => return None,
+    };
+    let base = match repo.revparse_single(base).and_then(|base| base.peel_to_commit()) {
+        Ok(base) => base.id(),
+        Err(why) if why.code() == git2::ErrorCode::NotFound => return Some(None),
+        Err(_) => return None,
+    };
+    let (_, behind) = repo.graph_ahead_behind(head, base).ok()?;
+    Some(u32::try_from(behind).ok())
+}
+
+/// `git rev-list --count HEAD --not --branches --remotes`: commits no branch
+/// and no remote names. `None` where libgit2 could not say.
+pub(super) fn unnamed_commits_in_process(at: &Path) -> Option<usize> {
+    let repo = git2::Repository::open(at).ok()?;
+    let mut walk = repo.revwalk().ok()?;
+    walk.push_head().ok()?;
+    walk.hide_glob("refs/heads/*").ok()?;
+    walk.hide_glob("refs/remotes/*").ok()?;
+    let mut counted = 0;
+    for next in walk {
+        next.ok()?;
+        counted += 1;
+    }
+    Some(counted)
 }
 
 /// How many commits `rev-list` names for `revs`. A count git cannot give reads
@@ -88,4 +139,45 @@ pub(super) fn dirty(at: &Path) -> Result<Vec<String>, String> {
         .filter_map(|line| line.get(3..))
         .map(str::to_string)
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::repo::TempRepo;
+
+    /// The in-process answers must be the ones the command line gives, since
+    /// they decide what a slot reads as holding.
+    #[test]
+    fn the_in_process_readings_match_what_git_says() {
+        let repo = TempRepo::with_a_commit();
+        repo.with_a_bare_remote();
+        repo.git(&["push", "-q", "origin", "main"]);
+        repo.git(&["branch", "feature/nested/one"]);
+        repo.git(&["switch", "-q", "--detach"]);
+        repo.commit_one("a.txt", "a", "on no branch");
+        repo.commit_one("b.txt", "b", "also on no branch");
+        let at = repo.root();
+
+        assert_eq!(
+            unnamed_commits_in_process(at),
+            Some(count(at, &["HEAD", "--not", "--branches", "--remotes"]))
+        );
+        assert_eq!(unnamed_commits_in_process(at), Some(2));
+
+        repo.git(&["branch", "feature/nested/two"]);
+        assert_eq!(unnamed_commits_in_process(at), Some(0), "a nested branch names them");
+
+        let base = "refs/remotes/origin/main";
+        let said = read(at, &["rev-list", "--count", &format!("HEAD..{base}")]).ok();
+        assert_eq!(behind_in_process(at, base), Some(said.and_then(|n| n.parse().ok())));
+        assert_eq!(behind_in_process(at, "refs/remotes/origin/nope"), Some(None));
+
+        assert_eq!(ref_exists(at, base), Some(true));
+        assert_eq!(ref_exists(at, "refs/remotes/origin/nope"), Some(false));
+
+        assert!(is_checkout(at));
+        std::fs::create_dir_all(at.join("inside")).unwrap();
+        assert!(!is_checkout(&at.join("inside")), "a directory inside one is not its own");
+    }
 }

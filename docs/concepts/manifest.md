@@ -453,6 +453,13 @@ Rules that follow:
 
 `nice` left the process at priority 31 and changed nothing. Background QoS gave way as well as utility but nearly doubled a Check's time on a machine with room, because it holds work to the slower cores.
 
+**An agent runs at the same clamp, so a build it runs itself yields too.** Fleet starts every Drone, Helm and scout, and a Session's keeper starts its agent, under `taskpolicy -c utility`, and everything the agent starts inherits it. `ARMADA_CHECK_PRIORITY=normal` in Fleet's environment turns this off with the Checks' lowering.
+
+- **launchd already lowered them, and only under launchd.** Fleet's job sets no `ProcessType`, and launchd puts a job without one under light resource limits: measured on a 12-core M2 Max on 15 Oct 2026, Fleet, its `gh` and `git`, every keeper, every agent and a child of an agent's shell all read 20, against 31 for processes outside Fleet. Started from a terminal by `scripts/dev`, none of them did. The clamp in code makes the two the same.
+- **A build a Session runs for the owner yields under load too**, `scripts/preview --restart` among them, because it is an agent's command.
+- **Under launchd, a run a person starts from Bridge is at 20 as well**, though the rule above keeps it normal: the job's limits sit beneath every child of Fleet, and `Normal` only declines to lower further.
+- Load on that machine, one-minute average: 22 to 27 with two Sessions each building the workspace cold at full width, before #2355 and #2356; 7 to 13 after, with no Rust build running. The two windows did not run the same work, so the drop is not a measured effect of either.
+
 ### Running one test by name
 
 **A Check may declare `one_test`, and it is what Fleet runs against a checkout of main before a Drone's `draft_fix` drafts anything, and in the Job's worktree before a red at the gate is ruled against the step** — Confirming a red, below. The Configuration contract holds the syntax.

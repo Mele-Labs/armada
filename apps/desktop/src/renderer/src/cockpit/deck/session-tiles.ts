@@ -1,13 +1,27 @@
 // The flight controls while a Session is open on the stage. Each is an act Bridge already has for a Session, or it is drawn off
 // with the fact that keeps it off: Ask for update, Auto land and Compact are messages to the Session through the route its
-// composer sends by (`draft.send`), or its terminal's own (`draft.command`); Report hands off to a new Session started in the
-// same repository (`report-brief.ts`, `ReportBox.tsx`), so it is off only where that repository is not known; Map is the
-// stage's switch. **What is offered is read from what Fleet holds** (whether the Session can be spoken to, which commands its
-// agent listed), never from a report by the agent. The owner's ask of 15 Oct 2026.
+// composer sends by (`draft.send`), or its terminal's own (`draft.command`); Report hands off to a new Session started in
+// Armada's own repository where Fleet serves it, else the reported one's (`report-brief.ts`, `ReportBox.tsx`), so it is off
+// only where the reported Session's repository is not known; Map is the stage's switch. **What is offered is read from what
+// Fleet holds** (whether the Session can be spoken to, which commands its agent listed), never from a report by the agent.
+// The owner's ask of 15 Oct 2026.
 
+import type { RepositorySummary } from "@armada/protocol";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 export type SessionTileId = "ask" | "land" | "compact" | "report" | "map";
+
+const ARMADA = "armada";
+
+/**
+ * Where a report's new Session starts: the Armada repository where Fleet serves one, since a fix to how a Session behaved is
+ * usually Armada's, and the reported Session's own where it does not. Armada's is the Manifest named `armada`. The owner's ask
+ * of 15 Oct 2026, from a machine serving several.
+ */
+export function reportRoot(repositories: readonly RepositorySummary[], reported: string | undefined): string | undefined {
+  const armada = repositories.find((one) => one.manifest !== undefined && (one.manifest.id.toLowerCase() === ARMADA || one.manifest.repository.toLowerCase() === ARMADA));
+  return armada?.root ?? reported;
+}
 
 /** In the order their keys, `1` to `5`, press them. `label` is the accessible name, `text` the word under the glyph. */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [

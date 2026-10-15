@@ -70,3 +70,24 @@ async fn a_child_spawned_without_detaching_stays_in_this_process_group() {
          exactly what a Drone must not do"
     );
 }
+
+/// An agent's own builds yield to the person using the machine, as its Checks
+/// do: `docs/concepts/manifest.md`, *At what priority a Check runs*.
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn an_agent_runs_clamped_to_utility_and_still_detached() {
+    let args = ["-c".to_string(), "ps -o pri=,pgid= -p $$".to_string()];
+    let child = Detached::agent("/bin/sh", &args, Some(std::path::Path::new("/")))
+        .capturing_output()
+        .spawn()
+        .expect("a shell spawns");
+    let pid = child.id().expect("a spawned child has a pid");
+    let out = child.wait_with_output().await.expect("it runs and exits");
+
+    assert!(out.status.success(), "{out:?}");
+    let printed = String::from_utf8_lossy(&out.stdout);
+    let mut columns = printed.split_whitespace().map(|n| n.parse::<u32>().expect("a number"));
+    let (priority, group) = (columns.next().unwrap(), columns.next().unwrap());
+    assert!(priority <= 20, "utility QoS is 20 where normal work is 31, read {priority}");
+    assert_eq!(group, pid, "the clamp's wrapper must not cost the detach");
+}
