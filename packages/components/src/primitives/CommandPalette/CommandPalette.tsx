@@ -134,10 +134,18 @@ type Hit = {
 function hit(entry: PaletteEntry, query: string): Hit | null {
   if (query === "") return { entry, at: null };
   const wanted = query.toLowerCase();
-  const at = entry.label.toLowerCase().indexOf(wanted);
+  const label = entry.label.toLowerCase();
+  const aliases = (entry.aliases ?? []).map((held) => held.toLowerCase());
+  const at = label.indexOf(wanted);
   if (at >= 0) return { entry, at };
-  const alias = (entry.aliases ?? []).some((held) => held.toLowerCase().includes(wanted));
-  return alias ? { entry, at: null } : null;
+  if (aliases.some((held) => held.includes(wanted))) return { entry, at: null };
+  // **Words, in any order.** "fix palette" finds "Palette search fix": every word has to begin a word
+  // of the label or an alias, and nothing is marked, since no one span matched. Beginning one, because
+  // "expand and" must not find "expand the column" on the "and" inside "expand".
+  const words = wanted.split(/\s+/).filter((word) => word !== "");
+  const starts = [label, ...aliases].flatMap((held) => held.split(/[^a-z0-9]+/));
+  const every = words.length > 1 && words.every((word) => starts.some((start) => start.startsWith(word)));
+  return every ? { entry, at: null } : null;
 }
 
 export function CommandPalette({

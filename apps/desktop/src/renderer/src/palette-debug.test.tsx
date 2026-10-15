@@ -13,6 +13,7 @@ afterEach(unmount);
 
 const hands = (debugBridge: () => void, copyDebugInfo: () => void = () => {}): PaletteHands => ({
   openJob: () => {},
+  openSession: () => {},
   closeJob: () => {},
   compose: () => {},
   surface: () => {},
