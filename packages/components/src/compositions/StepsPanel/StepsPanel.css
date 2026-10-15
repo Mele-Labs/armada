@@ -3,7 +3,7 @@
 .armada-step-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -32,8 +32,13 @@
 .armada-step-list__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
+}
+
+/* Under a step the command is the line's companion, so it is drawn tighter than the one at the top. */
+.armada-step-list__body .armada-prose__block {
+  padding: var(--space-1) var(--space-2);
 }
 
 .armada-step-list__code {
@@ -49,7 +54,7 @@
 .armada-step-list__step {
   grid-template-columns: var(--space-6) minmax(0, 1fr) auto;
   align-items: start;
-  padding: var(--space-3) 0;
+  padding: var(--space-2) 0;
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 

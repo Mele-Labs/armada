@@ -603,9 +603,8 @@ export function ReadingSheet({
       onClose={onClose}
     >
       {steps !== undefined ? (
-        <div className="armada-session-reading">
-          <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
-        </div>
+        // The sheet's body pads it already: a second pad doubled the margin.
+        <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
           <SketchReading {...readingOfSketch(one)} />
