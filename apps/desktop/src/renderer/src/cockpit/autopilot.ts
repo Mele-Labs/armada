@@ -60,9 +60,9 @@ export function cappedOf(autopilot: Autopilot): string | undefined {
   return reached[autopilot.capped_by];
 }
 
-/** #1, #2 and #3. */
+/** #1, #2 and #3: each as its tracker names it. */
 function listed(picks: readonly AutopilotPick[]): string {
-  const names = picks.map((pick) => `#${pick.issue_number}`);
+  const names = picks.map((pick) => pick.issue_reference);
   return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
@@ -88,7 +88,7 @@ export function stoppingOf(autopilot: Autopilot, jobs: readonly JobSummary[]): s
 }
 
 /** One row of Next up: its place in the order, or none where Autopilot will pass it over, and why. */
-export type NextUp = { order: number | undefined; number: number; title: string; url: string; note: string | undefined };
+export type NextUp = { order: number | undefined; reference: string; title: string; url: string; note: string | undefined };
 
 /** The most Next up lists, so a long backlog never draws as a long list. */
 export const NEXT_UP_ROWS = 8;
@@ -100,13 +100,13 @@ export const NEXT_UP_ROWS = 8;
  */
 export function nextUpOf(autopilot: Autopilot, issues: IssueList | undefined): NextUp[] {
   if (issues === undefined) return [];
-  const picked = new Set(autopilot.picks.map((pick) => pick.issue_number));
-  const open = issues.issues.filter((issue) => !picked.has(issue.number));
+  const picked = new Set(autopilot.picks.map((pick) => pick.issue_reference));
+  const open = issues.issues.filter((issue) => !picked.has(issue.reference));
   const choosable = open.filter((issue) => !issue.linked_pull_request).slice(0, NEXT_UP_ROWS);
   const passed = open.filter((issue) => issue.linked_pull_request).slice(0, Math.max(0, NEXT_UP_ROWS - choosable.length));
   return [
-    ...choosable.map((issue, at): NextUp => ({ order: at + 1, number: issue.number, title: issue.title, url: issue.url, note: undefined })),
-    ...passed.map((issue): NextUp => ({ order: undefined, number: issue.number, title: issue.title, url: issue.url, note: "has a pull request" })),
+    ...choosable.map((issue, at): NextUp => ({ order: at + 1, reference: issue.reference, title: issue.title, url: issue.url, note: undefined })),
+    ...passed.map((issue): NextUp => ({ order: undefined, reference: issue.reference, title: issue.title, url: issue.url, note: "has a pull request" })),
   ];
 }
 

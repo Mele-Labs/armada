@@ -3,7 +3,7 @@
 // never offered Replace on a clash. Job 2's own lead lists its alert, which opens the
 // Trigger, where a file of the held fix opens its diff against the Job's branch.
 
-import { button, card, dialog, inside, role, tab, walk } from "../walk";
+import { button, card, deckRow, dialog, inside, place, role, tab, walk } from "../walk";
 
 const NEW = dialog("Script");
 const ADDED = dialog("fmt");
@@ -46,8 +46,10 @@ export const triggerEditsAndAlerts = walk("real/job-2-edits-and-alerts", [
   { press: inside(DRONE, button("Keep for every Job")), say: "Keep it for every Job, the name already taken" },
   { press: inside(KEEP, button("Keep", { exact: true })), say: "Kept under the next free name, never asked to Replace" },
   { press: inside(KEEP, button("Close")), say: "Close" },
-  { press: role("button", "Cockpit", { exact: true }), say: "Back to the Board" },
-  { press: button(/Open Job/), say: "Job 2, which holds an alert" },
+  { press: place("Jobs"), say: "To Jobs, leaving the Job's page" },
+  { press: place("Cockpit"), say: "Back on the Cockpit" },
+  { press: deckRow(/^Retire guides 8 and 20/), say: "Job 2, which holds an alert, from the list" },
+  { press: button("Open the Job page"), say: "Its page" },
   { look: ALERTS, say: "The alert in this Job's lead, naming the Trigger" },
   { hover: inside(ALERTS, role("img", /Fix ready, deploy_qa/)), say: "Its state, and where it fired" },
   { press: inside(ALERTS, button(/deploy_qa/)), say: "Open the Trigger's leaf on this Job's canvas" },

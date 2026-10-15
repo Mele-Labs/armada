@@ -175,9 +175,9 @@ test("an Autopilot is read first, and started from what was read", async () => {
   expect(start.mock.calls[0]![0]).toBe(repository().manifest!.id);
 
   // Opening it from the strip puts the Cockpit's Autopilot bar up for that repository.
-  expect(page.getByRole("region", { name: "Autopilot" }).query()).toBeNull();
+  expect(page.getByRole("region", { name: "Autopilot lane" }).query()).toBeNull();
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Autopilot" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Autopilot lane" })).toBeVisible();
 });
 
 test("a Job sent leaves a strip, and Enter opens the Job the call named", async () => {

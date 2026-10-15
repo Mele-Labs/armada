@@ -13,12 +13,12 @@ pub(crate) const PROVIDER: &str = "jira";
 
 const KEYS: &[&str] = &["site", "project", "jql"];
 
-/// The keys of one `tracker:` block, read and checked. **`project` is always in
-/// the search**, which is what makes an issue number alone name an issue.
+/// The keys of one `tracker:` block, read and checked. **The backlog is whatever the search
+/// selects**: the projects named, the `jql`, or both together. An issue is named by its key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct JiraSettings {
     host: String,
-    project: String,
+    projects: Vec<String>,
     jql: Option<String>,
 }
 
@@ -32,52 +32,51 @@ impl JiraSettings {
             ));
         }
         let site = block.get("site").ok_or("the jira tracker needs `site`")?;
-        let project = block
+        let projects: Vec<String> = block
             .get("project")
-            .ok_or("the jira tracker needs `project`")?;
-        if !is_project(project) {
+            .map(|named| {
+                named
+                    .split(|c: char| c == ',' || c.is_whitespace())
+                    .filter(|one| !one.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Some(bad) = projects.iter().find(|one| !is_project(one)) {
             return Err(format!(
-                "`project: {project}` is not a Jira project key: capitals, digits and underscores"
+                "`project: {bad}` is not a Jira project key: capitals, digits and underscores"
             ));
         }
         let host = host_of(site)
             .ok_or_else(|| format!("`site: {site}` is not a site name or a host"))?;
-        let jql = block.get("jql").cloned();
+        let jql = block.get("jql").cloned().filter(|jql| !jql.trim().is_empty());
         if let Some(jql) = &jql {
             if jql.to_ascii_lowercase().contains("order by") {
                 return Err("`jql` is an extra filter and takes no ORDER BY".to_string());
             }
         }
-        Ok(JiraSettings {
-            host,
-            project: project.clone(),
-            jql,
-        })
+        if projects.is_empty() && jql.is_none() {
+            return Err("the jira tracker needs `project` or `jql` to say which issues it lists".to_string());
+        }
+        Ok(JiraSettings { host, projects, jql })
     }
 
-    /// Open issues of the project, newest edit first.
+    /// Open issues the block selects, newest edit first.
     pub(crate) fn search(&self) -> String {
-        let extra = match &self.jql {
-            Some(jql) => format!(" AND ({jql})"),
-            None => String::new(),
-        };
-        format!(
-            "project = \"{}\" AND statusCategory != Done{extra} ORDER BY updated DESC",
-            self.project
-        )
-    }
-
-    /// `PROJECT-12` for the number 12.
-    pub(crate) fn key_of(&self, number: u64) -> String {
-        format!("{}-{number}", self.project)
-    }
-
-    /// The number in a key of this project; `None` for another project's.
-    pub(crate) fn number_of(&self, key: &str) -> Option<u64> {
-        key.strip_prefix(&self.project)?
-            .strip_prefix('-')?
-            .parse()
-            .ok()
+        let mut clauses: Vec<String> = Vec::new();
+        match self.projects.as_slice() {
+            [] => {}
+            [one] => clauses.push(format!("project = \"{one}\"")),
+            many => {
+                let keys: Vec<String> = many.iter().map(|one| format!("\"{one}\"")).collect();
+                clauses.push(format!("project in ({})", keys.join(", ")));
+            }
+        }
+        clauses.push("statusCategory != Done".to_string());
+        if let Some(jql) = &self.jql {
+            clauses.push(format!("({jql})"));
+        }
+        format!("{} ORDER BY updated DESC", clauses.join(" AND "))
     }
 
     pub(crate) fn browse(&self, key: &str) -> String {
@@ -85,7 +84,7 @@ impl JiraSettings {
     }
 
     /// The issue key a text links on this site, with or without the scheme.
-    /// **Any project's**: the link names its own, and only a listing is bound to `project`.
+    /// **Any project's**: the link names its own.
     pub(crate) fn key_in(&self, text: &str) -> Option<String> {
         let needle = format!("{}/browse/", self.host);
         let at = text.to_ascii_lowercase().find(&needle)? + needle.len();

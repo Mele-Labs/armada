@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
 
-import { CHOSEN, entered, mount, mountTwo, settingUp, unmountAfterEach } from "@armada/desktop/mock";
+import { CHOSEN, entered, mount, mountTwo, settingUp, toPlace, unmountAfterEach } from "@armada/desktop/mock";
 import type { SettingUp } from "@armada/desktop/mock";
 
 unmountAfterEach();
@@ -19,28 +19,26 @@ const SLICES = { slices: ["core", "setup"] } as const;
 const URL = "https://forge.invalid/owner/storefront.git";
 const dialog = () => page.getByRole("dialog", { name: "Add a repository" });
 
-/** Add a repository sits inside the rail picker's menu: opening it is opening the picker first. */
-async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page, pickerLabel = MANIFEST_NAME) {
-  // A narrow window lists the repositories in the title row's menu. Wait for the
-  // row first: `query` does not, and the window may not have drawn yet.
-  const root = "element" in within ? (within.element() as HTMLElement) : document.body;
-  await expect.poll(() => root.querySelector(".armada-title-bar")).not.toBeNull();
-  // The picker is drawn even when a narrow window hides it, so wait for it to exist before asking whether it shows.
-  await expect.element(within.getByRole("button", { name: pickerLabel, exact: true, includeHidden: true })).toBeInTheDocument();
-  const picker = within.getByRole("button", { name: pickerLabel });
-  if (picker.query() !== null) {
-    await picker.click();
-    await page.getByRole("menuitem", { name: "Add a repository" }).click();
-  } else {
-    await within.getByRole("button", { name: "Menu" }).click();
-    await within.getByRole("button", { name: "Add a repository" }).click();
-  }
+/** The repository picker on the Cockpit: labelled Repository, and its text is the name of the one chosen. */
+const repositoryPicker = (within: ReturnType<typeof page.elementLocator> | typeof page = page, options: { includeHidden?: boolean } = {}) =>
+  within.getByRole("button", { name: "Repository", exact: true, ...options });
+
+/** Add a repository is the last row of the deck's repository picker: opening the dialog is opening the picker first. */
+async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page) {
+  await within.getByRole("button", { name: "Repository", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add a repository" }).click();
   await entered(dialog());
   return dialog();
 }
 
-async function cloneFrom(within: ReturnType<typeof page.elementLocator> | typeof page = page) {
-  const add = await opened(within);
+/** Where nothing is served the dialog opens by itself, and there is no picker to press. */
+async function openedByItself() {
+  await entered(dialog());
+  return dialog();
+}
+
+async function cloneFrom(within: ReturnType<typeof page.elementLocator> | typeof page = page, open: typeof opened = opened) {
+  const add = await open(within);
   await add.getByRole("button", { name: "Clone from a URL" }).click();
   await userEvent.type(add.getByLabelText("Repository URL"), URL);
   await userEvent.type(add.getByLabelText("Clone into"), "/Users/user/code");
@@ -62,8 +60,9 @@ test("a folder added: the dialog closes, the picker holds it, and Setup is open 
   expect(onAdded).toHaveBeenCalledWith(CHOSEN);
   await expect.poll(() => dialog().query()).toBeNull();
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  // Nobody's Manifest yet, so it reads by its own name.
-  await page.getByRole("button", { name: "scratch" }).click();
+  // Nobody's Manifest yet, so it reads by its own name. The picker is on the Cockpit, not on Setup's page.
+  await toPlace("Cockpit");
+  await repositoryPicker().click();
   const menu = page.getByRole("menu");
   await expect.element(menu.getByText("Not set up")).toBeVisible();
   await expect.element(menu.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
@@ -75,13 +74,14 @@ test("nothing served: the dialog opens by itself, nothing reads as a fault, and 
   locating({ repositories: [], onAdded });
   const add = dialog();
   await entered(add);
-  await expect.element(page.getByRole("button", { name: "Nothing set up yet" })).toBeInTheDocument();
   expect(page.getByText(/could not be read/).query()).toBeNull();
   await userEvent.type(add.getByLabelText("Project location"), CHOSEN);
   await add.getByRole("button", { name: /^Add repository/ }).click();
   expect(onAdded).toHaveBeenCalledWith(CHOSEN);
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "scratch" })).toBeInTheDocument();
+  // The picker is on the Cockpit, not on Setup's page.
+  await toPlace("Cockpit");
+  await expect.element(repositoryPicker()).toHaveTextContent("scratch");
 });
 
 test("a clone that finished after its dialog closed says so, and moves nothing until its Setup is asked for", async () => {
@@ -90,11 +90,12 @@ test("a clone that finished after its dialog closed says so, and moves nothing u
   await add.getByRole("button", { name: /^Cancel/ }).click();
   await expect.poll(() => dialog().query()).toBeNull();
   await expect.element(page.getByText("storefront is ready to set up")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: MANIFEST_NAME })).toBeInTheDocument();
+  await expect.element(repositoryPicker()).toHaveTextContent(MANIFEST_NAME);
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await page.getByRole("button", { name: "Open Setup" }).click();
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "storefront" })).toBeInTheDocument();
+  await toPlace("Cockpit");
+  await expect.element(repositoryPicker()).toHaveTextContent("storefront");
   await expect.poll(() => page.getByText("storefront is ready to set up").query()).toBeNull();
 });
 
@@ -109,7 +110,7 @@ test("a late clone is heard in another window on the same main, and neither wind
   await expect.element(inAsked.getByText("storefront is ready to set up")).toBeInTheDocument();
   for (const window of [inAsked, inOther]) {
     // Hidden, not absent: each window is narrow, and the picker is behind its menu.
-    await expect.element(window.getByRole("button", { name: MANIFEST_NAME, exact: true, includeHidden: true })).toBeInTheDocument();
+    await expect.element(repositoryPicker(window, { includeHidden: true })).toHaveTextContent(MANIFEST_NAME);
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
   (inOther.getByRole("button", { name: "Open Setup" }).element() as HTMLElement).click();
@@ -119,8 +120,8 @@ test("a late clone is heard in another window on the same main, and neither wind
 });
 
 test("a parent under a symlink previews the folder Fleet clones into, as main resolves it", async () => {
-  locating();
-  const add = await opened();
+  locating({ repositories: [] });
+  const add = await openedByItself();
   await add.getByRole("button", { name: "Clone from a URL" }).click();
   await userEvent.type(add.getByLabelText("Repository URL"), URL);
   await userEvent.type(add.getByLabelText("Clone into"), "/tmp");
@@ -130,8 +131,8 @@ test("a parent under a symlink previews the folder Fleet clones into, as main re
 
 test("a clone underway says so, and a second press — the button or Enter — sends nothing", async () => {
   const onCloned = vi.fn();
-  locating({ clone: "underway", onCloned });
-  const add = await cloneFrom();
+  locating({ repositories: [], clone: "underway", onCloned });
+  const add = await cloneFrom(page, openedByItself);
   await expect.element(add.getByText(/Git is cloning into/)).toBeVisible();
   await expect.element(add.getByRole("button", { name: /^Clone repository/ })).toBeDisabled();
   await userEvent.keyboard("{Enter}");
@@ -140,18 +141,18 @@ test("a clone underway says so, and a second press — the button or Enter — s
 });
 
 test("git's refusal reads in the dialog in full, and nothing moves behind it", async () => {
-  locating({ clone: "refused" });
-  const add = await cloneFrom();
+  locating({ repositories: [], clone: "refused" });
+  const add = await cloneFrom(page, openedByItself);
   await expect.element(add.getByText("Not cloned")).toBeVisible();
   await expect.element(add.getByText(`git refused the clone: fatal: repository '${URL}' not found.`)).toBeVisible();
   expect(add.getByText("fleet.clone_refused").query()).toBeNull();
   await expect.element(add.getByRole("button", { name: /^Clone repository/ })).toBeEnabled();
-  await expect.element(page.getByRole("button", { name: MANIFEST_NAME })).toBeInTheDocument();
+  expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
 });
 
 test("a destination already full: Fleet's words, and where to go from them", async () => {
-  locating({ clone: "occupied" });
-  const add = await cloneFrom();
+  locating({ repositories: [], clone: "occupied" });
+  const add = await cloneFrom(page, openedByItself);
   await expect.element(add.getByText("Not cloned")).toBeVisible();
   await expect.element(add.getByText("/Users/user/code/storefront already exists and is not empty.")).toBeVisible();
   await expect.element(add.getByText("Choose another folder to clone into.")).toBeVisible();
@@ -192,7 +193,7 @@ const SET_UP_API = named("api", "/Users/user/services/api");
 
 test("the picker's names: the Manifest's own, or a folder's, with the parent only where two share it", async () => {
   locating({ repositories: [SET_UP, SET_UP_API, LOOSE, API, OLD_API] });
-  await page.getByRole("button", { name: "storefront" }).click();
+  await repositoryPicker().click();
   await expect.element(page.getByRole("menuitem", { name: "storefront" })).toBeInTheDocument();
   // Three repositories would read "api" — one set up and two not — so all three
   // widen. The ladder is one namespace since 28 Sep 2026: a set-up repository

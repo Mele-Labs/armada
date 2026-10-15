@@ -47,9 +47,9 @@ export function AutopilotSidings({ sidings, pending, onRun, onDismiss }: {
               <h3 className="armada-metro__part">Next up{siding.name === undefined ? "" : ` · ${siding.name}`} · what Autopilot is choosing from</h3>
               <ol className="armada-autopilot-next__list">
                 {siding.nextUp.map((one) => (
-                  <li key={one.number} className="armada-autopilot-next__row" data-passed={one.order === undefined || undefined}>
+                  <li key={one.reference} className="armada-autopilot-next__row" data-passed={one.order === undefined || undefined}>
                     <span className="armada-autopilot-next__order">{one.order ?? "–"}</span>
-                    <span className="armada-autopilot-next__number">#{one.number}</span>
+                    <span className="armada-autopilot-next__number">{one.reference}</span>
                     <span className="armada-autopilot-next__title" title={one.title}>
                       {one.title}
                     </span>
@@ -67,7 +67,7 @@ export function AutopilotSidings({ sidings, pending, onRun, onDismiss }: {
               <ul className="armada-autopilot-aside__list">
                 {siding.asides.map((pick) => (
                   <li key={pick.pick_id} className="armada-autopilot-aside__row">
-                    <span className="armada-autopilot-aside__number">#{pick.issue_number}</span>
+                    <span className="armada-autopilot-aside__number">{pick.issue_reference}</span>
                     <span className="armada-autopilot-aside__title">{pick.issue_title}</span>
                     <span className="armada-autopilot-aside__why">{pick.reason}</span>
                     <AsideActs pick={pick} pending={pending} onRun={() => onRun(siding.manifest, pick)} onDismiss={() => onDismiss(siding.manifest, pick)} />

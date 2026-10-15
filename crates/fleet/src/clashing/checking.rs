@@ -2,13 +2,13 @@
 //! tick, so it costs a lock and an empty table where nothing was written.
 
 use std::collections::BTreeSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::clash::{self, NotChecked, Verdict};
-use core_model::{Component, Envelope, FieldValue, Level};
+use core_model::{Component, Envelope, FieldValue, JobId, Level, Ulid};
 
 use super::index::Changed;
 use super::standing::Standing;
@@ -44,6 +44,9 @@ where
 {
     /// One pass: main's moves, the pairs whose wait is over, and anyone not yet told what was found.
     pub(crate) async fn clashes_checked(self: &Arc<Self>) {
+        if self.writes().first_pass() {
+            self.writes_seeded().await;
+        }
         if self.writes().idle() {
             return;
         }
@@ -55,6 +58,54 @@ where
         self.clashes_told().await;
         self.notes_sent().await;
         self.tell_peers().await;
+    }
+
+    /// **The table is memory only**, so a restart forgets every file each holder wrote. The first
+    /// pass credits each live Session and Job with what its worktrees changed since they left the
+    /// base, so a pair that clashed before the restart is due again without either writing.
+    async fn writes_seeded(&self) {
+        let mut holders = Vec::new();
+        {
+            let store = self.store().lock().await;
+            let live = store::SessionSearch {
+                manifest_id: None,
+                state: Some(store::SessionState::Live),
+                text: None,
+            };
+            let sessions = store.find_sessions(&live).unwrap_or_default();
+            holders.extend(sessions.into_iter().map(|one| Who::Session(one.id)));
+            for served in self.repositories().served() {
+                let slots = store.standing_of_kind("slot", served.manifest().id().as_str()).unwrap_or_default();
+                holders.extend(
+                    slots
+                        .into_iter()
+                        .filter(|row| row.holder.kind == store::HolderKind::Job)
+                        .map(|row| Who::Job(JobId::carried(Ulid::carried(row.holder.id)))),
+                );
+            }
+        }
+        let now = self.now();
+        for who in holders {
+            let Some(standing) = self.writing_in(&who).await else {
+                continue;
+            };
+            let Some(served) = self.repositories().serving(&standing.manifest) else {
+                continue;
+            };
+            let base = base_of(&served);
+            let worktrees = standing.worktrees.clone();
+            let changed = tokio::task::spawn_blocking(move || {
+                worktrees
+                    .iter()
+                    .flat_map(|worktree| changed_since_base(worktree, &base).unwrap_or_default())
+                    .collect::<BTreeSet<String>>()
+            })
+            .await
+            .unwrap_or_default();
+            if !changed.is_empty() {
+                self.writes().wrote(&who, &standing.manifest, changed, &now);
+            }
+        }
     }
 
     /// Check one pair now.
@@ -72,15 +123,15 @@ where
         if one.manifest != two.manifest {
             return;
         }
-        let (a, b) = (one.worktree.clone(), two.worktree.clone());
-        let verdict = tokio::task::spawn_blocking(move || clash::between(&a, &b))
+        let Some(served) = self.repositories().serving(&one.manifest) else {
+            return;
+        };
+        let base = base_of(&served);
+        let (a, b) = (one.worktrees.clone(), two.worktrees.clone());
+        let found = tokio::task::spawn_blocking(move || between_any(&a, &b, &base))
             .await
             .unwrap_or_else(|why| Err(NotChecked(format!("the check did not finish: {why}"))));
-        self.verdict_kept(opposed, verdict.map(|verdict| match verdict {
-            Verdict::Clean => None,
-            Verdict::Conflict(paths) => Some(paths.into_iter().collect()),
-        }), None)
-        .await;
+        self.verdict_kept(opposed, found, None).await;
     }
 
     /// A holder's standing, or nothing after it has been dropped from the table.
@@ -202,17 +253,80 @@ where
             .find(|(held, ..)| held == who)
             .map(|(_, _, paths)| paths)
             .unwrap_or_default();
-        let worktree = standing.worktree.clone();
-        let read = tokio::task::spawn_blocking(move || against_main(&worktree, &tip, &touched))
-            .await
-            .unwrap_or_else(|why| Against::Unknown(NotChecked(format!("the check did not finish: {why}"))));
+        let worktrees = standing.worktrees.clone();
+        let reads = tokio::task::spawn_blocking(move || {
+            worktrees.iter().map(|worktree| against_main(worktree, &tip, &touched)).collect::<Vec<_>>()
+        })
+        .await
+        .unwrap_or_else(|why| vec![Against::Unknown(NotChecked(format!("the check did not finish: {why}")))]);
         let opposed = Opposed(who.clone(), Side::Main);
-        let (found, landed) = match read {
-            Against::Clean | Against::Apart => (Ok(None), None),
-            Against::Conflict(paths, landed) => (Ok(Some(paths)), landed),
-            Against::Unknown(why) => (Err(why), None),
-        };
-        self.verdict_kept(&opposed, found, landed).await;
+        // Any slot's conflict is the holder's; a slot git would not read leaves the last reading.
+        let (mut paths, mut landed, mut unknown) = (BTreeSet::new(), None, None);
+        for read in reads {
+            match read {
+                Against::Clean | Against::Apart => {}
+                Against::Conflict(found, first) => {
+                    paths.extend(found);
+                    landed = landed.or(first);
+                }
+                Against::Unknown(why) => unknown = unknown.or(Some(why)),
+            }
+        }
+        self.verdict_kept(&opposed, merged(paths, unknown), landed).await;
+    }
+}
+
+/// Every pair of one holder's worktrees and the other's: the files any pair conflicts on that both
+/// changed themselves. **A worktree cut from a newer main carries main's changes**, and git sets
+/// them against the older one's as if they were that holder's (15 Oct 2026: a Session was named
+/// over files only main had changed). A conflict with main's own changes is main's to tell.
+fn between_any(one: &[PathBuf], other: &[PathBuf], base: &str) -> Result<Option<BTreeSet<String>>, NotChecked> {
+    let (mut paths, mut unknown) = (BTreeSet::new(), None);
+    let mut own: std::collections::BTreeMap<&PathBuf, Result<BTreeSet<String>, NotChecked>> = Default::default();
+    for a in one {
+        for b in other.iter().filter(|b| *b != a) {
+            let found = match clash::between(a, b) {
+                Ok(Verdict::Clean) => continue,
+                Ok(Verdict::Conflict(found)) => found,
+                Err(why) => {
+                    unknown = unknown.or(Some(why));
+                    continue;
+                }
+            };
+            for side in [a, b] {
+                own.entry(side).or_insert_with(|| changed_since_base(side, base));
+            }
+            match (&own[a], &own[b]) {
+                (Ok(mine), Ok(theirs)) => {
+                    paths.extend(found.into_iter().filter(|path| mine.contains(path) && theirs.contains(path)));
+                }
+                (Err(why), _) | (_, Err(why)) => unknown = unknown.or(Some(why.clone())),
+            }
+        }
+    }
+    merged(paths, unknown)
+}
+
+/// What the worktree as it stands changed since it left `base`, read against the remote's copy
+/// first since the local branch may be behind it.
+fn changed_since_base(worktree: &Path, base: &str) -> Result<BTreeSet<String>, NotChecked> {
+    clash::changed_here(worktree, &format!("origin/{base}"))
+        .or_else(|_| clash::changed_here(worktree, base))
+        .map(|changed| changed.into_iter().collect())
+}
+
+/// The branch the repository's work merges into: the Manifest's `base:`, else `main`.
+fn base_of(served: &crate::repositories::Served) -> String {
+    served.manifest().base().unwrap_or("main").to_string()
+}
+
+/// What several worktrees' checks come to: **not checked** only where none conflicts and one
+/// could not be read.
+fn merged(paths: BTreeSet<String>, unknown: Option<NotChecked>) -> Result<Option<BTreeSet<String>>, NotChecked> {
+    match (paths.is_empty(), unknown) {
+        (false, _) => Ok(Some(paths)),
+        (true, Some(why)) => Err(why),
+        (true, None) => Ok(None),
     }
 }
 

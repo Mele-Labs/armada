@@ -41,6 +41,7 @@ import type {
   StopSessionRun,
   TuneSession,
   WindowClosed,
+  WindowFailed,
   WindowTake,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
@@ -301,6 +302,11 @@ export class SessionsHost {
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
   async windowClosed(closed: WindowClosed): Promise<SessionActed> {
     return await this.act("POST", "/sessions/window/closed", closed);
+  }
+
+  /** A window a Session showed could not show its page: Fleet tells the Session. */
+  async windowFailed(failed: WindowFailed): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/window/failed", failed);
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {

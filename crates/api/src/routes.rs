@@ -183,6 +183,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )
         .route("/clashes", get(crate::needs::list_write_clashes::<D>))
+        .route("/repository_areas", get(crate::needs::list_repository_areas::<D>))
+        .route("/slot_touches", get(crate::needs::list_slot_touches::<D>))
         .route(
             "/pull_requests/:repository/:number",
             get(crate::pull_requests::get_pull_request::<D>),
@@ -247,6 +249,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),
+        )
+        .route(
+            "/sessions/window/failed",
+            post(crate::sessions::window_failed::<D>),
         )
         .route("/plan_usage", get(crate::hosted_sessions::get_plan_usage::<D>))
         .route("/model_downshift", get(crate::hosted_sessions::get_model_downshift::<D>))
@@ -374,7 +380,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))
-        .route("/accounts/set_active_account", post(crate::accounting::set_active_account::<D>))
+        .route("/accounts/set_repository_profile", post(crate::accounting::set_repository_profile::<D>))
         .route("/health", get(get_health::<D>))
         .route("/usage", get(get_usage::<D>))
         .route("/alerts", get(list_alerts::<D>))
@@ -512,6 +518,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/jobs/:job_id/walk_notes/remove",
             post(crate::walking::remove_walk_note::<D>),
+        )
+        .route(
+            "/jobs/:job_id/walk/failed",
+            post(crate::walking::walk_failed::<D>),
         )
         .route(
             "/jobs/:job_id/queue_after_finding",

@@ -28,7 +28,7 @@ pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 /// The tracker would not answer and nothing is held. A 500: asking again is reasonable.
 const UNREADABLE: &str = "fleet.issues_unreadable";
 
-/// The tracker has no issue by that number, or the number is a pull request's. A 404.
+/// The tracker has no issue by that reference, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
 /// What was last read from each repository's tracker, and when Fleet last
@@ -85,7 +85,7 @@ fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
 fn tracked(issue: &OpenIssue, going: &BTreeMap<String, JobId>) -> TrackedIssue {
     let url = issue.url.as_written().to_string();
     TrackedIssue {
-        number: issue.number,
+        reference: issue.reference.clone(),
         title: issue.title.as_written().to_string(),
         job_id: going.get(&url).cloned(),
         url,
@@ -173,13 +173,14 @@ where
         self.issue_list(manifest_id, held, stale).await
     }
 
-    /// **Read from the tracker each time**: it is for a number the held list does not have, which
+    /// **Read from the tracker each time**: it is for an issue the held list does not have, which
     /// is closed or not an issue, and a person pressing it wants what is there now.
-    async fn get_issue(&self, manifest_id: ManifestId, number: u64) -> Result<IssueRead, Refusal> {
+    async fn get_issue(&self, manifest_id: ManifestId, reference: String) -> Result<IssueRead, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
         let tracker = self.tracker_of(&served);
         let root = served.root().to_string();
-        let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, number))
+        let asked = reference.clone();
+        let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, &asked))
             .await
             .unwrap_or_else(|panicked| {
                 Err(adapter_traits::NotTracked::of(
@@ -189,7 +190,7 @@ where
             });
         match read {
             Ok(Some(issue)) => Ok(IssueRead {
-                number: issue.number,
+                reference: issue.reference,
                 title: issue.title.as_written().to_string(),
                 url: issue.url.as_written().to_string(),
                 state: match issue.closed {
@@ -199,7 +200,7 @@ where
             }),
             Ok(None) => Err(Refusal::NoSuchJob(WireError::raised(
                 NO_SUCH_ISSUE,
-                format!("The tracker has no issue {number}"),
+                format!("The tracker has no issue {reference}"),
                 self.run_id(),
             ))),
             Err(not) => Err(Refusal::Fault(WireError::raised(

@@ -5,7 +5,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { sheet, mountApp, type Mounted, studying } from "@armada/desktop/mock";
+import { sheet, mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -31,7 +31,7 @@ const rail = () => page.getByRole("group", { name: "What you can put on this Stu
 const run = () => rail().getByRole("button", { name: "Run", exact: true });
 
 async function openTheStudio(): Promise<void> {
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 }
 

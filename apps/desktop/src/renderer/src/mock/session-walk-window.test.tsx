@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -14,7 +14,7 @@ const window = () => page.getByRole("dialog", { name: "Bridge's window on Store 
 test("Session window: opens by itself, reopens from the ledger row, and a note goes to the Session", async () => {
   mount("session-walk-window");
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: "Store clock findings" }));
   await expect.element(window()).not.toBeInTheDocument();
 

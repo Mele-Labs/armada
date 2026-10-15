@@ -15,6 +15,7 @@ import {
   mount,
   NOT_READ_ALLOWLIST,
   pressable,
+  toSystemPage,
   unmountAfterEach,
 } from "@armada/desktop/mock";
 import type { Manifesting } from "@armada/desktop/mock";
@@ -24,10 +25,10 @@ unmountAfterEach();
 // Core and Manifest only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "manifest"] } as const;
 
-/** The Kit surface, by the rail. */
+/** The Kit surface, by the System strip. */
 async function kit(options: Manifesting = {}): Promise<void> {
   mount(manifesting(options), SLICES);
-  await page.getByRole("button", { name: "Kit", exact: true }).click();
+  await toSystemPage("Kit");
 }
 
 /**

@@ -142,6 +142,9 @@ pub mod key_bindings;
 mod mods;
 /// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.
 mod clashes;
+/// What each served repository holds and where each agent is changing it, for the deck's map.
+/// `docs/concepts/fleet.md`, *The territory*.
+mod territory;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -226,6 +229,8 @@ mod model_downshift;
 mod context_breakdown;
 /// What a hosted Session is doing now, as Fleet saw it.
 mod session_activity;
+/// What a Session has built: its phase, pieces and road, read off what Fleet observed.
+mod session_build;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -410,6 +415,9 @@ pub use mods::{
     SetModEnabled,
 };
 pub use clashes::{ClashHolder, ClashSide, WriteClash, WriteClashes};
+pub use territory::{
+    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches, TouchesInRepository,
+};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};
@@ -497,7 +505,7 @@ pub use sessions::{
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
     SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WindowClosed,
+    WindowClosed, WindowFailed,
 };
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
@@ -505,11 +513,14 @@ pub use autopilot::{
 };
 pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile};
 pub use session_activity::{SessionActivity, SessionTodo, SessionTodoState};
+pub use session_build::{
+    BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,
+};
 pub use model_downshift::{ModelDownshift, ModelDownshiftState};
 pub use plan_usage::{PlanUsage, PlanWindow};
 pub use accounts::{
-    AccountFlow, Accounts, Profile, SetActiveAccount, SetUpState, SetUpSteps, SignInEnded, SignInOutcome,
-    SignOut, SignedOut,
+    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState, SetUpSteps,
+    SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
@@ -559,7 +570,7 @@ pub use waiting::{
     AskedOption, ChosenAnswer, ChosenDecision, DecisionInFlight, QuestionInFlight, RedirectInFlight,
     RedirectWaiting,
 };
-pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
+pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkFailed, WalkNote, WalkNotes, WalkTold};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
     Submitted, TouchedFile, Work,

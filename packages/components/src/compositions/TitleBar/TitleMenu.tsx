@@ -1,11 +1,11 @@
-import { Menu, Moon, Settings, UserCheck } from "lucide-react";
+import { Menu, Moon, Settings, Stethoscope, UserCheck } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { AccountBadge, AccountMark, accountNeed, useAccount } from "../Account/Account";
 
 /**
- * The title row's one menu: the account, Sleep and Settings behind a single registry glyph, so the
+ * The title row's one menu: the account, Sleep, Settings and Doctor behind a single registry glyph, so the
  * row carries four things and not seven (the owner, 14 Oct 2026).
  *
  * **State that matters stays on the button.** Sleep on puts the moon on it, and nothing is signed in
@@ -23,11 +23,13 @@ export type TitleMenuProps = {
   onAccount?: () => void;
   /** Opens the Settings page. Absent draws no entry. */
   settings?: { onOpen: () => void; shortcut?: string };
+  /** Opens the Doctor page. Absent draws no entry. */
+  doctor?: { onOpen: () => void };
   /** The row's own controls, listed under the entries where the row is narrow. */
   narrow?: ReactNode;
 };
 
-export function TitleMenu({ sleep, settings, onAccount, narrow }: TitleMenuProps) {
+export function TitleMenu({ sleep, settings, doctor, onAccount, narrow }: TitleMenuProps) {
   const account = useAccount();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -57,7 +59,7 @@ export function TitleMenu({ sleep, settings, onAccount, narrow }: TitleMenuProps
     };
   }, [open]);
 
-  if (account === undefined && sleep === undefined && settings === undefined && narrow === undefined) return null;
+  if (account === undefined && sleep === undefined && settings === undefined && doctor === undefined && narrow === undefined) return null;
 
   const said = [
     "Menu",
@@ -145,6 +147,22 @@ export function TitleMenu({ sleep, settings, onAccount, narrow }: TitleMenuProps
                   </span>
                   <span>Settings</span>
                   {settings.shortcut === undefined ? null : <KbdCmd shortcut={settings.shortcut} />}
+                </button>
+              )}
+              {doctor === undefined ? null : (
+                <button
+                  type="button"
+                  className="armada-title-menu__item"
+                  aria-label="Doctor"
+                  onClick={() => {
+                    doctor.onOpen();
+                    away.current();
+                  }}
+                >
+                  <span className="armada-title-menu__glyph">
+                    <Stethoscope size={16} strokeWidth={2} aria-hidden />
+                  </span>
+                  <span>Doctor</span>
                 </button>
               )}
               {narrow === undefined ? null : (

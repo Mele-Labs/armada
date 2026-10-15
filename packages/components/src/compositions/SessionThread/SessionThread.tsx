@@ -1,6 +1,6 @@
 import { useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -18,7 +18,7 @@ import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
-import { InlineTag } from "../SessionComposer/InlineTag";
+import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
@@ -538,7 +538,7 @@ function Row({
 }) {
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
-  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: tag.title.replace(/^#\d+\s*/, "") }));
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (
@@ -704,6 +704,9 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
+/** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
+const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
+
 export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -758,7 +761,25 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}
-          {(asked.questions?.length ?? 0) > 0 ? null : <p className="armada-session-thread__command">{asked.command}</p>}
+          {(asked.questions?.length ?? 0) > 0 ? null : allowsOnce(asked) ? (
+            // The command is a block to be run, as in the thread: ▶ is Allow once.
+            <div className="armada-prose__run" role="group" aria-label={asked.command.split("\n")[0]}>
+              <div className="armada-prose__run-block">
+                <pre className="armada-prose__block">
+                  <code>{asked.command}</code>
+                </pre>
+                <span className="armada-prose__run-acts">
+                  <Tooltip label="Allow once">
+                    <Button variant="ghost" size="sm" iconOnly aria-label="Allow once" onClick={() => onAnswer("allow_once")}>
+                      <Play size={16} strokeWidth={2} aria-hidden />
+                    </Button>
+                  </Tooltip>
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="armada-session-thread__command">{asked.command}</p>
+          )}
           {asked.questions !== undefined && asked.questions.length > 0 ? (
             <QuestionDeck
               key={asked.command}
@@ -778,7 +799,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
                 </Button>
               </>
             ) : (
-              asked.offers.map((offer) => (
+              asked.offers.filter((offer) => offer.id !== "allow_once").map((offer) => (
                 <Tooltip key={offer.id} label={offer.means}>
                   <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id)}>
                     {offer.label}

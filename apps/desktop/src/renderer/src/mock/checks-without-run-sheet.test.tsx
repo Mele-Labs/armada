@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -12,7 +12,7 @@ test("a gate's, a Drone's and the merge line's Checks list while the run sheet i
   mount("checks-without-run-sheet");
   await onScreen();
 
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Checks", exact: true }).click();
+  await toPageByName("Checks");
   await expect.element(page.getByRole("button", { name: "components_test", exact: true })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "scripts_test", exact: true })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "desktop_test", exact: true })).toBeVisible();

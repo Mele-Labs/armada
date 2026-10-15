@@ -35,7 +35,7 @@ Fix exists only when a Check fails. Once every Manifest is written, each workspa
 
 ## Getting in
 
-**A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* over a rail that says nothing is set up yet. Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup. Locate is that dialog, and the rail's *Add a repository* opens it for every repository after. It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
+**A Fleet can start with nothing, and a fresh install does.** No repository is served until a person adds the first one, so Bridge opens on *Add a repository* with nothing set up yet. Nothing on screen reads as a fault meanwhile, and the first repository added lands on Setup. Locate is that dialog, and the picker's *Add a repository* opens it for every repository after. It exists because the flow otherwise assumed Armada already knew which repo it was looking at.
 
 **The picker names a repository by the name Fleet read its Manifest under**, widening to `parent/folder` and then the whole root only where two would otherwise read alike. It drew the Manifest's id until 28 Sep 2026, when the owner found a ULID in the trigger: `ManifestId` is a newtype over a `Ulid`, and [Manifest](../concepts/manifest.md), Deletion, already bound that a surface renders the name. A repository not yet set up reads as its folder, on the same ladder. Every Bridge follows an add made anywhere, and Overview lists what the picker names — every repository's Jobs on All, or the picked one's — per [Job Board](../concepts/job-board.md).
 

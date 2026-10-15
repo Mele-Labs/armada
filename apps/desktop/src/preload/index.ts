@@ -40,6 +40,7 @@ import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { WriteClashesRead } from "../shared/api/clashes";
+import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import type { HelmCarry } from "../shared/api/helm";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
@@ -666,7 +667,7 @@ const api: BridgeApi = {
   getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
-  getIssue: (manifestId: string, number: number): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, number),
+  getIssue: (manifestId: string, reference: string): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, reference),
   getPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
     ipcRenderer.invoke(CHANNELS.getPullRequest, manifestId, number),
   ...autopilotPreload,
@@ -699,10 +700,13 @@ const api: BridgeApi = {
     };
   },
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
+  getRepositoryAreas: (): Promise<RepositoryAreasRead> => ipcRenderer.invoke(CHANNELS.getRepositoryAreas),
+  getSlotTouches: (): Promise<SlotTouchesRead> => ipcRenderer.invoke(CHANNELS.getSlotTouches),
   getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),
   startSignIn: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.startSignIn),
   signOut: (accountId: number): Promise<AccountsActed<SignedOut>> => ipcRenderer.invoke(CHANNELS.signOut, accountId),
-  setActiveAccount: (accountId: number): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.setActiveAccount, accountId),
+  setRepositoryProfile: (root: string, accountId: number | null): Promise<AccountsActed> =>
+    ipcRenderer.invoke(CHANNELS.setRepositoryProfile, root, accountId),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),

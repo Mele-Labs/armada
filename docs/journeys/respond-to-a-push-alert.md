@@ -10,9 +10,13 @@ Design fidelity: not set. Analysis: Complete. UI/UX design: In progress.
 
 **Concepts touched:** Bridge (Alerts), Drone, Debug/Pilot.
 
-**Milestone:** Recovery. Alerts is the surface that stayed in the rail when Active Jobs, Reviews and the Activity Feed folded into the Board.
+**Milestone:** Recovery. Alerts is the surface that stayed when Active Jobs, Reviews and the Activity Feed folded into the Board.
 
 It shares design order with Triage Queue — 3 and 3.5 — because the two should be designed together, not sequentially.
+
+## On the Cockpit
+
+A call that comes for the person is raised on the deck as an Incoming call, and the deck is the only Cockpit, so there is no second place one is drawn. A Session that replied and went idle raises one too. While the window is on another tab a toast says a call has come, and a press brings the call forward on the deck's stage; on the Cockpit tab the call is already in Incoming calls and no toast is drawn, and the Cockpit tab carries a pip instead.
 
 ## Settled in design, 2026-08-21
 

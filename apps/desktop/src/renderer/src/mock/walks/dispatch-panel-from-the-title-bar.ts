@@ -3,12 +3,12 @@
 // The repository is a chip read from the words, and asked inline when the send has none, whatever its
 // kind. Autopilot reads its settings in the panel and starts from it.
 
-import { button, dialog, inside, region, role, tab, walk } from "../walk";
+import { button, dialog, inside, place, region, role, tab, text, walk } from "../walk";
 
 const frame = role("region", "Dispatch", { exact: true });
 const request = role("textbox", "Request");
 const strip = role("group", "Last dispatch");
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const chip = (name: string) => inside(frame, button(name));
 const act = (name: string) => inside(frame, button(name, { exact: true }));
 const kind = (name: string) => inside(frame, tab(name));
@@ -72,10 +72,10 @@ const dispatchPanelFromTheTitleBar = walk("dispatch-panel-from-the-title-bar", [
   { look: inPanel(role("textbox", "Instruction")), say: "Fleet's reading is in the panel: the instruction, then At once, Until, Spend and Jobs, each editable" },
   { type: "3", into: inPanel(role("textbox", "At once")), say: "At once changed to 3" },
   { press: inPanel(button("Start Autopilot", { exact: true })), say: "Start Autopilot" },
-  { press: inside(role("navigation", "Work"), button("Cockpit")), say: "The panel has gone. Back on the Cockpit" },
-  { press: button("Autopilot", { exact: true }), say: "The control in the header band asks for a repository" },
-  { press: role("menuitem", /armada/), say: "Armada" },
-  { look: region("Autopilot"), say: "Autopilot is running on armada" },
+  { press: place("Cockpit"), say: "The panel has gone. Back on the Cockpit" },
+  { press: inside(region("Autopilot"), button("Repository", { exact: true })), say: "The Autopilot card asks for a repository while none is chosen" },
+  { press: role("menuitem", "armada", { exact: true }), say: "Armada" },
+  { look: inside(region("Autopilot"), text("Running")), say: "Autopilot is running on armada" },
 ]);
 
 export { dispatchPanelFromTheTitleBar as "dispatch-panel-from-the-title-bar" };

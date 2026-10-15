@@ -2,7 +2,7 @@
 // Enter sends it. A running turn has a Stop beside the working mark: it ends the turn, the Session
 // rests, and its box takes the next message. Over the `debug-bridge-draft` scenario.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
@@ -10,7 +10,7 @@ function steps(): Step[] {
   const thread = region("Thread");
   const message = role("textbox", "Message");
   return [
-    { key: "Meta+Shift+d", on: button("Sessions", { exact: true }), say: "⇧⌘D, from wherever focus is" },
+    { key: "Meta+Shift+d", on: place("Sessions"), say: "⇧⌘D, from wherever focus is" },
     { look: text("Work out what is going on in Bridge"), say: "A new Session, its note waiting in the box" },
     { look: text(/annotation-.*\.png/), say: "The screenshot attached to it" },
     { look: thread, say: "No turn is running: the thread is empty" },

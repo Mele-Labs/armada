@@ -1,76 +1,35 @@
-// Bridge's frame: the rail, the panel the journeys mount in, and the status
-// bar. The drawn shell, wired to what Fleet actually serves.
+// Bridge's frame: the title row with the Cockpit window's tabs, the panel the journeys mount in, and Helm's dock. The drawn
+// shell, wired to what Fleet actually serves.
+//
+// **There is no rail.** The places are the title row's tabs and the System strip (`surfaces.ts`), the repository picker is the
+// top of the deck's left column, and Fleet's panel is a popover on the title row's dot. #2301.
 //
 // # The roster is what exists
 //
-// The rail carries the Job Board and the held worktrees, which are the
-// surfaces built. Alerts, Doctor, Manifest and Helm are named in the concept
-// page and none of them is built — a disabled row would be a promise Armada
-// does not keep, so each holds its place in the order and its digit without
-// drawing anything. `surfaces.ts` is where that order lives.
-//
-// Active Jobs, Reviews and the Activity Feed used to be named here too. They
-// are not surfaces any more: the Board holds every Job with state as a filter,
-// and each of the three is that list under one filter. See
-// `docs/concepts/bridge.md`.
+// `surfaces.ts` is where the destinations live. A destination that is not built is not listed: a disabled row would be a
+// promise Armada does not keep.
 //
 // # One region of the drawing has no source, and is left out
 //
-// `today ~$4.80`: nothing measures spend, and it is not drawn as a labelled
-// blank — a label with nothing under it reads as a value that failed to load.
-//
-// `1 drone` used to be here for the same reason: `assigned_drone` has no event
-// that sets it, so no count could be taken from the board. `get_capacity`
-// answers it now, from the roster admission itself counts against, so the
-// contract's `pid, port, drone count` is finally all three.
-//
-// # The status bar is gone; Fleet's state lives in the left column
-//
-// Bridge/1088 replaced the rail and the status bar with two rounded
-// panels — Navigation and Fleet. **Their rows arrive built**, from
-// `apps/desktop`'s `left-column.ts`, which reads the same arithmetic
-// Overview's own tiles do. Not built here: `@armada/screens` already depends
-// on this package for `statementOf`, and the reverse import would be a cycle.
-//
-// **And under `--layout-breakpoint` both collapse to the 48px rail.**
-// Navigation keeps its glyphs, Fleet keeps one status dot, and
-// nothing leaves the screen. #1435 took the column away outright and the owner
-// corrected it on 18 Sep 2026. There was a second, wider band it collapsed in
-// to pay for Helm's dock; #1583 put the dock on a layer and the band went with
-// the bill.
-//
-// **A person can also ask for that rail, at any width** — #1591, and
-// `toggle_sidebar` built. `useLeftCollapsed` remembers the answer and the
-// breakpoint still overrides it, so there is one collapsed state with two ways
-// in rather than a second narrow one.
+// `today ~$4.80`: nothing measures spend, and it is not drawn as a labelled blank, because a label with nothing under it
+// reads as a value that failed to load.
 //
 // # The picker and Dispatch live in the title row, not here
 //
-// #1087 moved the repository picker out of the rail and put a second
-// `Dispatch` beside it, in the row `TheShell` draws over the traffic lights.
-// This file still renders the picker's markup — it is Bridge's own reading of
-// what Fleet serves — but hands it to `TheShell` as `repositoryPicker` rather
-// than `railHeader`.
+// #1087 put `Dispatch` in the row `TheShell` draws over the traffic lights. The picker's entries reach the title row's narrow
+// menu as `repositoryMenu`, and the deck draws the picker itself.
 //
 // # No screen draws a page head, #1090
 //
-// Every screen used to spend a header row naming the surface the rail already
-// says — `headOf` built it and this file carried it to `TheShell` as `title`,
-// `summary` and `actions`. All three are gone: the rail is where a person
-// reads where they are, and a screen's own controls — Board's menu, the way
-// out of the composer, the reports and the held worktrees — sit at the top of
-// each screen's own content instead. `App.tsx` is where that moved.
+// A screen's own controls sit at the top of its content; `App.tsx` is where that moved.
 
-import { FileCog, FolderGit2 } from "lucide-react";
+import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Button,
   DockQuestions,
-  DropdownMenu,
   isPressed,
   keyFor,
   TheShell,
-  Tooltip,
   useAccount,
   useKeyBindings,
   type DockQuestion,
@@ -81,18 +40,12 @@ import {
 import type { Connection } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
 import { useDockWidth } from "./dock-width";
-// The rail collapses below `--layout-breakpoint`, and job detail's inspector
-// folds to a sheet at the same bound. One reader, in `floor.ts`, so the two
-// cannot answer a resize a pixel apart.
+// The dock folds to a sheet, and job detail's inspector folds to a sheet, at `--layout-breakpoint`. One reader, in `floor.ts`, so the
+// two cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
-import { useLayout } from "./layout";
-import { useLeftCollapsed } from "./left-collapsed";
-import { useLeftWidth } from "./left-width";
 import { useRecentRepositories } from "./recent-repositories";
-import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, rootOf } from "./repository-entries";
-import { MACHINE_SCOPE_SAID, surfaceScope } from "./surface-scope";
-import { repositoryLabel } from "./repository-label";
-import { panelSurfaces, RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
+import { ADD, ALL, repositoryEntries, rootOf } from "./repository-entries";
+import { SURFACE, SURFACES } from "./surfaces";
 
 export type ShellProps = {
   connection: Connection;
@@ -127,21 +80,12 @@ export type ShellProps = {
   sleep?: TheShellProps["sleep"];
   /** The plan's limits, in the title row. Absent draws none. */
   planUsage?: TheShellProps["planUsage"];
-  /** Which surface is up, by its id in `surfaces.ts`. The rail marks it. */
-  showing: string;
-  /** Selecting a rail row goes to that surface, from wherever you are. The
-   *  rail is the one thing present on every view, so it is where a person
-   *  looks to get back — Escape and Cancel both work and neither is what they
-   *  reach for. **It takes the id**: with more than one row, a handler that
-   *  ignored which was pressed would land on the wrong screen silently. */
+  /** The title row's centre, before the search trigger. See `TheShell`. */
+  places?: TheShellProps["places"];
+  /** The title row's word in place of the lockup. See `TheShell`. */
+  wordmark?: TheShellProps["wordmark"];
+  /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
-  /**
-   * Surfaces with nothing behind them yet, left off the rail rather than drawn as a row that opens
-   * an empty screen. The merge line, until there is a line to show.
-   */
-  hidden?: readonly string[];
-  /** A mark on a rail row, by surface id, and what its tooltip says. */
-  warned?: Readonly<Record<string, string>>;
   /** Every question waiting on a person, from every repository, as the dock's cards. Oldest first. */
   questions?: readonly DockQuestion[];
   /**
@@ -177,36 +121,24 @@ export function Shell({
   onSearch,
   sleep,
   planUsage,
-  showing,
+  places,
+  wordmark,
   onSurface,
-  hidden = [],
-  warned = {},
   questions = [],
   asking = 0,
   helm,
   helmAction,
   children,
 }: ShellProps) {
-  // The chrome draws keys — Helm's, the rail's digits — so it redraws when Settings → Keyboard moves one.
+  // The chrome draws keys, Helm's among them, so it redraws when Settings → Keyboard moves one.
   useKeyBindings();
   const narrow = useNarrow();
   const account = useAccount();
   const openAccount = () => onSurface?.(SURFACE.account);
   const dock = useDock(narrow);
-  // One band, the window's own, and one press. It was two bands until #1583,
-  // the second being `--window-fold-left` *and* the dock beside the content —
-  // pixels the column gave up so the dock could hold its 380. The dock is a
-  // layer over the work now and asks for none, so opening Helm cannot move the
-  // column under it, and #1591 put the choice back where a person makes it.
-  const [chosen, chooseCollapsed] = useLeftCollapsed();
-  const collapsed = narrow || chosen;
-  useToggleSidebar(narrow, () => chooseCollapsed(!chosen));
   const [dockWidth, resizeDock] = useDockWidth();
-  const [leftWidth, resizeLeft] = useLeftWidth();
-  // What a layout takes off the rail. The palette still reaches it by name.
-  const railOff = useLayout("rail").all.filter((one) => !one.visible).map((one) => one.id);
   const live = connection.state === "connected";
-  // One list, drawn twice: the picker's dropdown, and the narrow menu's rows.
+  // The narrow menu's rows: the picker's list.
   const [recent, remember] = useRecentRepositories();
   const pickerEntries = repositoryEntries(repositories, {
     scope,
@@ -214,23 +146,20 @@ export function Shell({
     add: onAddRepository !== undefined,
     recent,
   });
-  const machineWide = surfaceScope(showing) === "machine";
   const pick = (picked: string) => {
     if (picked === ADD) return onAddRepository?.();
     const root = rootOf(picked);
     if (root !== ALL) remember(root);
     onScope(root === ALL ? null : root);
   };
-  // Always, once there is a repository to find: over none it would filter nothing.
-  const searchLabel = repositories.length > 0 ? FIND_A_REPOSITORY : undefined;
 
   return (
     <TheShell
+      {...(places === undefined ? {} : { places })}
+      {...(wordmark === undefined ? {} : { wordmark })}
       dock={{
         ...dock,
-        // The breakpoint alone. The dock folds to its sheet where the title
-        // row has no room for its button, which is not the same question as
-        // whether the left column is at its rail.
+        // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.
         folded: narrow,
         binding: keyFor("helm"),
         questions: questions.length + asking,
@@ -248,32 +177,6 @@ export function Shell({
           </>
         ),
       }}
-      panels={RAIL_PANELS.map((panel) => ({
-        id: panel.id,
-        label: panel.label,
-        surfaces: panelSurfaces(panel)
-          .filter((surface) => !hidden.includes(surface.id) && !railOff.includes(surface.id))
-          .map((surface) => ({
-            id: surface.id,
-            label: surface.label,
-            icon: surface.icon,
-            shortcut: surface.shortcut,
-            ...(warned[surface.id] === undefined ? {} : { warning: warned[surface.id] }),
-            // **No row carries a count.** The Board's did — active Jobs, the
-            // owner's ruling of 11 Sep 2026 — and that row went with the page.
-            // A count beside a row is a second place to read one,
-            // and a second chance to disagree.
-          })),
-      }))}
-      activeId={showing}
-      onSelect={onSurface}
-      collapsed={collapsed}
-      // No control under the breakpoint: there the rail is the only width
-      // there is, and a toggle that cannot expand is a press that does nothing.
-      {...(narrow ? {} : { onCollapsedChange: chooseCollapsed })}
-      collapseBinding={keyFor("toggle_sidebar")}
-      leftWidth={leftWidth}
-      onResizeLeft={resizeLeft}
       repositoryMenu={{
         entries: pickerEntries,
         onSelect: pick,
@@ -288,69 +191,13 @@ export function Shell({
               },
             }),
       }}
-      repositoryPicker={
-        <>
-          <DropdownMenu
-            // The trigger leads the title row, so the menu hangs from its leading
-            // edge: trailing-flush ran off the window's left edge for a short name.
-            align="start"
-            // In the rail's panel, whose column scrolls and would clip a menu hung inside it.
-            portal
-            triggerLabel={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}
-            entries={pickerEntries}
-            // Disabled where nothing behind it is actionable — Add a
-            // repository stays reachable on an empty Fleet, which is when it
-            // matters most, so its presence keeps the trigger live. And on a
-            // surface about this machine, where a pick changes nothing.
-            disabled={machineWide || (repositories.length === 0 && onAddRepository === undefined)}
-            onSelect={pick}
-            {...(searchLabel === undefined ? {} : { searchLabel })}
-          />
-          {/* Beside the pick rather than under it: the menu answers *which*,
-              and this answers *open it*, which are two acts and not one entry.
-              `.armada-title-bar__picker` is already a flex row with the row's
-              own gap, so it needs no layout here. */}
-          {onOpenManifest === undefined ? null : (
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label={MANIFEST_SAID}
-              title={MANIFEST_SAID}
-              // Nothing served is nothing to open, and the menu beside it is
-              // already the way to add the first repository.
-              disabled={repositories.length === 0}
-              onClick={onOpenManifest}
-            >
-              <ManifestGlyph size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          )}
-        </>
-      }
-      repositoryPickerCollapsed={
-        <Tooltip label={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}>
-          <DropdownMenu
-            align="start"
-            portal
-            icon={FolderGit2}
-            triggerLabel={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}
-            entries={
-              onOpenManifest === undefined
-                ? pickerEntries
-                : [...pickerEntries, { kind: "separator", id: "manifest-rule" }, { kind: "item", id: MANIFEST_ID, label: MANIFEST_SAID, disabled: repositories.length === 0 }]
-            }
-            disabled={machineWide || (repositories.length === 0 && onAddRepository === undefined)}
-            onSelect={(picked) => (picked === MANIFEST_ID ? onOpenManifest?.() : pick(picked))}
-            {...(searchLabel === undefined ? {} : { searchLabel })}
-          />
-        </Tooltip>
-      }
       menu={{
         ...(account === undefined ? {} : { account: { onOpen: openAccount } }),
         settings: {
           onOpen: () => onSurface?.(SURFACE.settings),
           ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),
         },
+        doctor: { onOpen: () => onSurface?.(SURFACE.doctor) },
       }}
       onSearch={onSearch}
       {...(sleep === undefined ? {} : { sleep })}
@@ -371,47 +218,9 @@ export function Shell({
  */
 const MANIFEST_SURFACE = SURFACES.find((one) => one.id === SURFACE.manifest);
 const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
-const MANIFEST_ID = "open-manifest";
-/** Settings, read off the same roster, so the menu's entry and the rail's row share one key. */
+/** Settings, read off the same roster, so the menu's entry and the palette's row share one key. */
 const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
-
-/** The trigger's own label: the picked repository, All, or why there is nothing to pick yet. */
-function repositoryTriggerLabel(
-  repositories: readonly RepositorySummary[],
-  scope: string | null,
-  listed: boolean,
-): string {
-  if (repositories.length === 0) return listed ? "Nothing set up yet" : "No repository read yet";
-  if (scope === null) return "All repositories";
-  const repository = repositories.find((one) => one.root === scope);
-  return repository === undefined ? scope : repositoryLabel(repository, repositories);
-}
-
-/**
- * `⌘\` collapses the left column to its rail and brings it back — #1591.
- *
- * **Inert under `--layout-breakpoint`**, where the column is at the rail
- * whatever anyone chose. Moving the remembered choice there would change a
- * state nothing on screen could show, and the person would find out on the
- * next resize.
- */
-function useToggleSidebar(narrow: boolean, toggle: () => void): void {
-  const press = useRef(toggle);
-  press.current = toggle;
-
-  useEffect(() => {
-    if (narrow) return undefined;
-    function pressed(event: KeyboardEvent): void {
-      // `toggle_sidebar`'s keys as this person has them — `⌘\` unless Settings → Keyboard moved it.
-      if (event.repeat || !isPressed("toggle_sidebar", event)) return;
-      event.preventDefault();
-      press.current();
-    }
-    window.addEventListener("keydown", pressed);
-    return () => window.removeEventListener("keydown", pressed);
-  }, [narrow]);
-}
 
 const OPEN_HELM = "armada:open-helm";
 

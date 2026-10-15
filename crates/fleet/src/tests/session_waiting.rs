@@ -264,7 +264,7 @@ async fn a_permission_takes_a_choice_and_a_mode_alone_refuses_it_with_the_line()
             RunOrNot::Allow { .. } => assert_eq!(choice, Some(0), "choice 0 is Allow once"),
             RunOrNot::Deny { message } => {
                 assert!(mode.is_some());
-                assert!(message.contains("Take the reasonable path and keep moving"), "{message}");
+                assert!(message.contains("finish the work and land it"), "{message}");
             }
         }
     }

@@ -28,6 +28,9 @@ export type Usage = {
   cost_micros?: number
 }
 
+/** One task of the agent's list. `id` is its task tool's, or its place in a `TodoWrite` list. */
+export type Task = { id: string; text: string; status: 'pending' | 'in_progress' | 'completed' }
+
 export type Fact =
   | { kind: 'started'; cwd: string; title?: string; origin: 'terminal'; mod_version?: string }
   | { kind: 'titled'; title: string; named?: boolean }
@@ -57,4 +60,10 @@ export type Fact =
   | { kind: 'read'; path: string }
   | { kind: 'ran'; command: string }
   | { kind: 'wrote' }
+  | { kind: 'tasks'; tasks: Task[] }
+  | { kind: 'plan_left' }
+  | { kind: 'committed'; branch?: string }
+  | { kind: 'pushed'; branch?: string }
+  | { kind: 'permission_asked'; tool: string; detail?: string }
+  | { kind: 'permission_settled' }
   | { kind: 'ended'; reason: string }

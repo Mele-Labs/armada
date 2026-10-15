@@ -902,12 +902,12 @@ ci_gate: build
 tracker:
   provider: jira
   site: acme
-  project: ABC
+  project: ABC, OPS
 ```
 
 | Key | Absent | Meaning |
 |---|---|---|
-| `tracker` | The forge's own tracker | Which tracker holds the repository's issues. `provider` names the implementation and every other key is carried as written, for that provider to read and refuse. `concepts/tracker.md`, *Choosing a tracker* and *Jira* |
+| `tracker` | The forge's own tracker | Which tracker holds the repository's issues. `provider` names the implementation and every other key is carried as written, for that provider to read and refuse. `concepts/tracker.md`, *Choosing a tracker* and *Jira*. For `jira`, `site` is required, and `project` (one key or several, comma separated), `jql` or both name what is listed: a block with neither is refused |
 | `ci_gate` | `ci` | The name of the check on a pull request that decides its `ci`. Where a pull request carries a check of that name only that one decides; where it carries none, every check does. `capabilities/merge-line.md` |
 
 - **A key that is not text is refused at its own path** (`tracker.site`, `ci_gate`), and the rest of the Manifest still reads. A refused `ci_gate` reads as `ci`.

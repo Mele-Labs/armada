@@ -43,7 +43,7 @@ your reason, and you are asked about the next issue.
 
 Answer with nothing but these four lines:
 
-    issue: <its number, or none where no issue above is one the instruction covers>
+    issue: <its reference exactly as written above, or none where no issue above is one the instruction covers>
     workflow: <the id, spelled exactly as it appears above>
     sure: <yes or no>
     because: <why, in one line the person will read in the morning>";
@@ -51,7 +51,9 @@ Answer with nothing but these four lines:
 /// One issue the picker may choose.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Candidate {
-    pub number: u64,
+    /// The tracker's own name for it (`#12`, `ABC-12`), which is how the picker answers and how
+    /// the issue is told apart.
+    pub reference: String,
     pub title: String,
     pub url: String,
     pub excerpt: String,
@@ -65,7 +67,7 @@ pub fn candidates(open: &[OpenIssue], taken: &BTreeSet<String>) -> Vec<Candidate
         .filter(|issue| !issue.linked_pull_request)
         .filter(|issue| !taken.contains(issue.url.as_written()))
         .map(|issue| Candidate {
-            number: issue.number,
+            reference: issue.reference.clone(),
             title: issue.title.as_written().to_string(),
             url: issue.url.as_written().to_string(),
             excerpt: issue.excerpt.as_written().to_string(),
@@ -148,7 +150,7 @@ pub fn pick_question(
 ) -> String {
     let mut issues = String::new();
     for issue in offered {
-        issues.push_str(&format!("  #{} {}\n", issue.number, issue.title));
+        issues.push_str(&format!("  {} {}\n", issue.reference, issue.title));
         if !issue.labels.is_empty() {
             issues.push_str(&format!("    labels: {}\n", issue.labels.join(", ")));
         }
@@ -212,15 +214,13 @@ pub fn read_pick(
             reason: reason.unwrap_or_else(|| "it gave no reason".to_string()),
         });
     }
-    let number: u64 = named
-        .trim_start_matches('#')
-        .parse()
-        .map_err(|_| unreadable(format!("`{named}` is not an issue number")))?;
+    // The picker may drop the `#` a forge's references carry, or add one.
+    let bare = |text: &str| text.trim().trim_start_matches('#').to_ascii_uppercase();
     let issue = offered
         .iter()
-        .find(|one| one.number == number)
+        .find(|one| bare(&one.reference) == bare(&named))
         .cloned()
-        .ok_or_else(|| unreadable(format!("issue {number} was not one it was offered")))?;
+        .ok_or_else(|| unreadable(format!("issue {named} was not one it was offered")))?;
     let workflow_named = line(answer, "workflow").unwrap_or_default();
     let workflow = workflows
         .keys()

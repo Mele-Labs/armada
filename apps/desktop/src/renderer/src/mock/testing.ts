@@ -1,5 +1,5 @@
 // What a browser test needs to drive `App` on a scenario: mount it, take it
-// down after, and reach a surface the way a person does — by the rail.
+// down after, and reach a surface the way a person does — by the title bar's tabs, the System strip or ⌘K.
 
 import { forgetAllKept } from "@armada/components";
 import { closeWalkWindow } from "@armada/jobs/fake";
@@ -22,11 +22,6 @@ let remembered: Readonly<Record<string, string>> = {};
 /** The next mount starts from these remembered picks, by storage key. Forgotten again after the test. */
 export function remembering(picks: Readonly<Record<string, string>>): void {
   remembered = picks;
-}
-
-/** The Cockpit opens on its timeline; a test about the tiles starts from the grid the owner picked. */
-export function rememberingTheGrid(): void {
-  remembering({ "armada.bridge.cockpit-view": "grid" });
 }
 
 /** Registers the teardown. Call once at the top of a test file. */
@@ -55,6 +50,8 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   localStorage.removeItem("armada.bridge.dashboard-tab");
   localStorage.removeItem("armada.bridge.cockpit-view");
   localStorage.removeItem("armada.bridge.cockpit-timeline-take");
+  // And the flight deck's: the switch, its view and its filters.
+  for (const key of ["deck-preview", "deck-system", "deck-view", "deck-job-view", "deck-only", "deck-filters"]) localStorage.removeItem(`armada.bridge.${key}`);
   for (const [key, value] of Object.entries(remembered)) localStorage.setItem(key, value);
   const host = document.createElement("div");
   host.id = "root";
@@ -146,7 +143,31 @@ export async function motion(): Promise<void> {
   onTestFinished(() => commands.motion(false));
 }
 
-/** Every Board row drawn, in either arrangement. */
+/** A place in the title bar: Cockpit, Jobs, Sessions, Studios, Retros or System. Pressing the one a person is in goes up to its list. */
+export async function toPlace(name: "Cockpit" | "Jobs" | "Sessions" | "Studios" | "Retros" | "System"): Promise<void> {
+  await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name }));
+}
+
+/** A page on the System strip, from anywhere: System, then the page's tab. Studios and Retros are tabs of their own, one press. */
+export async function toSystemPage(name: string): Promise<void> {
+  if (name === "Studios" || name === "Retros") return toPlace(name);
+  await toPlace("System");
+  await userEvent.click(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name }));
+}
+
+/** A page no tab or strip place carries, by name from ⌘K. */
+export async function toPageByName(name: string): Promise<void> {
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await userEvent.keyboard(`${name}{Enter}`);
+}
+
+/** A Job's page, from the Cockpit: its row in the list, then the Open in its pane. */
+export async function toJobPage(title: RegExp | string): Promise<void> {
+  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: title }));
+  await userEvent.click(page.getByRole("region", { name: /^Job: / }).getByRole("button", { name: "Open the Job page" }));
+}
+
+/** Every Job row the Cockpit's list draws. */
 export const rows = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>("[data-job-id]")];
 
 /**
@@ -224,16 +245,14 @@ export async function openNode(name: string, at = 0): Promise<ReturnType<typeof 
 }
 
 /**
- * Put off every call standing in front of the Dashboard's panel, so the tiles under it can be pressed.
- * A call comes forward over the panel whatever the filter, and a press on what is behind it lands on
- * the card. `l` sends the one in front to the back, so once each has gone the front is empty.
+ * A call, opened from Incoming calls: it is a pane of its own on the stage, chosen by a press on its row, and never in front of
+ * what a test works in, so there is nothing to put off. The row is named `<kind>: <title>`.
  */
+export async function openCall(name: RegExp | string): Promise<void> {
+  await userEvent.click(page.getByRole("region", { name: "Incoming calls" }).getByRole("button", { name }));
+}
+
+/** Kept so a test reads as it was told: no call stands in front of the Cockpit's list, so there is nothing to put off. */
 export async function putOffEveryCall(): Promise<void> {
-  const front = () => document.querySelector<HTMLElement>(".armada-callcard")?.getAttribute("aria-label") ?? null;
-  for (let tries = 0; tries < 30 && front() !== null; tries += 1) {
-    const was = front();
-    await userEvent.keyboard("l");
-    await expect.poll(() => front() !== was || front() === null, { timeout: 3000 }).toBe(true);
-  }
-  expect(front()).toBeNull();
+  expect(document.querySelector(".deck-call")).toBeNull();
 }

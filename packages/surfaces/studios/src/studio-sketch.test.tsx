@@ -5,7 +5,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted, studying } from "@armada/desktop/mock";
+import { mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -34,7 +34,7 @@ async function openEditable(): Promise<void> {
   host.id = "root";
   document.body.append(host);
   mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect.element(page.getByRole("group", { name: /^Note: The legend under the step bar/ })).toBeVisible();

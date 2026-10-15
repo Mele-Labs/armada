@@ -9,7 +9,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted, studying, entered, openHelm, whenFleet } from "@armada/desktop/mock";
+import { mountApp, type Mounted, studying, entered, openHelm, whenFleet, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 import { everyKind } from "./fake";
@@ -122,7 +122,7 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   const fleet = studying([]);
   const first = open(fleet.scenario);
 
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await expect.element(page.getByRole("button", { name: "New Studio" })).toBeVisible();
   expect(page.getByText("No Studios yet.", { exact: false }).query()).toBeNull();
   await page.getByRole("button", { name: "New Studio" }).click();
@@ -143,7 +143,7 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   close();
   open(fleet.scenario, first.api);
 
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Untitled Studio", exact: true }).click();
   await expect.element(page.getByText("Read-only", { exact: true })).toBeVisible();
   await expect.element(node(/^Note: Drag me somewhere/)).toBeVisible();
@@ -187,7 +187,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   const fleet = studying([]);
   const first = open(fleet.scenario);
 
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
 
@@ -223,7 +223,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
 
   close();
   open(fleet.scenario, first.api);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await expect.element(node(/^Note: The legend is unreadable in View/)).toBeVisible();
   await expect.element(node(/^Link: docs\/contracts\/design-system\.md/)).toBeVisible();
@@ -237,7 +237,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
 test("Delete 1 node confirms, with Cancel first, and takes the node's edges with it", async () => {
   const fleet = studying([]);
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
   fleet.helmProposes(fleet.studios()[0]!.id);
@@ -261,13 +261,13 @@ test("Delete 1 node confirms, with Cancel first, and takes the node's edges with
 test("on All repositories the surface asks for one, since a Studio belongs to one", async () => {
   const fleet = studying();
   open({ ...fleet.scenario, state: { ...fleet.scenario.state, repository: null } });
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await expect.element(page.getByText("Pick a repository to open its Studios")).toBeVisible();
 });
 
 /** Studios from the rail, answering the surface's own ask for a repository. */
 async function openStudios(): Promise<void> {
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
   await page.getByRole("menuitem", { name: "armada", exact: true }).first().click();
 }
@@ -305,7 +305,7 @@ test("every-state keeps Studios, so the surface opens on a list and not a read f
  */
 test("a Studio row opens from anywhere on it, and its rename is behind the row's split button", async () => {
   open(studying().scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
 
   const row = page.getByRole("row").nth(1);
   await expect.element(row).toBeVisible();
@@ -341,7 +341,7 @@ test("a Studio row opens from anywhere on it, and its rename is behind the row's
  */
 test("the whiteboard's rail places a node, and the acts on one hover over it", async () => {
   open(studying().scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 
@@ -421,7 +421,7 @@ function outOfReach(): (string | null)[] {
  */
 test("a node picked half off either side of the board is panned in with its bar, at the same zoom", async () => {
   open(studying().scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect.element(node(/^Issue draft: The Board's legend is illegible/)).toBeVisible();
@@ -465,7 +465,7 @@ test("a node picked half off either side of the board is panned in with its bar,
 test("a rail press arms a kind, a press on the board puts it there, and it goes only by Esc or by being sent", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
@@ -539,7 +539,7 @@ test("a rail press arms a kind, a press on the board puts it there, and it goes 
 test("putting a draft down sends the written one already open, and drops a blank one", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
@@ -581,7 +581,7 @@ test("putting a draft down sends the written one already open, and drops a blank
 test("a proposed relation is answered on its own edge, and no queue sits in the corner", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 
   // The relation's own dot, named by who proposed it and what it says, and the
@@ -634,7 +634,7 @@ test("a scenario keeping no Studios draws no list and no sentence, and not a rea
 test("a Note draws the frame it kept, opens it full size, and a Note without one draws no plate", async () => {
   // The `studios` scenario has this repository picked already, and keeps the legend Studio.
   open(studying().scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 
   const kept = node(/^Note: The legend under the step bar is unreadable/);
@@ -667,7 +667,7 @@ test("a Note draws the frame it kept, opens it full size, and a Note without one
 test("two Notes clustered, the Cluster written up, the draft edited and dispatched to a Job node", async () => {
   const fleet = studying([]);
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
   fleet.twoNotes(fleet.studios()[0]!.id);
@@ -728,7 +728,7 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
 test("a Contradiction is ended as Resolved here, with the answer kept on the node", async () => {
   const fleet = studying([]);
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
   fleet.aContradiction(fleet.studios()[0]!.id);
@@ -767,7 +767,7 @@ const PASTED = "https://example.invalid/armada/issues/1378#issuecomment-28471900
 test("a pasted address is asked about, takes a line of its own, and keeps it across a reopen", async () => {
   const fleet = studying([]);
   const first = open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
 
@@ -792,7 +792,7 @@ test("a pasted address is asked about, takes a line of its own, and keeps it acr
 
   close();
   open(fleet.scenario, first.api);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Untitled Studio", exact: true }).click();
   await expect.element(node(/^Link: the owner's own report/)).toBeVisible();
 
@@ -814,7 +814,7 @@ test("a pasted address is asked about, takes a line of its own, and keeps it acr
 test("an issue is read in and an epic fills the board, with each address node left standing", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   // Reopened read-only, so nothing acts on it until a person continues it.
   await page.getByRole("button", { name: "Continue" }).click();
@@ -878,7 +878,7 @@ test("an issue is read in and an epic fills the board, with each address node le
 test("reading an epic in asks what to take, and narrowing leaves what a person worked on", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   const studio = () => fleet.studios()[0]!;
@@ -936,7 +936,7 @@ test("reading an epic in asks what to take, and narrowing leaves what a person w
 test("an issue read in is dispatched, its Job opens from the node, and the node reads it running", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 
@@ -1015,7 +1015,7 @@ test("an issue read in is dispatched, its Job opens from the node, and the node 
 test("a node holding an address opens in the browser, and a node without one offers no Open", async () => {
   const fleet = studying();
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
 
   // Read-only is no reason not to look at what a node points at.
@@ -1082,7 +1082,7 @@ async function pickEvery(): Promise<void> {
 test("every node picked is deleted by one act, confirmed once, and the Studio is left empty", async () => {
   const fleet = studying([everyKind("01JOBEVERYKIND0000000000000")]);
   open(fleet.scenario);
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Every kind of node and edge", exact: true }).click();
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
   // Reopened read-only, so nothing is deleted until a person continues it.
@@ -1119,8 +1119,8 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
 test("an open Studio draws no Back button, and the rail's Studios link returns to the list", async () => {
   const fleet = studying([everyKind("01JOBEVERYKIND0000000000000")]);
   open(fleet.scenario);
-  const rail = page.getByRole("button", { name: "Studios", exact: true }).first();
-  await rail.click();
+  const rail = page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Studios" });
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Every kind of node and edge", exact: true }).click();
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();
   expect(page.getByRole("button", { name: "Back to Studios" }).query()).toBeNull();

@@ -9,7 +9,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -32,14 +32,14 @@ test("Stop shows while the turn is working, ends it, and leaves the box ready", 
   ]);
   mount(served(fleet));
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
 
   // A Session at rest draws no Stop.
   await userEvent.click(page.getByRole("button", { name: "Resting one" }));
   await expect.element(thread()).toBeVisible();
   await expect.element(stop()).not.toBeInTheDocument();
 
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("button", { name: "Backfill dry run" }));
   await expect.element(thread().getByRole("img", { name: "Working" })).toBeVisible();
   await expect.element(stop()).toBeVisible();

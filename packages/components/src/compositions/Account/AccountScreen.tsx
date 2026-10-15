@@ -124,8 +124,8 @@ function Repositories({ account, profile }: { account: Account; profile: Profile
   if (rows.length === 0) return null;
   return (
     <ul className="armada-account__repos" aria-label={`Repositories of ${profile.login}`}>
-      {rows.map(({ name, by }) => (
-        <li key={name} className="armada-account__repo" aria-label={name}>
+      {rows.map(({ root, name, by }) => (
+        <li key={root} className="armada-account__repo" aria-label={name}>
           <span className="armada-account__name">{name}</span>
           <Bound by={by} />
           {bind === undefined ? null : (
@@ -134,7 +134,7 @@ function Repositories({ account, profile }: { account: Account; profile: Profile
               portal
               triggerAriaLabel={`Move ${name}`}
               entries={moveEntries(account.profiles, profile.login)}
-              onSelect={(id) => bind(name, id === NONE ? null : id)}
+              onSelect={(id) => bind(root, id === NONE ? null : id)}
             />
           )}
         </li>
@@ -200,11 +200,11 @@ function NotMatched({ account, rows }: { account: Account; rows: readonly Unboun
       <div className="armada-account-screen__glass">
         <div className="armada-account__tile" data-tile="plan">
           <ul className="armada-account__repos" aria-label="Not matched">
-            {rows.map(({ name, none }) => {
+            {rows.map(({ root, name, none }) => {
               const said = none === true ? "None" : "Waiting for a choice";
               const Glyph = none === true ? Ban : CircleDashed;
               return (
-                <li key={name} className="armada-account__repo" aria-label={name}>
+                <li key={root} className="armada-account__repo" aria-label={name}>
                   <span className="armada-account__name">{name}</span>
                   <Tooltip beside label={said}>
                     <span className="armada-account__unset" role="img" aria-label={said}>
@@ -219,7 +219,7 @@ function NotMatched({ account, rows }: { account: Account; rows: readonly Unboun
                       entries={moveEntries(account.profiles, null).map((entry) =>
                         entry.kind === "item" && entry.id === NONE && none !== true ? { ...entry, selected: false } : entry,
                       )}
-                      onSelect={(id) => bind(name, id === NONE ? null : id)}
+                      onSelect={(id) => bind(root, id === NONE ? null : id)}
                     />
                   )}
                 </li>

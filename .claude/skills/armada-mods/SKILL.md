@@ -1,6 +1,6 @@
 ---
 name: armada-mods
-description: How a session makes a mod for Bridge end to end — a theme (colours) or a layout (which tabs, panels and rail rows are drawn, and in what order). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, or to move, hide or reorder something in Bridge.
+description: How a session makes a mod for Bridge end to end — a theme (colours) or a layout (which tabs, panels and places are drawn, and in what order). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, or to move, hide or reorder something in Bridge.
 ---
 
 # Making a mod
@@ -109,7 +109,7 @@ primitive, not the alias. Keep body text at 4.5 to 1 against the layer it sits o
 
 # Making a layout mod
 
-**A layout names tabs, panels and rail rows by id and nothing else.** It can
+**A layout names tabs, panels and places by id and nothing else.** It can
 reorder them, hide some, and say which tab opens first. It cannot add a panel,
 change a label or reach any code. `docs/concepts/layout-mods.md` is what Fleet
 accepts and how layers combine.
@@ -137,14 +137,15 @@ nothing: check the id against the table.
 
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
-| `dashboard.tabs` | `command-central`, `running`, `done`, `bays` | `command-central` | yes | yes |
 | `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes | no |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
-| `rail` | `overview`, `jobs`, `studios`, `worktrees`, `merge-line`, `lessons`, `checks`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows` | `overview`, `mods`, `settings` | no | no |
+| `rail` | `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons` | `overview`, `mods`, `settings` | no | no |
 
-`packages/shell/layout-registry.json` is the list Fleet checks. **The Retros
-page is the rail row `lessons`**; the Dashboard has no such tab. Hiding takes an
-entry off the strip or the rail and nothing else: it stays in the palette and in
+`packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
+is the places: the Cockpit, Jobs and Sessions tabs and the System strip's pages.
+The Retros page is the place `lessons`.** A hidden `merge-line` panel hides the
+deck's merge queue, and `order` on the panels has no effect on the deck. Hiding takes an
+entry off the tab bar or the strip and nothing else: it stays in the palette and in
 links.
 
 | Field | Is | Notes |
@@ -158,12 +159,12 @@ A list is at most 32 ids, an id is lowercase letters, digits and `-` of at most
 40 characters, the file is at most 4 KiB, and any other key inside a region makes
 the whole file invalid.
 
-## Example: the merge line first, Retros off the rail
+## Example: the merge queue hidden, Retros off the strip
 
 ```json
 {
   "version": 1,
-  "dashboard.panels": { "order": ["merge-line", "fleet"] },
+  "dashboard.panels": { "hidden": ["merge-line"] },
   "rail": { "hidden": ["lessons"] }
 }
 ```

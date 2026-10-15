@@ -331,7 +331,7 @@ const NUMBERED = {
 };
 
 /**
- * `#` at the start of a word offers the repository's open issues and pull requests by number, prefix-matched. A
+ * `#` at the start of a word offers the repository's open issues and pull requests by number, prefix-matched (a key, in `HashTakesAKey`). A
  * chosen one is written in as a unit and sent with its kind and the forge's address.
  */
 export const Hash: Story = {
@@ -363,6 +363,47 @@ export const HashLooksANumberUp: Story = {
     await userEvent.click(closed);
     await userEvent.keyboard("{Enter}");
     await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "issue", id: "61", url: "https://forge.invalid/issues/61" })] }));
+  },
+};
+
+/** A tracker that names its issues by key, as Jira does: the id is the key and the title leads with it. */
+const KEYED = {
+  open: [
+    { tag: { kind: "issue" as const, id: "OPS-7", title: "OPS-7 Pager rota skips the night shift", url: "https://acme.atlassian.net/browse/OPS-7" } },
+    { tag: { kind: "issue" as const, id: "ABC-123", title: "ABC-123 Checkout total rounds twice", url: "https://acme.atlassian.net/browse/ABC-123" } },
+    { tag: { kind: "issue" as const, id: "OPS-12", title: "OPS-12 Rotate the staging database credentials", url: "https://acme.atlassian.net/browse/OPS-12" } },
+    { tag: { kind: "pull_request" as const, id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" } },
+  ],
+  find: async () => undefined,
+};
+
+/**
+ * `#` takes a key as well as digits, matched on its reference whatever the case. Each row is named by the key
+ * and carries the title without it; digits still offer the numbered ones only.
+ */
+export const HashTakesAKey: Story = {
+  args: { numbered: KEYED },
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "#ops");
+    const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
+    await expect(within(list).getAllByRole("option")).toHaveLength(2);
+    await expect(within(list).getByRole("option", { name: /OPS-7/ })).toHaveTextContent("Pager rota skips the night shift");
+    await userEvent.type(field, "-1");
+    await expect(within(list).getAllByRole("option")).toHaveLength(1);
+    await userEvent.click(within(list).getByRole("option", { name: /OPS-12/ }));
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "issue", id: "OPS-12", url: "https://acme.atlassian.net/browse/OPS-12" })] }));
+  },
+};
+
+/** Digits offer the numbered ones and leave the keyed alone, as they did before a key could be typed. */
+export const HashDigitsLeaveKeysAlone: Story = {
+  args: { numbered: KEYED },
+  play: async ({ canvas }) => {
+    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "#22");
+    const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
+    await expect(within(list).getAllByRole("option")).toHaveLength(1);
   },
 };
 

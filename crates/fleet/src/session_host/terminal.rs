@@ -114,14 +114,48 @@ pub struct Terminals {
     /// The terminal Sessions with a turn running, and when anything was last heard from each. Memory
     /// only: a Fleet that restarts does not know a turn is running until the mod says something.
     running: Mutex<HashMap<String, Instant>>,
+    /// The permission prompt each terminal Session's harness has open, as its mod told it. Memory only:
+    /// a mod tells it again when a restarted Fleet answers.
+    prompts: Mutex<HashMap<String, PromptOpen>>,
     /// The threads Bridge has opened, kept drawn.
     threads: Arc<ThreadCache>,
 }
 
+/// A permission prompt open in a terminal: the tool, its command or path, and when Fleet heard of it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PromptOpen {
+    pub tool: String,
+    pub detail: String,
+    pub since: String,
+}
+
 impl Terminals {
-    /// A turn began in this terminal Session.
+    /// A turn began in this terminal Session. Any prompt the last one left open is gone with it.
     pub(crate) fn turn_began(&self, session: &str) {
         self.running.lock().expect("held across no panic").insert(session.to_string(), Instant::now());
+        self.prompt_closed(session);
+    }
+
+    /// The harness opened a permission prompt. True where it was not already the one open.
+    pub(crate) fn prompt_opened(&self, session: &str, open: PromptOpen) -> bool {
+        let mut table = self.prompts.lock().expect("held across no panic");
+        let same = table
+            .get(session)
+            .is_some_and(|one| one.tool == open.tool && one.detail == open.detail);
+        if !same {
+            table.insert(session.to_string(), open);
+        }
+        !same
+    }
+
+    /// The prompt closed. True where one was open.
+    pub(crate) fn prompt_closed(&self, session: &str) -> bool {
+        self.prompts.lock().expect("held across no panic").remove(session).is_some()
+    }
+
+    /// The permission prompt open in this Session's terminal, if one is.
+    pub(crate) fn prompt_of(&self, session: &str) -> Option<PromptOpen> {
+        self.prompts.lock().expect("held across no panic").get(session).cloned()
     }
 
     /// The mod said something about this Session: a running turn is not quiet.
@@ -131,9 +165,10 @@ impl Terminals {
         }
     }
 
-    /// The turn is over, or the Session is.
+    /// The turn is over, or the Session is, and any prompt it held open with it.
     pub(crate) fn turn_over(&self, session: &str) {
         self.running.lock().expect("held across no panic").remove(session);
+        self.prompt_closed(session);
     }
 
     /// Every terminal Session with a turn running and how long it has been quiet.

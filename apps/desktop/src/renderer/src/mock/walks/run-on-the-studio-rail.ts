@@ -1,12 +1,12 @@
 // Run sits on a Studio's rail beside Note, Link and Sketch, and all four are off
 // with their reason while the Studio is read-only — the owner, 2 Oct 2026.
 
-import { button, inside, role, walk } from "../walk";
+import { button, inside, role, toSystemPage, walk } from "../walk";
 
 const rail = role("group", "What you can put on this Studio");
 
 export const runOnTheStudioRail = walk("studios", [
-  { press: button("Studios", { exact: true }), say: "This repository's Studios" },
+  ...toSystemPage("Studios", "This repository's Studios"),
   { press: role("cell", "The Board's legend", { exact: true }), say: "Opened from the list, it is read-only" },
   { look: rail, say: "Note, Link, Sketch and Run, all off until Continue" },
   { press: button("Continue"), say: "Continue makes the Studio editable" },

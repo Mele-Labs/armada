@@ -7,6 +7,7 @@ export * from "./Acts";
 export * from "./Decide";
 export * from "./DispatchJob";
 export * from "./JobDetail";
+export { JobRun, type JobRunProps } from "./job-run";
 export * from "./Log";
 export { LandCheckLogSheet } from "./check-log-sheet";
 export * from "./Overrule";

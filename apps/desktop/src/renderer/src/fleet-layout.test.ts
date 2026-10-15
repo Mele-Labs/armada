@@ -125,25 +125,25 @@ describe("the owner's own choices", () => {
   });
 
   it("text that does not parse is no choices", async () => {
-    const { source, drawn } = fake(facts([], '{"version":9,"rail":{"hidden":["checks"]}}'));
+    const { source, drawn } = fake(facts([], '{"version":9,"rail":{"hidden":["guides"]}}'));
     await settled();
     expect(source.get().own.regions).toEqual({});
-    expect(drawn("rail")).toContain("checks");
+    expect(drawn("rail")).toContain("guides");
   });
 
   it("saves a choice as layout_choices text at once, and keeps the other regions", async () => {
     const { source, saved, drawn } = fake(facts([], '{"version":1,"job.tabs":{"first":"plan"}}'));
     await settled();
-    source.setOwn("rail", { hidden: ["checks"] });
-    expect(drawn("rail")).not.toContain("checks");
+    source.setOwn("rail", { hidden: ["guides"] });
+    expect(drawn("rail")).not.toContain("guides");
     await settled();
     expect(saved).toHaveLength(1);
     expect(saved[0]?.name).toBe("layout_choices");
-    expect(JSON.parse(saved[0]?.text ?? "")).toEqual({ version: 1, "job.tabs": { first: "plan" }, rail: { hidden: ["checks"] } });
+    expect(JSON.parse(saved[0]?.text ?? "")).toEqual({ version: 1, "job.tabs": { first: "plan" }, rail: { hidden: ["guides"] } });
   });
 
   it("takes a region's choice back, and saves empty text when none is left", async () => {
-    const { source, saved } = fake(facts([], '{"version":1,"rail":{"hidden":["checks"]}}'));
+    const { source, saved } = fake(facts([], '{"version":1,"rail":{"hidden":["guides"]}}'));
     await settled();
     source.setOwn("rail", undefined);
     await settled();
@@ -151,23 +151,23 @@ describe("the owner's own choices", () => {
   });
 
   it("puts the old choices back and says why when Fleet refuses", async () => {
-    const { source, told, drawn } = fake(facts([], '{"version":1,"rail":{"hidden":["checks"]}}'), {}, { savePreference: async () => REFUSED });
+    const { source, told, drawn } = fake(facts([], '{"version":1,"rail":{"hidden":["guides"]}}'), {}, { savePreference: async () => REFUSED });
     await settled();
-    source.setOwn("rail", { hidden: ["checks", "kit"] });
+    source.setOwn("rail", { hidden: ["guides", "kit"] });
     await settled();
     expect(drawn("rail")).toContain("kit");
-    expect(drawn("rail")).not.toContain("checks");
+    expect(drawn("rail")).not.toContain("guides");
     expect(told).toHaveLength(1);
   });
 });
 
 describe("Reset to defaults", () => {
   it("clears the owner's choices and switches every layout mod that is on off, leaving them installed", async () => {
-    const { source, saved, asked, drawn } = fake(facts([row("tidy"), row("quiet", { enabled: false }), row("calm", { kind: "theme" })], '{"version":1,"rail":{"hidden":["checks"]}}'));
+    const { source, saved, asked, drawn } = fake(facts([row("tidy"), row("quiet", { enabled: false }), row("calm", { kind: "theme" })], '{"version":1,"rail":{"hidden":["guides"]}}'));
     await settled();
     await settled();
     source.toDefaults();
-    expect(drawn("rail")).toContain("checks");
+    expect(drawn("rail")).toContain("guides");
     expect(drawn("rail")).toContain("lessons");
     await settled();
     expect(saved).toEqual([{ name: "layout_choices", value: false, text: "" }]);

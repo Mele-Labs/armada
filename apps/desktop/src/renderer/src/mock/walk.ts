@@ -65,7 +65,7 @@ export function role(kind: string, name?: Name, options: { exact?: boolean } = {
   };
 }
 
-export const tab = (name: Name) => role("tab", name);
+export const tab = (name: Name, options?: { exact?: boolean }) => role("tab", name, options);
 export const button = (name: Name, options?: { exact?: boolean }) => role("button", name, options);
 export const dialog = (name: Name) => role("dialog", name);
 export const row = (name: Name) => role("row", name);
@@ -89,6 +89,32 @@ export function card(label: string): Target {
 /** `target`, looked for only inside `scope`. */
 export function inside(scope: Target, target: Target): Target {
   return { ...target, within: scope, said: `${target.said} in ${scope.said}` };
+}
+
+/** One of the title bar's six places: Cockpit, Jobs, Sessions, Studios, Retros or System. Not matched whole: a tab with a call waiting names it too. */
+export const place = (name: string): Target => inside(role("navigation", "Places"), tab(name));
+
+/** A row of the Cockpit's list of Jobs and Sessions, by its title. */
+export const deckRow = (title: Name): Target => inside(region("Jobs and Sessions"), button(title));
+
+/** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
+export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));
+
+/** The steps that reach a System page from anywhere: System, then the page on its strip. Studios and Retros are places of their own, one press. */
+export function toSystemPage(name: string, say: string): Step[] {
+  if (name === "Studios" || name === "Retros") return [{ press: place(name), say }];
+  return [
+    { press: place("System"), say: `System, for ${name}` },
+    { press: systemPage(name), say },
+  ];
+}
+
+/** The steps that reach a page by its name from ⌘K: the palette opened, the name typed, Enter. For a page no tab or strip carries. */
+export function viaPalette(name: string, say: string): Step[] {
+  return [
+    { key: "Meta+k", on: role("navigation", "Places"), say: `⌘K, for ${name}` },
+    { type: `${name}\n`, into: inside(dialog("Command palette"), role("combobox")), say },
+  ];
 }
 
 /** Where a step points: what it presses, looks at, or types into. */

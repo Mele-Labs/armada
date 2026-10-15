@@ -17,7 +17,7 @@ import {
 } from "@armada/components";
 import type { Guide } from "@armada/components";
 
-import { motion, mount, onScreen, unmountAfterEach } from "./testing";
+import { motion, mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -27,7 +27,7 @@ const SCENARIO = "arc/executing-concurrent";
 /** The catalogue, reached the way a person reaches it: by the rail. */
 async function catalogue(): Promise<void> {
   mount(SCENARIO);
-  await page.getByRole("button", { name: "Guides", exact: true }).first().click();
+  await toSystemPage("Guides");
 }
 
 /** A guide's row in the list. */

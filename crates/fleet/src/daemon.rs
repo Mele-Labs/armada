@@ -184,6 +184,9 @@ pub struct Fleet<H, V, W> {
     /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
     /// `crate::clashing`.
     writes: Arc<crate::clashing::Writes>,
+    /// What each repository holds and what each slot's holder changed, kept a while. Never written
+    /// down, for `sweeping`'s reason; an `Arc` because a read is spawned — `crate::territory`.
+    territory: Arc<crate::territory::Territory>,
     /// Which commit is being proved and what came back. Never written down, for
     /// `sweeping`'s reason; an `Arc` because the run is spawned — `crate::proving`.
     proving: Arc<Mutex<crate::proving::Proving>>,

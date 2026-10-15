@@ -1,6 +1,6 @@
 // A Session's thread, read on a terminal Session. Calls that ran one after another are one closed
 // row that opens, a slash command is a line as typed, a compaction is a quiet row and not "You",
-// and every message is left aligned on the panel with no fill. Helm's thread is told too. Told
+// and every message is left aligned on the panel with no fill. Helm's thread, a Session's now, is told too. Told
 // wide, narrow, and Helm's own.
 
 import { NARROW, kit, toSessions } from "../sessions/walk-kit";
@@ -24,12 +24,14 @@ function steps(narrow: boolean): Step[] {
 }
 
 const helm: Step[] = [
-  { press: button("Helm"), say: "Helm" },
+  { press: button("Helm"), say: "Helm, a Session in the dock" },
+  { type: "why did 77 stop", into: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")), say: "A question" },
+  { key: "Enter", on: inside(role("complementary", "Helm"), role("textbox", "Ask Helm")), say: "↵ sends it" },
   { look: inside(role("complementary", "Helm"), text("why did 77 stop")), say: "Helm's thread: the person's words left aligned, on the panel's ground" },
 ];
 
 const wide = walk("session-thread-polish", [toSessions, ...steps(false)]);
 const narrow = walk("session-thread-polish", [toSessions, ...steps(true)], NARROW);
-const talking = walk("helm-talking", helm);
+const talking = walk("helm-is-a-session", helm);
 
 export { wide as "session-thread-polish", narrow as "session-thread-polish-narrow", talking as "session-thread-polish-helm" };

@@ -220,9 +220,12 @@ export const HeldWithFleetsOffers: Story = {
   },
   play: async ({ canvas, args }) => {
     const answers = within(canvas.getByRole("group", { name: "Answers" }));
-    await expect(answers.getAllByRole("button").map((one) => one.textContent)).toEqual(["Allow once", "Allow and remember", "Refuse"]);
+    // Allow once is ▶ on the command's block; the rest are the answers.
+    await expect(answers.getAllByRole("button").map((one) => one.textContent)).toEqual(["Allow and remember", "Refuse"]);
     await userEvent.click(answers.getByRole("button", { name: "Allow and remember" }));
     await expect(args.onAnswer).toHaveBeenCalledWith("allow_and_remember");
+    await userEvent.click(within(canvas.getByRole("group", { name: "git push origin fix/flaky-store" })).getByRole("button", { name: "Allow once" }));
+    await expect(args.onAnswer).toHaveBeenCalledWith("allow_once");
   },
 };
 

@@ -76,8 +76,8 @@ export function OpenIssues({
           <Table>
             <TableBody>
               {shown.list.issues.map((issue) => (
-                <TableRow key={issue.number}>
-                  <TableCell variant="mono">#{issue.number}</TableCell>
+                <TableRow key={issue.url}>
+                  <TableCell variant="mono">{issue.reference}</TableCell>
                   <TableCell>{issue.title}</TableCell>
                   <TableCell variant="metadata">
                     {issue.job_id !== undefined
@@ -92,7 +92,7 @@ export function OpenIssues({
                         size="sm"
                         variant="secondary"
                         ground="card"
-                        aria-label={`Dispatch issue ${issue.number}`}
+                        aria-label={`Dispatch issue ${issue.reference}`}
                         disabled={disabled}
                         onClick={() => onDispatch(issue.url)}
                       >

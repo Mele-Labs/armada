@@ -82,6 +82,18 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/clashes",
     },
+    // What a repository holds and where each agent has changed it, for the deck's map.
+    // `docs/concepts/fleet.md`, *The territory*.
+    Route {
+        operation: "list_repository_areas",
+        method: "GET",
+        path: "/repository_areas",
+    },
+    Route {
+        operation: "list_slot_touches",
+        method: "GET",
+        path: "/slot_touches",
+    },
     Route {
         operation: "start_another_session",
         method: "POST",

@@ -32,6 +32,7 @@ fn row(activity: Option<SessionActivity>) -> SessionRecord {
         helm: false,
         standing: None,
         activity,
+        build: None,
     }
 }
 

@@ -88,5 +88,5 @@ fn a_file_at_the_limit_is_accepted_and_one_byte_over_is_not() {
 fn the_regions_are_the_ones_the_registry_file_names() {
     let mut found = regions();
     found.sort();
-    assert_eq!(found, ["dashboard.panels", "dashboard.tabs", "job.tabs", "rail"]);
+    assert_eq!(found, ["dashboard.panels", "job.tabs", "rail"]);
 }

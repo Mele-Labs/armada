@@ -62,6 +62,24 @@ describe("reading the registry's spellings", () => {
       for (const slot of defaultSlotsOf(act.id)) expect(conflictsOf(act.id, slot).map((one) => one.id), act.id).toEqual([]);
     }
   });
+
+  it("lets the deck's built mission switch stand beside observe's, each where it listens", () => {
+    const view = ACTIONS.find((one) => one.id === "deck_view")!;
+    const observe = ACTIONS.find((one) => one.id === "observe")!;
+    expect(view.unbuilt).toBeNull();
+    expect(view.shortcut).toBe(observe.shortcut);
+    expect(conflictsOf("deck_view", defaultSlotsOf("deck_view")[0]!)).toEqual([]);
+    expect(conflictsOf("observe", defaultSlotsOf("observe")[0]!).map((one) => one.id)).not.toContain("deck_view");
+  });
+
+  it("lets the deck's built `t` stand beside attest's, each where it listens, and neither is the other's conflict", () => {
+    const timeline = ACTIONS.find((one) => one.id === "deck_timeline")!;
+    const attest = ACTIONS.find((one) => one.id === "attest")!;
+    expect(timeline.unbuilt).toBeNull();
+    expect(timeline.shortcut).toBe(attest.shortcut);
+    expect(conflictsOf("deck_timeline", defaultSlotsOf("deck_timeline")[0]!)).toEqual([]);
+    expect(conflictsOf("attest", defaultSlotsOf("attest")[0]!).map((one) => one.id)).not.toContain("deck_timeline");
+  });
 });
 
 describe("a press, as the shipped keys answer it", () => {
@@ -76,9 +94,8 @@ describe("a press, as the shipped keys answer it", () => {
     expect(isPressed("capture_note", press("ç", { meta: true, alt: true, code: "KeyC" }))).toBe(true);
     expect(isPressed("key_sheet", press("?", { shift: true }))).toBe(true);
     expect(pressedSlot("history", press("]", { meta: true }))).toBe(1);
-    expect(pressedDigit("bridge_surfaces", press("3", { meta: true }))).toBe(3);
-    expect(pressedDigit("dashboard_filter_number", press("¡", { alt: true, code: "Digit1" }))).toBe(1);
-    expect(pressedDigit("dashboard_filter_number", press("4", { alt: true, code: "Digit4" }))).toBeNull();
+    expect(pressedDigit("deck_tabs", press("3", { meta: true }))).toBe(3);
+    expect(pressedDigit("deck_tabs", press("7", { meta: true }))).toBeNull();
   });
 });
 
@@ -100,10 +117,10 @@ describe("a key a person rebound", () => {
   });
 
   it("moves a row of digits by its modifiers", () => {
-    rebind("bridge_surfaces", parseSlots("⌃1–⌃9"));
-    expect(pressedDigit("bridge_surfaces", press("2", { ctrl: true }))).toBe(2);
-    expect(pressedDigit("bridge_surfaces", press("2", { meta: true }))).toBeNull();
-    expect(digitKeyFor("bridge_surfaces", 2)).toBe("⌃2");
+    rebind("deck_tabs", parseSlots("⌃1–⌃5"));
+    expect(pressedDigit("deck_tabs", press("2", { ctrl: true }))).toBe(2);
+    expect(pressedDigit("deck_tabs", press("2", { meta: true }))).toBeNull();
+    expect(digitKeyFor("deck_tabs", 2)).toBe("⌃2");
   });
 
   it("unbinds a key, and binding the shipped key back takes the change away", () => {

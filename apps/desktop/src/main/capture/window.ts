@@ -28,6 +28,7 @@ import { CHANNELS } from "../../shared/bridge";
 import { isPinned, offerable, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
+import { FailedLoads, lookSource, looked } from "./failed";
 import { followedBy } from "./follow";
 import type { Take } from "./session-note";
 import { askSource } from "./layer";
@@ -54,6 +55,10 @@ export type CaptureBoard = {
   windowsChanged?: () => void;
   /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
   sessionClosed: (sessionId: string, address: string) => void;
+  /** A Session's window could not show its page: Fleet tells the Session. */
+  sessionFailed: (sessionId: string, address: string, why: string) => void;
+  /** A Job's walk window could not show its work: Fleet wakes its Commander. */
+  walkFailed: (jobId: string, address: string, why: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
@@ -90,6 +95,8 @@ const WALK_FIND_MS = 100;
 const WALK_FIND_TRIES = 50;
 /** The longest one read or act waits on the page before the next is allowed. */
 const WALK_ASK_MS = 1000;
+/** How often a loaded page is looked at for an error overlay or nothing drawn. */
+const LOOK_MS = 2000;
 
 /** How the window is sized, in CSS pixels, from tokens: the bar's row, the panel, and the page's floor beside it. */
 export type WalkSizes = { bar: number; panel: number; floor: number };
@@ -143,6 +150,10 @@ export class CaptureWindow {
   private walkReading = false;
   /** Which load's looking is current, so an answer that lands after another load began is let go. */
   private walkRound = 0;
+  /** A page that cannot be shown, told to whoever opened the walk. */
+  private readonly failures = new FailedLoads((address, why) => this.failed(address, why));
+  private readonly lookTimer: ReturnType<typeof setInterval>;
+  private looking = false;
 
   constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null, takes: readonly WindowTake[] = []) {
     this.pin = pin;
@@ -189,12 +200,14 @@ export class CaptureWindow {
         this.board.windowsChanged?.();
       }
       this.stopWatchingWalk();
+      clearInterval(this.lookTimer);
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
       for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
     });
     this.layout();
 
     this.holdThePage();
+    this.lookTimer = setInterval(() => void this.lookAtThePage(), LOOK_MS);
     void this.page.webContents.loadURL(pin.url);
     this.window.show();
     this.follow();
@@ -657,6 +670,34 @@ export class CaptureWindow {
     // `dom-ready` is the new document's, so it is told to leave its card again; the walk itself mounts after it.
     contents.on("dom-ready", () => this.findWalk());
     contents.on("did-finish-load", () => this.findWalk());
+    contents.on("did-fail-load", (_event, code, description, address, mainFrame) =>
+      this.failures.failedLoad(code, description, address, mainFrame),
+    );
+    contents.on("did-navigate", (_event, address, status) => this.failures.navigated(address, status, this.pin.origin));
+    contents.on("render-process-gone", (_event, details) => this.failures.gone(contents.getURL(), details.reason));
+  }
+
+  /**
+   * Look at the loaded page for Vite's error overlay or nothing drawn. **Not while it is still
+   * changing**: an overlay between two of an agent's edits is not news to the agent making them.
+   */
+  private async lookAtThePage(): Promise<void> {
+    // A Studio's window has nobody to tell.
+    if (this.subject === null || this.looking || this.readiness === "working" || this.page.webContents.isDestroyed() || this.page.webContents.isLoading()) return;
+    this.looking = true;
+    try {
+      const address = this.page.webContents.getURL();
+      this.failures.look(address, looked(await this.inPage(lookSource())));
+    } finally {
+      this.looking = false;
+    }
+  }
+
+  /** Tell the Session or the Job. A Studio's window has nobody to tell, and a Run that ended is already known. */
+  private failed(address: string, why: string): void {
+    if (!this.serving) return;
+    if ("session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, address, why);
+    else if ("job" in this.landsOn) this.board.walkFailed(this.landsOn.job.id, address, why);
   }
 
   /**

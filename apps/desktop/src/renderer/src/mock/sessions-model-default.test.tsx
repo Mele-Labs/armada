@@ -8,7 +8,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -21,7 +21,7 @@ test("the composer's default model follows models.session when it differs from m
   const models = { models: ["haiku", "sonnet", "opus"], default: "sonnet", session: "opus" };
   mount({ ...served, state: { ...served.state, holds: { ...served.state.holds, models } } });
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: "First one" }));
 
   await expect.element(page.getByRole("option", { name: "opus · default" })).toBeInTheDocument();

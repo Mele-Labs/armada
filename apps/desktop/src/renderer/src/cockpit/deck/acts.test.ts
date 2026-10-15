@@ -1,0 +1,69 @@
+// The deck's acts are Fleet's or they are not offered: nothing is done locally and said to have happened.
+
+import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { expect, test, vi } from "vitest";
+
+import { actsOf } from "./acts";
+import type { Pr, Subject } from "./ship";
+
+const pr = { key: "pr:/r:7", root: "/r", number: 7, title: "t", branch: "b", url: "https://example.test/7", ci: "passed", stage: "ready" } as Pr;
+const subject = (kind: "job" | "session" | "pr", extra: Partial<Subject> = {}): Subject => ({ key: `${kind}:x1`, kind, id: "x1", title: "t", root: "/r", repo: "r", pr, ...extra }) as Subject;
+
+const hosts = () => ({ onKill: vi.fn(), onFix: vi.fn(), onOpen: vi.fn(), onOpenSession: vi.fn(), onOpenLink: vi.fn() });
+const draft = (extra: Partial<SessionsDraft> = {}) => ({ send: vi.fn(), act: vi.fn(async () => true), stop: vi.fn(), ...extra }) as unknown as SessionsDraft;
+
+test("Reply sends the words to the Session through its own box's route", () => {
+  const sessions = draft();
+  actsOf(sessions, hosts()).reply(subject("session"), "go on");
+  expect(sessions.send).toHaveBeenCalledWith("x1", { text: "go on", files: [], sketches: [], tags: [] });
+});
+
+test("Stop is Fleet's for a Session and a Job, and not offered, nor faked, where Fleet has none", () => {
+  const sessions = draft();
+  const given = hosts();
+  const acts = actsOf(sessions, given);
+  expect(acts.can.stop(subject("session"))).toBe(true);
+  acts.stop(subject("session"));
+  expect(sessions.stop).toHaveBeenCalledWith("x1");
+  acts.stop(subject("job"));
+  expect(given.onKill).toHaveBeenCalledWith("x1");
+
+  const bare = actsOf(draft({ stop: undefined }), { ...hosts(), onKill: undefined });
+  expect(bare.can.stop(subject("session"))).toBe(false);
+  expect(bare.can.stop(subject("job"))).toBe(false);
+  expect(() => bare.stop(subject("session"))).not.toThrow();
+});
+
+test("Merge is the by-number act for a Session and the review command for a Job, and never marks a pull request landed", () => {
+  const sessions = draft();
+  const merging = vi.fn();
+  const acts = actsOf(sessions, { ...hosts(), onMergeJob: merging });
+  acts.merge(subject("session"));
+  expect(sessions.act).toHaveBeenCalledWith("x1", 7, "merge");
+  acts.merge(subject("job"));
+  expect(merging).toHaveBeenCalledWith("x1");
+  expect(pr.stage).toBe("ready");
+});
+
+test("Merge is left off where Fleet has none: a Job without the command, a pull request nobody owns, a Session without a draft", () => {
+  const acts = actsOf(draft(), hosts());
+  expect(acts.can.merge(subject("session"))).toBe(true);
+  expect(acts.can.merge(subject("job"))).toBe(false);
+  expect(acts.can.merge(subject("pr"))).toBe(false);
+  expect(actsOf(undefined, { ...hosts(), onMergeJob: vi.fn() }).can.merge(subject("session"))).toBe(false);
+  expect(acts.can.merge(subject("session", { pr: undefined }))).toBe(false);
+  expect(() => acts.merge(subject("job"))).not.toThrow();
+});
+
+test("Fix hands main's red to a Job through the host, and Open goes where the subject lives", () => {
+  const given = hosts();
+  const acts = actsOf(draft(), given);
+  expect(acts.can.fix()).toBe(true);
+  acts.fix({ root: "/r" } as never);
+  expect(given.onFix).toHaveBeenCalledWith({ root: "/r" });
+  acts.open(subject("job"));
+  acts.open(subject("session"));
+  acts.open(subject("pr"));
+  expect([given.onOpen.mock.calls, given.onOpenSession.mock.calls, given.onOpenLink.mock.calls]).toEqual([[["x1"]], [["x1"]], [["https://example.test/7"]]]);
+  expect(actsOf(draft(), { ...hosts(), onFix: undefined }).can.fix()).toBe(false);
+});

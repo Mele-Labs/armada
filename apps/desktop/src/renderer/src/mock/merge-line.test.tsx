@@ -1,5 +1,5 @@
 // The merge line draws wherever Fleet serves one: the owner, 2 Oct 2026. Where Fleet serves none,
-// neither the rail row nor Overview's panel may draw. Where it serves one, the panel draws even
+// neither the palette row nor Overview's panel may draw. Where it serves one, the panel draws even
 // with nobody in line, and on All each repository with a line has its own, named.
 
 import { afterEach, expect, test } from "vitest";
@@ -14,23 +14,28 @@ afterEach(async () => {
   await page.viewport(1440, 900);
 });
 
-const row = () =>
-  page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Merge line", exact: true });
+/** The merge line's way in: its row in the palette, `⌘K`, since no tab or strip place carries the page. */
+const row = () => page.getByRole("dialog", { name: "Command palette" }).getByRole("option", { name: /^Merge line/ });
+/** Opens the palette, where the row is looked for. */
+const palette = () => userEvent.keyboard("{Meta>}k{/Meta}");
 const panel = (name = "Merge line") => page.getByRole("region", { name, exact: true });
 
-test("with no line, neither the rail row nor the Overview panel draws", async () => {
+test("with no line, neither the palette row nor the Overview panel draws", async () => {
   mount("every-state");
   await onScreen();
 
-  await expect.element(page.getByRole("button", { name: "Cockpit", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Cockpit" })).toBeVisible();
+  await palette();
+  await expect.element(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
   expect(row().query()).toBeNull();
   expect(page.getByRole("region", { name: "Merge line" }).query()).toBeNull();
 });
 
-test("on All, the rail row, and on its page one named panel for each repository with a line", async () => {
+test("on All, the palette row, and on its page one named panel for each repository with a line", async () => {
   mount("merge-line");
   await onScreen();
 
+  await palette();
   await expect.element(row()).toBeVisible();
   await row().click();
   await expect.element(panel("Merge line, armada").getByRole("list", { name: "Batch" })).toBeVisible();
@@ -46,6 +51,7 @@ test("the rail surface draws the same panels", async () => {
   mount("merge-line");
   await onScreen();
 
+  await palette();
   await row().click();
   await expect.element(panel("Merge line, notes").getByRole("list", { name: "Recently landed" })).toBeVisible();
   await expect.element(panel("Merge line, scratch").getByRole("img", { name: "Empty" })).toBeVisible();
@@ -64,6 +70,7 @@ test("a landed pull request wears the Job's own badge for how it ended, and its 
   };
   mount(watching);
   await onScreen();
+  await palette();
   await row().click();
 
   const armada = panel("Merge line, armada");
@@ -86,6 +93,7 @@ test("each entry names who it came from: a Session by its title, a Job by its ti
   mount("merge-line-owners");
   await onScreen();
 
+  await palette();
   await row().click();
   const line = panel("Merge line");
   const entry = (branch: string) => line.getByRole("listitem", { name: new RegExp(`^${branch}`) });
@@ -103,6 +111,7 @@ test("an open pull request wears its merge queue mark and place, and its owner",
   mount("merge-queue");
   await onScreen();
 
+  await palette();
   await row().click();
   const line = panel("Merge line");
   const entry = (branch: string) => line.getByRole("listitem", { name: new RegExp(`^${branch}`) });
@@ -127,6 +136,7 @@ test("j and k walk the tiles, Enter and o open a tile's Job, and a tile with no 
   mount("merge-line-owners");
   await onScreen();
 
+  await palette();
   await row().click();
   nowhere();
   const entry = (branch: string) => panel("Merge line").getByRole("listitem", { name: new RegExp(`^${branch},`) });
@@ -147,6 +157,7 @@ test("Enter on a tile opens its Job", async () => {
   mount("merge-line-owners");
   await onScreen();
 
+  await palette();
   await row().click();
   nowhere();
   await userEvent.keyboard("jj");
@@ -159,6 +170,7 @@ test("Tab enters the tiles once and leaves without visiting another", async () =
   mount("merge-line");
   await onScreen();
 
+  await palette();
   await row().click();
   const armada = panel("Merge line, armada");
   armada.getByRole("button", { name: "Collapse Merge line, armada" }).element().focus();
@@ -180,6 +192,7 @@ test("bare arrows move across the board: right to what left the line, left and d
   mount("merge-line");
   await onScreen();
 
+  await palette();
   await row().click();
   nowhere();
   const armada = panel("Merge line, armada");
@@ -203,6 +216,7 @@ test("on a picked repository, the band and the horizon stay in view while the gl
   await onScreen();
   await page.getByRole("button", { name: "All repositories" }).click();
   await page.getByRole("menuitem", { name: "armada", exact: true }).click();
+  await palette();
   await row().click();
 
   const line = panel("Merge line");
@@ -221,6 +235,7 @@ test("on All, a panel's band and horizon hold at the top of the page while its t
   await page.viewport(1200, 600);
   mount("merge-line");
   await onScreen();
+  await palette();
   await row().click();
 
   const armada = panel("Merge line, armada");

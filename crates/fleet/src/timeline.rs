@@ -286,8 +286,12 @@ where
         let kept = self.store().lock().await.append_timeline(&entry);
         match kept {
             Ok(seq) => {
+                let road = road_stop(&entry);
                 if let Some(event) = wire(&store::KeptTimeline { seq, entry }) {
                     self.publish(ipc::Event::TimelineAppended(ipc::TimelineAppended { event }));
+                }
+                if let Some(holders) = road {
+                    self.road_moved(holders).await;
                 }
             }
             Err(why) if entry.subject_kind == "job" => self.said_about_the_ledger(
@@ -297,6 +301,28 @@ where
                 Some(&why.to_string()),
             ),
             Err(_) => {}
+        }
+    }
+
+    /// A stop of a road was just entered, and a Session's build record reads its stops off the timeline, so
+    /// the Sessions it is the road of are published again: the row published when the act happened could not
+    /// have held an entry that was still queued.
+    async fn road_moved(&self, holders: RoadOf) {
+        let sessions = match holders {
+            RoadOf::Session(id) => vec![id],
+            RoadOf::Pull(number, manifest) => self
+                .store()
+                .lock()
+                .await
+                .attachments_at("pr", &number, Some(&manifest))
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|one| one.holder.kind == store::HolderKind::Session)
+                .map(|one| one.holder.id)
+                .collect(),
+        };
+        for id in sessions {
+            let _ = self.published_hosted(&id).await;
         }
     }
 
@@ -513,7 +539,27 @@ pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
 pub(crate) fn mode_says(mode: ipc::AnswerMode) -> &'static str {
     match mode {
         ipc::AnswerMode::Best => "think it through",
-        ipc::AnswerMode::Quick => "keep moving",
+        ipc::AnswerMode::Quick => "get it done",
+    }
+}
+
+/// Whose road an entry is a stop of.
+enum RoadOf {
+    Session(String),
+    /// A pull request's number and its repository.
+    Pull(String, String),
+}
+
+/// The kinds a Session's build record reads its road from, and whose road each is.
+fn road_stop(entry: &store::TimelineEntry) -> Option<RoadOf> {
+    match (entry.kind.as_str(), entry.subject_kind.as_str()) {
+        ("session.walked" | "session.committed" | "session.pushed", "session") => {
+            Some(RoadOf::Session(entry.subject_id.clone()))
+        }
+        ("pr.opened" | "pr.checks" | "pr.queued" | "pr.merged", "pull_request") => {
+            Some(RoadOf::Pull(entry.subject_id.clone(), entry.repo.clone()?))
+        }
+        _ => None,
     }
 }
 

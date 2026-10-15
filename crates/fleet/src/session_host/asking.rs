@@ -259,7 +259,10 @@ where
         // One at a time: a new question means the last one's prompt is gone.
         self.terminal_ask_closed(id, SessionAskState::Unanswered)
             .await;
-        if self.walk_open(id).await.is_some() {
+        let question = asking.tool_name == ipc::ASKS_A_QUESTION;
+        // A walk holds back a question, which would hold back his notes. A permission is the
+        // terminal's own prompt, and is put to him whatever he is walking.
+        if question && self.walk_open(id).await.is_some() {
             return Ok(TerminalAsked::Refused {
                 message: walk_open_refusal(),
             });
@@ -267,7 +270,9 @@ where
         let asks = self.hosts().asks();
         let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
         // The channel is not waited on; the answer is kept by whoever gives it.
-        let (waiting, _) = asks.minted(&manifest, &asking, &self.now());
+        let (mut waiting, _) = asks.minted(&manifest, &asking, &self.now());
+        // Nothing writes a terminal's rule for it yet, so its permission offers no remembering.
+        waiting.offers.retain(|one| *one != HelmCallAnswer::AllowAndRemember);
         let kept = store::KeptTerminalAsk {
             call: waiting.call.clone(),
             asking: self.kept_text(&asking)?,
@@ -281,8 +286,11 @@ where
             .map_err(|why| self.ledger_fault(why))?;
         self.hosts().terminals().polled(&waiting.call);
         self.hosts().of(id).state().asked = Some(waiting.clone());
-        self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting, None))
-            .await;
+        // A question is a card in the thread. A permission is answered on its call and in Needs you.
+        if question {
+            self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting, None))
+                .await;
+        }
         let _ = self.published_hosted(id).await;
         Ok(TerminalAsked::Asked { call: waiting.call })
     }
@@ -373,7 +381,9 @@ where
             held.answered_via.take()
         };
         self.hosts().terminals().forget_polls(&waiting.call);
-        self.row_put(id, self.ask_row(id, waiting, state, via)).await;
+        if waiting.tool == ipc::ASKS_A_QUESTION {
+            self.row_put(id, self.ask_row(id, waiting, state, via)).await;
+        }
         self.hosts().terminals().rung.notify_waiters();
         Ok(())
     }
@@ -396,7 +406,9 @@ where
         let _ = self.hosts().asks().withdraw(&kept.call);
         // An answered one already closed its card.
         if let (Some(waiting), None) = (waiting, kept.answer) {
-            self.row_put(id, self.ask_row(id, &waiting, state, None)).await;
+            if waiting.tool == ipc::ASKS_A_QUESTION {
+                self.row_put(id, self.ask_row(id, &waiting, state, None)).await;
+            }
             let _ = self.published_hosted(id).await;
         }
     }

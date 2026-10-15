@@ -1,11 +1,5 @@
 {
   "regions": {
-    "dashboard.tabs": { "ordered": true, "firstable": true, "entries": [
-      { "id": "command-central", "hideable": false },
-      { "id": "running", "hideable": true },
-      { "id": "done", "hideable": true },
-      { "id": "bays", "hideable": true }
-    ] },
     "dashboard.panels": { "ordered": true, "firstable": false, "entries": [
       { "id": "fleet", "hideable": false },
       { "id": "merge-line", "hideable": true }
@@ -23,17 +17,14 @@
     "rail": { "ordered": false, "firstable": false, "entries": [
       { "id": "overview", "hideable": false },
       { "id": "jobs", "hideable": true },
-      { "id": "studios", "hideable": true },
-      { "id": "worktrees", "hideable": true },
-      { "id": "merge-line", "hideable": true },
-      { "id": "lessons", "hideable": true },
-      { "id": "checks", "hideable": true },
       { "id": "sessions", "hideable": true },
       { "id": "kit", "hideable": true },
       { "id": "mods", "hideable": false },
       { "id": "settings", "hideable": false },
       { "id": "guides", "hideable": true },
-      { "id": "workflows", "hideable": true }
+      { "id": "workflows", "hideable": true },
+      { "id": "studios", "hideable": true },
+      { "id": "lessons", "hideable": true }
     ] }
   }
 }

@@ -9,7 +9,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -22,7 +22,7 @@ test("Sessions inline tags: the chip stands in the line, Backspace takes it whol
   const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
   mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root })));
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("button", { name: "First one" }));
 
   await userEvent.click(message());

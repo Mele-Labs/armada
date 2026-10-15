@@ -17,9 +17,9 @@
 #
 # The table key is the id an implementation binds to. `shortcut` is the binding
 # spelled exactly as the contract spells it, so a rule compares the two with no
-# mapping in between: `⌘1–⌘6` is one row rather than six because the contract
-# makes the rule rail order rather than the digits, and six rows would fix an
-# assignment it refuses to fix.
+# mapping in between: `⌘1–⌘5` is one row rather than five because the contract
+# makes the rule the tab's place in the bar rather than the digits, and five rows
+# would fix an assignment it refuses to fix.
 #
 # Fields:
 #   kind        - Action | Motion. A Motion moves the cursor, appears in no
@@ -68,18 +68,6 @@ destructive = false
 confirms = false
 notes = "The palette is the discovery surface for every other row here, and it is the one row that cannot be discovered inside it. `search` was not taken: the registry gives it to the search control, and the palette is a superset of the UI rather than a search over a list."
 
-[actions.bridge_surfaces]
-kind = "Action"
-tier = "Global"
-verb = "Bridge surfaces"
-icon = ""
-icon_absent = "by design"
-shortcut = "⌘1–⌘9"
-scope = "anywhere"
-destructive = false
-confirms = false
-notes = "One binding over the rail rather than six over six destinations — the contract's rule is rail order, not the numbers, and the digits shift if the rail does. They shifted on 2026-09-03: Held worktrees joined the rail as its fifth surface and took ⌘5, so this range grew by a digit and Helm moved off it. They shifted again on 2026-09-13 (#921): Overview joined first rather than last, so it took ⌘1 and every other surface's digit moved down one — the one time a surface's arrival moved a digit other than its own. They shifted again on 2026-09-14 (#1089): Settings joined the rail last, taking ⌘7, once the status bar it used to open from went with #1088. They shifted again on 2026-09-17 (#1287): the owner put Studios third, straight after the Job Board, so it took ⌘3 and Alerts, Doctor, Manifest, Cleanup and Settings each moved down one — the second arrival to move a digit other than its own, after Overview's. Where a Studio is read belongs beside the work it becomes. They shifted again on 2026-09-18 (#1275): Kit took a rail row of its own at ⌘8 and Settings moved to ⌘9 — the third arrival to move a digit other than its own, and the first to join before the last row rather than after it. Kit is what a person brings and Settings is what this machine is, so the machine reads last; and Kit is machine-wide, which is why it is a rail row rather than a view on one repository's Manifest. Each destination carries its own navigation glyph in the icon registry, so a glyph on this row would be a tenth one standing for all of them. Workflows and Checks joined after Guides and took no digit. Mods joined last, after Sessions, in the Machine panel, and took none."
-
 [actions.helm]
 kind = "Action"
 tier = "Global"
@@ -102,17 +90,6 @@ scope = "anywhere"
 destructive = false
 confirms = false
 notes = "Studio capture (#1290): point at something wrong anywhere in Bridge and it lands on the open Studio as a Note. Global, because what is wrong is on whatever surface a person is looking at rather than on the Studio. The modifier pair is the development annotation layer's own — ⌥⌘A, which stays permanently and is not in this registry because it ships in no packaged build — so the two capture tools sit a key apart and neither is a bare ⌘. C for capture; ⌥⌘C is bound by no Electron default menu and by nothing else here. No glyph: nothing registered means pointing at a thing, and the nearest silhouettes are all spoken for — `flag` is an alert's, `stamp` is attest's, `message-square` is Helm's."
-
-[actions.toggle_sidebar]
-kind = "Action"
-tier = "Global"
-verb = "Toggle sidebar"
-icon = "panel-left-close"
-shortcut = '⌘\'
-scope = "anywhere"
-destructive = false
-confirms = false
-notes = "Built by #1591: the press collapses the left column to the same 48px rail --layout-breakpoint reaches, and brings it back. It hides nothing — #1435 read collapse as hiding and was corrected on 18 Sep 2026 — so the act's whole content is which of two widths the column stands at, and the choice is remembered per viewer. Under the breakpoint it is inert, there being one width there and no choice to make. panel-left-close is the resting sense, the column open and the press putting it away; panel-left-open is its pair in the registry and is what the control draws in the other state, which no single icon column here can say."
 
 [actions.history]
 kind = "Action"
@@ -206,7 +183,7 @@ shortcut = "o"
 scope = "list"
 destructive = false
 confirms = false
-notes = "The same act as Enter, named so the palette can display it — which is the whole reason it has a row of its own. `external-link` is not it: that hands a path to something outside Bridge."
+notes = "The same act as Enter, named so the palette can display it — which is the whole reason it has a row of its own. The deck's lists answer it too (Jobs and Sessions, Activity, Bays, Incoming calls, the merge queue), since the deck's list is in this scope; the stage's page, the flight controls and Autopilot do not. `external-link` is not it: that hands a path to something outside Bridge."
 
 [actions.review]
 kind = "Action"
@@ -605,7 +582,7 @@ shortcut = "g"
 scope = "call"
 destructive = false
 confirms = false
-notes = "The other standing answer, on the same calls as `b`: take the quickest reasonable path and keep moving; on a Session's permission, run the command if it is reasonable. Needs a Fleet command: an answer to the ask carrying `mode: "quick"`."
+notes = "The other standing answer, on the same calls as `b`: take the reasonable path, finish the work and land it, skipping the formalities (no asking again whether to land); on a Session's permission, run the command if it is reasonable. Needs a Fleet command: an answer to the ask carrying `mode: "quick"`."
 
 [actions.call_recall]
 kind = "Action"
@@ -619,28 +596,16 @@ destructive = false
 confirms = false
 notes = "Brings the nearest of the waiting calls to the front, when none is in front. A press on the strip does the same."
 
-[actions.dashboard_filters]
-kind = "Action"
-tier = "Contextual"
-verb = "Previous and next filter"
-icon = ""
-icon_absent = "undecided"
-shortcut = "[ ]"
-scope = "dashboard"
-destructive = false
-confirms = false
-notes = "Steps the Dashboard panel's filter (Your move, Active, Done) back and forward, round. The chips beside the filter draw it. Bare brackets: `⌘[ ⌘]` is back and forward through places, and a field keeps both."
-
 [actions.dashboard_view]
 kind = "Action"
 tier = "Contextual"
-verb = "Switch between grid and timeline"
+verb = "Show the map"
 icon = "chart-no-axes-gantt"
 shortcut = "m"
 scope = "dashboard"
 destructive = false
 confirms = false
-notes = "Flips the Dashboard panel between its tiles and its timeline. The choice is remembered. The toggle beside the filter draws `layout-grid` and `chart-no-axes-gantt`."
+notes = "Shows the map on the Cockpit's stage, as `t` shows the timeline. The choice is remembered. Until #2301 this flipped the Dashboard panel between its tiles and its timeline; the tiles went with the grid Cockpit and the row kept its key."
 
 [actions.key_sheet]
 kind = "Action"
@@ -652,19 +617,90 @@ shortcut = "?"
 scope = "dashboard"
 destructive = false
 confirms = false
-notes = "Opens the sheet that lists every key the Dashboard answers, grouped by what it acts on."
+notes = "Opens the sheet that lists every key the Cockpit answers, grouped by what it acts on."
 
-[actions.dashboard_filter_number]
+[actions.deck_panel]
 kind = "Action"
-tier = "Global"
-verb = "Filter by number"
+tier = "Contextual"
+verb = "Go to a panel"
 icon = ""
 icon_absent = "undecided"
-shortcut = "⌥1–3"
-scope = "dashboard"
+shortcut = "l b c q f a"
+scope = "deck"
 destructive = false
 confirms = false
-notes = "Jumps to the Dashboard panel's first, second or third filter. Option and a digit, read by place on the keyboard because Option changes the character a digit types. Global because it is modified; it reaches a surface and not a Job, so the palette draws it dormant."
+notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot. Six letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
+
+[actions.deck_tile]
+kind = "Action"
+tier = "Contextual"
+verb = "Press a flight control"
+icon = ""
+icon_absent = "undecided"
+shortcut = "1–6"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. `5` is the Map and `6` the Timeline."
+
+[actions.deck_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Switch a Job between mission and canvas"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "In a Job's pane on the deck, swaps its mission view and its canvas. The choice is remembered for the window. `v` is `observe` on a Job's detail and `call_open_walk` on a call: different scopes."
+
+[actions.deck_timeline]
+kind = "Action"
+tier = "Contextual"
+verb = "Show the timeline"
+icon = ""
+icon_absent = "undecided"
+shortcut = "t"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. `m` shows the map."
+
+[actions.deck_page]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a page"
+icon = ""
+icon_absent = "undecided"
+shortcut = "g"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "The first key of a two key chord: `g` and then `c` the Cockpit, `j` Jobs, `s` Sessions or `y` System. The second key is read only for the moment after `g` and is not a binding of its own, which is why the row is `g` and not four keys: the keymap holds a key and not a sequence. Not on a Job's page, where `g` is `open_stage`. `g` is `call_quick` while a call is in front."
+
+[actions.deck_tabs]
+kind = "Action"
+tier = "Global"
+verb = "Go to a tab"
+icon = ""
+icon_absent = "by design"
+shortcut = "⌘1–⌘6"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "`⌘1` to `⌘6` are the places bar's tabs in the order it draws them: Cockpit, Jobs, Sessions, Studios, Retros and System, and System opens the page last used there. One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
+
+[actions.open_settings]
+kind = "Action"
+tier = "Global"
+verb = "Open Settings"
+icon = "settings"
+shortcut = "⌘,"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Opens the Settings page from anywhere, including from inside a field, as `⌘K` does. `⌘,` is the platform's own key for preferences and nothing else in the registry or Electron's menu answers it. Settings held `⌘5` as the last digit of `deck_tabs` until Studios and Retros became tabs on 15 Oct 2026."
 
 [actions.dispatch_from_field]
 kind = "Action"

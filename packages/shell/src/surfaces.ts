@@ -1,20 +1,11 @@
 // Where a person can go in Bridge, and the digit that reaches it.
 //
-// **One roster, read by both controls that navigate.** The rail draws it and
-// the palette lists it. A second copy is how a place ends up in one and not the
-// other, or answers a key the other spells differently — and a binding that
-// disagrees with itself is worse than one that is missing.
+// **One roster, read by everything that navigates.** The title bar's tabs and System strip draw from it and the palette lists
+// it. A second copy is how a place ends up in one and not the other, or answers a key the other spells differently.
 //
-// **The digit is computed from the rail order, never typed.** The contract
-// binds `⌘1–⌘9` to Bridge surfaces *in rail order*, so a digit is a place in
-// the rail and nothing else. A surface added at the end takes the next digit
-// by arithmetic — Overview is the one exception, joining first instead (#921).
-//
-// **The order below is transcribed by hand, and it is the only transcription.**
-// Nothing generated carries it: `actions.toml` holds the whole rail as one
-// `bridge_surfaces` row spelling the range, deliberately, because its rule is
-// the order rather than the numbers. So the order is written here once, from
-// `docs/concepts/bridge.md`, and every digit falls out of it.
+// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘6` are Cockpit, Jobs, Sessions, Studios, Retros and System,
+// and Settings is `⌘,`. Every other destination is reached from the System strip, the title bar's menu, a link on the deck or
+// the palette by name, and takes no key.
 
 import { useEffect, useRef } from "react";
 import {
@@ -35,62 +26,9 @@ import {
   UserCheck,
   Workflow,
 } from "lucide-react";
-import { digitKeyFor, pressedDigit } from "@armada/components";
+import { digitKeyFor, isPressed, keyFor, pressedDigit } from "@armada/components";
 
 import type { PaletteSurface } from "./Palette";
-
-/**
- * Bridge's surfaces in rail order. A surface's place in here is its digit.
- *
- * **A surface joins at the end, and three have not.** Overview joined first
- * (#921), Studios third (#1287), and Kit before Settings rather than after it
- * (#1275) — each the owner's decision, each moving digits other than its own.
- * Kit is what he brings and Settings is what this machine is, so the machine
- * reads last.
- *
- * **The Job Board left, and every digit behind it moved up one.** The owner:
- * *"Overview now supersedes the job board. We should delete this page."* A
- * removal is the first thing to renumber the rail rather than extend it, and
- * leaving its digit as a hole would be a key reaching nothing. Guides gains
- * `⌘9` by the same arithmetic, which is the first digit it has ever had.
- *
- * Two of the rest draw no row yet and they keep their place anyway. A rail
- * that renumbered as surfaces were built would move a learned key every time
- * — which is the thing moving Helm to `⌘6`, and then off the rail entirely
- * for `⌘J`, was allowed to do.
- *
- * The whole digit history is `actions.toml`'s `bridge_surfaces` row and
- * `docs/contracts/design-system.md`, Two tiers. It is not repeated here.
- */
-const RAIL = [
-  "overview",
-  "studios",
-  "alerts",
-  "doctor",
-  "manifest",
-  "worktrees",
-  "kit",
-  "settings",
-  "guides",
-  // The tenth: joined at the end, so no digit moves and it takes none.
-  "merge-line",
-  // The eleventh, on the tenth's terms: no digit moves and it takes none.
-  "lessons",
-  // The twelfth, on the same terms: no digit moves and it takes none.
-  "workflows",
-  // The thirteenth, on the same terms: no digit moves and it takes none.
-  "checks",
-  // The fourteenth, on the same terms: no digit moves and it takes none.
-  "sessions",
-  // The fifteenth, on the same terms: no digit moves and it takes none.
-  "mods",
-  // The sixteenth, on the same terms: no digit moves and it takes none. It sits second in the Work panel.
-  "jobs",
-  // The seventeenth, on the same terms. Reached from the title row's menu, and by name; it has no rail row.
-  "account",
-] as const;
-
-type SurfaceId = (typeof RAIL)[number];
 
 /** The ids Bridge routes on. Here, so a typo cannot be a dead row. */
 export const SURFACE = {
@@ -110,26 +48,27 @@ export const SURFACE = {
   mods: "mods",
   jobs: "jobs",
   account: "account",
-} as const satisfies Record<string, SurfaceId>;
+} as const;
 
-/**
- * What reaches a surface: its place in the rail, spelled as the contract does.
- *
- * **Nothing past the ninth, and Guides is the tenth.** The contract binds
- * `⌘1–⌘9` to Bridge surfaces in rail order, so a tenth digit does not exist to
- * hand out — and taking one off a surface that already publishes it would
- * change a binding a person has learned. The tenth row is reached by name in
- * the palette and by no key, which is the arrangement `Palette.tsx` already
- * describes for a destination with no position.
- */
+type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
+
+/** The digit each surface answers to: the tab it is. A place with none is reached by name, and Settings has `⌘,`. */
+const DIGIT: Readonly<Partial<Record<SurfaceId, number>>> = {
+  [SURFACE.overview]: 1,
+  [SURFACE.jobs]: 2,
+  [SURFACE.sessions]: 3,
+  [SURFACE.studios]: 4,
+  [SURFACE.lessons]: 5,
+};
+
+/** What reaches a surface, spelled as this person has `deck_tabs`: `⌘3` unless Settings → Keyboard moved the row. */
 function digitOf(id: SurfaceId): string | undefined {
-  const at = RAIL.indexOf(id) + 1;
-  // The modifiers are `bridge_surfaces`' as this person has them: `⌘3` unless Settings → Keyboard moved the row.
-  return at === 0 || at > 9 ? undefined : digitKeyFor("bridge_surfaces", at);
+  const at = DIGIT[id];
+  return at === undefined ? undefined : digitKeyFor("deck_tabs", at);
 }
 
 /**
- * The places that exist, in rail order, with what finds each one.
+ * The places that exist, with what finds each one.
  *
  * **What is not built is not in here.** A row a person presses and gets nothing
  * from is worse than one that is absent, which is the contract's own rule about
@@ -154,12 +93,12 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.jobs,
     label: "Jobs",
-    // Past the ninth, so no key; reached by the rail and by name.
+    // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.jobs);
     },
     aliases: ["job"],
-    // `box` is the registry's Job, at 12px on a chip; the rail draws it at 16px. For the owner to rule on.
+    // `box` is the registry's Job, at 12px on a chip; the tab bar draws it at 16px. For the owner to rule on.
     icon: Box,
   },
   {
@@ -216,7 +155,7 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.settings,
     label: "Settings",
     get shortcut() {
-      return digitOf(SURFACE.settings);
+      return keyFor("open_settings");
     },
     // No alias: `fleet_settings` is the palette's own row, in its own
     // section, and it names an id rather than a word somebody already knows.
@@ -234,7 +173,6 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.guides,
     label: "Guides",
-    // Nothing: it is the tenth row and `⌘1–⌘9` is what the contract publishes.
     get shortcut() {
       return digitOf(SURFACE.guides);
     },
@@ -247,7 +185,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.mergeLine,
     label: "Merge line",
-    // Past the ninth, so no key; reached by the rail and by name.
+    // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.mergeLine);
     },
@@ -258,7 +196,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.lessons,
     label: "Retros",
-    // Past the ninth, so no key; reached by the rail and by name.
+    // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.lessons);
     },
@@ -269,7 +207,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.workflows,
     label: "Workflows",
-    // Past the ninth, so no key; reached by the rail and by name.
+    // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.workflows);
     },
@@ -279,7 +217,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.checks,
     label: "Checks",
-    // Past the ninth, so no key; reached by the rail and by name.
+    // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.checks);
     },
@@ -290,7 +228,7 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.sessions,
     label: "Sessions",
-    // Past the ninth, so no key; reached by the rail and by name.
+    // No key; reached from the System strip, a link on the deck and by name.
     get shortcut() {
       return digitOf(SURFACE.sessions);
     },
@@ -310,68 +248,86 @@ export const SURFACES: readonly PaletteSurface[] = [
 ];
 
 /**
- * The rail's two panels, and which surfaces each holds — the owner, 28 Sep 2026.
+ * The window's six tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘6` reach them.
  *
- * **Work and Machine.** Work is his own framing of the first group, *"about jobs
- * and studios"*. Machine is the second because Kit and Settings are both
- * `scope = "Machine"` in `crates/config/settings.toml`. *Setup* was rejected: it
- * already names a view on the Manifest surface.
- *
- * **Membership is named, not derived.** `SURFACES` is every destination and the
- * palette lists all of them; a panel holds the ones he put in it. That is what
- * lets Manifest be reachable with no rail row — #1595 folded it into the title
- * row's picker, which is a control rather than a row.
+ * System has no surface of its own: it opens the first of the strip's pages, Kit, and the strip under the
+ * title row lists them all.
  */
-export const RAIL_PANELS = [
-  {
-    id: "work",
-    label: "Work",
-    surfaces: [SURFACE.overview, SURFACE.jobs, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks, SURFACE.sessions],
-  },
-  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.mods, SURFACE.settings, SURFACE.guides, SURFACE.workflows] },
-] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
+export const DECK_TABS = [
+  { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
+  { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
+  { id: "sessions", label: "Sessions", surface: SURFACE.sessions },
+  { id: "studios", label: "Studios", surface: SURFACE.studios },
+  { id: "retros", label: "Retros", surface: SURFACE.lessons },
+  { id: "system", label: "System", surface: SURFACE.kit },
+] as const;
 
-/** One panel's rows, in the order it names them, skipping any surface that is not built. */
-export function panelSurfaces(panel: (typeof RAIL_PANELS)[number]): PaletteSurface[] {
-  return panel.surfaces
-    .map((id) => SURFACES.find((one) => one.id === id))
-    .filter((one): one is PaletteSurface => one !== undefined);
+export type DeckTabId = (typeof DECK_TABS)[number]["id"];
+
+/**
+ * The pages under System, in the order the strip draws them. **The names are the roster's**, read from
+ * `SURFACES`, so a page renamed there is renamed here.
+ */
+export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
+  SURFACE.kit,
+  SURFACE.mods,
+  SURFACE.settings,
+  SURFACE.guides,
+  SURFACE.workflows,
+].map((surface) => ({ surface, label: SURFACES.find((one) => one.id === surface)?.label ?? surface }));
+
+/** The places a layout may name: the tabs that are a surface, then the System strip's pages the layout reaches. */
+export const PLACES: readonly string[] = [
+  SURFACE.overview,
+  SURFACE.jobs,
+  SURFACE.sessions,
+  SURFACE.kit,
+  SURFACE.mods,
+  SURFACE.settings,
+  SURFACE.guides,
+  SURFACE.workflows,
+  SURFACE.studios,
+  SURFACE.lessons,
+];
+
+/** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */
+export function deckTabOf(showing: string): DeckTabId | undefined {
+  const own = DECK_TABS.find((tab) => tab.id !== "system" && tab.surface === showing);
+  if (own !== undefined) return own.id;
+  return SYSTEM_PAGES.some((page) => page.surface === showing) ? "system" : undefined;
+}
+
+/** What `⌘<digit>` reaches: the tab's surface for `⌘1` to `⌘6`. */
+export function surfaceOfDigit(digit: number): string | undefined {
+  return DECK_TABS[digit - 1]?.surface;
 }
 
 /**
- * `⌘1`…`⌘n`, bound to the rail in rail order.
+ * `⌘1` to `⌘6`, bound as `deck_tabs` has them, and Settings on `open_settings`.
  *
- * **The binding the contract already publishes, finally answered.** Every
- * digit above was drawn in the palette and on no key — a shortcut a person
- * reads and presses to no effect is the thing `dormant` exists to prevent, and
- * it had been true of `⌘1` since the rail shipped.
- *
- * **Only the surfaces that draw.** `SURFACES` is what is built, so `⌘3` —
- * Alerts — reaches nothing and is not bound; the digit stays its own, because
- * `digitOf` reads the rail and not this list.
- *
- * **A modified key, so a focused field does not suppress it.** `⌘K` is bound
- * the same way and for the same reason: the contextual tier is suppressed
- * while a text input holds focus precisely so that typing cannot act, and the
- * whole point of the modifier is that it still works from inside one.
+ * **A modified key, so a focused field does not suppress it.** `⌘K` is bound the same way and for the same reason: the
+ * contextual tier is suppressed while a text input holds focus precisely so that typing cannot act, and the whole point of the
+ * modifier is that it still works from inside one.
  */
 export function useSurfaceKeys(onSurface: (surfaceId: string) => void): void {
-  // **Bound once, and the handler is read through a ref.** The app rebuilds
-  // its `goTo` every render, and a listener re-registered on every render is
-  // one that has to be right about removal every time — `useCommandPalette`
-  // avoids the question by depending on nothing, and this does the same.
+  // **Bound once, and the handler is read through a ref.** The app rebuilds its `goTo` every render, and a listener
+  // re-registered on every render is one that has to be right about removal every time.
   const latest = useRef(onSurface);
   latest.current = onSurface;
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      const digit = pressedDigit("bridge_surfaces", event);
+      if (isPressed("open_settings", event)) {
+        event.preventDefault();
+        latest.current(SURFACE.settings);
+        return;
+      }
+      const digit = pressedDigit("deck_tabs", event);
       if (digit === null) return;
-      const key = digitKeyFor("bridge_surfaces", digit);
-      const surface = SURFACES.find((one) => one.shortcut !== undefined && one.shortcut === key);
+      const surface = surfaceOfDigit(digit);
       if (surface === undefined) return;
       event.preventDefault();
-      latest.current(surface.id);
+      latest.current(surface);
     }
     window.addEventListener("keydown", pressed);
     return () => window.removeEventListener("keydown", pressed);

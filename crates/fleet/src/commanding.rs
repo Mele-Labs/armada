@@ -235,6 +235,14 @@ where
         self.removing_walk_note(id, r).await
     }
 
+    async fn walk_failed(
+        self: Arc<Self>,
+        id: JobId,
+        failed: ipc::WalkFailed,
+    ) -> Result<ipc::WalkTold, Refusal> {
+        self.walk_failed_told(id, failed).await
+    }
+
     async fn queue_after_finding(
         &self,
         id: JobId,

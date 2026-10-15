@@ -11,7 +11,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted, terminal } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -39,7 +39,7 @@ const VIEW: Record<string, string> = { "One that ended": "Ended", "A terminal go
 
 async function open(title: string) {
   // Sessions' own page: the Dashboard lists no Sessions apart from its tabs.
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   const list = page.getByRole("region", { name: "Sessions" });
   await userEvent.click(list.getByRole("tab", { name: VIEW[title] ?? "Active" }));
   await userEvent.click(list.getByRole("button", { name: title }));
@@ -55,7 +55,7 @@ test("Fork is offered on a Session that ended or went quiet, and a message box o
     await open(title);
     await expect.element(fork()).toBeVisible();
     await expect.element(message()).not.toBeInTheDocument();
-    await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+    await toPlace("Sessions");
   }
 });
 
@@ -67,7 +67,7 @@ test("A live Session, hosted or in a terminal that is listening, offers a messag
     await open(title);
     await expect.element(message()).toBeVisible();
     await expect.element(fork()).not.toBeInTheDocument();
-    await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+    await toPlace("Sessions");
   }
 });
 

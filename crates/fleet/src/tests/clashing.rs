@@ -14,6 +14,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use super::concurrency::{approved, one_scoped_step};
 use super::daemon::{fittings, one};
 use super::needs::git;
+use super::session_host::{denied, reason, rig_fitted, Rig as HostRig};
 use super::slot_leases::{lease_record, By};
 use super::tmp::TempDir;
 use crate::clashing::{Opposed, Side, Who, Writes};
@@ -89,12 +90,17 @@ impl Rig {
     }
 
     async fn writes(&self, id: &str, n: u32, file: &str, line: usize, to: &str) {
+        self.edited(n, file, line, to);
+        self.report(id, SessionFact::Touched { paths: vec![file.to_string()] }).await;
+    }
+
+    /// A change on disk that nothing reported, as before Fleet restarted.
+    fn edited(&self, n: u32, file: &str, line: usize, to: &str) {
         let path = self.slot(n).join(file);
         let mut text: Vec<String> =
             std::fs::read_to_string(&path).unwrap().lines().map(str::to_string).collect();
         text[line - 1] = to.to_string();
         std::fs::write(&path, text.join("\n") + "\n").unwrap();
-        self.report(id, SessionFact::Touched { paths: vec![file.to_string()] }).await;
     }
 
     async fn the_mod_asks(&self, id: &str) -> Vec<String> {
@@ -162,6 +168,25 @@ async fn the_same_lines_are_named_to_both_sides_once_and_again_only_when_the_fil
     let again = rig.the_mod_asks("sess-a").await;
     let [said] = again.as_slice() else { panic!("told again: {again:?}") };
     assert!(said.contains("`f.txt`") && said.contains("`g.txt`"), "{said}");
+}
+
+/// 15 Oct 2026: a holder whose base is behind main was told it clashed with one cut from a newer
+/// main, over files only main had changed. A pair names a file only where both changed it.
+#[tokio::test]
+async fn main_s_own_changes_carried_by_the_newer_holder_are_not_a_clash_between_the_two() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "a").await;
+    std::fs::write(rig.home.path().join("f.txt"), twenty_lines().replace("line 5\n", "main's five\n")).unwrap();
+    git(rig.home.path(), &["commit", "--quiet", "-am", "main changes line five"]);
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.writes("sess-b", 2, "g.txt", 1, "b's g").await;
+
+    rig.checks("sess-a", "sess-b").await;
+
+    assert!(rig.clashes().await.clashes.is_empty(), "{:?}", rig.clashes().await.clashes);
+    assert!(rig.the_mod_asks("sess-a").await.is_empty());
+    assert!(rig.the_mod_asks("sess-b").await.is_empty());
 }
 
 #[tokio::test]
@@ -253,6 +278,113 @@ async fn main_moving_onto_a_holders_lines_is_told_to_that_holder_only() {
     rig.fleet.writes().main_seen(&manifest, &again);
     rig.fleet.clashes_checked().await;
     assert!(rig.clashes().await.clashes.is_empty());
+}
+
+/// The table is memory only, and the owner restarts Fleet often: the first pass fills it from what
+/// each holder's worktree changed, so two that already clash are paired without writing again.
+#[tokio::test]
+async fn the_first_pass_after_a_start_credits_each_holder_with_what_its_worktree_changed() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.edited(1, "f.txt", 5, "a");
+    rig.edited(2, "f.txt", 5, "b");
+
+    rig.fleet.clashes_checked().await;
+
+    let held = rig.fleet.writes().holders();
+    for id in ["sess-a", "sess-b"] {
+        let paths = held.iter().find(|(who, ..)| *who == Who::Session(id.into())).map(|(.., paths)| paths.clone());
+        assert_eq!(paths, Some(["f.txt".to_string()].into()), "{id}: {held:?}");
+    }
+    rig.checks("sess-a", "sess-b").await;
+    assert_eq!(rig.the_mod_asks("sess-a").await.len(), 1);
+    assert_eq!(rig.the_mod_asks("sess-b").await.len(), 1);
+
+    // Once only: a later pass leaves the table as the writes made it.
+    rig.fleet.writes().left(&Who::Session("sess-a".into()));
+    rig.fleet.clashes_checked().await;
+    assert!(!rig.fleet.writes().holders().iter().any(|(who, ..)| *who == Who::Session("sess-a".into())));
+}
+
+/// A Session Bridge hosts in slot `own`, as the pool leases one: a worktree on its own branch, held
+/// under the session's id. `more` are slots its subagents leased, held the same way.
+async fn a_hosted_session(rig: &HostRig, own: u32, more: &[u32]) -> SessionId {
+    let id = rig.start().await;
+    for n in std::iter::once(own).chain(more.iter().copied()) {
+        let at = adapter_traits::slot_path(&rig.root, n);
+        git(std::path::Path::new(&rig.root), &["worktree", "add", "--quiet", "-b", &format!("branch-{n}"), &at]);
+        lease_record(&rig.root, n, &format!("branch-{n}"), By::Job(id.as_str()));
+    }
+    let now = rig.fleet.now().as_str().to_string();
+    let mut store = rig.fleet.store().lock().await;
+    let mut hosting = store.hosting(id.as_str()).unwrap().expect("hosted");
+    hosting.lease_slot = Some(own);
+    hosting.lease_branch = Some(format!("branch-{own}"));
+    store.keep_hosting(&hosting).unwrap();
+    for (kind, target) in [("slot", own.to_string()), ("branch", format!("branch-{own}"))] {
+        let row = store::KeptAttachment {
+            holder: store::Holder::session(id.as_str()),
+            kind: kind.into(),
+            manifest_id: hosting.manifest_id.clone(),
+            target,
+            state: store::AttachmentState::Standing,
+            detail: Default::default(),
+            since: now.clone(),
+            changed_at: now.clone(),
+        };
+        store.attach(&row, true).unwrap();
+    }
+    id
+}
+
+/// `id`'s Edit of line `line` of `file` in slot `n`, through the gate from its own slot, then made.
+async fn edits(rig: &HostRig, id: &SessionId, own: u32, n: u32, file: &str, line: usize, to: &str) {
+    let path = format!("{}/{file}", adapter_traits::slot_path(&rig.root, n));
+    let from = adapter_traits::slot_path(&rig.root, own);
+    let answer = rig.gate_in(&from, id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await;
+    assert!(!denied(&answer), "{}", reason(&answer));
+    let mut text: Vec<String> = std::fs::read_to_string(&path).unwrap().lines().map(str::to_string).collect();
+    text[line - 1] = to.to_string();
+    std::fs::write(&path, text.join("\n") + "\n").unwrap();
+}
+
+/// What Fleet said to hosted session `id`, as the lines its stand-in process was sent.
+fn fleet_said(rig: &HostRig, id: &SessionId) -> Vec<String> {
+    let starts = rig.stand_in.starts();
+    (0..starts.len())
+        .filter(|index| starts[*index].session == id.as_str())
+        .flat_map(|index| rig.stand_in.process(index).sent.lock().unwrap().clone())
+        .collect()
+}
+
+/// 15 Oct 2026: two Sessions edited the same lines for hours, each in a slot its subagent leased,
+/// and neither was told.
+#[tokio::test]
+async fn two_hosted_sessions_writing_one_file_in_their_subagents_slots_are_both_told() {
+    let rig = rig_fitted(|_| {});
+    let root = std::path::Path::new(&rig.root);
+    git(root, &["-c", "init.defaultBranch=main", "init", "--quiet"]);
+    std::fs::write(root.join("f.txt"), twenty_lines()).unwrap();
+    git(root, &["add", "f.txt"]);
+    git(root, &["commit", "--quiet", "-m", "start"]);
+    let a = a_hosted_session(&rig, 1, &[3]).await;
+    let b = a_hosted_session(&rig, 2, &[4]).await;
+
+    edits(&rig, &a, 1, 3, "f.txt", 5, "a").await;
+    edits(&rig, &b, 2, 4, "f.txt", 5, "b").await;
+    let pair = Opposed::pair(&Who::Session(a.as_str().into()), &Who::Session(b.as_str().into()));
+    rig.fleet.pair_checked(&pair).await;
+
+    let reading = rig.fleet.writes().reading(&pair).expect("a clash");
+    assert_eq!(reading.paths.iter().map(String::as_str).collect::<Vec<_>>(), vec!["f.txt"]);
+    for (id, other) in [(&a, &b), (&b, &a)] {
+        let said = fleet_said(&rig, id);
+        assert!(
+            said.iter().any(|line| line.contains("`f.txt`") && line.contains(&crate::session_host::address_of(other.as_str()))),
+            "{said:?}"
+        );
+    }
 }
 
 fn git_out(repo: &std::path::Path, args: &[&str]) -> String {

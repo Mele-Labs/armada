@@ -733,6 +733,9 @@ where
     pub(crate) fn writes(&self) -> &Arc<crate::clashing::Writes> {
         &self.writes
     }
+    pub(crate) fn territory(&self) -> &Arc<crate::territory::Territory> {
+        &self.territory
+    }
     pub(crate) fn polled(&self) -> &Mutex<Option<Polled>> {
         &self.polled
     }

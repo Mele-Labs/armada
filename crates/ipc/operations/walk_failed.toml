@@ -1,0 +1,12 @@
+[operations.walk_failed]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Tell a Job that the window walking its served work could not show it, which wakes its Commander"
+notes = """
+`POST /jobs/:job_id/walk/failed`, body `WalkFailed`: `url`, the address the window was loading, and `why`, what Bridge saw in one line. Answered with `WalkTold`.
+
+**Bridge detects it; no agent is asked.** Bridge's main process sends it when the page in a Job's walk window does not load, answers with an HTTP status of 400 or more, its process goes away, or, once loaded, it shows Vite's error overlay or draws nothing. Bridge looks at a loaded page every two seconds, never while it is still changing, and the look answers a fixed word rather than the page's text. Once per window until the page is seen working again.
+
+**It wakes the Job's Commander**, as any other trouble does (`docs/concepts/commander.md`, *When it wakes*): once per step attempt, with the address and what Bridge saw, and the Commander decides what the Job does about it. It moves nothing itself. `told` is `false` where that wake was made already, or the Job has ended.
+"""

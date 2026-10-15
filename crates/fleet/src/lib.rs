@@ -61,6 +61,11 @@ pub mod basing;
 mod boot_restart;
 mod boundary;
 pub mod briefing;
+/// What a Session has built: the rules between what Fleet observed and the record on its row.
+mod build_facts;
+mod build_record;
+/// Where the build record meets the store.
+mod build_keeping;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
@@ -326,6 +331,8 @@ mod side_run;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
+/// Which profile a repository claims and syncs as: matched by its owner, or chosen.
+pub mod repository_profiles;
 mod rerun_settles;
 mod rerunning;
 mod rescuing;
@@ -413,6 +420,8 @@ pub mod task_edits;
 /// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
 pub mod tasking;
 pub mod terms;
+/// What each served repository holds and where each agent has changed it, for the deck's map.
+mod territory;
 mod tooling;
 /// A repository's open issues, read from its tracker. #91.
 mod tracking;

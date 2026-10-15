@@ -55,6 +55,7 @@ import { handleModelDownshift } from "./model-downshift-channels";
 import { DownshiftNotice } from "./downshift-notice";
 import { handleTimeline } from "./timeline-channels";
 import { handleClashes } from "./clashes-channels";
+import { handleTerritory } from "./territory-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
@@ -183,6 +184,12 @@ const captureWindows = new CaptureWindows({
   },
   sessionClosed: (sessionId, address) => {
     void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
+  },
+  sessionFailed: (sessionId, address, why) => {
+    void connection?.sessions.windowFailed({ session_id: sessionId, url: address, why });
+  },
+  walkFailed: (jobId, address, why) => {
+    void connection?.commands.walkFailed(jobId, { url: address, why });
   },
   // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
   windowsChanged: () => {
@@ -1047,6 +1054,7 @@ void app.whenReady().then(() => {
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });
   handleTimeline({ ipc: ipcMain, connection: () => connection });
   handleClashes({ ipc: ipcMain, connection: () => connection });
+  handleTerritory({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands

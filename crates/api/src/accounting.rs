@@ -1,5 +1,5 @@
 //! The account's four routes: the profiles, signing in, signing out, and
-//! choosing which profile is active. `settling`'s shape.
+//! choosing which profile a repository is bound to. `settling`'s shape.
 //!
 //! **No `Resolved` extractor and no path parameter.** The account is the
 //! Machine's, and nothing about it is a Job's.
@@ -8,7 +8,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{SetActiveAccount, SignOut};
+use ipc::{SetRepositoryProfile, SignOut};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Accounts;
@@ -42,12 +42,12 @@ pub(crate) async fn sign_out<D: Accounts>(State(served): State<Served<D>>, body:
     }
 }
 
-pub(crate) async fn set_active_account<D: Accounts>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let set: SetActiveAccount = match ipc::decode("a profile to make active", &body) {
+pub(crate) async fn set_repository_profile<D: Accounts>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let set: SetRepositoryProfile = match ipc::decode("a repository and its profile", &body) {
         Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().set_active_account(set).await {
+    match served.daemon().set_repository_profile(set).await {
         Ok(accounts) => answer(StatusCode::OK, &accounts, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -3,7 +3,7 @@
 // composer's Model select reads it. The tank fills to the percent and turns to the warning tone at 80. Through `App`
 // over the `session-head` scenario. The walk `session-head` shows how it reads.
 
-import { expect, test } from "vitest";
+import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -91,4 +91,47 @@ test("The composer keeps the alias a person picks, whatever the last turn resolv
 
   await userEvent.selectOptions(model(), "sonnet");
   await expect.element(model()).toHaveDisplayValue("sonnet");
+});
+
+/** Both cards hang from the trailing edge of the head's marks, so they open leftward inside the Session's panel; the frame clips what runs past it. */
+test("The context card and the fresh card open inside the Session's panel, with the ledger open", async () => {
+  await page.viewport(1512, 949);
+  onTestFinished(() => page.viewport(1440, 900));
+  mount("session-head");
+  await onScreen();
+  await open(/Cart totals rounding/);
+
+  const frame = page.getByRole("region", { name: "Session s-b4a1d2c7" });
+  await expect.element(page.getByRole("region", { name: "Attachments" })).toBeVisible();
+  const inside = (card: Element) => {
+    const edge = frame.element().getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.right).toBeLessThanOrEqual(edge.right);
+    expect(box.left).toBeGreaterThanOrEqual(edge.left);
+  };
+
+  await userEvent.click(frame.getByRole("button", { name: /^Context/ }));
+  await expect.element(frame.getByRole("dialog", { name: "Context" })).toBeVisible();
+  inside(frame.getByRole("dialog", { name: "Context" }).element());
+
+  await userEvent.click(frame.getByRole("button", { name: "Fresh start" }));
+  await expect.element(frame.getByRole("dialog", { name: "Fresh start" })).toBeVisible();
+  inside(frame.getByRole("dialog", { name: "Fresh start" }).element());
+});
+
+test("A done Session's head draws End session in a glyph other than the Done mark's", async () => {
+  mount("session-head");
+  await onScreen();
+  await open(/Release notes draft/);
+
+  const done = page.getByRole("region", { name: "Session s-c9e3a5f1" });
+  const header = done.element().querySelector("header")!;
+  // The callout beneath the thread has an End session of its own, in words; the head's is the icon.
+  const act = header.querySelector('button[aria-label="End session"]')!;
+  const mark = header.querySelector('[role="img"][aria-label="Done"]')!;
+  const glyph = (one: Element) => one.querySelector("svg")!.getAttribute("class")!.split(" ").find((name) => name.startsWith("lucide-"));
+  expect(glyph(mark)).toBe("lucide-power");
+  expect(glyph(act)).toBeDefined();
+  expect(glyph(act)).not.toBe(glyph(mark));
 });

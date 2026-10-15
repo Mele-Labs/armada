@@ -6,12 +6,12 @@
 // coming back finds the same card and its thread, and Review again asks on purpose.
 // `retro.test.tsx` holds the claims.
 
-import { button, region, role, text, walk } from "../walk";
+import { button, region, role, text, toSystemPage, walk } from "../walk";
 
 const ASK = role("textbox", "Ask about this item");
 
 export const reviewingTheRetros = walk("retro/lessons", [
-  { press: button("Retros", { exact: true }), say: "Retros, under Work" },
+  ...toSystemPage("Retros", "Retros, under Work"),
   { press: button("Review", { exact: true }), say: "Review, beside the tabs" },
   { look: text(/^1 of \d+$/), say: "One item at a time, and where it stands" },
   { look: text("Why this one"), say: "The model's line on why it is here" },
@@ -25,8 +25,8 @@ export const reviewingTheRetros = walk("retro/lessons", [
   { look: text("Which Jobs did this cost?"), say: "Its thread is still there" },
   { look: region("Review"), say: "The review, whole" },
   { press: button("Skip", { exact: true }), say: "On to the second card again" },
-  { press: button("Kit", { exact: true }), say: "Leave Retros in the middle of the review" },
-  { press: button("Retros", { exact: true }), say: "And come back" },
+  ...toSystemPage("Kit", "Leave Retros in the middle of the review"),
+  ...toSystemPage("Retros", "And come back"),
   { look: text(/^2 of \d+$/), say: "The same card, with no Review pressed and no wait" },
   { look: text(/^Reviewed .* ago$|^Reviewed just now$/), say: "How old the review is" },
   { press: button("Back", { exact: true }), say: "Back to the first" },

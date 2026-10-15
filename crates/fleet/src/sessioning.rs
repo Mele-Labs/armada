@@ -10,6 +10,8 @@
 //! nothing**, so a harness may report on every turn without a client redrawing
 //! on every one.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
@@ -19,6 +21,9 @@ use ipc::{
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch, Store};
 
 use crate::adrift::Adrift;
+use crate::build_facts::workers_of;
+use crate::build_keeping::{build_heard, build_read, BuildReads};
+use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
 use crate::slot_holders::{pool_backs, stand_in_slot};
@@ -33,6 +38,8 @@ pub(crate) struct LedgerReads {
     limited: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
     context: Option<String>,
+    /// What the build record is derived from.
+    build: BuildReads,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -172,8 +179,11 @@ where
         session: &KeptSession,
     ) -> Result<LedgerReads, Refusal> {
         let fault = |why| self.ledger_fault(why);
+        let held = store.attachments_of(&Holder::session(&session.id)).map_err(fault)?;
+        let build = build_read(store, session, &held).map_err(fault)?;
         Ok(LedgerReads {
-            held: store.attachments_of(&Holder::session(&session.id)).map_err(fault)?,
+            held,
+            build,
             hosting: if session.origin == "bridge" {
                 store.hosting(&session.id).map_err(fault)?
             } else {
@@ -200,6 +210,9 @@ where
     /// under the store lock.
     pub(crate) fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
         let mut record = session_wire(session, &reads.held);
+        if session.state == store::SessionState::Live {
+            self.slots_held_drawn(session, &mut record.attachments);
+        }
         // A subagent the mod never settles is done once its own transcript shows its turn ended.
         let home = &self.host().home;
         for one in record.attachments.iter_mut().filter(|one| {
@@ -242,7 +255,45 @@ where
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
+        record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
         record
+    }
+
+    /// A row for every other slot the pool says the session holds: one its subagent leased has no
+    /// row of its own, since the ledger keeps one slot a session works in. **A terminal session
+    /// that moved out of a slot gave it up** though its shell still holds the lease, so a slot the
+    /// ledger gave back for one stays given back.
+    fn slots_held_drawn(&self, session: &KeptSession, attachments: &mut Vec<ipc::Attachment>) {
+        let Some(manifest) = session.manifest_id.as_deref() else {
+            return;
+        };
+        let Some(served) = self.repositories().serving(manifest) else {
+            return;
+        };
+        let terminal = session.origin != "bridge";
+        let drawn = |slot: &str| {
+            attachments.iter().any(|one| {
+                one.kind == "slot"
+                    && one.target == slot
+                    && one.manifest_id.as_ref().map(ManifestId::as_str) == Some(manifest)
+                    && (terminal || one.state == ipc::AttachmentState::Standing)
+            })
+        };
+        let more: Vec<String> = crate::slot_holders::slots_of(&served, &session.id)
+            .into_iter()
+            .map(|slot| slot.to_string())
+            .filter(|slot| !drawn(slot))
+            .collect();
+        let at = wire_instant(&session.last_seen_at);
+        attachments.extend(more.into_iter().map(|target| ipc::Attachment {
+            kind: String::from("slot"),
+            manifest_id: Some(ManifestId::carried(manifest)),
+            target,
+            state: ipc::AttachmentState::Standing,
+            detail: Default::default(),
+            since: at.clone(),
+            changed_at: at.clone(),
+        }));
     }
 
     /// Keep the version a mod reported. A fact that carries none leaves what is kept.
@@ -496,6 +547,16 @@ where
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
             }
+            // The harness's own prompt, waiting on a person at the terminal. A hosted session's is
+            // Fleet's own ask, so only a terminal's is read here.
+            SessionFact::PermissionAsked { tool, detail } if terminal => {
+                let open = crate::session_host::PromptOpen { tool, detail, since: now.clone() };
+                changed |= self.hosts().terminals().prompt_opened(&id, open);
+            }
+            SessionFact::PermissionSettled if terminal => {
+                changed |= self.hosts().terminals().prompt_closed(&id);
+            }
+            SessionFact::PermissionAsked { .. } | SessionFact::PermissionSettled => {}
             SessionFact::Limited { resets_at } => {
                 changed |= store
                     .keep_session_limit(&id, resets_at.as_str())
@@ -508,14 +569,27 @@ where
                 if terminal {
                     self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
                 }
+                if !paths.is_empty() {
+                    changed |= build_heard(&mut store, &id, &Observed::Edited, &now).map_err(fault)?;
+                }
             }
-            SessionFact::Read { path } if terminal => {
-                self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+            // The build record hears a hosted Session's reads and commands too: its process says the
+            // same, and a repeat changes nothing.
+            SessionFact::Read { path } => {
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+                }
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Ran { command } if terminal => {
-                self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+            SessionFact::Ran { command } => {
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+                }
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Read { .. } | SessionFact::Ran { .. } => {}
+            fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
+                changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -658,6 +732,7 @@ where
                 },
             })
             .await?;
+        self.walk_noted(&id, &record, &title);
         self.row_put(
             &id,
             ipc::SessionRow::Window {
@@ -705,6 +780,28 @@ where
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?;
         self.ledger_row(&store, &session)
+    }
+
+    async fn window_failed(
+        self: Arc<Self>,
+        failed: ipc::WindowFailed,
+    ) -> Result<ipc::WalkTold, Refusal> {
+        let id = failed.session_id.as_str().trim().to_string();
+        let known = {
+            let store = self.store().lock().await;
+            store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
+        };
+        if !known {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        }
+        let text = format!(
+            "Your walk window could not show {}: {}. The person cannot walk it until it loads. \
+             Fix it, then call show_window again.",
+            failed.url.trim(),
+            failed.why.trim()
+        );
+        let told = self.told_by_fleet(&id, &text).await?;
+        Ok(ipc::WalkTold { told })
     }
 
     async fn waiting_for(
@@ -974,5 +1071,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         context_breakdown: None,
         helm: false,
         activity: None,
+        build: None,
     }
 }

@@ -27,7 +27,7 @@ import {
 } from "@armada/components";
 import type { Guide } from "@armada/components";
 
-import { SCENARIOS, entered, listed, mount, rememberingTheGrid, rows, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";
+import { SCENARIOS, entered, listed, mount, rows, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";
 import type { FakeOptions } from "@armada/desktop/mock";
 
 unmountAfterEach();
@@ -127,8 +127,8 @@ describe("every arc moment loads", () => {
     },
   );
 
-  test("the kinds Board opens every Job it holds", async () => {
-    rememberingTheGrid();
+  // Skipped (#2301): reads the classic Cockpit's filter tabs and Board tiles, which the flight deck replaced. To be ported or dropped before landing.
+  test.skip("the kinds Board opens every Job it holds", async () => {
     const { scenario } = mount("kinds", SLICES);
     await listed();
     // Every Job is on one of the Cockpit's filters: read each in turn.
@@ -1167,7 +1167,6 @@ describe("one Job per workflow kind", () => {
   });
 
   test("no Job on the Board runs a workflow called verify-and-ship", async () => {
-    rememberingTheGrid();
     const { scenario } = mount("kinds", SLICES);
     await listed();
     expect(scenario.state.holds.workflows.map((one) => one.id)).not.toContain("verify-and-ship");

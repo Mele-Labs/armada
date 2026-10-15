@@ -3,7 +3,7 @@
 
 import type { SessionContextBreakdown } from 'claude-code'
 
-import type { Fact } from './fleet'
+import type { Fact, Task } from './fleet'
 
 const TITLE_MOST = 80
 const SAID_MOST = 200
@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.21'
+export const MOD_VERSION = '0.3.23'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -346,6 +346,19 @@ export function usedFact(act: 'touched' | 'read' | 'ran', cwd: string, input: Re
   return act === 'read' ? { kind: 'read', path } : { kind: 'touched', paths: [path] }
 }
 
+/**
+ * What a permission prompt asks about, as the call names it: a shell command's first line, a file's
+ * path, an address, or nothing for a tool with none of these. One line and cut, never content. The
+ * same reading of the prompt's input and of the tool call's, so the call settles the prompt it raised.
+ */
+export function promptDetail(input: Record<string, unknown>): string {
+  const named = [input.command, input.file_path, input.notebook_path, input.path, input.url].find(
+    one => typeof one === 'string' && one.trim() !== '',
+  )
+  if (typeof named !== 'string') return ''
+  return (named.trim().split('\n')[0] ?? '').slice(0, COMMAND_MOST)
+}
+
 const MODELS = ['haiku', 'sonnet', 'opus']
 
 /** A model by the short name the person picks it by, and by its own id where it has no short one. */
@@ -376,4 +389,87 @@ export function effortOf(effort: unknown): string | undefined {
   if (typeof effort === 'string') return effort
   const level = (effort as { level?: unknown } | null | undefined)?.level
   return typeof level === 'string' ? level : undefined
+}
+
+const TASK_MOST = 200
+
+function textOf(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const text = value.replace(/\s+/g, ' ').trim()
+  return text === '' ? undefined : text.slice(0, TASK_MOST)
+}
+
+function statusOf(value: unknown): Task['status'] | undefined {
+  return value === 'pending' || value === 'in_progress' || value === 'completed' ? value : undefined
+}
+
+/**
+ * The list a `TodoWrite` wrote, whole: its items in order, each with its place as the id. An input
+ * with no list is nothing to tell, and an empty one is a list cleared.
+ */
+export function todoTasks(input: Record<string, unknown>): Task[] | undefined {
+  if (!Array.isArray(input.todos)) return undefined
+  const tasks: Task[] = []
+  for (const one of input.todos as Record<string, unknown>[]) {
+    const text = textOf(one?.content ?? one?.subject)
+    if (text === undefined) continue
+    tasks.push({ id: String(tasks.length + 1), text, status: statusOf(one.status) ?? 'pending' })
+  }
+  return tasks
+}
+
+/** The id the task tool gave a task it made, from its result: `{ task: { id } }`, or `Task #3 created`. */
+function madeId(result: unknown, text: string): string | undefined {
+  const task = (result as { task?: { id?: unknown } } | null | undefined)?.task
+  if (typeof task?.id === 'string' || typeof task?.id === 'number') return String(task.id)
+  return /\bTask #?(\w+)/.exec(text)?.[1]
+}
+
+/** The list after a `TaskCreate`, or nothing where the call named no task. */
+export function madeTask(list: Task[], input: Record<string, unknown>, result: unknown, text: string): Task[] | undefined {
+  const named = textOf(input.subject ?? input.content ?? input.title)
+  if (named === undefined) return undefined
+  const id = madeId(result, text) ?? String(list.length + 1)
+  return [...list.filter(one => one.id !== id), { id, text: named, status: 'pending' }]
+}
+
+/**
+ * The list after a `TaskUpdate`. A task the mod never saw made (a session resumed in a terminal) is
+ * not in it, and is not invented: nothing to tell.
+ */
+export function updatedTask(list: Task[], input: Record<string, unknown>): Task[] | undefined {
+  const id = input.taskId ?? input.task_id ?? input.id
+  const key = typeof id === 'string' || typeof id === 'number' ? String(id) : undefined
+  const was = list.find(one => one.id === key)
+  if (key === undefined || was === undefined) return undefined
+  if (input.status === 'deleted') return list.filter(one => one.id !== key)
+  const next: Task = {
+    id: key,
+    text: textOf(input.subject ?? input.content ?? input.title) ?? was.text,
+    status: statusOf(input.status) ?? was.status,
+  }
+  if (next.text === was.text && next.status === was.status) return undefined
+  return list.map(one => (one.id === key ? next : one))
+}
+
+/**
+ * A successful `git commit`, read from its output (`[branch 1a2b3c4] subject`) and not from the command alone: a
+ * commit with nothing staged prints no such line. `branch` is absent on a detached head.
+ */
+export function commitIn(command: string, output: string): { branch?: string } | undefined {
+  if (!/\bgit\b[^|;&\n]*\bcommit\b/.test(command)) return undefined
+  const made = /^\[(\S+)(?: [^\]]*)? [0-9a-f]{7,40}\]/m.exec(output)
+  if (made === null) return undefined
+  return made[1] === 'detached' ? {} : { branch: made[1] }
+}
+
+/**
+ * The branch a successful `git push` updated, from the ref line it printed: `abc..def  main -> main`,
+ * `* [new branch]  topic -> topic`, a forced `+ abc...def`. A push with nothing to send, one that was
+ * rejected and a `--dry-run` print no such line or are not one, and tell nothing.
+ */
+export function pushIn(command: string, output: string): { branch?: string } | undefined {
+  if (!/\bgit\b[^|;&\n]*\bpush\b/.test(command) || /--dry-run|(?:^|\s)-n(?:\s|$)/.test(command)) return undefined
+  const sent = /^\s*(?:[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}|\*\s+\[new (?:branch|tag)\]|\+\s+[0-9a-f]{7,40}\.\.\.[0-9a-f]{7,40})\s+\S+\s+->\s+(\S+)/m.exec(output)
+  return sent === null ? undefined : { branch: sent[1] }
 }

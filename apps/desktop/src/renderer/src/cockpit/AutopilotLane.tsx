@@ -1,8 +1,8 @@
 // Autopilot's lane on the Cockpit, #2092: what Fleet holds of each repository's Autopilot, kept current
 // by `autopilot.changed`, and the places it is drawn — the control in the header band, which opens the bar
 // for the picked repository at the top of the Cockpit, above the filter band and outside the glass, on every
-// filter; its marks and sidings on the Bays metro; and each set-aside pick as a tile in Your move. One hook, so
-// `Cockpit.tsx` adds a line where each is drawn and nothing else.
+// filter; its Next up and Set aside lists under the lane on the stage; and each set-aside pick as a tile in Your move.
+// One hook, so the deck adds a line where each is drawn and nothing else.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plane } from "lucide-react";
@@ -13,8 +13,6 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { AutopilotActed } from "../../../shared/api/autopilot";
 import type { BridgeState } from "../../../shared/bridge";
 import type { Item } from "../Dashboard";
-import type { BaysAutopilot } from "./BaysView";
-import { withAutopilot } from "./autopilot-metro";
 import { cappedOf, capsOf, fieldsOf, isOn, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
 import { AsideActs, AutopilotSidings, type SidingPress } from "./AutopilotSidings";
 import "./autopilot.css";
@@ -79,8 +77,8 @@ export type AutopilotLane = {
   bar: ReactNode;
   /** Absent where Fleet serves no Autopilot. */
   control: AutopilotControl | undefined;
-  /** The metro's Autopilot parts, while one is on. */
-  bays: BaysAutopilot | undefined;
+  /** Next up and Set aside, drawn under the lane while an Autopilot is on. */
+  sidings: ReactNode | undefined;
   /** Each set-aside pick, as a tile in Your move. */
   asides: Item[];
 };
@@ -214,7 +212,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
         key: `aside:${autopilot.manifest_id}:${pick.pick_id}`,
         icon: Plane,
         kind: "Set aside by Autopilot",
-        title: `#${pick.issue_number} ${pick.issue_title}`,
+        title: `${pick.issue_reference} ${pick.issue_title}`,
         fact: "Autopilot was unsure",
         hue: "issue",
         where: nameOf(autopilot.manifest_id),
@@ -231,9 +229,8 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
     nextUp: nextUpOf(autopilot, issues.get(autopilot.manifest_id)),
     asides: setAsideOf(autopilot),
   }));
-  const marks = useMemo(() => (metro: Parameters<BaysAutopilot["mark"]>[0]) => withAutopilot(metro, on), [on]);
 
-  if (!served()) return { bar: null, control: undefined, bays: undefined, asides: NO_ASIDES };
+  if (!served()) return { bar: null, control: undefined, sidings: undefined, asides: NO_ASIDES };
   const mine = manifestId === null ? undefined : held.get(manifestId);
   const control: AutopilotControl = {
     state: !isOn(mine) ? "off" : mine.state === "paused" ? "paused" : "running",
@@ -244,7 +241,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
   return {
     bar: open && manifestId !== null ? <div className="armada-autopilot-lane">{barOf(manifestId, mine)}</div> : null,
     control,
-    bays: on.length === 0 ? undefined : { mark: marks, sidings: <AutopilotSidings sidings={sidings} pending={aside} onRun={(manifest, pick) => onAside(manifest, pick, "run")} onDismiss={(manifest, pick) => onAside(manifest, pick, "dismiss")} /> },
+    sidings: on.length === 0 ? undefined : <AutopilotSidings sidings={sidings} pending={aside} onRun={(manifest, pick) => onAside(manifest, pick, "run")} onDismiss={(manifest, pick) => onAside(manifest, pick, "dismiss")} />,
     asides: asideItems,
   };
 }

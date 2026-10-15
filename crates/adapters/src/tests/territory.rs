@@ -1,0 +1,108 @@
+//! Where a repository's files are and what a slot has changed, against real git: the directories are
+//! the base head's tree and the changes are the worktree's tree against its merge base.
+
+use std::path::{Path, PathBuf};
+
+use super::repo::TempRepo;
+use crate::territory::{changed_since, directories_at, head_of, Directory, NotRead};
+
+fn dir(path: &str, files: u32) -> Directory {
+    Directory { path: path.into(), files }
+}
+
+/// A repository on `main`, and a worktree on `work` cut from it.
+fn a_slot() -> (TempRepo, PathBuf) {
+    let repo = TempRepo::with_a_commit();
+    repo.commit_one("f.txt", "f\n", "add f");
+    repo.commit_one("g.txt", "g\n", "add g");
+    let slot = repo.root().join(".armada/slots/slot-1");
+    repo.git(&["worktree", "add", "-q", &slot.to_string_lossy(), "-b", "work"]);
+    (repo, slot)
+}
+
+/// The worktree's own git directory: where its index and any scratch copy of it would be.
+fn git_dir(slot: &Path) -> PathBuf {
+    let said = std::process::Command::new("git")
+        .args(["-C", &slot.to_string_lossy(), "rev-parse", "--absolute-git-dir"])
+        .output()
+        .expect("git");
+    PathBuf::from(String::from_utf8_lossy(&said.stdout).trim())
+}
+
+fn names(dir: &Path) -> Vec<String> {
+    let mut found: Vec<String> = std::fs::read_dir(dir)
+        .expect("a directory")
+        .map(|one| one.expect("an entry").file_name().to_string_lossy().into_owned())
+        .collect();
+    found.sort();
+    found
+}
+
+#[test]
+fn the_directories_are_the_base_heads_tree_to_two_names_with_the_files_under_each() {
+    let repo = TempRepo::empty();
+    repo.write("README.md", "top\n");
+    repo.write("crates/fleet/a.rs", "a\n");
+    repo.write("crates/fleet/b.rs", "b\n");
+    repo.write("crates/fleet/src/deep/c.rs", "c\n");
+    repo.write("crates/ipc/d.rs", "d\n");
+    repo.write("docs/e.md", "e\n");
+    repo.commit_everything("the tree");
+    // Not in the base head's tree, so not in the count.
+    repo.write("crates/fleet/untracked.rs", "x\n");
+
+    let head = head_of(repo.root(), "main").expect("main has a head");
+
+    assert_eq!(head, repo.head_str());
+    assert_eq!(
+        directories_at(repo.root(), &head),
+        Ok(vec![dir("crates", 4), dir("crates/fleet", 3), dir("crates/ipc", 1), dir("docs", 1)]),
+        "a file at the top is in no directory; a deeper one counts to the two names above it"
+    );
+}
+
+#[test]
+fn a_base_that_names_nothing_is_not_read() {
+    let repo = TempRepo::with_a_commit();
+    assert!(matches!(head_of(repo.root(), "nowhere"), Err(NotRead(_))));
+}
+
+#[test]
+fn a_slots_changes_are_what_it_committed_edited_deleted_and_has_not_tracked_since_it_met_the_base() {
+    let (repo, slot) = a_slot();
+    // Main moves on after the slot was cut: what it changed is not the slot's.
+    repo.commit_one("h.txt", "h\n", "add h on main");
+    std::fs::create_dir_all(slot.join("src")).expect("a directory");
+    std::fs::write(slot.join("src/a.rs"), "a\n").expect("written");
+    repo.git(&["-C", &slot.to_string_lossy(), "add", "src/a.rs"]);
+    repo.git(&["-C", &slot.to_string_lossy(), "commit", "-q", "-m", "add a"]);
+    std::fs::write(slot.join("f.txt"), "edited\n").expect("written");
+    std::fs::remove_file(slot.join("g.txt")).expect("removed");
+    std::fs::write(slot.join("new.txt"), "new\n").expect("written");
+
+    assert_eq!(
+        changed_since(&slot, "main"),
+        Ok(vec!["f.txt".into(), "g.txt".into(), "new.txt".into(), "src/a.rs".into()])
+    );
+}
+
+#[test]
+fn a_slot_that_changed_nothing_has_no_paths() {
+    let (repo, slot) = a_slot();
+    repo.commit_one("h.txt", "h\n", "add h on main");
+    assert_eq!(changed_since(&slot, "main"), Ok(Vec::new()));
+}
+
+#[test]
+fn reading_a_slots_changes_writes_no_index_of_it() {
+    let (_repo, slot) = a_slot();
+    std::fs::write(slot.join("f.txt"), "edited\n").expect("written");
+    std::fs::write(slot.join("new.txt"), "new\n").expect("written");
+    let gitdir = git_dir(&slot);
+    let (index, held) = (std::fs::read(gitdir.join("index")).expect("an index"), names(&gitdir));
+
+    let _ = changed_since(&slot, "main");
+
+    assert_eq!(std::fs::read(gitdir.join("index")).expect("an index"), index, "its index is as it was");
+    assert_eq!(names(&gitdir), held, "and no scratch copy of it is left beside it");
+}

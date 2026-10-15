@@ -7,7 +7,7 @@ import { page } from "vitest/browser";
 import BUILT_IN from "@armada/tokens/themes/built-in.json";
 import INDEX from "@armada/tokens/themes/index.json";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 import { DUSK_MOD, mockThemes } from "./themes";
 
 unmountAfterEach();
@@ -41,7 +41,7 @@ afterEach(() => window.history.replaceState(null, "", window.location.pathname))
 
 /** Opens Settings and chooses a theme in the field, by typing its name and pressing its row. */
 async function choose(name: string, typed = name) {
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toSystemPage("Settings");
   await page.getByRole("tab", { name: "Appearance" }).click();
   await page.getByRole("combobox", { name: "Theme" }).fill(typed);
   await page.getByRole("option", { name, exact: true }).click();
@@ -50,7 +50,7 @@ async function choose(name: string, typed = name) {
 test("Light is the real token set: the root takes it, and the aliases read it", async () => {
   mount("mods-themes");
   await onScreen();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toSystemPage("Settings");
   await page.getByRole("tab", { name: "Appearance" }).click();
   expect(root().dataset["theme"]).toBe("dark");
   const dark = token("--surface-card");
@@ -74,7 +74,7 @@ test("a catalogue theme is read when chosen, and is the scheme's own ground", as
 test("the field groups themes by tone and narrows as it is typed in", async () => {
   mount("mods-themes");
   await onScreen();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toSystemPage("Settings");
   await page.getByRole("tab", { name: "Appearance" }).click();
   await page.getByRole("combobox", { name: "Theme" }).click();
   await expect.element(page.getByRole("group", { name: "Dark" })).toBeVisible();
@@ -98,7 +98,7 @@ test("each row carries its own theme's strip, from the index and the built-in li
   mount("mods-themes");
   await onScreen();
   mockThemes.install(DUSK_MOD);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toSystemPage("Settings");
   await page.getByRole("tab", { name: "Appearance" }).click();
   await page.getByRole("combobox", { name: "Theme" }).click();
   expect(stripOf("Nord")).toEqual(INDEX.find((one) => one.id === "catalogue:nord")!.swatch.map(rgb));
@@ -117,7 +117,7 @@ test("a mod's theme is applied from its CSS, and Dark returns when it is switche
   expect(root().dataset["theme"]).toBe("dusk");
   expect(token("--bg-base")).toBe(authored("theme.css", "--bg-base"));
 
-  await page.getByRole("button", { name: "Mods", exact: true }).click();
+  await toSystemPage("Mods");
   (page.getByRole("switch", { name: "Dusk" }).element() as HTMLElement).click();
   await expect.poll(() => root().dataset["theme"]).toBe("dark");
   expect(token("--bg-base")).toBe(authored("colors.css", "--bg-base"));
@@ -127,7 +127,7 @@ test("Promote puts the mod on a branch and the row says the branch, once", async
   mount("mods-themes");
   await onScreen();
   mockThemes.install(DUSK_MOD);
-  await page.getByRole("button", { name: "Mods", exact: true }).click();
+  await toSystemPage("Mods");
   await page.getByRole("button", { name: "Promote Dusk" }).click();
   await expect.element(page.getByText(/^armada\/mod-dusk-\d+$/)).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Promote Dusk" })).toBeDisabled();
@@ -138,12 +138,12 @@ test("?nomods loads without mods: none in the field, none on the Mods surface, t
   mount("mods-themes");
   await onScreen();
   mockThemes.install(DUSK_MOD);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await toSystemPage("Settings");
   await page.getByRole("tab", { name: "Appearance" }).click();
   await page.getByRole("combobox", { name: "Theme" }).click();
   await expect.element(page.getByRole("option", { name: "Nord", exact: true })).toBeVisible();
   await expect.element(page.getByRole("option", { name: "Dusk" })).not.toBeInTheDocument();
-  await page.getByRole("button", { name: "Mods", exact: true }).click();
+  await toSystemPage("Mods");
   await expect.element(page.getByRole("group", { name: "Dusk" })).not.toBeInTheDocument();
 });
 

@@ -88,7 +88,7 @@ fn an_asked_row_keeps_what_it_carried_and_leaves_out_what_it_did_not() {
 #[test]
 fn an_issue_read_spells_its_state_in_snake_case() {
     let read = IssueRead {
-        number: 214,
+        reference: "#214".to_string(),
         title: "The title".to_string(),
         url: "https://forge.invalid/o/r/issues/214".to_string(),
         state: IssueState::Closed,

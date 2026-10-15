@@ -6,7 +6,7 @@
 // with Helm's mark, and opening it opens the dock. Over `helm-is-a-session`; each `later` is the turn's
 // next step.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 
 const helm = role("complementary", "Helm");
 const box = inside(helm, role("textbox", "Ask Helm"));
@@ -52,7 +52,7 @@ const helmIsASession = walk("helm-is-a-session", [
   { key: "Enter", on: box, say: "Press ↵" },
   { look: inside(thread, button("Sent to Session Sessions list views")), say: "The words stay in the thread, with where they went" },
 
-  { press: role("button", "Sessions", { exact: true }), say: "The Sessions list" },
+  { press: place("Sessions"), say: "The Sessions list" },
   { hover: inside(sessions, role("img", "Helm")), say: "Helm's Session carries Helm's mark" },
   { key: "Meta+j", on: helm, say: "The dock put away" },
   { press: inside(sessions, button(/Helm · armada/)), say: "Opening it opens the dock" },

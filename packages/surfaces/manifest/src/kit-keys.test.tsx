@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { allowlistRead, KIT_INVENTORY, KIT_SERVERS, manifesting, mount, unmountAfterEach } from "@armada/desktop/mock";
+import { allowlistRead, KIT_INVENTORY, KIT_SERVERS, manifesting, mount, toSystemPage, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
@@ -15,7 +15,7 @@ async function kit(): Promise<void> {
     manifesting({ kitServers: KIT_SERVERS, kitInventory: allowlistRead([{ name: "grep -n", source: "always allow" }]) }),
     SLICES,
   );
-  await page.getByRole("button", { name: "Kit", exact: true }).click();
+  await toSystemPage("Kit");
   await expect.element(page.getByRole("region", { name: "Skills" })).toBeVisible();
 }
 
@@ -27,7 +27,7 @@ const region = (name: string) => page.getByRole("region", { name, exact: true })
  */
 test("Kit's tiles are one Tab stop", async () => {
   await kit();
-  (page.getByRole("separator", { name: "Resize the left column" }).element() as HTMLElement).focus();
+  (page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Kit" }).element() as HTMLElement).focus();
 
   await userEvent.tab();
   await expect.element(region("Skills")).toHaveFocus();
@@ -60,9 +60,9 @@ test("the arrows move across Kit's tiles as they are drawn, and j and k step thr
   await userEvent.keyboard("{ArrowRight}");
   await expect.element(region("Plugins")).toHaveFocus();
   await userEvent.keyboard("{ArrowDown}");
-  await expect.element(region("Commands")).toHaveFocus();
+  await expect.element(region("MCP servers")).toHaveFocus();
   await userEvent.keyboard("{ArrowLeft}");
-  await expect.element(region("Sub agents")).toHaveFocus();
+  await expect.element(region("Commands")).toHaveFocus();
   await userEvent.keyboard("{ArrowUp}");
   await expect.element(region("Skills")).toHaveFocus();
 
@@ -140,7 +140,7 @@ test("a tile's long list scrolls on the arrows while it has more", async () => {
     ),
   };
   mount(manifesting({ kitInventory: long }), SLICES);
-  await page.getByRole("button", { name: "Kit", exact: true }).click();
+  await toSystemPage("Kit");
   await expect.element(region("Skills")).toBeVisible();
 
   const list = region("Skills").element().querySelector<HTMLElement>("[data-scrolls]");

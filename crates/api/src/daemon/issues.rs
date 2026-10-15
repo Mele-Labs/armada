@@ -23,13 +23,14 @@ pub trait Issues: Send + Sync + 'static {
         refresh: bool,
     ) -> impl Future<Output = Result<IssueList, Refusal>> + Send;
 
-    /// `get_issue` — one issue by number, closed ones included, read from the tracker each time.
+    /// `get_issue` — one issue by reference (`#214` or `214` on a forge, `ABC-123` on Jira),
+    /// closed ones included, read from the tracker each time.
     /// [`Refusal::NoSuchJob`] where there is none or the number is a pull request's,
     /// [`Refusal::Fault`] where the tracker would not answer.
     fn get_issue(
         &self,
         manifest_id: ManifestId,
-        number: u64,
+        reference: String,
     ) -> impl Future<Output = Result<IssueRead, Refusal>> + Send;
 }
 

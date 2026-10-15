@@ -22,7 +22,7 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, elapsed time, current step. No turn-level detail (diff, tool calls, full history) at this level — that requires deliberately opening Debug on a specific Drone.
+Open Bridge → the Cockpit → the Jobs and Sessions list, with the Activity feed under it and the map or the timeline on the stage → lightweight heartbeat per active Drone: status, elapsed time, current step. No turn-level detail (diff, tool calls, full history) at this level — that requires deliberately opening Debug on a specific Drone.
 
 ## Job detail
 

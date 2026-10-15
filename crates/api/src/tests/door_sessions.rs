@@ -92,6 +92,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         context_breakdown: None,
         helm: false,
         activity: None,
+        build: None,
     }
 }
 

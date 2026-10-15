@@ -2,11 +2,10 @@
 // Checks newest first, from its gate, a Drone and the merge line, narrowed by state. A mock, no
 // Fleet behind it.
 
-import { button, inside, role, tab, text, walk } from "../walk";
+import { button, inside, role, tab, text, viaPalette, walk } from "../walk";
 
 const STRIP = role("tablist", "Job detail");
 const PANEL = role("dialog", "Check");
-const RAIL = role("navigation", "Work");
 
 export const jobChecksTab = walk("job-checks", [
   { look: inside(STRIP, tab("Checks")), say: "Checks, after Record" },
@@ -24,7 +23,7 @@ export const jobChecksTab = walk("job-checks", [
   { look: inside(PANEL, text(/Diff in crates/)), say: "Its facts over its log" },
   { press: inside(PANEL, button(/Drone/)), say: "Requested by: that Drone, opened within this Job" },
   { look: inside(STRIP, tab("Drones")), say: "The Drones tab, still this Job" },
-  { press: inside(RAIL, button("Checks", { exact: true })), say: "The Checks page" },
+  ...viaPalette("Checks", "The Checks page"),
   { look: tab("Skipped"), say: "The same filter row" },
   { press: tab("Failed"), say: "Every Job's failed Checks, and the checkout's" },
 ]);

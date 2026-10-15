@@ -9,7 +9,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -26,35 +26,20 @@ test("Overview carries no Dispatch of its own, and the title row's one bar is th
   expect(page.getByRole("button", { name: "Dispatch", exact: true }).query()).toBeNull();
 });
 
-test("the Job Board is gone from the rail", async () => {
+test("the Job Board is gone from the title bar", async () => {
   mount("every-state");
   await onScreen();
 
-  await expect.element(page.getByRole("navigation", { name: "Work" })).toBeVisible();
+  await expect.element(page.getByRole("navigation", { name: "Places" })).toBeVisible();
+  expect(page.getByRole("tab", { name: "Job Board" }).query()).toBeNull();
   expect(page.getByRole("button", { name: "Job Board" }).query()).toBeNull();
 });
 
-test("the Board's old shortcut reaches Studios, because the digits closed up behind it", async () => {
+test("the Board's old shortcut reaches Jobs, because a digit is a tab's place in the bar", async () => {
   mount("every-state");
   await onScreen();
 
-  // `⌘2` was the Board's. A digit left reaching nothing is what "no gap"
-  // forbids; Studios moved up into it.
+  // `⌘2` was the Board's, and then Studios'. It is the second tab now.
   await userEvent.keyboard("{Meta>}2{/Meta}");
-  await expect.poll(() =>
-    document.querySelector('nav[aria-label="Work"] [aria-current="page"]')?.textContent,
-  ).toContain("Studios");
-});
-
-test("Done draws every Job that completed or was cleared, on its own filter", async () => {
-  rememberingTheGrid();
-  mount("every-state");
-  await onScreen();
-
-  // What is over is read on purpose: its own filter, and not the one Overview opens on.
-  const done = page.getByRole("tab", { name: "Done" });
-  await expect.element(done).toHaveAttribute("aria-selected", "false");
-  await done.click();
-  // **Polled, not read.** The filter flipping is one render and its tiles are the next.
-  await expect.poll(() => document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [data-job-id]').length).toBeGreaterThan(0);
+  await expect.poll(() => document.querySelector('nav[aria-label="Places"] [role="tab"][aria-selected="true"]')?.textContent).toContain("Jobs");
 });

@@ -3,14 +3,14 @@
 // outline, stranded hatched, not made a ghost. A Job holding a bay opens it, and
 // a press anywhere else on a bay opens its panel.
 
-import { button, inside, role, text, walk } from "../walk";
+import { inside, role, text, viaPalette, walk } from "../walk";
 
 const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 /** The bay's Job, by its title: any button there but the bay's own name. */
 const JOB = inside(BAY(1), role("button", /^(?!slot-1$)/));
 
 export const aPoolOfWorktreeSlots = walk("cleanup/slots", [
-  { press: button("Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
+  ...viaPalette("Worktree Slots", "Cleanup, from the rail"),
   { look: role("list", "Worktree slots"), say: "The pool, a bay per slot" },
   { look: BAY(1), say: "Held by a Job: a filled card under the leased band" },
   { hover: JOB, say: "The Job: its mark, and a link that opens it" },

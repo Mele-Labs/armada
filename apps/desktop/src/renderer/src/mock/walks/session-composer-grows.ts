@@ -2,7 +2,7 @@
 // Told on a Session's composer and on Helm's.
 
 import { kit, toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, walk } from "../walk";
+import { button, inside, place, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 
 const lines = (count: number) => Array.from({ length: count }, (_, index) => `Line ${index + 1} of the message`).join("\n");
@@ -27,8 +27,8 @@ const helm: Step[] = [
 const keeping: Step[] = [
   { press: inside(region("Sessions"), button("CI timeout hunt")), say: "A Session" },
   { type: "Half a thought before I leave", into: kit(false).message, say: "Something typed and not sent" },
-  { press: button("Cockpit", { exact: true }), say: "Off to the Cockpit" },
-  { press: button("Sessions", { exact: true }), say: "And back to the Sessions" },
+  { press: place("Cockpit"), say: "Off to the Cockpit" },
+  { press: place("Sessions"), say: "And back to the Sessions" },
   { press: inside(region("Sessions"), button("CI timeout hunt")), say: "The same Session" },
   { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },
 ];

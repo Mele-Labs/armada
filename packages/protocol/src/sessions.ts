@@ -8,6 +8,7 @@ import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { SessionActivity } from "./session-activity";
+import type { ReportedTask, SessionBuild } from "./session-build";
 import type { PlanWindow } from "./plan-usage";
 
 /** What started a session. */
@@ -105,6 +106,11 @@ export type SessionRecord = {
    * session a terminal runs and once the session ends. Since 14 Oct 2026.
    */
   activity?: SessionActivity;
+  /**
+   * What the Session has built, derived by Fleet on every read from what it observed. Absent for a Session that has
+   * done nothing Fleet observed. See `session-build.ts`.
+   */
+  build?: SessionBuild;
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
@@ -250,6 +256,12 @@ export type ShowSketch = { title: string; scene: unknown; session_id?: string };
  */
 export type WindowClosed = { session_id: string; url: string };
 
+/**
+ * `POST /sessions/window/failed`: the window a session showed could not show its page. Fleet tells the
+ * session in its own voice; the walk stays open.
+ */
+export type WindowFailed = { session_id: string; url: string; why: string };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 
@@ -329,6 +341,14 @@ export type SessionFact =
   /** Files written, relative to the session's `cwd`. Since 23.81. */
   | { kind: "touched"; paths: string[] }
   | { kind: "wrote" }
+  /** The agent's task list, whole, as its last task tool left it. An empty list clears it. */
+  | { kind: "tasks"; tasks: ReportedTask[] }
+  /** The agent left plan mode. */
+  | { kind: "plan_left" }
+  /** A `git commit` ran and its output showed a commit made. `branch` is absent on a detached head. */
+  | { kind: "committed"; branch?: string }
+  /** A `git push` ran and its output showed a ref updated. */
+  | { kind: "pushed"; branch?: string }
   | { kind: "ended"; reason: string };
 
 export type SessionReport = {

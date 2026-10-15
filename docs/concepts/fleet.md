@@ -66,7 +66,7 @@ Process-group semantics differ across platforms, and where that difference belon
 
 ## Repositories
 
-**One Fleet serves many repositories.** A person adds each by folder, or clones one from a URL into a folder they pick, and the rail's project picker switches between All repositories and their Manifests. The Board follows the picker, and [Job Board](job-board.md) owns why. The rejected alternative was one Fleet per repository, which would have put a store and a listener per project in front of a person who wanted one.
+**One Fleet serves many repositories.** A person adds each by folder, or clones one from a URL into a folder they pick, and the repository picker at the top of the Cockpit's left column switches between All repositories and their Manifests. The Board follows the picker, and [Job Board](job-board.md) owns why. The rejected alternative was one Fleet per repository, which would have put a store and a listener per project in front of a person who wanted one.
 
 > **Rule.** A Job belongs to the repository whose Manifest it was created against, found through `owner_manifest_id`.
 > Why: every path a Job writes to — its worktree, its records, its main checkout — is that repository's, and a lookup that fell back to another would work a Job in a tree it never ran in.
@@ -221,7 +221,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 | Whose writes | Where Fleet sees them |
 |---|---|
 | A Job's Drone | Its edit calls on the stream: `Edit`, `MultiEdit`, `Write`, `NotebookEdit` |
-| A hosted Session | The write gate (`POST /sessions/gate`), for a call it lets through inside its own slot |
+| A hosted Session | The write gate (`POST /sessions/gate`), for a call it lets through inside any slot the session holds, its subagents' included. The path is read from that slot |
 | A terminal Session | The `armada` mod's `touched` fact: the path from the session's directory, never the content |
 
 ```
@@ -234,6 +234,10 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
                               conflict ─▶ the files, to both
 ```
 
+**A Session writes in every slot it holds.** Its holder is not the one slot its ledger row names: it is that slot and every other slot whose lease is the session's, leased for it by Fleet or by a subagent's `armada worktree lease`. Every slot of one side is checked against every slot of the other, and against main. Confirmed 15 Oct 2026: two Sessions edited the same lines for hours, each in a slot its subagent leased, and neither was told while the table read only the ledger's slot.
+
+**A pair names only files both changed themselves.** A worktree cut from a newer main carries main's changes, and git sets them against an older holder's as if they were the newer one's. So a file git conflicts on is told to the pair only where each side's own diff since it left the base (`origin/<base>`, else `<base>`) holds it. A conflict with main's changes alone is *Main moving*'s, told to that holder only. Confirmed 15 Oct 2026: a Session holding a 31-hour-old branch in a second slot was told it clashed with another over files only main had changed.
+
 **Git decides, not the path.** Each holder's worktree is read as a whole tree through a scratch index, so its own index is never written and a shell write no hook saw is in it. A file both edited in places that merge clean says nothing. Where git will not answer, the last reading stands and the Job's log says why.
 
 **What each side is told.** The files that conflict, who the other is, and how to reach it. A Drone hears it in its next peer turn (`docs/contracts/agent-prompt.md`, *The peer turn*) and reaches a Job with `leave_note` on its handle and a Session with `leave_note` on `s-` and the first eight characters of its id. A Session hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Session*) and reaches a Job with `redirect_drone` and a Session with `SendMessage`. **Told once per set of files**: a changed set is told again, a cleared one is never said.
@@ -242,9 +246,26 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **A holder leaves the table with its clashes** where its needs are given back: a Job reaching a terminal status, a Session ending. Any check also drops a holder whose worktree, branch or Job is gone, or a terminal Session unheard for six hours. A Job has no way to reach a Session except a clash it is in: `leave_note` to a Session is refused where Fleet found none, and otherwise arrives as a message naming the Job.
 
-**Memory only.** A restart forgets the table and the next writes rebuild it. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session.
+**Memory only, filled from git on start.** A restart forgets the table. The first pass after a start credits each live Session and Job with the files its worktrees changed since they left the base (`git diff --name-only` from the merge base to the tree as it stands), so a pair that clashed before the restart is checked again without either writing. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session.
 
-**Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Dashboard and Cockpit tiles, the Cockpit map and bays, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
+**Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Cockpit's list, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The Cockpit's map draws a standing clash as an amber hatched slab on the directory both write in, and its tooltip reads *Two drones are changing it*, or *Changed elsewhere too* where the map holds one. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
+
+### The territory
+
+**What the flight deck's map is drawn over** ([Cockpit](cockpit.md), *The map*): each served repository's directories, and where each agent has changed it. Two reads, both Bridge only, both git's and neither an agent's word.
+
+| Read | Serves | From | Kept |
+|---|---|---|---|
+| `list_repository_areas`, `GET /repository_areas` | Each served repository's directories one and two names deep, with the files at or under each | `git ls-tree -r --name-only` of the base branch's head, counted | Against the head it was read at: an unchanged head asks git for the head alone |
+| `list_slot_touches`, `GET /slot_touches` | For each Job or hosted Session holding a slot, the paths changed in it, by repository | The slot's tree as it stands, through a scratch index, against the tree of its merge base with the base branch | 20 seconds, as a whole |
+
+**Areas are capped at the 40 largest** by files, counting each top directory and each directory inside one, and the answer says how many were left out. A top directory sorts before the directories inside it, so none is listed without its top. A file at the top of a repository is in no directory. What git does not track, and what `.gitignore` names, is not in the tree.
+
+**A slot's changes are everything its branch holds that the base does not**: what it committed since it met the base, what is edited or deleted and not committed, and what is not tracked yet. What the base changed since the slot was cut is not the holder's. The slot's own index, branch and files are never written, which is why the read goes through a scratch copy of the index as *Write clashes* does. A holder is listed with at most 200 paths, sorted, and the count left out.
+
+**Who holds a slot is `list_worktrees`' answer**, so these add no pool read. A slot held by a process Fleet does not host, a free one, a stranded one, a Job that ended and keeps its slot, and a subagent's slot are not read, and a holder with no change in its slot is absent. A slot git cannot read is left out of that read, not reported as unchanged.
+
+**Memory only.** A restart reads again. Bridge reads both when Fleet connects, again 35 seconds after the board last changed, and again every 35 seconds while any holder has changed something, so a holder that stops goes. A Fleet with neither route answers 404 and Bridge takes it as none. `apps/desktop/src/renderer/src/fleet-territory.ts`.
 
 ### Declared needs
 

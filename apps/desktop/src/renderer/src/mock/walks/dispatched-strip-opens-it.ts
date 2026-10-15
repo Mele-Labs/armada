@@ -2,11 +2,11 @@
 // Autopilot's repository, and Open. ↵ or a press opens it; typing again or Esc lets it go. A Session
 // opens itself and leaves none. Over `dispatch-panel-from-the-title-bar`.
 
-import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, place, region, role, tab, text, walk } from "../walk";
 
 const frame = role("region", "Dispatch", { exact: true });
 const strip = role("group", "Last dispatch");
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const bar = inside(dialog("Command palette"), role("combobox"));
 const panel = dialog("Dispatch");
 const inPanel = (target: ReturnType<typeof role>) => inside(panel, target);
@@ -23,7 +23,7 @@ const dispatchedStripOpensIt = walk("dispatch-panel-from-the-title-bar", [
   { hover: inside(strip, button("Dismiss")), say: "The tooltip names the dismiss" },
   { key: "Enter", on: strip, say: "Press ↵" },
   { look: role("heading", /Show the Drone's branch/), say: "The Job is open" },
-  { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back on the Cockpit" },
+  { press: place("Cockpit"), say: "Back on the Cockpit" },
   { look: cockpit, say: "The strip is gone with the Job opened" },
 
   // (b) The strip lets go on Esc.

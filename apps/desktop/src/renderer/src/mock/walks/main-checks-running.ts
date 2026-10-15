@@ -5,7 +5,7 @@
 // A run that ends green clears the band, even while newer checks run behind it; one that ends red on the same job brings the red back with
 // its buttons. Each `later` is time passing: the scenario publishes its next moment.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, text, viaPalette, walk } from "../walk";
 
 const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
@@ -14,7 +14,7 @@ const LANDED = inside(MERGE, role("list", "Recently landed"));
 const LOG = dialog("Check log");
 
 export const mainChecksRunning = walk("main-checks-running", [
-  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
+  ...viaPalette("Merge line", "The merge line"),
   // Main is red at #1812, and nothing is running on top of it.
   { look: RED, say: "Main is red: nothing newer is running, so the red band offers its two ways" },
   { look: inside(RED, button("Dispatch a new Job")), say: "A new Job, or an earlier one, as before" },

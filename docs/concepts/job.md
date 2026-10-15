@@ -526,7 +526,7 @@ cleared there. The asking Drone's own context is the cost. `awaiting_answer`
 reads after `paused` and before every other queued reason. The owner's decision
 of 11 Oct 2026, #2094.
 
-**The answer may leave the deciding to the Drone.** `answer_question`, `answer_command` and `answer_judge` take a `mode` of `best` or `quick`, alone or beside a label. Fleet tells the Drone in its own words: *decide for yourself: think it through*, or *take the reasonable path and keep moving*. A mode names no option and carries no prose, and a stale question is refused as it is for a label. The Cockpit's `b` and `g` send them.
+**The answer may leave the deciding to the Drone.** `answer_question`, `answer_command` and `answer_judge` take a `mode` of `best` or `quick`, alone or beside a label. Fleet tells the Drone in its own words: *decide for yourself: think it through*, or *just get it done: finish the work and land it, skipping the formalities*. A mode names no option and carries no prose, and a stale question is refused as it is for a label. The Cockpit's `b` and `g` send them.
 
 ## A Job's Now
 
@@ -559,7 +559,7 @@ of 11 Oct 2026, #2094.
 
 A skip is refused with a 409 where no gate is running, and the refusal is said in the host's toast. A skipped Check stays in the ruling as skipped, so nothing reads it as green.
 
-**Every active Job has one, not only the open one.** Bridge's main process holds a detail and a Drone list for each Job that has begun and not ended, re-read on the `job.*` and `drone.*` events that name it, and dropped when the Job ends. The Cockpit, the Dashboard and the call cards draw from those; a mock draft still wins for a Job it names, which is how the design mocks keep working. Plan decisions are not in a Job's Now and stay on the mock until Fleet publishes a plan interview.
+**Every active Job has one, not only the open one.** Bridge's main process holds a detail and a Drone list for each Job that has begun and not ended, re-read on the `job.*` and `drone.*` events that name it, and dropped when the Job ends. The Cockpit and the call cards draw from those; a mock draft still wins for a Job it names, which is how the design mocks keep working. Plan decisions are not in a Job's Now and stay on the mock until Fleet publishes a plan interview.
 
 ## The bays a Job held
 

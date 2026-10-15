@@ -5,16 +5,14 @@ import type { Outcome } from "@armada/protocol";
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onBoard, openHelm, unmountAfterEach } from "@armada/desktop/mock";
+import { mount, onBoard, openHelm, toSystemPage, unmountAfterEach } from "@armada/desktop/mock";
 
 import { MOCK_SETTINGS } from "./fake-settings";
 import { openSettingsAt } from "./sections";
 
 unmountAfterEach();
 
-const openSettings = async () => {
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-};
+const openSettings = () => toSystemPage("Settings");
 
 test("the index lists groups in order, and a group draws each of its sections under its own heading", async () => {
   mount(onBoard([]), { slices: ["core", "settings"] });

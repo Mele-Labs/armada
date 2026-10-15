@@ -9,7 +9,7 @@ import type { CodeRunEvent } from "@armada/components";
 
 import { s241RefreshPreviewOnSessions } from "./scenarios/refresh-preview-on-sessions";
 import type { SessionsStore } from "./sessions/script";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -49,7 +49,7 @@ async function open({ runner }: { runner: boolean }) {
   };
   mount(scenario);
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Pin the store clock/ }));
   await userEvent.click(needs().getByRole("button", { name: /^Needs you/ }));
   return runs;

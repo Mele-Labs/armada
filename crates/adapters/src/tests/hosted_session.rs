@@ -270,7 +270,7 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
 }
 
 #[test]
-fn a_redirect_to_nowhere_and_a_quoted_separator_do_not_make_a_line_a_write() {
+fn a_redirect_to_nowhere_and_quoted_shell_marks_do_not_make_a_line_a_write() {
     for read in [
         r#"armada worktree --status 2>&1 | grep -E "slot-1 |07541e89""#,
         "git log 2>&1 | head",
@@ -283,6 +283,12 @@ fn a_redirect_to_nowhere_and_a_quoted_separator_do_not_make_a_line_a_write() {
         "git log 1>&2",
         "git log >&2 | head",
         r#"echo 'a & b' \; pwd"#,
+        r#"echo "2>&1""#,
+        r#"grep -n "a -> b" file"#,
+        "grep -rn 'Vec<String> =>' crates",
+        r#"cd /repo && grep -rn "Ran: \|\`Ran" apps --include='*.ts' | grep -v mock | head"#,
+        "rg '`[a-z]+`' docs",
+        "grep -n '$(' scripts/preview",
     ] {
         assert!(reads_only(read), "{read}");
     }
@@ -293,8 +299,10 @@ fn a_redirect_to_nowhere_and_a_quoted_separator_do_not_make_a_line_a_write() {
         "cat a 2>&1 > out",
         "git log >/dev/null2",
         "git log 2>/dev/nullx",
-        r#"echo "2>&1""#,
         r#"echo "$(rm -rf x)""#,
+        r#"grep "`rm x`" file"#,
+        "echo a>b",
+        "cat `touch x`",
         "grep \"a\" f | tee out",
         "grep \"a f",
         "echo 'a f",

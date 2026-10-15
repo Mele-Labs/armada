@@ -41,6 +41,7 @@ impl Sessions for FakeDaemon {
             context_breakdown: None,
             helm: false,
             activity: None,
+            build: None,
         })
     }
 
@@ -205,6 +206,10 @@ impl Sessions for FakeDaemon {
             },
         })
         .await
+    }
+
+    async fn window_failed(self: std::sync::Arc<Self>, _failed: ipc::WindowFailed) -> Result<ipc::WalkTold, Refusal> {
+        Ok(ipc::WalkTold { told: true })
     }
 
     async fn waiting_for(

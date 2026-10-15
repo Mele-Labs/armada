@@ -22,6 +22,9 @@ async function forms(options: Manifesting = {}): Promise<void> {
   await page.getByRole("tab", { name: "Edit" }).click();
 }
 
+// The title bar's places are a tablist too, so the Manifest's own is the one holding Edit.
+const manifestTabs = () => page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Edit" }) });
+
 const save = () => page.getByRole("button", { name: "Save", exact: true });
 
 /** What Save leaves: nothing more to send, once the form redraws from what Fleet wrote. */
@@ -185,11 +188,11 @@ test("scrolled to the last section: the tabs stay put, and Save stays pinned and
   expect(form).not.toBeNull();
   expect(form!.scrollHeight).toBeGreaterThan(form!.clientHeight);
   expect(endShownIn(drone, form!)).toBe(false);
-  const tabsAt = page.getByRole("tablist").element().getBoundingClientRect().top;
+  const tabsAt = manifestTabs().element().getBoundingClientRect().top;
 
   form!.scrollTop = form!.scrollHeight;
   await expect.poll(() => endShownIn(drone, form!)).toBe(true);
-  expect(page.getByRole("tablist").element().getBoundingClientRect().top).toBe(tabsAt);
+  expect(manifestTabs().element().getBoundingClientRect().top).toBe(tabsAt);
   await userEvent.type(droneRegion.getByLabelText("Poke limit"), "0");
   await expect.element(save()).toBeEnabled();
   expect(pressable(save().element())).toBe(true);

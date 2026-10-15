@@ -3,13 +3,13 @@
 // and it joins both.
 
 import { kit, toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, region, role, text, toSystemPage, walk } from "../walk";
 
-const { message, thread, rail } = kit(false);
+const { message, thread } = kit(false);
 const theme = role("combobox", "Theme");
 
 export const modsThemes = walk("mods-themes", [
-  { press: rail("Settings"), say: "Settings" },
+  ...toSystemPage("Settings", "Settings, from the System strip"),
   { press: role("tab", "Appearance"), say: "Appearance, the group Theme is in" },
   { look: theme, say: "Dark is in force, with its colours beside it" },
   { press: theme, say: "Every theme is previewed by its own colours" },
@@ -19,16 +19,16 @@ export const modsThemes = walk("mods-themes", [
   { press: role("option", "Nord", { exact: true }), say: "Nord" },
   { type: "latte", into: theme, say: "Light themes are in the list too" },
   { press: role("option", "Catppuccin Latte"), say: "Catppuccin Latte" },
-  { press: rail("Mods"), say: "Mods, under Machine" },
+  ...toSystemPage("Mods", "Mods, from the System strip"),
   toSessions,
   { press: inside(region("Sessions"), button(/A theme/)), say: "A Session Bridge hosts" },
   { type: "Make a dusk theme: purple-grey ground, a warm accent.\n", into: message, say: "The request" },
   { look: inside(thread, text(/theme\.css/)), say: "theme.css written into the mod folder" },
-  { press: rail("Settings"), say: "Settings" },
+  ...toSystemPage("Settings", "Settings, from the System strip"),
   { press: role("tab", "Appearance"), say: "Appearance, the group Theme is in" },
   { type: "dusk", into: theme, say: "Dusk" },
   { press: role("option", "Dusk"), say: "Dusk is in the list, under From mods" },
-  { press: rail("Mods"), say: "And in Mods" },
+  ...toSystemPage("Mods", "And in Mods"),
   { look: role("img", "Theme"), say: "Each row names its kind" },
   { look: role("group", "Dusk"), say: "Dusk" },
   { press: button("Promote Dusk"), say: "Promote" },

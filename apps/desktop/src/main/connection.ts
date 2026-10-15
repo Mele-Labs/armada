@@ -60,6 +60,7 @@ import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ClashesHost } from "./clashes";
+import { TerritoryHost } from "./territory";
 import { TimelineHost } from "./timeline";
 import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
@@ -223,6 +224,8 @@ export class FleetConnection {
       return listed === undefined || listed.length === 0 ? null : listed.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest.id]));
     },
   );
+  /** What each repository holds and where each agent has changed it — `territory.ts`. */
+  readonly territory: TerritoryHost = new TerritoryHost(() => this.connected()?.port ?? null);
   /** A repository's open issues — `issues.ts`. #91. */
   readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**

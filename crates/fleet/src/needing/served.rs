@@ -10,7 +10,7 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Needs, Refusal};
-use ipc::{ManifestId, NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList, WireError, WriteClashes};
+use ipc::{ManifestId, NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList, RepositoryAreas, SlotTouches, WireError, WriteClashes};
 
 use super::ledger::{self, Need};
 use crate::adrift::Adrift;
@@ -199,5 +199,13 @@ where
         holder: Option<String>,
     ) -> Result<WriteClashes, Refusal> {
         self.write_clashes(manifest_id, holder).await
+    }
+
+    async fn list_repository_areas(&self) -> Result<RepositoryAreas, Refusal> {
+        self.repository_areas().await
+    }
+
+    async fn list_slot_touches(&self) -> Result<SlotTouches, Refusal> {
+        self.slot_touches().await
     }
 }

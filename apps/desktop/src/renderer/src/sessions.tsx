@@ -5,7 +5,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, PanelRightClose, PanelRightOpen, Power } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ExternalLink, PanelRightClose, PanelRightOpen, PowerOff } from "lucide-react";
 import {
   Alert,
   Button,
@@ -827,12 +828,24 @@ export function entriesOf(
 /** What Cleanup holds, read here for a slot's panel. */
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
+/**
+ * What the flight deck changes in a Session it draws on its stage: its own acts beside the Session's, and the ledger drawn where
+ * the deck keeps it, in the right column, and not beside the thread. There the ledger is always up, so the fold below the
+ * breakpoint and the button that hides it are not drawn.
+ */
+export type DeckSession = {
+  /** The deck's acts, after the ones the Sessions window draws: the pull request, Stop, Open and the way back. */
+  acts: ReactNode;
+  /** The element the ledger is drawn into. Absent until the deck has drawn it, and the ledger waits for it. */
+  ledger: HTMLElement | null;
+};
+
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held, board, lines, settings }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null }) {
+export function SessionView({ session, goes, onOpen, held, board, lines, settings, deck }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const numbered = useNumbered(session.manifestId);
@@ -841,7 +854,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
-  const narrow = useNarrow();
+  const narrow = useNarrow() && deck === undefined;
   const [ledgerOpen, setLedgerOpen] = useState(false);
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   const [focusFor, setFocusFor] = useState<string | undefined>();
@@ -944,7 +957,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
   const doneShown = !(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined);
   // Until the done callout shows, what waits on the person sits at the foot of the thread and not in the ledger, less a question or permission its own card already shows.
-  const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || one.source === "permission").map((one) => `waiting${one.id}`));
+  // A terminal's own permission prompt has no card in the thread, so it stays at the foot.
+  const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || (one.source === "permission" && one.act?.kind !== "message")).map((one) => `waiting${one.id}`));
   const todos = todosOf(session);
   const needs = doneShown ? [] : entries.filter((one) => one.kind === "waiting" && !carded.has(one.key));
   const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
@@ -974,11 +988,12 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                   {draft.close === undefined || session.dead !== undefined ? null : (
                     <Tooltip label="End session">
                       <Button variant="ghost" size="sm" aria-label="End session" onClick={() => draft.close?.(session.id)}>
-                        <Power size={16} strokeWidth={2} aria-hidden />
+                        <PowerOff size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
                   )}
-                  {narrow ? (
+                  {deck?.acts}
+                  {deck !== undefined ? null : narrow ? (
                     <Tooltip label="Open what this Session holds">
                       <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
                         <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
@@ -994,7 +1009,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                 </>
               ),
             }}
-        {...(narrow || minimized
+        {...(narrow || minimized || deck !== undefined
           ? {}
           : {
               aside: (
@@ -1117,6 +1132,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
           )}
         </div>
       </SessionFrame>
+      {deck?.ledger == null ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
           <SessionLedger entries={ledger} folded />

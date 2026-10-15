@@ -191,6 +191,7 @@ import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { WriteClashesRead } from "./api/clashes";
+import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmAim, HelmCarry } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
@@ -494,6 +495,8 @@ type OldBridgeApi = {
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
+    getRepositoryAreas: () => Promise<RepositoryAreasRead>;
+    getSlotTouches: () => Promise<SlotTouchesRead>;
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
@@ -504,7 +507,7 @@ type OldBridgeApi = {
     settleDownshift: () => Promise<ModelDownshiftRead>;
     onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
-    getIssue: (manifestId: string, number: number) => Promise<IssueNumberRead>;
+    getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
@@ -512,7 +515,7 @@ type OldBridgeApi = {
     getAccounts: () => Promise<AccountsActed>;
     startSignIn: () => Promise<AccountsActed>;
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
-    setActiveAccount: (accountId: number) => Promise<AccountsActed>;
+    setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
@@ -828,6 +831,8 @@ const OLD_CHANNELS = {
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
+    getRepositoryAreas: "bridge:get-repository-areas",
+    getSlotTouches: "bridge:get-slot-touches",
     getFleetTimeline: "bridge:get-fleet-timeline",
     timelineAppended: "bridge:timeline-appended",
     planUsageChanged: "bridge:plan-usage-changed",
@@ -846,7 +851,7 @@ const OLD_CHANNELS = {
     getAccounts: "bridge:get-accounts",
     startSignIn: "bridge:start-sign-in",
     signOut: "bridge:sign-out",
-    setActiveAccount: "bridge:set-active-account",
+    setRepositoryProfile: "bridge:set-repository-profile",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",

@@ -8,7 +8,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, unmountAfterEach, scenarioNamed } from "@armada/desktop/mock";
+import { mount, unmountAfterEach, scenarioNamed, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -16,7 +16,7 @@ unmountAfterEach();
 
 /** Studios, from the rail, on a window that opens on Overview. */
 async function openStudios(): Promise<void> {
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
 }
 
 /**

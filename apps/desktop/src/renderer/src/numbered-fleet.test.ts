@@ -16,7 +16,7 @@ const REPOSITORIES = [
 ] as unknown as RepositorySummary[];
 
 const issue = (number: number, title: string): TrackedIssue => ({
-  number,
+  reference: `#${number}`,
   title,
   url: `https://forge.invalid/issues/${number}`,
   labels: [],
@@ -34,7 +34,7 @@ const PULLS = [pull(2219, "Pin the Bridge store clock", "fix/store-clock"), pull
 const SHOP_PULLS = [pull(418, "Round cart totals once", "fix/cart-rounding")];
 
 /** A Fleet that answers by repository, counting each ask. */
-function fleet(answers: { issues?: Record<string, TrackedIssue[]>; pulls?: Record<string, PullRequestState>; found?: Record<string, { number: number; title: string; url: string; state: "open" | "closed" }> } = {}) {
+function fleet(answers: { issues?: Record<string, TrackedIssue[]>; pulls?: Record<string, PullRequestState>; found?: Record<string, { reference: string; title: string; url: string; state: "open" | "closed" }> } = {}) {
   const listIssues = vi.fn(async (manifestId: string) => ({
     ok: true as const,
     value: { manifest_id: manifestId, fetched_at: "2026-10-12T10:00:00Z", issues: answers.issues?.[manifestId] ?? [] } satisfies IssueList,
@@ -45,8 +45,8 @@ function fleet(answers: { issues?: Record<string, TrackedIssue[]>; pulls?: Recor
       ? { ok: false as const, outcome: { ok: false as const, why: "transport" as const, detail: "no such pull request", fault: { method: "GET" as const, path: "/pull_requests", why: "unreachable" as const } } }
       : { ok: true as const, value: held };
   });
-  const getIssue = vi.fn(async (manifestId: string, number: number) => {
-    const held = answers.found?.[`${manifestId}#${number}`];
+  const getIssue = vi.fn(async (manifestId: string, reference: string) => {
+    const held = answers.found?.[`${manifestId}${reference}`];
     return held === undefined
       ? { ok: false as const, outcome: { ok: false as const, why: "transport" as const, detail: "no such issue", fault: { method: "GET" as const, path: "/issues", why: "unreachable" as const } } }
       : { ok: true as const, value: held };
@@ -188,8 +188,8 @@ describe("a number that is not open", () => {
   it("is an issue where the forge has no pull request of that number, closed or open", async () => {
     const held = store({
       found: {
-        [`${ARMADA}#61`]: { number: 61, title: "Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61", state: "closed" },
-        [`${ARMADA}#62`]: { number: 62, title: "Doctor lists a Fleet twice", url: "https://forge.invalid/issues/62", state: "open" },
+        [`${ARMADA}#61`]: { reference: "#61", title: "Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61", state: "closed" },
+        [`${ARMADA}#62`]: { reference: "#62", title: "Doctor lists a Fleet twice", url: "https://forge.invalid/issues/62", state: "open" },
       },
     });
 

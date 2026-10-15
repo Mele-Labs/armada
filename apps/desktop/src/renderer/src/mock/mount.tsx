@@ -19,6 +19,8 @@ import { FleetEventsFrom } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
+import { AreasFrom } from "../cockpit/deck/areas-source";
+import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
@@ -113,6 +115,8 @@ export function mountApp(
   if (shared === undefined) mockThemes.reset();
   mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight(chosen.state.jobs[0]?.id) : undefined);
   if (shared === undefined) mockLayout.reset();
+  // Every window starts with the deck as it begins.
+  if (shared === undefined) forgetDeck();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(api);
@@ -143,13 +147,15 @@ export function mountApp(
                           <FleetEventsFrom events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
-                                <AccountFrom account={chosen.draft?.account}>
-                                  <SharedHomeFrom home={chosen.draft?.sharedHome}>
-                                    <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                      <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                                    </PrOwnersFrom>
-                                  </SharedHomeFrom>
-                                </AccountFrom>
+                                <AreasFrom source={chosen.draft?.areas}>
+                                  <AccountFrom account={chosen.draft?.account}>
+                                    <SharedHomeFrom home={chosen.draft?.sharedHome}>
+                                      <PrOwnersFrom owners={chosen.draft?.prOwners}>
+                                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                      </PrOwnersFrom>
+                                    </SharedHomeFrom>
+                                  </AccountFrom>
+                                </AreasFrom>
                               </ClashesFrom>
                             </SessionsHere>
                           </FleetEventsFrom>

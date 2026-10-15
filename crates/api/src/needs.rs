@@ -1,4 +1,5 @@
-//! `act_on_need`, `list_needs` and `list_write_clashes`. Since 23.46. `docs/capabilities/needs.md`.
+//! `act_on_need`, `list_needs` and `list_write_clashes`. Since 23.46. `docs/capabilities/needs.md`. Beside
+//! them, as what the agents on a repository write and where: `list_repository_areas` and `list_slot_touches`.
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
@@ -59,6 +60,22 @@ pub(crate) async fn list_write_clashes<D: Needs>(
     let manifest = asked.manifest_id.map(ipc::ManifestId::carried);
     match served.daemon().list_write_clashes(manifest, asked.holder).await {
         Ok(clashes) => answer(StatusCode::OK, &clashes, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `GET /repository_areas`: every served repository's directories.
+pub(crate) async fn list_repository_areas<D: Needs>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_repository_areas().await {
+        Ok(areas) => answer(StatusCode::OK, &areas, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `GET /slot_touches`: what each holder of a slot has changed in it.
+pub(crate) async fn list_slot_touches<D: Needs>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_slot_touches().await {
+        Ok(touches) => answer(StatusCode::OK, &touches, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -12,10 +12,14 @@ import type { ReactNode } from "react";
 import type { ComposerNumbered, NumberedHit } from "@armada/components";
 import type { HubPullRequest, PullRequestState, TrackedIssue } from "@armada/protocol";
 
-/** An open issue, as `#` tags it. */
-export const issueHit = (issue: Pick<TrackedIssue, "number" | "title"> & { url?: string }): NumberedHit => ({
-  tag: { kind: "issue", id: String(issue.number), title: `#${issue.number} ${issue.title}`, ...(issue.url === undefined ? {} : { url: issue.url }) },
-});
+/**
+ * An open issue, as `#` tags it. **The tag's id is the number on a forge, and the key where the tracker names
+ * issues by one** (`ABC-123`), and its title leads with the reference either way.
+ */
+export const issueHit = (issue: Pick<TrackedIssue, "reference" | "title"> & { url?: string }): NumberedHit => {
+  const number = /^#(\d+)$/.exec(issue.reference)?.[1];
+  return { tag: { kind: "issue", id: number ?? issue.reference, title: `${issue.reference} ${issue.title}`, ...(issue.url === undefined ? {} : { url: issue.url }) } };
+};
 
 /** An open pull request off the merge line's hub. */
 export const pullRequestHit = (pull: Pick<HubPullRequest, "number" | "title"> & { url?: string }): NumberedHit => ({

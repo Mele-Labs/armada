@@ -22,7 +22,7 @@ import type {
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import { droneViewsOf, type DroneView } from "./draft/drone";
-import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type GroupView } from "./draft/group";
+import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, taskGroupsOf, type GroupState, type GroupView } from "./draft/group";
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "@armada/screens/src/facts";
 import type { HeldCommand } from "./drone-held";
@@ -329,4 +329,19 @@ function opensOn(steps: readonly StepDetail[], at: string | undefined): string[]
   if (where === -1) return [steps.map((step) => stepNodeId(step.step_id))];
   const near = steps.slice(Math.max(0, where - 1), where + 2).map((step) => stepNodeId(step.step_id));
   return [near, [stepNodeId(steps[where]!.step_id)]];
+}
+
+/**
+ * Each step's line as the Workflow tab's own card draws it — how long, and how
+ * many Drones on the one at work — so the canvas's live node says it in the
+ * same words. **The same builder**, never a second wording of it.
+ */
+export function stepLinesOf(whole: JobWhole, drones: readonly DroneView[]): Record<string, string> {
+  const run = workflowRunOf({ whole, groups: taskGroupsOf(whole), drones });
+  const lines: Record<string, string> = {};
+  for (const step of whole.steps) {
+    const line = run.nodes.find((node) => node.id === stepNodeId(step.step_id))?.card.line;
+    if (line !== undefined) lines[step.step_id] = line;
+  }
+  return lines;
 }

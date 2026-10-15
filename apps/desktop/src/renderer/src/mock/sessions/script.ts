@@ -732,7 +732,9 @@ export function sessionsStore(
       edit(id, (one) => {
         const { asked, ...rest } = one;
         void asked;
-        return questioned ? { ...rest, turn: { state: "working" } } : rest;
+        // The call that held the permission goes with it, as Fleet's does.
+        const waitingFor = (one.waitingFor ?? []).filter((it) => it.source !== "permission");
+        return questioned ? { ...rest, waitingFor, turn: { state: "working" } } : { ...rest, waitingFor };
       });
       if (!questioned) return;
       // What was chosen is the person's own message, as Fleet keeps it.

@@ -16,7 +16,8 @@ unmountAfterEach();
 
 const top = (element: Element): number => element.getBoundingClientRect().top;
 
-test("Manifest's ask on All repositories starts level with the left column, not against the title bar", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("Manifest's ask on All repositories starts level with the left column, not against the title bar", async () => {
   mount("job/running");
   // The control beside the picker, in the rail's repository panel, is how the
   // surface is reached (#1595).

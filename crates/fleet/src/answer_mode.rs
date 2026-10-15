@@ -8,7 +8,7 @@ use ipc::{AnswerMode, WaitingMode};
 pub(crate) fn mode_line(mode: AnswerMode) -> &'static str {
     match mode {
         AnswerMode::Best => "Decide this yourself. Think it through and go with the best option.",
-        AnswerMode::Quick => "Decide this yourself. Take the reasonable path and keep moving.",
+        AnswerMode::Quick => "Just get it done. Take the reasonable path, finish the work and land it. Skip the formalities.",
     }
 }
 

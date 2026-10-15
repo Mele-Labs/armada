@@ -3184,7 +3184,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote`, `permission_asked`, `permission_settled` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3246,7 +3246,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
-| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, answered at once with `TerminalAsked` `asked` and the call's id; `wait` with that call, held up to 25 seconds and answered with `answered` (the input and its `answers`), `refused`, `gone`, or `waiting` where it ran out; `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does; the question and a Bridge answer are kept in the store until the mod collects them |
+| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, or a permission's with its `tool`, answered at once with `TerminalAsked` `asked` and the call's id; `wait` with that call, held up to 25 seconds and answered with `answered` (the input and its `answers`), `refused`, `gone`, or `waiting` where it ran out; `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does, and none for a permission; the question and a Bridge answer are kept in the store until the mod collects them |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
@@ -3802,7 +3802,7 @@ A Drone can ask several decisions in one ask, and a person answers them all at o
 | `HelmOpened.facts` | `HelmBoxFacts`, always present | What a viewer starts from |
 | `observe_helm` message `facts` | `HelmBoxFacts` | **Live only**: never in the backfill and never written to the thread's file. Sent when the tuning or Helm's own commands change; a change in the Sessions' list is read at the next `opened` |
 | `TagKind::Issue`, `SessionTag.url?` | `issue`; the forge address of an issue or pull request tag | Fleet writes `issue #214 "title" (address)` for the agent, and a leading `#N ` in a title is dropped from the line |
-| `get_issue` (`GET /issues/:repository/:number`) | Answers `IssueRead`: `number`, `title`, `url`, `state` (`open` or `closed`) | 404 `fleet.no_such_issue`, and a pull request's number is not an issue; 500 `fleet.issues_unreadable`; 422 for a repository Fleet does not serve |
+| `get_issue` (`GET /issues/:repository/:reference`) | Answers `IssueRead`: `reference`, `title`, `url`, `state` (`open` or `closed`) | 404 `fleet.no_such_issue`, and a pull request's number is not an issue; 500 `fleet.issues_unreadable`; 422 for a repository Fleet does not serve |
 
 **Start fresh deletes the conversation's uploads**, with the thread that named them. The turn a words-only ask writes is unchanged; an ask with a picture is written as a block list, as a Session's is.
 
@@ -3901,6 +3901,8 @@ so it enters nothing.
 
 **The agent's own list is `session.waiting` and `session.resolved`**: an item put on the `waiting_for` list is a wait, dated by its `since`, and one gone from it while the Session lives is resolved, dated by the row that dropped it. What Fleet raised (a question or permission card, a question in a walk window, a reply to read) stays `session.asked`, and a person's answer stays `session.answered`. A Session ending clears its list, which resolves nothing. `session.subagent` is a subagent attached to the row (`Subagent started`), standing again after it settled (`Subagent resumed`, dated by its new `since`) or spent (`Subagent finished`), with `Type: description` as the detail; a Session already holding one when Fleet first saw it enters nothing for it. `session.spawned` is entered under the Session whose agent started another, or forked itself (`start_another_session`, `fork_this_session`), with the new Session's title as the detail.
 
+**A Session's walk, commit and push are entered as `session.walked`, `session.committed` and `session.pushed`.** The walk is written when the page is shown (`show_window`), with its title as the detail, and apart from the `walk` item on the Session's list, which is not entered. A commit and a push come from the mod's `committed` and `pushed` facts, which it tells only where git printed a commit made or a ref updated; the detail is the branch. They are the road a Session's `build` reads its stops from (`docs/concepts/session.md`, *The build record*), so the Session's row is published again once one is written. The store holds an index on `timeline_events (subject_kind, subject_id, kind)` for that read.
+
 **A pull request is entered whether or not anyone is shown it**, but Bridge draws it only on the track of the Job or Session that owns it, and leaves out one it cannot attribute (`fromWire` in `cockpit/fleet-events.tsx`).
 
 **Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
@@ -3971,6 +3973,39 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 
 **Skew.** A Bridge that predates this ignores an `activity` it does not read. A Fleet that predates it sends none, and Bridge treats that as no activity. The same change moves `HostedSessions::gate_session_call` to `self: Arc<Self>` in `crates/api`, which is Rust only and not on the wire.
 
+## A Session's build record
+
+Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/decisions/2026-10-14-a-session-builds-a-ring.md`. **Additive only**: one optional field on `SessionRecord`, new fact kinds, new timeline kinds and the types they carry. No operation, event kind or error is new. Bridge's half is `packages/protocol/src/session-build.ts`, `sessions.ts` and `timeline.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order. The migration `20261014T2100Z-session_build.record` has a name and not a number, and is additive.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `SessionRecord.build` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `SessionBuild`: `phase`, `pieces[]`, `stops[]`, `forecast[]`, `landed_at?`, `quiet_since?`, `stalled`, `workers[]`. Left out for a Session that has done nothing Fleet observed |
+| `SessionBuild.phase` | Fleet writes, Bridge matches | `scope`, `plan`, `implement`, `road`, `landed` |
+| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) |
+| `SessionBuild.stops[]`, `forecast[]` | Fleet writes, Bridge matches `id` | `BuildStop`: `id` (`walk`, `pushed`, `pr`, `checks` or `auto_merge`) and `at?`, left out for a stop not yet reached |
+| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`). `committed` and `pushed` carry `branch?` |
+| `TimelineKind` `session.walked`, `session.committed`, `session.pushed` | Fleet writes, Bridge draws | Strict. A walk's detail is the page's title, the others' the branch |
+
+**Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them. **The arrays are always sent**, empty when they hold nothing, so a reader never tests for them. An unreached stop has no `at`, and none is sent as `null`.
+
+**Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod before `0.3.23` tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
+
+## A terminal's permission prompt is a call
+
+Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*; measured in `docs/spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`. **Additive only**: two `SessionFact` variants a terminal's mod reports, an optional `tool` on the mod's `asks`, and a `WaitingItem` with the existing `permission` source. No operation, event kind or error is new. Bridge's mirror of the facts and of `asks` is the mod's `plugins/armada/hooks/fleet.ts`; `packages/protocol` is unchanged, because the item and the open ask are existing shapes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `SessionFact::PermissionAsked` (`report_session`) | `tool`, `detail?`: the command's first line, the path or the address, cut at 300 characters | The harness opened its own permission prompt (Claude Code's `PermissionRequest` hook, where no hook beneath decided it). Ignored for a hosted Session, whose permission is Fleet's own ask |
+| `SessionFact::PermissionSettled` | nothing | The tool call that raised the prompt ended, whichever way it was answered |
+| `TerminalAsk::Asks` (`ask_from_terminal`) | `tool?`, since mod `0.3.22` | The mod puts the prompt to Fleet as it puts a question, and polls for the answer. Absent is `AskUserQuestion`. A permission offers Allow once and Refuse, never Allow and remember, draws no row in the thread, and is not refused while a walk is open |
+| `WaitingItem` (`source: permission`) on a terminal Session | `id` `perm:<call>`, `text` the tool and its detail, `act` `answer`, `options` Allow once and Refuse | The open ask, as a hosted Session's is: `answer_session` and `answer_waiting` reach the polling mod as `answered` or `refused`. The terminal answering first settles it as answered there |
+| `WaitingItem` from the fact alone | `id` `perm:<when Fleet heard it>`, `act` `message` naming the Session, no `options` | Until the ask arrives, and for a mod that reports the fact but cannot put it. `answer_waiting` on it is refused as `fleet.session_waiting_unheld`: only the terminal answers it |
+
+**Held, not stuck.** While a prompt is open the terminal's turn is waiting on the person, so the stuck tick leaves it out, as it does a hosted Session's open ask. A turn starting or ending, and the Session ending, closes the prompt in Fleet without a `permission_settled`. It is kept in memory only; the mod tells it again when a Fleet that was out of reach answers.
+
+**Skew.** A mod before `0.3.22` reports neither fact and puts no permission, so its Session's prompt raises no call and reads stuck after ten minutes, as before. A Fleet before this refuses both facts as unreadable and reads a permission's `asks` as a question; the mod's report is not awaited, so that costs the session nothing.
+
 ## Helm is a Session
 
 `docs/concepts/helm.md`, `.claude/decisions/2026-10-13-helm-is-a-session.md`. Helm's dock moves off its own host and socket onto the hosted-Session engine. Bridge has moved with it: the dock reads the Helm Session through the Sessions pipeline and calls only the routes below.
@@ -3999,7 +4034,7 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 | --- | --- | --- |
 | `BridgeState.helm` (`HelmAim`: `{state: "none"}` or `{state: "pointed", manifestId}`) | Bridge | Was `HelmThread`, the dock's whole conversation. It is only which repository Helm answers for. The thread, the turn, the model and the commands are the Helm Session's, in `BridgeState.sessions` |
 | `HelmCarry.model`, `HelmCarry.effort` | Bridge | Optional. What the box held before the Session existed, sent as `AskHelm.model` and `AskHelm.effort` on the first message. Once the Session is live the box tunes it with `tune_session` |
-| `SessionsDraft.helmOf(manifestId)` | Bridge | The Helm Session of the repository Helm is pointed at, which the Sessions list does not hold when the rail picks another repository |
+| `SessionsDraft.helmOf(manifestId)` | Bridge | The Helm Session of the repository Helm is pointed at, which the Sessions list does not hold when the picker picks another repository |
 | `Session.helm` (`sessions-wire.ts`) | Bridge | Read from `SessionRecord.helm`. The Sessions list draws Helm's mark, and opening that row opens the dock |
 | `rowsOfThread`, kind `sent` | Bridge | Draws `SessionRow::Sent` as the person's words with a "Sent to" chip. `Beside.repository` names the target's repository |
 | `HelmConnection` (`apps/desktop/src/main/helm.ts`) | Bridge | No socket and no thread. `ask_helm` and `record_thought_sent` answer a `SessionRecord`, which main folds into the Sessions host at once. `HelmSocket` is gone |
@@ -4023,6 +4058,20 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 | `WaitingItem.steps?` (Bridge) | The same lines, as the agent's item was kept | Only an agent's item carries them. Bridge opens a press on one as a panel beside the thread, and Done or Send answers through `answer_waiting` `text`: Done is the word `Done`, with the person's corrections as lines after it |
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. **Kept.** `session_waiting.steps`, a JSON array column (store migration `20261015T1200Z-session_waiting.steps`), additive with a default of `[]`, so an item kept before it reads as no steps. **The event stream.** `session.row` carries the lines with the item, a few short lines at most, so this is neither better nor worse for the unbounded sink.
+
+## An issue is named by its tracker's reference
+
+`docs/concepts/tracker.md`. An issue crossed the wire as a number, which names nothing once a tracker has more than one project and drew as `#123` for Jira's `ABC-123`. The protocol ID moves with the files below, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `TrackedIssue.number` (`list_issues`) | Fleet writes, Bridge draws | Replaced by `reference`: the tracker's own name as a person writes it, `#123` on the forge and `ABC-123` on Jira. Bridge draws it as it is and never builds one |
+| `IssueRead.number` (`get_issue`) | Fleet writes, Bridge reads | Replaced by `reference`, as above |
+| `get_issue` path | Bridge calls | `GET /issues/:repository/:reference`, percent-encoded. A forge takes `214` or `#214`; Jira takes a key. A reference the tracker does not use, such as a bare number on Jira, is a 404 `fleet.no_such_issue` |
+| `AutopilotPick.issue_number` | Fleet writes, Bridge draws | Replaced by `issue_reference`. The store keeps `issue_number` for picks written before the column, and reads one with no reference as `#` and its number |
+| `getIssue` (preload) | Bridge | Takes the reference as text where it took a number |
+
+**The `#` picker takes a key as well as digits.** An issue's tag id is its key where the tracker names issues by one, and the picker matches what is typed against the reference, ignoring case. A lookup by number reads only numbers. **The event stream is untouched**: no event carries an issue, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
 
 ## Open questions
 

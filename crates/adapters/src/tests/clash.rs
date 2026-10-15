@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use super::repo::TempRepo;
-use crate::clash::{against, between, changed_on, landed_in, Verdict};
+use crate::clash::{against, between, changed_here, changed_on, landed_in, Verdict};
 
 fn lines() -> String {
     (1..=20).map(|n| format!("line {n}\n")).collect()
@@ -81,6 +81,17 @@ fn a_base_that_changed_the_same_line_conflicts_and_says_where_it_landed() {
     assert_eq!(against(&one, &tip), Ok(Verdict::Conflict(vec!["f.txt".into()])));
     assert_eq!(changed_on(&one, &tip), Ok(vec!["f.txt".into()]));
     assert!(landed_in(&one, &tip, "f.txt").is_some_and(|said| said.ends_with("Merge pull request #7")));
+}
+
+#[test]
+fn what_a_worktree_changed_is_its_commits_and_its_uncommitted_files_and_none_of_the_bases() {
+    let (repo, one, _two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    repo.git(&["-C", &one.to_string_lossy(), "commit", "-qam", "one's f"]);
+    std::fs::write(one.join("new.txt"), "one\n").expect("written");
+    repo.commit_one("g.txt", "g, changed on the base\n", "change g");
+    let base = repo.head_str();
+    assert_eq!(changed_here(&one, &base), Ok(vec!["f.txt".into(), "new.txt".into()]));
 }
 
 #[test]

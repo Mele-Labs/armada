@@ -339,6 +339,33 @@ async fn work_outside_the_plan_wakes_the_commander_once() {
     .await;
 }
 
+// ------------------------------------------- a walk window that cannot show it
+
+#[tokio::test]
+async fn a_walk_the_window_could_not_show_wakes_the_commander_once_per_attempt() {
+    use api::Commands;
+    let home = TempDir::new();
+    let host = Scripted::answering();
+    let fleet = fleet(&home, &host, Fitted::Plain);
+    let job = working(&fleet, &home, "serve the mock").await;
+    let failed = || ipc::WalkFailed {
+        url: "http://localhost:5173/".into(),
+        why: "ERR_CONNECTION_REFUSED".into(),
+    };
+
+    let told = Arc::clone(&fleet).walk_failed(ipc::JobId::from(&job), failed()).await.unwrap();
+    settled(&fleet, &job).await;
+    assert!(told.told);
+    let row = "The walk window could not show step implement's work at http://localhost:5173/: ERR_CONNECTION_REFUSED";
+    assert_eq!(woke_rows(&said(&fleet, &job).await), [row]);
+    assert_eq!(host.carried().len(), 1);
+
+    let again = Arc::clone(&fleet).walk_failed(ipc::JobId::from(&job), failed()).await.unwrap();
+    settled(&fleet, &job).await;
+    assert!(!again.told, "a Reload on the same dead server is the same fact");
+    assert_eq!(host.carried().len(), 1);
+}
+
 // ------------------------------------- 5. a broken worktree or environment
 
 #[tokio::test]

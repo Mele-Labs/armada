@@ -11,7 +11,6 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useEffect, useState } from "react";
-import { dashboardTabNamed, type DashboardTab } from "@armada/overview";
 import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
 
 /** What a press tells the window, so two readers of one key stay in step. */
@@ -19,7 +18,6 @@ const HEARD = "armada:remembered";
 const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
 const LESSONS_SOURCE_KEY = "armada.bridge.lessons-source";
-export const DASHBOARD_KEY = "armada.bridge.dashboard-tab";
 const DISPATCH_KEY = "armada.bridge.dispatch-kind";
 
 /**
@@ -76,14 +74,40 @@ export function useLessonsSource(): [LessonsSource, (source: LessonsSource) => v
   return remembered(LESSONS_SOURCE_KEY, lessonsSourceNamed);
 }
 
-/** Which tab the Dashboard reads. `first` where nothing is stored: Command Central, or the one a layout names. */
-export function useDashboardTab(first: DashboardTab = "command-central"): [DashboardTab, (tab: DashboardTab) => void] {
-  return remembered(DASHBOARD_KEY, (value) => (value === null ? first : dashboardTabNamed(value)));
-}
-
 export type DispatchKind = "job" | "session";
 
 /** What the dispatch panel starts: the last choice, a Job where nothing is stored. */
 export function useDispatchKind(): [DispatchKind, (kind: DispatchKind) => void] {
   return remembered(DISPATCH_KEY, (value): DispatchKind => (value === "session" ? "session" : "job"));
+}
+
+// ---- The flight deck's views, which live in a store and not in a component ---------------------------------------
+//
+// The deck keeps its state in a module so the top bar and the body, two trees, agree and a body that unmounts while a
+// page is open comes back to the exact view (`cockpit/deck/store.ts`). It remembers the few ways of reading that
+// should survive a restart through the same keys and the same failed-read-is-the-default rule as the hooks above.
+
+export const DECK_VIEW_KEY = "armada.bridge.deck-view";
+export const DECK_JOB_VIEW_KEY = "armada.bridge.deck-job-view";
+export const DECK_ONLY_KEY = "armada.bridge.deck-only";
+export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
+/** The System page the System tab opens on: the last one used. */
+export const DECK_SYSTEM_KEY = "armada.bridge.deck-system";
+
+/** What was stored under `key`, on whatever the reader makes of it. A failed read is the default. */
+export function readRemembered<T extends string>(key: string, named: (value: string | null) => T): T {
+  try {
+    return named(window.localStorage.getItem(key));
+  } catch {
+    return named(null);
+  }
+}
+
+/** Stores a choice. A failed write leaves it unremembered, the honest answer for a preference. */
+export function writeRemembered(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Unremembered.
+  }
 }

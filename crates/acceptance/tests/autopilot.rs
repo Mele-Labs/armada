@@ -22,8 +22,8 @@ use std::collections::BTreeSet;
 
 use core_model::{JobStatus, Timestamp};
 use fleet::autopilot::{
-    candidates, picked, read_settings, room, settings_from, Cap, Caps, NotPicked, NotResumed, Pick,
-    Settings, Spent, State,
+    candidates, picked, read_pick, read_settings, room, settings_from, Candidate, Cap, Caps,
+    NotPicked, NotResumed, Pick, Settings, Spent, State,
 };
 
 use bench::autopilot::{
@@ -105,14 +105,14 @@ fn the_picker_is_offered_only_the_open_issues_nothing_holds() {
     // 15 has a Job on it; 11 was already picked.
     let taken: BTreeSet<String> = [url_of(15), url_of(11)].into_iter().collect();
 
-    let offered: Vec<u64> = candidates(&listed(&tracker), &taken)
-        .iter()
-        .map(|one| one.number)
+    let offered: Vec<String> = candidates(&listed(&tracker), &taken)
+        .into_iter()
+        .map(|one| one.reference)
         .collect();
 
     assert_eq!(
         offered,
-        vec![12, 13],
+        vec!["#12", "#13"],
         "14 has a pull request that closes it"
     );
 }
@@ -132,14 +132,14 @@ async fn a_sure_pick_names_its_issue_and_workflow_and_an_unsure_one_is_set_aside
 
     match first.expect("a pick") {
         Pick::Sure(sure) => {
-            assert_eq!(sure.issue().number, 12);
+            assert_eq!(sure.issue().reference, "#12");
             assert_eq!(sure.workflow().as_str(), "bug");
         }
         other => panic!("a sure pick, not {other:?}"),
     }
     match second.expect("a pick") {
         Pick::Unsure(aside) => {
-            assert_eq!(aside.issue.number, 13);
+            assert_eq!(aside.issue.reference, "#13");
             assert_eq!(aside.reason, "it asks a design question");
         }
         other => panic!("set aside, not {other:?}"),
@@ -154,7 +154,7 @@ async fn a_pick_of_an_issue_not_offered_or_a_workflow_not_held_starts_nothing() 
         "issue: 15\nworkflow: bug\nsure: yes\nbecause: x",
         "issue: 12\nworkflow: hotfix\nsure: yes\nbecause: x",
     ]);
-    let only_12: Vec<_> = offered.into_iter().filter(|one| one.number == 12).collect();
+    let only_12: Vec<_> = offered.into_iter().filter(|one| one.reference == "#12").collect();
 
     let not_offered = picked("x", &only_12, &the_workflows(), &asking).await;
     let not_held = picked("x", &only_12, &the_workflows(), &asking).await;
@@ -167,6 +167,23 @@ async fn a_pick_of_an_issue_not_offered_or_a_workflow_not_held_starts_nothing() 
         matches!(&not_held, Err(NotPicked::Unreadable { why, .. }) if why.contains("hotfix")),
         "{not_held:?}"
     );
+}
+
+#[test]
+fn a_tracker_that_names_issues_by_key_is_picked_by_key() {
+    let issue = |key: &str| Candidate {
+        reference: key.to_string(),
+        title: "A title".to_string(),
+        url: format!("https://acme.atlassian.net/browse/{key}"),
+        excerpt: String::new(),
+        labels: Vec::new(),
+    };
+    let offered = vec![issue("ABC-12"), issue("OPS-12")];
+    let answer = "issue: ops-12\nworkflow: bug\nsure: yes\nbecause: x";
+    match read_pick(answer, &offered, &the_workflows()).expect("a pick") {
+        Pick::Sure(sure) => assert_eq!(sure.issue().url, "https://acme.atlassian.net/browse/OPS-12"),
+        other => panic!("a sure pick, not {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------

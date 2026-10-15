@@ -22,6 +22,12 @@
 // Fleet answering. The list is short, the read is cheap, and the correction is
 // the point — a row that fails to go is a row that has to stay.
 //
+// # And again when Fleet enters a lease or a release
+//
+// A Session's first write takes a slot with no act of Bridge's, and the pool was read only when a surface
+// opened or an act re-read it, so the bays stayed as drawn. `timeline.appended` carries `slot.leased` and
+// `slot.released`, and `arrivals.ts` reads the list again on either: no new poll, and nothing where nothing is open.
+//
 // # The last list stays, and is drawn before the next read answers
 //
 // A surface that reopens draws the list read last at once and the fresh one replaces it, because
