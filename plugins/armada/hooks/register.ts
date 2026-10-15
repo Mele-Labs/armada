@@ -40,6 +40,7 @@ import {
   modeOf,
   modelName,
   MOD_VERSION,
+  promptDetail,
   transcriptPath,
 } from './facts'
 import type { RateLimit } from './facts'
@@ -69,7 +70,11 @@ type Known = {
   messages: Map<string, number>
   artifacts: Map<string, Record<string, string>>
   tuned?: Tuning
+  // The terminal's permission prompts open now, oldest first. Fleet is told of the first.
+  prompts: Prompt[]
 }
+
+type Prompt = { tool: string; detail: string }
 
 type Tuning = Extract<Fact, { kind: 'tuned' }>
 
@@ -96,6 +101,7 @@ function everything(): Report[] {
     ...[...one.artifacts].map(([target, detail]) =>
       told(id, { kind: 'attached', attachment: { kind: 'artifact', target, detail } }),
     ),
+    ...one.prompts.slice(0, 1).map(open => told(id, promptFact(open))),
   ])
 }
 
@@ -428,7 +434,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), prompts: [] })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -644,7 +650,8 @@ async function titled($: Dollar, prompt: string): Promise<void> {
  */
 async function turnBegan($: Dollar, prompt: string): Promise<void> {
   if (withoutMarkup(prompt).trim().startsWith('/')) return
-  const [id] = await current($)
+  const [id, one] = await current($)
+  one.prompts = []
   say($, id, { kind: 'turn_started' })
 }
 
@@ -674,6 +681,40 @@ async function renamed($: Dollar, typed: string): Promise<void> {
   if (title === undefined) return
   one.title = title
   say($, id, { kind: 'titled', title, named: true })
+}
+
+function promptFact(open: Prompt): Fact {
+  return open.detail === '' ? { kind: 'permission_asked', tool: open.tool } : { kind: 'permission_asked', tool: open.tool, detail: open.detail }
+}
+
+/**
+ * The harness opened its own permission prompt, so the session waits on a person at the terminal.
+ * **The harness says so**, through its `PermissionRequest` hook; the agent is never asked. Fleet is
+ * told of the oldest open, which is the one the terminal shows.
+ */
+async function promptOpened($: Dollar, tool: string, input: unknown): Promise<void> {
+  const [id, one] = await current($)
+  const open = { tool, detail: promptDetail((input ?? {}) as Record<string, unknown>) }
+  one.prompts.push(open)
+  if (one.prompts.length === 1) say($, id, promptFact(open))
+}
+
+/**
+ * A tool call ended, so the prompt it raised is closed: it was answered and ran, or was refused. The
+ * next one open, if any, is told in its place.
+ */
+async function promptSettled($: Dollar, tool: string, input: Record<string, unknown>): Promise<void> {
+  const id = await $.session.id()
+  const one = known.get(id)
+  if (one === undefined || one.prompts.length === 0) return
+  const detail = promptDetail(input)
+  const at = one.prompts.findIndex(open => open.tool === tool && open.detail === detail)
+  if (at < 0) return
+  one.prompts.splice(at, 1)
+  if (at !== 0) return
+  say($, id, { kind: 'permission_settled' })
+  const next = one.prompts[0]
+  if (next !== undefined) say($, id, promptFact(next))
 }
 
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
@@ -768,6 +809,24 @@ export const register: Register = on => {
       throw error
     } finally {
       over.done = true
+    }
+  })
+
+  // The terminal's own permission prompt is told to Fleet, which raises it as a call and does not read
+  // the session as stuck. Told only where a prompt opens: a hook beneath that decided opens none.
+  // **Only told**: the terminal's prompt is what answers it.
+  on('classic.PermissionRequest', async ($, e, next) => {
+    const out = await next(e)
+    if (out.decision === undefined) void promptOpened($, e.tool_name, e.tool_input).catch(() => undefined)
+    return out
+  })
+
+  // A tool call that ends closes the prompt it raised, whichever way it was answered.
+  on('tool.call', async ($, e, next) => {
+    try {
+      return await next(e)
+    } finally {
+      void promptSettled($, e.tool, e as Record<string, unknown>).catch(() => undefined)
     }
   })
 
@@ -883,7 +942,10 @@ export const register: Register = on => {
     const out = await next(e)
     if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
-        .then(([id]) => say($, id, turnEnd(e.answer)))
+        .then(([id, one]) => {
+          one.prompts = []
+          say($, id, turnEnd(e.answer))
+        })
         .catch(() => undefined)
     }
     return out

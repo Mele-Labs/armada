@@ -496,6 +496,16 @@ where
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
             }
+            // The harness's own prompt, waiting on a person at the terminal. A hosted session's is
+            // Fleet's own ask, so only a terminal's is read here.
+            SessionFact::PermissionAsked { tool, detail } if terminal => {
+                let open = crate::session_host::PromptOpen { tool, detail, since: now.clone() };
+                changed |= self.hosts().terminals().prompt_opened(&id, open);
+            }
+            SessionFact::PermissionSettled if terminal => {
+                changed |= self.hosts().terminals().prompt_closed(&id);
+            }
+            SessionFact::PermissionAsked { .. } | SessionFact::PermissionSettled => {}
             SessionFact::Limited { resets_at } => {
                 changed |= store
                     .keep_session_limit(&id, resets_at.as_str())

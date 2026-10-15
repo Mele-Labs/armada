@@ -262,6 +262,42 @@ async fn a_running_turn_that_went_quiet_is_published_stuck_and_again_when_heard_
     assert_eq!(standing_published(&mut live).await, Some(SessionStanding::Working));
 }
 
+/// **A terminal session's permission prompt raises a call and clears when the session carries on.** The
+/// prompt is the harness's own fact, told by the mod, and the agent calls nothing. While it is up the
+/// turn waits on the person, so it is never stuck; nothing in Bridge can answer it, so its one act opens
+/// the Session.
+#[tokio::test]
+async fn a_terminal_permission_prompt_raises_a_call_and_clears_when_the_session_carries_on() {
+    let home = TempDir::new();
+    let fleet = a_terminal_fleet(&home);
+    fleet.hosts().plant_stuck_after(Duration::from_millis(80));
+    fleet.report_session(report(started())).await.unwrap();
+    fleet.report_session(report(SessionFact::TurnStarted)).await.unwrap();
+    let asked = SessionFact::PermissionAsked { tool: "Bash".into(), detail: "cargo build".into() };
+    let held = fleet.report_session(report(asked.clone())).await.unwrap();
+    let [call] = held.waiting_for.as_slice() else { panic!("one call: {:?}", held.waiting_for) };
+    assert_eq!(call.source, WaitingSource::Permission);
+    assert_eq!(call.text, "Bash cargo build");
+    assert!(call.options.is_empty(), "Bridge cannot answer a terminal's prompt");
+    assert_eq!(call.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((ipc::WaitingActKind::Message, "t1")));
+
+    tokio::time::sleep(Duration::from_millis(160)).await;
+    fleet.standing_checked().await;
+    let waiting = Arc::clone(&fleet).get_session(session("t1")).await.unwrap().session;
+    assert_eq!(waiting.standing, Some(SessionStanding::Working), "waiting on the person is not stuck");
+
+    let settled = fleet.report_session(report(SessionFact::PermissionSettled)).await.unwrap();
+    assert!(settled.waiting_for.is_empty(), "{:?}", settled.waiting_for);
+
+    // The turn ending, or the next one beginning, takes a prompt the mod never settled with it.
+    fleet.report_session(report(asked.clone())).await.unwrap();
+    let over = fleet.report_session(report(SessionFact::TurnCompleted { said: None })).await.unwrap();
+    assert!(over.waiting_for.is_empty(), "{:?}", over.waiting_for);
+    fleet.report_session(report(asked)).await.unwrap();
+    let again = fleet.report_session(report(SessionFact::TurnStarted)).await.unwrap();
+    assert!(again.waiting_for.is_empty(), "{:?}", again.waiting_for);
+}
+
 /// The newest standing a published row carried, drained from what is waiting.
 async fn standing_published(live: &mut api::Subscription) -> Option<SessionStanding> {
     let mut latest = None;

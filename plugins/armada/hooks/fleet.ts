@@ -57,4 +57,6 @@ export type Fact =
   | { kind: 'read'; path: string }
   | { kind: 'ran'; command: string }
   | { kind: 'wrote' }
+  | { kind: 'permission_asked'; tool: string; detail?: string }
+  | { kind: 'permission_settled' }
   | { kind: 'ended'; reason: string }

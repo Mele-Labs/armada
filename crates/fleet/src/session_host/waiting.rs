@@ -322,6 +322,28 @@ where
             .collect();
         let ended = session.state == store::SessionState::Ended;
         let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
+        // The harness's own permission prompt in a terminal. Only the terminal can answer it, so its
+        // one act opens the Session and it offers nothing to choose.
+        let prompt = (session.origin != "bridge" && asked.is_none() && !ended)
+            .then(|| self.hosts().terminals().prompt_of(&session.id))
+            .flatten();
+        if let Some(open) = &prompt {
+            let id = format!("perm:{}", open.since);
+            if !dismissed.contains(&id) {
+                items.push(WaitingItem {
+                    id,
+                    text: format!("{} {}", open.tool, open.detail).trim().to_string(),
+                    since: Instant::carried(&open.since),
+                    source: WaitingSource::Permission,
+                    act: Some(WaitingAct {
+                        kind: WaitingActKind::Message,
+                        target: session.id.clone(),
+                    }),
+                    options: Vec::new(),
+                    place: None,
+                });
+            }
+        }
         // What Fleet saw of the turn: running or not, and how the last one ended.
         let (helm, running) = {
             let runtime = self.hosts().of(&session.id);
@@ -336,7 +358,7 @@ where
         let seen = super::standing::Seen {
             helm,
             running,
-            held: asked.is_some(),
+            held: asked.is_some() || prompt.is_some(),
             turn_end: turn_end.as_ref().map(|(at, said)| (at.as_str(), said.as_str())),
             spoke: spoke_at.as_deref(),
             done: done.as_deref(),
@@ -604,7 +626,12 @@ where
         let settled = match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
                 let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
-                    self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open")
+                    let why = if self.hosts().terminals().prompt_of(&id).is_some() {
+                        "the terminal's own permission prompt is answered in the terminal"
+                    } else {
+                        "no card is open"
+                    };
+                    self.hosted_refusal(SESSION_WAITING_UNHELD, why)
                 })?;
                 let answer = if item.source == WaitingSource::AskCard {
                     match (picked.as_deref().or(words), asked.questions.first()) {

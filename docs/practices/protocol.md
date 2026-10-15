@@ -3184,7 +3184,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote`, `permission_asked`, `permission_settled` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3970,6 +3970,20 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 **Publishing is coalesced.** A change to `now` or `todos` publishes `session.changed` at once when none went out for the Session's activity within two seconds, and otherwise once, when the two seconds are up. A call that changes neither publishes nothing. A turn starting clears `now` on the row that announces it and keeps `todos`. No call time is carried: a silent turn is the `stuck` state. A Fleet restart starts the field empty.
 
 **Skew.** A Bridge that predates this ignores an `activity` it does not read. A Fleet that predates it sends none, and Bridge treats that as no activity. The same change moves `HostedSessions::gate_session_call` to `self: Arc<Self>` in `crates/api`, which is Rust only and not on the wire.
+
+## A terminal's permission prompt is a call
+
+Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*. **Additive only**: two `SessionFact` variants a terminal's mod reports, and a `WaitingItem` Fleet derives from them with the existing `permission` source. No operation, event kind or error is new. Bridge's mirror of the facts is the mod's `plugins/armada/hooks/fleet.ts`; `packages/protocol` is unchanged, because the item is an existing shape.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `SessionFact::PermissionAsked` (`report_session`) | `tool`, `detail?`: the command's first line, the path or the address, cut at 300 characters | The harness opened its own permission prompt (Claude Code's `PermissionRequest` hook, where no hook beneath decided it). Ignored for a hosted Session, whose permission is Fleet's own ask |
+| `SessionFact::PermissionSettled` | nothing | The tool call that raised the prompt ended, whichever way it was answered |
+| `WaitingItem` (`source: permission`) on a terminal Session | `id` `perm:<when Fleet heard it>`, `text` the tool and its detail, `act` `message` naming the Session, no `options` | Only the terminal answers its prompt, so the call offers no choice and its one act opens the Session. `answer_waiting` on it is refused as `fleet.session_waiting_unheld`, saying so |
+
+**Held, not stuck.** While a prompt is open the terminal's turn is waiting on the person, so the stuck tick leaves it out, as it does a hosted Session's open ask. A turn starting or ending, and the Session ending, closes the prompt in Fleet without a `permission_settled`. It is kept in memory only; the mod tells it again when a Fleet that was out of reach answers.
+
+**Skew.** A mod before `0.3.22` reports neither fact, so its Session's prompt raises no call and reads stuck after ten minutes, as before. A Fleet before this refuses both facts as unreadable; the mod's report is not awaited, so that costs the session nothing.
 
 ## Helm is a Session
 
