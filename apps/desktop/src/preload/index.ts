@@ -30,11 +30,12 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { ModelDownshiftState, PlanUsage, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
+import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
@@ -698,6 +699,10 @@ const api: BridgeApi = {
     };
   },
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
+  getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),
+  startSignIn: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.startSignIn),
+  signOut: (accountId: number): Promise<AccountsActed<SignedOut>> => ipcRenderer.invoke(CHANNELS.signOut, accountId),
+  setActiveAccount: (accountId: number): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.setActiveAccount, accountId),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
