@@ -100,6 +100,9 @@ impl Pool {
     }
 
     fn behind(&self, at: &Path, base: &str) -> Option<u32> {
+        if let Some(answer) = git::behind_in_process(at, base) {
+            return answer;
+        }
         let range = format!("HEAD..{base}");
         git::read(at, &["rev-list", "--count", &range])
             .ok()?
