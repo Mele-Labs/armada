@@ -243,6 +243,8 @@ mod session_limit;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
+/// A form's edit sent as a pull request, pending until the checkout has it.
+mod pending_edit;
 mod pending_evidence;
 pub mod permitting;
 mod piloting;

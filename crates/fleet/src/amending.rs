@@ -1,5 +1,10 @@
-//! A form's edits to `armada.yml`, placed and written — Journey 9, *Editing*,
-//! and `#721`.
+//! A form's edits to `armada.yml`, placed and sent — Journey 9, *Editing*, and
+//! `#721`.
+//!
+//! **Where the edit goes.** A tracked `armada.yml` in a repository with an
+//! `origin` and a base goes out as a pull request, `crate::pending_edit`, and
+//! the checkout is not written. Anything else is written to the file through
+//! [`editing::save`], which is what every edit did before.
 //!
 //! **The file is read before anything is placed.** Edits drawn from a reading
 //! the disk no longer holds are refused exactly as a save is, before they are
@@ -55,15 +60,23 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `edit_manifest` — the edits spliced into the file they were drawn from,
-    /// parsed, and written through [`save`].
-    pub(crate) fn edit_manifest_file(
+    /// parsed, and either sent as a pull request or written through [`save`].
+    pub(crate) async fn edit_manifest_file(
         &self,
         asked: EditManifest,
         served: &crate::repositories::Served,
     ) -> Result<ManifestEdited, Refusal> {
         let file = served.manifest().path();
         let path = file.display().to_string();
-        match fs::read_to_string(file) {
+        let _turn = served.repository().pending_edit().turn().await;
+        let held = self.pending_edit_standing(served).await;
+        // **What the form read is what the Manifest is now**: a pending edit's
+        // text where one stands, and the file where none does.
+        let current = match &held {
+            Some((pending, _)) => Ok(pending.text.clone()),
+            None => fs::read_to_string(file),
+        };
+        match current {
             Ok(on_disk) if on_disk == asked.read => {}
             Ok(on_disk) => {
                 return Err(self.refusal(Adrift::ManifestMovedUnderTheEdit {
@@ -86,6 +99,25 @@ where
             .collect::<Result<Vec<Vec<Edit>>, Unknown>>()
             .map_err(|unknown| self.unknown_word(unknown))?
             .concat();
+        // **Only a repository that names a base and tracks the file**: an
+        // ignored file, no `origin` and no base are written as they always were.
+        if let Some(base) = served.manifest().base().map(str::to_string) {
+            let by_pull_request = match &held {
+                Some(_) => true,
+                None => {
+                    let named = path.clone();
+                    self.forge_asked(served.root(), move |vcs: &V, root: &str| {
+                        vcs.manifest_by_pull_request(root, &named)
+                    })
+                    .await
+                }
+            };
+            if by_pull_request {
+                return self
+                    .edit_through_a_pull_request(served, base, edits, held)
+                    .await;
+            }
+        }
         let amended = amend(file, &asked.read, &edits).map_err(|why| self.not_amended(why))?;
         save(file, &asked.read, amended.text()).map_err(|why| {
             self.refusal(match why {
@@ -111,7 +143,7 @@ where
         })
     }
 
-    fn not_amended(&self, why: NotAmended) -> Refusal {
+    pub(crate) fn not_amended(&self, why: NotAmended) -> Refusal {
         let said = why.to_string();
         Refusal::Unacceptable(match why {
             NotAmended::Misnamed { key, .. } => {

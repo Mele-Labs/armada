@@ -71,14 +71,15 @@ pub struct Watching {
     _settling: tokio::task::JoinHandle<()>,
 }
 
-/// Watch `reloads`'s file, and say what each re-read came to.
+/// Watch `reloads`'s file, and say what each re-read came to. **Shared**, because
+/// an edit sent as a pull request is read through the same handle.
 ///
 /// **`said` is handed the refusal too.** A file that no longer parses leaves
 /// the last good configuration in force — `Reloads::reread` guarantees that —
 /// and the whole value of noticing is that somebody is told, so the caller gets
 /// both answers rather than only the good one.
 pub fn watch(
-    reloads: Reloads,
+    reloads: Arc<Reloads>,
     said: impl FnMut(Result<Adopted, LoadError>) + Send + 'static,
 ) -> Result<Watching, notify::Error> {
     watch_every(reloads, POLL, SETTLE, said)
@@ -95,7 +96,7 @@ pub fn watch(
 /// one. Two saves inside one second with a poll round between them would leave
 /// the second invisible until a third. The file is a few kilobytes.
 pub(crate) fn watch_every(
-    reloads: Reloads,
+    reloads: Arc<Reloads>,
     poll: Duration,
     settle: Duration,
     mut said: impl FnMut(Result<Adopted, LoadError>) + Send + 'static,

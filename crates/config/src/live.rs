@@ -20,8 +20,10 @@
 //! Job it is refusing, is owed an answer sooner than a restart.
 //!
 //! **[`Reloads`] is the only thing that can write, and the live keys are all it
-//! can write.** Fleet is never handed one, so the crate holding the Manifest
-//! cannot move it: the method is not on anything Fleet has.
+//! can write.** It re-reads the file, or text it was told to hold where an edit
+//! is not in the file yet. Fleet is never handed one and asks the composition
+//! root, which holds it, so the crate holding the Manifest cannot move it: the
+//! method is not on anything Fleet has.
 //! [`ResolvedWorkflow`]: crate::ResolvedWorkflow
 
 use std::path::{Path, PathBuf};

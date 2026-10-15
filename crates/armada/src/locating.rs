@@ -31,6 +31,9 @@ pub struct Locator {
     roster: Roster,
     /// A Manifest's reload handle, read and not yet served.
     pending: Mutex<BTreeMap<String, Reloads>>,
+    /// The handle of each served Manifest, which the watch and an edit sent as
+    /// a pull request both re-read through.
+    reloading: Mutex<BTreeMap<String, Arc<Reloads>>>,
     /// Held for as long as Fleet runs: dropping one stops its watch.
     watches: Mutex<Vec<Watching>>,
     /// Weak, because Fleet holds this.
@@ -44,6 +47,7 @@ impl Locator {
             kit,
             roster,
             pending: Mutex::new(BTreeMap::new()),
+            reloading: Mutex::new(BTreeMap::new()),
             watches: Mutex::new(Vec::new()),
             fleet: OnceLock::new(),
         }
@@ -56,7 +60,7 @@ impl Locator {
 
     /// Watch one served `armada.yml`, saying each re-read at the console and to
     /// Fleet. A watch that will not start is said, and Fleet serves anyway.
-    pub fn watch(&self, reloads: Reloads) {
+    pub fn watch(&self, reloads: Arc<Reloads>) {
         let file = reloads.path().to_path_buf();
         let root = file
             .parent()
@@ -246,8 +250,32 @@ impl Locating for Locator {
             .unwrap_or_else(PoisonError::into_inner)
             .remove(root);
         if let Some(reloads) = reloads {
+            let reloads = Arc::new(reloads);
+            self.reloading
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .insert(root.to_string(), Arc::clone(&reloads));
             self.watch(reloads);
             self.watch_workflows(root);
         }
+    }
+
+    fn reload_from(&self, root: &str, text: Option<&str>) {
+        let Some(reloads) = self
+            .reloading
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(root)
+            .cloned()
+        else {
+            return;
+        };
+        reloads.hold(text.map(str::to_string));
+        let read = reloads.reread();
+        let file = reloads.path().to_path_buf();
+        if let Some(fleet) = self.fleet.get().and_then(Weak::upgrade) {
+            fleet.reread(root, watching::reading(&read, &file, SystemClock::new().now()));
+        }
+        watching::say(read, &file)
     }
 }

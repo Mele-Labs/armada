@@ -138,12 +138,18 @@ where
         served: &crate::repositories::Served,
     ) -> Result<ManifestFile, Refusal> {
         let file = served.manifest().path();
-        let text = fs::read_to_string(file).map_err(|cause| {
-            self.refusal(Adrift::ManifestUnreadable {
-                path: file.display().to_string(),
-                cause,
-            })
-        })?;
+        // **A pending edit's text, where one stands**: it is what the Manifest
+        // is, and an edit drawn from the file under it would be refused as
+        // having moved. `crate::pending_edit`.
+        let text = match served.repository().pending_edit().text() {
+            Some(pending) => pending,
+            None => fs::read_to_string(file).map_err(|cause| {
+                self.refusal(Adrift::ManifestUnreadable {
+                    path: file.display().to_string(),
+                    cause,
+                })
+            })?,
+        };
         // Parsed only for the forms: a file that does not load still reads.
         let declared = config::Manifest::parse(file, &text)
             .ok()
