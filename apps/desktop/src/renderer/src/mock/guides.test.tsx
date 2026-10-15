@@ -14,7 +14,7 @@ import { GUIDES, GUIDE_WORKFLOW } from "@armada/components";
 
 import { onJob } from "./scenario";
 import { mountApp } from "./mount";
-import { mount, unmountAfterEach } from "./testing";
+import { mount, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -96,7 +96,7 @@ test("the switch on the first card turns all of them off, and Settings is where 
   await card().getByText("Open a guide the first time I meet a piece").click();
   await closeCard();
 
-  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await toSystemPage("Settings");
   await page.getByRole("tab", { name: "Guides" }).click();
   const setting = page.getByRole("switch", { name: /Open a guide the first time/ });
   await expect.element(setting).toBeVisible();
@@ -107,7 +107,7 @@ test("the rail reaches the catalogue, every guide is in the list, and one is ope
   mount(onJob(running()));
   await closeCard();
 
-  await page.getByRole("button", { name: "Guides", exact: true }).first().click();
+  await toSystemPage("Guides");
 
   // The catalogue draws a row per guide and opens one beside them, so a guide
   // is reachable rather than already on screen — the list is the claim.
@@ -161,7 +161,7 @@ const openCatalogue = async (met = false) => {
     await open.getByRole("button", { name: "Close" }).click();
     await expect.poll(() => open.query()).toBeNull();
   }
-  await page.getByRole("button", { name: "Guides", exact: true }).first().click();
+  await toSystemPage("Guides");
   await expect.element(handle()).toBeVisible();
 };
 

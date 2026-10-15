@@ -97,8 +97,8 @@ export const place = (name: string): Target => inside(role("navigation", "Places
 /** A row of the Cockpit's list of Jobs and Sessions, by its title. */
 export const deckRow = (title: Name): Target => inside(region("Jobs and Sessions"), button(title));
 
-/** One of the System strip's pages, which is drawn only while System is the place. */
-export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name, { exact: true }));
+/** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
+export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));
 
 /** The steps that reach a System page from anywhere: System, then the page on its strip. */
 export function toSystemPage(name: string, say: string): Step[] {

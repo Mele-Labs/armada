@@ -3,13 +3,13 @@
 // its own failures. Saved, it fires like a Skill: a Job holds its run on a Drone branch of its own, and
 // the Drone's fix asks where it goes.
 
-import { button, dialog, inside, place, region, role, toSystemPage, walk } from "../walk";
+import { button, deckRow, dialog, inside, place, region, role, toSystemPage, walk } from "../walk";
 
 const NEW = dialog("New trigger");
 const RUN = region("This Job's run");
 
 export const aDroneTrigger = walk("real/job-2-drone-trigger", [
-  ...toSystemPage("Workflows", "Workflows, from the rail"),
+  ...toSystemPage("Workflows", "Workflows, from the System strip"),
   { press: button("feature, carried"), say: "The Feature workflow" },
   { press: role("button", /^Handoff/), say: "The delivering step" },
   { press: button("Add trigger on PR opened"), say: "Add a Trigger on PR opened" },
@@ -18,8 +18,9 @@ export const aDroneTrigger = walk("real/job-2-drone-trigger", [
   { type: "Add a changelog line", into: inside(NEW, role("textbox", "Prompt")), say: "What the Drone is asked to do" },
   { look: inside(NEW, role("group", "If it fails")), say: "If it fails: Block the Job, with no Self repair" },
   { press: inside(NEW, button("Save", { exact: true })), say: "Save" },
-  { press: place("Cockpit"), say: "Back to the Board" },
-  { press: button(/Open Job/), say: "A Job it fired for" },
+  { press: place("Cockpit"), say: "Back on the Cockpit" },
+  { press: deckRow(/./), say: "A Job it fired for" },
+  { press: button("Open the Job page"), say: "Its page, where the run's acts are" },
   { look: inside(RUN, role("img", "Drone branch")), say: "On a Job it fired for, a branch of its own" },
   { look: inside(RUN, role("group", "Where the fix goes")), say: "The Drone committed: its branch holds and asks" },
   { press: inside(RUN, button("New PR")), say: "New PR" },

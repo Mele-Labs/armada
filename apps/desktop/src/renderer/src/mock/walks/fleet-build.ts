@@ -1,8 +1,7 @@
 // The Fleet panel's build section: which build Fleet runs on, where it stands against main, and the
 // one act, which follows the selection. Over `scenarios/fleet-build.ts`.
 //
-// **Every target is one the panel draws only at its resting width**, since under
-// `--layout-breakpoint` the panel is a bare head.
+// **The panel is opened from the Fleet dot on the title row**, which is where the build section is drawn now.
 
 import { button, dialog, role, text, walk } from "../walk";
 
@@ -26,6 +25,7 @@ export const fleetBuildBehind = walk("fleet/build-behind", [
 ]);
 
 export const fleetBuildPreviewAhead = walk("fleet/build-preview-ahead", [
+  { press: button(/^Fleet — /), say: "The Fleet dot on the title row opens its panel, where the build section is" },
   { look: BUILD, say: "Preview is the build Fleet runs on" },
   { hover: role("img", "4 commits ahead of main", { exact: true }), say: "An arrow up and a figure: four commits ahead of main" },
   { hover: REFRESH, say: "Merge in-flight branches and restart on the preview" },
@@ -34,6 +34,7 @@ export const fleetBuildPreviewAhead = walk("fleet/build-preview-ahead", [
 ]);
 
 export const fleetBuildRefreshing = walk("fleet/build-refreshing", [
+  { press: button(/^Fleet — /), say: "The Fleet dot on the title row opens its panel, where the build section is" },
   { look: button("Refreshing preview"), say: "The button is working and cannot be pressed again" },
   { later: text("Merging branches"), say: "The first stage, with a ring turning beside it" },
   { later: text("Building Fleet"), say: "Then the next" },
@@ -44,6 +45,7 @@ export const fleetBuildRefreshing = walk("fleet/build-refreshing", [
 ]);
 
 export const fleetBuildDronesWorking = walk("fleet/build-drones-working", [
+  { press: button(/^Fleet — /), say: "The Fleet dot on the title row opens its panel, where the build section is" },
   { press: UPDATE, say: "Update to main with two Drones working" },
   { look: dialog("Drones are working"), say: "A confirm lists the Jobs that would be adopted" },
   { look: text("Count drones from the roster"), say: "Each Job by its title" },

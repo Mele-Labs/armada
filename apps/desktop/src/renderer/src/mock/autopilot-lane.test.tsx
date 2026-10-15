@@ -1,9 +1,8 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
-// repository picked and the mock's Autopilot mid-run: the header control that opens its bar at the top,
-// the bar on every filter, Pause and Stop, the start form, each set-aside pick in Your move, its marks
-// and sidings on the Bays metro, and the one bar's third kind. #2092. Then #2105's: the second
-// repository's paused by its Job cap and raised, All with none picked asking for one, and a step the
-// Judges sent back.
+// repository picked and the mock's Autopilot mid-run: the switch in the deck's foot that opens its lane on the
+// stage, Pause and Stop, the start form, its Next up and Set aside sidings, and the one bar's third kind. #2092.
+// Then #2105's: the second repository's paused by its Job cap and raised, All with none picked asking for
+// one, and a step the Judges sent back. The Cockpit is the flight deck (#2301).
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -12,7 +11,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { forgetDismissals } from "../cockpit/dismissed";
 import type { Scenario } from "./moment";
 import { scenarioNamed } from "./scenario";
-import { mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 beforeEach(forgetDismissals);
@@ -38,15 +37,22 @@ function onTheRepository(): Scenario {
 /** An issue's number as Bridge writes it, spelled so it never reads as a colour. */
 const issue = (n: number) => `#${n}`;
 
-const bar = () => page.getByRole("region", { name: "Autopilot" });
+/** The lane on the stage, and the bar inside it. The foot's own card is a region named Autopilot too, so the bar is found in the lane. */
+const lane = () => page.getByRole("region", { name: "Autopilot lane" });
+const bar = () => lane().getByRole("region", { name: "Autopilot", exact: true });
 
-/** The control in the header band, which opens the bar at the top of the Cockpit and puts it away. */
-const control = () => page.getByRole("button", { name: "Autopilot", exact: true });
+/** The switch in the deck's foot, which opens the lane on the stage and puts it away. */
+const foot = () => page.getByRole("region", { name: "Autopilot", exact: true }).filter({ has: page.getByRole("progressbar") });
+// The switch's input is hidden under its label, so the label is what is pressed.
+const control = () => foot().getByText("Autopilot", { exact: true });
+
+/** How the foot's card says Autopilot stands: its bar's name, which stays while the lane is put away. */
+const standing = () => page.getByRole("progressbar", { name: /^Autopilot, / });
 
 /** The switch, pressed where a person presses it: on its label, since the native box is clipped. */
 const flip = () => bar().getByText("Autopilot", { exact: true }).click();
 
-/** The bar is put away until the control is pressed, so this opens it. */
+/** The lane is put away until the switch is pressed, so this opens it. */
 async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
   localStorage.removeItem("armada.bridge.dashboard-tab");
   mount(scenario);
@@ -56,17 +62,14 @@ async function cockpit(scenario: Scenario = onTheRepository()): Promise<void> {
   await expect.element(bar().getByRole("status")).toBeVisible();
 }
 
-test("the bar is on every filter, with its caps used of their limit, and pauses and resumes", async () => {
+test("the bar shows its caps used of their limit, and pauses and resumes", async () => {
   await cockpit();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar()).toHaveTextContent("work through the open issues that don't need design decisions");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();
   await expect.element(bar().getByText("$4.12 of $30")).toBeVisible();
   await expect.element(bar().getByText("2 started · no cap")).toBeVisible();
-  for (const name of ["Active", "Done", "Bays", "Your move"]) {
-    await page.getByRole("tab", { name }).click();
-    await expect.element(bar().getByRole("button", { name: "Pause" })).toBeVisible();
-  }
+  await expect.element(bar().getByRole("button", { name: "Pause" })).toBeVisible();
   await bar().getByRole("button", { name: "Pause" }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · started Jobs finish");
   await bar().getByRole("button", { name: "Resume" }).click();
@@ -96,32 +99,24 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
   await expect.element(bar().getByText("0 of 4 started")).toBeVisible();
 });
 
-test("a pick it set aside is in Your move, and Dismiss takes it off", async () => {
-  rememberingTheGrid();
+test("a pick it set aside is in the lane's Set aside, and Dismiss takes it off", async () => {
   await cockpit();
-  const tile = page.getByRole("option", { name: `${issue(377)} Should the Board group Jobs by repository?` });
-  await expect.element(tile).toBeVisible();
-  await tile.click();
-  await page.getByRole("button", { name: "Dismiss" }).click();
-  await expect.poll(() => tile.query()).toBeNull();
+  const aside = lane().getByRole("region", { name: "Set aside" });
+  await expect.element(aside).toHaveTextContent(`${issue(377)}`);
+  await aside.getByRole("button", { name: "Dismiss" }).first().click();
+  await expect.element(aside).not.toHaveTextContent(`${issue(377)}`);
 });
 
-test("on Bays: a Next up station before Waiting, its lines marked, its numbered list and the set-aside siding", async () => {
+test("the lane draws Next up as a numbered list and the set-aside siding", async () => {
   await cockpit();
-  await page.getByRole("tab", { name: "Bays" }).click();
-  await expect.element(page.getByText("Next up", { exact: true })).toBeVisible();
-  // A pick not started has left Waiting for a dashed stop at Next up.
-  const picked = page.getByRole("list", { name: "Picked by Autopilot, not started" });
-  await expect.element(picked.getByRole("button", { name: /Store a pause marker on the Job: Next up, picked/ })).toBeVisible();
-  expect(page.getByRole("list", { name: "Waiting for a bay" }).query()).toBeNull();
-  await expect.element(page.getByRole("button", { name: /^Bay 01: Debounce the Job Board/ }).getByLabelText("Picked by Autopilot")).toBeVisible();
+  await expect.element(lane().getByText("Next up", { exact: false }).first()).toBeVisible();
 
   // Next up is a numbered list, and one it passes over says why on the right.
-  const next = page.getByRole("region", { name: "Next up" });
+  const next = lane().getByRole("region", { name: "Next up" });
   const rows = [...next.element().querySelectorAll("li")].map((li) => li.textContent);
   expect(rows).toEqual(["1#405Coupon field accepts an expired code", "2#409Order history pages past the last order", "–#398Checkout button stays disabled after a failed cardhas a pull request"]);
 
-  const aside = page.getByRole("region", { name: "Set aside" });
+  const aside = lane().getByRole("region", { name: "Set aside" });
   await expect.element(aside).toHaveTextContent("It asks how the Board should look, which is a design decision.");
   await aside.getByRole("button", { name: "Run it" }).click();
   await expect.element(aside).toHaveTextContent("Nothing set aside.");
@@ -129,8 +124,11 @@ test("on Bays: a Next up station before Waiting, its lines marked, its numbered 
 
 test("the one bar's third kind is Autopilot: Tab steps to it, and the panel reads the words and starts it", async () => {
   await cockpit();
-  await page.getByRole("tab", { name: "Active" }).click();
+  // The switch just pressed holds focus, and a bare key does nothing while a control does.
+  (document.activeElement as HTMLElement).blur();
   await userEvent.keyboard("n");
+  const field = page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox");
+  await expect.element(field).toHaveFocus();
   await userEvent.keyboard("Work the open bugs until 7am");
   const row = () => document.getElementById("armada-palette-row-dispatch")?.textContent ?? "";
   for (let tries = 0; tries < 3 && !row().startsWith("Start Autopilot"); tries += 1) await userEvent.keyboard("{Tab}");
@@ -168,35 +166,33 @@ test("a cap paused it: the bar names the cap, Resume is refused while it holds, 
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
 });
 
-test("on All with no repository picked the control asks for one, and the bar opens for the one picked", async () => {
+test("on All with no repository picked the lane asks for one, and the bar opens for the one picked", async () => {
   localStorage.removeItem("armada.bridge.dashboard-tab");
   mount(scenarioNamed("dashboard-cockpit")!);
   await onScreen();
   // Nothing stands at rest, and no line says where to start one.
   expect(bar().query()).toBeNull();
   expect(page.getByText("Pick a repository to start Autopilot").query()).toBeNull();
-  expect(page.getByRole("switch", { name: "Autopilot" }).query()).toBeNull();
 
-  // No repository is picked, so the press asks for one in the repository menu.
+  // No repository is picked, so the press brings up the lane with a picker in place of the bar.
   await control().click();
-  await expect.element(page.getByRole("searchbox", { name: "Find a repository" })).toBeVisible();
+  await expect.element(lane()).toBeVisible();
   expect(bar().query()).toBeNull();
+  await lane().getByRole("button", { name: "Repository" }).click();
+  await expect.element(page.getByRole("searchbox", { name: "Find a repository" })).toBeVisible();
   await page.getByRole("menuitem", { name: /armada/ }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
-  // It is now a control that is pressed while the bar is open.
-  await expect.element(control()).toHaveAttribute("aria-pressed", "true");
 });
 
-test("pressing the control again puts the bar away without stopping Autopilot", async () => {
+test("pressing the switch again puts the lane away without stopping Autopilot", async () => {
   await cockpit();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
-  await expect.element(control()).toHaveAttribute("aria-pressed", "true");
+  await expect.element(standing()).toHaveAttribute("aria-label", "Autopilot, running");
 
   await control().click();
-  await expect.poll(() => bar().query()).toBeNull();
-  await expect.element(control()).toHaveAttribute("aria-pressed", "false");
-  // Still on: the control says so, and the bar comes back running where it was.
-  await expect.element(control()).toHaveAttribute("data-autopilot", "running");
+  await expect.poll(() => lane().query()).toBeNull();
+  // Still on: the foot's card says so, and the bar comes back running where it was.
+  await expect.element(standing()).toHaveAttribute("aria-label", "Autopilot, running");
   await control().click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
   await expect.element(bar().getByText("1 of 2 running")).toBeVisible();

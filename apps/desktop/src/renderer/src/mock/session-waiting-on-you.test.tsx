@@ -6,14 +6,14 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 test("Waiting on you: list hand, the band opens, page item opens the window, the card answers", async () => {
   mount("session-waiting-on-you");
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   const list = page.getByRole("region", { name: "Sessions" });
   await expect.element(list.getByText("Needs you")).toBeVisible();
   await expect.element(list.getByRole("img", { name: /^Waiting on you:/ })).toBeVisible();

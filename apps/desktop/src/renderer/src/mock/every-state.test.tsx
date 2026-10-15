@@ -1,19 +1,21 @@
 // The mock's own claim, through `App` and nothing else: on `every-state` the
-// Board lists every Job the scenario holds, and each row opens that Job.
+// Jobs page lists every Job the scenario holds, and each row opens that Job.
 //
 // **A Job is a test, not a turn of a loop.** Opening every Job inside one test
-// spent one 5000ms budget on the whole board — 4628ms of it on an idle machine
+// spent one 5000ms budget on the whole page — 4628ms of it on an idle machine
 // — so on a busy one the budget ran out mid-press and Playwright reported a
 // click with 36ms, then one with `-8ms`, left to it. That reads as the app
 // ignoring a press rather than as a test out of time, which is what it was
-// (#1339). `test.for` gives each Job its own budget, the Done fold included,
-// and the roster the loop opened with is a test of its own.
+// (#1339). `test.for` gives each Job its own budget, and the roster the loop
+// opened with is a test of its own. The Jobs page is where every Job is listed since
+// the Cockpit's list keeps to what is not over (#2301).
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { titleOf } from "@armada/screens";
 
 import { scenarioNamed } from "./scenario";
-import { mount, listed, putOffEveryCall, rows, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -23,46 +25,27 @@ unmountAfterEach();
  */
 const JOBS = scenarioNamed("every-state")!.state.jobs;
 
-const TABS = ["Your move", "Active", "Done"] as const;
-
-/** Every Job the Dashboard draws, read off each of its filters in turn. */
-async function everyRowDrawn(): Promise<string[]> {
-  const ids = new Set<string>();
-  for (const name of TABS) {
-    await userEvent.click(page.getByRole("tab", { name }));
-    await expect.poll(() => rows().length).toBeGreaterThan(0);
-    for (const row of rows()) if (row.dataset.jobId !== undefined) ids.add(row.dataset.jobId);
-  }
-  return [...ids].sort();
+/** The Jobs page on All, where nothing is filtered out. */
+async function jobsPage(): Promise<void> {
+  await onScreen();
+  await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Jobs" }));
+  await expect.element(page.getByRole("region", { name: "Jobs" })).toBeVisible();
+  await userEvent.click(page.getByRole("tab", { name: "All", exact: true }));
 }
 
-/** The filter that draws this Job's tile, opened on it. */
-async function tabHolding(jobId: string): Promise<void> {
-  for (const name of TABS) {
-    await userEvent.click(page.getByRole("tab", { name }));
-    if (rows().some((one) => one.dataset.jobId === jobId)) return;
-  }
-}
+const tile = (title: string) => page.getByRole("region", { name: "Jobs" }).getByRole("button", { name: title, exact: true });
 
 test("every-state lists a row per Job", async () => {
   mount("every-state");
-  await listed();
-  await putOffEveryCall();
-  expect(await everyRowDrawn()).toEqual(JOBS.map((job) => job.id).sort());
+  await jobsPage();
+  for (const job of JOBS) await expect.element(tile(titleOf(job)).first()).toBeInTheDocument();
 });
 
 test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   const { scenario } = mount("every-state");
-  await listed();
-  await putOffEveryCall();
-  await tabHolding(job.id);
-  const row = (): HTMLElement | undefined => rows().find((one) => one.dataset.jobId === job.id);
-  await expect.poll(row).toBeDefined();
-  // A press picks the row; Enter opens what is picked, as on the Board.
-  await userEvent.click(row()!);
-  await userEvent.keyboard("{Enter}");
+  await jobsPage();
+  await userEvent.click(tile(titleOf(job)).first());
   // The list is gone and the header names this Job by its handle.
-  await expect.poll(() => rows().length).toBe(0);
   await expect.element(page.getByRole("button", { name: job.handle })).toBeVisible();
   // Where the scenario holds the Job's detail, it is that detail drawn: its first step, by label.
   const watched = scenario.reads[job.id]?.watched;
@@ -72,7 +55,7 @@ test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   }
   // Escape puts the list back, which the loop proved on every Job it went on from.
   await userEvent.keyboard("{Escape}");
-  await expect.poll(() => rows().length).toBeGreaterThan(0);
+  await expect.element(page.getByRole("region", { name: "Jobs" })).toBeVisible();
 });
 
 test("fleet-not-running draws what Bridge draws with no Fleet", async () => {
@@ -84,5 +67,4 @@ test("a job scenario opens its Job on start", async () => {
   const { scenario } = mount("job/review");
   const job = scenario.state.jobs[0]!;
   await expect.element(page.getByRole("button", { name: job.handle })).toBeVisible();
-  expect(rows()).toHaveLength(0);
 });

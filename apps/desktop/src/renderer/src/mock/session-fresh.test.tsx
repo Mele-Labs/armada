@@ -10,7 +10,7 @@ import { HANDOFF_ASK } from "../session-handoff";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted, terminal } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -48,7 +48,7 @@ function served(fleet: FakeSessionsFleet): Scenario {
 }
 
 async function open(title: string, view = "Active") {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   const list = page.getByRole("region", { name: "Sessions" });
   await userEvent.click(list.getByRole("tab", { name: view }));
   await userEvent.click(list.getByRole("button", { name: title }));
@@ -61,16 +61,16 @@ test("The head names the model its process resolved, the alias picked before it 
 
   await open("Big one");
   await expect.element(page.getByRole("img", { name: "Model Opus 5.5" })).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Old one");
   await expect.element(page.getByRole("img", { name: "Model Sonnet 5.5" })).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Small one");
   await expect.element(page.getByRole("img", { name: "Model Sonnet" })).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Blank one");
   await expect.element(page.getByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("A terminal");
   await expect.element(page.getByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
 });
@@ -81,13 +81,13 @@ test("A Session past 300k of context, or a day, offers a fresh start, and a smal
 
   await open("Big one");
   await expect.element(mark()).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Old one");
   await expect.element(mark()).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Small one");
   await expect.element(mark()).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Ended one", "Ended");
   await expect.element(mark()).not.toBeInTheDocument();
 });

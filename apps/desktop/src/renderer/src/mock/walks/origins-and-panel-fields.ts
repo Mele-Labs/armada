@@ -5,7 +5,7 @@
 // panel, approved, and read back. No Brief card at the gate, where the panel
 // holds the request; it comes back after the press (the owner, 3 Oct 2026).
 
-import { button, card, dialog, inside, region, role, tab, text, walk } from "../walk";
+import { button, card, deckRow, dialog, inside, region, role, tab, text, walk } from "../walk";
 
 const REQUEST = "Make the stat say what is running";
 const AT_THE_GATE = "Retire guide 8 and add guide validation rule";
@@ -14,18 +14,16 @@ const DONE_WHEN = inside(dialog("Done when"), region("Done when"));
 const BRIEF = dialog("Brief");
 const ASKED = "Retire guide 8, add the validation rule, and name the guide it refuses";
 
-/** The Board's row for a Job, by the words on it. */
-const boardRow = (words: string) => role("option", words);
+/** The Job's pane on the deck, by the words on it. */
+const stage = (words: string) => region(new RegExp(`^Job: ${words}`));
 
 export const originsAndPanelFields = walk("origins-and-panel-fields", [
   { press: button("Dispatch", { exact: true }), say: "Dispatch the request" },
-  { press: tab("Active"), say: "A Job being proposed is under way" },
-  { press: button("Grid"), say: "Grid, the tiles view" },
-  { look: boardRow(REQUEST), say: "Its tile arrives with the request on it: the proposer has not settled the workflow" },
-  { look: inside(boardRow(REQUEST), role("list", "Steps")), say: "The workflow lands, and its steps come onto the tile as pips" },
-  { press: tab("Your move"), say: "A Job waiting at its gate needs you" },
-  { press: boardRow(AT_THE_GATE), say: "Picked" },
-  { press: inside(boardRow(AT_THE_GATE), button(/^Open/)), say: "Open the Job" },
+  { look: deckRow(REQUEST), say: "A Job being proposed is under way: its row arrives with the request on it, the proposer has not settled the workflow" },
+  { press: deckRow(REQUEST), say: "Picked" },
+  { look: inside(stage(REQUEST), role("listbox", "Route")), say: "The workflow lands, and its steps come onto the route as pins" },
+  { press: deckRow(AT_THE_GATE), say: "A Job waiting at its gate needs him" },
+  { press: inside(stage(AT_THE_GATE), button("Open the Job page")), say: "Open the Job page" },
   { press: card("Done when"), say: "What counts as done, on its node" },
   { hover: inside(DONE_WHEN, role("img", "From an issue")), say: "A criterion read from an issue: the ticket, then the issue" },
   {

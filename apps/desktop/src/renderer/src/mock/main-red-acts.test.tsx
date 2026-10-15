@@ -10,7 +10,7 @@ import { page } from "vitest/browser";
 import { DEBOUNCE } from "./main-red-hub";
 import { mainRed, sessionRed } from "./main-red-hub";
 import { scenarioNamed, type Scenario } from "./scenario";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -38,7 +38,7 @@ test("Dispatch a new Job sends the brief as edited, and no Job", async () => {
   mount(standingAt(6, sent));
   await onScreen();
   // The merge line has its own page; the Dashboard reads main's red as one of its calls.
-  await page.getByRole("button", { name: "Merge line", exact: true }).click();
+  await toPageByName("Merge line");
 
   await band().getByRole("button", { name: "Dispatch a new Job" }).click();
   const dialog = page.getByRole("dialog", { name: "Dispatch a Job to fix main" });
@@ -52,7 +52,7 @@ test("Dispatch a new Session opens the Dispatch panel on a Session, holding the 
   const sent: FixMain[] = [];
   mount(standingAt(6, sent));
   await onScreen();
-  await page.getByRole("button", { name: "Merge line", exact: true }).click();
+  await toPageByName("Merge line");
 
   await band().getByRole("button", { name: "Dispatch a new Session" }).click();
   const panel = page.getByRole("region", { name: "Dispatch", exact: true });
@@ -66,7 +66,7 @@ test("Send back lists the Board's Jobs at their review or over, and sends the on
   mount(standingAt(3, sent));
   await onScreen();
   // The merge line has its own page; the Dashboard reads main's red as one of its calls.
-  await page.getByRole("button", { name: "Merge line", exact: true }).click();
+  await toPageByName("Merge line");
 
   await band().getByRole("button", { name: "Send back", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Send the work back" });
@@ -100,7 +100,7 @@ test("Send back to a Session posts its message to /sessions/message, not fix_mai
     }),
   });
   await onScreen();
-  await page.getByRole("button", { name: "Merge line", exact: true }).click();
+  await toPageByName("Merge line");
 
   await band().getByRole("button", { name: "Send back", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Send the work back" });

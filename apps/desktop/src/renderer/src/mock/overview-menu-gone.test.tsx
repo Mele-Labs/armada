@@ -5,7 +5,7 @@
 //
 // Each of its six items went somewhere, and each is pinned here: Refresh to
 // `⇧⌘R` and the palette, Reported to the palette alone, the two bulk sweeps to
-// Cleanup's head and the palette. Held disk and Settings were already rail rows.
+// Cleanup's head and the palette. Held disk is reached by name from the palette, and Settings from the System strip.
 
 import { describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -22,9 +22,10 @@ async function palette() {
   return list;
 }
 
-/** Cleanup, by its rail row. */
+/** Cleanup, by name from the palette. */
 async function cleanup(): Promise<void> {
-  await page.getByRole("navigation", { name: "Work" }).getByText("Worktree Slots", { exact: true }).click();
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await userEvent.keyboard("Worktree Slots{Enter}");
   await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
 }
 
@@ -34,8 +35,8 @@ describe("overview menu gone", () => {
     mount("every-state");
     await onScreen();
 
-    // Overview, drawn: the Dashboard's filters.
-    await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
+    // The Cockpit, drawn: its list.
+    await expect.element(page.getByRole("region", { name: "Jobs and Sessions" })).toBeVisible();
     expect(page.getByRole("button", { name: "Everything else", exact: true }).query()).toBeNull();
     expect(page.getByRole("button", { name: /^Clear \d+ finished/ }).query()).toBeNull();
   });

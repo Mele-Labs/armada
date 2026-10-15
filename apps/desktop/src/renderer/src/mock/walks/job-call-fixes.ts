@@ -1,34 +1,31 @@
-// A Job that went wrong, fixed from its call: the card shows the failure itself and offers the fixes, so
-// the owner need not open the Job. A Check failed (Retry, Skip, Skip all), a Drone gone quiet (Retry step,
-// and words that redirect it), a ruling that failed (Retry step) and a Job in another's files. Over
+// A Job that went wrong, fixed from its call: pressing the call in Incoming calls opens the Job with the
+// fixes in a strip under its head, so the owner need not open the Job page. A Check failed (Retry, Skip,
+// Skip all), a Drone gone quiet (Retry step), a ruling that failed (Retry step) and a Job in another's
+// files. The strip carries the acts; the failing tests and the end of the output are on the Job page. Over
 // `job-call-fixes`.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, region, role, walk } from "../walk";
 
-const check = region(/^Check failed: Cap the retry backoff/);
-const stuck = region(/^Drone stuck: Pin the store clock/);
-const ruled = region(/^Failed ruling: Retire sleep calls/);
-const clash = region(/^Overlap: Shorten the reconnect wait/);
+const incoming = region("Incoming calls");
+const check = role("group", /^Call: Cap the retry backoff/);
+const stuck = role("group", /^Call: Pin the store clock/);
+const ruled = role("group", /^Call: Retire sleep calls/);
+const clash = role("group", /^Call: Shorten the reconnect wait/);
 
 const jobCallFixes = walk("job-call-fixes", [
-  { look: check, say: "A Check failed: which Check, the tests that failed by name, and the end of its output" },
-  { look: inside(check, role("list", "Failing tests")), say: "The failing tests, by name" },
-  { press: button(/caps_at_thirty_seconds/), say: "A test pressed finds its line in the output and marks it" },
-  { look: inside(check, text("left: 64s")), say: "The output scrolls from its last lines" },
-  { hover: button(/2 Skip$/), say: "Skip says it ends the Check as skipped, not passed" },
-  { look: button(/Skip all/), say: "Skip all is there because more than one Check is unfinished" },
-  { key: "t", on: region("Jobs and Sessions"), say: "Message opens the box, which is shut until then" },
-  { look: inside(check, role("textbox", "Message")), say: "Words here go to the Job's Drone" },
-  { press: button(/Retry/), say: "One press on Retry, held while Fleet answers" },
-  { look: stuck, say: "A Drone gone quiet: how long, and what it last did" },
-  { hover: inside(stuck, role("img", "Quiet for 47 minutes")), say: "The figure names itself on hover" },
-  { look: button(/Retry step/), say: "Retry step starts the step again" },
-  { key: "t", on: region("Jobs and Sessions"), say: "Message opens the box" },
-  { type: "Read the failing test first, then pin the clock in the setup\n", into: inside(stuck, role("textbox", "Message")), say: "Words redirect the Drone, and the card leaves" },
-  { look: ruled, say: "A ruling that failed: the attempt, what brought it, and the Judge's reason" },
-  { press: button(/Retry step/), say: "One press on Retry step" },
-  { look: clash, say: "Another Job in the same files: what they share, and the other Job to open" },
-  { look: button(/Open the other Job/), say: "Open the other Job is the primary here" },
+  { press: inside(incoming, button(/^Check failed: Cap the retry backoff/)), say: "A Check failed: the call opens its Job, with the fixes in a strip under its head" },
+  { look: inside(check, button("Retry")), say: "Retry runs the Check again" },
+  { hover: inside(check, button("Skip")), say: "Skip says it ends the Check as skipped, not passed" },
+  { look: inside(check, button("Skip all")), say: "Skip all is there because more than one Check is unfinished" },
+  { press: inside(check, button("Retry")), say: "One press on Retry, held while Fleet answers" },
+  { press: inside(incoming, button(/^Drone stuck: Pin the store clock/)), say: "A Drone gone quiet: the call opens its Job" },
+  { look: inside(stuck, button("Retry step")), say: "Retry step starts the step again" },
+  { press: inside(incoming, button(/^Failed ruling: Retire sleep calls/)), say: "A ruling that failed: the call opens its Job" },
+  { look: inside(ruled, button("Retry step")), say: "Retry step is the one fix" },
+  { press: inside(ruled, button("Retry step")), say: "One press on Retry step" },
+  { press: inside(incoming, button(/^Overlap: Shorten the reconnect wait/)), say: "Another Job in the same files: the call opens its Job" },
+  { look: clash, say: "The strip names what they share" },
+  { look: inside(clash, button(/Open the other Job/)), say: "Open the other Job is the primary here" },
 ]);
 
 export { jobCallFixes };

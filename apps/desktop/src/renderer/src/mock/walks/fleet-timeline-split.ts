@@ -7,7 +7,7 @@ const timeline = region("Timeline");
 const subjects = role("navigation", "Subjects");
 
 export const fleetTimelineSplit = walk("fleet-timeline", [
-  { press: tab("Active"), say: "Active, the filter that reads everything live" },
+  { press: inside(region("Flight controls"), button("Timeline")), say: "Timeline, from the flight controls" },
   { press: tab("Split"), say: "Split: the subjects beside their events" },
   { look: timeline, say: "On the left every subject, grouped by how it stands, with how long since it moved. On the right the feed of all of them" },
   { hover: inside(subjects, button(/Session: Flaky store test/)), say: "A subject's mark names how it stands; only a subject that is working turns" },

@@ -4,7 +4,7 @@
 // Fleet launchd does not hold. The older-Fleet wording, for a runtime file with
 // no ID, is `packages/shell/src/fleet.ts`.
 
-import { button, role, text, walk } from "../walk";
+import { button, text, walk } from "../walk";
 
 const RESTART = button("Restart Fleet");
 
@@ -13,7 +13,7 @@ export const fleetProtocolMismatch = walk("fleet/protocol-mismatch", [
   { look: text("Restart Fleet onto the installed build."), say: "One thing to do" },
   { hover: RESTART, say: "The tooltip says what a working Drone costs" },
   { press: RESTART, say: "Working: the button shows it is restarting and cannot be pressed again" },
-  { look: role("img", "Fleet — Running", { exact: true }), say: "Fleet came back matching, so the notice is gone" },
+  { look: button("Fleet — Running", { exact: true }), say: "Fleet came back matching, so the notice is gone" },
 ]);
 
 export const fleetProtocolMismatchStillApart = walk("fleet/protocol-mismatch-still-apart", [

@@ -4,7 +4,7 @@
 // A Session or a Job held for the plan limit wears a battery-low mark with when it resumes, on its row and, for
 // a Session, in its header. Over the `session-usage` scenario.
 
-import { button, inside, region, role, walk } from "../walk";
+import { inside, place, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
@@ -36,8 +36,7 @@ const usage = walk("session-usage", [
   { later: weekly, say: "Later in the week" },
   { look: five, say: "Amber from 80%" },
   { hover: weekly, say: "Red from 95%" },
-  { press: role("tab", "Active"), say: "A Job's row" },
-  { press: button("Grid"), say: "Grid, the tiles view" },
+  { press: place("Jobs"), say: "A Job's row, on the Jobs page" },
   { look: limitMark, say: "A Job held for the limit wears this beside its status" },
   { hover: limitMark, say: "Hover for when it resumes" },
   toSessions,

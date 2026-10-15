@@ -7,7 +7,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -68,7 +68,7 @@ describe("job commander", () => {
     mount("job-commander-asks");
     await onScreen();
     await expect.element(commander()).toHaveAttribute("data-state", "waiting");
-    await page.getByRole("button", { name: "Cockpit", exact: true }).click();
+    await toPlace("Cockpit");
     await expect.element(page.getByRole("region", { name: /^Commander asks/ })).toBeVisible();
   });
 

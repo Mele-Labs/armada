@@ -3,7 +3,7 @@
 // walks (`walks/sessions.ts`) prove what the screens draw from fixtures; this proves the same screens
 // are drawn from, and act on, what Fleet serves.
 
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
@@ -11,11 +11,10 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, putOffEveryCall, rememberingTheGrid, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 // The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
-beforeEach(rememberingTheGrid);
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -29,15 +28,15 @@ function served(fleet: FakeSessionsFleet): Scenario {
 
 async function onSessions(): Promise<void> {
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
 }
 
 const sessions = () => page.getByRole("region", { name: "Sessions" });
 
-test("Sessions wired: a Fleet that serves no Sessions leaves the rail row off", async () => {
+test("Sessions wired: a Fleet that serves no Sessions leaves the Sessions tab off", async () => {
   mount(onBoard([], { repositories: [ARMADA], picked: ARMADA.root }));
   await onScreen();
-  await expect.element(page.getByRole("button", { name: "Sessions", exact: true })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Sessions" })).not.toBeInTheDocument();
 });
 
 test("Sessions wired: a session Fleet holds is listed by its title, and a terminal session beside it", async () => {
@@ -244,9 +243,7 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   const fleet = new FakeSessionsFleet();
   mount(served(fleet));
   await onScreen();
-  await putOffEveryCall();
-  await userEvent.click(page.getByRole("tab", { name: "Active" }));
-  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
+  await toPlace("Jobs");
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
   await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();
@@ -261,9 +258,7 @@ test("Sessions wired: Open in a Session on All starts in the Job's own repositor
   const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
   mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA] })));
   await onScreen();
-  await putOffEveryCall();
-  await userEvent.click(page.getByRole("tab", { name: "Active" }));
-  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
+  await toPlace("Jobs");
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
   await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
@@ -294,7 +289,7 @@ test("Sessions wired: a chip on Cleanup's tile names the session that holds its 
     },
   });
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Worktree Slots", exact: true }));
+  await toPageByName("Worktree Slots");
   await userEvent.click(page.getByRole("button", { name: "Branch fix/flaky-store" }));
   const card = page.getByRole("group", { name: "Owned by Fix the flaky store test" });
   await expect.element(card).toBeVisible();

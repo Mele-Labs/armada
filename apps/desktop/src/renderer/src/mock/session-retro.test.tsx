@@ -8,7 +8,7 @@ import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { s205SessionRetro, s205SessionRetroNothingNew, s205SessionRetroRefused } from "./scenarios/session-retro";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -18,7 +18,7 @@ beforeEach(() => window.localStorage.clear());
 const sessions = () => page.getByRole("region", { name: "Sessions" });
 const row = () => sessions().getByRole("listitem", { name: "Fix the flaky store test" });
 /** Sessions' own page: the Dashboard lists no Sessions apart from its tabs. */
-const toSessions = () => userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+const toSessions = () => toPlace("Sessions");
 const sheet = () => page.getByRole("dialog", { name: "Retro" });
 const thread = () => page.getByRole("region", { name: "Thread" });
 const card = () => thread().getByRole("region", { name: "Retro" });

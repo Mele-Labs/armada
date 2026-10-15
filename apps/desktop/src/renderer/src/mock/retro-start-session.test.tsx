@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 import { forgetAllKept } from "@armada/components";
 
 import { s205SessionRetro } from "./scenarios/session-retro";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -17,7 +17,7 @@ beforeEach(() => {
   forgetAllKept();
 });
 
-const toRetros = () => userEvent.click(page.getByRole("button", { name: "Retros", exact: true }));
+const toRetros = () => toSystemPage("Retros");
 
 test("Start Session on an Armada item goes to Sessions and writes nothing in a message box", async () => {
   mount(s205SessionRetro);

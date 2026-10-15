@@ -1,4 +1,4 @@
-// From a Job that stopped to a Session that debugs it. Starts on the Board, on
+// From a Job that stopped to a Session that debugs it. Starts on the Jobs page, on
 // a Job stopped at its gate. "Open in a Session" starts a Session with the Job
 // tagged and leaves its Drone as it was: it is not Pilot, which stops the
 // Drone. The agent reads the Job with the tools Fleet gives it, says what it
@@ -6,15 +6,13 @@
 // below the breakpoint.
 
 import { kit, NARROW } from "../sessions/walk-kit";
-import { putOff, pick } from "../walk-steps";
-import { button, inside, role, text, walk } from "../walk";
+import { button, inside, place, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, message, thread, opened } = kit(narrow);
   return [
-    ...putOff(2),
-    ...pick(/Cap the retry backoff/, "A Job stopped at its gate, picked on Active"),
+    { press: place("Jobs"), say: "Jobs, where a Job stopped at its gate is in Needs you" },
     { look: button("More for Cap the retry backoff"), say: "Its acts are beside it" },
     { press: button("More for Cap the retry backoff"), say: "Its menu has an act for talking it through" },
     { look: role("menuitem", "Open in a Session"), say: "Open in a Session leaves the Drone as it is. Pilot stops it" },

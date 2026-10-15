@@ -1,4 +1,4 @@
-// The Jobs page, a row of the rail's Work panel: every Job in the Sessions page's own layout, through `App`
+// The Jobs page, the second place in the title bar: every Job in the Sessions page's own layout, through `App`
 // on the `fleet-timeline` mock Fleet. Its tabs, the keys that walk its tiles, the acts behind the ellipsis,
 // the one-line Now on a running Job only, and the plan's bar only on a Job that has a plan.
 
@@ -17,18 +17,18 @@ const QUEUED = "Store a pause marker on the Job";
 const FAILED = "Move the store reads behind one trait";
 const LANDED = "Fold the two notification routes into one";
 
-/** The Jobs page, opened from the rail as a viewer who remembers nothing. */
+/** The Jobs page, opened from the title bar as a viewer who remembers nothing. */
 async function jobs(scenario: Scenario = s207FleetTimeline): Promise<void> {
   mount(scenario);
   await onScreen();
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Jobs" }).click();
   await expect.element(page.getByRole("region", { name: "Jobs" })).toBeVisible();
 }
 
-test("Jobs opens from the rail, marked while it is open, on Active", async () => {
+test("Jobs opens from the title bar, selected while it is open, on Active", async () => {
   await jobs();
 
-  await expect.element(page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Jobs", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByRole("tab", { name: "Active" })).toHaveAttribute("aria-selected", "true");
   await expect.element(tile(RUNNING)).toBeVisible();
   await expect.element(tile(QUEUED)).toBeVisible();
@@ -55,8 +55,8 @@ test("a press anywhere on a tile opens the Job", async () => {
 
   await tile(RUNNING).click();
   await expect.element(page.getByRole("tab", { name: "Overview" })).toBeVisible();
-  // The rail still marks Jobs while its Job is open.
-  await expect.element(page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Jobs", exact: true })).toHaveAttribute("aria-current", "page");
+  // The title bar still marks Jobs while its Job is open.
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("j and k walk the tiles down and up, and Enter opens the one the cursor is on", async () => {

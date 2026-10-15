@@ -21,9 +21,9 @@ async function palette() {
 }
 
 test("with no Job focused, an act on one Job is left out, and a row not built yet still draws", async () => {
-  // Nothing needs the owner, so Your move picks nothing and no Job is focused.
+  // Nothing needs the owner, so the deck picks nothing and no Job is focused.
   mount(onBoard(boardJobs().filter((one) => one.status === "running" || one.status === "queued"), { workflows: boardWorkflows() }));
-  await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Jobs and Sessions" })).toBeVisible();
   const list = await palette();
   await expect.element(list.getByRole("option", { name: /^Pilot/ })).toBeInTheDocument();
   for (const verb of ["Open", "Review", "Attest", "Redirect", "Kill"]) {
@@ -74,7 +74,7 @@ test("searching log offers no Open the log", async () => {
 // moved through the activity log and opened its rows: the log went, and they
 // reached nothing. Searched by its verb rather than its id, because the
 // palette matches the label and `disclose` never matched anything — and by two
-// words, because Toggle sidebar answers "expand the column".
+// words, so a row that merely mentions expanding is not what answers.
 test("searching expand and offers no Expand and collapse", async () => {
   const list = await searched("expand and");
   await expect.element(list.getByText("Nothing matches “expand and”.", { exact: false })).toBeVisible();

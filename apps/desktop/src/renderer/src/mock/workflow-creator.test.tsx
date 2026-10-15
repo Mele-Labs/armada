@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toSystemPage, unmountAfterEach } from "./testing";
 import { workflowing } from "./workflows-fleet";
 
 unmountAfterEach();
@@ -13,7 +13,7 @@ unmountAfterEach();
 async function creator(): Promise<ReturnType<typeof mount>> {
   const app = mount("workflows");
   await onScreen();
-  await page.getByRole("button", { name: "Workflows", exact: true }).click();
+  await toSystemPage("Workflows");
   return app;
 }
 

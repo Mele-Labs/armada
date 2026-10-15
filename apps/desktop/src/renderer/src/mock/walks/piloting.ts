@@ -1,6 +1,6 @@
 // Piloting a Job from a Session. A person takes over a Job that stopped at its
 // gate: its Drone is already gone, and its worktree is handed to a new Session
-// rather than leased. The Job reads piloted on the Board and on its detail, the
+// rather than leased. The Job reads piloted on its detail, the
 // agent and the person fix it, and the person ends the pilot through one of
 // three exits, drawn on the Session's ledger row and on Job detail alike. The
 // owner's decision of 7 Oct 2026: a piloted session is a Session, and the exits
@@ -9,8 +9,7 @@
 //
 // It is not "Open in a Session": that leaves the Drone working, this stops it.
 
-import { putOff, pick } from "../walk-steps";
-import { button, inside, role, region, text, walk } from "../walk";
+import { button, inside, place, role, region, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 const rail = (name: string) => role("button", name, { exact: true });
@@ -33,8 +32,8 @@ function pilotSteps(narrow: boolean): Step[] {
       : steps;
   const dialog = role("dialog", "Pilot this Job?");
   return [
-    ...putOff(2),
-    ...pick(/Cap the retry backoff/, "A Job stopped at its gate, picked on Active, its acts in the pane"),
+    { press: place("Jobs"), say: "Jobs, where a Job stopped at its gate is in Needs you" },
+    { press: button("Cap the retry backoff", { exact: true }), say: "A Job stopped at its gate, opened: its acts are on its page" },
     { look: rail("Pilot"), say: "On a Job that stopped at its gate, Pilot is the main act, and Redirect has stepped into the menu" },
     { press: rail("Pilot"), say: "Pilot stops the Drone and takes the worktree" },
     { look: dialog, say: "What each outcome does to the Drone and to the worktree" },
@@ -56,27 +55,17 @@ function pilotSteps(narrow: boolean): Step[] {
     { type: "cap the loop at five attempts", into: message, say: "The fix is worked with the agent" },
     { press: button("Send"), say: "It reads the loop and edits it" },
     { look: text("clippy is clean"), say: "Clippy is clean on the worktree" },
-    { press: rail("Cockpit"), say: "Back to the Dashboard" },
-    { press: role("tab", "Active"), say: "A piloted Job is still running" },
-    { press: button("Grid"), say: "Grid, the tiles view" },
-    { press: role("option", /Cap the retry backoff, Job/), say: "It reads piloted" },
-    { hover: button("Job 55"), say: "The Session that has it is named, and its card is on hover" },
-    { press: button("Job 55"), say: "A press keeps the card up" },
-    { look: role("group", "Owned by Cap the retry backoff"), say: "Its title, slot, state and last turn" },
-    { press: inside(role("group", "Owned by Cap the retry backoff"), button("Open Session")), say: "Back in the Session" },
     ...(narrow ? [{ press: button("Attachments"), say: "The ledger, opened" } as Step] : []),
     { press: inside(ledger, button("Open Job 55, piloted")), say: "The Job's row opens its detail" },
     { look: role("group", "Ways out of the pilot"), say: "Job detail has the same three exits" },
     { press: button("Submit for verification"), say: "The work still fits the plan, so it goes for verification" },
-    { press: rail("Sessions"), say: "Back to the Sessions" },
+    { press: place("Sessions"), say: "Back to the Sessions" },
     { press: button("Cap the retry backoff"), say: "The Session that piloted it" },
     { look: text("The slot is back with the Job"), say: "The Job went back to running, its gates ran, and the slot went back with it" },
     ...opened([{ look: inside(ledger, role("listitem", "Job 55")), say: "The ledger row settled: no pilot mark, no exits" }]),
-    { press: rail("Cockpit"), say: "A running Job can be piloted too" },
-    { later: rail("Cockpit"), say: "Jobs another Session dispatched start running" },
-    { press: role("tab", "Active"), say: "Running" },
-    { press: button("Grid"), say: "Grid, the tiles view" },
-    { press: role("option", /Retire sleep calls in the store tests, Job/), say: "Picked" },
+    { press: place("Cockpit"), say: "A running Job can be piloted too" },
+    { later: place("Cockpit"), say: "Jobs another Session dispatched start running" },
+    { press: place("Jobs"), say: "Jobs" },
     { press: button("More for Retire sleep calls in the store tests"), say: "From its menu" },
     { look: role("menuitem", "Pilot"), say: "Pilot is secondary on a running Job: one slot, two fills" },
   ];
