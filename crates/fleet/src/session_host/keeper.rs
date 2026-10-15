@@ -89,14 +89,10 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
     let mut spool = tokio::fs::File::create(&keeper.spool).await?;
     let mine = (inode(&keeper.socket), inode(&keeper.spool));
 
-    let mut agent = Detached::program(&keeper.program)
-        .args(&keeper.args)
+    let mut child = Detached::agent(&keeper.program, &keeper.args, keeper.directory.as_deref())
         .piping_input()
-        .capturing_output();
-    if let Some(directory) = &keeper.directory {
-        agent = agent.in_directory(directory);
-    }
-    let mut child = agent.spawn()?;
+        .capturing_output()
+        .spawn()?;
     let pid = child.id().unwrap_or(0);
     let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
         (child.stdin.take(), child.stdout.take(), child.stderr.take())
