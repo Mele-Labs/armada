@@ -40,7 +40,7 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 
 ## The map
 
-The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6). The map draws each repository as directories with a drone over what it is changing, from the tool events Fleet writes when a burst closes. A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes). Both parties also carry the swords mark wherever they are drawn: their list row, their pane head and their drone, which needs no directory. The mark names the other party and a press opens it on the stage; a clash against main is a picture with nothing to open. A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free. `v` swaps a Job's mission and its canvas.
+The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6). The map draws each repository as its directories, with a drone over what it is changing. The directories are the 40 largest of the base branch's tree, counted by git, and a drone is placed from the tool events Fleet writes when a burst closes, and where it has none, from what its slot holds against the base ([Fleet](fleet.md), *The territory*). A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes). Both parties also carry the swords mark wherever they are drawn: their list row, their pane head and their drone, which needs no directory. The mark names the other party and a press opens it on the stage; a clash against main is a picture with nothing to open. A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free. `v` swaps a Job's mission and its canvas.
 
 **Nothing is drawn that Fleet does not hold.** A drone whose path is not known rests by its bay pad, and a stale tool burst reads as no action.
 
@@ -66,13 +66,17 @@ The keys are rows in `crates/core-model/domain/actions.toml`, rebound as [Key bi
 
 The deck links to three of them: the Bays band to Worktree Slots, the merge queue's mark to Merge line, and a control beside the repository picker to the Manifest. Checks has no link and is reached by name.
 
-## Not yet, shown empty
+## What Fleet serves the map, and what it does not
 
-The deck draws what Fleet holds and leaves the rest empty. Additions to Fleet, F1 to F4, each additive and each with its own claim, switch a part of the deck from empty to data. They land after #2301, in any order.
+The deck draws what Fleet holds and leaves the rest empty. F1 and F2 of #2301 are served; F3 and F4 are not.
 
-| | Fleet gives | Until then the deck shows |
+| | Fleet gives | Where it gives none the deck shows |
 |---|---|---|
-| F1 | Repository areas: file counts by directory, to depth 2 | Pads and the main flag in each territory, no plots |
-| F2 | Changed paths for every held slot | A drone resting by its bay pad, the slab flat; never a guessed directory. A Job's footprint is read for the open Job only |
-| F3 | Why a lease ended, and its branch, on `slot.released` | A bay's history with no end glyph and no branch on past rows; a bay with no events draws no History |
-| F4, optional | A burst-open event, so what a drone is doing is live | What a drone is doing from closed bursts only |
+| F1 | `list_repository_areas`: the directories of each repository's base to two names deep, the files of each, the 40 largest | Pads and the main flag in each territory, no plots |
+| F2 | `list_slot_touches`: for each Job or Session holding a slot, the paths it changed since the slot met the base, uncommitted and untracked included | A drone resting by its bay pad, the slab flat; never a guessed directory. A Job's footprint is read for the open Job only |
+| F3, not yet | Why a lease ended, and its branch, on `slot.released` | A bay's history with no end glyph and no branch on past rows; a bay with no events draws no History |
+| F4, not yet, optional | A burst-open event, so what a drone is doing is live | What a drone is doing from closed bursts only |
+
+**F2 is the last resort for a drone.** A tool burst places a drone first, then what its slot holds against the base, and the open Job's footprint only where neither does. A holder a repository's slots do not name, and a Session in a terminal Fleet does not host, has no such read and rests at its pad. A repository with more than 40 directories is drawn from its 40 largest, and a holder with more than 200 changed paths from the first 200 in the alphabet.
+
+Both reads are polled, since Fleet pushes no event for either: when Fleet connects, and every 35 seconds while the board changes or a holder has changes. A Fleet before them answers 404 and the deck draws none.

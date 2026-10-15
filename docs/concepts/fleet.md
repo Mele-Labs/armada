@@ -246,6 +246,23 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Cockpit's list, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The Cockpit's map draws a standing clash as an amber hatched slab on the directory both write in, and its tooltip reads *Two drones are changing it*, or *Changed elsewhere too* where the map holds one. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
 
+### The territory
+
+**What the flight deck's map is drawn over** ([Cockpit](cockpit.md), *The map*): each served repository's directories, and where each agent has changed it. Two reads, both Bridge only, both git's and neither an agent's word.
+
+| Read | Serves | From | Kept |
+|---|---|---|---|
+| `list_repository_areas`, `GET /repository_areas` | Each served repository's directories one and two names deep, with the files at or under each | `git ls-tree -r --name-only` of the base branch's head, counted | Against the head it was read at: an unchanged head asks git for the head alone |
+| `list_slot_touches`, `GET /slot_touches` | For each Job or hosted Session holding a slot, the paths changed in it, by repository | The slot's tree as it stands, through a scratch index, against the tree of its merge base with the base branch | 20 seconds, as a whole |
+
+**Areas are capped at the 40 largest** by files, counting each top directory and each directory inside one, and the answer says how many were left out. A top directory sorts before the directories inside it, so none is listed without its top. A file at the top of a repository is in no directory. What git does not track, and what `.gitignore` names, is not in the tree.
+
+**A slot's changes are everything its branch holds that the base does not**: what it committed since it met the base, what is edited or deleted and not committed, and what is not tracked yet. What the base changed since the slot was cut is not the holder's. The slot's own index, branch and files are never written, which is why the read goes through a scratch copy of the index as *Write clashes* does. A holder is listed with at most 200 paths, sorted, and the count left out.
+
+**Who holds a slot is `list_worktrees`' answer**, so these add no pool read. A slot held by a process Fleet does not host, a free one, a stranded one, a Job that ended and keeps its slot, and a subagent's slot are not read, and a holder with no change in its slot is absent. A slot git cannot read is left out of that read, not reported as unchanged.
+
+**Memory only.** A restart reads again. Bridge reads both when Fleet connects, again 35 seconds after the board last changed, and again every 35 seconds while any holder has changed something, so a holder that stops goes. A Fleet with neither route answers 404 and Bridge takes it as none. `apps/desktop/src/renderer/src/fleet-territory.ts`.
+
 ### Declared needs
 
 **Decided by the owner, 2 Oct 2026, built 5 Oct 2026 (#1059).** A need is a path and what is needed there, in the declarer's words: `crates/store/src/migrations.rs`, *a new migration*. No repository declares kinds up front, because the file is the resource. Overlap above stays a warning; a declared need is the part that is ordered. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md` has the reasoning.
