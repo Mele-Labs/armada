@@ -13,7 +13,7 @@ import { missionOf, type SceneIn } from "./mission";
 import type { DroneIn } from "./layout";
 import type { Run } from "./panes";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
-import { select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
+import { moveCursor, select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
 import { jobBuildOf } from "./build";
 import { CLOCK_MS, quantized } from "./field";
 import { touchesOfFootprint } from "./touches";
@@ -64,6 +64,7 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
             const subject = ship.subjects.find((one) => one.key === key);
             if (subject !== undefined) select(selOfSubject(subject));
           }}
+          onClear={() => moveCursor(undefined)}
           onPad={(key) => select({ kind: "slot", key })}
           onGoal={(root) => {
             const pr = ship.prs.find((one) => one.root === root && one.stage !== "landed") ?? ship.prs.find((one) => one.root === root);

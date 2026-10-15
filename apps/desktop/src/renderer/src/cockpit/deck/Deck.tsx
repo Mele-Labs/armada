@@ -130,7 +130,8 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
     );
   };
   return (
-    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1}>
+    // A press on the list and on no row lets the cursor go.
+    <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1} onClick={(event) => (event.target as Element).closest(".deck-row") === null && moveCursor(undefined)}>
       <header className="deck-band">
         Jobs and Sessions
         <PanelKey id="list" />

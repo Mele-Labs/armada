@@ -127,3 +127,31 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
   await userEvent.keyboard("o");
   await expect.poll(() => stage()?.getAttribute("aria-label")).not.toBe(AT_REST);
 });
+
+// The owner, 15 Oct 2026: nothing could be let go, so the map always held one drone's card.
+test("Esc, and a press on the list or the map away from a row or a drone, let the cursor go", async () => {
+  await deck();
+  await controls().getByRole("button", { name: "Map" }).click();
+  const cursored = () => document.querySelectorAll(".deck-list [data-cursor]").length;
+  // Read again each time: the list draws its rows afresh.
+  const row = () => document.querySelector<HTMLElement>(".deck-list .deck-row")!;
+  // A scripted click moves no focus, so the row is let go of first, as a real press elsewhere would.
+  const onRow = () => ((document.activeElement as HTMLElement | null)?.blur(), row().focus());
+
+  onRow();
+  await expect.poll(cursored).toBe(1);
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(cursored).toBe(0);
+  expect(stage()?.getAttribute("aria-label")).toBe("Flight map");
+  expect(document.activeElement?.closest(".deck-row"), "focus leaves the row, or it would be the cursor again").toBeNull();
+
+  onRow();
+  await expect.poll(cursored).toBe(1);
+  document.querySelector<HTMLElement>(".deck-list__rows")!.click();
+  await expect.poll(cursored).toBe(0);
+
+  onRow();
+  await expect.poll(cursored).toBe(1);
+  document.querySelector<HTMLElement>(".bf-plane")!.click();
+  await expect.poll(cursored).toBe(0);
+});

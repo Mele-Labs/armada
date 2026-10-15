@@ -59,6 +59,8 @@ export type BattlefieldProps = {
   /** A Job's mission, in place of the whole field: the same plane, cut down to the plots one Job touches and laid with its route. */
   scene?: Omit<SceneIn, "big" | "wide" | "clashes"> | undefined;
   onSelect: (key: string) => void;
+  /** A press on the ground, on no drone: whatever was picked lets go. */
+  onClear?: () => void;
   onPad: (key: string) => void;
   onGoal: (root: string) => void;
   onPr: (key: string) => void;
@@ -66,7 +68,7 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly BuildIn[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, standAt, onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
@@ -320,7 +322,11 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
       </svg>
       <div className="bf-origin">
         <div className="bf-cam" style={{ transform }}>
-          <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => (event.target as Element).closest("[role=option]") === null && setPinned(undefined)} style={{ width: plane.width, height: plane.height }}>
+          <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => {
+            if ((event.target as Element).closest("[role=option]") !== null) return;
+            setPinned(undefined);
+            onClear?.();
+          }} style={{ width: plane.width, height: plane.height }}>
             <div className="bf-floor" style={{ left: -plane.width * 0.6, top: -plane.height * 0.9, width: plane.width * 2.2, height: plane.height * 2.1 }} />
 
             {/* The ground itself: each territory's front line, the border round each top directory, the bases and their pads. */}
