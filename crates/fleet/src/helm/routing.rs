@@ -110,8 +110,8 @@ fn session_target(record: &SessionRecord) -> ThoughtTarget {
         .attachments
         .iter()
         .filter(|held| held.state != ipc::AttachmentState::GivenBack && held.kind == "slot")
-        .filter_map(|held| held.target.parse::<u32>().ok())
-        .last();
+        // The ledger's own slot comes first, ahead of those its subagents leased.
+        .find_map(|held| held.target.parse::<u32>().ok());
     ThoughtTarget {
         kind: ThoughtKind::Session,
         id: record.id.as_str().to_string(),

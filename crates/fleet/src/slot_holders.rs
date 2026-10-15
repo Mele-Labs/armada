@@ -93,6 +93,36 @@ pub(crate) fn stand_of(
     (claim != Claim::Not && path.is_dir()).then_some(Stand { path, claim })
 }
 
+/// Every slot of `served`'s pool whose lease is `session`'s: leased for it by Fleet, or by
+/// something it started and named for it (a subagent's `armada worktree lease`). **A Session
+/// holds more than the one slot its ledger row names**, and writes in each. Every slot on disk is
+/// read, since one past the pool's size the owner set is still held until it is given back.
+pub(crate) fn slots_of(served: &Served, session: &str) -> Vec<u32> {
+    let root = served.root().trim_end_matches('/');
+    let first = PathBuf::from(adapter_traits::slot_path(root, 1));
+    let mut on_disk: Vec<u32> = first
+        .parent()
+        .and_then(|slots| std::fs::read_dir(slots).ok())
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok()?.file_name().to_str()?.strip_prefix("slot-")?.parse().ok())
+        .collect();
+    on_disk.sort_unstable();
+    on_disk
+        .into_iter()
+        .filter(|slot| {
+            let at = adapter_traits::slot_path(root, *slot);
+            let at = std::path::Path::new(&at);
+            let named = match adapters::leasing::holder_of(at) {
+                Some(Lease::Job(id)) => id == session,
+                Some(held) if held.alive() => adapters::leasing::session_of(at).as_deref() == Some(session),
+                _ => false,
+            };
+            named && at.is_dir()
+        })
+        .collect()
+}
+
 /// The live Sessions the pool confirms are working `branch`: a standing `branch` row, a standing
 /// `slot` row, a lease that is theirs, and the branch checked out there. Those whose lease is
 /// written as theirs, else those whose lease names nobody.

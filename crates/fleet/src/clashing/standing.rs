@@ -16,11 +16,11 @@ use crate::daemon::Fleet;
 /// crash reports no end.
 const TERMINAL_GONE: Duration = Duration::from_secs(6 * 60 * 60);
 
-/// Where one holder writes.
+/// Where one holder writes: a Job's one worktree, or every slot a Session holds.
 #[derive(Clone, Debug)]
 pub(crate) struct Standing {
     pub(crate) manifest: String,
-    pub(crate) worktree: PathBuf,
+    pub(crate) worktrees: Vec<PathBuf>,
 }
 
 /// How the other side is named to an agent.
@@ -73,7 +73,7 @@ where
                 let worktree = PathBuf::from(spec.worktree_path());
                 worktree.is_dir().then(|| Standing {
                     manifest: served.manifest().id().as_str().to_string(),
-                    worktree,
+                    worktrees: vec![worktree],
                 })
             }
             Who::Session(id) => self.session_standing(id).await,
@@ -90,38 +90,46 @@ where
         if session.state == store::SessionState::Ended {
             return None;
         }
-        let standing = |kind: &str| {
-            held.iter()
-                .find(|one| one.kind == kind && one.state == AttachmentState::Standing)
-        };
-        let slot = standing("slot")?;
-        let served = self.repositories().serving(&slot.manifest_id)?;
-        let worktree = PathBuf::from(adapter_traits::slot_path(served.root(), slot.target.parse().ok()?));
-        if !worktree.is_dir() {
-            return None;
-        }
-        // **The pool says whose slot it is**: a row left over from a slot the Session gave up
-        // would otherwise set it against whoever works there now, and against itself.
-        let stand = {
-            let store = self.store().lock().await;
-            crate::slot_holders::stand_of(&store, &slot.manifest_id, served.root(), &held, id)?
-        };
-        if let Some(branch) = standing("branch") {
-            if !adapters::needs::branch_exists(Path::new(served.root()), &branch.target)
-                || !stand.on(&branch.target)
-            {
-                return None;
-            }
-        }
         let terminal = session.origin != "bridge";
         let quiet = elapsed(&core_model::Timestamp::from_rfc3339(&session.last_seen_at), &self.now());
         if terminal && quiet > TERMINAL_GONE && !self.hosts().terminals().listening(id) {
             return None;
         }
-        Some(Standing {
-            manifest: slot.manifest_id.clone(),
-            worktree,
-        })
+        let standing = |kind: &str| {
+            held.iter()
+                .find(|one| one.kind == kind && one.state == AttachmentState::Standing)
+        };
+        let row = standing("slot");
+        let manifest = row
+            .map(|slot| slot.manifest_id.clone())
+            .or_else(|| session.manifest_id.clone())?;
+        let served = self.repositories().serving(&manifest)?;
+        // **The pool says whose slot it is**: a row left over from a slot the Session gave up
+        // would otherwise set it against whoever works there now, and against itself. The row's
+        // slot counts while its branch is still there and checked out in it.
+        let mut worktrees = Vec::new();
+        let ledger = row.and_then(|slot| slot.target.parse::<u32>().ok());
+        let stand = {
+            let store = self.store().lock().await;
+            crate::slot_holders::stand_of(&store, &manifest, served.root(), &held, id)
+        };
+        let on_its_branch = |stand: &crate::slot_holders::Stand| match standing("branch") {
+            Some(branch) => {
+                adapters::needs::branch_exists(Path::new(served.root()), &branch.target)
+                    && stand.on(&branch.target)
+            }
+            None => true,
+        };
+        if let Some(stand) = stand.filter(|stand| on_its_branch(stand)) {
+            worktrees.push(stand.path);
+        }
+        // Every other slot it holds, its subagents' among them.
+        for slot in crate::slot_holders::slots_of(&served, id) {
+            if Some(slot) != ledger {
+                worktrees.push(PathBuf::from(adapter_traits::slot_path(served.root(), slot)));
+            }
+        }
+        (!worktrees.is_empty()).then_some(Standing { manifest, worktrees })
     }
 
     /// How an agent is to reach `who`, and what to call it.

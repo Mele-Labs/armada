@@ -196,11 +196,25 @@ where
                 }
             }
         };
-        // A write let through inside the session's own slot is a file it has written, for the
-        // check of who else writes it. `docs/concepts/fleet.md`, *Write clashes*.
+        // A write let through inside any slot the session holds is a file it has written there,
+        // for the check of who else writes it. `docs/concepts/fleet.md`, *Write clashes*.
         if let (Some(path), Some(_), GateAnswer::Pass {}) = (written, own, &answer) {
-            let inside = crate::edit_calls::repository_relative(&path, &directory, &self.host().home);
-            if !inside.starts_with('/') {
+            let inside = match lands(&path) {
+                Place::Slot(slot) if held(slot) => {
+                    let at = adapter_traits::slot_path(&root, slot);
+                    // The pool then names the session on a lease its subagent took, which a
+                    // process holder cannot say once it is gone.
+                    if own != Some(slot) {
+                        let _ = adapters::leasing::note_session(std::path::Path::new(&at), &id);
+                    }
+                    let whole = absolute(&gate, &path);
+                    Some(crate::edit_calls::repository_relative(&whole, &at, &self.host().home))
+                }
+                // A relative path is read against the session's own directory.
+                Place::Main if !path.starts_with('/') => Some(path.clone()),
+                _ => None,
+            };
+            if let Some(inside) = inside.filter(|inside| !inside.starts_with('/')) {
                 let who = crate::clashing::Who::Session(id.clone());
                 self.writes().wrote(&who, served.manifest().id().as_str(), [inside], &self.now());
             }
