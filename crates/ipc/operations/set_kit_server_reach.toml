@@ -1,7 +1,7 @@
 [operations.set_kit_server_reach]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Helm only"
 description = "Kit's own default for one server, across every Manifest that has not said otherwise"
 notes = """
 The body is `name` and `drones`, which is `yes` or `no`. The first tier of `kit.md`'s two: Kit holds the defaults, and a Manifest extends or restricts them.

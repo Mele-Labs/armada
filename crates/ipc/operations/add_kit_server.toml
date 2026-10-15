@@ -1,7 +1,7 @@
 [operations.add_kit_server]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Helm only"
 description = "Put an MCP server in Kit, reaching no Drone until a person says so"
 notes = """
 The body is a name and an address — a program with its arguments, or an `http`/`https` URL. The answer is `get_kit_servers`' whole list, so a caller folding one answer has already folded the other.

@@ -73,7 +73,7 @@ Every problem is returned with its line, up to 20.
 | `list_mods` | query | yes | Every mod: kind, version, description, `enabled`, `valid`, `reason`, `changed_at` |
 | `scaffold_mod` | command | yes | Makes the folder, a starter `theme.css` or, for `kind` `layout`, a `layout.json` that changes nothing, `git init` and one commit |
 | `validate_mod` | query | yes | Every problem found, and the checked text when there are none: `css` for a theme, `layout` for a layout |
-| `set_mod_enabled` | command | no | This machine's switch for one mod |
+| `set_mod_enabled` | command | Helm only | This machine's switch for one mod |
 | `promote_mod` | command | no | Copies the mod onto a new branch of a repository |
 
 `mods.changed` carries the whole list. Fleet rescans every two seconds and publishes it when the list differs from the last, and `scaffold_mod` and `set_mod_enabled` publish at once, so a file a session wrote reaches an open Bridge without a restart.
