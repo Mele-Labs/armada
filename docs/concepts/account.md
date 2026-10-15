@@ -88,6 +88,8 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
 
+The sign-in button carries the forge's own mark, never recoloured: white on a dark ground and black on a light one, as the forge's logo policy asks. No token holds pure white or black, so `ForgeMark.css` is the one stylesheet that opts out of the colour-literal rule.
+
 The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/circle-dashed.toml`, `packages/icons/icons/ban.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
 
 ## Built

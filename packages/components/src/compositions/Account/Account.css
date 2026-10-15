@@ -203,7 +203,7 @@
   padding: var(--space-3);
 }
 
-.armada-account__tile-body[data-centered] {
+.armada-account__tile-body--centered {
   align-items: center;
   justify-content: center;
   min-height: calc(var(--h-row) * 3);
@@ -620,14 +620,4 @@
 .armada-settings__link {
   display: flex;
   margin-bottom: var(--space-3);
-}
-
-/* The forge's mark keeps its own two colours: white on a dark ground, black on a light one. */
-.armada-brand-mark {
-  flex: none;
-  fill: #fff;
-}
-
-[data-theme*="light"] .armada-brand-mark {
-  fill: #000;
 }

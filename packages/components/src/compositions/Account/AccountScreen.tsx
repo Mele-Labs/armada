@@ -582,7 +582,7 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
           {flow.phase === "code" || unavailable === undefined ? null : <UnavailableTile account={account} unavailable={unavailable} onSettings={onSettings} />}
           {signedOut ? (
             <li className="armada-account__tile" data-tile="empty" aria-label="Signed out, no profile">
-              <div className="armada-account__tile-body" data-centered="">
+              <div className="armada-account__tile-body armada-account__tile-body--centered">
                 <Button variant="secondary" size="sm" ground="sunken" onClick={account.signIn}>
                   <ForgeMark />
                   {SIGN_IN_SAID}
@@ -592,7 +592,7 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
           ) : null}
           {profiles.length === 0 || flow.phase === "code" || failed ? null : (
             <li className="armada-account__tile" data-tile="add" aria-label="Add">
-              <div className="armada-account__tile-body" data-centered="">
+              <div className="armada-account__tile-body armada-account__tile-body--centered">
                 <Button variant="secondary" size="sm" ground="sunken" onClick={account.addProfile}>
                   Add profile
                 </Button>
