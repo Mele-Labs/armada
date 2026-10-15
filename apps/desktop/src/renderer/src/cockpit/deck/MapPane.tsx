@@ -33,7 +33,7 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
 
 export function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
   const field = useField(props, ship, listed);
-  const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey } = field;
+  const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds, feed } = field;
   return (
     <section className="deck-pane" aria-label="Flight map">
       <header className="deck-band deck-pane__head">
@@ -54,6 +54,9 @@ export function MapView({ props, ship, listed, cursor }: { props: CockpitProps; 
           calls={calls}
           clashes={clashes}
           focus={replay === undefined ? focusKey : undefined}
+          builds={builds}
+          take={feed?.take}
+          after={feed?.after}
           selected={cursor}
           onSelect={(key) => {
             const subject = ship.subjects.find((one) => one.key === key);

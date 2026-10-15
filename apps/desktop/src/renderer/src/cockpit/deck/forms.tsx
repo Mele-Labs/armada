@@ -1,0 +1,157 @@
+// The three forms a structure takes on its plot, one piece for each task: a tower rising floor by floor, a launch gantry with a craft
+// assembled on it, a segmented ring on the ground. A piece is ghost (dashed, planned), scaffold (the next ghost, edits seen), hollow
+// (ticked, no edit seen) or solid. A piece is static once placed; only the crane's jib swings and a craft lifts off, once. #2301.
+
+import { Sprite } from "./bf-parts";
+import type { Piece } from "./progress";
+
+type Pieces = readonly { piece: Piece }[];
+export type FormProps = {
+  pieces: Pieces;
+  big: number;
+  /** How far the unfinished part has dimmed, 0 to 1. */
+  dim: number;
+  /** It has landed: the top is finished and, for a craft, it flies. */
+  landed: boolean;
+  /** Its crane swings: the drone is writing. */
+  working: boolean;
+  /** Where the craft goes, in plane units from where it stands. */
+  fly: { x: number; y: number };
+};
+
+const A = 21;
+const D = 10.5;
+const H = 8;
+/** The faces of a box of half-width a and half-depth d, height h, standing on base line b. */
+const faces = (a: number, d: number, h: number, b: number) => ({
+  top: `${-a},${b - h} 0,${b - h - d} ${a},${b - h} 0,${b - h + d}`,
+  left: `${-a},${b - h} 0,${b - h + d} 0,${b + d} ${-a},${b}`,
+  right: `${a},${b - h} 0,${b - h + d} 0,${b + d} ${a},${b}`,
+  line: `M${-a},${b - h} L0,${b - h + d} L${a},${b - h} V${b} L0,${b + d} L${-a},${b} Z M0,${b - h + d} V${b + d}`,
+});
+
+/** The braces round a floor: four posts and a cross on each face, in the colour of the laser that is welding it. */
+const braces = (a: number, d: number, h: number, b: number) =>
+  `M${-a},${b} V${b - h - 3} M${a},${b} V${b - h - 3} M0,${b + d} V${b - h + d - 3} M${-a},${b - h} L0,${b + d} M${-a},${b} L0,${b - h + d} M${a},${b - h} L0,${b + d} M${a},${b} L0,${b - h + d}`;
+
+const open = (piece: Piece) => piece === "ghost" || piece === "scaffold";
+
+function Floor({ piece, k }: { piece: Piece; k: number }) {
+  const b = -k * H;
+  const f = faces(A, D, H, b);
+  return (
+    <g className="bf-pc" data-state={piece} data-open={open(piece) || undefined}>
+      {piece === "solid" ? (
+        <>
+          <polygon className="bf-pc__face" data-face="left" points={f.left} />
+          <polygon className="bf-pc__face" data-face="right" points={f.right} />
+          <polygon className="bf-pc__face" data-face="top" points={f.top} />
+        </>
+      ) : (
+        <path className="bf-pc__line" d={f.line} />
+      )}
+      {piece === "scaffold" ? <path className="bf-pc__brace" d={braces(A, D, H, b)} /> : null}
+    </g>
+  );
+}
+
+/** A building: a floor for each task on a diamond footprint, a crane on the highest floor that is placed, a pennant when it lands. */
+export function Tower({ pieces, big, dim, landed, working }: FormProps) {
+  const s = big * 0.9;
+  const placed = pieces.reduce((n, one, i) => (one.piece === "ghost" ? n : i + 1), 0);
+  return (
+    <Sprite x={-50} y={-150} w={100} h={176}>
+      <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="tower" transform={`scale(${s})`}>
+        <polygon className="bf-pc__pad" points={`${-A - 8},0 0,${-D - 4} ${A + 8},0 0,${D + 4}`} transform={`translate(0 ${D * 0.2})`} />
+        {pieces.map((one, k) => (
+          <Floor key={k} piece={one.piece} k={k} />
+        ))}
+        {pieces.length === 0 || placed === 0 ? null : (
+          <g className="bf-crane" transform={`translate(${A * 0.4} ${-placed * H - H * 0.4})`}>
+            <path className="bf-crane__mast" d="M0,0 V-18" />
+            <g className="bf-crane__jib" data-swing={working || undefined}>
+              <path className="bf-crane__arm" d="M-6,-18 H24 M0,-18 L-6,-14 M24,-18 V-10" />
+            </g>
+          </g>
+        )}
+        {landed && pieces.length > 0 ? (
+          <g className="bf-pc__flag" transform={`translate(0 ${-pieces.length * H - D * 0.4})`}>
+            <path className="bf-pc__pole" d="M0,0 V-14" />
+            <path className="bf-pc__pennant" d="M0,-14 L10,-11 L0,-8 Z" />
+          </g>
+        ) : null}
+      </g>
+    </Sprite>
+  );
+}
+
+const W = 12;
+const S = 9;
+function Section({ piece, k, nose }: { piece: Piece; k: number; nose: boolean }) {
+  const b = -k * S;
+  return (
+    <g className="bf-pc" data-state={piece} data-open={open(piece) || undefined}>
+      {nose ? (
+        <path className="bf-pc__body" d={`M${-W / 2},${b - S} C${-W / 2},${b - S - 8} -2,${b - S - 13} 0,${b - S - 13} C2,${b - S - 13} ${W / 2},${b - S - 8} ${W / 2},${b - S} Z`} />
+      ) : (
+        <>
+          <rect className="bf-pc__body" x={-W / 2} y={b - S} width={W} height={S} />
+          <ellipse className="bf-pc__cap" cy={b - S} rx={W / 2} ry={2.4} />
+        </>
+      )}
+      {piece === "scaffold" ? <path className="bf-pc__brace" d={`M${-W / 2 - 3},${b} V${b - S - 2} M${W / 2 + 3},${b} V${b - S - 2} M${-W / 2 - 3},${b - S} L${W / 2 + 3},${b}`} /> : null}
+    </g>
+  );
+}
+
+/** A launch gantry with a craft on it: a section for each task, the nose last, the service arm at the section being fitted. */
+export function Gantry({ pieces, big, dim, landed, working, fly }: FormProps) {
+  const s = big * 0.9;
+  const tall = Math.max(pieces.length, 1) * S + 16;
+  const fitting = Math.max(0, pieces.findIndex((one) => one.piece !== "solid" && one.piece !== "hollow"));
+  const rail = (x: number) => `M${x - 2},0 V${-tall} M${x + 2},0 V${-tall} ${Array.from({ length: Math.floor(tall / 8) }, (_, j) => `M${x - 2},${-j * 8} L${x + 2},${-j * 8 - 8}`).join(" ")}`;
+  return (
+    <Sprite x={-50} y={-150} w={100} h={176}>
+      <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="pad" transform={`scale(${s})`}>
+        <polygon className="bf-pc__pad" points={`-30,0 0,-15 30,0 0,15`} />
+        <path className="bf-gantry" d={`${rail(-17)} ${rail(17)}`} />
+        {pieces.length === 0 ? null : <path className="bf-gantry__arm" d={`M17,${-fitting * S - 4} H8`} />}
+        <g className="bf-craft" data-flown={landed || undefined} style={{ ["--fx" as string]: `${fly.x.toFixed(0)}px`, ["--fy" as string]: `${fly.y.toFixed(0)}px` }}>
+          {pieces.map((one, k) => (
+            <Section key={k} piece={one.piece} k={k} nose={k === pieces.length - 1} />
+          ))}
+        </g>
+        <path className="bf-gantry__hook bf-crane__jib" data-swing={working || undefined} d={`M17,${-tall} H5`} />
+      </g>
+    </Sprite>
+  );
+}
+
+/** One segment of a ring: an annular sector from angle `from` to `to`, in degrees, between radii r0 and r1. */
+const sector = (r0: number, r1: number, from: number, to: number) => {
+  const p = (r: number, deg: number) => `${(r * Math.cos((deg * Math.PI) / 180)).toFixed(2)},${(r * Math.sin((deg * Math.PI) / 180)).toFixed(2)}`;
+  return `M${p(r1, from)} A${r1},${r1} 0 0 1 ${p(r1, to)} L${p(r0, to)} A${r0},${r0} 0 0 0 ${p(r0, from)} Z`;
+};
+
+/** A ring lying on the ground round the drone's shadow, a segment for each task. It is on the plane, so the tilt makes it an ellipse. */
+export function Ring({ pieces, big, dim }: FormProps) {
+  const n = Math.max(pieces.length, 1);
+  const r1 = 34 * big;
+  const r0 = r1 - 7 * big;
+  const edge = r1 + 12;
+  return (
+    <svg className="bf-form bf-ring" style={{ ["--dim" as string]: dim, left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`} data-form="ring" aria-hidden="true">
+      {pieces.map((one, k) => {
+        const from = -90 + (k * 360) / n + 2.5;
+        const to = -90 + ((k + 1) * 360) / n - 2.5;
+        const mid = ((from + to) / 2) * (Math.PI / 180);
+        return (
+          <g key={k} className="bf-pc" data-state={one.piece} data-open={open(one.piece) || undefined}>
+            <path className="bf-pc__seg" d={sector(r0, r1, from, to)} />
+            {one.piece === "scaffold" ? <path className="bf-pc__brace" d={`M${((r1 + 2) * Math.cos(mid)).toFixed(1)},${((r1 + 2) * Math.sin(mid)).toFixed(1)} L${((r1 + 9) * Math.cos(mid)).toFixed(1)},${((r1 + 9) * Math.sin(mid)).toFixed(1)}`} /> : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

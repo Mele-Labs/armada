@@ -1,0 +1,113 @@
+/* What a Session has built on the battlefield: the survey, the structure in three forms, the subagents and the road. Grey like the
+   slabs; the laser's amber where it is being welded; the accent only on what has happened on the road. Transform and opacity only.
+   A piece is static once placed, so only the crane's jib, a craft's lift-off and the workers' laps move, and a worker laps only
+   while the field has a loop to spare (`data-loop`). Opacity is set on the picture and never on a part that stands in the scene,
+   since it would flatten the billboard. #2301. */
+
+/* ---- The survey: before anything is built ---------------------------------------------------------------- */
+
+.bf-surv { position: absolute; left: calc(var(--w) / -2); top: calc(var(--d) / -2); width: var(--w); height: var(--d); pointer-events: none; border: var(--border-width) dashed color-mix(in srgb, var(--fg-default) 38%, transparent); border-radius: calc(2 * var(--bf-u)); background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--fg-default) 9%, transparent) 0 var(--border-width), transparent var(--border-width) calc(10 * var(--bf-u))), repeating-linear-gradient(90deg, color-mix(in srgb, var(--fg-default) 9%, transparent) 0 var(--border-width), transparent var(--border-width) calc(10 * var(--bf-u))); }
+.bf-surv__stake { position: absolute; width: calc(4 * var(--bf-u)); height: calc(4 * var(--bf-u)); background: var(--accent); border-radius: 0; }
+.bf-mark__pole { fill: none; stroke: var(--fg-muted); stroke-width: 1.3; stroke-linecap: round; }
+.bf-mark__flag { fill: var(--accent); fill-opacity: 0.85; }
+
+/* ---- The structure ------------------------------------------------------------------------------------- */
+
+.bf-built { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; transition: scale calc(var(--duration-pulse) * 1.4) var(--ease); }
+.bf-ring { position: absolute; overflow: visible; }
+.bf-built :is(.bf-sprite, .bf-ring) { transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
+
+.bf-pc__pad { fill: color-mix(in srgb, var(--fg-default) 5%, transparent); stroke: var(--fg-subtle); stroke-opacity: 0.5; stroke-width: 1; stroke-dasharray: 3 4; }
+.bf-pc :is(.bf-pc__face, .bf-pc__body, .bf-pc__cap, .bf-pc__seg, .bf-pc__line) { stroke-linejoin: round; stroke-linecap: round; }
+/* Solid: seen and ticked. Faces lit like the hangar's. */
+.bf-pc__face { stroke: var(--fg-subtle); stroke-opacity: 0.7; stroke-width: 1; }
+.bf-pc__face[data-face="top"] { fill: color-mix(in srgb, var(--fg-default) 26%, var(--bg-base)); }
+.bf-pc__face[data-face="left"] { fill: color-mix(in srgb, var(--fg-default) 14%, var(--bg-base)); }
+.bf-pc__face[data-face="right"] { fill: color-mix(in srgb, var(--fg-default) 8%, var(--bg-base)); }
+.bf-pc[data-state="solid"] .bf-pc__body { fill: color-mix(in srgb, var(--fg-default) 17%, var(--bg-base)); stroke: var(--fg-subtle); stroke-opacity: 0.7; }
+.bf-pc[data-state="solid"] .bf-pc__cap { fill: color-mix(in srgb, var(--fg-default) 28%, var(--bg-base)); stroke: var(--fg-subtle); stroke-opacity: 0.7; }
+.bf-pc[data-state="solid"] .bf-pc__seg { fill: color-mix(in srgb, var(--fg-default) 24%, var(--bg-base)); stroke: var(--fg-subtle); stroke-opacity: 0.8; stroke-width: 1; }
+/* Ghost: planned, a dashed wireframe. Scaffold: the next ghost, with edits seen since the last tick. */
+.bf-pc:is([data-state="ghost"], [data-state="scaffold"]) :is(.bf-pc__line, .bf-pc__body, .bf-pc__cap, .bf-pc__seg) { fill: none; stroke: var(--fg-subtle); stroke-width: 1; stroke-dasharray: 2 3; stroke-opacity: 0.6; }
+.bf-pc[data-state="scaffold"] :is(.bf-pc__line, .bf-pc__body, .bf-pc__cap, .bf-pc__seg) { stroke-opacity: 0.9; }
+.bf-pc__brace { fill: none; stroke: var(--status-escalated); stroke-opacity: 0.75; stroke-width: 1; stroke-linecap: round; }
+/* Hollow: ticked and no edit seen, outlined and not filled. */
+.bf-pc[data-state="hollow"] :is(.bf-pc__line, .bf-pc__body, .bf-pc__cap, .bf-pc__seg) { fill: none; stroke: var(--fg-default); stroke-opacity: 0.8; stroke-width: 1.4; }
+/* The unfinished part dims the longer the turn sits quiet. */
+.bf-pc[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
+/* A piece that is placed rises into its place once. */
+.bf-pc[data-state="solid"], .bf-pc[data-state="hollow"] { animation: bf-place calc(var(--duration-pulse) * 0.5) var(--ease) backwards; }
+@keyframes bf-place { from { opacity: 0; transform: translateY(-5px); } }
+
+.bf-crane__mast, .bf-crane__arm, .bf-gantry__hook { fill: none; stroke: var(--fg-muted); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.bf-crane__jib { transform-box: fill-box; transform-origin: 20% 0; }
+.bf-crane__jib[data-swing] { animation: bf-jib calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; }
+@keyframes bf-jib { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+.bf-gantry { fill: none; stroke: var(--fg-subtle); stroke-width: 1; stroke-opacity: 0.75; }
+.bf-gantry__arm { fill: none; stroke: var(--fg-muted); stroke-width: 2; stroke-linecap: round; }
+.bf-pc__pole { fill: none; stroke: var(--fg-muted); stroke-width: 1.3; stroke-linecap: round; }
+.bf-pc__pennant { fill: var(--status-completed-success); animation: bf-place calc(var(--duration-pulse) * 0.8) var(--ease) backwards; }
+.bf-craft[data-flown] { animation: bf-liftoff calc(var(--duration-pulse) * 2) cubic-bezier(0.5, 0, 0.9, 0.4) forwards; }
+@keyframes bf-liftoff { to { transform: translate(var(--fx), var(--fy)) scale(0.25); opacity: 0; } }
+
+/* Landed. A day later it stands small and weathered, edges broken, the crane gone, and fades out over the day. */
+.bf-built[data-small] { scale: 0.62 0.62 0.62; }
+.bf-built[data-aged] .bf-pc :is(.bf-pc__face, .bf-pc__body, .bf-pc__seg) { stroke-dasharray: 6 2; fill-opacity: 0.7; }
+.bf-built[data-aged] :is(.bf-crane, .bf-pc__flag) { display: none; }
+.bf-built[data-after="stand"][data-landed] :is(.bf-sprite, .bf-ring) { opacity: calc(1 - var(--age)); }
+/* Cleared: it completes, then is gone. */
+.bf-built[data-after="clear"][data-landed] :is(.bf-sprite, .bf-ring) { opacity: 0; transition: opacity calc(var(--duration-pulse) * 1.2) var(--ease) calc(var(--duration-pulse) * 1.5); }
+
+/* ---- The subagents --------------------------------------------------------------------------------------- */
+
+.bf-wk__lap { transform: rotateZ(calc(var(--phase, 0) * 360deg)); }
+.bf-wk__face { transform: rotateZ(calc(var(--phase, 0) * -360deg)); }
+.bf-wk[data-loop] .bf-wk__lap { transform: none; animation: bf-lap var(--T) linear infinite; animation-delay: calc(var(--T) * var(--phase, 0) * -1); }
+.bf-wk[data-loop] .bf-wk__face { transform: none; animation: bf-unlap var(--T) linear infinite; animation-delay: calc(var(--T) * var(--phase, 0) * -1); }
+.bf-wk[data-rev][data-loop] :is(.bf-wk__lap, .bf-wk__face) { animation-direction: reverse; }
+.bf-wk__body { --hue: var(--fg-muted); pointer-events: auto; outline: none; cursor: default; }
+.bf-wk__body .bf-sprite { animation: bf-arrive calc(var(--duration-pulse) * 0.5) var(--ease) var(--arrive, 0ms) backwards; }
+.bf-wk__body:focus-visible .bf-hit { stroke: var(--accent); }
+
+/* ---- The road ---------------------------------------------------------------------------------------------- */
+
+.bf-rd { position: absolute; left: calc(-5 * var(--bf-u)); top: calc(-1.5 * var(--bf-u)); width: calc(10 * var(--bf-u)); height: calc(3 * var(--bf-u)); border-radius: calc(1 * var(--bf-u)); background: var(--fg-subtle); opacity: 0.28; pointer-events: none; }
+.bf-rd[data-lit] { background: var(--accent); opacity: 0.85; box-shadow: 0 0 calc(7 * var(--bf-u)) color-mix(in srgb, var(--accent) 55%, transparent); }
+.bf-stop { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: auto; outline: none; cursor: default; }
+.bf-stop__ring { fill: var(--bg-base); stroke: var(--fg-subtle); stroke-width: 1.3; stroke-dasharray: 2 2.5; }
+.bf-stop__glyph { stroke: currentColor; color: var(--fg-subtle); }
+.bf-stop:not([data-lit]) .bf-sprite { opacity: 0.42; }
+.bf-stop[data-lit] .bf-stop__ring { fill: color-mix(in srgb, var(--accent) 22%, var(--bg-base)); stroke: var(--accent); stroke-dasharray: none; stroke-width: 1.6; }
+.bf-stop[data-lit] .bf-stop__glyph { color: var(--fg-default); }
+.bf-stop:focus-visible .bf-hit { stroke: var(--accent); }
+
+/* ---- What the card says of it ----------------------------------------------------------------------------- */
+
+.bf-build { display: flex; flex-direction: column; gap: var(--space-2); }
+.bf-build__phase { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.bf-build__glyph { display: inline-flex; color: var(--fg-muted); }
+.bf-build__quiet { margin-left: auto; color: var(--status-awaiting-review); }
+.bf-build__tasks, .bf-build__stops { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.bf-build__task, .bf-build__stop { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.bf-build__task > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bf-build__swatch { flex: none; box-sizing: border-box; width: calc(10 * var(--bf-u)); height: calc(10 * var(--bf-u)); border: calc(1.3 * var(--bf-u)) solid var(--fg-default); border-radius: calc(2 * var(--bf-u)); }
+.bf-build__task[data-piece="solid"] .bf-build__swatch { background: color-mix(in srgb, var(--fg-default) 60%, transparent); }
+.bf-build__task[data-piece="ghost"] .bf-build__swatch { border-style: dashed; border-color: var(--fg-subtle); }
+.bf-build__task[data-piece="scaffold"] .bf-build__swatch { border-style: dashed; border-color: var(--status-escalated); }
+.bf-build__stops { border-top: var(--border-width) solid var(--border-glass); padding-top: var(--space-2); }
+.bf-build__stop { color: var(--fg-default); }
+.bf-build__stop[data-faint] { color: var(--fg-subtle); opacity: 0.7; }
+.bf-build__stop time { margin-left: auto; color: var(--fg-subtle); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-crane__jib[data-swing],
+  .bf-pc[data-state="solid"],
+  .bf-pc[data-state="hollow"],
+  .bf-pc__pennant,
+  .bf-wk[data-loop] :is(.bf-wk__lap, .bf-wk__face),
+  .bf-wk__body .bf-sprite { animation: none; }
+  .bf-wk[data-loop] .bf-wk__lap { transform: rotateZ(calc(var(--phase, 0) * 360deg)); }
+  .bf-wk[data-loop] .bf-wk__face { transform: rotateZ(calc(var(--phase, 0) * -360deg)); }
+  .bf-craft[data-flown] { animation: none; opacity: 0; }
+  .bf-built, .bf-built :is(.bf-sprite, .bf-ring), .bf-pc[data-open] { transition: none; }
+}

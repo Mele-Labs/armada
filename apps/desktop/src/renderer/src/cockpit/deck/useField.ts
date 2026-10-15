@@ -14,6 +14,8 @@ import { useSessions } from "../../sessions-draft";
 import type { CockpitProps } from "./props";
 import { useFleetEvents } from "../fleet-events";
 import { useAreas } from "./areas-source";
+import { builtOf, buildTipOf, shapedBy } from "./progress";
+import { useProgress } from "./progress-source";
 import { slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
 import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, quantized, throttled, TICK_MS } from "./field";
@@ -66,6 +68,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const sessions = useSessions();
   const events = useCalmEvents();
   const areasOf = useAreas();
+  const feed = useProgress();
   const written = useWriteClashes();
   const clock = quantized(props.now, CLOCK_MS);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
@@ -179,6 +182,12 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   // What each working drone is doing, from the tool events up to the playhead; a picked tool event shows its own action on its own drone.
   const held = replay === undefined && picked !== undefined && focusKey !== undefined && doingOfEvent(picked) !== undefined ? { key: focusKey, event: picked } : undefined;
   const flying = useMemo(() => withDoing(field?.drones ?? drones, before, replay?.at ?? clock, ownerOf, held), [field, drones, before, clock, held?.event.id]);
+  // What each Session has built; a drone that is building takes its stall and its tool call from the record it was read from.
+  const builds = useMemo(() => (feed === undefined ? [] : feed.views.map(builtOf)), [feed]);
+  const shaped = useMemo(() => flying.map((one) => {
+    const built = builds.find((b) => b.key === one.key);
+    return built === undefined ? one : shapedBy(one, built);
+  }), [flying, builds]);
   const crates = field?.prs ?? prs;
   const flightTrails = useMemo(() => (replay === undefined ? trails : trailsOf(before, replay.at, ownerOf)), [trails, replay === undefined, passed]);
   // The event's own effect, once, where it is picked.
@@ -196,6 +205,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     for (const drone of flying) {
       const subject = ship.subjects.find((one) => one.key === drone.key);
       if (subject === undefined) continue;
+      const built = builds.find((b) => b.key === drone.key);
       const { last, ticks } = eventFactsOf(before, drone.key, keyOf, at);
       const owed = callOfSubject(subject, deck.held);
       const call = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed)?.title;
@@ -206,10 +216,11 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         ...(call === undefined ? {} : { call }),
         ...(last === undefined ? {} : { last: { says: last.says, ago: age(last.at, at) } }),
         ...(pad === undefined ? {} : { bay: { slot: pad.slot, Glyph: pad.Glyph, word: pad.word } }),
+        ...(built === undefined ? {} : { build: buildTipOf(built) }),
       });
     }
     return out;
-  }, [flying, ship.subjects, ship.calls, before, at, deck.held, pads, ship.prs]);
+  }, [flying, builds, ship.subjects, ship.calls, before, at, deck.held, pads, ship.prs]);
 
   // The drones that hold a call he has not opened: a call is marked until it is visited or answered. In a replay, those that were calling at the playhead.
   const calls = useMemo(
@@ -236,5 +247,5 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     [written, all],
   );
 
-  return { deck, calls, repos, pads, goals, crates, drones: flying, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
+  return { deck, calls, repos, pads, goals, crates, drones: shaped, builds, feed, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
 }

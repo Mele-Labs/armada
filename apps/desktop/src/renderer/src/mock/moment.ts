@@ -13,6 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
+import type { ProgressScript } from "./progress";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -39,6 +40,8 @@ export type MockDraft = ArcDraft & {
   clashes?: readonly WriteClash[];
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
+  /** What each Session has built, moment by moment: Fleet serves no task list yet. Mock only. */
+  progress?: ProgressScript;
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */
   sharedHome?: { account: string; repository: string; rows: readonly SharedRow[] };
   /**
