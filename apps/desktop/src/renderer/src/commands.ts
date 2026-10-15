@@ -410,12 +410,18 @@ export function useCommands(sending: Sending) {
   }
 
   /**
-   * Hand main's red to a Job. **A refusal goes to the pipeline every command failure uses**; an
-   * accepted one says nothing, since the band names the Job a beat later.
+   * Hand main's red to a Job. **A refusal goes to the pipeline every command failure uses**, but the two
+   * the band draws itself: a claim the store could not make, and a red another machine already holds.
+   * An accepted one says nothing, since the band names the Job a beat later.
    */
-  async function fixMain(fix: FixMain): Promise<void> {
+  async function fixMain(fix: FixMain): Promise<"claim_not_made" | "taken_elsewhere" | undefined> {
     const answer = await window.armada.fixMain(fix);
+    if (!answer.ok && answer.why === "refused") {
+      if (answer.error.code === "fleet.main_claim_not_made") return "claim_not_made";
+      if (answer.error.code === "fleet.main_taken_elsewhere") return "taken_elsewhere";
+    }
     if (!answer.ok) setOutcome(answer);
+    return undefined;
   }
 
   /**

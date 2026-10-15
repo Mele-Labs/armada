@@ -333,6 +333,14 @@ describe("the hub Fleet serves beside the line", () => {
     });
   });
 
+  test("another machine's claim on a red rides on the red, and a green or an unclaimed red carries none", () => {
+    const failed = { state: "red" as const, commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }] };
+    const claim = { machine: "work-mac-mini", holder: { kind: "job" as const, id: "7be40d15" }, since: "2026-10-14T21:00:00Z" };
+    expect(hubOf({ main: failed, fixing_elsewhere: claim })?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true }, elsewhere: claim });
+    expect(hubOf({ main: failed })?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
+    expect(hubOf({ main: { state: "green", commit: COMMIT, read_at: "x" }, fixing_elsewhere: claim })?.main).toEqual({ state: "green" });
+  });
+
   test("a red carries the instant main first read red, and none where the wire gave none", () => {
     const red = (since?: string) =>
       hubOf({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }], ...(since === undefined ? {} : { red_since: since }) } })?.main;

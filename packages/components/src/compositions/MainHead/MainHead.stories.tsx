@@ -302,3 +302,83 @@ export const GreenWhileChecksRun: Story = {
     await expect(canvas.getByRole("img", { name: "Main is green, new checks are running" })).toBeVisible();
   },
 };
+
+const NOW = Date.parse("2026-10-14T21:30:00Z");
+const MINUTES = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+const ELSEWHERE = { machine: "work-mac-mini", holder: { kind: "job", id: "7be40d15" }, since: MINUTES(12) } as const;
+
+/**
+ * Another machine holds the red: its chip, with `monitor` naming the machine, and the claim's age.
+ * Dispatch and Send back are gone; Take over is the one act.
+ */
+export const HeldElsewhere: Story = {
+  args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: ELSEWHERE } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("group", { name: "Job 7be40d15, work-mac-mini" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "work-mac-mini" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Claimed 12m ago" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Take over" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
+  },
+};
+
+/** A claim an hour old or more reads as stale by its clock and its age, with no sentence. */
+export const StaleClaim: Story = {
+  args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: { ...ELSEWHERE, holder: { kind: "session", id: "9c74d82e" }, since: MINUTES(3 * 60) } } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("group", { name: "Session 9c74d82e, work-mac-mini" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Claimed 3h ago, stale" })).toBeVisible();
+    await expect(canvas.queryByRole("img", { name: "Claimed 12m ago" })).toBeNull();
+  },
+};
+
+/** Take over asks once, with the claim's age in the ask, and only then replaces the claim. */
+export const TakeOverAsksOnce: Story = {
+  args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: { ...ELSEWHERE, since: MINUTES(3 * 60) } } },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Take over" }));
+    await expect(args.onFix).not.toHaveBeenCalled();
+    const ask = within(document.body).getByRole("dialog", { name: "Take over from work-mac-mini" });
+    await expect(within(ask).getByRole("img", { name: "Claimed 3h ago, stale" })).toBeVisible();
+    await userEvent.click(within(ask).getByRole("button", { name: "Take over" }));
+    await expect(args.onFix).toHaveBeenCalledWith({ kind: "takeOver" });
+    await expect(within(document.body).queryByRole("dialog")).toBeNull();
+  },
+};
+
+/** Cancelling the ask replaces nothing. */
+export const TakeOverCancelled: Story = {
+  args: { ...args, now: NOW, main: { state: "red", red: RED, elsewhere: ELSEWHERE } },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Take over" }));
+    await userEvent.click(within(within(document.body).getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await expect(args.onFix).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * The store could not be reached when Dispatch was pressed: a plain row says so, beside the acts that
+ * remain, and Try again sends the same press.
+ */
+export const ClaimNotMade: Story = {
+  args: { ...args, onFix: fn(async () => "claim_not_made" as const) },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Job" }));
+    await userEvent.click(within(within(document.body).getByRole("dialog")).getByRole("button", { name: "Dispatch" }));
+    await expect(await canvas.findByText("Not made, store unreachable")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
+    await expect(args.onFix).toHaveBeenCalledTimes(2);
+    await expect(args.onFix).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "new" }));
+  },
+};
+
+/** Another machine's claim was not in the hub when Dispatch was pressed: a plain row, and Try again. */
+export const ClaimTakenElsewhere: Story = {
+  args: { ...args, onFix: fn(async () => "taken_elsewhere" as const) },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Session" }));
+    await expect(await canvas.findByText("Held on another machine")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Try again" })).toBeVisible();
+  },
+};

@@ -187,7 +187,7 @@ function queueFirst<T extends { queue?: { state: string; position?: number } }>(
     .map(({ pull }) => pull);
 }
 
-function mainOf({ main, fixing }: WireHub): MainState | undefined {
+function mainOf({ main, fixing, fixing_elsewhere }: WireHub): MainState | undefined {
   if (main === undefined) return undefined;
   const checking = (main.checking ?? []).map((one) => ({
     commit: one.commit,
@@ -196,7 +196,7 @@ function mainOf({ main, fixing }: WireHub): MainState | undefined {
   if (main.state === "green") return { state: "green", ...(checking.length === 0 ? {} : { checking }) };
   const red = main.state === "red" ? redOf(main) : undefined;
   if (red === undefined) return undefined;
-  return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }), ...(checking.length === 0 ? {} : { checking }) };
+  return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }), ...(fixing_elsewhere === undefined ? {} : { elsewhere: fixing_elsewhere }), ...(checking.length === 0 ? {} : { checking }) };
 }
 
 /** What failed: a Manifest Check where the CI job maps to one, otherwise the job's own name. */
