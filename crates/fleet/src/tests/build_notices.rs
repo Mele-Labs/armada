@@ -244,6 +244,20 @@ async fn a_session_with_neither_a_branch_nor_a_restart_wait_is_not_told() {
 }
 
 #[tokio::test]
+async fn a_session_whose_branches_git_cannot_place_in_the_build_is_not_told() {
+    let rig = a_rig();
+    let elsewhere = rig.a_hosted_session().await;
+    rig.holds_branch(&elsewhere, "feature/custom-margins").await;
+    rig.holds_branch(&elsewhere, "main").await;
+    rig.on_file(true);
+
+    rig.fleet.builds_told().await;
+
+    assert!(rig.thread_of(&elsewhere).await.is_empty(), "nothing it holds is in or out of this build");
+    assert!(!rig.told(&elsewhere).await);
+}
+
+#[tokio::test]
 async fn a_restart_wait_is_settled_by_the_build_it_asked_for_and_a_mismatch_is_not() {
     let rig = a_rig();
     let preview = rig.a_hosted_session().await;
