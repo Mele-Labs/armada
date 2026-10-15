@@ -52,7 +52,7 @@ import type {
 import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { handoffOf } from "./session-handoff";
-import { readRetro } from "./commands";
+import { readRetro, searchFiles } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
@@ -1065,6 +1065,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                 ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
                 ...draft.taggable(),
               ]}
+              searchFiles={searchFiles}
               {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}
               draftKey={session.id}

@@ -52,7 +52,7 @@ Anything else that is genuinely cross-Manifest stays a Bridge job.
 | The box offers | Where it comes from |
 |---|---|
 | Files, pictures and sketches | Sent with the ask as `attachments` and kept as a Session keeps them (`uploads`), outside every worktree. A sketch goes as the picture it renders to |
-| `@` | Sessions, Jobs, pull requests and branches Bridge holds, sent as `mentions`. Fleet writes one `The person named:` line ahead of the words, as a Session's send does |
+| `@` | Sessions, then Jobs, as Bridge holds them, sent as `mentions`. Fleet writes one `The person named:` line ahead of the words, as a Session's send does. Once letters follow the `@` it also lists the repository's files that match them, which stay plain text in the words |
 | `#` | The repository's open issues, its open pull requests and, for a number that is neither, one read by number. An issue tags as `issue`, with its number, title and address |
 | `/` | The commands the agent named on its `init` line, as a Session's list. Until Helm's Session has started the list is the last one any Session read |
 | Model and effort | `AskHelm.model` and `effort` choose them on the message that starts the Session (422 `fleet.unacceptable_effort`); `tune_session` changes a live one. Start fresh keeps nothing: the next Session starts on the box's pick |

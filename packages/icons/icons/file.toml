@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "The log row, and nothing else. It is the file-* family's unmarked member."
   notes = "`docs/concepts/log-envelope.md` states the rule this row carries out: the file-* family is reserved to evidence, so the log row takes the plain page outline rather than a new glyph. The row was missing while three screens rendered a log line, so each left its mark channel empty rather than borrowing a glyph that means something else."
+
+[[icons.file.usage]]
+  means = "A file offered under `@` in a message box, leading its name and the folder it is in"
+  group = "Message tag"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 14 Oct 2026 for the walk `composer-at-groups`, beside `square-terminal` for a Session and `box` for a Job in the same list. The group's head, Files, names it, so the row has no tooltip. The reserved line above gives the file-* family to evidence and this row is not evidence: it is a path in the repository the person is writing about. Open for the owner's ruling on that reading. Refused: `paperclip`, a file attached to a message."

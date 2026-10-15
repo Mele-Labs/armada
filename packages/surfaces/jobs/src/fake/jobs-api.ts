@@ -83,6 +83,18 @@ export type JobsFleet = FleetHandle<JobsHeld> & {
 };
 
 const OK: Outcome = { ok: true };
+/** The paths the mock's `@` can find, narrowed by what follows it as Fleet's search narrows them. */
+const FILES = [
+  "README.md",
+  "crates/fleet/src/sessions.rs",
+  "docs/practices/bridge.md",
+  "docs/practices/session-composer.md",
+  "packages/components/src/compositions/SessionComposer/SessionComposer.tsx",
+  "packages/components/src/compositions/SessionComposer/InlineTag.tsx",
+  "apps/desktop/src/renderer/src/sessions.tsx",
+  "apps/desktop/src/renderer/src/mock/sessions/script.ts",
+];
+
 /**
  * How far apart a fixture's `arriving` rows land. Long enough that a walk has
  * opened a transcript's panel before the first one, short enough that the
@@ -154,7 +166,7 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       },
       stopProposal: async () => OK,
       stageAttachment: async (_bytes, filename) => ({ path: filename }),
-      searchFiles: async () => [],
+      searchFiles: async (query) => FILES.filter((path) => path.toLowerCase().includes(query.toLowerCase())),
       readRequestRepository: async (words) => {
         await new Promise((resume) => setTimeout(resume, READ_MS));
         return requestRepositoryRead(words, state().holds.repositories ?? [], state().jobs);

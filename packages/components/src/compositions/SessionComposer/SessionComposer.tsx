@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { Cpu, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
+import { Cpu, File, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { useKept, writeKept } from "../../keep";
@@ -19,9 +19,10 @@ import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } f
  * a sketch, then what is waiting to be sent in a single row that scrolls
  * sideways, so nothing waiting ever takes room from the typing area.
  *
- * **`/` opens the skills and commands, `@` opens the other Sessions** and **`#` the repository's
- * issues and pull requests by number**; choosing one writes it into the message as a chip, at the
- * caret, so the agent knows what is meant. **A
+ * **`/` opens the skills and commands, `@` opens the Sessions, then the Jobs, then the files that match
+ * what follows it**, and **`#` the repository's issues and pull requests by number**; choosing a
+ * Session, a Job, an issue or a pull request writes it into the message as a chip, at the caret, so
+ * the agent knows what is meant, and choosing a file writes `@path` as plain text. **A
  * picture or file is pasted or dropped in**, or attached. **A sketch is drawn
  * on the pad Dispatch draws on**, which the host opens, and comes back as a
  * chip.
@@ -64,13 +65,18 @@ const LOOKUP_MS = 150;
 /** What each kind is called, on the glyph that leads a `#` row. */
 const KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
 
-/** The kinds in the order `@` groups them, each named for the group's label. */
+/**
+ * The kinds `@` offers as chips, in the order it groups them, each named for the group's label. Files
+ * follow them, so Sessions and Jobs carry the weight; pull requests and branches are `#`'s and the
+ * ledger's, not `@`'s.
+ */
 const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
-  { kind: "job", label: "Jobs" },
-  { kind: "pull_request", label: "Pull requests" },
-  { kind: "branch", label: "Branches" },
   { kind: "session", label: "Sessions" },
+  { kind: "job", label: "Jobs" },
 ];
+
+/** How many file rows `@` offers under the Sessions and the Jobs. */
+const FILE_ROWS = 5;
 
 /** The permission modes, as the terminal's: ask, auto, accept edits, plan. */
 export type ComposerMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -97,8 +103,13 @@ export type SessionComposerProps = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** What `/` offers. */
   commands: readonly { name: string; says: string }[];
-  /** What `@` offers, grouped by kind: other Sessions, Jobs, pull requests and branches. */
+  /** What `@` offers as chips, grouped by kind: other Sessions, then Jobs. */
   taggable: readonly ComposerTag[];
+  /**
+   * The paths under the repository that match what follows an `@`. Asked once the query is not empty and has
+   * rested; the first few answers show under the Jobs. Absent, `@` offers no files.
+   */
+  searchFiles?: (query: string) => Promise<readonly string[]>;
   /** What `#` offers for the repository this box speaks for. Absent, `#` is only a character. */
   numbered?: ComposerNumbered;
   /** The box's accessible name. */
@@ -172,7 +183,7 @@ function matching<T extends { name: string }>(commands: readonly T[], query: str
   return [...starts, ...holds];
 }
 
-type Item = { id: string; name: string; says?: string; standing?: string; tag?: ComposerTag };
+type Item = { id: string; name: string; says?: string; standing?: string; tag?: ComposerTag; file?: string };
 
 /** A `#` row: the number in the name, the title after it. */
 const numberedRow = (hit: NumberedHit): Item => ({
@@ -182,6 +193,12 @@ const numberedRow = (hit: NumberedHit): Item => ({
   ...(hit.standing === undefined ? {} : { standing: hit.standing }),
   tag: hit.tag,
 });
+
+/** A file's row: its name, then the folder it is in. */
+function fileRow(path: string): Item {
+  const cut = path.lastIndexOf("/");
+  return { id: `file:${path}`, name: path.slice(cut + 1), ...(cut < 0 ? {} : { says: path.slice(0, cut) }), file: path };
+}
 
 /** What the caret is in: a `/` at the start of the message, or an `@` or a `#` at the start of a word. */
 function tokenAt(text: string, caret: number): { trigger: "/" | "@" | "#"; query: string; from: number } | undefined {
@@ -222,6 +239,7 @@ export function SessionComposer({
   onTune,
   commands,
   taggable,
+  searchFiles,
   numbered,
   label = "Message",
   disabled = false,
@@ -283,6 +301,29 @@ export function SessionComposer({
       window.clearTimeout(timer);
     };
   }, [wanted]);
+  // `@` and something after it asks for files once it has rested. The last answer stays until the next
+  // arrives, so the list does not close between keystrokes, and one that comes back late is dropped.
+  const fileQuery = token?.trigger === "@" && token.query !== "" ? token.query : undefined;
+  const [foundFiles, setFoundFiles] = useState<readonly string[]>([]);
+  const finder = useRef(searchFiles);
+  finder.current = searchFiles;
+  useEffect(() => {
+    const ask = finder.current;
+    if (fileQuery === undefined || ask === undefined) {
+      setFoundFiles([]);
+      return;
+    }
+    let live = true;
+    const timer = window.setTimeout(() => {
+      void ask(fileQuery).then((found) => {
+        if (live) setFoundFiles(found);
+      });
+    }, LOOKUP_MS);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [fileQuery]);
   const items: Item[] =
     token === undefined
       ? []
@@ -290,11 +331,14 @@ export function SessionComposer({
         ? matching(commands, token.query).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
         : token.trigger === "#"
           ? numberedItems(numbered, token.query, wanted === undefined || found?.number !== wanted ? undefined : found.hit, draft.tags)
-          : TAG_KINDS.flatMap(({ kind }) =>
-            taggable
-              .filter((one) => one.kind === kind && !draft.tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
-              .map((one) => ({ id: `${kind}${one.id}`, name: one.title, tag: one })),
-          );
+          : [
+            ...TAG_KINDS.flatMap(({ kind }) =>
+              taggable
+                .filter((one) => one.kind === kind && !draft.tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
+                .map((one) => ({ id: `${kind}${one.id}`, name: one.title, tag: one })),
+            ),
+            ...(fileQuery === undefined ? [] : foundFiles.slice(0, FILE_ROWS).map(fileRow)),
+          ];
   const open = items.length > 0;
   // The list hangs above the box, where a box at the foot of its window has the room. In Helm's dock a box
   // with no thread over it has none, and the dock clips what leaves it: then it hangs below.
@@ -403,6 +447,11 @@ export function SessionComposer({
     if (token.trigger === "/") {
       node.data = `/${item.id} ${node.data.slice(offset)}`;
       place(node, item.id.length + 2);
+    } else if (item.file !== undefined) {
+      const from = offset - token.query.length - 1;
+      const rest = node.data.slice(offset);
+      node.data = `${node.data.slice(0, from)}@${item.file}${rest.startsWith(" ") ? "" : " "}${rest}`;
+      place(node, from + item.file.length + 2);
     } else if (item.tag !== undefined) {
       const from = offset - token.query.length - 1;
       node.data = node.data.slice(0, from) + node.data.slice(offset);
@@ -493,14 +542,13 @@ export function SessionComposer({
   return (
     <form ref={form} className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
-        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session, Job, pull request or branch"} data-numbered={token?.trigger === "#" ? "" : undefined}>
+        <div className="armada-mention armada-session-composer__offer" data-below={below ? "" : undefined} id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : token?.trigger === "#" ? "Tag an issue or pull request" : "Tag a Session, a Job or a file"} data-numbered={token?.trigger === "#" ? "" : undefined}>
           {token?.trigger === "/" || token?.trigger === "#"
             ? items.map((item, index) => <Row key={item.id} item={item} on={index === current} onHover={() => setActive(index)} onChoose={() => choose(item)} />)
-            : TAG_KINDS.map(({ kind, label }) => {
-                const rows = items.filter((one) => one.tag?.kind === kind);
+            : [...TAG_KINDS.map(({ kind, label }) => ({ key: kind, label, rows: items.filter((one) => one.tag?.kind === kind) })), { key: "file", label: "Files", rows: items.filter((one) => one.file !== undefined) }].map(({ key, label, rows }) => {
                 if (rows.length === 0) return null;
                 return (
-                  <div key={kind} role="group" aria-label={label}>
+                  <div key={key} role="group" aria-label={label}>
                     <p className="armada-session-composer__group" aria-hidden>
                       {label}
                     </p>
@@ -595,7 +643,7 @@ export function SessionComposer({
 
 /** One row of a typeahead. A tag's row leads with its kind's glyph. */
 function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover: () => void; onChoose: () => void }) {
-  const Glyph = item.tag === undefined ? undefined : TAG_GLYPH[item.tag.kind];
+  const Glyph = item.file !== undefined ? File : item.tag === undefined ? undefined : TAG_GLYPH[item.tag.kind];
   // A `#` row's glyph is the only word for its kind, so it is named on hover.
   const kind = item.tag !== undefined && item.name.startsWith("#") ? KIND_SAID[item.tag.kind] : undefined;
   return (
