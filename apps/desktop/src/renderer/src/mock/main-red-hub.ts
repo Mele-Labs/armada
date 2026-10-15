@@ -414,8 +414,8 @@ function elsewhereMoments(): Moment[] {
   const working = [rowOf(FIX, "running", fixing(THIRD)), ...stranded.jobs];
   const held = (elsewhere: FixingElsewhere): Moment => ({ main: { state: "red", red: THIRD, elsewhere }, pulls: stranded.pulls, jobs: stranded.jobs });
   return [
-    held({ machine: "Mac mini", holder: { kind: "job", id: "7be40d15" }, since: claimed(12) }),
-    held({ machine: "Studio", holder: { kind: "session", id: "9c74d82e" }, since: claimed(3 * 60) }),
+    held({ machine: "work-mac-mini", holder: { kind: "job", id: "7be40d15" }, since: claimed(12) }),
+    held({ machine: "nick-mbp", holder: { kind: "session", id: "9c74d82e" }, since: claimed(3 * 60) }),
     { main: { state: "red", red: THIRD, taken: hubJob(FIX) }, pulls: stranded.pulls, jobs: working },
     {
       main: { state: "green" },

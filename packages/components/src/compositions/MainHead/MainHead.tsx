@@ -1,5 +1,5 @@
 import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
-import { Box, Clock, GitMerge, Hammer, SquareTerminal } from "lucide-react";
+import { Box, Clock, GitMerge, Hammer, Monitor, SquareTerminal } from "lucide-react";
 
 import { CHECK_OUTCOME } from "../../generated/vocabulary";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -409,7 +409,23 @@ function HeldBy({ held, now = Date.now(), children }: { held: HeldElsewhere; now
 /** Asked once, with the claim's age in it, before another machine's claim is replaced. */
 function TakeOverDialog({ held, now, onCancel, onConfirm }: { held: HeldElsewhere; now?: number; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <Dialog open tone="neutral" title={`Take over from ${held.machine}`} confirmLabel="Take over" onCancel={onCancel} onConfirm={onConfirm}>
+    <Dialog
+      open
+      tone="neutral"
+      title={`Take over from ${held.machine}`}
+      titleNode={
+        <>
+          Take over from{" "}
+          <span className="armada-main-red__machine">
+            <Monitor size={SMALL} strokeWidth={STROKE} aria-hidden />
+            {held.machine}
+          </span>
+        </>
+      }
+      confirmLabel="Take over"
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    >
       <HeldBy held={held} {...(now === undefined ? {} : { now })} />
     </Dialog>
   );
