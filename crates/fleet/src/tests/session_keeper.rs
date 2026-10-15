@@ -316,13 +316,16 @@ async fn a_keeper_replays_from_what_was_acknowledged_and_no_earlier() {
     first.send(String::from("hold"));
     // The first line of the turn is taken and acknowledged, then the client goes.
     loop {
-        if let Some(Heard::Events(events)) = heard.recv().await {
-            if events
-                .iter()
-                .any(|event| matches!(event, DroneEvent::Said { .. }))
+        match heard.recv().await {
+            Some(Heard::Events(events))
+                if events
+                    .iter()
+                    .any(|event| matches!(event, DroneEvent::Said { .. })) =>
             {
-                break;
+                break
             }
+            Some(_) => {}
+            None => panic!("the connection closed before the agent spoke"),
         }
     }
     tokio::time::sleep(Duration::from_millis(100)).await;
