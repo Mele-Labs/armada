@@ -54,7 +54,10 @@ function usePlays(candidates: readonly Play[], drones: readonly string[], landed
 }
 
 export function useField(props: FieldProps, ship: Ship, listed: readonly Subject[]) {
-  const deck = useDeck();
+  const answered = useDeck((deck) => deck.held);
+  const visited = useDeck((deck) => deck.visited);
+  const replay = useDeck((deck) => deck.replay);
+  const focus = useDeck((deck) => deck.focus);
   const sessions = useSessions();
   const events = useFleetEvents();
   const areasOf = useAreas();
@@ -95,7 +98,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       const made = one.kind === "job" ? props.state.jobs.find((job) => job.id === one.id)?.dispatched_by : undefined;
       const parent = attached !== undefined && attached.kind === "job" ? `job:${attached.id}` : made === undefined ? undefined : `job:${made}`;
       const slot = holder.get(one.key);
-      return droneOf(one, callOfSubject(one, deck.held) !== undefined, {
+      return droneOf(one, callOfSubject(one, answered) !== undefined, {
         parent: parent !== undefined && has.has(parent) ? parent : undefined,
         slot: slot === undefined ? undefined : slotKey(slot),
         shown: shown.has(one.key),
@@ -103,7 +106,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         touches: touchesOf(one.key, touched, slotTouched),
       });
     });
-  }, [all, sessions, holder, props.state.jobs, deck.held, shown, touched, slotTouched]);
+  }, [all, sessions, holder, props.state.jobs, answered, shown, touched, slotTouched]);
 
   const repos = useMemo<RepoIn[]>(() => {
     const roots = [...new Set([...all.map((one) => one.root), ...ship.mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
@@ -119,7 +122,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     }));
   }, [all, ship.mains, ship.repos, slots, repositories, areasOf]);
 
-  const bays = useBays(slots, events, deck.replay?.at, clock);
+  const bays = useBays(slots, events, replay?.at, clock);
   const pads = useMemo(() => {
     const out = new Map<string, PadIn>();
     for (const { view } of bays) {
@@ -155,11 +158,10 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   // A picked event, and a replay: the field as it was at the playhead, from the events up to it. A replay is the window's: the last two hours.
   const window2h = useMemo(() => windowOf(events, clock), [events, clock]);
   const ordered = window2h?.events ?? [];
-  const replay = deck.replay;
   const passed = replay === undefined ? 0 : ordered.filter((one) => Date.parse(one.at) <= replay.at).length;
   const before = useMemo(() => (replay === undefined ? events : ordered.filter((one) => Date.parse(one.at) <= replay.at)), [events, ordered, replay === undefined, passed]);
   const field = useMemo(() => (replay === undefined ? undefined : fieldAt(ordered, replay.at, drones, prs, ownerOf)), [ordered, replay === undefined, replay?.run, passed, drones, prs]);
-  const picked = deck.focus === undefined ? undefined : events.find((one) => String(one.id) === deck.focus);
+  const picked = focus === undefined ? undefined : events.find((one) => String(one.id) === focus);
   const focusKey = picked === undefined ? undefined : droneOfEvent(picked, ownerOf);
   // What each working drone is doing, from the tool events up to the playhead; a picked tool event shows its own action on its own drone.
   const held = replay === undefined && picked !== undefined && focusKey !== undefined && doingOfEvent(picked) !== undefined ? { key: focusKey, event: picked } : undefined;
@@ -170,7 +172,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const focusPlays = useMemo(() => {
     const play = picked === undefined ? undefined : playOfEvent(picked, `focus:${picked.id}`, ownerOf, rootOfManifest);
     return play === undefined ? [] : [play];
-  }, [deck.focus]);
+  }, [focus]);
   const drawn = replay === undefined ? [...plays, ...focusPlays] : replay.plays;
   const at = replay?.at ?? clock;
 
@@ -182,7 +184,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       const subject = ship.subjects.find((one) => one.key === drone.key);
       if (subject === undefined) continue;
       const { last, ticks } = eventFactsOf(before, drone.key, keyOf, at);
-      const owed = callOfSubject(subject, deck.held);
+      const owed = callOfSubject(subject, answered);
       const call = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed)?.title;
       const pad = drone.slot === undefined ? undefined : pads.get(drone.slot);
       out.set(drone.key, {
@@ -194,7 +196,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       });
     }
     return out;
-  }, [flying, ship.subjects, ship.calls, before, at, deck.held, pads, ship.prs]);
+  }, [flying, ship.subjects, ship.calls, before, at, answered, pads, ship.prs]);
 
   // The drones that hold a call he has not opened: a call is marked until it is visited or answered. In a replay, those that were calling at the playhead.
   const calls = useMemo(
@@ -203,12 +205,12 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         flying,
         (key) => {
           const subject = ship.subjects.find((one) => one.key === key);
-          return subject === undefined ? undefined : callOfSubject(subject, deck.held);
+          return subject === undefined ? undefined : callOfSubject(subject, answered);
         },
-        deck.visited,
+        visited,
         replay === undefined,
       ),
-    [flying, ship.subjects, deck.held, deck.visited, replay === undefined],
+    [flying, ship.subjects, answered, visited, replay === undefined],
   );
 
   // Where Fleet says two holders write one area, as the marks of the drones the map holds.
@@ -221,5 +223,5 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     [written, all],
   );
 
-  return { deck, calls, repos, pads, goals, crates, drones: flying, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
+  return { calls, repos, pads, goals, crates, drones: flying, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
 }

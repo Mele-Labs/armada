@@ -33,7 +33,7 @@ export type Replay = {
   run: number;
 };
 
-type State = {
+export type DeckState = {
   sel: Sel | undefined;
   /** The feed row picked: the event the map shows what moved for. */
   focus: string | undefined;
@@ -60,12 +60,12 @@ type State = {
 };
 
 const viewNamed = (value: string | null): DeckView => (value === "timeline" ? "timeline" : "map");
-const jobViewNamed = (value: string | null): State["jobView"] => (value === "canvas" ? "canvas" : "mission");
+const jobViewNamed = (value: string | null): DeckState["jobView"] => (value === "canvas" ? "canvas" : "mission");
 const onlyNamed = (value: string | null): Only | "" => (value === "jobs" || value === "sessions" ? value : "");
 const filtersNamed = (value: string | null): string => value ?? "";
 
 /** What a new window starts with: the remembered ways of reading over the plain rest. */
-function fresh(): State {
+function fresh(): DeckState {
   const only = readRemembered(DECK_ONLY_KEY, onlyNamed);
   const filters = readRemembered(DECK_FILTERS_KEY, filtersNamed).split(" ");
   return {
@@ -85,10 +85,10 @@ function fresh(): State {
     before: undefined,
   };
 }
-let state: State = fresh();
+let state: DeckState = fresh();
 const listeners = new Set<() => void>();
 const subscribe = (on: () => void) => (listeners.add(on), () => void listeners.delete(on));
-const set = (change: Partial<State>) => {
+const set = (change: Partial<DeckState>) => {
   state = { ...state, ...change };
   listeners.forEach((one) => one());
 };
@@ -124,7 +124,16 @@ export const forgetDeck = () => {
   state = fresh();
   listeners.forEach((one) => one());
 };
-export const useDeck = () => useSyncExternalStore(subscribe, () => state);
+/**
+ * The deck's state, whole, or one reading of it: a component that reads one field is drawn when that field changes and not when
+ * another does (the cursor moves on every `j`). **A reading must return what it was handed or a primitive**, never a new object,
+ * which `useSyncExternalStore` would take as a change on every look.
+ */
+export function useDeck(): DeckState;
+export function useDeck<T>(read: (deck: DeckState) => T): T;
+export function useDeck<T>(read?: (deck: DeckState) => T): DeckState | T {
+  return useSyncExternalStore(subscribe, () => (read === undefined ? state : read(state)));
+}
 export const deckNow = () => state;
 
 export const select = (sel: Sel | undefined) => set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor }) });
@@ -132,7 +141,9 @@ export const select = (sel: Sel | undefined) => set({ sel, from: undefined, ...(
 export const openFrom = (sel: Sel) => set({ from: state.sel, sel, cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor });
 /** Back from what is open: to what it was opened from, else to the map or timeline. */
 export const goBack = () => (state.from === undefined ? select(undefined) : set({ sel: state.from, from: undefined }));
-export const moveCursor = (key: string | undefined) => set({ cursor: key });
+export const moveCursor = (key: string | undefined) => {
+  if (state.cursor !== key) set({ cursor: key });
+};
 /** Choosing a view is going back to it: what was open in the area is put away. */
 export const setView = (view: DeckView) => {
   writeRemembered(DECK_VIEW_KEY, view);
@@ -162,12 +173,12 @@ export const changeReplay = (change: Partial<Replay>) => {
 /** Back to Live: plain, with no picked event left over it. */
 export const stopReplay = () => set({ replay: undefined, focus: undefined });
 
-export const setJobView = (jobView: State["jobView"]) => {
+export const setJobView = (jobView: DeckState["jobView"]) => {
   writeRemembered(DECK_JOB_VIEW_KEY, jobView);
   set({ jobView });
 };
 export const toggleJobView = () => setJobView(state.jobView === "mission" ? "canvas" : "mission");
-const keepFilters = (filters: Pick<State, "needs" | "checks">) => writeRemembered(DECK_FILTERS_KEY, [filters.needs ? "needs" : "", filters.checks ? "checks" : ""].filter((one) => one !== "").join(" "));
+const keepFilters = (filters: Pick<DeckState, "needs" | "checks">) => writeRemembered(DECK_FILTERS_KEY, [filters.needs ? "needs" : "", filters.checks ? "checks" : ""].filter((one) => one !== "").join(" "));
 export const toggleOnly = (only: Only) => {
   const next = state.only === only ? undefined : only;
   writeRemembered(DECK_ONLY_KEY, next ?? "");
@@ -253,7 +264,7 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 // ---- The list ------------------------------------------------------------------------------------------
 
 /** The Jobs and Sessions the list draws, in standing order, narrowed by the three filters. The map and the timeline keep the same ones. */
-export function listOf(ship: Ship, deck: Pick<State, "only" | "needs" | "checks" | "held">): Subject[] {
+export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "checks" | "held">): Subject[] {
   return orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)));
 }
 
@@ -262,7 +273,7 @@ export function listOf(ship: Ship, deck: Pick<State, "only" | "needs" | "checks"
  * the list. **One predicate for the three**, so the Jobs-only, Sessions-only, Calls and Checks filters narrow the list, the
  * feed and the stage together.
  */
-export function keepOf(listed: readonly Subject[], deck: Pick<State, "only" | "needs" | "checks">): (subject: { kind: string; id?: string }) => boolean {
+export function keepOf(listed: readonly Subject[], deck: Pick<DeckState, "only" | "needs" | "checks">): (subject: { kind: string; id?: string }) => boolean {
   const shown = new Set(listed.map((one) => one.key));
   const whole = deck.only === undefined && !deck.needs && !deck.checks;
   return (subject) => (subject.kind === "main" ? whole : shown.has(`${subject.kind}:${subject.id}`));

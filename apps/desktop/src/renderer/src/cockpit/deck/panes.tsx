@@ -33,11 +33,12 @@ import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck
 
 /** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
 function BackAct() {
-  const { sel, from } = useDeck();
-  const back = from === undefined ? "Back" : "Back to the bay";
+  const autopilot = useDeck((deck) => deck.sel?.kind === "autopilot");
+  const fromBay = useDeck((deck) => deck.from !== undefined);
+  const back = fromBay ? "Back to the bay" : "Back";
   return (
     <Tooltip label={back} shortcut="Esc">
-      <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : goBack())}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (autopilot ? leaveAutopilot() : goBack())}>
         <X size={16} aria-hidden="true" />
       </Button>
     </Tooltip>
@@ -165,7 +166,7 @@ const JOB_VIEWS = [
 export function JobPane({ subject, props, acts, onPr, call, mission }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; mission: (run: Run) => ReactNode }) {
   const nowing = nowPanelOf(props.nows?.[subject.id], { onOpenJob: props.onOpen, onSaid: () => {} });
   const tone = toneOf(subject);
-  const { jobView } = useDeck();
+  const jobView = useDeck((deck) => deck.jobView);
   const run = useRun(subject, props);
   return (
     <section className="deck-pane" aria-label={`Job: ${subject.title}`}>

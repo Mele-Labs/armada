@@ -12,7 +12,7 @@ import { missionOf, type SceneIn } from "./mission";
 import type { DroneIn } from "./layout";
 import type { Run } from "./panes";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
-import { select, selOfPr, selOfSubject, startReplay, stopReplay } from "./store";
+import { select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
 import { touchesOfFootprint } from "./touches";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
@@ -31,7 +31,8 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
   );
 }
 
-export function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
+export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
+  const cursor = useDeck((deck) => deck.cursor);
   const field = useField(props, ship, listed);
   const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey } = field;
   return (

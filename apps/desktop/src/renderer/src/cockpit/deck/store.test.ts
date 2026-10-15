@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "../../Dashboard";
 import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly } from "./store";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, moveCursor, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly } from "./store";
 
 const kept = new Map<string, string>();
 
@@ -97,4 +97,13 @@ test("with no filter on, the feed and the stage keep every subject the list draw
   const keep = keepOf(listed, deckNow());
   expect(keep({ kind: "job", id: "a" })).toBe(true);
   expect(keep({ kind: "main" })).toBe(true);
+});
+
+test("moving the cursor to the row it is on tells nobody", () => {
+  moveCursor("job:a");
+  const before = deckNow();
+  moveCursor("job:a");
+  expect(deckNow()).toBe(before);
+  moveCursor("job:b");
+  expect(deckNow().cursor).toBe("job:b");
 });

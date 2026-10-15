@@ -97,3 +97,16 @@ The deck draws what Fleet holds and leaves the rest empty. F1 and F2 of #2301 ar
 **F2 is the last resort for a drone.** A tool burst places a drone first, then what its slot holds against the base, and the open Job's footprint only where neither does. A holder a repository's slots do not name, and a Session in a terminal Fleet does not host, has no such read and rests at its pad. A repository with more than 40 directories is drawn from its 40 largest, and a holder with more than 200 changed paths from the first 200 in the alphabet.
 
 Both reads are polled, since Fleet pushes no event for either: when Fleet connects, and every 35 seconds while the board changes or a holder has changes. A Fleet before them answers 404 and the deck draws none.
+
+## What is capped, and why
+
+The deck stays quick by drawing less, not by drawing it faster. What is held back, and where the line is drawn:
+
+| Held back | By | Why |
+|---|---|---|
+| The Activity feed draws the newest events only | `MOST_FEED` in `cockpit/Timeline.tsx`, cut before the lanes are built, after the filters narrow | A feed row costs a subtree, and Fleet holds far more events than a column shows |
+| Ages move in whole minutes | `AGE_MS` in `cockpit/deck/clock.ts`; `CommandCentral` hands the deck the minute | A clock handed on each second drew the whole deck each second. A part that must move faster keeps a clock of its own: the field and the replay run on five seconds |
+| A burst of events tells its readers at most four times a second, and the last event always lands | `fleet-timeline.ts`, through `TICK_MS` | One event, one draw, was a draw for every append of a burst |
+| An idle drone runs no animation; a working or calling one does, and so does the one selected | `battlefield.css`, on `data-alive` | Any animation that runs forever forces a full frame of the map, whatever it moves. Reduced motion stays static |
+
+A part of the deck reads the one field of `store.ts` it draws from, `useDeck((deck) => deck.cursor)`, and not the whole state, so the cursor's move on `j` draws the rows and the map's ring and nothing else.

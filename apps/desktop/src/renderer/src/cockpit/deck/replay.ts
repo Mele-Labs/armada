@@ -110,7 +110,7 @@ export function seek(events: readonly TimelineEvent[], to: number, ownerOf: (num
 export function useReplayDriver(events: readonly TimelineEvent[], ownerOf: (number: number) => string | undefined, rootOf: (manifest: string | undefined) => string | undefined): void {
   const latest = useRef({ events, ownerOf, rootOf });
   latest.current = { events, ownerOf, rootOf };
-  const replay = useDeck().replay;
+  const replay = useDeck((deck) => deck.replay);
   const playing = replay?.playing === true;
   const speed = replay?.speed ?? 1;
   useEffect(() => {

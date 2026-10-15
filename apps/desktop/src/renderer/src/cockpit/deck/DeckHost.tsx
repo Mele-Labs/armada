@@ -54,10 +54,11 @@ export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onG
   onBack: () => void;
   onReplaceNext: () => void;
 }) {
-  const deck = useDeck();
+  const held = useDeck((deck) => deck.held);
+  const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
   const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
-  const waiting = incomingOf(calls, deck.held, deck.visited).length > 0;
+  const waiting = incomingOf(calls, held, visited).length > 0;
   useEffect(() => {
     if (deckTabOf(showing) === "system") rememberSystemPage(showing);
   }, [showing]);
@@ -91,23 +92,27 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   onOpenSession: (sessionId: string) => void;
 }) {
   const ship = useShip({ ...NO_HOSTS, state, now: quantized(now, AGE_MS), picked, nowViews, nows }, false);
-  const deck = useDeck();
+  const only = useDeck((deck) => deck.only);
+  const needs = useDeck((deck) => deck.needs);
+  const checks = useDeck((deck) => deck.checks);
+  const held = useDeck((deck) => deck.held);
+  const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
   useEffect(() => setHere(here), [here]);
 
   // An answered call is held out until Fleet stops carrying it, or `holdFor` has passed.
   useEffect(() => {
-    if (deck.held.size === 0) return;
+    if (held.size === 0) return;
     const live = new Set(ship.calls.map((one) => one.key));
-    const gone = [...deck.held].filter(([key, since]) => !live.has(key) || Date.now() - since >= holdFor.ms).map(([key]) => key);
+    const gone = [...held].filter(([key, since]) => !live.has(key) || Date.now() - since >= holdFor.ms).map(([key]) => key);
     if (gone.length > 0) return release(gone);
-    const next = Math.min(...deck.held.values()) + holdFor.ms - Date.now();
+    const next = Math.min(...held.values()) + holdFor.ms - Date.now();
     const timer = window.setTimeout(() => release([]), Math.max(0, next));
     return () => window.clearTimeout(timer);
-  }, [deck.held, ship.calls]);
+  }, [held, ship.calls]);
 
-  const incoming = incomingOf(ship.calls, deck.held, deck.visited);
-  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.checks, deck.held]);
+  const incoming = incomingOf(ship.calls, held, visited);
+  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }), [ship, only, needs, checks, held]);
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
     const noted = (event: FocusEvent) => remember(event.target);
