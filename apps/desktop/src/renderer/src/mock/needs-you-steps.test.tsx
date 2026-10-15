@@ -31,3 +31,15 @@ test("Steps: Done with nothing ticked and nothing typed answers the item with Do
   await expect.element(page.getByRole("region", { name: "Thread" }).getByText("Done", { exact: true }).first()).toBeVisible();
   await expect.element(row).not.toBeInTheDocument();
 });
+
+test("Steps: a drop and a typed reply send the reply with the correction line", async () => {
+  const { row, panel } = await openSteps();
+  await expect.element(panel.getByRole("button", { name: "Done" })).toBeVisible();
+  await userEvent.click(panel.getByRole("button", { name: "Drop step 4" }));
+  await userEvent.type(panel.getByRole("textbox", { name: `Reply to ${TITLE}` }), "Registered it");
+  await userEvent.click(panel.getByRole("button", { name: "Send" }));
+  const thread = page.getByRole("region", { name: "Thread" });
+  await expect.element(thread.getByText(/Registered it/).first()).toBeVisible();
+  await expect.element(thread.getByText(/Step 4 dropped: "Upload a logo"/).first()).toBeVisible();
+  await expect.element(row).not.toBeInTheDocument();
+});
