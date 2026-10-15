@@ -1,9 +1,60 @@
-/* The account a machine is signed in to: the card of the device code, what
-   signing in set up, the profiles, and What syncs. Weighted like the pool's viewscreen: a sunken
-   glass under a mono header band, state carried in the frame. Tokens only. */
+/* The account as the cockpit draws its viewscreens: each section a sunken glass under a mono band, every
+   profile and every thing sign-in turns on a tile standing on it. State is carried in the frame: the active
+   profile in the accent, what is on in the set-up green, a sign-in in flight dashed, one that ended in the
+   amber the menu's dot already means, a profile signed out dashed and struck through. Tokens only. */
 
-.armada-account__card {
+.armada-account-screen {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* The page in the work area: held to a measure, scrolling itself. */
+.armada-account-screen[data-page] {
+  width: 100%;
+  max-width: calc(var(--space-12) * 20);
+  margin: 0 auto;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+.armada-account-screen__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+
+.armada-account-screen__title {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: var(--weight-heading);
+}
+
+.armada-account-screen__where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-account-screen__where > svg {
+  flex: none;
+}
+
+.armada-account-screen__view {
+  display: flex;
+  flex: none;
   flex-direction: column;
   min-width: 0;
   border: var(--border-width) solid var(--border-default);
@@ -12,57 +63,9 @@
   overflow: hidden;
 }
 
-/* ---- The account chip ----------------------------------------------------------------------- */
-
-.armada-account__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  height: var(--h-control-sm);
-  padding: 0 var(--space-3);
-  border: calc(var(--border-width) * 2) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
-  color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease);
-}
-
-.armada-account__chip:hover {
-  background: var(--bg-hover);
-}
-
-.armada-account__chip:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.armada-account__chip > svg {
-  flex: none;
-  color: var(--fg-muted);
-}
-
-.armada-account__chip--wide {
-  flex: 1;
-  min-width: 0;
-}
-
-.armada-account__chip--wide > span:first-of-type {
-  flex: 1;
-  text-align: left;
-}
-
-/* ---- The device code ------------------------------------------------------------------------ */
-
-.armada-account__band {
+.armada-account-screen__band {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-4);
   min-height: calc(var(--h-row) * 1.25);
   padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
@@ -73,11 +76,194 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
+
+/* The glass: a faint ruled grid, so the tiles read as standing on something. */
+.armada-account-screen__glass {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 5), 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  list-style: none;
+  background:
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+  background-size: var(--space-6) var(--space-6);
+}
+
+/* ---- A tile ------------------------------------------------------------------------------------- */
+
+.armada-account__tile {
+  --hue: var(--fg-subtle);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+/* The active profile takes the accent, what is on takes the set-up green. */
+.armada-account__tile[data-active] {
+  --hue: var(--accent);
+}
+
+.armada-account__tile[data-on] {
+  --hue: var(--step-advanced);
+}
+
+/* A sign-in in flight, or nothing yet: dashed, the glass shows through. */
+.armada-account__tile[data-tile="adding"],
+.armada-account__tile[data-tile="empty"],
+.armada-account__tile[data-tile="add"],
+.armada-account__tile[data-tile="left"],
+.armada-account__tile[data-tile="feature"]:not([data-on]) {
+  border-style: dashed;
+  background: var(--bg-raised);
+}
+
+.armada-account__tile[data-state="ended"] {
+  --hue: var(--status-awaiting-review);
+  border-style: solid;
+}
+
+.armada-account__tile[data-tile="plan"],
+.armada-account__tile[data-tile="adding"] {
+  grid-column: 1 / -1;
+  background: var(--bg-raised);
+}
+
+.armada-account-screen__glass > .armada-account__tile[data-tile="plan"] {
+  border-style: solid;
+}
+
+.armada-account__tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-family: var(--font-mono);
+}
+
+.armada-account__tile-head > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-account__tile-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.armada-account__tile-head > .armada-account__login {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+}
+
+/* The label on a profile being added: the band's voice, small. */
+.armada-account__adding {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-account__tile[data-tile="left"] .armada-account__tile-head > .armada-account__login {
+  color: var(--fg-subtle);
+  text-decoration: line-through;
+}
+
+.armada-account__tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.armada-account__tile-body[data-centered] {
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--h-row) * 3);
+}
+
+/* Nothing signed in yet: one strip across the glass, the slot a profile will fill. */
+.armada-account__tile[data-tile="empty"] {
+  grid-column: 1 / -1;
+}
+
+.armada-account__tile-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* The mark for whose it is. */
+.armada-account__mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* What a tile for something sign-in turns on holds: a fact a line. */
+.armada-account__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  list-style: none;
+  font-family: var(--font-mono);
+}
+
+.armada-account__tile[data-tile="feature"]:not([data-on]) .armada-account__facts {
+  color: var(--fg-muted);
+}
+
+.armada-account__fact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-account__fact-gap {
+  display: inline-block;
+  flex: none;
+  width: var(--space-4);
+}
+
+/* ---- Adding: the address, the code, its clock ------------------------------------------------------ */
 
 .armada-account__link {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: var(--space-2);
   min-width: 0;
   padding: 0;
@@ -102,16 +288,18 @@
   color: var(--fg-muted);
 }
 
-.armada-account__code {
+.armada-account__code-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--space-3);
+}
+
+.armada-account__code {
+  display: flex;
+  flex: none;
+  align-items: center;
   gap: var(--space-1);
-  padding: var(--space-6) var(--space-4);
-  background:
-    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
-  background-size: var(--space-6) var(--space-6);
+  min-width: 0;
 }
 
 .armada-account__code-cell {
@@ -122,7 +310,7 @@
   height: calc(var(--space-12) + var(--space-2));
   border: calc(var(--border-width) * 2) solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--bg-raised);
+  background: var(--bg-sunken);
   color: var(--fg-default);
   font-family: var(--font-mono);
   font-size: var(--text-2xl);
@@ -133,8 +321,22 @@
 .armada-account__code-gap {
   color: var(--fg-subtle);
   font-family: var(--font-mono);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--weight-heading);
+}
+
+.armada-account__expiry {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.armada-account__said-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
 }
 
 /* ---- The turn: the one motion ---------------------------------------------------------------- */
@@ -159,7 +361,7 @@
   }
 }
 
-/* ---- Rows: what got set up, and the profiles ---------------------------------------------------- */
+/* ---- Rows: what got set up, or will be --------------------------------------------------------- */
 
 .armada-account__rows {
   display: flex;
@@ -169,15 +371,13 @@
   list-style: none;
 }
 
-.armada-account__row,
-.armada-account__profile {
+.armada-account__row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-height: calc(var(--h-row) * 1.25);
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  padding: var(--space-1) var(--space-3);
   border-bottom: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 2) solid transparent;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
@@ -185,14 +385,6 @@
 
 .armada-account__rows > li:last-child {
   border-bottom: 0;
-}
-
-.armada-account__row[data-state="done"] {
-  border-left-color: var(--step-advanced);
-}
-
-.armada-account__row[data-state="working"] {
-  border-left-color: var(--border-strong);
 }
 
 .armada-account__glyph {
@@ -216,31 +408,6 @@
   font-weight: var(--weight-medium);
 }
 
-.armada-account__repo {
-  color: var(--fg-muted);
-  font-weight: var(--weight-body);
-}
-
-/* An ended sign-in, or a store that kept its row: the amber frame says it wants a look. */
-.armada-account__row[data-state="ended"] {
-  border-left-color: var(--status-awaiting-review);
-}
-
-/* A profile signed out: its login struck through and dimmed, nothing marking it as the one that is active. */
-.armada-account__row[data-state="gone"] .armada-account__name {
-  color: var(--fg-subtle);
-  text-decoration: line-through;
-}
-
-.armada-account__row--said {
-  align-items: flex-start;
-  padding-block: var(--space-3);
-}
-
-.armada-account__row--said > .armada-account__glyph {
-  margin-top: var(--space-1);
-}
-
 .armada-account__said {
   flex: 1;
   min-width: 0;
@@ -249,7 +416,7 @@
   overflow-wrap: anywhere;
 }
 
-/* The home not made yet: the broken ring at rest, dimmer than a mark for work under way. */
+/* Not set up, or not yet: the broken ring at rest, dimmer than a mark for work under way. */
 .armada-account__unset {
   display: inline-flex;
   flex: none;
@@ -268,25 +435,11 @@
   color: var(--step-advanced);
 }
 
-.armada-account__profile {
-  padding-left: var(--space-2);
-}
-
-.armada-account__profile[data-active] {
-  border-left-color: var(--accent);
-}
-
-.armada-account__foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-top: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
-}
-
-.armada-account__foot[data-alone] {
-  border-top: 0;
+/* The one profile the machine acts as: the accent, which the frame shares. */
+.armada-account__active {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent);
 }
 
 /* ---- What syncs ---------------------------------------------------------------------------------- */
@@ -424,23 +577,9 @@
 
 /* ---- Where the account lives ------------------------------------------------------------------- */
 
-/* The page in the work area: one column of the same cards, held to a measure and scrolling itself. */
-.armada-account-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  box-sizing: border-box;
-  width: 100%;
-  max-width: calc(var(--space-12) * 9);
-  margin: 0 auto;
-  padding: var(--space-6) var(--space-4);
-  overflow-y: auto;
-}
-
 .armada-account-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   padding: var(--space-4);
 }
 

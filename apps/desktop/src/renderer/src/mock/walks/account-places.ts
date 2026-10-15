@@ -7,7 +7,8 @@ import type { Step } from "../walk";
 
 const MENU = dialog("Menu");
 const DEVICE_PAGE = button(/login\/device/);
-const ENDED = role("region", "Sign-in ended", { exact: true });
+const ENDED = role("listitem", "Sign-in ended", { exact: true });
+const CODE = role("group", "Device code", { exact: true });
 const WAITING = role("img", /^Waiting for/);
 const TURNED_DOWN = role("img", "Turned down", { exact: true });
 const SET_UP = (row: string) => inside(role("listitem", row, { exact: true }), role("img", "Done", { exact: true }));
@@ -25,8 +26,9 @@ function account(place: "page" | "rail"): Step[] {
       : { look: signIn, say: "Signed out: the account row in the rail" },
     ...(page ? [{ press: menu, say: "Open the menu" }] : []),
     { press: signIn, say: page ? "Sign in opens the account page" : "Sign in opens the account panel" },
+    { look: role("region", "Turns on", { exact: true }), say: "Signed out: what signing in turns on, sets up and never does" },
     { press: button(/^Sign in with/), say: "Start the sign-in" },
-    { look: text("WDJB-MJHT"), say: "The code" },
+    { look: CODE, say: "The code" },
     page ? { press: button("Kit", { exact: true }), say: "Leave the page mid-sign-in" } : { press: CLOSE, say: "Put the panel away mid-sign-in" },
     ...(page
       ? [
@@ -39,7 +41,7 @@ function account(place: "page" | "rail"): Step[] {
           { hover: WAITING, say: "Its tooltip" },
         ]),
     { press: signIn, say: "Back to the account" },
-    { look: text("WDJB-MJHT"), say: "The code is still there" },
+    { look: CODE, say: "The code is still there" },
     { press: DEVICE_PAGE, say: "The code is typed" },
     { look: SET_UP("Store"), say: "Identity and store set up" },
     { look: SET_UP("Shared home"), say: "Shared home set up" },

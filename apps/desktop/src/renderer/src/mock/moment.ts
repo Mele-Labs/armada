@@ -60,6 +60,8 @@ export type MockDraft = ArcDraft & {
     noHome?: SyncsWithoutHome;
     /** Where the account opens from: a page, or a panel from the rail. Two takes. Absent is a page. */
     place?: AccountPlace;
+    /** This machine's name, beside the page's title. */
+    machine?: string;
   };
   /**
    * The owners registered to pull requests, as the central store holds them, and which repositories

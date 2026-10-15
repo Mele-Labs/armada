@@ -17,6 +17,12 @@ export function firstContactOf(settings: SettingsList | null): GuidanceProviderP
   };
 }
 
+/** This machine's name as the person set it, or `undefined` while it is blank and Fleet names it by the host. */
+export function machineOf(settings: SettingsList | null): string | undefined {
+  const value = settings?.settings.find((one) => one.key === "machine.name")?.value;
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
 export type SettingsSurfaceProps = {
   settings: SettingsList | null;
   live: boolean;

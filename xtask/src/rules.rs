@@ -223,6 +223,7 @@ const SIGN_IN_FILES: &[&str] = &[
     "apps/desktop/src/renderer/src/mock/walks/onboarding-work.ts",
     "packages/components/src/compositions/Account/Account.stories.tsx",
     "packages/components/src/compositions/Account/Account.tsx",
+    "packages/components/src/compositions/Account/AccountScreen.tsx",
     "packages/components/src/compositions/TitleBar/TitleBar.stories.tsx",
     "packages/components/src/compositions/TitleBar/TitleMenu.tsx",
     "apps/store/src/enrol.ts",

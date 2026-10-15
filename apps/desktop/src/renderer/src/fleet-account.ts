@@ -56,7 +56,7 @@ const blankIn = (said: string): BlankSetting[] => [
 
 const flowOf = (wire: WireFlow): AccountFlow =>
   wire.phase === "code"
-    ? { phase: "code", code: wire.code }
+    ? { phase: "code", code: wire.code, expiresIn: wire.expires_in_seconds }
     : wire.phase === "setup"
       ? { phase: "setup", login: wire.login, repository: wire.repository, steps: wire.steps }
       : { phase: "idle" };

@@ -61,16 +61,19 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | Title bar menu | One account row (the login, or Sign in), Sleep, Settings with its key |
 | Menu button | The moon while Sleep is on, an amber dot while signed out; the turn while a sign-in waits, the end's glyph once one failed |
 | Account | One place that holds everything below and keeps a sign-in in flight when it is left: a page in the work area like Settings, reached from the menu row and from Settings, or a panel from a row in the left rail. Two takes until the owner chooses |
-| Account contents | Device code, set-up rows, profiles |
-| Sign-in that ended | Denied, expired, not reached or refused: Fleet's sentence beside a mark, and Try again |
-| Sign-in not set up | Fleet's sentence naming the blank setting, and a button to each in Settings |
-| Profiles | A chip each from two profiles, active one marked; Add profile always shown; Sign out on each |
-| Signed out | Who left, struck through; the store's row named only where it stays |
+| Account contents | A page header with the title and this machine's name, then glass under a mono band: one tile for each profile, and under them what signing in turns on |
+| Sign-in that ended | Denied, expired, not reached or refused: Fleet's sentence beside a mark, and Try again, inside its own tile in the amber frame |
+| Sign-in not set up | Fleet's sentence naming the blank setting, and a button to each in Settings, in its own tile |
+| Profiles | A tile each, always listed, even while another signs in: the login, a mark for this machine's own or added on purpose, the active one in the accent frame with Make active on the rest, the three set-up rows, What syncs on an added one, Sign out; Add profile is a dashed tile |
+| Sign-in in flight | Its own dashed tile beside the profiles, labelled Adding: the address as a link button, the code large with a copy act, a waiting mark, the time left, Cancel. It becomes that profile's tile when it finishes |
+| Turns on | Three tiles, Red main claims, Pull request owners and Shared home, dashed with a broken ring while off and framed with a check once the store (the first two) or the home (the third) exists |
+| Signed out | The one act, Sign in with GitHub, in a dashed strip across the Profiles frame, with the Turns on tiles off beneath it, a Sets up tile of the three rows none yet, and a Never tile: nothing is written to your repositories or pull requests, your token is not kept, a work machine syncs nothing until you turn a kind on |
+| Signed out profile | Who left, struck through in a dashed tile; the store's row named only where it stays |
 | Home not made yet | The set-up row for the shared home is not set up, and What syncs is greyed with its reason |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
 
-The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml` and `packages/icons/icons/laptop.toml`.
+The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/monitor.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
 
 ## Built
 

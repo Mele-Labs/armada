@@ -11,11 +11,12 @@ const OPEN_ACCOUNT = inside(MENU, button("Sign in", { exact: true }));
 const SIGN_IN = button(/^Sign in with/);
 const DEVICE_PAGE = button(/login\/device/);
 const TRY_AGAIN = button("Try again", { exact: true });
-const ENDED = role("region", "Sign-in ended", { exact: true });
+const ENDED = role("listitem", "Sign-in ended", { exact: true });
 
 const signInEnded = walk("sign-in-ended", [
   { press: button("Menu", { exact: true }), say: "Open the menu" },
   { press: OPEN_ACCOUNT, say: "The account page" },
+  { look: role("region", "Turns on", { exact: true }), say: "Signed out: what signing in turns on, sets up and never does" },
   { press: SIGN_IN, say: "Sign in" },
   { press: DEVICE_PAGE, say: "The code is typed" },
   { look: inside(ENDED, text("The sign-in was turned down.")), say: "Turned down, and Try again" },
@@ -41,7 +42,7 @@ const signOut = walk("sign-out", [
   { press: inside(MENU, button("Account nickmele", { exact: true })), say: "The account page" },
   { look: button("Sign out mele-work", { exact: true }), say: "Sign out is on each profile" },
   { press: button("Sign out mele-work", { exact: true }), say: "Sign the work profile out" },
-  { look: role("listitem", "mele-work", { exact: true }), say: "mele-work signed out" },
+  { look: role("listitem", "Signed out", { exact: true }), say: "mele-work signed out" },
   { press: button("Sign out nickmele", { exact: true }), say: "Sign the last profile out, the store down" },
   { look: text("Store still lists this device"), say: "The store kept its row" },
   { hover: role("img", "Store not reached", { exact: true }), say: "What the store said" },
@@ -73,7 +74,7 @@ const signInNoHome = walk("sign-in-no-home", [
 
 const signInNoHomeHidden = walk("sign-in-no-home-hidden", [
   ...NO_HOME,
-  { look: button("mele-work", { exact: true }), say: "What syncs is not drawn" },
+  { look: role("listitem", "mele-work", { exact: true }), say: "What syncs is not drawn" },
 ]);
 
 export {

@@ -161,7 +161,7 @@ import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { fleetPanelOf } from "./left-column";
 import { DoctorSurface } from "./doctor/Doctor";
-import { firstContactOf, SettingsSurface } from "./settings-surface";
+import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
@@ -1123,7 +1123,7 @@ export function App({ draft }: AppProps = {}) {
             ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
               <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} onOpenAccount={() => showAccount(account, () => goTo(SURFACE.account))} />
             ) : accounting ? (
-              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} /></Boundary>
+              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
               <>
                 <Overview

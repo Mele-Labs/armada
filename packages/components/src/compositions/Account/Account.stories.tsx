@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ReactNode } from "react";
 import { expect, fn, within } from "storybook/test";
-import { AccountMark, AccountPage, AccountProvider, AccountView, SYNC_KINDS, WhatSyncsSheet } from "./Account";
+import { AccountMark, AccountProvider, SYNC_KINDS, WhatSyncsSheet } from "./Account";
+import { AccountPage, AccountView } from "./AccountScreen";
 import type { Account, AccountFlow, Profile, Scope, SyncChoice, SyncItem } from "./Account";
 
 /**
- * The account a machine signs in to: the device code, what signing in set up, the profiles and What syncs,
+ * The account a machine signs in to, as tiles on a glass: a sign-in in flight, the profiles with what signing in set up, what signing in turns on, and What syncs,
  * and the states that are not the happy path: a sign-in that ended, one that was never set up, a profile
  * signed out, and a shared home that does not exist yet. Each story holds the state a Fleet would, so a
  * press shows its result.
@@ -133,17 +134,16 @@ export const OneProfile: Story = {
   },
 };
 
-/** From two profiles up each is a chip with the active one marked, and a profile added on purpose has What syncs. */
+/** Each profile is a tile with its mark and, from two up, the act to make it active; What syncs is on the profile added on purpose only. */
 export const TwoProfiles: Story = {
   render: () => <Held profiles={two}>{(account) => <AccountView account={account} />}</Held>,
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "mele-work, active" })).toHaveAttribute("aria-pressed", "true");
-    await expect(canvas.getByRole("button", { name: "nickmele" })).toHaveAttribute("aria-pressed", "false");
-    // What syncs is offered on the profile added on purpose, and only there.
+    await expect(within(canvas.getByRole("listitem", { name: "mele-work" })).getByRole("img", { name: "Active" })).toBeVisible();
+    await expect(within(canvas.getByRole("listitem", { name: "nickmele" })).queryByRole("img", { name: "Active" })).toBeNull();
     await expect(canvas.getAllByRole("button", { name: "What syncs" })).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("button", { name: "nickmele" }));
-    await expect(canvas.getByRole("button", { name: "nickmele, active" })).toHaveAttribute("aria-pressed", "true");
-    await expect(canvas.getByRole("button", { name: "mele-work" })).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(canvas.getByRole("button", { name: "Make nickmele active" }));
+    await expect(within(canvas.getByRole("listitem", { name: "nickmele" })).getByRole("img", { name: "Active" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Make mele-work active" })).toBeVisible();
   },
 };
 
@@ -204,7 +204,7 @@ export const SignInEnded: Story = {
     </Held>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("region", { name: "Sign-in ended" })).toHaveTextContent("The sign-in was turned down.");
+    await expect(canvas.getByRole("listitem", { name: "Sign-in ended" })).toHaveTextContent("The sign-in was turned down.");
     await expect(canvas.getByRole("img", { name: "Turned down" })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
     await expect(tryAgain).toHaveBeenCalledTimes(1);
@@ -244,7 +244,7 @@ export const SignInUnavailable: Story = {
     </Held>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("region", { name: "Sign-in unavailable" })).toHaveTextContent("the sign-in app and the store address are blank");
+    await expect(canvas.getByRole("listitem", { name: "Sign-in unavailable" })).toHaveTextContent("the sign-in app and the store address are blank");
     await userEvent.click(canvas.getByRole("button", { name: "Store address" }));
     await expect(openSetting).toHaveBeenCalledWith("store");
     await expect(openSettings).toHaveBeenCalledTimes(1);
@@ -263,7 +263,7 @@ export const SignedOutStoreRemains: Story = {
     </Held>
   ),
   play: async ({ canvas }) => {
-    await expect(within(canvas.getByRole("region", { name: "Signed out" })).getByRole("listitem", { name: "mele-work" })).toBeVisible();
+    await expect(canvas.getByRole("listitem", { name: "Signed out" })).toHaveTextContent("mele-work");
     await expect(canvas.getByRole("img", { name: "Store not reached" })).toBeVisible();
     await expect(canvas.getByText("Store still lists this device")).toBeVisible();
   },
@@ -280,7 +280,7 @@ export const SignOutFromProfiles: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Sign out mele-work" }));
     await expect(signedOut).toHaveBeenCalledWith("mele-work");
-    await expect(canvas.queryByRole("button", { name: "mele-work" })).toBeNull();
+    await expect(canvas.queryByRole("listitem", { name: "mele-work" })).toBeNull();
   },
 };
 
@@ -323,7 +323,7 @@ export const WhatSyncsWithoutHomeHidden: Story = {
   },
 };
 
-/** The page is the account's home: signed out it offers the one act, and a sign-in in flight draws over the profiles. */
+/** Signed out the page offers the one act, beside what signing in turns on, sets up and never does. */
 export const PageSignedOut: Story = {
   render: () => (
     <Held spy={{ signIn: tryAgain }}>
@@ -331,6 +331,8 @@ export const PageSignedOut: Story = {
     </Held>
   ),
   play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("listitem", { name: "Pull request owners, off" })).toBeVisible();
+    await expect(canvas.getByText("Your token is not kept")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Sign in with GitHub" }));
     await expect(tryAgain).toHaveBeenCalled();
   },
@@ -345,7 +347,8 @@ export const PageAddingAProfile: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("group", { name: "Device code" })).toHaveTextContent("KQXP-4N7D");
-    await expect(canvas.getByRole("button", { name: "Add profile" })).toBeVisible();
+    await expect(canvas.getByRole("listitem", { name: "nickmele" })).toBeVisible();
+    await expect(canvas.getByRole("listitem", { name: "Adding" })).toBeVisible();
   },
 };
 

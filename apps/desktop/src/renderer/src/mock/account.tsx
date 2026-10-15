@@ -29,6 +29,8 @@ const STEP_MS = 600;
 const ADD_MS = 700;
 const PULL_MS = 450;
 const HOLD_MS = 8000;
+/** What a code has left when it is shown. */
+const EXPIRES_S = 899;
 
 const SignedIn = createContext(true);
 
@@ -57,7 +59,13 @@ const unavailableFor = (blank: readonly BlankSetting[]): SignInUnavailable => ({
 
 function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
   const [profiles, setProfiles] = useState<readonly Profile[]>(() =>
-    (offer.joined ?? []).map((one, at) => ({ account_id: at + 1, login: one.login, active: at === 0, chosen: one.chosen })),
+    (offer.joined ?? []).map((one, at) => ({
+      account_id: at + 1,
+      login: one.login,
+      active: at === 0,
+      chosen: one.chosen,
+      ...(offer.noHome === undefined ? { repository: offer.signIn.repository } : {}),
+    })),
   );
   const [flow, setFlow] = useState<AccountFlow>({ phase: "idle" });
   const [adding, setAdding] = useState(false);
@@ -83,7 +91,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     if (typeof attempt === "object" && "blank" in attempt) return setUnavailable(unavailableFor(attempt.blank));
     planned.current = typeof attempt === "object" && "ends" in attempt ? attempt.ends : null;
     setAdding(adds);
-    setFlow({ phase: "code", code });
+    setFlow({ phase: "code", code, expiresIn: EXPIRES_S });
   }, [offer]);
 
   // Fleet's poll finishing: the sign-in sets up row by row, an added profile joins at once.
@@ -112,7 +120,10 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       const added = offer.add;
       timers.push(
         window.setTimeout(() => {
-          setProfiles((was) => [...was, { account_id: 2, login: added.login, active: false, chosen: true }]);
+          setProfiles((was) => [
+            ...was,
+            { account_id: 2, login: added.login, active: false, chosen: true, ...(offer.noHome === undefined ? { repository: offer.signIn.repository } : {}) },
+          ]);
           setKinds((was) => ({ ...was, [added.login]: choices(added) }));
           // With no shared home there is nothing to open What syncs on.
           if (offer.noHome === undefined) setOpen(added.login);
@@ -140,7 +151,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
         timers.push(
           window.setTimeout(() => {
             next(steps("done", "done", "done"));
-            setProfiles([{ account_id: 1, login, active: true, chosen: false }]);
+            setProfiles([{ account_id: 1, login, active: true, chosen: false, repository }]);
             setAuthorized(false);
           }, STEP_MS * 3),
         );
@@ -178,6 +189,13 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       ...(left === undefined ? {} : { left }),
       ...(offer.noHome === undefined ? {} : { home: false, syncsWithoutHome: offer.noHome }),
       ...(offer.place === undefined ? {} : { place: offer.place }),
+      ...(offer.machine === undefined ? {} : { machine: offer.machine }),
+      cancel: () => {
+        planned.current = null;
+        setAdding(false);
+        setAuthorized(false);
+        setFlow((was) => (was.phase === "code" ? { phase: "idle" } : was));
+      },
       signIn: () => {
         if (flow.phase === "idle") begin(offer.signIn.code, false);
       },

@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A machine other than this one, on a pull request's registered owner, its tooltip the machine's name. Never this machine, which is `laptop`, never Fleet, which is `server`, and never a window or a display setting."
   notes = "Proposed 14 Oct 2026 for the walk `pr-owners`, for the owner to rule on. `laptop` is `This machine` in the registry, so the other machine needed a glyph of its own that is not a laptop: a screen on a stand is a different silhouette from a lid and a base at 12px, and reads as a machine you are not at. Refused: `server`, Fleet's; `hard-drive`, a worktree's disk; `smartphone`, a phone's act in the Record; `app-window`, an application."
+
+  [[icons.monitor.usage]]
+    means = "Another machine, on what signing in turns on"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walks `account-page` and `account-rail`. A fact line of the tiles `Red main claims` and `Pull request owners`: what is seen across machines. The same meaning as on a pull request's registered owner."
