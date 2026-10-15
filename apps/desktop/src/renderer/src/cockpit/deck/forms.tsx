@@ -194,7 +194,7 @@ export function RingArt({ pieces, big, dim, arcs = [], road = "outer", wrap = pl
 export function Ring(props: FormProps) {
   const edge = 34 * props.big + 12;
   return (
-    <svg className="bf-ring" style={{ left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`} aria-hidden="true">
+    <svg className="bf-ring" style={{ left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`}>
       <RingArt {...props} />
     </svg>
   );

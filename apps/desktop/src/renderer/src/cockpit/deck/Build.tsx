@@ -221,7 +221,7 @@ export function Builds({ placed, take, after, road, frame, territory, big, loops
         const orbit = take === "ring" && shadow !== undefined ? onPlane(shadow) : flat;
         return (
           <Fragment key={built.key}>
-            <div className="bf-at" style={{ transform: `translate3d(${px(flat.x)}, ${px(flat.y)}, ${px(z)})` }} aria-hidden="true">
+            <div className="bf-at" style={{ transform: `translate3d(${px(flat.x)}, ${px(flat.y)}, ${px(z)})` }}>
               {surveying ? <Survey big={big} /> : null}
               {built.markers.map((kind, i) => (
                 <Marker key={i} kind={kind} i={i} big={big} />
