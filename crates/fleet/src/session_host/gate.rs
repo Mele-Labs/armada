@@ -34,6 +34,11 @@ enum Touch {
     Shell(String),
 }
 
+/// Whether a tool can write the checkout: the ones a lease is taken on.
+fn can_write(tool: &str) -> bool {
+    matches!(tool, "Write" | "Edit" | "MultiEdit" | "NotebookEdit" | "Bash")
+}
+
 fn touch(gate: &SessionGate) -> Touch {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
@@ -70,6 +75,11 @@ where
         }
         // Every call of a hosted session that is open, whatever the gate then decides.
         self.call_seen(&gate);
+        // A tool the hook only reaches Fleet on so it can be noted holds nothing, so it does not
+        // read the pool or the Manifest.
+        if !can_write(&gate.tool_name) {
+            return GateAnswer::pass();
+        }
         if mode_of(&hosting.mode) == SessionMode::Plan {
             return GateAnswer::pass();
         }

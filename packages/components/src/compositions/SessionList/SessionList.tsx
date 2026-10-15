@@ -56,8 +56,17 @@ export type SessionRowView = {
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
 
+/** One repository's Sessions, under its name, in the same state columns. */
+export type SessionBand = { label: string; groups: readonly SessionGroup[] };
+
 export type SessionListProps = {
+  /** The state columns. Drawn where `bands` is absent. */
   groups: readonly SessionGroup[];
+  /**
+   * The columns again, one band for each repository, on All. A band with no row is not drawn.
+   * Absent, the list is one set of columns with no band.
+   */
+  bands?: readonly SessionBand[];
   query: string;
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
@@ -209,6 +218,18 @@ function firstRows(groups: readonly SessionGroup[], count: number): SessionGroup
     .filter((group) => group.rows.length > 0);
 }
 
+/** The first `count` rows taken across the bands in order, so a page ends mid-band rather than per band. */
+function firstOfBands(bands: readonly SessionBand[], count: number): SessionBand[] {
+  let left = count;
+  return bands
+    .map((band) => {
+      const groups = firstRows(band.groups, left);
+      left -= groups.reduce((sum, group) => sum + group.rows.length, 0);
+      return { ...band, groups };
+    })
+    .filter((band) => band.groups.length > 0);
+}
+
 /** Draws `SESSION_PAGE` more rows each time it comes into view. */
 function MoreRows({ onMore }: { onMore: () => void }) {
   const mark = useRef<HTMLDivElement>(null);
@@ -230,15 +251,69 @@ function MoreRows({ onMore }: { onMore: () => void }) {
   );
 }
 
-export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
+export function SessionList({ groups, bands, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the glass, the arrows across it. j and k are the surface's, which opens the next Session with them.
   useTileGrid(list, { tile: ".armada-session-list__row", cursor: ".armada-session-list__open", steps: false });
   const [count, setCount] = useState(SESSION_PAGE);
   // A new view or search starts from the first page again.
   useEffect(() => setCount(SESSION_PAGE), [view, query]);
-  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
-  const drawn = firstRows(groups, count);
+  const every = bands === undefined ? groups : bands.flatMap((band) => band.groups);
+  const total = every.reduce((sum, group) => sum + group.rows.length, 0);
+  const drawn = bands === undefined ? firstRows(groups, count) : [];
+  const drawnBands = bands === undefined ? [] : firstOfBands(bands, count);
+  const column = (group: SessionGroup, Heading: "h3" | "h4" = "h3") => (
+    <div className="armada-session-list__group" key={group.label} role="group" aria-label={group.label}>
+      <Heading className="armada-session-list__eyebrow">{group.label}</Heading>
+      <ul className="armada-session-list__rows">
+        {group.rows.map((row) => {
+          const items = itemsOf(row);
+          return (
+            <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
+              <div className="armada-session-list__top">
+                <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
+                  {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
+                  {row.helm !== true ? null : (
+                    <Tooltip label="Helm">
+                      <span className="armada-session-mark" role="img" aria-label="Helm">
+                        <MessageSquare size={12} strokeWidth={2} aria-hidden />
+                      </span>
+                    </Tooltip>
+                  )}
+                  <span className="armada-session-list__title">
+                    {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
+                  </span>
+                  {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
+                  {row.waiting === undefined || row.waiting.length === 0 ? null : (
+                    <Tooltip label={row.waiting.join("; ")}>
+                      <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
+                        <BellRing size={12} strokeWidth={2} aria-hidden />
+                      </span>
+                    </Tooltip>
+                  )}
+                </button>
+                <ClashMark kind="session" id={row.id} />
+                {row.lastTurn === undefined ? null : (
+                  <Tooltip label={`Last turn ${row.lastTurn}`}>
+                    <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
+                      {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
+                    </span>
+                  </Tooltip>
+                )}
+                {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
+              </div>
+              {row.now === undefined ? null : (
+                <div className="armada-session-list__now">
+                  <span className="armada-session-list__now-text">{row.now}</span>
+                </div>
+              )}
+              {items.length === 0 ? null : <OpenLine items={items} />}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
   return (
     <section className="armada-session-list" aria-label="Sessions" ref={list}>
       <div className="armada-session-list__head">
@@ -266,59 +341,15 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, startIn, 
         />
         {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
       </div>
-      <div className="armada-session-list__glass">
-        {drawn.map((group) => (
-          <div className="armada-session-list__group" key={group.label} role="group" aria-label={group.label}>
-            <h3 className="armada-session-list__eyebrow">{group.label}</h3>
-            <ul className="armada-session-list__rows">
-              {group.rows.map((row) => {
-                const items = itemsOf(row);
-                return (
-                  <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
-                    <div className="armada-session-list__top">
-                      <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
-                        {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
-                        {row.helm !== true ? null : (
-                          <Tooltip label="Helm">
-                            <span className="armada-session-mark" role="img" aria-label="Helm">
-                              <MessageSquare size={12} strokeWidth={2} aria-hidden />
-                            </span>
-                          </Tooltip>
-                        )}
-                        <span className="armada-session-list__title">
-                          {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
-                        </span>
-                        {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
-                        {row.waiting === undefined || row.waiting.length === 0 ? null : (
-                          <Tooltip label={row.waiting.join("; ")}>
-                            <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
-                              <BellRing size={12} strokeWidth={2} aria-hidden />
-                            </span>
-                          </Tooltip>
-                        )}
-                      </button>
-                      <ClashMark kind="session" id={row.id} />
-                      {row.lastTurn === undefined ? null : (
-                        <Tooltip label={`Last turn ${row.lastTurn}`}>
-                          <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
-                            {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
-                          </span>
-                        </Tooltip>
-                      )}
-                      {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
-                    </div>
-                    {row.now === undefined ? null : (
-                      <div className="armada-session-list__now">
-                        <span className="armada-session-list__now-text">{row.now}</span>
-                      </div>
-                    )}
-                    {items.length === 0 ? null : <OpenLine items={items} />}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+      <div className="armada-session-list__glass" data-banded={bands === undefined ? undefined : ""}>
+        {bands === undefined
+          ? drawn.map((group) => column(group))
+          : drawnBands.map((band) => (
+              <section className="armada-session-list__band" key={band.label} aria-label={band.label}>
+                <h3 className="armada-session-list__band-name">{band.label}</h3>
+                <div className="armada-session-list__columns">{band.groups.map((group) => column(group, "h4"))}</div>
+              </section>
+            ))}
         {count < total ? <MoreRows key={count} onMore={() => setCount((was) => was + SESSION_PAGE)} /> : null}
       </div>
     </section>
