@@ -94,8 +94,7 @@ function useRefs({ state, repositories, openSession, openJob, openPullRequest, o
           if (showOwn !== undefined && opened.some((one) => one.tag.id === ref.id)) showOwn(Number(ref.id));
           else if (branch !== undefined || address === undefined) openPullRequest(branch);
           else openLink(address);
-        } else if (address !== undefined) openLink(address);
-        else openIssues(root);
+        } else openIssues(root);
       },
     };
   }, [numbered, looked, manifestId, thread, state.jobs, state.mergeLines, sessions, root, showOwn, openSession, openJob, openPullRequest, openIssues, openLink]);

@@ -54,11 +54,17 @@ test("a merged pull request in another repository's Session links, and opens on 
   expect(link).toHaveBeenLastCalledWith("https://forge.invalid/pull/401");
 });
 
-test("an issue opens on the forge, and the Session's own pull request in its panel", async () => {
+test("an issue opens the composer's open issues, in its own repository", async () => {
   const { link } = await forge();
   await userEvent.click(thread().getByRole("link", { name: "#412", exact: true }));
-  await expect.poll(() => link.mock.calls.length).toBe(1);
-  expect(link).toHaveBeenLastCalledWith("https://forge.invalid/issues/412");
+  // On storefront's own open issues, where the Session works, and not asking which repository.
+  await expect.element(page.getByText("Open issues")).toBeVisible();
+  await expect.element(page.getByText("The log reader drops the last line").first()).toBeVisible();
+  expect(link).not.toHaveBeenCalled();
+});
+
+test("the Session's own pull request opens in its panel", async () => {
+  await forge();
   await userEvent.click(thread().getByRole("link", { name: "#2301", exact: true }));
   await expect.element(page.getByRole("dialog", { name: "Pull request #2301" })).toBeVisible();
 });

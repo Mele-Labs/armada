@@ -443,7 +443,7 @@ export function App({ draft }: AppProps = {}) {
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
-  const refsHost: RefsHostProps = { state, repositories, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (root !== undefined && state.repository !== root && pickRepository(root), setComposing(true)), openLink: openProseLink };
+  const refsHost: RefsHostProps = { state, repositories, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (goTo(SURFACE.overview), root !== undefined && state.repository !== root && pickRepository(root), setComposing(true)), openLink: openProseLink };
   const helmRefs = useHelmRefs(refsHost);
   const helmHosted = useHelmHosted({
     manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,

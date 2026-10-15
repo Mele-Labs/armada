@@ -2,6 +2,8 @@
 // one) and once in plain text. Each is a link that opens that Session, the ended one too. Over the
 // `sessions` scenario. The walk `session-id-links` plays it.
 
+import type { RepositorySummary } from "@armada/protocol";
+import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
@@ -54,9 +56,17 @@ const forge: Session = {
   ],
 };
 
+// Helm's repository and the one the last Session works in, so an issue named there opens the composer on its own.
+const STOREFRONT: RepositorySummary = {
+  root: "/Users/user/code/storefront",
+  records_root: "/records/storefront",
+  manifest: { ...repository().manifest!, id: "storefront", repository: "storefront", path: "storefront/armada.yml" },
+};
+
 export const s208SessionIdLinks: Scenario = {
   ...s200Sessions,
   name: "session-id-links",
   says: "A Session's thread names other Sessions by their address",
+  state: { ...s200Sessions.state, holds: { ...s200Sessions.state.holds, repositories: [...(s200Sessions.state.holds.repositories ?? []), STOREFRONT] } },
   draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [reader, ended, holder, forge]) },
 };

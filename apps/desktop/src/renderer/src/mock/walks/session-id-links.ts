@@ -26,7 +26,7 @@ const wide = walk("session-id-links", [
   { look: link("#401"), say: "A merged pull request links, looked up in that Session's own repository" },
   { hover: link("#401"), say: "On hover, its title" },
   { look: link("https://forge.invalid/pull/401"), say: "The forge's address for it is the same reference" },
-  { look: link("#412"), say: "An issue links" },
+  { look: link("#412"), say: "An issue links, and opens the composer's open issues" },
   { look: link("#2301"), say: "So does the pull request this Session opened" },
   { press: link("#2301"), say: "It opens in the Session's own panel" },
   { look: role("dialog", "Pull request #2301"), say: "The panel" },
