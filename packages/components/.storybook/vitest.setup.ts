@@ -13,3 +13,8 @@ declare module "vitest/browser" {
 }
 
 emulateMotionWith((on) => commands.motion(on));
+
+// Storybook runs a story's `beforeEach` cleanup when the *next* story starts, so a file's last
+// motion-on story never hands motion back. Files run one after another in a page, and the
+// emulation is the page's, so the next file would start with motion on. Reduce it per file.
+await commands.motion(false);
