@@ -1,13 +1,14 @@
 // The right column while a Session is open in the deck's centre: its ring drawn tall, with the road to main as the arcs round it, in
 // the place of the bays. It draws what the field draws from the same reading (`build.ts`, `ring.tsx`). No words but the tooltips;
-// only the piece being built moves. #2301.
+// only the piece being built moves, and the subagents running sit inside the ring, by the pieces they wrote. #2301.
 
 import type { ReactNode } from "react";
 import { Tooltip } from "@armada/components";
 
 import { SAID } from "./BuildCard";
+import { SessionGlyph } from "./Drone";
 import { RingArt } from "./ring";
-import { arcSaid, arcWord, arcsOf, bandOf, glyphOf, roadOf, wordOf, type BuildIn } from "./build";
+import { arcSaid, arcWord, arcsOf, askedOf, bandOf, glyphOf, roadOf, seatedWorkers, wordOf, type BuildIn } from "./build";
 import { AskUpdate } from "./AskUpdate";
 import "./build.css";
 
@@ -35,15 +36,38 @@ function Structure({ build }: { build: BuildIn }) {
         {...(road === undefined ? {} : { arcs: road })}
         wrap={(k, piece) => {
           const task = build.tasks[k]!;
-          return spoken(`${task.text}, ${(task.said ?? SAID[task.piece]).toLowerCase()}`, piece);
+          const said = `${task.text}, ${(task.said ?? SAID[task.piece]).toLowerCase()}`;
+          return spoken(task.by === undefined ? said : `${said}, ${askedOf(task.by)}`, piece);
         }}
         wrapArc={(k, arc) => {
           const one = arcs[k]!;
           return spoken(`${arcWord(one.id)}, ${arcSaid(one, build.now)}`, arc);
         }}
       />
+      {seated(build).map(({ label, x, y }) => (
+        <Tooltip key={label} label={askedOf(label)} asChild>
+          <g className="bf-col__worker" role="img" aria-label={`Subagent, ${askedOf(label)}`} tabIndex={0} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`}>
+            <g transform="scale(0.2)">
+              <SessionGlyph />
+            </g>
+            <circle className="bf-col__hit" r={4.5} />
+          </g>
+        </Tooltip>
+      ))}
     </svg>
   );
+}
+
+/** Where each running subagent sits inside the ring: beside its own stretch, a step inward where the stretches are too close for the drones. One with no stretch is spread about the middle. */
+function seated(build: BuildIn): { label: string; x: number; y: number }[] {
+  const at = (deg: number, r: number) => ({ x: r * Math.cos((deg * Math.PI) / 180), y: r * Math.sin((deg * Math.PI) / 180) });
+  const own = new Map(seatedWorkers(build.tasks, build.workers).map((one) => [one.label, one] as const));
+  const loose = build.workers.filter((label) => !own.has(label));
+  return build.workers.map((label) => {
+    const seat = own.get(label);
+    if (seat !== undefined) return { label, ...at(seat.angle, seat.radius) };
+    return { label, ...(loose.length === 1 ? { x: 0, y: 0 } : at(-90 + (loose.indexOf(label) * 360) / loose.length, 4)) };
+  });
 }
 
 export function BuildColumn({ build }: { build: BuildIn }) {

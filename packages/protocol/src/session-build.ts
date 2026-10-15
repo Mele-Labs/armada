@@ -16,8 +16,12 @@ export type BuildPhase = "scope" | "plan" | "implement" | "road" | "landed";
  */
 export type BuildPieceKind = "solid" | "hollow" | "scaffold" | "ghost";
 
-/** One task of the agent's list, in list order. `id` is its task tool's, or its place in a `TodoWrite` list. */
-export type BuildPiece = { id: string; text: string; piece: BuildPieceKind };
+/**
+ * One task of the agent's list, in list order. `id` is its task tool's, or its place in a `TodoWrite` list. `by` is the
+ * subagent that wrote the task, in the form `SessionBuild.workers` uses (`Type: what it was asked`), so a piece is
+ * drawn with its worker; absent for the Session's own tasks. It stays after the subagent ends.
+ */
+export type BuildPiece = { id: string; text: string; piece: BuildPieceKind; by?: string };
 
 /**
  * A place on the road from the Session's edits to main: a walk shown after the first edit, a `git push` that updated a
@@ -57,5 +61,8 @@ export type SessionBuild = {
 /** Where one task of the agent's list stands, as its tool says. */
 export type ReportedTaskStatus = "pending" | "in_progress" | "completed";
 
-/** One task of the list a mod heard the agent write. The mod sends the whole list on every change. */
-export type ReportedTask = { id: string; text: string; status: ReportedTaskStatus };
+/**
+ * One task of the list a mod heard the agent write. The mod sends the whole list on every change. `by` is the
+ * `agentId` of the subagent that wrote it: subagents share the Session's task list. Absent for the Session's own.
+ */
+export type ReportedTask = { id: string; text: string; status: ReportedTaskStatus; by?: string };

@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.23'
+export const MOD_VERSION = '0.3.24'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -425,12 +425,18 @@ function madeId(result: unknown, text: string): string | undefined {
   return /\bTask #?(\w+)/.exec(text)?.[1]
 }
 
-/** The list after a `TaskCreate`, or nothing where the call named no task. */
-export function madeTask(list: Task[], input: Record<string, unknown>, result: unknown, text: string): Task[] | undefined {
+/** The list after a `TaskCreate`, or nothing where the call named no task. `by` is the subagent that made it. */
+export function madeTask(
+  list: Task[],
+  input: Record<string, unknown>,
+  result: unknown,
+  text: string,
+  by?: string,
+): Task[] | undefined {
   const named = textOf(input.subject ?? input.content ?? input.title)
   if (named === undefined) return undefined
   const id = madeId(result, text) ?? String(list.length + 1)
-  return [...list.filter(one => one.id !== id), { id, text: named, status: 'pending' }]
+  return [...list.filter(one => one.id !== id), { id, text: named, status: 'pending', ...(by === undefined ? {} : { by }) }]
 }
 
 /**
@@ -443,8 +449,9 @@ export function updatedTask(list: Task[], input: Record<string, unknown>): Task[
   const was = list.find(one => one.id === key)
   if (key === undefined || was === undefined) return undefined
   if (input.status === 'deleted') return list.filter(one => one.id !== key)
+  // Whoever updates it, the task stays its maker's.
   const next: Task = {
-    id: key,
+    ...was,
     text: textOf(input.subject ?? input.content ?? input.title) ?? was.text,
     status: statusOf(input.status) ?? was.status,
   }
