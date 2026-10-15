@@ -287,16 +287,25 @@ export class WiredStore {
   readonly draft: SessionsDraft = this.build();
 
   /**
-   * A shell block run. Messages are listened for before the run starts and held until its id is
-   * known, so lines that beat the answer are not lost. A refusal ends the run with code 1 and its words
-   * as one line; a stop ends it with `null`, which is how Fleet reports a stopped process group.
+   * A shell block run, on a terminal. Messages are listened for before the run starts and held until its id
+   * is known, so output that beat the answer is not lost; so are the keys and the size the pane gave in the
+   * meantime. The terminal's bytes go on as they came, escapes and all: the pane draws them. A refusal ends
+   * the run with code 1 and its words as one line; a stop ends it with `null`, which is how Fleet reports a
+   * stopped process group.
    */
-  private running(id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void): { stop: () => void } {
+  private running(
+    id: string,
+    command: string,
+    on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void,
+    size?: { cols: number; rows: number },
+  ): { stop: () => void; write: (data: string) => void; resize: (cols: number, rows: number) => void } {
     const change = buildChangeOf(command);
-    if (change !== undefined) return this.switching(change, on);
+    if (change !== undefined) return { ...this.switching(change, on), write: () => undefined, resize: () => undefined };
     let runId: string | null = null;
     let over = false;
     const held: { runId: string; message: SessionRunMessage }[] = [];
+    let typed = "";
+    let resized: { cols: number; rows: number } | null = null;
     const finish = (code: number | null): void => {
       if (over) return;
       over = true;
@@ -305,27 +314,40 @@ export class WiredStore {
     };
     const take = (from: string, message: SessionRunMessage): void => {
       if (over || from !== runId) return;
-      if (message.kind === "lines") for (const text of message.lines) on({ kind: "out", text: `${text}\n` });
-      else if (message.kind === "exited") finish(message.code);
+      if (message.kind === "output") {
+        if (message.text !== "") on({ kind: "out", text: message.text });
+      } else if (message.kind === "exited") finish(message.code);
     };
     const off = this.api.onSessionRunMessage((from, message) => {
       if (runId === null) held.push({ runId: from, message });
       else take(from, message);
     });
-    void this.api.startSessionRun(id, command).then((started) => {
+    void this.api.startSessionRun(id, command, size?.cols, size?.rows).then((started) => {
       if (over) return;
       if (!started.ok) {
-        on({ kind: "out", text: `${refusalWords(started.outcome)}\n` });
+        on({ kind: "out", text: `${refusalWords(started.outcome)}\r\n` });
         finish(1);
         return;
       }
       runId = started.value.run_id;
       for (const one of held.splice(0)) take(one.runId, one.message);
+      if (resized !== null) void this.api.resizeSessionRun(runId, resized.cols, resized.rows);
+      if (typed !== "") void this.api.writeSessionRun(runId, typed);
     });
     return {
       stop: () => {
         if (runId === null) return finish(null);
         void this.api.stopSessionRun(runId);
+      },
+      write: (data) => {
+        if (over) return;
+        if (runId === null) typed += data;
+        else void this.api.writeSessionRun(runId, data);
+      },
+      resize: (cols, rows) => {
+        if (over) return;
+        if (runId === null) resized = { cols, rows };
+        else void this.api.resizeSessionRun(runId, cols, rows);
       },
     };
   }
@@ -333,7 +355,7 @@ export class WiredStore {
   /** A restart onto main or the preview, pressed as the Fleet panel presses it; where it stands is the panel's to show. */
   private switching(change: BuildChange, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void): { stop: () => void } {
     void this.api.changeFleetBuild(change.build, change.adopt).then((done) => {
-      on({ kind: "out", text: `${done.ok ? change.label : refusalWords(done)}\n` });
+      on({ kind: "out", text: `${done.ok ? change.label : refusalWords(done)}\r\n` });
       on({ kind: "end", code: done.ok ? 0 : 1 });
     });
     return { stop: () => undefined };
@@ -375,7 +397,8 @@ export class WiredStore {
       hide: () => void this.api.hideSessionPage(),
       onEscape: (on) => this.api.onSessionPageEscape(on),
     },
-    run: (id, command, on) => this.running(id, command, on),
+    run: (id, command, on, size) => this.running(id, command, on, size),
+    terminalRuns: true,
     said: () => this.refusal,
     taggable: () => (this.inputs?.jobs ?? NONE).map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
     setTags: (id, tags) => this.tagged(id, tags),

@@ -50,6 +50,21 @@ const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
 /// one, so no new kind of row reaches Bridge.
 pub(crate) const FLEET_NAME: &str = "Fleet";
 
+/// How a run ended, as a hosted thread keeps it in a `ran` row.
+pub(crate) struct RunEnd {
+    pub command: String,
+    /// `None` where the run was stopped or a signal ended it.
+    pub code: Option<i32>,
+    /// The last lines it printed, as plain text.
+    pub tail: String,
+}
+
+/// What a thread keeps of the words that start a turn.
+enum Written {
+    Message(SessionVoice),
+    Ran(RunEnd),
+}
+
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
     match mode {
         SessionMode::Ask => "ask",
@@ -651,6 +666,8 @@ where
                 SessionRow::Message { from, .. } => *from == ipc::SessionVoice::Agent,
                 // Fleet's own note that a process ended is not the agent's.
                 SessionRow::Tool { text, .. } => !text.starts_with("the session's process ended"),
+                // Fleet's word about a run, as its message was.
+                SessionRow::Ran { .. } => false,
                 _ => true,
             })
         })
@@ -665,7 +682,19 @@ where
         session: &str,
         text: &str,
     ) -> Result<bool, Refusal> {
-        self.fleet_word(session, text, false).await
+        self.fleet_word(session, text, false, None).await
+    }
+
+    /// [`Self::told_by_fleet`] for a run that ended. **A hosted thread keeps a `ran` row** in place
+    /// of Fleet's message, and the agent is sent the same words; a terminal Session's thread is
+    /// not Fleet's to write, so it holds the words as it holds any other.
+    pub(crate) async fn told_of_a_run(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+        ran: RunEnd,
+    ) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, Some(ran)).await
     }
 
     /// [`Self::told_by_fleet`] for news that asks the agent for nothing: a pull request merged, a
@@ -676,7 +705,7 @@ where
         session: &str,
         text: &str,
     ) -> Result<bool, Refusal> {
-        self.fleet_word(session, text, true).await
+        self.fleet_word(session, text, true, None).await
     }
 
     async fn fleet_word(
@@ -684,6 +713,7 @@ where
         session: &str,
         text: &str,
         news: bool,
+        ran: Option<RunEnd>,
     ) -> Result<bool, Refusal> {
         if let Some(terminal) = self.terminal_session(session).await? {
             if terminal.state == store::SessionState::Ended {
@@ -706,33 +736,43 @@ where
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        let from = SessionVoice::Session {
-            id: FLEET_NAME.to_lowercase(),
-            title: FLEET_NAME.to_string(),
+        let written = match ran {
+            Some(ran) => Written::Ran(ran),
+            None => Written::Message(SessionVoice::Session {
+                id: FLEET_NAME.to_lowercase(),
+                title: FLEET_NAME.to_string(),
+            }),
         };
         if news {
             self.hosts().of(session).state().fleet_told += 1;
         }
-        Arc::clone(self).send_hosted(sent, from).await.map(|_| true)
+        Arc::clone(self)
+            .send_hosted_written(sent, written, None)
+            .await
+            .map(|_| true)
     }
 
-    /// A message to a session Fleet hosts, written to its thread as `from` and started as a turn.
-    /// **`You` is a person's; Fleet's own notices come through [`Self::told_by_fleet`].**
-    async fn send_hosted(
-        self: Arc<Self>,
-        sent: SendSessionMessage,
-        from: SessionVoice,
-    ) -> Result<SessionRecord, Refusal> {
-        self.send_hosted_ahead(sent, from, None).await
-    }
-
-    /// [`Self::send_hosted`] with a line of Fleet's own ahead of the person's words in the turn.
-    /// **The thread's row keeps the words as typed**, so the line is the agent's and never drawn:
-    /// Helm's "where they are" is the one caller.
+    /// A message to a session Fleet hosts, written to its thread as `from` and started as a turn,
+    /// with a line of Fleet's own ahead of the words in the turn. **`You` is a person's; Fleet's
+    /// own notices come through [`Self::told_by_fleet`].** **The thread's row keeps the words as
+    /// typed**, so the line is the agent's and never drawn: Helm's "where they are" is the one
+    /// caller that sets it.
     async fn send_hosted_ahead(
         self: Arc<Self>,
         sent: SendSessionMessage,
         from: SessionVoice,
+        ahead: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.send_hosted_written(sent, Written::Message(from), ahead)
+            .await
+    }
+
+    /// [`Self::send_hosted_ahead`] with what the thread keeps of the words chosen: a message from
+    /// someone, or the `ran` row of a command that ended.
+    async fn send_hosted_written(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        written: Written,
         ahead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
@@ -750,9 +790,8 @@ where
         let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
         let addressed = self.addressed(&sent.mentions).await?;
         let now = self.instant();
-        self.row_put(
-            &id,
-            SessionRow::Message {
+        let row = match &written {
+            Written::Message(from) => SessionRow::Message {
                 id: self.row_id(&id),
                 at: now,
                 from: from.clone(),
@@ -760,9 +799,16 @@ where
                 files: kept.files.clone(),
                 tags: sent.mentions.clone(),
             },
-        )
-        .await;
-        if from == SessionVoice::You {
+            Written::Ran(ran) => SessionRow::Ran {
+                id: self.row_id(&id),
+                at: now,
+                command: ran.command.clone(),
+                code: ran.code,
+                tail: ran.tail.clone(),
+            },
+        };
+        self.row_put(&id, row).await;
+        if matches!(written, Written::Message(SessionVoice::You)) {
             self.noted_on_the_ledger(&session, &sent.mentions, &text)
                 .await?;
             // What the box held may be the first message another Session's agent wrote for him.

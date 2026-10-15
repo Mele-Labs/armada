@@ -167,6 +167,17 @@ impl FakeVcs {
         self.delivery.lock().expect("not poisoned").repository = standing;
     }
 
+    /// Say which commit the served repository has checked out. A catch-up that
+    /// names a commit moves it there.
+    pub fn checkout_on(&self, commit: &str) {
+        self.delivery.lock().expect("not poisoned").checkout = Some(commit.to_string());
+    }
+
+    /// Say what asking why the served repository was held back comes to.
+    pub fn held_back_by(&self, held: Option<adapter_traits::HeldBack>) {
+        self.delivery.lock().expect("not poisoned").held_back = held;
+    }
+
     /// How many times a branch has been asked to be kept current against a
     /// base that moved. **The one call here a person watching the pull
     /// request's branch sees happen**, so a test that asserts once is

@@ -99,6 +99,20 @@ stylesheet (`adoptedStyleSheets`) and never as a `<style>` element, because the
 CSP refuses an inline one and widening it for themes is the review above
 (`docs/concepts/themes.md`).
 
+**The terminal pane is xterm.js, patched so the CSP stays as it is.** A command run from a
+Session's thread draws in a docked pane (`XtermScreen`, `@xterm/xterm` and
+`@xterm/addon-fit` only). xterm writes its colours as `<style>` elements and as `style`
+attributes, which `default-src 'self'` refuses, so `patches/@xterm__xterm.patch`
+(registered in `pnpm-workspace.yaml`) adopts those sheets with `adoptedStyleSheets` and sets
+the attributes through CSSOM. The policy is not widened for it, and
+`terminal-csp.test.tsx` puts `index.html`'s policy on the page and checks the palette, 256
+and true colours still reach the screen. **The patch is redone on every xterm upgrade**, and
+that test is what tells you it needs to be. The pane takes the keys while a run goes, sends
+them with `writeSessionRun` and its fitted size with `resizeSessionRun`, and gives them back
+to Bridge's single-key shortcuts once the run ends. A runner is a `CodeRunner`: it is handed
+the command, an `on` for the run's events and the size to start at, and returns
+`{ stop, write, resize }`.
+
 These four are load-bearing together. Loosening any one of them to make a
 feature easier is a security review, not a local decision — say so explicitly
 in review rather than quietly relaxing a flag to unblock yourself.

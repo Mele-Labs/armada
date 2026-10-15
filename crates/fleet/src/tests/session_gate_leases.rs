@@ -306,3 +306,17 @@ async fn a_read_that_looks_elsewhere_leases_no_slot_and_a_commit_still_does() {
         assert!(denied(&run(&fresh, &id, &fresh.root, line).await), "{line} should lease");
     }
 }
+
+/// 15 Oct 2026: the door counted `setup.worktrees`, eight, so on a machine of fifteen bays a
+/// slot a subagent leased past slot-8 was refused as outside the session's slots.
+#[tokio::test]
+async fn the_pool_counts_every_bay_this_machine_has_past_the_manifests_eight() {
+    let rig = rig_placing(None);
+    let slots = format!("{}/{}", rig.root.trim_end_matches('/'), adapter_traits::SLOT_ROOT);
+    std::fs::create_dir_all(&slots).expect("the slots");
+    let bays: Vec<String> = (1..=15).map(|n| n.to_string()).collect();
+    std::fs::write(format!("{slots}/pool"), format!("bays {}\n", bays.join(" "))).expect("the pool");
+
+    let served = rig.fleet.served_named(None).expect("one repository");
+    assert_eq!(crate::leasing::bays_of(&served), (1..=15).collect::<Vec<u32>>());
+}

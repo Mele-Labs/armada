@@ -449,7 +449,7 @@ where
             .iter()
             .map(|served| served.root().to_string())
             .collect();
-        let (pulls, merged, runs, queues, elsewhere) = {
+        let (pulls, merged, runs, queues, elsewhere, held_back) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
@@ -457,6 +457,7 @@ where
                 sweep.main_runs.clone(),
                 sweep.queues.clone(),
                 sweep.elsewhere.clone(),
+                sweep.held_back.clone(),
             )
         };
         let store = self.store().lock().await;
@@ -486,11 +487,14 @@ where
                     queues.get(&root),
                     &titled,
                     &session_titled,
-                )?;
+                )
+                // A held checkout is said before main's CI was ever read.
+                .or_else(|| held_back.contains_key(&root).then(MergeLineHub::default))?;
                 let fixing = main.as_ref().and_then(|main| self.fixing_of(&store, main));
                 hub.fixing = fixing.as_ref().and_then(|by| by.job()).and_then(titled);
                 hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
                 hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
+                hub.checkout = held_back.get(&root).map(held_checkout);
                 // A switch turned off since the reading shows none, another machine's rows included.
                 if !self.registers_owners(&root) {
                     hub.pull_requests.iter_mut().for_each(|pull| pull.owner = None);
@@ -498,6 +502,19 @@ where
                 Some((root, hub))
             })
             .collect()
+    }
+}
+
+/// A checkout Fleet would not catch up, as the hub draws it.
+fn held_checkout(held: &adapter_traits::HeldBack) -> ipc::HeldCheckout {
+    let counted = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+    ipc::HeldCheckout {
+        base: held.base.clone(),
+        on: held.on.clone(),
+        uncommitted: held.uncommitted.clone(),
+        clashing: held.clashing.clone(),
+        behind: counted(held.behind),
+        ahead: counted(held.ahead),
     }
 }
 
@@ -573,6 +590,7 @@ pub(crate) fn hub_of(
         fixing: None,
         fixing_session: None,
         fixing_elsewhere: None,
+        checkout: None,
     })
 }
 

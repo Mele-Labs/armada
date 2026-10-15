@@ -59,7 +59,7 @@ impl Sessions for FakeDaemon {
 
     /// **The fake runs nothing**: what a run is, and its process group, are `fleet::session_running`'s.
     async fn start_session_run(
-        &self,
+        self: std::sync::Arc<Self>,
         _start: ipc::StartSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
         self.runs_nothing_here()
@@ -68,6 +68,20 @@ impl Sessions for FakeDaemon {
     async fn stop_session_run(
         &self,
         _stop: ipc::StopSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.runs_nothing_here()
+    }
+
+    async fn write_session_run(
+        &self,
+        _write: ipc::WriteSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.runs_nothing_here()
+    }
+
+    async fn resize_session_run(
+        &self,
+        _resize: ipc::ResizeSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
         self.runs_nothing_here()
     }

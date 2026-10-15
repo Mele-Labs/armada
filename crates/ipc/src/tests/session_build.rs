@@ -33,7 +33,7 @@ fn the_mods_plan_and_road_facts_are_read_as_it_spells_them() {
 fn a_build_round_trips_and_leaves_out_what_is_absent() {
     let build = SessionBuild {
         phase: BuildPhase::Road,
-        pieces: vec![BuildPiece { id: "1".to_string(), text: "Read".to_string(), piece: BuildPieceKind::Solid }],
+        pieces: vec![BuildPiece { id: "1".to_string(), text: "Read".to_string(), piece: BuildPieceKind::Solid, by: None }],
         stops: vec![
             BuildStop { id: BuildStopId::Pushed, at: Some(Instant::carried("2026-10-14T09:00:00.000Z")) },
             BuildStop { id: BuildStopId::AutoMerge, at: None },
@@ -48,7 +48,18 @@ fn a_build_round_trips_and_leaves_out_what_is_absent() {
     assert!(json.contains(r#""phase":"road""#) && json.contains(r#""piece":"solid""#), "{json}");
     assert!(json.contains(r#"{"id":"auto_merge"}"#), "an unreached stop has no time, not a null: {json}");
     assert!(!json.contains("landed_at") && !json.contains("quiet_since") && !json.contains("null"), "{json}");
+    assert!(!json.contains(r#""by""#), "a Session's own task names no worker: {json}");
     assert_eq!(decode::<SessionBuild>("a build", json.as_bytes()).expect("round-trips"), build);
+}
+
+#[test]
+fn a_subagents_task_names_its_agent_and_an_old_one_reads_as_the_sessions_own() {
+    let told = br#"{"kind":"tasks","tasks":[{"id":"2","text":"Map","status":"pending","by":"a1"},{"id":"1","text":"Read","status":"pending"}]}"#;
+    let SessionFact::Tasks { tasks } = decode::<SessionFact>("a fact", told).expect("tasks") else { panic!("tasks") };
+    assert_eq!(tasks.iter().map(|one| one.by.as_deref()).collect::<Vec<_>>(), [Some("a1"), None]);
+    assert!(!encode(&tasks[1]).expect("plain data").contains("by"));
+    let piece = br#"{"id":"1","text":"Read","piece":"ghost"}"#;
+    assert_eq!(decode::<BuildPiece>("a piece", piece).expect("old row").by, None);
 }
 
 #[test]

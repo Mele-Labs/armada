@@ -149,7 +149,9 @@ function matches(name: string, wanted: Name, exact: boolean): boolean {
 export const WALK_UI = "data-walk-ui";
 
 function reachable(element: Element): boolean {
-  return element.closest(`[${WALK_UI}]`) === null && !isInaccessible(element);
+  // The rows of a terminal's screen are drawn as text but hidden from the accessibility tree, which a person
+  // reads them from, so a walk finds the words there as they are drawn.
+  return element.closest(`[${WALK_UI}]`) === null && (!isInaccessible(element) || element.closest(".xterm-rows") !== null);
 }
 
 /**
@@ -307,6 +309,12 @@ function fill(element: HTMLElement, words: string): void {
     element.dispatchEvent(new Event("input", { bubbles: true }));
     return;
   }
+  // xterm reads a typed character from an `input` event that carries it, as a browser sends one, and not from the field's value.
+  if (element.classList.contains("xterm-helper-textarea")) {
+    element.focus();
+    for (const data of words) element.dispatchEvent(new InputEvent("input", { data, inputType: "insertText", bubbles: true }));
+    return;
+  }
   // Anything else is typed at as keys: each character goes to the element as a key press, for a page that listens for them.
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
     for (const key of words) element.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
@@ -423,8 +431,8 @@ export function act(step: Step, element: HTMLElement): void {
   else if ("type" in step) {
     // Words ending in a newline are sent with Enter, as a field that saves on it is used.
     fill(element, step.type.replace(/\n$/, ""));
-    // A beat later, so the field has drawn what was typed before the key reaches it.
-    if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })), 50);
+    // A beat later, so the field has drawn what was typed before the key reaches it. xterm reads the legacy key code.
+    if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true })), 50);
   } else if ("paste" in step) pasteScreenshot(element);
   else if ("select" in step) selectWords(element, step.select);
 }

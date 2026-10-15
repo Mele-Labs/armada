@@ -529,6 +529,25 @@
   white-space: nowrap;
 }
 
+/* A command that was run and told to the Session: the mark and the command on one line, the lines it was sent under the fold. */
+.armada-session-fold--ran .armada-session-fold__target {
+  color: var(--fg-muted);
+}
+
+.armada-session-fold__tail {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .armada-session-fold__at {
   flex: none;
   color: var(--fg-subtle);

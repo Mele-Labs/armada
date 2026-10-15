@@ -26,7 +26,7 @@
 use std::path::Path;
 
 use adapter_traits::{
-    Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
+    HeldBack, Landable, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Rendering, RepositoryStanding,
     WhatBecameOfIt, WorktreeSpec,
 };
 use git2::Repository;
@@ -397,6 +397,82 @@ fn why_not_to_touch_it(repo: &Repository, base: &str) -> Option<String> {
         )),
         Err(cause) => Some(cause.message().to_string()),
     }
+}
+
+/// Whether the checked-out commit already has `commit`. In process, so the
+/// reading of main can ask it every minute for nothing.
+pub(crate) fn checkout_has(in_repo: &str, commit: &str) -> bool {
+    let Ok(repo) = Repository::open(in_repo) else {
+        return false;
+    };
+    let (Some(head), Ok(commit)) = (
+        repo.head().ok().and_then(|head| head.target()),
+        git2::Oid::from_str(commit),
+    ) else {
+        return false;
+    };
+    head == commit || repo.graph_descendant_of(head, commit).unwrap_or(false)
+}
+
+/// What stops `in_repo` fast-forwarding to `base` on `origin`. One fetch of the
+/// base, which writes only the remote-tracking ref, then read in process.
+pub(crate) fn held_back(in_repo: &str, base: &str) -> Option<HeldBack> {
+    let fetched = run_in(in_repo, "git", &["fetch", "--quiet", "origin", base]).ok()?;
+    if !fetched.status.success() {
+        return None;
+    }
+    let repo = Repository::open(in_repo).ok()?;
+    let head = repo.head().ok()?;
+    let on = match head.is_branch() {
+        true => head.shorthand().map(str::to_string).filter(|on| on != base),
+        false => Some(String::from("HEAD")),
+    };
+    let ours = head.target()?;
+    let theirs = repo
+        .refname_to_id(&format!("refs/remotes/origin/{base}"))
+        .ok()?;
+    let (ahead, behind) = repo.graph_ahead_behind(ours, theirs).ok()?;
+    let mut asking = git2::StatusOptions::new();
+    asking.include_untracked(false).include_ignored(false);
+    let uncommitted: Vec<String> = repo
+        .statuses(Some(&mut asking))
+        .ok()?
+        .iter()
+        .filter_map(|entry| entry.path().map(str::to_string))
+        .collect();
+    let clashing = match uncommitted.is_empty() {
+        true => Vec::new(),
+        false => changed_between(&repo, ours, theirs)
+            .into_iter()
+            .filter(|path| uncommitted.contains(path))
+            .collect(),
+    };
+    Some(HeldBack {
+        base: base.to_string(),
+        on,
+        uncommitted,
+        clashing,
+        behind,
+        ahead,
+    })
+}
+
+/// The paths `theirs` changed since it and `ours` parted.
+fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::Oid) -> Vec<String> {
+    let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();
+    let Some(parted) = repo.merge_base(ours, theirs).ok() else {
+        return Vec::new();
+    };
+    let (Some(from), Some(to)) = (tree(parted), tree(theirs)) else {
+        return Vec::new();
+    };
+    let Ok(diff) = repo.diff_tree_to_tree(Some(&from), Some(&to), None) else {
+        return Vec::new();
+    };
+    diff.deltas()
+        .filter_map(|delta| delta.new_file().path().or(delta.old_file().path()))
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
 }
 
 /// Whether the forge is comparing this pull request against the commit its

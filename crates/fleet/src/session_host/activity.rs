@@ -163,6 +163,7 @@ fn plan_of(gate: &SessionGate) -> Option<Observed> {
                         SessionTodoState::Doing => ReportedTaskStatus::InProgress,
                         SessionTodoState::Todo => ReportedTaskStatus::Pending,
                     },
+                    by: None,
                 })
                 .collect(),
         )),

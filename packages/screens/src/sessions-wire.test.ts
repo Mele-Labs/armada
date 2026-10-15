@@ -242,6 +242,21 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
   });
 
+  it("keeps a run that ended as a row with its exit and the lines it was sent, and a stopped one with no code", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "ran", id: "r1", at: AT, command: "make", code: 2, tail: "error: no rule" },
+        { kind: "ran", id: "r2", at: AT, command: "sleep 30", tail: "" },
+      ],
+      () => undefined,
+    );
+    expect(drawn).toMatchObject([
+      { kind: "ran", command: "make", code: 2, tail: "error: no rule" },
+      { kind: "ran", command: "sleep 30", code: null, tail: "" },
+    ]);
+  });
+
   it("keeps a question asked in the window as a line, with how it was answered once it is", () => {
     const asked = {
       kind: "window_ask",

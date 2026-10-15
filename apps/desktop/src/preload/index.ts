@@ -782,10 +782,14 @@ const api: BridgeApi = {
   writePullRequest: (sessionId: string, number: number, write: PullRequestWrite): Promise<SessionActed<PullRequestPage>> =>
     ipcRenderer.invoke(CHANNELS.writePullRequest, sessionId, number, write),
   // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
-  startSessionRun: (sessionId: string, command: string): Promise<SessionActed<SessionRunUnderway>> =>
-    ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command),
+  startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command, cols, rows),
   stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
+  writeSessionRun: (runId: string, data: string): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.writeSessionRun, runId, data),
+  resizeSessionRun: (runId: string, cols: number, rows: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.resizeSessionRun, runId, cols, rows),
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void): (() => void) => {
     const handler = (_: unknown, runId: string, message: SessionRunMessage): void => on(runId, message);
     ipcRenderer.on(CHANNELS.sessionRunMessage, handler);

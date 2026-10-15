@@ -14,7 +14,7 @@ notes = """
 
 **`started` and `tuned` carry the mod's `mod_version`** (since 23.62), kept on the session's row; a fact without one leaves it.
 
-**`tasks`, `plan_left`, `committed` and `pushed` feed a Session's build record** (`SessionRecord.build`): the agent's whole task list as its task tools left it, plan mode left, and a commit or a push that git printed. `docs/concepts/session.md`, *The build record*.
+**`tasks`, `plan_left`, `committed` and `pushed` feed a Session's build record** (`SessionRecord.build`): the agent's whole task list as its task tools left it, plan mode left, and a commit or a push that git printed. A task a subagent wrote carries `by`, its `agentId`: subagents share the Session's list. `docs/concepts/session.md`, *The build record*.
 
 **A fact is idempotent**: the same attachment reported twice changes nothing and publishes nothing. A session Fleet has never heard of is created by whatever fact arrives first, so a session already running when Fleet started is recorded from its next fact.
 
