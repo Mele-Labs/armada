@@ -82,7 +82,7 @@ pub use main_ci::{
 };
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
-    CheckRow, CheckStanding, CommitLine, FileChange, Mergeability, Omitted, PageFile,
+    CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
     PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};

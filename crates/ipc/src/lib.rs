@@ -435,7 +435,7 @@ pub use proposing::{
 };
 pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
-    PullRequestFile, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
+    PullRequestFile, PullRequestFileOf, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
     PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
 };

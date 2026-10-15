@@ -87,6 +87,7 @@ pub mod onto_base;
 mod pull_request_detail;
 mod pull_request_diff;
 mod pull_request_facts;
+mod pull_request_patch;
 mod pull_request_writes;
 mod pull_watch;
 /// What a Link's address names, and the call that fetches it. `#1293`.

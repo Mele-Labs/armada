@@ -106,6 +106,18 @@ pub struct PageFile {
     pub change: FileChange,
 }
 
+/// What the forge holds for one file of a pull request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FilePatch {
+    /// The file's hunks as the forge prints them, with no `diff --git` header.
+    Patch(String),
+    /// The pull request has the file and the forge gave no patch for it: a
+    /// binary file, or a change the forge will not show.
+    NoPatch,
+    /// The forge listed the pull request's files and this was not one.
+    NoSuchFile,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommitLine {
     /// The first seven characters.

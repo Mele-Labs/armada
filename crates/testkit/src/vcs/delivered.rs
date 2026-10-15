@@ -15,6 +15,8 @@ pub enum Delivered {
     MarkedReady { pull_request: String },
     /// The forge was asked for a pull request's page.
     ReadPullRequestPage { pull_request: String },
+    /// The forge was asked for one file's patch on a pull request.
+    ReadPullRequestFilePatch { pull_request: String, path: String },
     /// Something was written on a pull request.
     WroteOnPullRequest {
         pull_request: String,

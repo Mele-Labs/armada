@@ -4,7 +4,7 @@
 //! holding this fake exists.
 
 use adapter_traits::{
-    PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, Remark,
+    FilePatch, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, Remark,
     UnderReview,
 };
 
@@ -19,6 +19,8 @@ pub(super) struct PullRequests {
     pub(super) ready: Result<(), String>,
     /// What the forge answers for a pull request's page. `None` is silence.
     pub(super) page: Option<PullRequestPageFacts>,
+    /// What the forge answers for one file's patch. `None` is silence.
+    pub(super) file_patch: Option<FilePatch>,
     /// The forge's reply to a write on a pull request.
     pub(super) written: Result<(), String>,
     /// What the forge's facts become once a merge, a ready or an auto-merge is
@@ -33,6 +35,7 @@ impl Default for PullRequests {
             facts: None,
             ready: Ok(()),
             page: None,
+            file_patch: None,
             written: Ok(()),
             follows_writes: true,
         }
@@ -117,6 +120,18 @@ impl FakeVcs {
         self.pull_requests.lock().expect("not poisoned").page.clone()
     }
 
+    /// `Delivery::pull_request_file_patch`: recorded, then answered as scripted.
+    pub(super) fn file_patch_read(&self, pull_request: &str, path: &str) -> Option<FilePatch> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadPullRequestFilePatch {
+                pull_request: pull_request.to_string(),
+                path: path.to_string(),
+            });
+        self.pull_requests.lock().expect("not poisoned").file_patch.clone()
+    }
+
     /// `Delivery::write_pull_request`: recorded, then answered as scripted.
     pub(super) fn write_asked(
         &self,
@@ -136,6 +151,11 @@ impl FakeVcs {
     /// Say what the forge shows on a pull request's page, or that it is silent.
     pub fn now_pull_request_page(&self, page: Option<PullRequestPageFacts>) {
         self.pull_requests.lock().expect("not poisoned").page = page;
+    }
+
+    /// Say what the forge holds for a file's patch, or that it is silent.
+    pub fn now_pull_request_file_patch(&self, patch: Option<FilePatch>) {
+        self.pull_requests.lock().expect("not poisoned").file_patch = patch;
     }
 
     /// Say that a write on a pull request is refused, in the forge's own sentence.

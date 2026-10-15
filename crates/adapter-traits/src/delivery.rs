@@ -955,6 +955,17 @@ pub trait Delivery {
         pull_request: &str,
     ) -> Option<crate::PullRequestPageFacts>;
 
+    /// One file's patch on a pull request, read when a person opens the file.
+    /// **`None` is the forge's silence**, for [`landed`](Delivery::landed)'s
+    /// reason; a file the forge gave no patch for is
+    /// [`FilePatch::NoPatch`], which is an answer.
+    fn pull_request_file_patch(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+        path: &str,
+    ) -> Option<crate::FilePatch>;
+
     /// Write on a pull request: a comment, an approval, a request for changes.
     ///
     /// **A write to the forge, taken only from a person's ask**, like

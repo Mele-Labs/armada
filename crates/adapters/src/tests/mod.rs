@@ -50,6 +50,7 @@ mod merging_in;
 mod merging_by_push;
 mod pull_request_detail;
 mod pull_request_facts;
+mod pull_request_patch;
 mod reading_in;
 mod reclaim;
 mod remembering;

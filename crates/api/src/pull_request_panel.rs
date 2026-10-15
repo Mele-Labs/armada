@@ -1,7 +1,8 @@
-//! `get_pull_request_detail` and `write_pull_request`. Since 23.83.
+//! `get_pull_request_detail`, `get_pull_request_file` and `write_pull_request`. Since 23.83;
+//! the file read since 23.87.
 
 use axum::body::Bytes;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::ManifestId;
@@ -20,6 +21,21 @@ pub(crate) async fn get_pull_request_detail<D: PullRequestPanel>(
         .await
     {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_pull_request_file<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path((repository, number)): Path<(String, u64)>,
+    Query(of): Query<ipc::PullRequestFileOf>,
+) -> Response {
+    match served
+        .daemon()
+        .get_pull_request_file(ManifestId::carried(repository), number, of.path)
+        .await
+    {
+        Ok(file) => answer(StatusCode::OK, &file, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -7,7 +7,7 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, PullRequestPage, WritePullRequest};
+use ipc::{ManifestId, PullRequestFilePatch, PullRequestPage, WritePullRequest};
 
 use crate::daemon::Refusal;
 
@@ -19,6 +19,16 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         manifest_id: ManifestId,
         number: u64,
     ) -> impl Future<Output = Result<PullRequestPage, Refusal>> + Send;
+
+    /// `get_pull_request_file` — one file's patch, read when a person opens it.
+    /// [`Refusal::Fault`] where the forge would not answer,
+    /// [`Refusal::Unacceptable`] for a path the pull request does not list.
+    fn get_pull_request_file(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        path: String,
+    ) -> impl Future<Output = Result<PullRequestFilePatch, Refusal>> + Send;
 
     /// `write_pull_request` — a comment, an approval or a request for changes.
     /// **A write to a shared place, a person's ask.** Answers the page read

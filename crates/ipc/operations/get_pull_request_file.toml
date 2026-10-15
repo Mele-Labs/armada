@@ -1,0 +1,14 @@
+[operations.get_pull_request_file]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "One file of a pull request as a patch, read when a person opens it from the panel's Files tab"
+notes = """
+`GET /pull_request_files/:repository/:number?path=<path>`, `repository` a manifest id and `path` a file as `get_pull_request_detail`'s `files` names it. Since 23.87. Answers `PullRequestFilePatch`. **Read apart from the page**: a pull request's patches can be larger than everything else on it, so none rides `PullRequestPage`.
+
+`patch` is the forge's own patch for the file, hunks only, with no `diff --git` header. A file the forge holds no patch for (binary, or a change it will not show) answers 200 with `patch` absent and `said` Fleet's sentence. A path the pull request does not list is a 422 `fleet.pull_request_file_unknown`.
+
+Refused with a 500 `fleet.pull_request_unreadable` where the forge would not answer, and a 422 for a repository Fleet does not serve.
+
+`agent_access` is `Bridge only`: the page already gives an agent the file list, and the door has no query string to carry `path`.
+"""
