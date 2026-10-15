@@ -136,7 +136,7 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 | The reading of a repository's open pull requests | Asks for the rows of all of them in one call, and puts each owner on the merge line's pull request and on the panel's page as `owner` (kind, id, machine, `this_machine`) |
 | A pull request is in the last reading and not in this one | Deletes its row |
 
-**None of it can fail the claim or the delivery.** A store that cannot be reached, a machine signed out and a switch that is off leave the row unwritten and the field absent, and a claim is made all the same. The panel's page carries what the last reading found and makes no call of its own.
+**None of it can fail the claim or the delivery.** A store that cannot be reached, a repository bound to no profile (or to one signed out) and a switch that is off leave the row unwritten and the field absent, and a claim is made all the same. The panel's page carries what the last reading found and makes no call of its own.
 
 **Bridge draws a row as a chip.** The kind's glyph (`square-terminal` for a Session, `box` for a Job) and the short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name. A pull request with no row draws no chip, in the merge line's open pull requests and in the Pull request panel. The chip is drawn from the wire's `owner`. The switch is *Pull request owners* in the Policy section of the Manifest form.
 
