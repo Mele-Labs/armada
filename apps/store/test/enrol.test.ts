@@ -1,24 +1,10 @@
-import { env } from "cloudflare:workers";
-import { runInDurableObject } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { STORE, call, toStore, claim, enrolDevice, forgeAnswers, hash, holder, newKeyPair } from "./support";
+import { STORE, call, toStore, claim, enrolDevice, everythingStoredFor, forgeAnswers, hash, holder, newKeyPair } from "./support";
 
 afterEach(() => vi.restoreAllMocks());
 
 const enrol = (body: unknown) =>
   toStore(`${STORE}/v1/enrol`, { method: "POST", body: JSON.stringify(body) });
-
-/** Everything a Durable Object holds, as text. */
-async function everythingStoredFor(account: number): Promise<string> {
-  const stub = env.ACCOUNT.get(env.ACCOUNT.idFromName(String(account)));
-  return runInDurableObject(stub, (_instance, state) => {
-    const sql = state.storage.sql;
-    const tables = sql
-      .exec<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'")
-      .toArray();
-    return JSON.stringify(tables.map(({ name }) => ({ name, rows: sql.exec(`SELECT * FROM ${name}`).toArray() })));
-  });
-}
 
 describe("enrolling a device", () => {
   it("files it under the forge's numeric id and keeps no token", async () => {

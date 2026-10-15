@@ -53,10 +53,15 @@ export async function enrol(request: Request, env: Env): Promise<Response> {
     return refuse(400, "invalid_public_key");
   }
 
+  // Past this point every request costs a call to the forge, so this is where an address is counted.
+  const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!(await env.ENROL_LIMIT.limit({ key: address })).success) return refuse(429, "enrol_rate_limited");
+
   const account = await accountOf(token, env);
   if (account instanceof Response) return account;
 
   const device = `${account}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
-  await env.ACCOUNT.get(env.ACCOUNT.idFromName(String(account))).register(device, publicKey, machine);
+  const placed = await env.ACCOUNT.get(env.ACCOUNT.idFromName(String(account))).register(device, publicKey, machine);
+  if (placed === "full") return refuse(413, "devices_full");
   return Response.json({ device });
 }

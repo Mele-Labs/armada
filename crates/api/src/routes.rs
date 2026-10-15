@@ -270,6 +270,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route("/sessions/done", post(crate::sessions::all_done::<D>))
         .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))
+        .route("/sessions/annotation_done", post(crate::sessions::mark_annotation_done::<D>))
         .route(
             "/sessions/waiting/answer",
             post(crate::hosted_sessions::answer_waiting::<D>),

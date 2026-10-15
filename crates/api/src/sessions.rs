@@ -257,6 +257,22 @@ pub(crate) async fn finish_up<D: Sessions>(
     }
 }
 
+/// The agent marks done a note Bridge sent it. 200 with the path written; 422 for a note that is not
+/// there or not this session's. **The session is placed by the connection**, as `finish_up`'s is.
+pub(crate) async fn mark_annotation_done<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let mark: ipc::MarkAnnotationDone = match ipc::decode("which note is done", &body) {
+        Ok(mark) => mark,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().mark_annotation_done(crate::acting::asking(), mark).await {
+        Ok(marked) => answer(StatusCode::OK, &marked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?manifest_id=`, `?q=`, `?state=` and `?view=` on `list_sessions`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {

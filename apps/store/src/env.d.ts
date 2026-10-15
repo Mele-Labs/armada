@@ -4,6 +4,7 @@ declare global {
   namespace Cloudflare {
     interface Env {
       ACCOUNT: DurableObjectNamespace<Account>;
+      ENROL_LIMIT: RateLimit;
       FORGE_USER_URL?: string;
     }
   }

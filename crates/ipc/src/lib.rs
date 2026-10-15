@@ -26,6 +26,8 @@
 
 /// The account a machine is signed in to, its profiles, and the sign-in in flight.
 mod accounts;
+/// A note Bridge's annotation layer wrote, marked done by the session it was sent to.
+pub mod annotations;
 /// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
 /// holds, never stored** — which is why nothing publishes `alert.raised`.
 mod alerts;
@@ -266,6 +268,7 @@ mod work_plan;
 mod tests;
 
 pub use alerts::{Alert, AlertList};
+pub use annotations::{AnnotationMarked, MarkAnnotationDone};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft, PolicyWords,

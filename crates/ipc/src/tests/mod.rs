@@ -19,6 +19,7 @@
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
 mod accounts;
+mod annotations;
 mod building;
 mod capacity;
 /// A refused command, and the answers a person has for it.

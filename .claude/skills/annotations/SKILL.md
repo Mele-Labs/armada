@@ -14,18 +14,22 @@ A note with `scope: "window"` is on the whole window rather than one element:
 its `<id>.png` is the window, and its `context` names the open Job or Session and
 Doctor's read — start from those, not from `selector`, which is just `body`.
 
-**Two ways a note reaches work.** In the layer, *Send to Fleet* proposes it as a
-Job at the approval gate, and the note carries `sent` with that Job's handle.
-This skill is the other way: a session reads the notes itself. Never do both to
-one note — a note with `sent` belongs to its Job.
+**Three ways a note reaches work.** In the layer, *Send to Fleet* proposes it as
+a Job at the approval gate, and sending it to a Session messages that Session;
+either way the note carries `sent` with where it went. This skill is the third:
+a session reads the notes itself. Never two to one note — a note with `sent`
+belongs to the Job or Session it went to.
 
 ## The loop
 
 ### 1. Read the open notes
 
 ```
-setopt nullglob; ls .armada/annotations/ .claude/worktrees/*/.armada/annotations/
+setopt nullglob; ls .armada/annotations/ .armada/preview/.armada/annotations/ .armada/slots/*/.armada/annotations/ .claude/worktrees/*/.armada/annotations/
 ```
+
+**Bridge run from the preview writes its notes under
+`.armada/preview/.armada/annotations/`.**
 
 **The shell is zsh, and a glob that matches nothing aborts the whole line.**
 Without `nullglob`, no worktree holding notes means `no matches found` and not
@@ -41,7 +45,7 @@ folder is deleted with the worktree, so when it is done, copy it into the main
 checkout's folder, marked `done`, before the worktree is given back.
 
 Read every file. Skip `status: "done"`, and skip any with `sent` — say which Job
-each went to, so the owner knows it is not lost. Group what is left by
+or Session each went to, so the owner knows it is not lost. Group what is left by
 `component`: three notes on one component are one change.
 
 ### 2. Find the code from the note, not from a guess
@@ -154,8 +158,10 @@ the contract wins, and the proof is a story or a mock test, not a screenshot.
 
 ### 5. Mark it done
 
-Set `status` to `"done"` and `updatedAt` to now, in the file, once its change is
-merged or its question answered. The layer re-reads the files each time it is
+Once its change is merged or its question answered: **a note sent to your
+session**, call `mark_annotation_done` with its id; it refuses a note sent to
+any other. A note not sent to a session, set `status` to `"done"` and
+`updatedAt` to now, in the file. The layer re-reads the files each time it is
 turned on, so the pin is gone there and the numbering closes over it — the bar
 says how many are done and shows them again on request. **Never delete a note**,
 unless the owner says to. He deletes his own.

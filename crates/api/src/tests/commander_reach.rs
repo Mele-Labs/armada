@@ -172,6 +172,7 @@ const THE_PERSONS_OWN_TOOLS: &[&str] = &[
     "start_server",
     "stop_server",
     "finish_up",
+    "mark_annotation_done",
     "scaffold_mod",
 ];
 
