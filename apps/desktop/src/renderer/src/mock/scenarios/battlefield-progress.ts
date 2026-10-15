@@ -10,7 +10,7 @@ import { workingAPlan } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";
-import { FEATURED, SUBAGENTS, buildAt, subagentsBuild } from "../battlefield-story";
+import { FEATURED, SUBAGENTS, SWARM, buildAt, subagentsBuild, swarmBuild } from "../battlefield-story";
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore, type SessionsStore } from "../sessions/script";
@@ -77,13 +77,26 @@ const crew: Session = {
   attachments: [{ kind: "branch", name: "armada/ring-workers", slot: 4 }],
 };
 
+/** The Session with ten subagents: no ring until the walk's last moment. */
+const swarm: Session = {
+  id: SWARM,
+  title: "Split the cockpit panels",
+  manifestId: ARMADA,
+  turn: { state: "working" },
+  lastTurn: "14:11",
+  lastTurnAt: ago(1),
+  standing: "working",
+  rows: [ask("b4-u", "14:00:00", "Split the cockpit into panels, one subagent for each."), tool("b4-t", "14:11:10", "Edit apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx")],
+  attachments: [{ kind: "branch", name: "armada/cockpit-panels", slot: 5 }],
+};
+
 /** The turn ends when the pull request opens: the Session waits on its Checks. */
 const SETTLED: Partial<Session> = { turn: { state: "idle" }, standing: "idle", lastTurn: "14:52", lastTurnAt: new Date().toISOString() };
 
 function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const store = sessionsStore([none, none], none, [], control, [], [dock, clock, crew]);
-  const own = new Set([dock.id, clock.id, crew.id]);
+  const store = sessionsStore([none, none], none, [], control, [], [dock, clock, crew, swarm]);
+  const own = new Set([dock.id, clock.id, crew.id, swarm.id]);
   let moment = 0;
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
@@ -100,7 +113,8 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
     stop: (id) => store.edit(id, (one) => ({ ...one, turn: { state: "idle" }, standing: "idle", lastTurnAt: new Date().toISOString() })),
     later() {
       moment += 1;
-      if (moment > 8) store.edit(SUBAGENTS, (one) => ({ ...one, build: subagentsBuild() }));
+      if (moment === 9) store.edit(SUBAGENTS, (one) => ({ ...one, build: subagentsBuild() }));
+      else if (moment === 10) store.edit(SWARM, (one) => ({ ...one, build: swarmBuild() }));
       else store.edit(FEATURED, (one) => ({ ...one, build: buildAt(moment), ...(moment === 5 ? SETTLED : {}) }));
     },
   };
@@ -128,7 +142,7 @@ function pool(): WorktreesHeld {
       bay(2, { state: "hosted_session", session_id: clock.id, session_title: clock.title! }, { branch: "fix/pin-store-clock", since: ago(40) }),
       bay(3, { state: "job", job_id: cache.job.id, job_title: cache.job.title }, { branch: "armada/91-cache", since: ago(17) }),
       bay(4, { state: "hosted_session", session_id: crew.id, session_title: crew.title! }, { branch: "armada/ring-workers", since: ago(15) }),
-      bay(5, { state: "free" }),
+      bay(5, { state: "hosted_session", session_id: swarm.id, session_title: swarm.title! }, { branch: "armada/cockpit-panels", since: ago(12) }),
     ],
   };
 }
@@ -156,12 +170,15 @@ function placed(): TimelineEvent[] {
     event(40, sessionWho(clock), "session.started", "run", "Started", { live: true }),
     event(15, sessionWho(crew), "session.started", "run", "Started", { live: true }),
     edited(5, sessionWho(crew), ["apps/desktop/src/renderer/src/cockpit/deck/ring.tsx", "apps/desktop/src/renderer/src/cockpit/deck/build.ts"]),
+    event(12, sessionWho(swarm), "session.started", "run", "Started", { live: true }),
+    edited(4, sessionWho(swarm), ["apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx", "apps/desktop/src/renderer/src/cockpit/deck/Bays.tsx"]),
     edited(20, sessionWho(clock), ["crates/store/tests/clock.rs", "crates/store/tests/pool.rs"]),
     event(17, job, "job.started", "run", "Started", { live: true }),
     event(10, job, "job.files", "run", "Changed 1 file", { detail: "packages/components/src/Tabs.tsx", live: true }),
     lease(720, sessionWho(dock), 1),
     lease(40, sessionWho(clock), 2),
     lease(15, sessionWho(crew), 4),
+    lease(12, sessionWho(swarm), 5),
     lease(17, job, 3),
   ];
 }
@@ -173,8 +190,8 @@ function build(): Scenario {
     ...base,
     state: { ...base.state, repository: null, jobs, mergeLines: lines(0) },
     held: pool(),
-    // Moments 1 to 8: the Session's turn ends and its pull request opens at the fifth, is queued at the sixth and merges at the seventh. The ninth draws another Session's subagents.
-    later: Array.from({ length: 9 }, (_, i) => ({ mergeLines: lines(i + 1) })),
+    // Moments 1 to 8: the Session's turn ends and its pull request opens at the fifth, is queued at the sixth and merges at the seventh. The ninth and tenth draw other Sessions' subagents.
+    later: Array.from({ length: 10 }, (_, i) => ({ mergeLines: lines(i + 1) })),
     draft: { sessions, events: placed(), areas: mockAreas },
   };
 }

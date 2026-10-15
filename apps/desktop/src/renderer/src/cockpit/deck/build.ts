@@ -63,8 +63,48 @@ export const dimOf = (quiet: number): number => (quiet < STALL_MIN ? 0 : 0.3 + 0
 export const askedOf = (label: string): string => label.replace(/^[^:]*: /, "");
 
 /**
- * Where a worker sits on the ring, in degrees as the ring's sectors are laid (from the top, clockwise): the middle of the pieces it
- * wrote. None where it has written none.
+ * The tasks in the order the ring draws them: the Session's own keep list order, and each subagent's are drawn together as one stretch, the
+ * stretches in the order each subagent's first task appears, each where that first task stood. Subagents share one list, so parallel ones
+ * arrive interleaved. A finished subagent's stretch stays.
+ */
+export function groupedTasks<T extends { by?: string }>(tasks: readonly T[]): T[] {
+  const out: T[] = [];
+  const done = new Set<string>();
+  for (const task of tasks) {
+    if (task.by === undefined) out.push(task);
+    else if (!done.has(task.by)) {
+      done.add(task.by);
+      out.push(...tasks.filter((one) => one.by === task.by));
+    }
+  }
+  return out;
+}
+
+/** Radii a worker is drawn at in the column, outer first, and its half-width: the outer tier by the stretch, the inner a step inward where the outer is crowded. */
+const TIERS = [19, 10] as const;
+const HALF = 4.5;
+/** Where each running worker is drawn in the column: the middle of its stretch, at the outer tier unless another is too near, then a step inward. A worker with no stretch has no seat. */
+export function seatedWorkers(tasks: readonly Pick<Task, "by">[], workers: readonly string[]): { label: string; angle: number; radius: number }[] {
+  const wanted = workers.flatMap((label) => {
+    const angle = seatOf(tasks, label);
+    return angle === undefined ? [] : [{ label, angle }];
+  });
+  const apart = (a: number, b: number) => Math.abs((((a - b) % 360) + 540) % 360 - 180);
+  const tiers: number[][] = TIERS.map(() => []);
+  const placed = new Map<string, number>();
+  for (const one of [...wanted].sort((a, b) => a.angle - b.angle)) {
+    const room = (t: number) => tiers[t]!.every((other) => apart(other, one.angle) >= (2 * Math.asin(HALF / TIERS[t]!) * 180) / Math.PI);
+    const tier = TIERS.findIndex((_, t) => room(t));
+    const chosen = tier < 0 ? 0 : tier;
+    tiers[chosen]!.push(one.angle);
+    placed.set(one.label, TIERS[chosen]!);
+  }
+  return wanted.map((one) => ({ ...one, radius: placed.get(one.label)! }));
+}
+
+/**
+ * Where a worker sits on the ring, in degrees as the ring's sectors are laid (from the top, clockwise): the middle of its stretch, the pieces it
+ * wrote, which `groupedTasks` has made contiguous. None where it has written none.
  */
 export function seatOf(tasks: readonly Pick<Task, "by">[], label: string): number | undefined {
   const mine = tasks.flatMap((task, k) => (task.by === label ? [k] : []));
@@ -110,7 +150,7 @@ export function buildInOf(id: string, build: SessionBuild, now: number, events: 
     key: `session:${id}`,
     phase: build.phase,
     reached,
-    tasks: build.pieces.map((one) => ({ text: one.text, piece: one.piece, ...(one.by === undefined ? {} : { by: one.by }) })),
+    tasks: groupedTasks(build.pieces.map((one): Task => ({ text: one.text, piece: one.piece, ...(one.by === undefined ? {} : { by: one.by }) }))),
     markers: build.phase === "scope" ? markersOf(events, id) : [],
     workers: build.workers,
     ...stall,

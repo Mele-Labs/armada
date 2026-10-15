@@ -8,7 +8,7 @@ import { Tooltip } from "@armada/components";
 import { SAID } from "./BuildCard";
 import { SessionGlyph } from "./Drone";
 import { RingArt } from "./ring";
-import { arcSaid, arcWord, arcsOf, askedOf, bandOf, glyphOf, roadOf, seatOf, wordOf, type BuildIn } from "./build";
+import { arcSaid, arcWord, arcsOf, askedOf, bandOf, glyphOf, roadOf, seatedWorkers, wordOf, type BuildIn } from "./build";
 import { AskUpdate } from "./AskUpdate";
 import "./build.css";
 
@@ -46,11 +46,11 @@ function Structure({ build }: { build: BuildIn }) {
       />
       {seated(build).map(({ label, x, y }) => (
         <Tooltip key={label} label={askedOf(label)} asChild>
-          <g className="bf-col__worker" role="img" aria-label={`Subagent, ${askedOf(label)}`} tabIndex={0} transform={`translate(${x} ${y})`}>
-            <g transform="scale(0.27)">
+          <g className="bf-col__worker" role="img" aria-label={`Subagent, ${askedOf(label)}`} tabIndex={0} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`}>
+            <g transform="scale(0.2)">
               <SessionGlyph />
             </g>
-            <circle className="bf-col__hit" r={7} />
+            <circle className="bf-col__hit" r={4.5} />
           </g>
         </Tooltip>
       ))}
@@ -58,15 +58,15 @@ function Structure({ build }: { build: BuildIn }) {
   );
 }
 
-/** Where each running subagent sits inside the ring: by the pieces it wrote, else spread about the middle. */
+/** Where each running subagent sits inside the ring: beside its own stretch, a step inward where the stretches are too close for the drones. One with no stretch is spread about the middle. */
 function seated(build: BuildIn): { label: string; x: number; y: number }[] {
-  const unseated = build.workers.filter((label) => seatOf(build.tasks, label) === undefined);
+  const at = (deg: number, r: number) => ({ x: r * Math.cos((deg * Math.PI) / 180), y: r * Math.sin((deg * Math.PI) / 180) });
+  const own = new Map(seatedWorkers(build.tasks, build.workers).map((one) => [one.label, one] as const));
+  const loose = build.workers.filter((label) => !own.has(label));
   return build.workers.map((label) => {
-    const seat = seatOf(build.tasks, label);
-    if (seat !== undefined) return { label, x: 17 * Math.cos((seat * Math.PI) / 180), y: 17 * Math.sin((seat * Math.PI) / 180) };
-    if (unseated.length === 1) return { label, x: 0, y: 0 };
-    const turn = ((-90 + (unseated.indexOf(label) * 360) / unseated.length) * Math.PI) / 180;
-    return { label, x: 7 * Math.cos(turn), y: 7 * Math.sin(turn) };
+    const seat = own.get(label);
+    if (seat !== undefined) return { label, ...at(seat.angle, seat.radius) };
+    return { label, ...(loose.length === 1 ? { x: 0, y: 0 } : at(-90 + (loose.indexOf(label) * 360) / loose.length, 4)) };
   });
 }
 

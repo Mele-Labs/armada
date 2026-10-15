@@ -13,7 +13,7 @@ const opened = [
 ] as const;
 
 const battlefieldProgress = walk("battlefield-progress", [
-  { look: map, say: "Scope. One repository, four drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question. Inside it a faint outline of a ring, whole and unsegmented: there is no task list yet, so nothing says how much is left. Outside it a thinner ring of faint arcs, the road this repository's Sessions usually take, with nothing lit" },
+  { look: map, say: "Scope. One repository, five drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question. Inside it a faint outline of a ring, whole and unsegmented: there is no task list yet, so nothing says how much is left. Outside it a thinner ring of faint arcs, the road this repository's Sessions usually take, with nothing lit" },
   { later: places, say: "It writes a list of seven tasks" },
   { look: map, say: "Plan. A ring lies on the ground under the drone, one dashed ghost segment for each task. The survey is gone" },
   { later: places, say: "Edits land, four subagents start, and four tasks are done" },
@@ -55,6 +55,11 @@ const battlefieldProgress = walk("battlefield-progress", [
   { look: build, say: "The ring tall in the column. The running subagent is drawn inside the ring beside its two pieces, marked with the same dots. Hover a dotted piece or the drone for what the subagent was asked" },
   { hover: inside(build, role("img", /^Subagent, map the worker call sites/)), say: "The worker says what it was asked" },
   { hover: inside(build, role("img", /^Test where a worker sits/)), say: "A finished subagent's piece says its task, its state and what that subagent was asked" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { later: places, say: "A fifth Session splits the cockpit into panels with ten subagents. Their tasks reach the one list interleaved, round by round" },
+  { press: deckRow("Split the cockpit panels"), say: "Open the Session" },
+  { look: build, say: "Ten subagents. Each one's tasks are drawn together as one stretch of the ring, in the order the subagents started, with a wider gap at each end of the stretch and a thin arc inside it. The Session's own tasks keep their order around them. Six subagents are still running: each is a small drone beside its own stretch, a step inward where the stretches are close, and none overlaps another. The four that finished have no drone, and their stretches stay" },
+  { hover: inside(build, role("img", /^Subagent, split the deck panel/)), say: "A drone says what its subagent was asked" },
 ]);
 
 export { battlefieldProgress };

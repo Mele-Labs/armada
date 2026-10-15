@@ -52,3 +52,5 @@ stops in the scope phase.
 | With no task list the ring is one unsegmented band: a faint outline while scoping or planning, an even scaffold texture once edits are seen, solid when landed. The texture turns only while the drone is writing | A partial fill implies a fraction nobody measured |
 | Wherever a ring is drawn, a button asks for an update: the column's header, the drone's pinned card, a Job's mission | He wants an answer without opening the thread |
 | A Session is sent the words through its composer's call. A Job's go to its Commander. The button reads sent until the reply is in the thread, or five minutes where no reply can be seen | A Job's Commander thread is not held by the deck |
+
+15 Oct 2026: many subagents — each subagent gets its own arc, grouped in the order they started; the main agent's tasks keep list order.

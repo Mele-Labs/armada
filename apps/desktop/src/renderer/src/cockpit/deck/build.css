@@ -26,6 +26,7 @@
 /* Hollow: done and no edit seen, outlined and not filled. */
 .bf-pc[data-state="hollow"] .bf-pc__seg { fill: none; stroke: var(--fg-default); stroke-opacity: 0.8; stroke-width: 1.4; }
 /* A subagent's piece carries a dot at its middle, the mark of the worker that wrote it. */
+.bf-grp { fill: none; stroke: var(--fg-muted); stroke-width: 1; stroke-linecap: round; stroke-opacity: 0.7; pointer-events: none; }
 .bf-pc__by { fill: var(--fg-default); fill-opacity: 0.85; pointer-events: none; }
 /* The unfinished part dims the longer the turn sits quiet. */
 .bf-pc[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
