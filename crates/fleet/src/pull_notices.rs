@@ -144,8 +144,9 @@ where
         let root = served.root().to_string();
         // Before the forge is asked, which may not answer: the pool is local.
         self.slot_rows_followed(served).await;
+        let gate = served.manifest().ci_gate().to_string();
         let Some(watched) = self
-            .forge_asked(&root, |vcs: &V, root: &str| vcs.pull_watch(root))
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_watch(root, &gate))
             .await
         else {
             return;

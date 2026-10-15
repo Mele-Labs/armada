@@ -27,7 +27,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use adapter_traits::{CiConfiguration, LinkLookup, ModelClient};
+use adapter_traits::{CiConfiguration, ModelClient, Trackers};
 use core_model::{JobId, Ulid};
 use tokio::sync::Mutex;
 
@@ -103,7 +103,7 @@ pub struct Fleet<H, V, W> {
     /// **Minted here, not a fitting** — nothing outside this crate holds one,
     /// and it is empty after a restart because a proposal is not a record.
     proposals: Proposals,
-    links: Arc<dyn LinkLookup + Send + Sync>,
+    trackers: Arc<dyn Trackers + Send + Sync>,
     /// The tracker, the issue lists last read from it, and when Fleet last
     /// wrote back. Never written down but for what was said — `crate::tracking`.
     tracking: crate::tracking::Tracking,

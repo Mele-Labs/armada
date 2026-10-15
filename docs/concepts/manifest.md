@@ -893,6 +893,27 @@ policy:
 
 **The repository writes it, and Fleet never guesses.** A file found by convention would put whatever sat at that path in front of every Judge.
 
+## `tracker` and `ci_gate`
+
+Two top-level keys say where a repository keeps what the forge does not decide for it. Both are optional, and a repository that writes neither is read exactly as it was before they existed.
+
+```yaml
+ci_gate: build
+tracker:
+  provider: jira
+  site: acme
+  project: ABC
+```
+
+| Key | Absent | Meaning |
+|---|---|---|
+| `tracker` | The forge's own tracker | Which tracker holds the repository's issues. `provider` names the implementation and every other key is carried as written, for that provider to read and refuse. `concepts/tracker.md`, *Choosing a tracker* and *Jira* |
+| `ci_gate` | `ci` | The name of the check on a pull request that decides its `ci`. Where a pull request carries a check of that name only that one decides; where it carries none, every check does. `capabilities/merge-line.md` |
+
+- **A key that is not text is refused at its own path** (`tracker.site`, `ci_gate`), and the rest of the Manifest still reads. A refused `ci_gate` reads as `ci`.
+- **A `tracker` block the provider cannot use is not a refused Manifest.** The repository's issues answer with the reason, and nothing else about it changes.
+- **Both are read when Fleet starts.** A save that changes either is reported as frozen, waiting for a restart, as the keys read at that time are.
+
 ## Still open
 
 The engineer-facing walk from "add a new repo" to a working Manifest is designed as the Set Up a Project (Manifest) journey — tracked there, not as an open item here. The full set of dials scoped to a Manifest is a row in the Configuration Settings registry; `../contracts/configuration.md` owns the tiering rule, which is why no list of them appears in prose here.

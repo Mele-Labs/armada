@@ -178,18 +178,21 @@ where
             .vcs()
             .pull_request_facts(root, &named)
             .ok_or_else(unreadable)?;
-        let checks =
-            checks_of(&self.vcs().under_review(root, &named).checks).ok_or_else(unreadable)?;
+        let served = self.served_named(Some(manifest_id))?;
+        let checks = checks_of(
+            &self
+                .vcs()
+                .under_review(root, &named, served.manifest().ci_gate())
+                .checks,
+        )
+        .ok_or_else(unreadable)?;
         // Only an open pull request waits in the queue, and a forge that will not
         // say leaves it out of the queue: the read stays the pull request's own.
         let queued = facts.standing == Forge::Open
-            && self
-                .served_named(Some(manifest_id))
-                .ok()
-                .and_then(|served| {
-                    let base = served.manifest().base()?.to_string();
-                    self.vcs().merge_queue(root, &base)
-                })
+            && served
+                .manifest()
+                .base()
+                .and_then(|base| self.vcs().merge_queue(root, base))
                 .is_some_and(|queue| queue.iter().any(|entry| entry.number == number));
         Ok(PullRequestState {
             manifest_id: manifest_id.clone(),

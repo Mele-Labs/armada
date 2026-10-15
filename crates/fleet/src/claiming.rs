@@ -78,8 +78,9 @@ where
         };
         let root = served.root().to_string();
         let number = claim.number;
+        let gate = served.manifest().ci_gate().to_string();
         let pull = self
-            .forge_asked(&root, |vcs: &V, root: &str| vcs.pull_watch(root))
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_watch(root, &gate))
             .await
             .unwrap_or_default()
             .into_iter()

@@ -313,7 +313,8 @@ impl Delivery for FakeVcs {
         }
     }
 
-    fn under_review(&self, _in_repo: &str, pull_request: &str) -> UnderReview {
+    fn under_review(&self, _in_repo: &str, pull_request: &str, gate: &str) -> UnderReview {
+        self.main_ci.gated_by(gate);
         self.delivered
             .lock()
             .expect("not poisoned")
@@ -361,11 +362,13 @@ impl Delivery for FakeVcs {
         self.main_ci.merge_queue()
     }
 
-    fn open_pull_requests(&self, _in_repo: &str) -> Option<adapter_traits::OpenPulls> {
+    fn open_pull_requests(&self, _in_repo: &str, gate: &str) -> Option<adapter_traits::OpenPulls> {
+        self.main_ci.gated_by(gate);
         self.main_ci.open_pulls()
     }
 
-    fn pull_watch(&self, _in_repo: &str) -> Option<adapter_traits::WatchedPulls> {
+    fn pull_watch(&self, _in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+        self.main_ci.gated_by(gate);
         self.main_ci.watched()
     }
 

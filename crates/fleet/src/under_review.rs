@@ -194,7 +194,9 @@ where
         url: &str,
     ) -> Option<(UnderReview, Option<Vec<Remark>>)> {
         let served = self.served_by_id(job).ok()?;
-        let read = self.vcs().under_review(served.root(), url);
+        let read = self
+            .vcs()
+            .under_review(served.root(), url, served.manifest().ci_gate());
         // **A forge that would not answer changes nothing that was already
         // known.** Recording the silence would erase the last real reading and
         // then write the same line again when it came back — `Landing::Unknown`

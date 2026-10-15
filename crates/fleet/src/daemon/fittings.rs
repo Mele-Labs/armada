@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, CiConfiguration, Delivery, LinkLookup, Model, ModelClient, Vcs, WorkProduct,
+    AgentHarness, CiConfiguration, Delivery, Model, ModelClient, Vcs, WorkProduct,
 };
 use config::{Manifest, ResolvedWorkflow};
 use core_model::WorkflowId;
@@ -295,13 +295,13 @@ pub struct Fittings<H, V, W> {
     /// it reads a whole Job and acts on it, and is raised for neither of the
     /// others' reasons.
     pub commander_model: Model,
-    /// What a request's own link resolves to, before it becomes a Job's
-    /// `facts`. **A pointer rather than a type parameter**, for `judge`'s
-    /// reason: rendering cannot fail, so nothing about it needs to be generic.
-    pub links: Arc<dyn LinkLookup + Send + Sync>,
     /// The tracker a repository's open issues are read from and written back
-    /// on. A pointer, for `links`' reason — `crate::tracking`. #91.
-    pub tracker: Arc<dyn adapter_traits::Tracker + Send + Sync>,
+    /// on, and what a request's own link in it resolves to before it becomes a
+    /// Job's `facts`; asked per repository with what its Manifest chose.
+    /// **A pointer rather than a type parameter**, for `judge`'s reason:
+    /// rendering cannot fail, so nothing about it needs to be generic.
+    /// `crate::tracking`. #91.
+    pub trackers: Arc<dyn adapter_traits::Trackers + Send + Sync>,
     /// What reads a repository's CI configuration for Scan. **A seam so Fleet
     /// names no provider**, and so a test can plant what a reader answers.
     pub ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
@@ -412,8 +412,8 @@ where
             aloft: Aloft::default(),
             underway: Underway::default(),
             proposals: Proposals::new(),
-            links: fittings.links,
-            tracking: crate::tracking::Tracking::with(fittings.tracker),
+            trackers: fittings.trackers,
+            tracking: crate::tracking::Tracking::new(),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
             downshift: Default::default(),

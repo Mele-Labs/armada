@@ -1,0 +1,97 @@
+//! [`Trackers`] scripted by a test: which tracker and link reader each provider
+//! gets, and every choice Fleet asked with. #91.
+//!
+//! **Keyed by provider**, so one Fleet over two repositories can be given two
+//! different fakes and a test can read which Manifest was answered by which.
+//! A provider nothing was planted for gets what the absent provider gets, and
+//! that is an empty tracker and a link reader that resolves nothing until a
+//! test says otherwise.
+
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+
+use adapter_traits::{LinkLookup, Tracker, TrackerChoice, Trackers};
+
+use crate::{FakeLinkLookup, FakeTracker};
+
+type Provider = Option<String>;
+
+pub struct FakeTrackers {
+    trackers: Mutex<BTreeMap<Provider, Arc<dyn Tracker + Send + Sync>>>,
+    links: Mutex<BTreeMap<Provider, Arc<dyn LinkLookup + Send + Sync>>>,
+    asked: Mutex<Vec<TrackerChoice>>,
+}
+
+impl FakeTrackers {
+    /// Lists nothing, takes every write and resolves no link, for every provider.
+    pub fn empty() -> FakeTrackers {
+        FakeTrackers {
+            trackers: Mutex::new(BTreeMap::from([(
+                None,
+                Arc::new(FakeTracker::empty()) as Arc<dyn Tracker + Send + Sync>,
+            )])),
+            links: Mutex::new(BTreeMap::from([(
+                None,
+                Arc::new(FakeLinkLookup::resolving_nothing()) as Arc<dyn LinkLookup + Send + Sync>,
+            )])),
+            asked: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// This tracker for a Manifest that names no provider, and so for any provider nothing was planted for.
+    pub fn tracker(self, tracker: Arc<FakeTracker>) -> FakeTrackers {
+        self.tracker_for(None, tracker)
+    }
+
+    /// This tracker for the Manifests that name `provider`.
+    pub fn tracker_named(self, provider: &str, tracker: Arc<FakeTracker>) -> FakeTrackers {
+        self.tracker_for(Some(provider.to_string()), tracker)
+    }
+
+    /// This link reader for a Manifest that names no provider, and so for any provider nothing was planted for.
+    pub fn links(self, links: Arc<FakeLinkLookup>) -> FakeTrackers {
+        self.links_for(None, links)
+    }
+
+    /// This link reader for the Manifests that name `provider`.
+    pub fn links_named(self, provider: &str, links: Arc<FakeLinkLookup>) -> FakeTrackers {
+        self.links_for(Some(provider.to_string()), links)
+    }
+
+    /// Every choice Fleet resolved a tracker or a link reader for, in order.
+    pub fn choices_asked(&self) -> Vec<TrackerChoice> {
+        self.asked.lock().expect("not poisoned").clone()
+    }
+
+    fn tracker_for(self, provider: Provider, tracker: Arc<FakeTracker>) -> FakeTrackers {
+        self.trackers
+            .lock()
+            .expect("not poisoned")
+            .insert(provider, tracker);
+        self
+    }
+
+    fn links_for(self, provider: Provider, links: Arc<FakeLinkLookup>) -> FakeTrackers {
+        self.links
+            .lock()
+            .expect("not poisoned")
+            .insert(provider, links);
+        self
+    }
+}
+
+impl Trackers for FakeTrackers {
+    fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync> {
+        self.asked.lock().expect("not poisoned").push(choice.clone());
+        let held = self.trackers.lock().expect("not poisoned");
+        let provider = choice.provider().map(String::from);
+        Arc::clone(held.get(&provider).unwrap_or_else(|| &held[&None]))
+    }
+
+    fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync> {
+        self.asked.lock().expect("not poisoned").push(choice.clone());
+        let held = self.links.lock().expect("not poisoned");
+        let provider = choice.provider().map(String::from);
+        Arc::clone(held.get(&provider).unwrap_or_else(|| &held[&None]))
+    }
+}
