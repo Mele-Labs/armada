@@ -952,10 +952,10 @@ governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
 
 ```
 title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · menu
-tabs        Cockpit · Jobs · Sessions · System        ⌘1 to ⌘4
+tabs        Cockpit · Jobs · Sessions · Studios · Retros · System        ⌘1 to ⌘6
 strip       under the tabs while System is the place
-            Kit · Mods · Settings · Guides · Workflows · Doctor · Studios · Retros
-menu        account · Sleep · Settings (⌘5)
+            Kit · Mods · Settings · Guides · Workflows
+menu        account · Sleep · Settings (⌘,) · Doctor
 ```
 
 > **Rule.** The window's places are declared, not derived from the surface roster.
@@ -1379,7 +1379,8 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 ⌘N       dispatch from a field, where n would type
-⌘1–⌘5    go to a tab: Cockpit, Jobs, Sessions or System, and ⌘5 to Settings
+⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
+⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)
@@ -1539,12 +1540,15 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘4` are the title bar's tabs and `⌘5` is Settings.** The tabs are Cockpit, Jobs,
-Sessions and System, in the order the bar draws them, and System opens the page last used
-there. The rule is the tab's place in the bar, not the number, so a tab added later
-moves what follows it. Settings keeps a digit because it is the one System page a person
-reaches often enough to want one; every other page is reached from the System strip, a
-link on the deck or the palette by name, and takes no key.
+**`⌘1`–`⌘6` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
+Sessions, Studios, Retros and System, in the order the bar draws them, and System opens
+the page last used there. The rule is the tab's place in the bar, not the number, so a tab
+added later moves what follows it. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
+(the owner: *"Studios and retros should live in the main bar at the top of the app"*), which
+moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform's own key for
+preferences. Doctor left the System strip the same day for the title bar's menu (*"Doctor
+should live in the menu in the top right"*). Every other page is reached from the System
+strip, a link on the deck or the palette by name, and takes no key.
 
 **The rail's digits are gone with the rail (#2301).** Until then `⌘1`–`⌘9` followed the
 rail's rows, and each arrival of a row moved the digits behind it: Held worktrees (now
@@ -1555,7 +1559,7 @@ pressed `⌘3` for Studios now presses it for Sessions, and the palette, which d
 the binding beside every entry, is where they find out. **Helm moved from `⌘6` to `⌘J`
 on 2026-09-13** (#948) and keeps it.
 
-**`1`–`6` and `⌘1`–`⌘5` are different acts on one row of keys.** One is
+**`1`–`6` and `⌘1`–`⌘6` are different acts on one row of keys.** One is
 modified and one is not, which is the whole separation. It was drawn
 that way deliberately rather than by omission.
 

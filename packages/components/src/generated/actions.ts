@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Settings, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -774,7 +774,20 @@ export const ACTIONS: readonly Action[] = [
     verb: "Go to a tab",
     icon: null,
     iconAbsent: "by design",
-    shortcut: "⌘1–⌘5",
+    shortcut: "⌘1–⌘6",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "open_settings",
+    kind: "Action",
+    tier: "Global",
+    verb: "Open Settings",
+    icon: Settings,
+    iconAbsent: null,
+    shortcut: "⌘,",
     scope: "anywhere",
     destructive: false,
     confirms: false,

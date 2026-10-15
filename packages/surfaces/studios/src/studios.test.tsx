@@ -1119,7 +1119,7 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
 test("an open Studio draws no Back button, and the rail's Studios link returns to the list", async () => {
   const fleet = studying([everyKind("01JOBEVERYKIND0000000000000")]);
   open(fleet.scenario);
-  const rail = page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Studios" });
+  const rail = page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Studios" });
   await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Every kind of node and edge", exact: true }).click();
   await expect.element(node(/^Note: The legend under the step bar is unreadable/)).toBeVisible();

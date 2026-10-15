@@ -197,6 +197,7 @@ export function Shell({
           onOpen: () => onSurface?.(SURFACE.settings),
           ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),
         },
+        doctor: { onOpen: () => onSurface?.(SURFACE.doctor) },
       }}
       onSearch={onSearch}
       {...(sleep === undefined ? {} : { sleep })}

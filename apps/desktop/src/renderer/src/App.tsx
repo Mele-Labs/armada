@@ -352,7 +352,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  // `⌘1` to `⌘4` are the title bar's four tabs and `⌘5` is Settings.
+  // `⌘1` to `⌘6` are the title bar's tabs and `⌘,` is Settings.
   const layoutRail = useLayout("rail");
   useSurfaceKeys((surface) => goTo(opensFor(surface, placesOff(hidden, layoutRail.all))));
 

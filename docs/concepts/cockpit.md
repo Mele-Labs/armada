@@ -54,8 +54,9 @@ While the window is on another tab a toast says a call has come and a press brin
 
 | To | Do |
 |---|---|
-| Another tab | `⌘1` Cockpit, `⌘2` Jobs, `⌘3` Sessions, `⌘4` System, or `g` then `c`, `j`, `s` or `y` |
-| A System page | The strip under the tabs: Kit, Mods, Settings, Guides, Workflows, Doctor, Studios, Retros. System opens the page last used. `⌘5` is Settings |
+| Another tab | `⌘1` Cockpit, `⌘2` Jobs, `⌘3` Sessions, `⌘4` Studios, `⌘5` Retros, `⌘6` System, or `g` then `c`, `j`, `s` or `y` for the first three and System |
+| A System page | The strip under the tabs: Kit, Mods, Settings, Guides, Workflows. System opens the page last used. `⌘,` is Settings |
+| Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a` |
 | A flight control | `1` to `6` |

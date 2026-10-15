@@ -119,6 +119,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       rows: [
         ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "jobs" ? "Jobs" : place === "sessions" ? "Sessions" : "System" })) : []),
         ...(built("deck_tabs") ? [{ keys: caps("deck_tabs"), does: actionOf("deck_tabs").verb }] : []),
+        ...(built("open_settings") ? [{ keys: caps("open_settings"), does: actionOf("open_settings").verb }] : []),
         { keys: caps("new_job"), does: actionOf("new_job").verb },
         { keys: caps("command_palette"), does: "Search" },
         { keys: caps("history"), does: actionOf("history").verb },

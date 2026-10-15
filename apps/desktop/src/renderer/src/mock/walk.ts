@@ -91,7 +91,7 @@ export function inside(scope: Target, target: Target): Target {
   return { ...target, within: scope, said: `${target.said} in ${scope.said}` };
 }
 
-/** One of the title bar's four places: Cockpit, Jobs, Sessions or System. Not matched whole: a tab with a call waiting names it too. */
+/** One of the title bar's six places: Cockpit, Jobs, Sessions, Studios, Retros or System. Not matched whole: a tab with a call waiting names it too. */
 export const place = (name: string): Target => inside(role("navigation", "Places"), tab(name));
 
 /** A row of the Cockpit's list of Jobs and Sessions, by its title. */
@@ -100,8 +100,9 @@ export const deckRow = (title: Name): Target => inside(region("Jobs and Sessions
 /** One of the System strip's pages, which is drawn only while System is the place. Not matched whole: a page with a mark names it too. */
 export const systemPage = (name: string): Target => inside(role("navigation", "System"), tab(name));
 
-/** The steps that reach a System page from anywhere: System, then the page on its strip. */
+/** The steps that reach a System page from anywhere: System, then the page on its strip. Studios and Retros are places of their own, one press. */
 export function toSystemPage(name: string, say: string): Step[] {
+  if (name === "Studios" || name === "Retros") return [{ press: place(name), say }];
   return [
     { press: place("System"), say: `System, for ${name}` },
     { press: systemPage(name), say },

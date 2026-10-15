@@ -55,16 +55,18 @@ Run and edit a Manifest reads a project's Checks and Commands, runs any one of t
 
 Bridge's shell is a **title row** across the top and, beneath it, a **full-width window** where the journeys mount. There is no left column and no rail: the places a person moves between are the title row's tabs and, under System, a strip of pages. The Cockpit is the window's first tab, and its own left column holds the repository picker and the Jobs and Sessions list. See [Cockpit](cockpit.md). Finer layout treatment within each journey remains UI/UX design phase work.
 
-**The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once Helm's dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Sleep and Settings. The account entry reads Sign in with GitHub while signed out and opens the [account](account.md) once signed in; Settings carries its key. The menu button carries a moon while Sleep is on and an amber dot while signed out. Below the row's narrow width the other controls are listed in the menu, and the tabs stay.
+**The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once Helm's dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Sleep, Settings and Doctor. The account entry reads Sign in with GitHub while signed out and opens the [account](account.md) once signed in; Settings carries its key. The menu button carries a moon while Sleep is on and an amber dot while signed out. Below the row's narrow width the other controls are listed in the menu, and the tabs stay.
 
 | Tab | Opens | Key |
 |---|---|---|
 | Cockpit | The flight deck | `⌘1` |
 | Jobs | Every Job, as the Sessions page lays out Sessions | `⌘2` |
 | Sessions | Every Session | `⌘3` |
-| System | The System page last used, Kit where none has been | `⌘4` |
+| Studios | One repository's Studios, and a Studio opened from the list | `⌘4` |
+| Retros | The items every Job's retro raised | `⌘5` |
+| System | The System page last used, Kit where none has been | `⌘6` |
 
-**System is a strip of pages under the tab bar**, drawn while System is the place: Kit, Mods, Settings, Guides, Workflows, Doctor, Studios and Retros. Settings also answers `⌘5` and the title menu's entry. A page with no tab and no strip place stays reachable: Worktree Slots, Merge line, Manifest and Checks open from the palette (`⌘K`) by name. The rule is that no page is reachable only by a place the window does not draw. `packages/shell/src/surfaces.ts` is the one roster the tabs, the strip and the palette read.
+**System is a strip of pages under the tab bar**, drawn while System is the place: Kit, Mods, Settings, Guides, Workflows. Settings answers `⌘,` and the title menu's entry. **Doctor is a row of the title menu** and not a page of the strip (the owner, 15 Oct 2026: *"Doctor should live in the menu in the top right"*); `⌘K` reaches it by name. **Studios and Retros are tabs** (the owner, 15 Oct 2026: *"Studios and retros should live in the main bar at the top of the app"*), and every page of an open Studio counts as the Studios tab being current. A page with no tab and no strip place stays reachable: Worktree Slots, Merge line, Manifest and Checks open from the palette (`⌘K`) by name. The rule is that no page is reachable only by a place the window does not draw. `packages/shell/src/surfaces.ts` is the one roster the tabs, the strip and the palette read.
 
 **The repository picker is the top of the Cockpit's left column.** At the title row's narrow width the picker's entries are listed in the title menu, with a control that opens the picked repository's [Manifest](manifest.md).
 
@@ -74,9 +76,9 @@ Bridge's shell is a **title row** across the top and, beneath it, a **full-width
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else. See [Studio](studio.md).
 
-**Settings is Fleet's limits and this machine's own settings, on one screen** — Helm's action authority first. It replaced a sheet reached from the status bar (#1088 removed the bar), and it is where a limit changed still takes the same way it always has. It is a System page, `⌘5`, and the title menu's entry.
+**Settings is Fleet's limits and this machine's own settings, on one screen** — Helm's action authority first. It replaced a sheet reached from the status bar (#1088 removed the bar), and it is where a limit changed still takes the same way it always has. It is a System page, `⌘,`, and the title menu's entry.
 
-**A digit is a tab's place in the bar, and nothing else takes one but Settings.** `⌘1` to `⌘4` are the tabs, `⌘5` is Settings, and every other page is reached from the strip, the palette or a link. The rail's `⌘1`–`⌘9` and their history are in `../contracts/design-system.md`, Two tiers.
+**A digit is a tab's place in the bar, and nothing else takes one.** `⌘1` to `⌘6` are the tabs in the order the bar draws them, Settings is `⌘,`, and every other page is reached from the strip, the palette or a link. The rail's `⌘1`–`⌘9` and their history are in `../contracts/design-system.md`, Two tiers.
 
 **Workflows is a System page and takes no digit.** It lists the definitions Fleet holds for the picked repository, one row per file, and a definition opens as its steps on the Job's canvas. Fleet is read for the list, for each file's text and for the save; a Kit file and a repository file are written through `save_workflow`, so Fleet's loader checks what is saved and its sentence is what a refused save shows. The page's glyph is `workflow`, and its strip tab carries a mark while Fleet has left a file out, with no count. See [Workflow](workflow.md).
 

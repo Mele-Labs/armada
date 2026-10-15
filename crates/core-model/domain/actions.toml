@@ -685,11 +685,22 @@ tier = "Global"
 verb = "Go to a tab"
 icon = ""
 icon_absent = "by design"
-shortcut = "⌘1–⌘5"
+shortcut = "⌘1–⌘6"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "`⌘1` to `⌘4` are the title bar's four tabs: Cockpit, Jobs, Sessions and System, and System opens the page last used there. `⌘5` is Settings, which has no tab and keeps a digit in the menu. One row over the digits because the rule is the tab's place in the bar, not the number. Every other page is reached from the System strip, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
+notes = "`⌘1` to `⌘6` are the places bar's tabs in the order it draws them: Cockpit, Jobs, Sessions, Studios, Retros and System, and System opens the page last used there. One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301."
+
+[actions.open_settings]
+kind = "Action"
+tier = "Global"
+verb = "Open Settings"
+icon = "settings"
+shortcut = "⌘,"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Opens the Settings page from anywhere, including from inside a field, as `⌘K` does. `⌘,` is the platform's own key for preferences and nothing else in the registry or Electron's menu answers it. Settings held `⌘5` as the last digit of `deck_tabs` until Studios and Retros became tabs on 15 Oct 2026."
 
 [actions.dispatch_from_field]
 kind = "Action"

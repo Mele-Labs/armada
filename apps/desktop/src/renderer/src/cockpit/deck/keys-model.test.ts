@@ -40,3 +40,8 @@ test("the page chord lists its four second keys after the registry's first", () 
     .rows.filter((row) => row.keys[0] === first);
   expect(pages.map((row) => row.keys[1])).toEqual(["c", "j", "s", "y"]);
 });
+
+test("the sheet lists Settings with its own key", () => {
+  const rows = keySheetOf().flatMap((group) => group.rows);
+  expect(rows.find((row) => row.does === "Open Settings")?.keys).toEqual(["⌘,"]);
+});
