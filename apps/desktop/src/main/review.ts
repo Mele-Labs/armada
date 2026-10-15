@@ -29,7 +29,7 @@
 // under it — and `diff` below takes the reading rather than answering out of
 // what was read when the Job was opened. Still no event on this side.
 
-import type { CaptureWalkNote, Diff, Evidence, Outcome, PullRequestState, Remarks, RemoveWalkNote } from "@armada/protocol";
+import type { CaptureWalkNote, Diff, Evidence, Outcome, PullRequestState, Remarks, RemoveWalkNote, WalkFailed } from "@armada/protocol";
 import type { JobDiff, JobEvidence, JobRemarks, Submitted, Work } from "@armada/protocol";
 import { JobReader } from "./reader";
 import { ask, type Answer } from "./request";
@@ -283,6 +283,11 @@ export async function autoMerge(
 /** Keep what a person pointed at walking a Job's work, on the Job. Since protocol 23.18. */
 export function captureWalkNote(port: number, jobId: string, body: CaptureWalkNote): Promise<Answer> {
   return ask(port, "POST", `/jobs/${encodeURIComponent(jobId)}/walk_notes`, body);
+}
+
+/** The walk window could not show the Job's work. It wakes the Job's Commander and moves nothing. */
+export function walkFailed(port: number, jobId: string, body: WalkFailed): Promise<Answer> {
+  return ask(port, "POST", `/jobs/${encodeURIComponent(jobId)}/walk/failed`, body);
 }
 
 /** Take back a walk note not yet sent. */

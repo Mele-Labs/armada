@@ -28,3 +28,9 @@ export type WalkNote = {
 export type WalkNotes = { notes: WalkNote[] };
 
 export type RemoveWalkNote = { id: string };
+
+/** `walk_failed`'s body: the window walking a Job's work could not show it. `why` is what Bridge saw, in one line. */
+export type WalkFailed = { url: string; why: string };
+
+/** What `walk_failed` and `window_failed` answer: whether the walk's owner was told now. */
+export type WalkTold = { told: boolean };

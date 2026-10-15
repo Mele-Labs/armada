@@ -184,6 +184,12 @@ const captureWindows = new CaptureWindows({
   sessionClosed: (sessionId, address) => {
     void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
   },
+  sessionFailed: (sessionId, address, why) => {
+    void connection?.sessions.windowFailed({ session_id: sessionId, url: address, why });
+  },
+  walkFailed: (jobId, address, why) => {
+    void connection?.commands.walkFailed(jobId, { url: address, why });
+  },
   // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
   windowsChanged: () => {
     const open = captureWindows.sessionAddresses();
