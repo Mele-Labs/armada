@@ -13,6 +13,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
+import { bandingOf } from "./bands";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -105,7 +106,9 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   }, [deck.held, ship.calls]);
 
   const incoming = incomingOf(ship.calls, deck.held, deck.visited);
-  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.checks, deck.held]);
+  const repositories = state.holds.repositories;
+  const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
+  const listed = useMemo(() => listOf(ship, deck, banding), [ship, deck.only, deck.needs, deck.checks, deck.held, banding]);
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
     const noted = (event: FocusEvent) => remember(event.target);

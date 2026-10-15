@@ -20,6 +20,7 @@ import { useSessions } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
+import { bandingOf, bandsOf, type Banding } from "./bands";
 import { quantized } from "./field";
 import { ActivityFeed, Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
@@ -101,7 +102,28 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
   );
 }
 
-function List({ subjects, cursor, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; cursor: string | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
+function List({ subjects, banding, cursor, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; cursor: string | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
+  const row = (one: Subject) => {
+    const Kind = one.kind === "job" ? Box : SquareTerminal;
+    const quiet = one.since ?? one.step?.label ?? "";
+    const said = quiet.length > 9 ? "" : quiet;
+    return (
+      <li key={one.key} className="deck-list__item">
+        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
+          <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
+            <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
+              <Kind size={14} aria-hidden="true" />
+            </span>
+          </Tooltip>
+          <span className="deck-row__title">{one.title}</span>
+          <span className="deck-row__said">{said}</span>
+          <Phase subject={one} builds={builds} jobs={jobs} />
+          <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
+        </button>
+        {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
+      </li>
+    );
+  };
   return (
     <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1}>
       <header className="deck-band">
@@ -109,27 +131,14 @@ function List({ subjects, cursor, selected, builds, jobs, onPick }: { subjects: 
         <PanelKey id="list" />
       </header>
       <ul className="deck-list__rows">
-        {subjects.map((one) => {
-          const Kind = one.kind === "job" ? Box : SquareTerminal;
-          const quiet = one.since ?? one.step?.label ?? "";
-          const said = quiet.length > 9 ? "" : quiet;
-          return (
-            <li key={one.key} className="deck-list__item">
-              <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
-                <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
-                  <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
-                    <Kind size={14} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-                <span className="deck-row__title">{one.title}</span>
-                <span className="deck-row__said">{said}</span>
-                <Phase subject={one} builds={builds} jobs={jobs} />
-                <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
-              </button>
-              {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
-            </li>
-          );
-        })}
+        {banding === undefined
+          ? subjects.map(row)
+          : bandsOf(subjects, banding).map((band) => (
+              <li key={`band:${band.key}`} className="deck-list__band">
+                <h3 className="deck-list__repository">{band.label}</h3>
+                <ul className="deck-list__group">{band.subjects.map(row)}</ul>
+              </li>
+            ))}
       </ul>
     </section>
   );
@@ -537,7 +546,8 @@ export function DeckBody(props: CockpitProps) {
     onBrought?.();
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
-  const listed = useMemo(() => listOf(ship, deck), [ship, deck.only, deck.needs, deck.checks, deck.held]);
+  const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
+  const listed = useMemo(() => listOf(ship, deck, banding), [ship, deck.only, deck.needs, deck.checks, deck.held, banding]);
   // Helm's footer reads the Job the cursor is on.
   const onCursor = props.onCursor;
   const cursorJob = useMemo(() => {
@@ -573,7 +583,7 @@ export function DeckBody(props: CockpitProps) {
       <div className="deck-grid">
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} cursor={deck.cursor} selected={deck.sel?.kind === "job" || deck.sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
+          <List subjects={listed} banding={banding} cursor={deck.cursor} selected={deck.sel?.kind === "job" || deck.sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
           <Activity props={props} listed={listed} ship={ship} />
         </div>
         <div className="deck-centre">
