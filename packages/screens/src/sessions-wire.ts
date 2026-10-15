@@ -395,6 +395,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "check":
         out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
         break;
+      case "ran":
+        out.push({ id: row.id, at, kind: "ran", command: row.command, code: row.code ?? null, tail: row.tail });
+        break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
         break;
