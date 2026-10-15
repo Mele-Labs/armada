@@ -360,6 +360,23 @@ fn a_pull_request_is_entered_as_it_moves() {
     assert!(later.is_empty(), "a merge already listed is not new");
 }
 
+/// A pull request opened with auto-merge set and its checks already running, as a Session's usually
+/// is, enters all three on the read that first sees it: neither changes again to be seen later.
+#[test]
+fn a_pull_request_first_seen_enters_its_checks_and_queue_with_it() {
+    let mut between = Between::default();
+    between.read(&lines(None, Vec::new(), Vec::new()), "2026-10-12T10:00:00.000Z", &named);
+    let waiting = HubQueue { state: HubQueueState::WaitingForCi, position: None };
+    let opened = between.read(
+        &lines(None, vec![pull(7, Some(HubPullCi::Running), Some(waiting))], Vec::new()),
+        "2026-10-12T10:00:02.000Z",
+        &named,
+    );
+    assert_eq!(kinds_of(&opened), ["pr.opened", "pr.checks", "pr.queued"]);
+    assert_eq!(opened[1].says(), "Checks running");
+    assert_eq!(opened[2].says(), "Auto-merge waits on checks");
+}
+
 /// A hub that comes back with its merged list full is a read, not forty merges.
 #[test]
 fn a_merged_list_with_nothing_before_it_to_compare_is_not_news() {

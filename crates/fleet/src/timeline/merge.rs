@@ -101,14 +101,16 @@ fn pulls(before: &MergeLineHub, now: &MergeLineHub, at: &str, manifest: &Option<
     let mut facts = Vec::new();
     for one in &now.pull_requests {
         let on = |kind, tone, says: &str| pull(one.number, &one.url, &one.title, at, kind, tone, says);
-        let Some(was) = before.pull_requests.iter().find(|was| was.number == one.number) else {
-            let merged = now.merged.iter().chain(&before.merged).any(|done| done.number == one.number);
-            if !merged {
-                facts.push(on(K::PrOpened, T::Idle, "Opened").detail(Some(one.branch.clone())));
+        let was = before.pull_requests.iter().find(|was| was.number == one.number);
+        if was.is_none() {
+            if now.merged.iter().chain(&before.merged).any(|done| done.number == one.number) {
+                continue;
             }
-            continue;
-        };
-        if was.ci != one.ci {
+            facts.push(on(K::PrOpened, T::Idle, "Opened").detail(Some(one.branch.clone())));
+        }
+        // A pull request first seen is compared with nothing, so checks already running and auto-merge
+        // already set when it opened are entered with it: they will not change again to be seen.
+        if was.map(|was| &was.ci) != Some(&one.ci) {
             facts.extend(one.ci.map(|ci| match ci {
                 HubPullCi::Passed => on(K::PrChecks, T::Ok, "Checks passed"),
                 HubPullCi::Running => on(K::PrChecks, T::Run, "Checks running").live(),
@@ -116,7 +118,7 @@ fn pulls(before: &MergeLineHub, now: &MergeLineHub, at: &str, manifest: &Option<
                 HubPullCi::WaitingOnMain => on(K::PrChecks, T::Idle, "Waiting on main"),
             }));
         }
-        if was.queue != one.queue {
+        if was.map(|was| &was.queue) != Some(&one.queue) {
             facts.extend(one.queue.map(|queue| match (queue.state, queue.position) {
                 (HubQueueState::InQueue | HubQueueState::Queued, Some(place)) => {
                     on(K::PrQueued, T::Idle, &format!("Queued, place {place}"))
