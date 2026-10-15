@@ -31,7 +31,7 @@ const repo: RepoIn = { root: "/r", name: "r", pads: ["slot-1", "slot-2"], goal: 
 
 test("a drone with no known path aims at nothing, and a working one aims at the plot its edits name", () => {
   const resting = drone("session:rest", { slot: "slot-1", doing: "write" });
-  const editing = drone("session:edit", { slot: "slot-2", doing: "write", working: true, touches: [{ path: "crates/fleet", weight: 3 }] });
+  const editing = drone("session:edit", { slot: "slot-2", doing: "write", working: true, touches: [{ path: "crates/fleet", w: 3 }] });
   const layout = layoutOf([repo], [resting, editing], SIZE, BIG);
   const frame = frameOf({ layout, drones: [resting, editing], plays: [], big: BIG });
 
@@ -41,7 +41,7 @@ test("a drone with no known path aims at nothing, and a working one aims at the 
 });
 
 test("a hidden drone is not a doer, and a drone flies higher while it hovers than while it rests", () => {
-  const hidden = drone("session:hid", { doing: "run", shown: false, touches: [{ path: "crates/fleet", weight: 1 }] });
+  const hidden = drone("session:hid", { doing: "run", shown: false, touches: [{ path: "crates/fleet", w: 1 }] });
   const rests = drone("session:a", { slot: "slot-1" });
   const hovers = drone("session:b", { slot: "slot-1", hover: true });
   const layout = layoutOf([repo], [hidden, rests, hovers], SIZE, BIG);
