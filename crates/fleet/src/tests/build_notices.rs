@@ -197,9 +197,10 @@ impl Rig {
 }
 
 #[tokio::test]
-async fn a_new_commit_tells_a_session_holding_branches_once_and_a_restart_does_not_repeat_it() {
+async fn a_new_commit_tells_a_session_that_asked_for_it_once_with_its_branches() {
     let rig = a_rig();
     let session = rig.a_hosted_session().await;
+    rig.waits_to_run(&session, "scripts/preview --restart").await;
     for branch in ["armada/work", "armada/long", "armada/other", "main"] {
         rig.holds_branch(&session, branch).await;
     }
@@ -209,15 +210,14 @@ async fn a_new_commit_tells_a_session_holding_branches_once_and_a_restart_does_n
 
     let short = &rig.build[..7];
     let said = rig.thread_of(&session).await;
-    assert_eq!(
-        said,
-        [format!(
-            "Fleet and Bridge now run the preview at {short}.\n\
-             armada/long is in it up to {short}; 1 commit since is not.\n\
-             armada/other is not in it.\n\
-             armada/work is in it."
-        )]
+    let [said] = said.as_slice() else { panic!("one answer: {said:?}") };
+    let notice = format!(
+        "Fleet and Bridge now run the preview at {short}.\n\
+         armada/long is in it up to {short}; 1 commit since is not.\n\
+         armada/other is not in it.\n\
+         armada/work is in it."
     );
+    assert!(said.contains(&notice), "{said}");
     assert!(rig.told(&session).await);
 
     rig.fleet.builds_told().await;
@@ -244,17 +244,20 @@ async fn a_session_with_neither_a_branch_nor_a_restart_wait_is_not_told() {
 }
 
 #[tokio::test]
-async fn a_session_whose_branches_git_cannot_place_in_the_build_is_not_told() {
+async fn a_session_that_only_holds_a_branch_is_not_told() {
     let rig = a_rig();
+    let holding = rig.a_hosted_session().await;
     let elsewhere = rig.a_hosted_session().await;
+    rig.holds_branch(&holding, "armada/work").await;
     rig.holds_branch(&elsewhere, "feature/custom-margins").await;
-    rig.holds_branch(&elsewhere, "main").await;
     rig.on_file(true);
 
     rig.fleet.builds_told().await;
 
-    assert!(rig.thread_of(&elsewhere).await.is_empty(), "nothing it holds is in or out of this build");
-    assert!(!rig.told(&elsewhere).await);
+    for session in [&holding, &elsewhere] {
+        assert!(rig.thread_of(session).await.is_empty(), "it did not ask: {session}");
+        assert!(!rig.told(session).await);
+    }
 }
 
 #[tokio::test]
@@ -273,9 +276,7 @@ async fn a_restart_wait_is_settled_by_the_build_it_asked_for_and_a_mismatch_is_n
     assert!(settled[0].contains("Fleet and Bridge now run the preview"), "{settled:?}");
     assert!(rig.waiting_on(&preview).await.is_empty(), "the wait is settled");
 
-    let told = rig.thread_of(&main).await;
-    assert_eq!(told.len(), 1, "told, and no more: {told:?}");
-    assert!(told[0].starts_with("Fleet and Bridge now run the preview"));
+    assert!(rig.thread_of(&main).await.is_empty(), "it asked for the other build");
     assert_eq!(rig.waiting_on(&main).await, ["restart"], "it asked for main, and this is the preview");
 }
 
@@ -283,7 +284,7 @@ async fn a_restart_wait_is_settled_by_the_build_it_asked_for_and_a_mismatch_is_n
 async fn nobody_is_told_while_a_restart_is_under_way_or_before_there_is_a_build() {
     let rig = a_rig();
     let session = rig.a_hosted_session().await;
-    rig.holds_branch(&session, "armada/work").await;
+    rig.waits_to_run(&session, "scripts/restart --main").await;
     rig.fleet.builds_told().await;
     assert!(rig.thread_of(&session).await.is_empty(), "no commit on file");
 
@@ -295,14 +296,14 @@ async fn nobody_is_told_while_a_restart_is_under_way_or_before_there_is_a_build(
     fs::remove_file(rig.support().join("restart-build.status")).unwrap();
     rig.fleet.builds_told().await;
     let said = rig.thread_of(&session).await;
-    assert!(said[0].starts_with(&format!("Fleet and Bridge now run main at {}.", &rig.build[..7])), "{said:?}");
+    assert!(said[0].contains(&format!("Fleet and Bridge now run main at {}.", &rig.build[..7])), "{said:?}");
 }
 
 #[tokio::test]
 async fn a_terminal_session_that_is_not_listening_is_asked_again_with_nothing_kept() {
     let rig = a_rig();
     rig.a_terminal_session("term-1").await;
-    rig.holds_branch("term-1", "armada/work").await;
+    rig.waits_to_run("term-1", "scripts/preview --restart").await;
     rig.on_file(true);
 
     rig.fleet.builds_told().await;
@@ -312,7 +313,7 @@ async fn a_terminal_session_that_is_not_listening_is_asked_again_with_nothing_ke
     rig.fleet.builds_told().await;
     let held = rig.the_mod_asks("term-1").await;
     let [said] = held.as_slice() else { panic!("one message held: {held:?}") };
-    assert!(said.starts_with("Fleet: Fleet and Bridge now run the preview at"), "{said}");
+    assert!(said.contains("Fleet and Bridge now run the preview at"), "{said}");
     assert!(rig.told("term-1").await);
 }
 

@@ -8,8 +8,8 @@
 //!
 //! **Told once**: the key is (build commit, session) in the store, so a later Fleet does not
 //! repeat it. A session that cannot be told now is asked again next reading, with nothing kept.
-//! Who is told: a live session in a served repository that holds a branch git can place in the
-//! build, or waits on the person to restart. That wait is answered with the notice, unless it asked for the other build.
+//! Who is told: a live session waiting on the person to restart onto this build — the act Bridge
+//! draws as Refresh preview or Update to main. That wait is answered with the notice.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -144,20 +144,15 @@ where
             if kept {
                 continue;
             }
-            let standing = self.branches_in_build(served, commit, &reasons.branches).await;
-            // A branch git cannot place in this build is no reason: in another repository it never
-            // can be, and a bare "now run" is a turn spent answering it.
-            if standing.is_empty() && reasons.restarts.is_empty() {
-                continue;
-            }
-            let text = said(build, commit, &standing);
             let mut settling = reasons.restarts.into_iter().filter(|(_, asked)| *asked == build).map(|(item, _)| item);
-            // A wait for this build is answered with the notice itself, so the session wakes once.
-            let told = match settling.next() {
-                Some(item) => Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok(),
-                None => matches!(self.told_news_by_fleet(&session, &text).await, Ok(true)),
+            // Only a session that asked the person for this build is told, and its wait is answered
+            // with the notice itself, so it wakes once. Any other session would spend a turn on it.
+            let Some(first) = settling.next() else {
+                continue;
             };
-            if !told {
+            let standing = self.branches_in_build(served, commit, &reasons.branches).await;
+            let text = said(build, commit, &standing);
+            if Arc::clone(self).settle_waiting(answer(&session, first, &text)).await.is_err() {
                 everyone = false;
                 continue;
             }

@@ -470,11 +470,12 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 | A live session in a served repository | Told |
 |---|---|
-| Holds a branch | The build, and for each branch whether it is in it |
-| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, as the answer to that wait, so it wakes once |
-| Neither | Nothing |
+| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main`, and that is the build now running | The build, and for each branch it holds whether it is in it, as the answer to that wait, so it wakes once |
+| Anything else, a held branch or a wait for the other build included | Nothing |
 
-**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
+**Only a session that asked is told.** Every branch-holder was told until 15 Oct 2026, and the notice arrived as input, so each session spent a turn answering "no action needed" — in another repository's sessions too, where nothing it held could be in the build.
+
+**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
 
 **A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
 
