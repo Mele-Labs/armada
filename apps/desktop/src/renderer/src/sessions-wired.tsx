@@ -36,6 +36,7 @@ import type {
 
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
+import { ansiStripper } from "./ansi";
 import { buildChangeOf, type BuildChange } from "./build-change";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
@@ -303,10 +304,13 @@ export class WiredStore {
       off();
       on({ kind: "end", code });
     };
+    const strip = ansiStripper();
     const take = (from: string, message: SessionRunMessage): void => {
       if (over || from !== runId) return;
-      if (message.kind === "lines") for (const text of message.lines) on({ kind: "out", text: `${text}\n` });
-      else if (message.kind === "exited") finish(message.code);
+      if (message.kind === "output") {
+        const text = strip(message.text);
+        if (text !== "") on({ kind: "out", text });
+      } else if (message.kind === "exited") finish(message.code);
     };
     const off = this.api.onSessionRunMessage((from, message) => {
       if (runId === null) held.push({ runId: from, message });
