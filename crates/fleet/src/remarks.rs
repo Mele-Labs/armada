@@ -100,7 +100,9 @@ where
         self.at_the_gate(&job)?;
         let pull_request = self.pull_request_of(job_id).await?;
         let served = self.served_by_id(job_id)?;
-        let read = self.vcs().under_review(served.root(), &pull_request);
+        let read = self
+            .vcs()
+            .under_review(served.root(), &pull_request, served.manifest().ci_gate());
         if !read.was_answered() {
             return Err(Adrift::ReviewUnreadable {
                 job: job_id.clone(),
