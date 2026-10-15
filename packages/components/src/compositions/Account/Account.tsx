@@ -249,11 +249,6 @@ export function AccountBadge({ account }: { account: Account }) {
   );
 }
 
-/** The signed-in login the menu's account entry names. Undefined while signed out. */
-export function accountLogin(account: Account): string | undefined {
-  return (account.profiles.find((one) => one.active) ?? account.profiles[0])?.login;
-}
-
 /** One glyph per way a sign-in ended, and the word its tooltip gives it. */
 export const ENDED = {
   denied: { Glyph: Ban, said: "Turned down" },

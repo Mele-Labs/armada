@@ -47,7 +47,7 @@ const accountPage = walk("account-page", [
 
 const accountRepositories = walk("account-repositories", [
   { press: MENU_BUTTON, say: "Open the menu" },
-  { press: inside(MENU, button("Account nickmele", { exact: true })), say: "The account page" },
+  { press: inside(MENU, button("Account", { exact: true })), say: "The account page" },
   { look: role("list", "Repositories of nickmele", { exact: true }), say: "Each profile lists the repositories bound to it" },
   { hover: MARK("nickmele/recipe-scaler", "Matched"), say: "Matched: its owner is the account" },
   { hover: MARK("mele-labs/armada", "Matched"), say: "Matched through an organisation" },

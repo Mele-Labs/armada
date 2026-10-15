@@ -39,7 +39,7 @@ const signInEnded = walk("sign-in-ended", [
 
 const signOut = walk("sign-out", [
   { press: button("Menu", { exact: true }), say: "Open the menu" },
-  { press: inside(MENU, button("Account nickmele", { exact: true })), say: "The account page" },
+  { press: inside(MENU, button("Account", { exact: true })), say: "The account page" },
   { look: button("Sign out mele-work", { exact: true }), say: "Sign out is on each profile" },
   { press: button("Sign out mele-work", { exact: true }), say: "Sign the work profile out" },
   { look: role("listitem", "Signed out", { exact: true }), say: "mele-work signed out" },

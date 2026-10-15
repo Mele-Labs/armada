@@ -2,7 +2,7 @@ import { Menu, Moon, Settings, UserCheck } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
-import { AccountBadge, AccountMark, accountLogin, accountNeed, useAccount } from "../Account/Account";
+import { AccountBadge, AccountMark, accountNeed, useAccount } from "../Account/Account";
 
 /**
  * The title row's one menu: the account, Sleep and Settings behind a single registry glyph, so the
@@ -11,7 +11,7 @@ import { AccountBadge, AccountMark, accountLogin, accountNeed, useAccount } from
  * **State that matters stays on the button.** Sleep on puts the moon on it, and nothing is signed in
  * puts an attention dot there, so neither needs the menu opened to be read. Off, the row shows no moon.
  *
- * The account entry is one row: the login and its mark, or Sign in. **It opens the account where the window keeps it**,
+ * The account entry is one row: Account and its mark, or Sign in, and never a login, since no profile is the active one. **It opens the account where the window keeps it**,
  * a page or a panel from the rail, and never holds the account itself: a sign-in in flight is the window's, so putting
  * the menu away loses nothing. While one waits on the person, or has just failed, the row and the button carry the
  * mark. Below the narrow bound the row's other controls are listed under these, which is the menu the row had before.
@@ -31,8 +31,7 @@ export function TitleMenu({ sleep, settings, onAccount, narrow }: TitleMenuProps
   const account = useAccount();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const login = account === undefined ? undefined : accountLogin(account);
-  const signedOut = account !== undefined && login === undefined;
+  const signedOut = account !== undefined && account.profiles.length === 0;
   const need = account === undefined ? undefined : accountNeed(account);
   const sleeping = sleep?.on === true;
 
@@ -104,7 +103,7 @@ export function TitleMenu({ sleep, settings, onAccount, narrow }: TitleMenuProps
                 <button
                   type="button"
                   className="armada-title-menu__item"
-                  aria-label={login === undefined ? "Sign in" : `Account ${login}`}
+                  aria-label={signedOut ? "Sign in" : "Account"}
                   onClick={() => {
                     onAccount();
                     away.current();
@@ -113,7 +112,7 @@ export function TitleMenu({ sleep, settings, onAccount, narrow }: TitleMenuProps
                   <span className="armada-title-menu__glyph">
                     <UserCheck size={16} strokeWidth={2} aria-hidden />
                   </span>
-                  <span className={login === undefined ? undefined : "armada-title-menu__login"}>{login ?? "Sign in"}</span>
+                  <span>{signedOut ? "Sign in" : "Account"}</span>
                   {need !== undefined ? (
                     <span className="armada-title-menu__need">
                       <AccountMark account={account} />

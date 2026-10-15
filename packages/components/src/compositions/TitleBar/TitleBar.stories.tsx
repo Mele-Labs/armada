@@ -350,7 +350,7 @@ export const SignedOut: Story = {
   },
 };
 
-/** Signed in, the entry names the login and the button says nothing more than Menu. */
+/** Signed in, the entry reads Account with no login in it, and the button says nothing more than Menu. */
 export const SignedIn: Story = {
   args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
   render: (args) => (
@@ -361,7 +361,8 @@ export const SignedIn: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
     await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Account nickmele" })).toBeVisible();
+    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Account" })).toBeVisible();
+    await expect(canvas.queryByText("nickmele")).toBeNull();
   },
 };
 
