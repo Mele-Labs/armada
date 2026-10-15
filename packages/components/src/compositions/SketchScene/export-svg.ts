@@ -67,6 +67,8 @@ export type SketchSvgInput = {
   /** Inner markup of each glyph a node carries, 24 units square, drawn as strokes. */
   icons?: Readonly<Partial<Record<string, string>>>;
   state?: ExportState;
+  /** Each body as the canvas broke it into lines, by node id: the browser's own wrapping, which a count of characters only approximates. */
+  bodyLines?: Readonly<Record<string, readonly string[]>>;
   /** The name a reader hears for the drawing. */
   title: string;
   /** A file of its own carries the SVG namespace; markup inside a page does not need it. */
@@ -82,7 +84,13 @@ const num = (n: number) => String(Math.round(n * 100) / 100);
 
 const sentence = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
 
-/** Lines of a body at `cols` characters: its own breaks kept, words kept whole, and a word longer than a line cut. */
+/** Where a word may break across lines: after a hyphen between two letters or digits, as a browser breaks it. */
+const pieces = (word: string): string[] => word.split(/(?<=[A-Za-z0-9]-)(?=[A-Za-z0-9])/);
+
+/**
+ * Lines of a body at `cols` characters: its own breaks kept, words kept whole except at a hyphen, and a piece
+ * longer than a line cut. Where the canvas has drawn the body, its own lines are used instead (`bodyLines`).
+ */
 export function wrapBody(text: string, cols: number): string[] {
   const width = Math.max(1, cols);
   const out: string[] = [];
@@ -90,21 +98,24 @@ export function wrapBody(text: string, cols: number): string[] {
     let line = "";
     for (const word of paragraph.split(/ +/)) {
       if (word === "" && line === "") continue;
-      let rest = word;
-      while (rest.length > width) {
-        if (line !== "") {
-          out.push(line);
-          line = "";
+      pieces(word).forEach((piece, at) => {
+        let rest = piece;
+        while (rest.length > width) {
+          if (line !== "") {
+            out.push(line);
+            line = "";
+          }
+          out.push(rest.slice(0, width));
+          rest = rest.slice(width);
         }
-        out.push(rest.slice(0, width));
-        rest = rest.slice(width);
-      }
-      if (line === "") line = rest;
-      else if (line.length + 1 + rest.length <= width) line += ` ${rest}`;
-      else {
-        out.push(line);
-        line = rest;
-      }
+        const joiner = at === 0 && line !== "" ? " " : "";
+        if (line === "") line = rest;
+        else if (line.length + joiner.length + rest.length <= width) line += joiner + rest;
+        else {
+          out.push(line);
+          line = rest;
+        }
+      });
     }
     out.push(line);
   }
@@ -267,7 +278,7 @@ function nodeSvg(node: SceneNode, scene: Scene, input: SketchSvgInput, m: Export
   };
   const body = (top: number, text: string) => {
     const cols = Math.floor((w - e * 2 - m.space3 * 2) / (m.textSm * MONO));
-    const lines = wrapBody(text, cols);
+    const lines = input.bodyLines?.[node.id] ?? wrapBody(text, cols);
     const tspans = lines.map((line, at) => `<tspan x="${num(e + m.space3)}" y="${mid(top + m.space2 + at * m.leadingSm, m.leadingSm)}">${xml(line === "" ? " " : line)}</tspan>`).join("");
     parts.push(`<text class="sk-body">${tspans}</text>`);
   };

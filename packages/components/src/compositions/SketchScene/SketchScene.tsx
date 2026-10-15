@@ -261,6 +261,37 @@ function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance
 
 const GROUND = new Set(["group", "lane"]);
 
+/** A body's words as the browser broke them into lines: which line each character fell on, read from where it was drawn. */
+function linesOf(body: HTMLElement): string[] | undefined {
+  const text = body.firstChild;
+  if (!(text instanceof Text)) return undefined;
+  const lines: string[] = [];
+  const range = document.createRange();
+  let line = "";
+  let top = Number.NaN;
+  for (let at = 0; at < text.length; at += 1) {
+    const char = text.data.charAt(at);
+    if (char === "\n") {
+      lines.push(line);
+      line = "";
+      top = Number.NaN;
+      continue;
+    }
+    range.setStart(text, at);
+    range.setEnd(text, at + 1);
+    const rect = range.getClientRects()[0];
+    if (rect !== undefined && !Number.isNaN(top) && rect.top - top > rect.height / 2) {
+      lines.push(line.trimEnd());
+      line = "";
+      top = Number.NaN;
+    }
+    if (rect !== undefined && Number.isNaN(top)) top = rect.top;
+    line += char;
+  }
+  lines.push(line.trimEnd());
+  return lines;
+}
+
 /** What the caller built, over what React Flow kept per node: its size and whether it is picked. */
 function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): SceneRfNode[] {
   const held = new Map(kept.map((one) => [one.id, one]));
@@ -489,8 +520,15 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
       icons[one.icon] = renderToStaticMarkup(<Glyph size={12} strokeWidth={2} />).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     }
     const geometry: ExportGeometry = { rects: placed.rects, paths: placed.paths, places };
+    const bodyLines: Record<string, string[]> = {};
+    for (const one of shown.nodes) {
+      const body = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node__body`);
+      const lines = body instanceof HTMLElement ? linesOf(body) : undefined;
+      if (lines !== undefined) bodyLines[one.id] = lines;
+    }
     return {
       scene: shown,
+      bodyLines,
       geometry,
       metrics,
       tokens,

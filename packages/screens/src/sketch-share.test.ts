@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { sketchHtml } from "@armada/components/src/compositions/SketchScene/export-html";
 import { sceneMermaid } from "@armada/components/src/compositions/SketchScene/export-mermaid";
-import { DEFAULT_METRICS, frameOf, sketchSvg, stepPlan } from "@armada/components/src/compositions/SketchScene/export-svg";
+import { DEFAULT_METRICS, frameOf, sketchSvg, stepPlan, wrapBody } from "@armada/components/src/compositions/SketchScene/export-svg";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
 import { sketchFileName } from "@armada/components/src/compositions/SketchScene/share";
 
@@ -120,6 +120,19 @@ describe("Save as image", () => {
     expect(svg).toContain("&lt;script&gt;");
     expect(svg).toContain("a &amp; b");
     expect(svg).toContain('aria-label="Say &quot;hi&quot;"');
+  });
+});
+
+describe("a box's words", () => {
+  it("break after a hyphen between two letters, as the browser breaks them, and nowhere else inside a word", () => {
+    expect(wrapBody("Own worktree, --strict-mcp-config, no push", 23)).toEqual(["Own worktree, --strict-", "mcp-config, no push"]);
+    expect(wrapBody("a-b", 2)).toEqual(["a-", "b"]);
+    expect(wrapBody("x --- y", 5)).toEqual(["x ---", "y"]);
+  });
+
+  it("keep their own breaks, and cut a word longer than a line", () => {
+    expect(wrapBody("one\n\ntwo", 10)).toEqual(["one", "", "two"]);
+    expect(wrapBody("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
   });
 });
 

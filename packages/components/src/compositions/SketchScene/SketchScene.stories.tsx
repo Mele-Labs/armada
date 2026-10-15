@@ -421,6 +421,13 @@ export const ShareAsWebPage: Story = {
     await expect(page.startsWith("<!doctype html>")).toBe(true);
     await expect(page).toContain("WS /jobs/:id/observe and run observe, HTTP for commands");
     await expect(page).toContain('id="sketch-steps"');
+    // Every box's words are all there, broken into lines as the canvas broke them.
+    const drawn = new DOMParser().parseFromString(page, "text/html");
+    for (const node of HUB.nodes) {
+      if (node.body === undefined) continue;
+      const lines = [...drawn.querySelectorAll(`[data-node="${node.id}"] .sk-body tspan`)].map((one) => one.textContent ?? "");
+      await expect(lines.join("").replace(/\s/g, "")).toBe(node.body.replace(/\s/g, ""));
+    }
     await expect(page).not.toMatch(/https?:/);
     await waitFor(() => expect(host.said).toHaveBeenCalledWith("Saved How data moves.html."));
   },
