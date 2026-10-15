@@ -1,4 +1,4 @@
-// The model a Session's head names, and the fresh start offered once it is big or old, through `App` on a
+// The model a Session's composer reads, and the fresh start offered once it is big or old, through `App` on a
 // Fleet that serves Sessions (`sessions-fleet.ts`). The walk (`walks/session-fresh.ts`) shows how it reads.
 
 import { expect, test } from "vitest";
@@ -55,23 +55,24 @@ async function open(title: string, view = "Active") {
 }
 const mark = () => page.getByRole("button", { name: "Fresh start" });
 
-test("The head names the model its process resolved, the alias picked before it has said, and nothing else", async () => {
-  mount(served(new FakeSessionsFleet(records(), threads())));
+test("The composer's Model select reads the version the process resolved, and the alias or the default before it has said", async () => {
+  const scenario = served(new FakeSessionsFleet(records(), threads()));
+  mount({ ...scenario, state: { ...scenario.state, holds: { ...scenario.state.holds, models: { models: ["haiku", "sonnet", "opus"], default: "sonnet", session: "opus" } } } });
   await onScreen();
+  const model = () => page.getByRole("combobox", { name: "Model", exact: true });
 
   await open("Big one");
-  await expect.element(page.getByRole("img", { name: "Model Opus 5.5" })).toBeVisible();
+  await expect.element(model()).toHaveDisplayValue("Opus 5.5 · default");
   await toPlace("Sessions");
   await open("Old one");
-  await expect.element(page.getByRole("img", { name: "Model Sonnet 5.5" })).toBeVisible();
+  await expect.element(model()).toHaveDisplayValue("Sonnet 5.5");
   await toPlace("Sessions");
   await open("Small one");
-  await expect.element(page.getByRole("img", { name: "Model Sonnet" })).toBeVisible();
+  await expect.element(model()).toHaveDisplayValue("sonnet");
   await toPlace("Sessions");
   await open("Blank one");
-  await expect.element(page.getByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
-  await toPlace("Sessions");
-  await open("A terminal");
+  await expect.element(model()).toHaveDisplayValue("opus · default");
+  // The head names no model: the composer does.
   await expect.element(page.getByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
 });
 

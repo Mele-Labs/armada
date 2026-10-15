@@ -27,6 +27,8 @@ pub(crate) struct Seen<'a> {
     pub helm: bool,
     /// A turn is running: how long since anything was heard from it. `None` between turns.
     pub running: Option<Duration>,
+    /// A subagent of it is still at work, which a turn that ended to wait on it does not say.
+    pub subagents: bool,
     /// The turn is held on a question or a permission nobody has answered. It is waiting on the
     /// person, which is not the same as stuck.
     pub held: bool,
@@ -74,7 +76,8 @@ fn done<'a>(seen: &Seen<'a>) -> Option<(String, &'a str)> {
 }
 
 /// How the Session stands. A running turn is working, or stuck once nothing has been heard from it for
-/// `stuck_after` (never while it waits on the person); between turns a done wins over a reply.
+/// `stuck_after` (never while it waits on the person); between turns a subagent at work is working,
+/// and a done wins over a reply.
 pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
     if let Some(quiet) = seen.running {
         return if quiet > stuck_after && !seen.held {
@@ -83,7 +86,9 @@ pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
             SessionStanding::Working
         };
     }
-    if done(seen).is_some() {
+    if seen.subagents {
+        SessionStanding::Working
+    } else if done(seen).is_some() {
         SessionStanding::Done
     } else if replied(seen) {
         SessionStanding::Replied

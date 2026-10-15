@@ -157,8 +157,8 @@ pub fn read_subagent(file: &Path) -> std::io::Result<Subagent> {
 fn fold_subagent(text: &str, rows: &mut Vec<SessionRow>, done: &mut Option<Option<String>>) {
     // **Finished where the last thing it did was finish**: a turn ended, or a hand-back. A
     // background subagent ends on `SubagentHandback` and never on `end_turn`, so a ledger read
-    // only the one kept every finished subagent "running" (8 Oct 2026). Work after either, a
-    // resumed subagent, makes it running again.
+    // only the one kept every finished subagent "running" (8 Oct 2026). A run cut off ends on the
+    // CLI's interrupt line. Work after any of them, a resumed subagent, makes it running again.
     for line in text.lines() {
         let drew = drawn(line, true);
         if let Some(said) = handed_back(line) {
@@ -169,6 +169,8 @@ fn fold_subagent(text: &str, rows: &mut Vec<SessionRow>, done: &mut Option<Optio
                 _ => None,
             });
             *done = Some(report);
+        } else if interrupted(line) {
+            *done = Some(None);
         } else if worked(line) {
             *done = None;
         }
@@ -220,6 +222,52 @@ fn handed_back(line: &str) -> Option<String> {
 /// An assistant line that goes on working: anything it says or calls but a hand-back.
 fn worked(line: &str) -> bool {
     ipc::decode::<Turn>("a transcript line", line.as_bytes()).is_ok_and(|turn| turn.kind == "assistant")
+}
+
+/// What the CLI writes as a user line where a run was cut off: its parent's `TaskStop`, or the person
+/// stopping it. No stop follows one.
+const INTERRUPTED: &str = "[Request interrupted by user";
+
+#[derive(Deserialize)]
+struct Asked {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    message: Option<AskedMessage>,
+}
+
+#[derive(Deserialize)]
+struct AskedMessage {
+    #[serde(default)]
+    content: Option<AskedContent>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum AskedContent {
+    Prose(String),
+    Parts(Vec<AskedPart>),
+}
+
+#[derive(Deserialize)]
+struct AskedPart {
+    #[serde(default)]
+    text: Option<String>,
+}
+
+/// A user line that is the CLI's interrupt: the run ended there.
+fn interrupted(line: &str) -> bool {
+    let Ok(asked) = ipc::decode::<Asked>("a transcript line", line.as_bytes()) else {
+        return false;
+    };
+    asked.kind == "user"
+        && match asked.message.and_then(|message| message.content) {
+            Some(AskedContent::Prose(text)) => text.starts_with(INTERRUPTED),
+            Some(AskedContent::Parts(parts)) => {
+                parts.iter().any(|part| part.text.as_deref().is_some_and(|text| text.starts_with(INTERRUPTED)))
+            }
+            None => false,
+        }
 }
 
 /// When the CLI wrote this line, as it spelled it.
@@ -289,7 +337,7 @@ pub(crate) fn last_at_the_end(file: &Path) -> std::io::Result<Last> {
         let first = if from == 0 { 0 } else { bytes.iter().position(|byte| *byte == b'\n').map_or(whole, |at| at + 1) };
         let text = String::from_utf8_lossy(&bytes[first.min(whole)..whole]);
         for line in text.lines().rev() {
-            if handed_back(line).is_some() || ended(line) {
+            if handed_back(line).is_some() || ended(line) || interrupted(line) {
                 return Ok(Last { finished: true, at: stamp(line) });
             }
             if worked(line) {

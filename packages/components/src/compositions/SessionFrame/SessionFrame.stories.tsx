@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Power } from "lucide-react";
 import { expect, fn, within } from "storybook/test";
 
+import { Button } from "../../primitives/Button/Button";
 import { SessionFrame } from "./SessionFrame";
 
 /** A Session open: a band in the state's hue over its body. The state is the frame's hue and one mark. */
@@ -101,7 +103,7 @@ const breakdown = {
   maxTokens: 1_000_000,
 };
 
-/** The live tokens and the percent of the window. With a breakdown it opens a card of what fills it, and a press keeps it open. */
+/** The context tank: the live tokens and the percent of the window. With a breakdown it opens a card of what fills it, and a press keeps it open. */
 export const ContextBreakdown: Story = {
   args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 53_840, window: 1_000_000, breakdown } },
   play: async ({ canvas, userEvent }) => {
@@ -128,7 +130,7 @@ export const ContextBreakdown: Story = {
   },
 };
 
-/** Without a breakdown the figure is a figure and not a button, and says its tokens on hover. */
+/** Without a breakdown the tank is a figure and not a button, and says its tokens on hover. */
 export const ContextWithoutBreakdown: Story = {
   args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 142_000, window: 200_000 } },
   play: async ({ canvas }) => {
@@ -137,30 +139,56 @@ export const ContextWithoutBreakdown: Story = {
   },
 };
 
-/** The model the Session runs on, named from the id its process resolved. */
-export const ModelResolved: Story = {
-  args: { state: "idle", said: "Idle", title: "Release notes script", model: "vendor-opus-5-5" },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Model Opus 5.5" })).toHaveTextContent("Opus 5.5");
-  },
-};
+const LONG = "How does armada interface with GitHub (PRs, Issues, Projects)";
 
-/** Before the process has said, the alias that was picked, and with neither no chip. */
-export const ModelPickedOnly: Story = {
-  args: { state: "idle", said: "Idle", title: "Release notes script", model: "sonnet" },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Model Sonnet" })).toBeVisible();
+/**
+ * The head is one row. The address is in the terminal glyph's tooltip and the model is not drawn here (the composer's
+ * Model select reads it). The title keeps to one line, the whole of it in its tooltip, and nothing overlaps.
+ */
+export const HeadOneRow: Story = {
+  args: {
+    state: "working",
+    said: "Working",
+    id: "e07cfe09-5b21",
+    address: "s-e07cfe09",
+    title: LONG,
+    onRename: fn(),
+    context: { tokens: 48_400, window: 1_000_000, breakdown },
+    actions: (
+      <Button variant="ghost" size="sm" aria-label="End session">
+        <Power size={16} strokeWidth={2} aria-hidden />
+      </Button>
+    ),
   },
-};
-
-export const ModelUnknown: Story = {
-  args: { state: "idle", said: "Idle", title: "Release notes script" },
+  decorators: [
+    (Story) => (
+      <div style={{ display: "flex", width: "calc(var(--space-12) * 9)" }}>
+        <Story />
+      </div>
+    ),
+  ],
   play: async ({ canvas }) => {
+    const glyph = canvas.getByRole("img", { name: "s-e07cfe09" });
+    await expect(glyph.parentElement).toHaveAccessibleDescription("s-e07cfe09");
     await expect(canvas.queryByRole("img", { name: /^Model/ })).not.toBeInTheDocument();
+
+    const title = canvas.getByRole("button", { name: `${LONG}, rename` });
+    await expect(title).toHaveAccessibleDescription(LONG);
+    const line = parseFloat(getComputedStyle(title).lineHeight);
+    await expect(title.getBoundingClientRect().height).toBeLessThan(line * 1.5);
+    await expect(title.scrollWidth).toBeGreaterThan(title.clientWidth);
+
+    // One row: the glyph, the title, the act, the figure and the state mark share a centre line.
+    const centre = (one: Element) => {
+      const box = one.getBoundingClientRect();
+      return box.top + box.height / 2;
+    };
+    const row = [glyph, title, canvas.getByRole("button", { name: "End session" }), canvas.getByRole("button", { name: "Context 5%" }), canvas.getByRole("img", { name: "Working" })];
+    for (const one of row) await expect(Math.abs(centre(one) - centre(glyph))).toBeLessThan(8);
   },
 };
 
-/** Big or old: a quiet mark beside the context figure. Hover opens its card, a press keeps it open, and each act is its own button. */
+/** Big or old: a quiet mark after the context tank. Hover opens its card, a press keeps it open, and each act is its own button. */
 export const FreshStart: Story = {
   args: {
     state: "idle",
