@@ -1,5 +1,5 @@
-import { useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode, Ref } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode, Ref, RefObject } from "react";
 import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -704,11 +704,50 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
+/** Words in a field the person types in are theirs to keep; only the thread's own text is copied. */
+const EDITABLE = "textarea, input, [contenteditable]:not([contenteditable='false'])";
+
+/**
+ * Words selected with the pointer inside `scope` go to the clipboard when the selection ends, silently.
+ * **It reads the selection and never owns it**, as `ForkFromSelection` does, so the bar and the
+ * selection are left as they were.
+ */
+function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const home = scope.current;
+    if (home === null) return;
+    let dragging = false;
+    const down = (event: MouseEvent) => {
+      if (event.button === 0) dragging = true;
+    };
+    const up = () => {
+      if (!dragging) return;
+      dragging = false;
+      const selection = window.getSelection();
+      if (selection === null || selection.rangeCount === 0 || selection.isCollapsed) return;
+      const around = selection.getRangeAt(0).commonAncestorContainer;
+      const at = around instanceof Element ? around : around.parentElement;
+      if (at === null || !home.contains(at) || at.closest(EDITABLE) !== null) return;
+      const active = document.activeElement;
+      if (active !== null && active.matches(EDITABLE) && home.contains(active)) return;
+      const words = selection.toString();
+      if (words !== "") void navigator.clipboard.writeText(words).catch(() => undefined);
+    };
+    home.addEventListener("mousedown", down);
+    document.addEventListener("mouseup", up);
+    return () => {
+      home.removeEventListener("mousedown", down);
+      document.removeEventListener("mouseup", up);
+    };
+  }, [scope]);
+}
+
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
 export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
+  useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
