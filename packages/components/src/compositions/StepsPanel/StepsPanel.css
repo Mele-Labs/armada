@@ -1,0 +1,50 @@
+/* A procedure the person follows: the key that opens its page, the numbered steps each with a tick, and
+   the reply under them. The list is a guide's (`GuideSteps.css`); this adds the tick and the rules. */
+.armada-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-steps__link {
+  display: flex;
+  min-width: 0;
+}
+
+.armada-steps__list {
+  gap: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-steps__step {
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* The number is the step's weight; it is the line's colour once the step is done. */
+.armada-steps__ordinal {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.armada-steps__step[data-ticked] .armada-steps__ordinal,
+.armada-steps__step[data-ticked] .armada-checkbox > span:last-child {
+  color: var(--fg-subtle);
+}
+
+.armada-steps__step[data-ticked] .armada-checkbox > span:last-child {
+  text-decoration: line-through;
+}
+
+.armada-steps__reply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-steps__reply > .armada-textarea-field {
+  align-self: stretch;
+}

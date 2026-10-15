@@ -26,6 +26,7 @@ import {
   SketchPad,
   SketchPreview,
   SketchReading,
+  StepsPanel,
   TileSheet,
   pressedSlot,
   useKept,
@@ -470,10 +471,10 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
-export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
+export type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string } | { kind: "steps"; id: string };
 
 export const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
-  open === undefined
+  open === undefined || open.kind === "steps"
     ? undefined
     : session.attachments.find((one) =>
         open.kind === "pull_request"
@@ -481,10 +482,29 @@ export const readingOf = (session: Session, open: Reading | undefined): SessionA
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
 
+/** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
+export type StepsReading = { name: string; address?: string; steps: readonly string[]; keep: string; onOpenAddress: (address: string) => void; onSend: (text: string) => void };
+
+export function stepsReadingOf(session: Session, open: Reading | undefined, draft: SessionsDraft | undefined): StepsReading | undefined {
+  if (open?.kind !== "steps") return undefined;
+  const item = owesOf(session).find((one) => one.id === open.id);
+  if (item?.steps === undefined) return undefined;
+  const address = item.act?.kind === "walk" ? item.act.target : undefined;
+  return {
+    name: item.text,
+    ...(address === undefined ? {} : { address }),
+    steps: item.steps,
+    keep: `steps:${session.id}:${item.id}`,
+    onOpenAddress: (url) => draft?.openWindow?.(session.id, url),
+    onSend: (text) => draft?.answerWaiting?.(session.id, item.id, { text }),
+  };
+}
+
 export function ReadingSheet({
   sessionId,
   readSubagent,
   one,
+  steps,
   draft,
   lines,
   onClose,
@@ -494,6 +514,8 @@ export function ReadingSheet({
   sessionId: string;
   readSubagent: SessionsDraft["subagent"];
   one: SessionAttachment | undefined;
+  /** An item's steps, read in place of an attachment. */
+  steps?: StepsReading;
   draft: SessionsDraft | undefined;
   /** What Fleet serves of the merge lines, for the place a pull request holds in one. */
   lines: MergeLines | null;
@@ -535,7 +557,9 @@ export function ReadingSheet({
     );
   }
   const title =
-    one === undefined
+    steps !== undefined
+      ? steps.name
+      : one === undefined
       ? ""
       : one.kind === "sketch"
         ? `Sketch ${one.title}`
@@ -551,7 +575,7 @@ export function ReadingSheet({
   return (
     <Sheet
       kind="session-reading"
-      open={one !== undefined && title !== ""}
+      open={(one !== undefined || steps !== undefined) && title !== ""}
       floating
       floor={floor}
       title={title}
@@ -573,7 +597,11 @@ export function ReadingSheet({
       closeBinding="Esc"
       onClose={onClose}
     >
-      {one?.kind === "sketch" ? (
+      {steps !== undefined ? (
+        <div className="armada-session-reading">
+          <StepsPanel {...steps} />
+        </div>
+      ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
           <SketchReading {...readingOfSketch(one)} />
         ) : (
@@ -669,7 +697,7 @@ export function entriesOf(
               facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
             },
           }),
-      ...(act === undefined ? {} : { act: act.kind }),
+      ...(one.steps !== undefined ? { act: "steps" as const } : act === undefined ? {} : { act: act.kind }),
       ...(restart !== undefined && act !== undefined ? { restart: { command: act.target, ...(runner === undefined ? {} : { runner }) } } : {}),
       ...(act?.kind === "run" && restart === undefined && runner !== undefined ? { run: { command: act.target, runner } } : {}),
       ...(one.options === undefined || answerWaiting === undefined
@@ -682,12 +710,13 @@ export function entriesOf(
             })),
             onOther: (text: string) => answerWaiting(one.id, { text }),
           }),
-      ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
+      ...(act !== undefined || one.steps !== undefined || one.source !== "agent" || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
       // An item the agent stated is the person's to take off; the agent is told, with his reason where he gave one.
       ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
       onOpen: () => {
+        if (one.steps !== undefined) return read({ kind: "steps", id: one.id });
         if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
         else if (act.kind === "approve_pr") read({ kind: "pull_request", number: Number(act.target.replace(/^#/, "")) });
@@ -1096,6 +1125,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
         sessionId={session.id}
         readSubagent={draft.subagent}
         one={readingOf(session, reading)}
+        steps={stepsReadingOf(session, reading, draft)}
         draft={draft}
         lines={lines}
         onClose={() => setReading(undefined)}

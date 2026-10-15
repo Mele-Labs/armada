@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2 } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListOrdered, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
@@ -125,8 +125,8 @@ export type LedgerEntry = {
   onOpen: () => void;
 };
 
-/** `message` is an item that waits on the person sending the message in the box. */
-export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run" | "message";
+/** `message` is an item that waits on the person sending the message in the box. `steps` is a procedure, whose press opens its steps beside the thread. */
+export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run" | "message" | "steps";
 
 const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
   walk: { Glyph: AppWindow, said: "Opens the walk" },
@@ -134,6 +134,7 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
   approve_pr: { Glyph: GitPullRequestArrow, said: "Opens the pull request" },
   run: { Glyph: Terminal, said: "Copies the command" },
   message: { Glyph: SquarePen, said: "Goes to the message" },
+  steps: { Glyph: ListOrdered, said: "Steps" },
   none: { Glyph: BellRing, said: "Waiting on you" },
 };
 

@@ -407,6 +407,7 @@
 @import "./compositions/StartedBy/StartedBy.css";
 @import "./compositions/ForkFromSelection/ForkFromSelection.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
+@import "./compositions/StepsPanel/StepsPanel.css";
 @import "./compositions/NowPanel/NowPanel.css";
 @import "./compositions/SessionList/SessionList.css";
 @import "./compositions/SketchScene/SketchScene.css";

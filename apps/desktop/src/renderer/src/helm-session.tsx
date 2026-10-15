@@ -16,7 +16,7 @@ import { withApprovals } from "./helm-approval";
 import type { Pressed } from "./helm-approval";
 import { proposeRequest } from "./dispatch";
 import { pullRequestPlaceOf } from "./pull-request-place";
-import { entriesOf, ReadingSheet, readingOf } from "./sessions";
+import { entriesOf, ReadingSheet, readingOf, stepsReadingOf } from "./sessions";
 import type { HeldReads, LedgerGoes, Reading } from "./sessions";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 import { threadRowsOf } from "./session-thread-rows";
@@ -142,6 +142,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
         sessionId={session.id}
         readSubagent={draft.subagent}
         one={readingOf(session, reading)}
+        steps={stepsReadingOf(session, reading, draft)}
         draft={draft}
         lines={lines}
         onClose={() => setReading(undefined)}
