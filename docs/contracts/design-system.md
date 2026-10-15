@@ -926,10 +926,10 @@ breakpoint.
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
 the **title row** — the bar across the window's top carrying the one bar,
 the plan's limits, Helm's reopen control, Fleet's status dot and one menu
-holding the account, Sleep and Settings. A wordmark starts the row, and the
+holding the account, Sleep, Settings and Doctor. A wordmark starts the row, and the
 window's tabs are drawn in its centre (Navigation, below). The menu button carries a moon while Sleep is on and an
 amber dot while signed out. **The one bar searches and
-dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
+dispatches** (the owner, 10 Oct 2026): it opens the palette, centred across the window and not on the bar, and
 the palette offers what was typed as the work too, so the row draws no
 Dispatch button. Dispatching grows a panel, down from the bar's field (`docs/journeys/dispatch-a-job.md`);
 the Cockpit has no dispatch bar of its own. The row sits flush on
@@ -1250,7 +1250,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | Guide card | Centred in the window on both axes |
 | Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
-| Command palette | Over the title row's one bar, its field on the bar's own. Horizontally centred and top-anchored where the bar is not drawn |
+| Command palette | Horizontally centred across the window, its field top-anchored at 20% of the viewport's height. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
 
 **A guide card is framed even though a `?` raised it.** It is the one layer
 that can also open with no trigger at all — the first time a person meets a
@@ -1627,8 +1627,8 @@ A floating layer, so `--bg-overlay` and a shadow.
 ```
 surface    --bg-overlay · --border-default · --radius-lg · shadow
 width      560px · max-height 400px · scroll-area beyond
-anchor     over the title row's one bar; top-aligned at 20% of viewport
-           height where the bar is not drawn; never centered
+anchor     horizontally centred across the window; field top-aligned at
+           20% of viewport height; never vertically centered
 input      --text-base · no border · --fg-default · placeholder --fg-subtle
            bottom rule --border-subtle
 row        32px · 12px padding · --text-sm · --fg-default
@@ -1645,7 +1645,7 @@ you type is a target you misclick.
 query, a row offers it as a Job, as a Session where Sessions are served, or as
 an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches, when the words are a link, or when
 `n` or `⌘N` opened the bar; otherwise it waits at the foot, so ↵ still opens
-the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the bar's field. The panel reads the repository from them and asks in its own frame when there is none
+the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the title row's one bar. The panel reads the repository from them and asks in its own frame when there is none
 (`docs/journeys/dispatch-a-job.md`). `⇧↵` opens the full
 composer holding the words, for a file, a sketch or a long request.
 

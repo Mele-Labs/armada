@@ -1213,7 +1213,7 @@ export function App({ draft }: AppProps = {}) {
         <TitleDispatchedStrip anchor={ONE_BAR} />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar} anchor={ONE_BAR}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar}
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}
