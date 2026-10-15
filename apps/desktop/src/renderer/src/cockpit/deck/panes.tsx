@@ -15,6 +15,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import { age, type Item } from "../../Dashboard";
 import { useAnswering } from "../answers";
+import { useViewing } from "../viewed";
 import { CallCard, type CardKeys } from "../CallCard";
 import { dotsOf } from "../horizon";
 import type { CockpitProps } from "./props";
@@ -212,6 +213,8 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
 export function SessionPane({ subject, props, acts, onPr, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; ledger: HTMLElement | null; openSession: (id: string) => void }) {
   const session = useSessions().find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
+  // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
+  useViewing(session?.id);
   const { state } = props;
   if (session === undefined || draft === undefined) return null;
   return (

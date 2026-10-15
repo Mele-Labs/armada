@@ -5,6 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { viewedAt } from "../cockpit/viewed";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
@@ -35,6 +36,21 @@ test("calls open as panes, and a Session's question keeps its call until it is a
   // leaves when seen (`store.test.ts`).
   await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked.replace(/^[^:]+: /, ""));
   expect(hails()).toHaveLength(before);
+});
+
+// Seen in this window was not enough: the deck's memory of it went with a restart, and a reply's call came back because the
+// Session still read as unread. Open on the stage, the Session is read, as on the Sessions page (the owner, 15 Oct 2026).
+test("a Session opened from its call is read, so its reply does not call again after a restart", async () => {
+  await deck();
+  const title = "Pin the store clock";
+  timePasses();
+  const call = `Session question: ${title}`;
+  await expect.poll(() => hails()).toContain(call);
+  const before = Date.now();
+  await incoming().getByRole("button", { name: call }).click();
+
+  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(title);
+  await expect.poll(() => viewedAt("r1")).toBeGreaterThanOrEqual(before);
 });
 
 // A reply alone raises none (main's "Move replies out of Needs you", 9701ecf0c), so the Session asks a question. The deck is the only
