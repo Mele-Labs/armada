@@ -1528,7 +1528,7 @@ m              switch between grid and timeline   (dashboard only)
 w              bring a waiting call back   (dashboard only)
 l b c q f a    go to a panel: list, bays, calls, queue, flight controls, Autopilot   (deck only)
 1–6            press a flight control   (deck only)
-v              switch a Job between mission and canvas   (deck only) (not built)
+v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
 1–9            pick an answer   (call only)
@@ -1556,14 +1556,14 @@ back and `?` lists them all. None is a palette row yet: each is read from the pa
 drawn and `deck` only where the deck is, and the two never share a key. The deck takes
 the Dashboard's `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
 hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
-the keymap does not count them against `t` and `c`. `l b c q f a` go to a panel, `1–6`
-press a flight control, `t` shows the timeline, `g` then `c`, `j`, `s` or `y` goes to the
-Cockpit, Jobs, Sessions or System, and with the rail off `⌘1–⌘4` are the title bar's four
-tabs. A call pane in front takes the bare digits and letters the `call` scope names while
-it is up, and the deck's handlers stand down for it. `v`, which swaps a Job's mission and
-its canvas, is `not built`: the mission is the battlefield's, and an act that is `not
-built` listens to nothing. The deck replaces the Dashboard's `[ ]` and `⌥1–3`, which retire
-with that panel.
+the keymap does not count them against `t` and `c`. `l b c q f a` go to a panel, `m` shows
+the map (the Dashboard's `m`, read by the deck), `1–6` press a flight control, `t` shows
+the timeline, `v` swaps a Job's mission and its canvas, `g` then `c`, `j`, `s` or `y` goes
+to the Cockpit, Jobs, Sessions or System, and with the rail off `⌘1–⌘4` are the title bar's
+four tabs. A call pane in front takes the bare digits and letters the `call` scope names
+while it is up, and the deck's handlers stand down for it. A replay takes Space, `←`, `→`,
+Home and Esc while it is up. The deck replaces the Dashboard's `[ ]` and `⌥1–3`, which
+retire with that panel.
 
 **This is the map, not a pattern.** It was settled by drawing the Job
 Board and the command palette together, which is what forced the two

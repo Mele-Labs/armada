@@ -640,7 +640,7 @@ shortcut = "m"
 scope = "dashboard"
 destructive = false
 confirms = false
-notes = "Flips the Dashboard panel between its tiles and its timeline. The choice is remembered. The toggle beside the filter draws `layout-grid` and `chart-no-axes-gantt`."
+notes = "Flips the Dashboard panel between its tiles and its timeline. The choice is remembered. The toggle beside the filter draws `layout-grid` and `chart-no-axes-gantt`. On the deck, with the rail off, it shows the map on the stage, as `t` shows the timeline."
 
 [actions.key_sheet]
 kind = "Action"
@@ -676,7 +676,7 @@ shortcut = "l b c q f a"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot. Six letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is not built (#2301), and `dashboard_view` stays the classic Cockpit's."
+notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot. Six letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
 
 [actions.deck_tile]
 kind = "Action"
@@ -688,7 +688,7 @@ shortcut = "1–6"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. The Map tile is drawn and not built (#2301), so `5` presses nothing until the battlefield is."
+notes = "Presses the flight control tile with that number, from anywhere on the deck. Bare digits, as `call_pick` is: a call pane in front takes them while it is up, and gives them back. `5` is the Map and `6` the Timeline."
 
 [actions.deck_view]
 kind = "Action"
@@ -700,8 +700,7 @@ shortcut = "v"
 scope = "deck"
 destructive = false
 confirms = false
-unbuilt = "#2301"
-notes = "In a Job's pane on the deck, swaps its mission view and its canvas. The choice is remembered per Job. `v` is `observe` on a Job's detail and `call_open_walk` on a call: different scopes."
+notes = "In a Job's pane on the deck, swaps its mission view and its canvas. The choice is remembered for the window. `v` is `observe` on a Job's detail and `call_open_walk` on a call: different scopes."
 
 [actions.deck_timeline]
 kind = "Action"
@@ -713,7 +712,7 @@ shortcut = "t"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. The map is the timeline until the battlefield is built (#2301)."
+notes = "Shows the deck's event timeline on the stage and takes focus to it. `t` is `attest` on a list and `call_reply` on a call. On the deck it is the timeline's, as `c` is a panel's: `attest` is a Job's act and lives on its page, not on the deck. `m` shows the map."
 
 [actions.deck_page]
 kind = "Action"

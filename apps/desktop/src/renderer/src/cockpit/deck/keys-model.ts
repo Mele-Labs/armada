@@ -87,7 +87,33 @@ export function keySheetOf(): readonly SheetGroup[] {
         { keys: caps("call_recall").map((one) => `⇧${one.toUpperCase()}`), does: "Open the previous call" },
       ],
     },
-    ...(built("deck_timeline") ? [{ head: "Stage", rows: [{ keys: caps("deck_timeline"), does: actionOf("deck_timeline").verb }] }] : []),
+    {
+      head: "Stage",
+      rows: [
+        { keys: caps("dashboard_view"), does: "Show the map" },
+        ...(built("deck_timeline") ? [{ keys: caps("deck_timeline"), does: actionOf("deck_timeline").verb }] : []),
+        ...(built("deck_view") ? [{ keys: caps("deck_view"), does: actionOf("deck_view").verb }] : []),
+      ],
+    },
+    // The map's own keys and a replay's are a mode's, not acts of the registry: they listen only while the map or a replay is up.
+    {
+      head: "Map",
+      rows: [
+        { keys: ["←", "→", "↑", "↓"], does: "Pan" },
+        { keys: ["+", "-"], does: "Zoom" },
+        { keys: ["0"], does: "The whole field" },
+        { keys: ["Home"], does: "Locate the selection" },
+      ],
+    },
+    {
+      head: "Replay",
+      rows: [
+        { keys: ["Space"], does: "Play or pause" },
+        { keys: ["←", "→"], does: "Step one event" },
+        { keys: ["Home"], does: "Start over" },
+        { keys: [...caps("close"), "⇧L"], does: "Back to Live" },
+      ],
+    },
     {
       head: "Pages",
       rows: [

@@ -19,15 +19,18 @@ test("every panel the registry's keys go to is a panel the deck draws", () => {
   expect(PANEL_SLOTS).toHaveLength(slotsOf("deck_panel").length);
 });
 
-test("the key sheet lists the built deck acts with the keymap's own keys, and no act that is not built", () => {
+test("the key sheet lists every deck act with the keymap's own keys, and the map's and the replay's", () => {
   const rows = keySheetOf().flatMap((group) => group.rows);
   const keys = rows.flatMap((row) => row.keys);
   for (const act of ACTIONS.filter((one) => one.scope === "deck" && one.unbuilt === null)) {
     for (const slot of slotsOf(act.id).map(formatSlot)) expect(keys, `${act.id} on the sheet`).toContain(slot);
   }
-  const unbuilt = ACTIONS.filter((one) => one.scope === "deck" && one.unbuilt !== null);
-  expect(unbuilt.map((one) => one.id)).toEqual(["deck_view"]);
-  expect(rows.map((row) => row.does)).not.toContain(unbuilt[0]!.verb);
+  // Nothing the deck takes is left not built: the battlefield was the last of it.
+  expect(ACTIONS.filter((one) => one.scope === "deck" && one.unbuilt !== null).map((one) => one.id)).toEqual([]);
+  // The map is the Dashboard's `m`, read by the deck, and a Job's mission and canvas swap is `v`.
+  expect(keys).toContain(formatSlot(slotsOf("dashboard_view")[0]!));
+  expect(keys).toContain("v");
+  expect(keySheetOf().map((group) => group.head)).toEqual(expect.arrayContaining(["Map", "Replay"]));
 });
 
 test("the page chord lists its four second keys after the registry's first", () => {

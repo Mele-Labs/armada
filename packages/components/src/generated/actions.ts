@@ -792,7 +792,7 @@ export const ACTIONS: readonly Action[] = [
     scope: "deck",
     destructive: false,
     confirms: false,
-    unbuilt: "#2301",
+    unbuilt: null,
   },
   {
     id: "deck_timeline",
