@@ -92,8 +92,8 @@ pub struct JudgeAnswered {
 /// An answer that leaves the deciding to the Drone, and how it is told to.
 ///
 /// **A mode is an instruction and not a label.** `best` is "decide for
-/// yourself: think it through" and `quick` is "take the reasonable path and
-/// keep moving"; Fleet words both, so Bridge sends the name alone. Used by the
+/// yourself: think it through" and `quick` is "just get it done: finish the work
+/// and land it"; Fleet words both, so Bridge sends the name alone. Used by the
 /// Cockpit's `b` and `g` keys on a question.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

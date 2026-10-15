@@ -601,7 +601,7 @@ where
         let says = match (picked.as_deref().or(words), said.mode) {
             (Some(chosen), _) => format!("Answered: {chosen}"),
             (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
-            (None, Some(ipc::WaitingMode::Quick)) => "Answered: keep moving".to_string(),
+            (None, Some(ipc::WaitingMode::Quick)) => "Answered: get it done".to_string(),
             (None, None) => "Approved".to_string(),
         };
         let settled = match item.source {

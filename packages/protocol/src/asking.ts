@@ -58,8 +58,8 @@ export type JudgeAnswered = {
 
 /**
  * An answer that leaves the deciding to the drone, and how it is told to:
- * `best` is "decide for yourself: think it through", `quick` is "take the
- * reasonable path and keep moving". Fleet words both, so only the name crosses.
+ * `best` is "decide for yourself: think it through", `quick` is "just get it
+ * done: finish the work and land it". Fleet words both, so only the name crosses.
  * Sent by the Cockpit's `b` and `g` keys on a question.
  */
 export type AnswerMode = "best" | "quick";

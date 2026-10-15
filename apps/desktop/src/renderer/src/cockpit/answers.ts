@@ -134,7 +134,7 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
 
 /**
  * Two answers that stand after the numbered ones on a question an agent asked (`asksAnAgent`, so
- * never on a Session's errand line): the best solution, thought through, or the quickest reasonable path. **On a Session's permission they hand the
+ * never on a Session's errand line): the best solution, thought through, or the work finished and landed. **On a Session's permission they hand the
  * decision to run the command to the agent** (owner, 9 Oct 2026), so they say that. On a Session's
  * call each is an answer carrying `mode: "best" | "quick"`, which Fleet tells the agent as an
  * instruction; on a Plan question or a state Fleet raised, they only clear the card for now.
@@ -154,7 +154,7 @@ function standingOf(send: (mode: "best" | "quick") => void, permission: boolean)
       key: keyFor("call_quick"),
       act: "call_quick",
       label: actionOf("call_quick").verb,
-      says: permission ? "Tells the agent to run the command if it is reasonable and keep moving" : "Tells the agent to take the quickest reasonable path and keep moving",
+      says: permission ? "Tells the agent to run the command if it is reasonable and keep moving" : "Tells the agent to finish the work and land it, skipping the formalities",
       run: () => send("quick"),
     },
   ];
