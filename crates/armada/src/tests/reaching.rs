@@ -53,7 +53,7 @@ async fn a_change_the_narrowing_can_name_runs_narrowed() {
         &dir,
         &[
             "crates/fleet/src/lib.rs",
-            "crates/api",
+            "crates/api/Cargo.toml",
             "crates/acceptance/tests/a.rs",
             "docs/a.md",
         ],
