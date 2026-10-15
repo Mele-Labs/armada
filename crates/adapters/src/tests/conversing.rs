@@ -4,7 +4,7 @@
 use adapter_traits::{Environment, McpConfig, Model};
 
 use super::harness::value_after;
-use crate::conversing::{door_tools, wrote_the_checkout, ConversationRefused, Conversing};
+use crate::conversing::{door_tools, wrote_the_checkout, ConversationRefused, Conversing, TASK_TOOLS};
 use crate::harness::HeadlessAgent;
 
 fn environment() -> Environment {
@@ -37,13 +37,22 @@ fn a_new_conversation_opens_in_the_repository_with_the_door_beside_what_a_person
     let args = launch.args();
 
     assert_eq!(launch.directory(), "/repos/armada");
-    assert_eq!(launch.environment(), &environment());
+    assert_eq!(launch.environment(), &environment().and(TASK_TOOLS, "1").expect("a legal name"));
     assert_eq!(
         value_after(args, "--mcp-config").as_deref(),
         Some("/var/armada/helm-mcp.json")
     );
     assert_eq!(door_tools(), "mcp__armada-fleet");
     assert!(!args.iter().any(|arg| arg == "--resume"));
+}
+
+/// A headless process has no task tools unless asked, so the agent could write no list and a
+/// Session's build ring drew no pieces. Measured on the CLI, 2.1.300.
+#[test]
+fn a_conversation_is_given_the_task_tools_a_terminal_has() {
+    assert_eq!(TASK_TOOLS, "CLAUDE_CODE_ENABLE_TODO_TOOLS");
+    let launch = rendered(&fresh());
+    assert_eq!(launch.environment(), &environment().and(TASK_TOOLS, "1").expect("a legal name"));
 }
 
 /// `#1373`: each of these withholds something a person has in a terminal, and
