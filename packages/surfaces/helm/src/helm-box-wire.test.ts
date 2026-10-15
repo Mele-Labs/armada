@@ -42,8 +42,8 @@ describe("ask_helm", () => {
 
 describe("get_issue", () => {
   it("answers one issue with where it stands", () => {
-    const read = decoded<IssueRead>('{"number":61,"title":"Doctor reports a stale pid as running","url":"https://forge.invalid/issues/61","state":"closed"}');
-    expect(read).toEqual({ number: 61, title: "Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61", state: "closed" });
+    const read = decoded<IssueRead>('{"reference":"#61","title":"Doctor reports a stale pid as running","url":"https://forge.invalid/issues/61","state":"closed"}');
+    expect(read).toEqual({ reference: "#61", title: "Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61", state: "closed" });
   });
 });
 

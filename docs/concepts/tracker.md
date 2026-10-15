@@ -1,10 +1,12 @@
 # Tracker
 
-**What it is:** The adapter through which Fleet reads a repository's open issues and writes back on the one a Job came from. Bridge lists the issues from Fleet, and a person dispatches one by its address.
+**What it is:** The adapter through which Fleet reads a repository's open issues and writes back on the one a Job came from. Bridge lists the issues from Fleet, and a person dispatches one by its address. Each issue is named by its tracker's own reference: `#123` on the forge, `ABC-123` on Jira.
 
 ---
 
 **Kind:** Adapter. `#91`. The seam is `Tracker` in `crates/adapter-traits/src/tracker.rs`. There are two implementations, and each repository's Manifest chooses between them: `crates/adapters/src/issue_tracker.rs`, against the same forge the rest of delivery assumes, and `crates/adapters/src/jira_tracker.rs`, [Jira](#jira). *Choosing a tracker* says how.
+
+**An issue's identity is its reference and its address, never a bare number.** A number names nothing once a tracker has more than one project. `TrackedIssue` and `IssueRead` carry `reference` as text, `get_issue` takes it, Autopilot's picker is offered and answers it, and a write-back goes by the address (`url`). Bridge draws the reference as it is.
 
 ## Why Fleet reads it, and not a Drone
 
@@ -67,21 +69,23 @@ The `jira` provider reads and writes through `acli`, Atlassian's command line, a
 | Key | Required | Meaning |
 |---|---|---|
 | `site` | yes | `acme` for `acme.atlassian.net`, or a full host where it has a dot |
-| `project` | yes | The project key: capitals, digits and underscores |
-| `jql` | no | An extra filter, ANDed into the search. It takes no `ORDER BY` |
+| `project` | one of `project` and `jql` | A project key, or several separated by commas: capitals, digits and underscores. `ABC, OPS` |
+| `jql` | one of `project` and `jql` | A filter, ANDed into the search. It takes no `ORDER BY` |
+
+**The backlog is whatever the block selects.** `project` alone lists those projects, `jql` alone lists what it matches on the site, and both together list the `jql` within those projects. A block naming neither is refused, since it would list every open issue on the site.
 
 **Needs on the machine Fleet runs on:** `jq` on the PATH, and `acli` on the PATH and signed in to the site. Either missing is said as the reason the tracker refused, naming the tool.
 
 | Act | What Jira sees |
 |---|---|
-| List the open issues | `project = "ABC" AND statusCategory != Done`, plus `jql` in parentheses, newest edit first |
-| Read one issue by number | `ABC-N`. **The project key is always in the search, so the number alone names the issue**, and `OpenIssue.number` stays a number |
+| List the open issues | `project = "ABC" AND statusCategory != Done`, or `project in ("ABC", "OPS") AND ...` for several, or no project clause where only `jql` is given, plus `jql` in parentheses, newest edit first. Whatever the search returns is listed, each under its key |
+| Read one issue | By its key, `ABC-123`, in any project. A reference that is not a key, such as `123`, names no issue and is a 404 without reaching `acli` |
 | Dispatch by link | Only `https://<site>.atlassian.net/browse/ABC-123` is recognised, any project's key. A bare number or another host is not |
 | Comment | `acli jira workitem comment create` on the key in the issue's address |
-| Armada's labels | `armada: in progress` is the label `armada-in-progress`, and `armada: set aside` is `armada-set-aside`: Jira labels hold no whitespace. The whole label set is written, the issue's own labels plus the added ones less the removed, so the write is right whether `--labels` adds or replaces |
+| Armada's labels | `armada: in progress` is the label `armada-in-progress`, and `armada: set aside` is `armada-set-aside`: Jira labels hold no whitespace. A label taken off is written with `--remove-labels` alone. A label put on is written as the issue's whole label set, since the reference does not say whether `--labels` adds or replaces |
 | Close the issue | The tracker returns no closing line, because nothing in a pull request body closes a Jira issue. The pull request **title** is prefixed with the key (`ABC-123 The title`), which Jira's integration with the forge reads, and left alone where it already holds the key |
 
-Only a key in the configured project is listed, whatever a custom `jql` let through.
+**What the `acli` reference settles about labels.** `https://developer.atlassian.com/cloud/acli/reference/commands/jira-workitem-edit/` lists `--labels` as "Edit the labels" and `--remove-labels` as "Remove the labels", and gives no example of either. A removal has its own flag, so it is written as a removal and reads nothing first: a label somebody else sets at the same moment is not touched. Whether `--labels` appends to the labels or replaces them is not said, so an addition still reads the issue's labels and writes them all. **That write can lose a label set between the read and the write.** It stays until someone runs the edit against a real issue and sees which it does.
 
 **Not verified against a real `acli`.** The output shapes below were written from the documentation and are unconfirmed. Every filter reads both `.fields.x` and a flat `.x`, and flattens a rich-text description to plain text, so a plausible variation reads. Whoever first points a repository at Jira runs these and compares, with a real key and project:
 
@@ -90,7 +94,7 @@ acli jira workitem search --jql 'project = "ABC" AND statusCategory != Done' --f
 acli jira workitem view ABC-1 --fields key,summary,status,resolution,labels --json
 ```
 
-What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document. Also unconfirmed: whether `acli jira workitem edit --labels` adds to the labels or replaces them (the write above is right either way), and the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
+What to look for: each issue has `key` and `fields.summary` (or `summary`), `fields.labels` is a list of strings, `fields.updated` is a timestamp, `fields.status` is an object with `statusCategory.key`, and `fields.description` is text or a rich-text document. Also unconfirmed: whether `acli jira workitem edit --labels` adds to the labels or replaces them, and the wording `acli` prints for an issue that does not exist, which `read_issue` matches on (`does not exist`, `not found`, `404`).
 
 ## What a person sees
 
@@ -98,14 +102,14 @@ What to look for: each issue has `key` and `fields.summary` (or `summary`), `fie
 |---|---|
 | The composer | The repository's open issues under the request, newest edit first. Each has Dispatch, or *A job is on it* where a Job from it has not ended |
 | The issue | The two comments, Armada's label, and the closing on the pull request: its line in the body, or the key in its title |
+| Each row | The issue's reference as its tracker writes it: `#123`, `ABC-123`. Autopilot's Next up and its picks draw the same |
 | The Job's log | A warning when a write was refused, with the tracker's own words |
 
 ## What it does not do yet
 
 | Missing | Waiting on it |
 |---|---|
-| An issue's key in Bridge | Bridge draws `#123` for every issue, so Jira's `ABC-123` shows as `#123`. The wire carries a number only |
-| A Jira issue's address when the project key is not the Manifest's | Only the configured project is listed and read by number. A link to another project's issue dispatches, and is not in the backlog |
+| A label put on without a read | Until `--labels` is known to add rather than replace |
 | A Job's address outside Bridge | The started comment names the Job by number and title, since there is no link to give |
 | A milestone's issues on their own | `../journeys/dispatch-a-milestone.md`, step 1 |
 | A Drone reading the same issues through a tool | `../capabilities/epic-as-one-job.md` |

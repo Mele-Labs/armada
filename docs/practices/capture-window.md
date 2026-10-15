@@ -307,6 +307,16 @@ this window, and that is another security review. `#1294`.
 > Why: it ends the Session's walk, and a Session refuses its own questions
 > while one is open (`docs/concepts/session.md`, *Showing a window*).
 
+> **Rule.** A page the window cannot show is told to whoever opened the walk:
+> a Session as `window_failed`, which Fleet passes on as its own notice, and a
+> Job as `walk_failed`, which wakes its Commander. A load that failed, an HTTP
+> status of 400 or more on the page, or the page's process gone counts; a
+> subframe's failure and a load this window refused do not. Told once until a
+> page on the window's origin loads. A Studio's window has nobody to tell, and
+> a Run that ended is already known. `capture/failed.ts`.
+> Why: the person should not have to notice a dead page and carry the news
+> back. Electron's events are read, never the page's word.
+
 > **Rule.** The window draws no rail and reaches two Armada surfaces: the card
 > of a question its Session asked about the page, drawn on the bar, and the
 > Session or the Job that opened the window, drawn in a panel beside the page.

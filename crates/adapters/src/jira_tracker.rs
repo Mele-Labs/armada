@@ -162,11 +162,15 @@ impl<R: Run> Tracker for JiraTracker<R> {
         Ok(issues)
     }
 
-    fn read_issue(&self, _in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked> {
+    fn read_issue(&self, _in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked> {
         let doing = "reading the issue";
-        let key = self.settings.key_of(number);
+        // Only a key reaches the CLI; a number alone names no issue across projects.
+        let key = reference.trim();
+        if !is_key(key) {
+            return Ok(None);
+        }
         let (worked, text) = self.reduced(
-            &["jira", "workitem", "view", &key, "--fields", "key,summary,status,resolution", "--json"],
+            &["jira", "workitem", "view", key, "--fields", "key,summary,status,resolution", "--json"],
             &jira::reading_filter(),
             doing,
         )?;
@@ -180,9 +184,7 @@ impl<R: Run> Tracker for JiraTracker<R> {
                 false => Err(NotTracked::of(doing, text)),
             };
         }
-        Ok(text
-            .lines()
-            .find_map(|line| read_issue_of_line(&self.settings, line)))
+        Ok(text.lines().find_map(|line| read_issue_of_line(&self.settings, line)))
     }
 
     fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked> {
@@ -194,9 +196,11 @@ impl<R: Run> Tracker for JiraTracker<R> {
         )
     }
 
-    /// **The whole set is written, not only the change.** Whether `--labels`
-    /// adds or replaces is unverified (`docs/concepts/tracker.md`), and the
-    /// current labels plus the added ones, less the removed, is right either way.
+    /// **A removal is written as a removal**: `--remove-labels` is its own flag, so a label
+    /// somebody else set at the same moment is not touched. **An addition writes the whole
+    /// set**, because acli's reference words `--labels` only as "Edit the labels" and does not say
+    /// whether it adds or replaces (`docs/concepts/tracker.md`); the current labels plus the
+    /// added ones, less the removed, is right either way.
     fn relabel(
         &self,
         issue: &IssueAddress,
@@ -210,28 +214,30 @@ impl<R: Run> Tracker for JiraTracker<R> {
         if add.is_empty() && remove.is_empty() {
             return Ok(());
         }
-        let (worked, held) = self.reduced(
-            &["jira", "workitem", "view", &key, "--fields", "labels", "--json"],
-            &jira::labels_filter(),
-            doing,
-        )?;
-        if !worked {
-            return Err(NotTracked::of(doing, held));
-        }
-        let mut labels: Vec<String> = held.lines().map(str::to_string).collect();
-        for one in &add {
-            if !labels.contains(one) {
-                labels.push(one.clone());
-            }
-        }
-        labels.retain(|one| !remove.contains(one));
-        let (labels, remove) = (labels.join(","), remove.join(","));
+        let removing = remove.join(",");
         let mut args = vec!["jira", "workitem", "edit", "--key", key.as_str()];
+        let whole;
         if !add.is_empty() {
-            args.extend(["--labels", labels.as_str()]);
+            let (worked, held) = self.reduced(
+                &["jira", "workitem", "view", &key, "--fields", "labels", "--json"],
+                &jira::labels_filter(),
+                doing,
+            )?;
+            if !worked {
+                return Err(NotTracked::of(doing, held));
+            }
+            let mut labels: Vec<String> = held.lines().map(str::to_string).collect();
+            for one in &add {
+                if !labels.contains(one) {
+                    labels.push(one.clone());
+                }
+            }
+            labels.retain(|one| !remove.contains(one));
+            whole = labels.join(",");
+            args.extend(["--labels", whole.as_str()]);
         }
         if !remove.is_empty() {
-            args.extend(["--remove-labels", remove.as_str()]);
+            args.extend(["--remove-labels", removing.as_str()]);
         }
         args.push("--yes");
         self.written(&args, doing)
@@ -247,19 +253,18 @@ impl<R: Run> Tracker for JiraTracker<R> {
     }
 }
 
-/// One `@tsv` line of the listing. A key of another project is not this
-/// project's issue, whatever a custom filter let through.
+/// One `@tsv` line of the listing. **A line whose first field is not a key is not an issue**;
+/// which projects are listed was the search's to say, and is not checked again here.
 pub(crate) fn issue_of_line(settings: &JiraSettings, line: &str) -> Option<OpenIssue> {
     let mut field = line.split('\t');
-    let key = field.next()?;
-    let number = settings.number_of(key)?;
+    let key = field.next().filter(|key| is_key(key))?;
     let title = field.next().unwrap_or_default();
     let labels = field.next().unwrap_or_default();
     let assignee = field.next().unwrap_or_default();
     let updated_at = field.next().unwrap_or_default();
     let excerpt = field.next().unwrap_or_default();
     Some(OpenIssue {
-        number,
+        reference: key.to_string(),
         title: FromOutside::verbatim(as_written(title)),
         url: FromOutside::verbatim(settings.browse(key)),
         labels: as_written(labels)
@@ -281,14 +286,13 @@ pub(crate) fn issue_of_line(settings: &JiraSettings, line: &str) -> Option<OpenI
 /// One `@tsv` line of the reading: key, summary, status, resolution.
 pub(crate) fn read_issue_of_line(settings: &JiraSettings, line: &str) -> Option<ReadIssue> {
     let mut field = line.split('\t');
-    let key = field.next()?;
-    let number = settings.number_of(key)?;
+    let key = field.next().filter(|key| is_key(key))?;
     let title = field.next().unwrap_or_default();
     let status = field.next().unwrap_or_default();
     let resolution = field.next().unwrap_or_default();
     let done = ["done", "closed", "resolved", "complete", "completed"].contains(&status);
     Some(ReadIssue {
-        number,
+        reference: key.to_string(),
         title: FromOutside::verbatim(as_written(title)),
         url: FromOutside::verbatim(settings.browse(key)),
         closed: done || !resolution.is_empty(),

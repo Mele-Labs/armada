@@ -79,6 +79,7 @@ async fn every_operation_the_table_names_is_routed() {
             .replace(":studio_id", THE_STUDIO)
             .replace(":run/:name", THE_FRAME)
             .replace(":lesson_id", THE_LESSON)
+            .replace(":reference", "214")
             .replace(":name", THE_BRIEF);
         let (status, _) = call(&app, route.method, &uri, A_PROPOSAL).await;
         assert_ne!(

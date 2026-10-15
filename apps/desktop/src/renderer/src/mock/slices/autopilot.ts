@@ -23,7 +23,7 @@ function running(manifestId: string): Autopilot {
     picks: [
       {
         pick_id: "01JAUTOPILOTPICK0000000001",
-        issue_number: 412,
+        issue_reference: `#${412}`,
         issue_title: "The log reader drops the last line",
         issue_url: "https://forge.invalid/storefront/issues/412",
         workflow_id: "bug",
@@ -34,7 +34,7 @@ function running(manifestId: string): Autopilot {
       },
       {
         pick_id: "01JAUTOPILOTPICK0000000002",
-        issue_number: 377,
+        issue_reference: `#${377}`,
         issue_title: "Should the Board group Jobs by repository?",
         issue_url: "https://forge.invalid/storefront/issues/377",
         workflow_id: "feature",
@@ -44,7 +44,7 @@ function running(manifestId: string): Autopilot {
       },
       {
         pick_id: "01JAUTOPILOTPICK0000000003",
-        issue_number: 401,
+        issue_reference: `#${401}`,
         issue_title: "Checkout total rounds the tax twice",
         issue_url: "https://forge.invalid/storefront/issues/401",
         workflow_id: "bug",
@@ -61,7 +61,7 @@ function running(manifestId: string): Autopilot {
 function capped(manifestId: string): Autopilot {
   const started = (n: number, title: string): Autopilot["picks"][number] => ({
     pick_id: `01JAUTOPILOTPOCKETPICK00${n}`,
-    issue_number: 30 + n,
+    issue_reference: `#${30 + n}`,
     issue_title: title,
     issue_url: `https://forge.invalid/pocket/issues/${30 + n}`,
     workflow_id: "bug",

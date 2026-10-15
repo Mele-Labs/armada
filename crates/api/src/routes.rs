@@ -250,6 +250,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),
         )
+        .route(
+            "/sessions/window/failed",
+            post(crate::sessions::window_failed::<D>),
+        )
         .route("/plan_usage", get(crate::hosted_sessions::get_plan_usage::<D>))
         .route("/model_downshift", get(crate::hosted_sessions::get_model_downshift::<D>))
         .route("/model_downshift/accept", post(crate::hosted_sessions::accept_downshift::<D>))
@@ -514,6 +518,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/jobs/:job_id/walk_notes/remove",
             post(crate::walking::remove_walk_note::<D>),
+        )
+        .route(
+            "/jobs/:job_id/walk/failed",
+            post(crate::walking::walk_failed::<D>),
         )
         .route(
             "/jobs/:job_id/queue_after_finding",

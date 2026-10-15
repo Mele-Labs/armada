@@ -45,6 +45,7 @@ Every Job has a Commander, and it wakes only on trouble. Each trouble is read fr
 | A broken worktree or environment | `Turned::broken`: a Job moved onto `no_worktree`, `not_configurable`, `would_not_start`, `resource_exhausted` or `not_prepared` | No Drone could run: the worktree was unusable |
 | A cap nearly spent | `Turned::spent`: a Job a Drone's spend was just written for, against `Allowance::nearly_spent_by` at 80% of the cost cap or of the turn cap | The cost cap is nearly spent: $4.25 of $5.00 |
 | A repair Drone it sent ended with nothing handed in | The repair's own end (*The repair*, below), made where the Drone ends and not on a tick | The repair Drone on step *s* ended with nothing handed in |
+| The walk window could not show the work | `walk_failed`, which Bridge sends when the page does not load, answers 400 or more, or its process goes away; made where it arrives and not on a tick | The walk window could not show step *s*'s work at *url*: ERR_CONNECTION_REFUSED |
 
 The broken-environment and cap rows have no turn to sit on, because an environment failure happens while a Job is admitted and spend is written when a Drone ends. Each leaves a note in memory (`Stirred`) that the next turn carries.
 

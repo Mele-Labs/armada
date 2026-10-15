@@ -241,7 +241,7 @@ where
             pick_id: self.mint().ulid().as_str().to_string(),
             run_id: kept.run_id.clone(),
             manifest_id: kept.manifest_id.clone(),
-            issue_number: aside.issue.number,
+            issue_reference: aside.issue.reference,
             issue_title: aside.issue.title,
             issue_url: aside.issue.url,
             workflow_id: aside.workflow.map(|id| id.as_str().to_string()),
@@ -309,13 +309,13 @@ where
         let reference = links
             .issue(&issue.url)
             .map(|address| address.reference().to_string())
-            .unwrap_or_else(|| format!("#{}", issue.number));
+            .unwrap_or_else(|| issue.reference.clone());
         let source = IssueSource::read(reference, issue.url.clone(), self.now());
         let pick = KeptPick {
             pick_id: self.mint().ulid().as_str().to_string(),
             run_id: kept.run_id.clone(),
             manifest_id: kept.manifest_id.clone(),
-            issue_number: issue.number,
+            issue_reference: issue.reference.clone(),
             issue_title: issue.title.clone(),
             issue_url: issue.url.clone(),
             workflow_id: Some(sure.workflow().as_str().to_string()),

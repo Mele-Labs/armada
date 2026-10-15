@@ -6,7 +6,7 @@ import type { IssueList, IssueRead, Outcome, PullRequestState } from "@armada/pr
 /** What a read came to: the list as Fleet answered it, or the refusal to word. */
 export type IssuesRead = { ok: true; value: IssueList } | { ok: false; outcome: Outcome };
 
-/** One issue by number, as Fleet answered it, or the refusal to word. */
+/** One issue by reference, as Fleet answered it, or the refusal to word. */
 export type IssueNumberRead = { ok: true; value: IssueRead } | { ok: false; outcome: Outcome };
 
 /** One pull request by number, whatever its standing, or the refusal to word. */
@@ -18,8 +18,8 @@ export type IssuesApi = {
    * the last five minutes; `refresh` asks the tracker again.
    */
   listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
-  /** One issue of the repository by number, open or closed. A number that is no issue is Fleet's 404. */
-  getIssue: (manifestId: string, number: number) => Promise<IssueNumberRead>;
+  /** One issue of the repository by its tracker's reference (`#214`, `ABC-123`), open or closed. A reference that is no issue is Fleet's 404. */
+  getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
   /** One pull request of the repository by number, open, merged or closed. */
   getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
 };

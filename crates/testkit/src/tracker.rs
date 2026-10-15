@@ -47,7 +47,7 @@ impl FakeTracker {
     /// An open issue with only what a test usually names.
     pub fn issue(number: u64, title: &str) -> OpenIssue {
         OpenIssue {
-            number,
+            reference: format!("#{number}"),
             title: FromOutside::verbatim(title),
             url: FromOutside::verbatim(format!("https://forge.invalid/o/r/issues/{number}")),
             labels: Vec::new(),
@@ -61,7 +61,7 @@ impl FakeTracker {
     /// An issue that is closed: read by number, never listed.
     pub fn knows_closed(&self, number: u64, title: &str) {
         self.closed.lock().expect("closed").push(ReadIssue {
-            number,
+            reference: format!("#{number}"),
             title: FromOutside::verbatim(title),
             url: FromOutside::verbatim(format!("https://forge.invalid/o/r/issues/{number}")),
             closed: true,
@@ -117,19 +117,24 @@ impl Tracker for FakeTracker {
     }
 
     /// A listed issue is open, a closed one is what [`knows_closed`](Self::knows_closed) was told,
-    /// and any other number is none: a pull request's number is not told either.
-    fn read_issue(&self, _in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked> {
+    /// and any other reference is none: a pull request's number is not told either. `214` and
+    /// `#214` name the same issue.
+    fn read_issue(&self, _in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked> {
         if let Some(said) = self.unreadable.lock().expect("unreadable").clone() {
             return Err(NotTracked::of("reading the issue", said));
         }
+        let reference = match reference.parse::<u64>() {
+            Ok(number) => format!("#{number}"),
+            Err(_) => reference.to_string(),
+        };
         let listed = self
             .issues
             .lock()
             .expect("issues")
             .iter()
-            .find(|issue| issue.number == number)
+            .find(|issue| issue.reference == reference)
             .map(|issue| ReadIssue {
-                number,
+                reference: issue.reference.clone(),
                 title: issue.title.clone(),
                 url: issue.url.clone(),
                 closed: false,
@@ -139,7 +144,7 @@ impl Tracker for FakeTracker {
             .lock()
             .expect("closed")
             .iter()
-            .find(|issue| issue.number == number)
+            .find(|issue| issue.reference == reference)
             .cloned();
         Ok(listed.or(closed))
     }

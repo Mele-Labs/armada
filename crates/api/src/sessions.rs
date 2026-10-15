@@ -181,6 +181,22 @@ pub(crate) async fn window_closed<D: Sessions>(
     }
 }
 
+/// A session's window could not show its page. 200 with whether the session was told; 422 for a
+/// session Fleet does not know.
+pub(crate) async fn window_failed<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let failed: ipc::WindowFailed = match ipc::decode("a failed window", &body) {
+        Ok(failed) => failed,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().window_failed(failed).await {
+        Ok(told) => answer(StatusCode::OK, &told, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent sets what it is waiting on the person for. 200 with the row, or a [`Receipt`] through the door; 422 for a call that
 /// places no session. **The session is placed by the connection**, as `show_window`'s is.
 pub(crate) async fn waiting_for<D: Sessions>(

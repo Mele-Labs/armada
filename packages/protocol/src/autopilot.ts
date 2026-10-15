@@ -18,7 +18,8 @@ export type AutopilotPickState = "started" | "set_aside" | "withdrawn" | "dismis
 /** One pick. `workflow_id` is absent where the picker was unsure of that too. */
 export type AutopilotPick = {
   pick_id: string;
-  issue_number: number;
+  /** The issue's own name in its tracker: `#123`, `ABC-123`. */
+  issue_reference: string;
   issue_title: string;
   issue_url: string;
   workflow_id?: string;

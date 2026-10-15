@@ -583,6 +583,14 @@ pub trait Commands: Send + Sync + 'static {
         remove: RemoveWalkNote,
     ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
 
+    /// `walk_failed` — the walk window could not show the Job's served work.
+    /// Wakes its Commander once per step attempt; moves nothing itself.
+    fn walk_failed(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        failed: ipc::WalkFailed,
+    ) -> impl Future<Output = Result<ipc::WalkTold, Refusal>> + Send;
+
     /// `queue_after_finding` — a person turns a For context finding into a Job that waits on
     /// this one, so it starts when this one lands. #906. The Job itself moves nothing.
     fn queue_after_finding(

@@ -230,7 +230,7 @@ fn what_an_answer_reads_as() {
     assert_eq!(crate::timeline::question_answer_says(&chose(Some("wrap"), None)), "Answered: wrap");
     assert_eq!(
         crate::timeline::question_answer_says(&chose(None, Some(ipc::AnswerMode::Quick))),
-        "Answered: keep moving"
+        "Answered: get it done"
     );
     assert_eq!(crate::timeline::command_answer_says(ipc::CommandAnswer::Reject), "Answered: reject");
     assert_eq!(crate::timeline::judge_answer_says(ipc::JudgeAnswer::DisagreeAlways), "Answered: disagree always");

@@ -209,6 +209,14 @@ impl Commands for FakeDaemon {
         self.unmoved(&job_id)?;
         Ok(ipc::WalkNotes { notes: Vec::new() })
     }
+    async fn walk_failed(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _failed: ipc::WalkFailed,
+    ) -> Result<ipc::WalkTold, Refusal> {
+        self.unmoved(&job_id)?;
+        Ok(ipc::WalkTold { told: true })
+    }
     async fn reject_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_reject_job(job_id).await
     }

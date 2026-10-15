@@ -20,21 +20,22 @@ impl Issues for FakeDaemon {
         })
     }
 
-    /// Issue 214 is open and 215 is closed; any other number is none.
-    async fn get_issue(&self, _manifest_id: ManifestId, number: u64) -> Result<IssueRead, Refusal> {
+    /// Issue 214 is open and 215 is closed, written `214` or `#214`; any other reference is none.
+    async fn get_issue(&self, _manifest_id: ManifestId, reference: String) -> Result<IssueRead, Refusal> {
+        let number = reference.trim_start_matches('#');
         let state = match number {
-            214 => IssueState::Open,
-            215 => IssueState::Closed,
+            "214" => IssueState::Open,
+            "215" => IssueState::Closed,
             _ => {
                 return Err(Refusal::NoSuchJob(WireError::raised(
                     "fleet.no_such_issue",
-                    format!("the tracker has no issue {number}"),
+                    format!("the tracker has no issue {reference}"),
                     crate::tests::shapes::run_id(),
                 )))
             }
         };
         Ok(IssueRead {
-            number,
+            reference: format!("#{number}"),
             title: String::from("A title"),
             url: format!("https://forge.invalid/o/r/issues/{number}"),
             state,

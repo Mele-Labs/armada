@@ -41,7 +41,8 @@ pub enum AutopilotPickState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutopilotPick {
     pub pick_id: String,
-    pub issue_number: u64,
+    /// The issue's own name in its tracker: `#123`, `ABC-123`.
+    pub issue_reference: String,
     pub issue_title: String,
     pub issue_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

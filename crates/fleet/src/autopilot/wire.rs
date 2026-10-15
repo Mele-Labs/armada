@@ -91,7 +91,7 @@ fn pick(kept: &KeptPick) -> Option<ipc::AutopilotPick> {
     };
     Some(ipc::AutopilotPick {
         pick_id: kept.pick_id.clone(),
-        issue_number: kept.issue_number,
+        issue_reference: kept.issue_reference.clone(),
         issue_title: kept.issue_title.clone(),
         issue_url: kept.issue_url.clone(),
         workflow_id: kept.workflow_id.clone().map(ipc::WorkflowId::carried),

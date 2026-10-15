@@ -8,5 +8,5 @@ notes = """
 
 **Routed by the item's source.** `ask_card` and `permission` items answer through the ask route underneath (`answer_session_ask`): a `choice` or `text` answers the card, a `mode` alone refuses it with the mode line as the note so the agent decides. A `walk` item sends the approval (`Approved: <url>`) as the person's message. An `agent` item becomes a message to the session: the item, the answer, the mode line, and a last line saying Fleet took the item off its waiting list. A `mode` with a `choice` or `text` adds its line to the message. A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note. Once that message is delivered the item is dismissed, as `dismiss_waiting` does: the returned record and the `SessionChanged` event no longer carry it, and the agent stating it again does not bring it back. A send that fails leaves the item standing. An item nothing holds is a 409; a body with none of the three is a 422.
 
-The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to take the reasonable path and keep moving.
+The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.
 """
