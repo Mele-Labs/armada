@@ -1,7 +1,8 @@
 // The Fleet-backed account source, against a fake Fleet and a clock turned by hand: signing in from
 // nothing to a profile by reading Fleet while the flow is not idle, how a sign-in that did not finish
-// is held, Fleet's refusal to begin one, signing out and switching the active profile. What the code
-// card and the set-up rows look like is the composition's (`Account.stories.tsx`).
+// is held, Fleet's refusal to begin one, signing out, and binding a repository to a profile. No profile
+// is active, so switching asks Fleet nothing. What the code card and the set-up rows look like is the
+// composition's (`Account.stories.tsx`).
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -17,8 +18,10 @@ vi.mock("@armada/settings", () => ({ openSettingsAt: vi.fn() }));
 const settled = () => new Promise((done) => setTimeout(done, 0));
 
 const ADDRESS = "https://forge.example/login/device";
-const work: Profile = { account_id: 1001, login: "mele-work", active: true, chosen: false };
-const personal: Profile = { account_id: 1002, login: "nickmele", active: false, chosen: true };
+const work: Profile = { account_id: 1001, login: "mele-work", chosen: false, repositories: [] };
+const personal: Profile = { account_id: 1002, login: "nickmele", chosen: true, repositories: [] };
+/** `work` as the composition is handed it: no profile is marked active. */
+const workDrawn = { account_id: 1001, login: "mele-work", chosen: false, active: false, repositories: [] };
 const CODE: AccountFlow = { phase: "code", code: "WDJB-MJHT", address: ADDRESS, expires_in_seconds: 899 };
 const SETUP: AccountFlow = { phase: "setup", login: "mele-work", repository: "armada-home", steps: { identity: "working", store: "waiting", home: "waiting" } };
 const IDLE: AccountFlow = { phase: "idle" };
@@ -63,12 +66,30 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
     startSignIn: async () => (asked.push("start"), starts()),
     signOut: async (id) => {
       asked.push(`sign out ${id}`);
-      held = { ...held, profiles: held.profiles.filter((one) => one.account_id !== id).map((one, at) => ({ ...one, active: at === 0 })) };
+      held = { ...held, profiles: held.profiles.filter((one) => one.account_id !== id) };
       return { ok: true, value: { accounts: held, store_row_remains: true, said: "The store did not answer." } satisfies SignedOut };
     },
-    setActiveAccount: async (id) => {
-      asked.push(`active ${id}`);
-      return { ok: true, value: (held = { ...held, profiles: held.profiles.map((one) => ({ ...one, active: one.account_id === id })) }) };
+    setRepositoryProfile: async (root, accountId) => {
+      asked.push(`bind ${root} ${accountId}`);
+      const found = [...held.profiles.flatMap((one) => one.repositories), ...held.unmatched].find((one) => one.root === root);
+      if (found === undefined) return { ok: false, outcome: refusal("Fleet does not serve " + root) };
+      if (accountId !== null && !held.profiles.some((one) => one.account_id === accountId)) return { ok: false, outcome: refusal("no such account") };
+      const { root: at, name } = found;
+      held = {
+        ...held,
+        profiles: held.profiles.map((one) => ({
+          ...one,
+          repositories: [
+            ...one.repositories.filter((bound) => bound.root !== root),
+            ...(one.account_id === accountId ? [{ root: at, name, how: "chosen" as const }] : []),
+          ],
+        })),
+        unmatched: [
+          ...held.unmatched.filter((loose) => loose.root !== root),
+          ...(accountId === null ? [{ root: at, name, candidates: [], none_chosen: true }] : []),
+        ],
+      };
+      return { ok: true, value: held };
     },
     openLink: async (address) => void opened.push(address),
     ...over,
@@ -87,7 +108,7 @@ function fake(start: Accounts, over: Partial<FleetAccounts> = {}) {
   };
 }
 
-const SIGNED_OUT: Accounts = { profiles: [], flow: IDLE };
+const SIGNED_OUT: Accounts = { profiles: [], unmatched: [], flow: IDLE };
 
 describe("signing in from the title menu", () => {
   it("draws nothing before Fleet answers, then offers an account that is signed out", async () => {
@@ -119,14 +140,14 @@ describe("signing in from the title menu", () => {
     expect(fleet.opened).toEqual([ADDRESS]);
 
     // The code is typed; Fleet reads who signed in.
-    fleet.become({ profiles: [], flow: SETUP });
+    fleet.become({ profiles: [], unmatched: [], flow: SETUP });
     await time.tick();
     expect(source.get()?.account.flow).toEqual({ phase: "setup", login: "mele-work", repository: "armada-home", steps: SETUP.phase === "setup" ? SETUP.steps : undefined });
     expect(time.pending()).toBe(1);
 
-    fleet.become({ profiles: [work], flow: { phase: "idle", ended: { outcome: "signed_in" } } });
+    fleet.become({ profiles: [work], unmatched: [], flow: { phase: "idle", ended: { outcome: "signed_in" } } });
     await time.tick();
-    expect(source.get()?.account.profiles).toEqual([work]);
+    expect(source.get()?.account.profiles).toEqual([workDrawn]);
     expect(source.get()?.account.flow).toEqual({ phase: "idle" });
     expect(source.get()?.ended).toEqual({ outcome: "signed_in" });
     expect(time.pending()).toBe(0);
@@ -146,7 +167,7 @@ describe("signing in from the title menu", () => {
       source.get()?.account.signIn();
       await settled();
 
-      fleet.become({ profiles: [], flow: { phase: "idle", ended } });
+      fleet.become({ profiles: [], unmatched: [], flow: { phase: "idle", ended } });
       await time.tick();
       expect(source.get()?.ended).toEqual(ended);
       expect(source.get()?.account.profiles).toEqual([]);
@@ -172,7 +193,7 @@ describe("signing in from the title menu", () => {
     source.get()?.account.dismiss();
     expect(source.get()?.refused).toBeUndefined();
 
-    fleet.start(() => ({ ok: true, value: { profiles: [], flow: CODE } }));
+    fleet.start(() => ({ ok: true, value: { profiles: [], unmatched: [], flow: CODE } }));
     source.get()?.account.signIn();
     await settled();
     expect(source.get()?.refused).toBeUndefined();
@@ -180,7 +201,7 @@ describe("signing in from the title menu", () => {
   });
 
   it("does not begin a second sign-in while one is in flight, or open an address that is not https", async () => {
-    const fleet = fake({ profiles: [], flow: { phase: "code", code: "ABCD-EFGH", address: "http://forge.example/device", expires_in_seconds: 5 } });
+    const fleet = fake({ profiles: [], unmatched: [], flow: { phase: "code", code: "ABCD-EFGH", address: "http://forge.example/device", expires_in_seconds: 5 } });
     const source = createFleetAccount(fleet.fleet, clock().later);
     source.subscribe(() => undefined);
     await settled();
@@ -195,7 +216,7 @@ describe("signing in from the title menu", () => {
 
 describe("the profiles", () => {
   it("signs a profile out by its account id, and the profile leaves the list", async () => {
-    const fleet = fake({ profiles: [work, personal], flow: IDLE });
+    const fleet = fake({ profiles: [work, personal], unmatched: [], flow: IDLE });
     const source = createFleetAccount(fleet.fleet, clock().later);
     source.subscribe(() => undefined);
     await settled();
@@ -204,32 +225,150 @@ describe("the profiles", () => {
     const out = await source.signOut(1001);
     expect(fleet.asked).toContain("sign out 1001");
     expect(source.get()?.account.profiles.map((one) => one.login)).toEqual(["nickmele"]);
-    // The first one left becomes active, as Fleet answers.
-    expect(source.get()?.account.profiles[0]?.active).toBe(true);
     expect(out.ok && out.value.store_row_remains).toBe(true);
   });
 
-  it("switches the active profile through its account id, and does nothing for the one that is active", async () => {
-    const fleet = fake({ profiles: [work, personal], flow: IDLE });
+  it("marks no profile active and asks Fleet nothing when one is switched to, since a repository is bound to a profile and the machine has none that acts", async () => {
+    const fleet = fake({ profiles: [work, personal], unmatched: [], flow: IDLE });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+    expect(source.get()?.account.profiles.map((one) => [one.login, one.active])).toEqual([
+      ["mele-work", false],
+      ["nickmele", false],
+    ]);
+
+    source.get()?.account.switchTo("nickmele");
+    await settled();
+    expect(fleet.asked).toEqual(["get"]);
+  });
+
+  it("hands the composition each profile's repositories and the ones bound to none, with how each came to be", async () => {
+    const armada = { root: "/r/armada", name: "armada", how: "matched" as const };
+    const site = { root: "/r/site", name: "site", how: "chosen" as const };
+    const fleet = fake({
+      profiles: [{ ...work, repositories: [armada] }, { ...personal, repositories: [site] }],
+      unmatched: [
+        { root: "/r/shared", name: "shared", candidates: [1001, 1002], none_chosen: false },
+        { root: "/r/scratch", name: "scratch", candidates: [], none_chosen: true },
+      ],
+      flow: IDLE,
+    });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+    const account = source.get()?.account;
+    expect(account?.profiles.map((one) => [one.login, one.repositories])).toEqual([
+      ["mele-work", [{ root: "/r/armada", name: "armada", by: "matched" }]],
+      ["nickmele", [{ root: "/r/site", name: "site", by: "chosen" }]],
+    ]);
+    expect(account?.unbound).toEqual([
+      { root: "/r/shared", name: "shared" },
+      { root: "/r/scratch", name: "scratch", none: true },
+    ]);
+  });
+
+  it("draws no unbound repositories when every one is bound", async () => {
+    const fleet = fake({ profiles: [work], unmatched: [], flow: IDLE });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+    expect(source.get()?.account.unbound).toBeUndefined();
+  });
+
+  it("binds a repository by its root and a profile by its login, and moves it from one profile to another", async () => {
+    const fleet = fake({
+      profiles: [{ ...work, repositories: [{ root: "/r/armada", name: "armada", how: "matched" }] }, personal],
+      unmatched: [{ root: "/r/shared", name: "shared", candidates: [1001, 1002], none_chosen: false }],
+      flow: IDLE,
+    });
     const source = createFleetAccount(fleet.fleet, clock().later);
     source.subscribe(() => undefined);
     await settled();
 
-    source.get()?.account.switchTo("mele-work");
+    source.get()?.account.bind?.("/r/shared", "nickmele");
     await settled();
-    expect(fleet.asked).toEqual(["get"]);
+    expect(fleet.asked).toEqual(["get", "bind /r/shared 1002"]);
+    expect(source.get()?.account.unbound).toBeUndefined();
+    expect(source.get()?.account.profiles.map((one) => one.repositories?.map((bound) => [bound.name, bound.by]))).toEqual([
+      [["armada", "matched"]],
+      [["shared", "chosen"]],
+    ]);
 
-    source.get()?.account.switchTo("nickmele");
+    source.get()?.account.bind?.("/r/armada", "nickmele");
     await settled();
-    expect(fleet.asked).toEqual(["get", "active 1002"]);
-    expect(source.get()?.account.profiles.map((one) => [one.login, one.active])).toEqual([
-      ["mele-work", false],
-      ["nickmele", true],
+    expect(fleet.asked.at(-1)).toBe("bind /r/armada 1002");
+    expect(source.get()?.account.profiles.map((one) => one.repositories?.map((bound) => [bound.name, bound.by]))).toEqual([
+      [],
+      [["shared", "chosen"], ["armada", "chosen"]],
     ]);
   });
 
+  it("binds a repository to none, and it is then drawn as chosen none", async () => {
+    const fleet = fake({
+      profiles: [{ ...work, repositories: [{ root: "/r/armada", name: "armada", how: "matched" }] }],
+      unmatched: [],
+      flow: IDLE,
+    });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+
+    source.get()?.account.bind?.("/r/armada", null);
+    await settled();
+    expect(fleet.asked).toEqual(["get", "bind /r/armada null"]);
+    expect(source.get()?.account.profiles[0]?.repositories).toEqual([]);
+    expect(source.get()?.account.unbound).toEqual([{ root: "/r/armada", name: "armada", none: true }]);
+  });
+
+  it("moves the checkout it is told to when two share a folder name", async () => {
+    const mine = { root: "/home/a/armada", name: "armada", how: "matched" as const };
+    const other = { root: "/home/b/armada", name: "armada", how: "matched" as const };
+    const fleet = fake({ profiles: [{ ...work, repositories: [mine, other] }, personal], unmatched: [], flow: IDLE });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+    expect(source.get()?.account.profiles[0]?.repositories?.map((one) => one.root)).toEqual(["/home/a/armada", "/home/b/armada"]);
+
+    source.get()?.account.bind?.("/home/b/armada", "nickmele");
+    await settled();
+    expect(fleet.asked).toEqual(["get", "bind /home/b/armada 1002"]);
+    expect(source.get()?.account.profiles.map((one) => one.repositories?.map((bound) => bound.root))).toEqual([
+      ["/home/a/armada"],
+      ["/home/b/armada"],
+    ]);
+
+    source.get()?.account.bind?.("/home/a/armada", null);
+    await settled();
+    expect(source.get()?.account.unbound).toEqual([{ root: "/home/a/armada", name: "armada", none: true }]);
+    expect(source.get()?.account.profiles[1]?.repositories?.map((bound) => bound.root)).toEqual(["/home/b/armada"]);
+  });
+
+  it("asks Fleet nothing for a login it does not hold, and shows a refusal as it shows the others", async () => {
+    const fleet = fake({ profiles: [work], unmatched: [{ root: "/r/shared", name: "shared", candidates: [], none_chosen: false }], flow: IDLE });
+    const source = createFleetAccount(fleet.fleet, clock().later);
+    source.subscribe(() => undefined);
+    await settled();
+
+    source.get()?.account.bind?.("/r/shared", "nobody");
+    await settled();
+    expect(fleet.asked).toEqual(["get"]);
+
+    const refused = fake(
+      { profiles: [work], unmatched: [{ root: "/r/shared", name: "shared", candidates: [], none_chosen: false }], flow: IDLE },
+      { setRepositoryProfile: async () => ({ ok: false, outcome: refusal("This machine has not joined account 1001.") }) },
+    );
+    const again = createFleetAccount(refused.fleet, clock().later);
+    again.subscribe(() => undefined);
+    await settled();
+    again.get()?.account.bind?.("/r/shared", "mele-work");
+    await settled();
+    expect(again.get()?.refused).toBe("This machine has not joined account 1001.");
+    expect(again.get()?.account.unbound).toEqual([{ root: "/r/shared", name: "shared" }]);
+  });
+
   it("adds a profile by the same sign-in, and shows the profile list again once it is done", async () => {
-    const fleet = fake({ profiles: [work], flow: IDLE });
+    const fleet = fake({ profiles: [work], unmatched: [], flow: IDLE });
     const time = clock();
     const source = createFleetAccount(fleet.fleet, time.later);
     source.subscribe(() => undefined);
@@ -237,7 +376,7 @@ describe("the profiles", () => {
     source.get()?.account.addProfile();
     await settled();
     expect(source.get()?.account.flow).toEqual({ phase: "code", code: "WDJB-MJHT", expiresIn: 899 });
-    fleet.become({ profiles: [work, personal], flow: IDLE });
+    fleet.become({ profiles: [work, personal], unmatched: [], flow: IDLE });
     await time.tick();
     expect(source.get()?.account.profiles).toHaveLength(2);
     expect(source.get()?.account.flow).toEqual({ phase: "idle" });
@@ -254,7 +393,7 @@ describe("when Fleet is not there", () => {
   });
 
   it("puts the account away when the connection drops, stops reading, and reads again when it returns", async () => {
-    const fleet = fake({ profiles: [], flow: CODE });
+    const fleet = fake({ profiles: [], unmatched: [], flow: CODE });
     const time = clock();
     const source = createFleetAccount(fleet.fleet, time.later);
     let heard = 0;
@@ -274,7 +413,7 @@ describe("when Fleet is not there", () => {
   });
 
   it("stops reading when the last window listener leaves", async () => {
-    const fleet = fake({ profiles: [], flow: CODE });
+    const fleet = fake({ profiles: [], unmatched: [], flow: CODE });
     const time = clock();
     const source = createFleetAccount(fleet.fleet, time.later);
     const off = source.subscribe(() => undefined);
@@ -285,7 +424,7 @@ describe("when Fleet is not there", () => {
   });
 
   it("does not let a read that left before an act undo it", async () => {
-    const before: Accounts = { profiles: [work, personal], flow: CODE };
+    const before: Accounts = { profiles: [work, personal], unmatched: [], flow: CODE };
     const fleet = fake(before);
     let release: () => void = () => undefined;
     let reads = 0;
@@ -306,13 +445,12 @@ describe("when Fleet is not there", () => {
     await settled();
 
     await time.tick();
-    source.get()?.account.switchTo("nickmele");
-    await settled();
-    expect(source.get()?.account.profiles.find((one) => one.active)?.login).toBe("nickmele");
+    await source.signOut(1002);
+    expect(source.get()?.account.profiles.map((one) => one.login)).toEqual(["mele-work"]);
 
     release();
     await settled();
-    expect(source.get()?.account.profiles.find((one) => one.active)?.login).toBe("nickmele");
+    expect(source.get()?.account.profiles.map((one) => one.login)).toEqual(["mele-work"]);
   });
 });
 
@@ -335,17 +473,17 @@ describe("what the account page is told", () => {
     await settled();
     expect(source.get()?.account.ended).toBeUndefined();
 
-    fleet.become({ profiles: [], flow: { phase: "idle", ended: { outcome: "denied", said: "It was turned down at the forge." } } });
+    fleet.become({ profiles: [], unmatched: [], flow: { phase: "idle", ended: { outcome: "denied", said: "It was turned down at the forge." } } });
     await time.tick();
     expect(source.get()?.account.ended).toEqual({ outcome: "denied", said: "It was turned down at the forge." });
 
     source.get()?.account.dismiss();
     expect(source.get()?.account.ended).toBeUndefined();
 
-    fleet.become({ profiles: [], flow: { phase: "idle", ended: { outcome: "expired", said: "The code ran out before it was typed." } } });
+    fleet.become({ profiles: [], unmatched: [], flow: { phase: "idle", ended: { outcome: "expired", said: "The code ran out before it was typed." } } });
     source.get()?.account.signIn();
     await settled();
-    fleet.become({ profiles: [], flow: { phase: "idle", ended: { outcome: "unreachable", said: "The forge could not be reached." } } });
+    fleet.become({ profiles: [], unmatched: [], flow: { phase: "idle", ended: { outcome: "unreachable", said: "The forge could not be reached." } } });
     await time.tick();
     expect(source.get()?.account.ended).toEqual({ outcome: "unreachable", said: "The forge could not be reached." });
   });
@@ -354,10 +492,10 @@ describe("what the account page is told", () => {
     const { fleet, time, source } = await opened(SIGNED_OUT);
     source.get()?.account.signIn();
     await settled();
-    fleet.become({ profiles: [work], flow: { phase: "idle", ended: { outcome: "signed_in" } } });
+    fleet.become({ profiles: [work], unmatched: [], flow: { phase: "idle", ended: { outcome: "signed_in" } } });
     await time.tick();
     expect(source.get()?.account.ended).toBeUndefined();
-    expect(source.get()?.account.profiles).toEqual([work]);
+    expect(source.get()?.account.profiles).toEqual([workDrawn]);
   });
 
   it("names each blank setting when sign-in is refused for one, and calls any other refusal a refused sign-in", async () => {
@@ -397,7 +535,7 @@ describe("what the account page is told", () => {
   });
 
   it("holds who signed out, and that the store kept its row, until it is put away or the next sign-in begins", async () => {
-    const { fleet, source } = await opened({ profiles: [work, personal], flow: IDLE });
+    const { fleet, source } = await opened({ profiles: [work, personal], unmatched: [], flow: IDLE });
     source.get()?.account.signOut("mele-work");
     await settled();
     expect(fleet.asked).toContain("sign out 1001");
@@ -416,8 +554,8 @@ describe("what the account page is told", () => {
   });
 
   it("says no more than the store's row when the store forgot the device", async () => {
-    const { source } = await opened({ profiles: [work], flow: IDLE }, {
-      signOut: async () => ({ ok: true, value: { accounts: { profiles: [], flow: IDLE }, store_row_remains: false } satisfies SignedOut }),
+    const { source } = await opened({ profiles: [work], unmatched: [], flow: IDLE }, {
+      signOut: async () => ({ ok: true, value: { accounts: { profiles: [], unmatched: [], flow: IDLE }, store_row_remains: false } satisfies SignedOut }),
     });
     source.get()?.account.signOut("mele-work");
     await settled();

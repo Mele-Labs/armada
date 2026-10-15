@@ -26,8 +26,8 @@ export class AccountsHost {
     return await this.act<SignedOut>("POST", "/accounts/sign_out", { account_id: accountId });
   }
 
-  async setActive(accountId: number): Promise<AccountsActed> {
-    return await this.act<Accounts>("POST", "/accounts/set_active_account", { account_id: accountId });
+  async setRepositoryProfile(root: string, accountId: number | null): Promise<AccountsActed> {
+    return await this.act<Accounts>("POST", "/accounts/set_repository_profile", { root, account_id: accountId });
   }
 
   private async act<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<AccountsActed<T>> {

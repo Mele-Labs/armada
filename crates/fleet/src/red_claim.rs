@@ -4,7 +4,8 @@
 //!
 //! **Every call is a blocking round trip**, so it is built, made and dropped on
 //! one blocking thread ([`Fleet::at_the_store`]). Where the repository's switch
-//! is off, the machine is signed out or no store address is set, the call is
+//! is off, the repository is bound to no profile or to one the machine is signed
+//! out of, or no store address is set, the call is
 //! never made: [`Fleet::at_the_store`] answers `Ok(None)` and the take goes on
 //! locally as it did before the store.
 //!
@@ -14,8 +15,9 @@
 //! ([`owner_key_of`]).
 //!
 //! **The holder is shared with the owner registry**, `crate::pull_registry`:
-//! one gate (the switch, a signed-in profile, a store address), one blocking
-//! thread, one place a name becomes a hash.
+//! one gate (the switch, a store address, and a profile the repository is bound
+//! to), one blocking thread, one place a name becomes a hash. **The profile is the
+//! repository's own** (`SigningIn::profile_for`), never one the machine acts as.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -32,6 +34,7 @@ use store::MainCi;
 
 use crate::daemon::Fleet;
 use crate::main_fix::{stopped, MainNotFixable};
+use crate::repository_profiles::Repo;
 use crate::signing_in::this_machine;
 
 /// How long a call to the store may take. A take waits on it, so it is short.
@@ -150,8 +153,10 @@ where
     }
 
     /// Run `work` against the store for `root`. **The gate every call passes**:
-    /// the repository's switch is on, this machine is signed in and a store
-    /// address is set; otherwise `Ok(None)` and nothing was asked.
+    /// the repository's switch is on, a store address is set and the repository
+    /// is bound to a profile this machine is signed in to; otherwise `Ok(None)`
+    /// and nothing was asked. **The store is opened as that profile**, so each
+    /// repository claims in its own account's view.
     pub(crate) async fn at_the_store_of<T: Send + 'static>(
         &self,
         root: &str,
@@ -160,16 +165,17 @@ where
         let switched_on = self.registers_owners(root);
         let settings = self.machine_settings().now();
         let url: String = settings.get(keys::STORE_URL);
-        let directory = self.signing_in().active_directory();
-        let (true, false, Some(directory)) = (switched_on, url.trim().is_empty(), directory) else {
+        if !switched_on || url.trim().is_empty() {
             return Ok(None);
-        };
+        }
         let configured: String = settings.get(keys::MACHINE_NAME);
         let reaching = Arc::clone(self.reaching());
+        let signing = self.signing_in().clone();
         let root = root.to_string();
         tokio::task::spawn_blocking(move || {
             let Some(slug) = reaching.slug(&root) else { return Ok(None) };
-            let Some(store) = reaching.open(url.trim(), &directory).map_err(StoreError::Refused)? else {
+            let Some(bound) = signing.profile_for(&Repo::new(&root, Some(slug.clone()))) else { return Ok(None) };
+            let Some(store) = reaching.open(url.trim(), &bound.directory).map_err(StoreError::Refused)? else {
                 return Ok(None);
             };
             work(Opened { store, slug, machine: this_machine(&configured) }).map(Some)

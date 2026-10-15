@@ -5,13 +5,13 @@
 
 use std::future::Future;
 
-use ipc::{Accounts as AccountsList, SetActiveAccount, SignOut, SignedOut};
+use ipc::{Accounts as AccountsList, SetRepositoryProfile, SignOut, SignedOut};
 
 use crate::daemon::Refusal;
 
 pub trait Accounts: Send + Sync + 'static {
-    /// `get_accounts` — the profiles joined, which is active, and the sign-in in
-    /// flight. The only `Refusal` is a fault.
+    /// `get_accounts` — the profiles joined, the repositories each is bound to,
+    /// and the sign-in in flight. The only `Refusal` is a fault.
     fn get_accounts(&self) -> impl Future<Output = Result<AccountsList, Refusal>> + Send;
 
     /// `start_sign_in` — begin the device flow and answer with the code to type.
@@ -24,10 +24,11 @@ pub trait Accounts: Send + Sync + 'static {
     /// [`Refusal::Unacceptable`] for an account this machine has not joined.
     fn sign_out(&self, sign_out: SignOut) -> impl Future<Output = Result<SignedOut, Refusal>> + Send;
 
-    /// `set_active_account` — which profile the machine acts as.
-    /// [`Refusal::Unacceptable`] for an account this machine has not joined.
-    fn set_active_account(
+    /// `set_repository_profile` — which profile a repository claims and syncs as,
+    /// or none. [`Refusal::Unacceptable`] for an account this machine has not
+    /// joined and for a repository Fleet does not serve.
+    fn set_repository_profile(
         &self,
-        set: SetActiveAccount,
+        set: SetRepositoryProfile,
     ) -> impl Future<Output = Result<AccountsList, Refusal>> + Send;
 }

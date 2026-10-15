@@ -58,8 +58,8 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/accounts/sign_out",
     },
     Route {
-        operation: "set_active_account",
+        operation: "set_repository_profile",
         method: "POST",
-        path: "/accounts/set_active_account",
+        path: "/accounts/set_repository_profile",
     },
 ];

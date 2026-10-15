@@ -2,14 +2,14 @@
 //! starts, a code that is always the same, and an account it has not joined
 //! refused by name. What is polled, enrolled and written is `fleet::signing_in`'s.
 
-use ipc::{AccountFlow, Accounts as AccountsList, Profile, SetActiveAccount, SignOut, SignedOut};
+use ipc::{AccountFlow, Accounts as AccountsList, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SignOut, SignedOut};
 
 use super::FakeDaemon;
 use crate::{Accounts, Refusal};
 
 /// The fake's machine before anyone signs in.
 pub(crate) fn signed_out() -> AccountsList {
-    AccountsList { profiles: Vec::new(), flow: AccountFlow::Idle { ended: None } }
+    AccountsList { profiles: Vec::new(), unmatched: Vec::new(), flow: AccountFlow::Idle { ended: None } }
 }
 
 fn not_joined(account_id: u64) -> Refusal {
@@ -42,27 +42,49 @@ impl Accounts for FakeDaemon {
         if held.profiles.len() == before {
             return Err(not_joined(sign_out.account_id));
         }
-        if !held.profiles.iter().any(|one| one.active) {
-            if let Some(first) = held.profiles.first_mut() {
-                first.active = true;
-            }
-        }
         Ok(SignedOut { accounts: held.clone(), store_row_remains: false, said: None })
     }
 
-    async fn set_active_account(&self, set: SetActiveAccount) -> Result<AccountsList, Refusal> {
+    /// The repository moves out of `unmatched` (or out of the profile that had it) into the
+    /// profile chosen, or stays unmatched with `none_chosen` set for "None".
+    async fn set_repository_profile(&self, set: SetRepositoryProfile) -> Result<AccountsList, Refusal> {
         let mut held = self.accounts.lock().expect("not poisoned");
-        if !held.profiles.iter().any(|one| one.account_id == set.account_id) {
-            return Err(not_joined(set.account_id));
+        if let Some(account_id) = set.account_id {
+            if !held.profiles.iter().any(|one| one.account_id == account_id) {
+                return Err(not_joined(account_id));
+            }
         }
+        let mut found = None;
         for one in &mut held.profiles {
-            one.active = one.account_id == set.account_id;
+            if let Some(at) = one.repositories.iter().position(|bound| bound.root == set.root) {
+                found = Some((one.repositories.remove(at).name, Vec::new()));
+            }
+        }
+        if let Some(at) = held.unmatched.iter().position(|loose| loose.root == set.root) {
+            let loose = held.unmatched.remove(at);
+            found = Some((loose.name, loose.candidates));
+        }
+        let Some((name, candidates)) = found else {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.no_such_repository",
+                format!("Fleet does not serve {}", set.root),
+                crate::tests::shapes::run_id(),
+            )));
+        };
+        match set.account_id {
+            Some(account_id) => {
+                let bound = BoundRepository { root: set.root, name, how: BoundHow::Chosen };
+                if let Some(one) = held.profiles.iter_mut().find(|one| one.account_id == account_id) {
+                    one.repositories.push(bound);
+                }
+            }
+            None => held.unmatched.push(ipc::UnmatchedRepository { root: set.root, name, candidates, none_chosen: true }),
         }
         Ok(held.clone())
     }
 }
 
 /// A profile the fake can be planted with.
-pub fn profile(account_id: u64, login: &str, active: bool, chosen: bool) -> Profile {
-    Profile { account_id, login: login.to_string(), active, chosen }
+pub fn profile(account_id: u64, login: &str, chosen: bool) -> Profile {
+    Profile { account_id, login: login.to_string(), chosen, repositories: Vec::new() }
 }

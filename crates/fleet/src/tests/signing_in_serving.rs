@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use api::{Accounts, Refusal, Settings};
-use ipc::{AccountFlow, SaveSettings, SetActiveAccount, SettingValue, SignOut};
+use ipc::{AccountFlow, SaveSettings, SetRepositoryProfile, SettingValue, SignOut};
 use testkit::{FakeHarness, FakeSignIn, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
@@ -113,8 +113,12 @@ async fn an_account_the_machine_has_not_joined_is_a_422_by_name_for_sign_out_and
     let (fleet, _) = fleet_over(&home, FakeSignIn::new());
     let out = fleet.sign_out(SignOut { account_id: 9 }).await.unwrap_err();
     assert_eq!(code_of(out), (422, "fleet.no_such_account".to_string()));
-    let chosen = fleet.set_active_account(SetActiveAccount { account_id: 9 }).await.unwrap_err();
+    let root = fleet.repositories().every()[0].root().to_string();
+    let chosen = fleet.set_repository_profile(SetRepositoryProfile { root, account_id: Some(9) }).await.unwrap_err();
     assert_eq!(code_of(chosen), (422, "fleet.no_such_account".to_string()));
+    let elsewhere = SetRepositoryProfile { root: "/not/served".to_string(), account_id: None };
+    let unserved = fleet.set_repository_profile(elsewhere).await.unwrap_err();
+    assert_eq!(code_of(unserved), (422, "fleet.no_such_repository".to_string()));
 }
 
 #[test]

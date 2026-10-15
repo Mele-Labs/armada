@@ -112,7 +112,8 @@ button.armada-session-frame__title-text:focus-visible {
 
 /* The context window as a tank: a mono pill of the live tokens and the percent, filled from its leading edge to the
    percent in the tone of how full it is, with a crisp edge at the level and a dotted line at the autocompact threshold.
-   With a breakdown it is a button and opens a `StopCard`, hung under it from its leading edge. */
+   With a breakdown it is a button and opens a `StopCard`, hung under it from its trailing edge, so the card opens
+   leftward inside the panel: the tank sits near the head's trailing edge and the frame clips what runs past it. */
 .armada-session-frame__context {
   flex: none;
   font-family: var(--font-mono);
@@ -155,10 +156,10 @@ button.armada-session-frame__context:focus-visible {
   position: absolute;
   z-index: var(--z-tooltip);
   top: 100%;
-  inset-inline-start: 0;
+  inset-inline-end: 0;
 }
 
-/* A Session that is big or old: a quiet mark, and a card of two acts hung under it as the context card is. */
+/* A Session that is big or old: a quiet mark, and a card of two acts hung under it from its trailing edge as the context card is. */
 .armada-session-frame__fresh-host {
   --tone: var(--fg-muted);
   position: relative;
@@ -198,7 +199,7 @@ button.armada-session-frame__fresh[data-busy] svg {
   position: absolute;
   z-index: var(--z-tooltip);
   top: 100%;
-  inset-inline-start: 0;
+  inset-inline-end: 0;
 }
 
 .armada-session-frame__fresh-acts {
