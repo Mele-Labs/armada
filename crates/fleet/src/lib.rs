@@ -378,6 +378,8 @@ pub mod showing;
 mod showing_again;
 /// A red main claimed in the central store, and the claim read back for the hub.
 pub mod red_claim;
+/// A red main whose pull request a Session merged is claimed for that Session, or for a fork of it.
+mod session_red;
 mod taking_red;
 /// Signing in to an account with the forge's device flow, and enrolling the machine with the store.
 pub mod signing_in;

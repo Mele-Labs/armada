@@ -277,6 +277,13 @@ where
         }
     }
 
+    /// Give back this machine's claim on the red, for a take that could not go on.
+    pub(crate) async fn release_red(&self, main: &MainCi) {
+        let _ = self
+            .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.release_claim(&reach.repository, &reach.red))
+            .await;
+    }
+
     /// Read the claim on `root`'s red for the hub, and give back this machine's
     /// own once its take is over. **Rides the reading that finds the red**
     /// (`notice_main`), so a remote claim is seen as late as the rotation

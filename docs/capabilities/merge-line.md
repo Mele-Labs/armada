@@ -428,7 +428,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 ### When main goes red
 
-**Three ways a Job comes to have a red, one record of each.** The record is a row a Job per red (`main_ci_fixes`), keyed by when main first read red, and it is what `hub.fixing` and a Job's `fixes_main` are read from. `fix_main` is the act (`crates/ipc/operations/`).
+**Three ways a Job comes to have a red, one record of each**, and a fourth way for a Session, below. The record is a row a Job per red (`main_ci_fixes`), keyed by when main first read red, and it is what `hub.fixing` and a Job's `fixes_main` are read from. `fix_main` is the act (`crates/ipc/operations/`).
 
 | Who | What Fleet does | Reuses |
 |---|---|---|
@@ -441,9 +441,23 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - **A Job still working is refused**, and so the automatic pickup leaves a culprit that is still working to the two buttons. Nothing redirects a live Drone.
 - **The claim names no files.** A log gives a test's leaf name and not its path, so a claim holds no Job off a file; it points a Drone that hits the same test at this Job. Where only a CI job is known there is no claim.
 - **A take ends when its Job is stopped** (`killed`, `completed_failed`, `rejected`), and the band offers the two buttons again. It also ends when main goes green: the Job whose pull request put main there says **Fixed main in #N**, and every other take simply ends.
-- **A person's pull request** (#1839 was one) has no Job, so nothing is sent and the band offers the two buttons.
+- **A person's pull request** (#1839 was one) has no Job and no Session, so nothing is sent and the band offers the two buttons. A Session's is handed to the Session, below.
 - **The open pull requests are held in memory.** A Fleet restarted shows main at once and the list from its next visit to that repository.
 - **The draining queue draws where it did**, beneath the hub, so nothing in flight disappears.
+
+### When a Session's pull request turns main red
+
+**Fleet hands the red to the Session that merged it, and takes the claim itself.** The owner, 15 Oct 2026: both reds on main that day came from Session branches, and nothing was dispatched. A Session is not trusted to call `take_main_red`; Fleet detects the red and claims it.
+
+| Who merged it | What Fleet does, on the turn or reading that finds the red |
+|---|---|
+| A Session still there | Claims the red for it, tells it as Fleet tells it anything, which wakes it, and writes a `main_red` row on its ledger |
+| A Session that ended, cannot be told, or whose wake is refused | Forks it (the machinery of `fork_this_session`: an ended one at its end, a live one at its latest message of its own), moves the claim to the fork, tells the fork, and writes `main_red` on both ledgers |
+
+- **The message is the Job's facts.** The brief Fleet builds for a Job, its log address and last 60 lines, under *Main went red at <commit> after your pull request #N merged. Fleet has claimed the red for you. Fix it.* A fork's reads *after pull request #N, which session <id> merged. Fleet has claimed the red for this fork.*
+- **Once per red per Session**, by the `main_red` row (`detail.how` is `woke`, `forked` or `took`), which is kept where no store applies. Every guard of the Job's pickup holds: a red held by a newer run, held elsewhere or with the store silent, or already taken by a Job here, is left to the band's buttons. A Job's pull request still goes to the Job.
+- **The claim comes before the message and before a fork is made**, so a red held elsewhere makes nothing. A fork that cannot be made gives the claim back.
+- `crates/fleet/src/session_red.rs`; the proof is `tests::session_red`.
 
 ### Fixing a red across machines
 
