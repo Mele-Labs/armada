@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ExternalLink, Plus, SquarePen, Trash2, Undo2, UserPen } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, ExternalLink, Plus, SquarePen, Trash2, Undo2, UserPen } from "lucide-react";
 
 import { forgetKept, useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
@@ -9,7 +9,7 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * What a waiting item opens when it is a procedure: the link as one key at the top, the steps numbered
+ * What a waiting item opens when it is a procedure: the link or the command at the top, the steps numbered
  * as a guide's are with a tick box each, and under them the box the answer is typed in.
  *
  * **The agent may be wrong about the steps, and the person says so here.** A step is edited in place,
@@ -24,6 +24,8 @@ export type StepsPanelProps = {
   name: string;
   /** The page the steps are about, drawn on the key at the top that opens it. */
   address?: string;
+  /** The command the steps start from, drawn whole at the top with a key that copies it. */
+  command?: string;
   steps: readonly string[];
   /** What the ticks, the corrections and the draft are about: the Session and the item. */
   keep: string;
@@ -58,7 +60,32 @@ export function messageOf(reply: string, steps: readonly string[], fixes: StepFi
   return [reply.trim(), lines.join("\n")].filter((one) => one !== "").join("\n\n");
 }
 
-export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenInBrowser, onSend }: StepsPanelProps) {
+/** The command, wrapped rather than cut, and the key that copies it. */
+function CommandToCopy({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const copy = () => {
+    void Promise.resolve(navigator.clipboard?.writeText(command)).catch(() => undefined);
+    setCopied(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="armada-step-list__command">
+      <pre className="armada-prose__block">
+        <code>{command}</code>
+      </pre>
+      <Tooltip label={copied ? "Copied" : "Copy"}>
+        <Button variant="ghost" size="sm" iconOnly aria-label="Copy command" onClick={copy}>
+          {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+        </Button>
+      </Tooltip>
+    </div>
+  );
+}
+
+export function StepsPanel({ name, address, command, steps, keep, onOpenAddress, onOpenInBrowser, onSend }: StepsPanelProps) {
   const [ticked, setTicked] = useKept<number[]>(`${keep}:ticked`, NO_TICKS);
   const [fixes, setFixes] = useKept<StepFixes>(`${keep}:fixes`, NO_FIXES);
   const [text, setText] = useState("");
@@ -121,6 +148,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
           </Tooltip>
         </div>
       )}
+      {command === undefined ? null : <CommandToCopy command={command} />}
       <ol className="armada-guide-steps armada-step-list__list">
         {Array.from({ length: total }, (_, at) => {
           const line = lineOf(at);

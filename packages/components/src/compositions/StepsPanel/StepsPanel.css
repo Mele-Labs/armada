@@ -1,4 +1,4 @@
-/* A procedure the person follows: the key that opens its page, the numbered steps each with a tick, and
+/* A procedure the person follows: the key that opens its page or the command it starts from, the numbered steps each with a tick, and
    the reply under them. The list is a guide's (`GuideSteps.css`); this adds the tick and the rules. */
 .armada-step-list {
   display: flex;
@@ -12,6 +12,20 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+}
+
+/* The command is read whole, so it wraps; the copy key keeps to its first line. */
+.armada-step-list__command {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-step-list__command > .armada-prose__block {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
 }
 
 .armada-step-list__list {
