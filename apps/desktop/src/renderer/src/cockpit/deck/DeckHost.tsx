@@ -13,6 +13,7 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
+import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { quantized } from "./field";
 import { holdFor } from "./props";
@@ -112,7 +113,9 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   }, [held, ship.calls]);
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
-  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }), [ship, only, needs, checks, held]);
+  const repositories = state.holds.repositories;
+  const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
+  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
     const noted = (event: FocusEvent) => remember(event.target);

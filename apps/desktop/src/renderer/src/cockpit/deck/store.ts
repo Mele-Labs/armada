@@ -8,6 +8,7 @@ import { useSyncExternalStore } from "react";
 import type { Hosts, Item } from "../../Dashboard";
 import { DECK_FILTERS_KEY, DECK_JOB_VIEW_KEY, DECK_ONLY_KEY, DECK_VIEW_KEY, readRemembered, writeRemembered } from "../../remembered-views";
 import { sessionIdOf } from "../waiting";
+import { bandsOf, type Banding } from "./bands";
 import { orderOf } from "./order";
 import type { Play } from "./plays";
 import type { Pr, Ship, Subject } from "./ship";
@@ -290,8 +291,10 @@ export const callOfSubject = (subject: Subject, held: ReadonlyMap<string, number
 // ---- The list ------------------------------------------------------------------------------------------
 
 /** The Jobs and Sessions the list draws, in standing order, narrowed by the three filters. The map and the timeline keep the same ones. */
-export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "checks" | "held">): Subject[] {
-  return orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)));
+export function listOf(ship: Ship, deck: Pick<DeckState, "only" | "needs" | "checks" | "held">, banding?: readonly Banding[]): Subject[] {
+  const rows = orderOf(ship).filter((one) => (deck.only === undefined || one.kind === (deck.only === "jobs" ? "job" : "session")) && (!deck.needs || callOfSubject(one, deck.held) !== undefined) && (!deck.checks || ship.running.has(one.key)));
+  // The one order the list draws and the cursor walks: grouped by repository where the list is.
+  return banding === undefined ? rows : bandsOf(rows, banding).flatMap((band) => band.subjects);
 }
 
 /**
