@@ -48,3 +48,56 @@ export function buildAt(moment: number): SessionBuild {
     workers: m === 2 ? AGENTS : m === 3 || m === 4 ? [AGENTS[3]!] : [],
   };
 }
+
+/** A second Session's ring for the last moment of the walk: the Session's own tasks and two subagents' pieces, one subagent still running and one finished. */
+export const SUBAGENTS = "bp3";
+const RUNNING = "Explore: map the worker call sites";
+const ENDED = "general-purpose: write the ring tests";
+
+export function subagentsBuild(): SessionBuild {
+  const piece = (id: string, text: string, kind: SessionBuild["pieces"][number]["piece"], by?: string) => ({ id, text, piece: kind, ...(by === undefined ? {} : { by }) });
+  return {
+    phase: "implement",
+    pieces: [
+      piece("s1", "Read the ring code", "solid"),
+      piece("s2", "Find the worker call sites", "solid", RUNNING),
+      piece("s3", "List the tooltips that name a worker", "scaffold", RUNNING),
+      piece("s4", "Test where a worker sits", "solid", ENDED),
+      piece("s5", "Test a piece's tooltip", "hollow", ENDED),
+      piece("s6", "Draw the workers in the column", "ghost"),
+    ],
+    stops: [],
+    forecast: [],
+    quiet_since: new Date(Date.now() - 60_000).toISOString(),
+    stalled: false,
+    workers: [RUNNING],
+  };
+}
+
+/** A Session with ten subagents for the walk's last moment: their tasks arrive interleaved in the one list, six subagents still running and four finished. */
+export const SWARM = "bp4";
+const AREAS = ["Deck", "Dock", "Queue", "Bays", "Feed", "Calls", "Stage", "Map", "Keys", "Tabs"];
+const KINDS = ["Explore", "general-purpose", "Plan"];
+const ENDED_AT = new Set([1, 4, 7, 9]);
+
+export function swarmBuild(): SessionBuild {
+  const label = (i: number) => `${KINDS[i % 3]}: split the ${AREAS[i]!.toLowerCase()} panel`;
+  const piece = (id: string, text: string, kind: SessionBuild["pieces"][number]["piece"], by?: string) => ({ id, text, piece: kind, ...(by === undefined ? {} : { by }) });
+  const pieces: SessionBuild["pieces"] = [piece("m1", "Read the cockpit layout", "solid")];
+  for (const round of [0, 1]) {
+    AREAS.forEach((area, i) => {
+      const done = round === 0 || ENDED_AT.has(i);
+      pieces.push(piece(`a${i}-${round}`, round === 0 ? `${area} frame` : `${area} tests`, done ? (i === 4 && round === 1 ? "hollow" : "solid") : i === 0 ? "scaffold" : "ghost", label(i)));
+    });
+  }
+  pieces.push(piece("m2", "Join the panels", "ghost"));
+  return {
+    phase: "implement",
+    pieces,
+    stops: [],
+    forecast: [],
+    quiet_since: new Date(Date.now() - 60_000).toISOString(),
+    stalled: false,
+    workers: AREAS.flatMap((_, i) => (ENDED_AT.has(i) ? [] : [label(i)])),
+  };
+}

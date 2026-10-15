@@ -483,6 +483,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     address: addressOf(record.id),
     ...(title === undefined ? {} : { title }),
     ...(record.manifest_id === undefined ? {} : { manifestId: record.manifest_id }),
+    ...(record.cwd === "" ? {} : { cwd: record.cwd }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
     ...(record.helm === true ? { helm: true as const } : {}),
     ...(dead === undefined ? {} : { dead }),

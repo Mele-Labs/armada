@@ -1,6 +1,7 @@
 // The flight controls while a Session is open on the stage. Each is an act Bridge already has for a Session, or it is drawn off
 // with the fact that keeps it off: Ask for update, Auto land and Compact are messages to the Session through the route its
-// composer sends by (`draft.send`), or its terminal's own (`draft.command`); Report has no route for a Session; Map is the
+// composer sends by (`draft.send`), or its terminal's own (`draft.command`); Report hands off to a new Session started in the
+// same repository (`report-brief.ts`, `ReportBox.tsx`), so it is off only where that repository is not known; Map is the
 // stage's switch. **What is offered is read from what Fleet holds** (whether the Session can be spoken to, which commands its
 // agent listed), never from a report by the agent. The owner's ask of 15 Oct 2026.
 
@@ -40,8 +41,9 @@ export type Offered = {
   compact?: CompactRoute;
 };
 
-export function offeredOf(session: Session, draft: SessionsDraft): Offered {
-  const off: Offered["off"] = { report: "Reports are filed on a Job" };
+/** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
+export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined): Offered {
+  const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
   const silent = mute(session);
   if (silent !== undefined) {
     off.ask = silent;

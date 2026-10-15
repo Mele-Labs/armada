@@ -62,3 +62,4 @@ His words: *"An entire session contributes to the workload for that session from
 | A subagent's `TaskCreate` and `TaskUpdate` go into the Session's list, each task marked with the subagent that made it | The task list is shared with the parent (measured on claude 2.1.300): the mod dropped the subagent's task, so the list lacked it and a later update of it read as unseen |
 | A piece carries `by`, its subagent's worker label, kept after the subagent ends | The finished subagent's pieces stay on the ring, and Bridge matches a piece to a worker by the label |
 | A subagent's `TodoWrite` is still not heard | It is a list of its own and would replace the Session's |
+| With many subagents each gets its own arc: a subagent's tasks are grouped in the order the subagents started, and the main agent's keep list order | Parallel subagents interleave their tasks in the shared list, and ten drones crowded the ring so no piece said whose it was |
