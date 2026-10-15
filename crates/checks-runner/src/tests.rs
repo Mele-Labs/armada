@@ -408,6 +408,19 @@ mod narrowing {
         );
     }
 
+    /// A file directly in the directory is in no package. #2370's build ran
+    /// `-p CLAUDE.md` for `crates/CLAUDE.md`.
+    #[test]
+    fn a_file_directly_in_the_declared_directory_names_nothing() {
+        assert_eq!(
+            narrowed(
+                Some(&by_package()),
+                &paths(&["crates/CLAUDE.md", "crates/ipc/src/lib.rs"])
+            ),
+            Narrowed::To("cargo nextest run -p ipc".to_string())
+        );
+    }
+
     #[test]
     fn the_verbatim_case_appends_the_changed_paths_themselves() {
         assert_eq!(

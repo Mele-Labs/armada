@@ -16,8 +16,8 @@ use std::process::{Command, Stdio};
 /// What [`reached`] found.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reach {
-    /// The changed paths, with the directory of every member depending on one
-    /// they touch.
+    /// The changed paths, with the `Cargo.toml` of every member depending on
+    /// one they touch.
     Paths(Vec<String>),
     /// Nothing narrows, and why.
     Whole(String),
@@ -78,7 +78,13 @@ pub fn reached(worktree: &Path, changed: &[String]) -> Reach {
             args.extend(["-i", name]);
         }
         match tree(worktree, &args) {
-            Ok(listed) => paths.extend(members(&listed, &root).into_iter().map(|(_, dir)| dir)),
+            // A member is named by its manifest, a file in it, so a narrowing
+            // reads it as it reads a changed file and never as a bare directory.
+            Ok(listed) => paths.extend(
+                members(&listed, &root)
+                    .into_iter()
+                    .map(|(_, dir)| format!("{dir}/Cargo.toml")),
+            ),
             Err(why) => return Reach::Whole(why),
         }
     }
@@ -238,16 +244,16 @@ mod tests {
         assert_eq!(
             reached(dir.path(), &paths(&["crates/base/src/lib.rs", "docs/a.md"])),
             Reach::Paths(paths(&[
-                "crates/base",
+                "crates/base/Cargo.toml",
                 "crates/base/src/lib.rs",
-                "crates/leaf",
-                "crates/mid",
+                "crates/leaf/Cargo.toml",
+                "crates/mid/Cargo.toml",
                 "docs/a.md",
             ]))
         );
         assert_eq!(
             reached(dir.path(), &paths(&["crates/leaf/src/lib.rs"])),
-            Reach::Paths(paths(&["crates/leaf", "crates/leaf/src/lib.rs"]))
+            Reach::Paths(paths(&["crates/leaf/Cargo.toml", "crates/leaf/src/lib.rs"]))
         );
     }
 
