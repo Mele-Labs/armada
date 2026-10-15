@@ -44,5 +44,5 @@
     means = "The repository a Session works in, and each repository it can be moved to"
     group = "Git and config"
     size = "12px"
-    status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walks `session-move-repository` and `cockpit-session-move-repository`. The control in a Session's head, tooltip `Move to another repository`, precedes the repository's name in mono and is followed by the chevron that says it opens. It also leads each repository in the list it opens and the row at either end of a moved Session's thread. The same meaning it has everywhere else: the repository."
+    status = "Specified"
+    notes = "Accepted 15 Oct 2026 with the walks. Proposed 15 Oct 2026 for the walks `session-move-repository` and `cockpit-session-move-repository`. The control in a Session's head, tooltip `Move to another repository`, precedes the repository's name in mono and is followed by the chevron that says it opens. It also leads each repository in the list it opens and the row at either end of a moved Session's thread. The same meaning it has everywhere else: the repository."

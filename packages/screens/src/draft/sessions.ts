@@ -204,11 +204,6 @@ export type SessionRow =
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
-  /**
-   * The Session was moved to another repository: the old thread ends with where it went (`to`) and the new
-   * one starts with where it came from (`from`). `session` is the other Session's id, `repository` its name.
-   */
-  | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 

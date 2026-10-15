@@ -9,9 +9,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { repositoryLabel } from "@armada/shell";
 
 import { useSessionsDraft } from "./sessions-draft";
-
-/** Said on each repository while a terminal is still listening: Fleet cannot move the person's terminal. */
-export const IN_A_TERMINAL = "Runs in a terminal that is still listening";
+import { IN_A_TERMINAL, movedTo } from "./session-moved";
 
 export function SessionRepositoryOf({ session, repositories, onOpen }: { session: Session; repositories: readonly RepositorySummary[]; onOpen: (id: string) => void }): ReactNode {
   const move = useSessionsDraft()?.move;
@@ -20,7 +18,7 @@ export function SessionRepositoryOf({ session, repositories, onOpen }: { session
   if (move === undefined || session.helm === true || here === undefined) return null;
   const branch = session.attachments.find((one) => one.kind === "branch")?.name;
   // One that has moved is not moved again: its repository is text.
-  const moved = session.rows.some((one) => one.kind === "moved" && one.way === "to");
+  const moved = movedTo(session) !== undefined;
   const holds = branch !== undefined || session.attachments.some((one) => one.kind === "slot");
   return (
     <SessionRepository

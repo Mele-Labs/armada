@@ -79,7 +79,7 @@ function build(): Scenario {
         const store = sessionsStore([none, none], none, [], control, [], [WRONG, LISTENING]);
         // The first start is the store's own fixture, spent here so a move makes the next.
         store.start();
-        return movable(store, new Set([WRONG.id, LISTENING.id]), (manifestId) => manifestId);
+        return movable(store, new Set([WRONG.id, LISTENING.id]));
       },
     },
   };

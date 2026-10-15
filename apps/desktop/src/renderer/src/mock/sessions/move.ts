@@ -1,21 +1,20 @@
-// Move, in the mock: a Session ends and a new one starts in another repository with the whole conversation and the same title.
-// The slot, branch and files stay with the old one. Mock-only; `SessionsDraft.move` says what a real Fleet owes.
+// Move, in the mock: a Session ends and a new one starts in another repository with the same title and its conversation.
+// The slot, branch and files stay with the old one. **Recorded as Fleet records it**: a `forked_from` and a `forked_to` that
+// carry `moved`, and the branch on `forked_from`; the conversation is the old Session's rows, which the new one reads.
 
-import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { SessionsStore } from "./script";
 
 /** How long Fleet takes to end the old Session and start the new one, long enough to see the press underway. */
 const MOVE_MS = 700;
 
-const stamp = () => new Date().toLocaleTimeString("en-GB");
-
 /**
  * The store, serving only the Sessions in `own`, and able to move one. `start` is the store's way of making a
  * Session, so the new one is made by it and then given the old one's conversation; the first start is the store's
  * own fixture and is spent by the caller.
  */
-export function movable(store: SessionsStore, own: Set<string>, repositoryOf: (manifestId: string) => string): SessionsStore {
+export function movable(store: SessionsStore, own: Set<string>): SessionsStore {
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
   return {
@@ -36,8 +35,7 @@ export function movable(store: SessionsStore, own: Set<string>, repositoryOf: (m
       const made = await store.start();
       if (made === undefined) return undefined;
       own.add(made);
-      const cameFrom: SessionRow = { id: `${made}-from`, at: stamp(), kind: "moved", way: "from", session: id, repository: old.manifestId === undefined ? "" : repositoryOf(old.manifestId) };
-      const wentTo: SessionRow = { id: `${id}-to`, at: stamp(), kind: "moved", way: "to", session: made, repository: repositoryOf(manifestId) };
+      const branches = old.attachments.flatMap((one) => (one.kind === "branch" ? [one.name] : [])).join(",");
       store.edit(made, () => ({
         id: made,
         ...(old.title === undefined ? {} : { title: old.title }),
@@ -46,9 +44,9 @@ export function movable(store: SessionsStore, own: Set<string>, repositoryOf: (m
         ...(old.effort === undefined ? {} : { effort: old.effort }),
         ...(old.mode === undefined ? {} : { mode: old.mode }),
         ...(old.context === undefined ? {} : { context: old.context }),
-        attachments: [],
+        attachments: [{ kind: "forked_from", id, ...(old.manifestId === undefined ? {} : { moved: old.manifestId }), ...(branches === "" ? {} : { branch: branches }) }],
         trail: { started: new Date().toISOString() },
-        rows: [cameFrom, ...old.rows],
+        rows: [],
         turn: { state: "idle" },
         ...(old.lastTurn === undefined ? {} : { lastTurn: old.lastTurn }),
         ...(old.lastTurnAt === undefined ? {} : { lastTurnAt: old.lastTurnAt }),
@@ -58,7 +56,7 @@ export function movable(store: SessionsStore, own: Set<string>, repositoryOf: (m
         const { asked, waitingFor, ...rest } = one;
         void asked;
         void waitingFor;
-        return { ...rest, dead: "ended", turn: { state: "idle" }, rows: [...one.rows, wentTo] };
+        return { ...rest, dead: "ended", turn: { state: "idle" }, attachments: [...one.attachments, { kind: "forked_to", id: made, moved: manifestId }] };
       });
       return made;
     },

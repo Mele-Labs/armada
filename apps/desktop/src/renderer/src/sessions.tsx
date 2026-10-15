@@ -92,6 +92,7 @@ import { ARTIFACT_SAID, cardOf, pullRequestCardOf, type Known } from "./session-
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { SessionRepositoryOf } from "./session-move";
+import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
@@ -905,6 +906,18 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   // **Up to and including the message it was forked at**, and not what was said after it.
   const startedBy = useStartedBy(session, sessions, onOpen);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
+  // **A move carries its whole conversation into the thread**, under a row naming where it came from, and ends the old one's with where it went.
+  const carried = forkedFrom?.moved !== undefined;
+  const carriedFrom = carried ? forkedFrom?.id : undefined;
+  useEffect(() => {
+    if (carriedFrom !== undefined) watch?.(carriedFrom);
+  }, [watch, carriedFrom]);
+  const shown = useMemo(() => {
+    const { head, tail } = movedRowsOf(session, repositories);
+    const before = !carried || origin === undefined ? NO_ROWS : originRows.map((row): SessionThreadRow => ({ ...row, id: `${origin.id}:${row.id}` }));
+    return head.length + before.length + tail.length === 0 ? thread : [...head, ...before, ...thread, ...tail];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
+  }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at]);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -1035,7 +1048,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             })}
       >
         <div ref={centre} className="armada-session-frame__centre">
-          {origin === undefined ? null : (
+          {origin === undefined || carried ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
@@ -1043,7 +1056,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           {startedBy}
           <SessionThread
             sessionId={session.id}
-            rows={thread}
+            rows={shown}
             onOpenRetro={openRetro}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
