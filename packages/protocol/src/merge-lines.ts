@@ -48,6 +48,22 @@ export type MergeLineHub = {
    * the repository's switch is off, and whenever the store could not be read.
    */
   fixing_elsewhere?: FixingElsewhere;
+  /** The checkout Fleet serves, where main moved past it and Fleet would not fast-forward it. Absent while it has main's tip. */
+  checkout?: HeldCheckout;
+};
+
+/** What stops the served checkout catching up to main. Fleet never forces, stashes or switches it. */
+export type HeldCheckout = {
+  base: string;
+  /** The branch checked out, where it is not `base`. `HEAD` when detached. */
+  on?: string;
+  /** Tracked files with uncommitted changes. Absent is none. */
+  uncommitted?: string[];
+  /** Those of `uncommitted` that main also changed, so an autostash could stop on a conflict. */
+  clashing?: string[];
+  behind: number;
+  /** Above zero is diverged. */
+  ahead: number;
 };
 
 /** Who holds main's red on another machine: a Job or Session by id, the machine, and since when. No title: only the holder can say. */

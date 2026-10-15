@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    BuildPhase, BuildPieceKind, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild, SessionFact, SessionId,
+    AttachmentNamed, AttachmentReport, AttachmentState as Wire, BuildPhase, BuildPieceKind, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild, SessionFact, SessionId,
     SessionOrigin, SessionReport, ShowWindow,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptBuild, KeptTask, RoadTimes};
@@ -21,7 +21,7 @@ fn at(minute: u32) -> String {
 }
 
 fn task(id: &str, status: ReportedTaskStatus) -> ReportedTask {
-    ReportedTask { id: id.to_string(), text: format!("Task {id}"), status }
+    ReportedTask { id: id.to_string(), text: format!("Task {id}"), status, by: None }
 }
 
 fn list(statuses: &[ReportedTaskStatus]) -> Observed {
@@ -348,6 +348,39 @@ async fn a_terminal_sessions_build_is_kept_and_read_back_off_its_row() {
     assert_eq!(pushed.detail.as_deref(), Some("armada/topic"));
     let walked = events.iter().find(|one| one.kind.as_wire() == "session.walked").expect("a walk");
     assert_eq!(walked.detail.as_deref(), Some("The ring"));
+}
+
+/// A subagent writes into the Session's list, and its pieces carry its worker label from its
+/// attachment, which they keep after it ends.
+#[tokio::test]
+async fn a_subagents_tasks_are_pieces_with_its_worker_label_kept_after_it_ends() {
+    let home = TempDir::new();
+    let (fleet, _) = kept(&home);
+    let started = SessionFact::Started {
+        cwd: "/work".to_string(),
+        title: Some("Build record".to_string()),
+        origin: SessionOrigin::Terminal,
+        mod_version: None,
+    };
+    report(&fleet, started).await;
+    let detail = [("type", "Explore"), ("description", "Map the claims")].map(|(k, v)| (k.to_string(), v.to_string()));
+    let attachment = AttachmentReport { kind: "subagent".to_string(), target: "a1".to_string(), detail: detail.into() };
+    report(&fleet, SessionFact::Attached { attachment }).await;
+
+    let by = |id: &str, by: Option<&str>| ReportedTask { by: by.map(str::to_string), ..task(id, Todo) };
+    let row = report(&fleet, SessionFact::Tasks { tasks: vec![by("1", None), by("2", Some("a1")), by("3", Some("gone"))] }).await;
+    let build = row.build.expect("a build");
+    assert_eq!(build.workers, ["Explore: Map the claims"]);
+    let made: Vec<_> = build.pieces.iter().map(|one| one.by.as_deref()).collect();
+    assert_eq!(made, [None, Some("Explore: Map the claims"), Some("gone")], "an id with no attachment stays the id");
+
+    let over = SessionFact::Settled { attachment: AttachmentNamed { kind: "subagent".to_string(), target: "a1".to_string() }, state: Wire::Spent };
+    report(&fleet, over).await;
+    let done = ReportedTask { status: Done, ..by("2", Some("a1")) };
+    let row = report(&fleet, SessionFact::Tasks { tasks: vec![by("1", None), done, by("3", Some("gone"))] }).await;
+    let build = row.build.expect("a build");
+    assert!(build.workers.is_empty());
+    assert_eq!(build.pieces[1].by.as_deref(), Some("Explore: Map the claims"), "a finished subagent's piece stays its own");
 }
 
 /// The forecast reads each landed pull request over the stretch from its Session's previous landing, and takes the most common

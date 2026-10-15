@@ -557,8 +557,10 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
 }
 
 /**
- * The agent's task list, whole, after one of its task tools ran. **Only the session's own calls**: a
- * subagent's list is its own and would replace this one. A list that did not change is not told again.
+ * The agent's task list, whole, after one of its task tools ran. A subagent's `TaskCreate` and `TaskUpdate`
+ * write the same list (measured on claude 2.1.300), so they are heard too, each task marked with who made it.
+ * A subagent's `TodoWrite` is a list of its own and would replace this one: not heard. A list that did not
+ * change is not told again.
  */
 async function planned($: Dollar, next: (list: Task[]) => Task[] | undefined): Promise<void> {
   const [id, one] = await current($)
@@ -869,6 +871,7 @@ export const register: Register = on => {
 
   // The plan, from the tools the agent already calls to write it: nothing is asked of the model. The task
   // tools came in two generations, a whole list in `TodoWrite` and one task at a time in `TaskCreate` and `TaskUpdate`.
+  // Only the session's own `TodoWrite` is heard, but a subagent's task calls share the session's list.
   on('tool.call', { tool: 'TodoWrite' }, async ($, e, next) => {
     const ran = await next(e)
     if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
@@ -880,15 +883,15 @@ export const register: Register = on => {
 
   on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
     const ran = await next(e)
-    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
-      void planned($, list => madeTask(list, e as Record<string, unknown>, ran.result, ran.text ?? '')).catch(() => undefined)
+    if (ran.deny === undefined && ran.isError !== true) {
+      void planned($, list => madeTask(list, e as Record<string, unknown>, ran.result, ran.text ?? '', e.agentId)).catch(() => undefined)
     }
     return ran
   })
 
   on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
     const ran = await next(e)
-    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+    if (ran.deny === undefined && ran.isError !== true) {
       void planned($, list => updatedTask(list, e as Record<string, unknown>)).catch(() => undefined)
     }
     return ran

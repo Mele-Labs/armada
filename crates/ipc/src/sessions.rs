@@ -285,6 +285,11 @@ pub struct RenameSession {
 pub struct StartSessionRun {
     pub session_id: SessionId,
     pub command: String,
+    /// The terminal's size in cells. Absent is 80 by 24.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cols: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<u16>,
 }
 
 /// `start_session_run`, answered 202: the run is underway; what it prints is on `observe_session_run`.
@@ -299,8 +304,26 @@ pub struct StopSessionRun {
     pub run_id: String,
 }
 
+/// `write_session_run`: keys typed into a run's terminal. `POST /sessions/run/write`. Answered 200 with
+/// `SessionRunUnderway`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WriteSessionRun {
+    pub run_id: String,
+    /// Written to the terminal as it is: Ctrl-C is the byte 3.
+    pub data: String,
+}
+
+/// `resize_session_run`: the run's terminal changed size. `POST /sessions/run/resize`. Answered 200 with
+/// `SessionRunUnderway`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResizeSessionRun {
+    pub run_id: String,
+    pub cols: u16,
+    pub rows: u16,
+}
+
 /// One message on `observe_session_run`'s socket, `GET /sessions/run/:run_id/observe`. What the run
-/// printed so far and then what it prints next as `lines`, then `exited` once, then the socket closes.
+/// printed so far and then what it prints next as `output`, then `exited` once, then the socket closes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SessionRunMessage {
@@ -308,8 +331,9 @@ pub enum SessionRunMessage {
         protocol_id: ProtocolId,
         run_id: String,
     },
-    Lines {
-        lines: Vec<String>,
+    /// Terminal output with its escape sequences intact. A character is never split across two.
+    Output {
+        text: String,
     },
     /// This many messages were dropped before this viewer read them: it must read the run again.
     Missed {

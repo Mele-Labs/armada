@@ -28,6 +28,7 @@ mod asked;
 mod asked_run;
 mod asking;
 mod asking_in_window;
+mod checkout_caught_up;
 mod red_claim;
 mod session_red;
 mod repository_profiles;
