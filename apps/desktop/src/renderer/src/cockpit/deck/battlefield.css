@@ -139,12 +139,11 @@
 .bf-pad[data-bay="kept"] .bf-pad__core,
 .bf-pad[data-bay="busy"] .bf-pad__core { fill: var(--accent); stroke: var(--accent); stroke-opacity: 1; }
 .bf-pad[data-bay="ghost"] .bf-pad__ring { stroke-dasharray: 2 3; }
-.bf-pad[data-bay="stranded"] .bf-pad__ring { fill: color-mix(in srgb, var(--status-awaiting-review) 18%, transparent); stroke: var(--status-awaiting-review); stroke-opacity: 1; stroke-width: 2; animation: bf-pad-pulse calc(var(--duration-pulse) * 3) ease-in-out infinite; }
+.bf-pad[data-bay="stranded"] .bf-pad__ring { fill: color-mix(in srgb, var(--status-awaiting-review) 18%, transparent); stroke: var(--status-awaiting-review); stroke-opacity: 1; stroke-width: 2; }
 .bf-pad[data-bay="stranded"] .bf-pad__core { fill: var(--status-awaiting-review); stroke: var(--status-awaiting-review); stroke-opacity: 1; }
 .bf-pad[data-bay="closed"] { opacity: 0.75; }
 .bf-pad[data-bay="closed"] .bf-pad__ring { fill: color-mix(in srgb, var(--bg-base) 85%, black); stroke: var(--fg-subtle); stroke-opacity: 0.45; }
 .bf-pad[data-bay="closed"] .bf-pad__core { fill: var(--bg-base); stroke-opacity: 0.3; }
-@keyframes bf-pad-pulse { 50% { stroke-opacity: 0.3; } }
 .bf-pad:hover .bf-pad__ring { stroke: var(--fg-default); stroke-opacity: 1; }
 
 /* ---- The objective ------------------------------------------------------------------------------------- */
@@ -222,9 +221,8 @@
 .bf-drone[data-dim] .bf-gnd,
 .bf-drone[data-dim] .bf-beam3 { opacity: 0.4; }
 .bf-ping[data-focus] { border: calc(2.2 * var(--bf-u)) solid var(--accent); }
-.bf-slab[data-pulse] .bf-top { box-shadow: inset 0 0 0 calc(2.5 * var(--bf-u)) var(--accent), 0 0 calc(26 * var(--bf-u)) color-mix(in srgb, var(--accent) 60%, transparent); animation: bf-pulse calc(var(--duration-pulse) * 0.9) ease-in-out infinite alternate; }
+.bf-slab[data-pulse] .bf-top { box-shadow: inset 0 0 0 calc(2.5 * var(--bf-u)) var(--accent), 0 0 calc(26 * var(--bf-u)) color-mix(in srgb, var(--accent) 60%, transparent); }
 .bf-slab[data-pulse] .bf-face { box-shadow: inset 0 0 0 calc(2 * var(--bf-u)) var(--accent); }
-@keyframes bf-pulse { to { box-shadow: inset 0 0 0 calc(2.5 * var(--bf-u)) var(--accent), 0 0 calc(8 * var(--bf-u)) color-mix(in srgb, var(--accent) 30%, transparent); } }
 .bf-drone[data-away] { pointer-events: none; }
 .bf-drone[data-away] .bf-sprite,
 .bf-drone[data-away] .bf-gnd,
@@ -289,7 +287,7 @@
 .bf-disc { fill: color-mix(in srgb, var(--fg-default) 8%, transparent); stroke: var(--fg-muted); stroke-opacity: 0.5; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .bf-blades line { stroke: var(--fg-default); stroke-opacity: 0.5; stroke-width: 1.6; stroke-linecap: round; }
 .bf-blades { transform-origin: 0 0; }
-.bf-drone[data-spin][data-alive] .bf-blades { animation: bf-spin calc(var(--duration-pulse) * 0.28) linear infinite; }
+/* The rotors stand still: a spinning SVG group repaints the map every frame (the owner, 15 Oct 2026: the machine over the rotors). */
 .bf-drone[data-spin] .bf-disc { fill: color-mix(in srgb, var(--fg-default) 15%, transparent); }
 .bf-drone[data-spin] .bf-blades line { stroke-opacity: 0.8; }
 /* A Session is the smaller silhouette, so its disc and arms are lighter. */
@@ -393,7 +391,6 @@
 
 /* ---- Motion --------------------------------------------------------------------------------------------- */
 
-@keyframes bf-spin { to { transform: rotate(360deg); } }
 @keyframes bf-bob {
   from { transform: translateZ(calc(var(--alt) * var(--border-width))); }
   to { transform: translateZ(calc(var(--alt) * var(--border-width) + calc(5 * var(--bf-u)))); }

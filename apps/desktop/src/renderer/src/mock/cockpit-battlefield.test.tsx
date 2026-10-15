@@ -165,7 +165,7 @@ function label(one: Element): string {
 
 // The loops that say a drone is working or calling are the only ones on the field, and the camera does not drift: every loop is a layer
 // the browser draws again each frame, and 59 of them kept the deck at a third of the display's rate.
-test("An idle drone runs no animation; a working or calling one does", async () => {
+test("An idle drone runs no animation, a calling one pings, and no rotor turns", async () => {
   await motion();
   await map();
   const loops = (el: Element) =>
@@ -182,12 +182,13 @@ test("An idle drone runs no animation; a working or calling one does", async () 
   expect(calling.length).toBeGreaterThan(0);
 
   for (const one of idle) expect(loops(one), one.getAttribute("data-label") ?? "").toEqual([]);
-  for (const one of working) expect(loops(one), one.getAttribute("data-label") ?? "").toContain("bf-spin");
+  // The rotors stand still for the machine (the owner, 15 Oct 2026).
+  for (const one of working) expect(loops(one), one.getAttribute("data-label") ?? "").not.toContain("bf-spin");
   for (const one of calling) expect(loops(one), one.getAttribute("data-label") ?? "").toContain("bf-ping");
   expect(document.getAnimations().map((one) => (one as CSSAnimation).animationName)).not.toContain("bf-sway");
 });
 
-test("at most eight drones turn their rotors at once, and the rest hold the pose still", async () => {
+test("however many drones work, none turns its rotors", async () => {
   await motion();
   const ship = scenarioNamed("cockpit-ship-flightdeck")!;
   const running = ship.state.jobs.filter((job) => job.status === "running");
@@ -200,6 +201,5 @@ test("at most eight drones turn their rotors at once, and the rest hold the pose
   void app;
 
   const turning = drones().filter((one) => one.getAnimations({ subtree: true }).some((a) => a instanceof CSSAnimation && a.animationName === "bf-spin" && a.playState === "running"));
-  expect(turning.length).toBeGreaterThan(0);
-  expect(turning.length).toBeLessThanOrEqual(8);
+  expect(turning).toEqual([]);
 });

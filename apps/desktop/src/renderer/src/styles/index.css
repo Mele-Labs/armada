@@ -100,6 +100,13 @@ body::after {
   animation-play-state: paused !important;
 }
 
+/* A minute with no input stills the map alone: a spinner elsewhere still says something is working. */
+:root[data-idle] .bf *,
+:root[data-idle] .bf *::before,
+:root[data-idle] .bf *::after {
+  animation-play-state: paused !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body::after {
     transition: none;
