@@ -247,6 +247,25 @@ pub struct HubPullRequest {
     pub additions: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletions: Option<u32>,
+    /// The Session or Job that claimed it, from the central store. **Absent** where nobody
+    /// registered it, where the repository's switch is off (rows another machine wrote
+    /// included), and whenever the store could not be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<PullRequestOwner>,
+}
+
+/// Who registered a pull request. **A kind, a short id and a machine's name, and nothing
+/// about the pull request**: the store holds no title, repository or code, and only the
+/// machine that holds the claim can say what it is.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestOwner {
+    pub kind: crate::sessions::HolderKind,
+    /// The Session's or Job's short id.
+    pub id: String,
+    /// The host's name, or `machine.name` where two hosts share one.
+    pub machine: String,
+    /// The row was written by this machine.
+    pub this_machine: bool,
 }
 
 /// Whether the forge can merge a pull request as it stands.

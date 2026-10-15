@@ -188,6 +188,22 @@ export type HubPullRequest = {
   /** Lines added and removed, as the forge counts them. */
   additions?: number;
   deletions?: number;
+  /**
+   * The Session or Job that claimed it, from the central store. Absent where nobody registered it, where the
+   * repository's switch is off (rows another machine wrote included), and whenever the store could not be read.
+   */
+  owner?: PullRequestOwner;
+};
+
+/** Who registered a pull request: a kind, a short id and a machine's name, and nothing about the pull request. */
+export type PullRequestOwner = {
+  kind: "session" | "job";
+  /** The Session's or Job's short id. */
+  id: string;
+  /** The host's name, or `machine.name` where two hosts share one. */
+  machine: string;
+  /** The row was written by this machine. */
+  this_machine: boolean;
 };
 
 /** `state` is `waiting_for_ci`, `in_queue` (a state this build does not know), `queued`, `awaiting_checks`, `mergeable` or `unmergeable`. Since 23.70. */

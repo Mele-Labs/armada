@@ -16,6 +16,7 @@ import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { followLandCheck } from "./commands";
+import { PrOwnersOnTheWire } from "./pr-owners-wire";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { usePanelOpen } from "./panel-open";
 import { useSessions } from "./sessions-draft";
@@ -67,7 +68,7 @@ export function MergeLinePanel({
   // holding at the top while its own tiles pass, so no panel is squeezed into a slot of its own.
   const pinned = !surface ? undefined : views.length === 1 ? "glass" : "page";
   return (
-    <>
+    <PrOwnersOnTheWire lines={state.mergeLines}>
       {views.map((view) => (
         <OneLine
           key={view.root}
@@ -91,7 +92,7 @@ export function MergeLinePanel({
           onClose={() => setReading(null)}
         />
       )}
-    </>
+    </PrOwnersOnTheWire>
   );
 }
 

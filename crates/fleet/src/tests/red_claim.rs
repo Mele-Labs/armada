@@ -25,7 +25,7 @@ use crate::red_claim::{keys_of, Reaching};
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-const SLUG: &str = "mele-labs/armada";
+pub(super) const SLUG: &str = "mele-labs/armada";
 
 /// What a machine answers for the store: this machine's view of it, or none
 /// while it is signed out.
@@ -83,15 +83,15 @@ impl Reaching for Planted {
 }
 
 /// One machine: its Fleet, and its own view of the store everybody shares.
-struct Machine {
-    fleet: Fixture,
-    view: Arc<FakeStore>,
-    _home: TempDir,
+pub(super) struct Machine {
+    pub(super) fleet: Fixture,
+    pub(super) view: Arc<FakeStore>,
+    pub(super) _home: TempDir,
 }
 
 /// A Fleet signed in to the account, named `name`, reading the shared store
 /// through a view of its own. `switch` is the Manifest's *Pull request owners*.
-async fn machine(name: &str, shared: &FakeStore, switch: bool) -> Machine {
+pub(super) async fn machine(name: &str, shared: &FakeStore, switch: bool) -> Machine {
     let home = TempDir::new();
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.noticing = Noticing::every(Duration::ZERO);

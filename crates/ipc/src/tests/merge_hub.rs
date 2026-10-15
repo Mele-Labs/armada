@@ -61,6 +61,7 @@ fn a_red_hub() -> MergeLineHub {
             review: Some(HubReview::ChangesRequested),
             additions: Some(120),
             deletions: Some(0),
+            owner: None,
         }],
         merged: vec![HubMerged {
             number: 1815,
@@ -234,4 +235,13 @@ fn a_pull_request_from_a_fleet_before_its_facts_reads_with_none_and_sends_none()
     let read: HubPullRequest = decode("a pull request", none.as_bytes()).expect("reads");
     assert_eq!(read.mergeable, Some(HubMergeable::Unknown));
     assert_eq!(read.review, Some(HubReview::None));
+}
+
+#[test]
+fn a_pull_requests_owner_is_a_kind_an_id_a_machine_and_whether_it_is_this_one() {
+    let with = r#"{"number":7,"title":"t","branch":"b","url":"u","owner":{"kind":"session","id":"s-a","machine":"mac-a","this_machine":false}}"#;
+    let read: HubPullRequest = decode("a pull request", with.as_bytes()).expect("reads");
+    let owner = read.owner.as_ref().expect("an owner");
+    assert_eq!((owner.kind, owner.id.as_str(), owner.machine.as_str(), owner.this_machine), (HolderKind::Session, "s-a", "mac-a", false));
+    assert_eq!(encode(&read).unwrap(), with);
 }
