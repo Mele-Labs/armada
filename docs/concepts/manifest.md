@@ -105,6 +105,8 @@ checks:
 
 **`setup.seed` names the build directories a new worktree starts from, and the Commands that fill them.** Fleet runs `warm` in the base checkout when the base moves and marks the seed only once every command has succeeded; it clones `paths` into each new worktree, copy-on-write, before `setup.requires` runs. A Job cut while the seed is warming, or on a volume that cannot clone, starts cold and says why — a seed is never copied in full, and never shared. A repository that declares no seed gets none.
 
+**A `warm` command runs as an agent's Check does**: in a place in the machine's line, at agent priority, with `${width}` resolved to the machine's number. It runs after every move of the base, so one that took every core at normal priority took a smaller machine whole after each merge.
+
 ### How many worktrees a repository leases
 
 **`setup.worktrees` is the size of the repository's pool of warm worktrees**, which `armada worktree lease` hands out — [Fleet](fleet.md), *Worktree slots*.

@@ -365,9 +365,9 @@ commands:
   # What `setup.seed` warms the base checkout with: the same build the `build`
   # Check compiles, and every test binary without running one.
   warm_build:
-    run: cargo build --workspace --locked
+    run: cargo build --workspace --locked --jobs ${width}
   warm_tests:
-    run: cargo nextest run --workspace --no-run --locked
+    run: cargo nextest run --workspace --no-run --locked --build-jobs ${width}
 
   # Bridge's renderer on a mock Fleet, in a browser, held open so a person can
   # look around while Jobs land. `evidence:` runs the same command for its own

@@ -34,7 +34,6 @@ use tokio::task::JoinHandle;
 use crate::basing::NoBase;
 use crate::daemon::Fleet;
 use crate::places::{Asking, Room};
-use crate::preparing::prepare_one;
 
 pub use cloning::{CopyOnWrite, NotCloned, TheVolume};
 
@@ -416,15 +415,22 @@ where
         // what #1063's limit is measured against.
         let _place = self.room.place().await;
         for command in &self.warm {
-            prepare_one(
-                command,
+            // **At a Check's width and an agent's priority.** A whole-workspace
+            // build after every move of the base, at every core and normal
+            // priority, is what took a smaller machine whole.
+            let attempt = checks_runner::run_until(
+                &checks_runner::resolve_width(command.run(), self.room.width()),
                 Path::new(checkout.path()),
                 self.budget,
-                &BTreeMap::new(),
+                checks_runner::Writing::Nowhere,
                 &[],
+                std::future::pending(),
+                checks_runner::Priority::from_env(),
             )
-            .await
-            .map_err(|cause| format!("`{}` {}", cause.command, verification::how(&cause.exit)))?;
+            .await;
+            if attempt.exit != verification::Exit::Code(0) {
+                return Err(format!("`{}` {}", command.name(), verification::how(&attempt.exit)));
+            }
         }
         // Written last: a checkout carrying this file ran every warm-up command.
         std::fs::write(self.spec.seed_marker(), self.spec.commit())
