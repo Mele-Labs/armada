@@ -493,9 +493,11 @@ export function stepsReadingOf(session: Session, open: Reading | undefined, draf
   const item = owesOf(session).find((one) => one.id === open.id);
   if (item?.steps === undefined) return undefined;
   const address = item.act?.kind === "walk" ? item.act.target : undefined;
+  const command = item.act?.kind === "run" ? item.act.target : undefined;
   return {
     name: item.text,
     ...(address === undefined ? {} : { address }),
+    ...(command === undefined ? {} : { command }),
     steps: item.steps,
     keep: `steps:${session.id}:${item.id}`,
     onOpenAddress: (url) => draft?.openWindow?.(session.id, url),
@@ -601,9 +603,8 @@ export function ReadingSheet({
       onClose={onClose}
     >
       {steps !== undefined ? (
-        <div className="armada-session-reading">
-          <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
-        </div>
+        // The sheet's body pads it already: a second pad doubled the margin.
+        <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
           <SketchReading {...readingOfSketch(one)} />
@@ -691,7 +692,8 @@ export function entriesOf(
       key: `waiting${one.id}`,
       kind: "waiting",
       name: restart?.label ?? one.text,
-      text: restart !== undefined ? restart.label : act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      // A procedure reads as its words: its command is in the steps it opens.
+      text: restart !== undefined ? restart.label : act?.kind === "run" && one.steps === undefined ? <code>{act.target}</code> : one.text,
       ...(restart !== undefined
         ? {}
         : {

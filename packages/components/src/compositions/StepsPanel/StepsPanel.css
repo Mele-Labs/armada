@@ -1,9 +1,9 @@
-/* A procedure the person follows: the key that opens its page, the numbered steps each with a tick, and
+/* A procedure the person follows: the key that opens its page or the command it starts from, the numbered steps each with a tick, and
    the reply under them. The list is a guide's (`GuideSteps.css`); this adds the tick and the rules. */
 .armada-step-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -14,6 +14,32 @@
   min-width: 0;
 }
 
+/* The copy key sits over the block's corner, so the command's text stops short of it. Prose's fenced
+   blocks take the same rule once `CopyAct` lands; this one goes then. */
+.armada-step-list .armada-prose__block[data-acts="1"] {
+  margin: 0;
+  padding-inline-end: calc(var(--h-control-sm) + var(--space-2));
+}
+
+/* A step's words, then each command it names, under them. */
+.armada-step-list__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Under a step the command is the line's companion, drawn tighter than the one at the top, and as tall as its key. */
+.armada-step-list__body .armada-prose__block {
+  padding: var(--space-2);
+  min-height: calc(var(--h-control-sm) + var(--space-2));
+}
+
+.armada-step-list__code {
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+
 .armada-step-list__list {
   gap: 0;
   border-top: var(--border-width) solid var(--border-subtle);
@@ -22,7 +48,7 @@
 .armada-step-list__step {
   grid-template-columns: var(--space-6) minmax(0, 1fr) auto;
   align-items: start;
-  padding: var(--space-3) 0;
+  padding: var(--space-2) 0;
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 

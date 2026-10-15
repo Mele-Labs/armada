@@ -122,6 +122,12 @@ path.armada-session-ledger__picture-later {
   padding: var(--space-4);
 }
 
+/* Its title is an item's or an artifact's own words, read whole: it wraps rather than clips. */
+.armada-sheet[data-kind="session-reading"] .armada-sheet__title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* A subagent's thread fills the sheet; the thread scrolls inside it. */
 .armada-session-reading[data-thread] {
   flex: 1;
