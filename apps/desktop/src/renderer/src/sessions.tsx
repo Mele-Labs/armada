@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, PanelRightClose, PanelRightOpen, Power } from "lucide-react";
+import { ExternalLink, PanelRightClose, PanelRightOpen, PowerOff } from "lucide-react";
 import {
   Alert,
   Button,
@@ -944,7 +944,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                   {draft.close === undefined || session.dead !== undefined ? null : (
                     <Tooltip label="End session">
                       <Button variant="ghost" size="sm" aria-label="End session" onClick={() => draft.close?.(session.id)}>
-                        <Power size={16} strokeWidth={2} aria-hidden />
+                        <PowerOff size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
                   )}

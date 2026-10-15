@@ -14,9 +14,17 @@ use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served};
 
 fn wired(profiles: Vec<ipc::Profile>) -> Router {
+    wired_with(profiles, Vec::new())
+}
+
+fn wired_with(profiles: Vec<ipc::Profile>, unmatched: Vec<ipc::UnmatchedRepository>) -> Router {
     let events = Broadcaster::new();
     let daemon = FakeDaemon::new(events.clone());
-    daemon.accounts.lock().expect("not poisoned").profiles = profiles;
+    {
+        let mut held = daemon.accounts.lock().expect("not poisoned");
+        held.profiles = profiles;
+        held.unmatched = unmatched;
+    }
     router(Served::by(daemon, run_id(), events))
 }
 
@@ -53,33 +61,50 @@ async fn signing_in_answers_the_code_and_the_list_then_shows_it_in_flight() {
 }
 
 #[tokio::test]
-async fn choosing_a_profile_makes_it_the_one_that_is_active() {
-    let app = wired(vec![profile(1, "work", true, false), profile(2, "home", false, true)]);
-    let (status, body) = call(&app, "POST", "/accounts/set_active_account", r#"{"account_id":2}"#).await;
+async fn choosing_a_profile_for_a_repository_binds_it_and_none_leaves_it_unbound() {
+    let loose = ipc::UnmatchedRepository {
+        root: "/r/shared".to_string(),
+        name: "shared".to_string(),
+        candidates: vec![1, 2],
+        none_chosen: false,
+    };
+    let app = wired_with(vec![profile(1, "work", false), profile(2, "home", true)], vec![loose]);
+    let (status, body) =
+        call(&app, "POST", "/accounts/set_repository_profile", r#"{"root":"/r/shared","account_id":2}"#).await;
     assert_eq!(status, StatusCode::OK);
     let now: Accounts = ipc::decode("accounts", &body).expect("decodes");
-    assert_eq!(now.profiles.iter().map(|one| one.active).collect::<Vec<_>>(), [false, true]);
+    assert!(now.unmatched.is_empty());
+    assert_eq!(now.profiles[1].repositories.len(), 1);
+    assert_eq!(now.profiles[1].repositories[0].how, ipc::BoundHow::Chosen);
+
+    let (_, body) = call(&app, "POST", "/accounts/set_repository_profile", r#"{"root":"/r/shared","account_id":null}"#).await;
+    let none: Accounts = ipc::decode("accounts", &body).expect("decodes");
+    assert!(none.profiles[1].repositories.is_empty());
+    assert_eq!(none.unmatched.len(), 1);
+    assert!(none.unmatched[0].none_chosen);
 }
 
 #[tokio::test]
 async fn signing_out_leaves_the_others_and_says_whether_the_store_row_remains() {
-    let app = wired(vec![profile(1, "work", true, false), profile(2, "home", false, true)]);
+    let app = wired(vec![profile(1, "work", false), profile(2, "home", true)]);
     let (status, body) = call(&app, "POST", "/accounts/sign_out", r#"{"account_id":1}"#).await;
     assert_eq!(status, StatusCode::OK);
     let out: SignedOut = ipc::decode("a sign-out", &body).expect("decodes");
     assert_eq!(out.accounts.profiles.len(), 1);
     assert_eq!(out.accounts.profiles[0].login, "home");
-    assert!(out.accounts.profiles[0].active, "the profile left is the one that acts");
     assert!(!out.store_row_remains);
 }
 
 #[tokio::test]
 async fn an_account_the_machine_has_not_joined_is_a_422_by_name_and_a_body_with_no_account_a_400() {
-    let app = wired(vec![profile(1, "work", true, false)]);
-    for uri in ["/accounts/sign_out", "/accounts/set_active_account"] {
-        let (status, body) = call(&app, "POST", uri, r#"{"account_id":9}"#).await;
+    let app = wired(vec![profile(1, "work", false)]);
+    for (uri, body) in [
+        ("/accounts/sign_out", r#"{"account_id":9}"#),
+        ("/accounts/set_repository_profile", r#"{"root":"/r/shared","account_id":9}"#),
+    ] {
+        let (status, answer) = call(&app, "POST", uri, body).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{uri}");
-        let refused: WireError = ipc::decode("a refusal", &body).expect("decodes");
+        let refused: WireError = ipc::decode("a refusal", &answer).expect("decodes");
         assert_eq!(refused.code, "fleet.no_such_account");
 
         let (status, _) = call(&app, "POST", uri, r#"{"login":"work"}"#).await;

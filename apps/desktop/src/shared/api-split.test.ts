@@ -512,7 +512,7 @@ type OldBridgeApi = {
     getAccounts: () => Promise<AccountsActed>;
     startSignIn: () => Promise<AccountsActed>;
     signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
-    setActiveAccount: (accountId: number) => Promise<AccountsActed>;
+    setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
@@ -846,7 +846,7 @@ const OLD_CHANNELS = {
     getAccounts: "bridge:get-accounts",
     startSignIn: "bridge:start-sign-in",
     signOut: "bridge:sign-out",
-    setActiveAccount: "bridge:set-active-account",
+    setRepositoryProfile: "bridge:set-repository-profile",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",

@@ -11,9 +11,10 @@
 //! The access token is a [`Secret`] from the reply to the one call that uses it,
 //! and the `Authorization` header it rides in is marked sensitive.
 //!
-//! **No scope is asked for.** An unscoped token reads the account's public
-//! profile, which is all `who` needs, and a sign-in that wants more asks for it
-//! when the thing that wants it is built.
+//! **One scope is asked for, the read-only one on organisations** ([`SCOPE`]).
+//! `who` needs none, since an unscoped token reads the public profile; the scope
+//! is for `organisations`, which a repository is matched to a profile by. It
+//! lets the token read membership and nothing else.
 //!
 //! **Blocking**, like [`HttpStore`](crate::HttpStore): every call is made on a
 //! thread that may block, never an async worker.
@@ -29,7 +30,15 @@ use serde::Deserialize;
 const DEVICE_URL: &str = "https://github.com/login/device/code";
 const TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
 const USER_URL: &str = "https://api.github.com/user";
+/// The read-only organisation scope, which lets the token list the account's
+/// organisations including the ones whose membership is private. Nothing wider.
+pub(crate) const SCOPE: &str = "read:org";
 const GRANT: &str = "urn:ietf:params:oauth:grant-type:device_code";
+
+/// The most organisations one page lists, and the most pages read: 500 is more
+/// organisations than a person belongs to.
+const PER_PAGE: usize = 100;
+const MOST_PAGES: usize = 5;
 
 /// What the forge uses where a reply names no interval.
 const DEFAULT_INTERVAL: u64 = 5;
@@ -72,8 +81,13 @@ struct UserReply {
     login: String,
 }
 
+#[derive(Deserialize)]
+struct OrganisationReply {
+    login: String,
+}
+
 pub(crate) fn begin_form(client_id: &str) -> Vec<(&'static str, String)> {
-    vec![("client_id", client_id.to_string())]
+    vec![("client_id", client_id.to_string()), ("scope", SCOPE.to_string())]
 }
 
 pub(crate) fn poll_form(client_id: &str, device_code: &Secret<String>) -> Vec<(&'static str, String)> {
@@ -178,6 +192,20 @@ pub(crate) fn account_of(reply: &Reply) -> Result<SignedInAs, SignInError> {
     }
 }
 
+/// One page of the account's organisations, lowercase. A token the forge does
+/// not let read them is a refusal, so the caller keeps none and says so.
+pub(crate) fn organisations_of(reply: &Reply) -> Result<Vec<String>, SignInError> {
+    match reply.status {
+        200 => {
+            let page: Vec<OrganisationReply> = ipc::decode("the organisations", &reply.body)
+                .map_err(|why| SignInError::Refused(why.to_string()))?;
+            Ok(page.into_iter().map(|one| one.login.to_lowercase()).collect())
+        }
+        401 | 403 => Err(SignInError::Refused("The forge would not list the organisations.".to_string())),
+        _ => Err(not_answered(reply)),
+    }
+}
+
 /// The forge's device flow over HTTPS.
 ///
 /// **A client is made for each call and dropped with it**, because `reqwest`'s
@@ -188,6 +216,13 @@ pub struct ForgeSignIn {
     device_url: String,
     token_url: String,
     user_url: String,
+}
+
+fn bearer_of(token: &Secret<String>) -> Result<HeaderValue, SignInError> {
+    let mut bearer = HeaderValue::from_str(&format!("Bearer {}", token.expose()))
+        .map_err(|_| SignInError::Refused("The token is not one the forge would have given.".to_string()))?;
+    bearer.set_sensitive(true);
+    Ok(bearer)
 }
 
 impl ForgeSignIn {
@@ -243,9 +278,24 @@ impl SignIn for ForgeSignIn {
     }
 
     fn who(&self, token: &Secret<String>) -> Result<SignedInAs, SignInError> {
-        let mut bearer = HeaderValue::from_str(&format!("Bearer {}", token.expose()))
-            .map_err(|_| SignInError::Refused("The token is not one the forge would have given.".to_string()))?;
-        bearer.set_sensitive(true);
+        let bearer = bearer_of(token)?;
         account_of(&self.send(|client| client.get(&self.user_url).header(AUTHORIZATION, bearer))?)
+    }
+
+    fn organisations(&self, token: &Secret<String>) -> Result<Vec<String>, SignInError> {
+        let bearer = bearer_of(token)?;
+        let url = format!("{}/orgs", self.user_url);
+        let mut all = Vec::new();
+        for page in 1..=MOST_PAGES {
+            let query = [("per_page", PER_PAGE.to_string()), ("page", page.to_string())];
+            let reply = self.send(|client| client.get(&url).query(&query).header(AUTHORIZATION, bearer.clone()))?;
+            let listed = organisations_of(&reply)?;
+            let full = listed.len() >= PER_PAGE;
+            all.extend(listed);
+            if !full {
+                break;
+            }
+        }
+        Ok(all)
     }
 }

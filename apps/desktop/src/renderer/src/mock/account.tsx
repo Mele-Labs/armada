@@ -181,6 +181,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [pulling]);
 
+  // A mock repository is named once, so its name stands for its root.
   // Each repository is bound to one profile: by its owner being the login or one of its organisations, or by choice.
   // One no profile matches, or two both do, waits unbound until it is chosen.
   const { bound, unbound } = useMemo(() => {
@@ -194,12 +195,12 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     const put = (login: string, row: BoundRepository) => bound.set(login, [...(bound.get(login) ?? []), row]);
     for (const name of offer.repositories ?? []) {
       const choice = picked[name];
-      if (choice === null) unbound.push({ name, none: true });
-      else if (choice !== undefined && profiles.some((one) => one.login === choice)) put(choice, { name, by: "chosen" });
+      if (choice === null) unbound.push({ root: name, name, none: true });
+      else if (choice !== undefined && profiles.some((one) => one.login === choice)) put(choice, { root: name, name, by: "chosen" });
       else {
         const matches = profiles.filter((one) => owns(one.login, name));
-        if (matches.length === 1 && matches[0] !== undefined) put(matches[0].login, { name, by: "matched" });
-        else unbound.push({ name });
+        if (matches.length === 1 && matches[0] !== undefined) put(matches[0].login, { root: name, name, by: "matched" });
+        else unbound.push({ root: name, name });
       }
     }
     return { bound, unbound };
@@ -217,7 +218,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       ...(left === undefined ? {} : { left }),
       ...(offer.noHome === undefined ? {} : { home: false }),
       ...(unbound.length === 0 ? {} : { unbound }),
-      ...(offer.repositories === undefined ? {} : { bind: (name: string, login: string | null) => setPicked((was) => ({ ...was, [name]: login })) }),
+      ...(offer.repositories === undefined ? {} : { bind: (root: string, login: string | null) => setPicked((was) => ({ ...was, [root]: login })) }),
       ...(offer.machine === undefined ? {} : { machine: offer.machine }),
       cancel: () => {
         planned.current = null;

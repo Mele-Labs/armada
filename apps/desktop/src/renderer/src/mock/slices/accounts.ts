@@ -12,6 +12,6 @@ export const accounts: Slice<AccountsApi, Record<string, never>> = {
     getAccounts: async () => ({ ok: false, outcome: unanswered("/accounts") }),
     startSignIn: async () => ({ ok: false, outcome: unanswered("/accounts/start_sign_in") }),
     signOut: async () => ({ ok: false, outcome: unanswered("/accounts/sign_out") }),
-    setActiveAccount: async () => ({ ok: false, outcome: unanswered("/accounts/set_active_account") }),
+    setRepositoryProfile: async () => ({ ok: false, outcome: unanswered("/accounts/set_repository_profile") }),
   }),
 };

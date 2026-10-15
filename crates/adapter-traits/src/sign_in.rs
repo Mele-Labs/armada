@@ -10,6 +10,7 @@
 //! [`Store`](crate::Store): the first is worth another try, the second is not.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::secret::Secret;
 
@@ -93,6 +94,13 @@ pub trait SignIn {
 
     /// The account a token was issued to.
     fn who(&self, token: &Secret<String>) -> Result<SignedInAs, SignInError>;
+
+    /// The logins of the organisations the token's account belongs to, lowercase.
+    /// **Read once at sign-in, while the token is in hand**, and never again:
+    /// what matches a repository to a profile is kept, the token is not. An
+    /// error is an organisation list that could not be read, which is not a
+    /// failed sign-in.
+    fn organisations(&self, token: &Secret<String>) -> Result<Vec<String>, SignInError>;
 }
 
 #[cfg(test)]

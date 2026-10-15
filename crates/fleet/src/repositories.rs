@@ -19,6 +19,7 @@ use config::{Manifest, ResolvedWorkflow, WorkflowFile};
 use core_model::WorkflowId;
 
 mod adding;
+pub(crate) use adding::NO_SUCH_REPOSITORY;
 mod cloning;
 pub(crate) mod reading;
 
