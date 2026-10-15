@@ -157,7 +157,7 @@ where
     ) -> Vec<String> {
         let root = served.root().trim_end_matches('/').to_string();
         let mut held = vec![Self::directory_of(served, hosting)];
-        for slot in 1..=crate::leasing::pool_of(served).slots() {
+        for slot in crate::leasing::bays_of(served) {
             let at = adapter_traits::slot_path(&root, slot);
             if hosting.lease_slot != Some(slot) && self.held_by_the_tree(id, &at) == Standing::Ours {
                 // A process holder cannot say whose it was once it is gone.
@@ -356,8 +356,7 @@ where
         if hosting.lease_slot.is_some() || self.tree_roots(id).is_empty() {
             return hosting;
         }
-        let count = crate::leasing::pool_of(served).slots();
-        let Some((slot, branch)) = (1..=count).find_map(|slot| {
+        let Some((slot, branch)) = crate::leasing::bays_of(served).into_iter().find_map(|slot| {
             let at = path(slot);
             (self.held_by_the_tree(id, &at) == Standing::Ours)
                 .then(|| adapters::leasing::branch_of(std::path::Path::new(&at)))
