@@ -68,7 +68,8 @@ test("every section is a card, and the canvas under it is what makes it glass", 
 });
 
 test("the board reaches the destination's trailing edge, and its columns end level", async () => {
-  await page.viewport(1600, 1000);
+  // 1400, not 1600: the window has no rail now, so the destination is as wide as the window and 1600 draws a third column.
+  await page.viewport(1400, 1000);
   await settings("job/running");
   await expect.poll(() => cards().length).toBeGreaterThanOrEqual(3);
 
