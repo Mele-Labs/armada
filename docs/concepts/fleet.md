@@ -66,7 +66,7 @@ Process-group semantics differ across platforms, and where that difference belon
 
 ## Repositories
 
-**One Fleet serves many repositories.** A person adds each by folder, or clones one from a URL into a folder they pick, and the rail's project picker switches between All repositories and their Manifests. The Board follows the picker, and [Job Board](job-board.md) owns why. The rejected alternative was one Fleet per repository, which would have put a store and a listener per project in front of a person who wanted one.
+**One Fleet serves many repositories.** A person adds each by folder, or clones one from a URL into a folder they pick, and the repository picker at the top of the Cockpit's left column switches between All repositories and their Manifests. The Board follows the picker, and [Job Board](job-board.md) owns why. The rejected alternative was one Fleet per repository, which would have put a store and a listener per project in front of a person who wanted one.
 
 > **Rule.** A Job belongs to the repository whose Manifest it was created against, found through `owner_manifest_id`.
 > Why: every path a Job writes to — its worktree, its records, its main checkout — is that repository's, and a lookup that fell back to another would work a Job in a tree it never ran in.
@@ -244,7 +244,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Memory only.** A restart forgets the table and the next writes rebuild it. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session.
 
-**Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Dashboard and Cockpit tiles, the Cockpit map and bays, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
+**Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Cockpit's list, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The Cockpit's map draws a standing clash as an amber hatched slab on the directory both write in, and its tooltip reads *Two drones are changing it*, or *Changed elsewhere too* where the map holds one. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
 
 ### Declared needs
 

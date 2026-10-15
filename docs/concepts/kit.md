@@ -134,7 +134,7 @@ What this surface is called, and whether it is its own journey, is tracked in Op
 
 ## Actions
 
-**Of this surface, one row is built**: the MCP servers a Drone gets, added, removed and allowed per Manifest from the Manifest surface in Bridge (`#1275`). Kit has no rail row of its own — the rail's order is [Bridge](bridge.md)'s, and where this surface finally lives is the `kit-setup-surface-naming` question below.
+**Of this surface, one row is built**: the MCP servers a Drone gets, added, removed and allowed per Manifest from the Manifest surface in Bridge (`#1275`). Kit is the System strip's first page, whose places [Bridge](bridge.md) owns, and where this surface finally lives is the `kit-setup-surface-naming` question below.
 
 | Action | What it does |
 | --- | --- |

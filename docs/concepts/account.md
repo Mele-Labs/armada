@@ -63,7 +63,7 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | Account entry | Device code, set-up rows, profiles |
 | Profiles | A chip each from two profiles, active one marked; Add profile always shown |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
-| Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
+| Repository picker | The top of the Cockpit's left column; at the title row's narrow width its entries are in the title menu |
 
 The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml` and `packages/icons/icons/laptop.toml`.
 

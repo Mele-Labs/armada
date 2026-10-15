@@ -559,7 +559,7 @@ of 11 Oct 2026, #2094.
 
 A skip is refused with a 409 where no gate is running, and the refusal is said in the host's toast. A skipped Check stays in the ruling as skipped, so nothing reads it as green.
 
-**Every active Job has one, not only the open one.** Bridge's main process holds a detail and a Drone list for each Job that has begun and not ended, re-read on the `job.*` and `drone.*` events that name it, and dropped when the Job ends. The Cockpit, the Dashboard and the call cards draw from those; a mock draft still wins for a Job it names, which is how the design mocks keep working. Plan decisions are not in a Job's Now and stay on the mock until Fleet publishes a plan interview.
+**Every active Job has one, not only the open one.** Bridge's main process holds a detail and a Drone list for each Job that has begun and not ended, re-read on the `job.*` and `drone.*` events that name it, and dropped when the Job ends. The Cockpit and the call cards draw from those; a mock draft still wins for a Job it names, which is how the design mocks keep working. Plan decisions are not in a Job's Now and stay on the mock until Fleet publishes a plan interview.
 
 ## The bays a Job held
 

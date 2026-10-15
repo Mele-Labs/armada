@@ -20,13 +20,13 @@ Most of this capability was already sanctioned and had no surface. The Manifest 
 
 **Running a single Check on demand is the one new capability.** Checks are specified as invoked by Fleet as part of mechanical verification, and the only ad-hoc path was Verify's live dry-run, which runs all of them. Running one is new capability, not a missing screen.
 
-Manifest carries the `file-cog` glyph already assigned to it under Git and config. **It is reached from the control beside the rail's repository picker** rather than from a rail row: the owner folded it into that picker on 28 Sep 2026, so the surface opens against whatever the picker has picked.
+Manifest carries the `file-cog` glyph already assigned to it under Git and config. **It is reached by name from the palette, and from the title menu's repository entries where the row is narrow**, rather than from a tab or a strip page: the owner folded it into the picker on 28 Sep 2026, so the surface opens against whatever the picker has picked.
 
 ## Flow
 
 Open Bridge → Manifest → read the current project's Checks and Commands → run one, or edit.
 
-> **Rule.** One Manifest is open at a time, chosen by the project switcher already in the rail.
+> **Rule.** One Manifest is open at a time, chosen by the repository picker at the top of the deck's left column.
 > Why: the switcher is how the rest of Bridge scopes itself, and a second selector inside the surface would answer the same question twice.
 
 A monorepo's root `armada.yml` appears as its own entry in the switcher, since its Checks run only when the diff touches root paths and it is not just another workspace.
@@ -136,7 +136,7 @@ A Command with `serve` stays running, on ports from the Job's span. [Manifest](.
 
 ### What a run leaves
 
-Each run writes its log under `./.armada` like every other ad-hoc run here, with the same retention. No Check row carries a result, and nothing from a run reaches the rail, the Job header or the Job Board.
+Each run writes its log under `./.armada` like every other ad-hoc run here, with the same retention. No Check row carries a result, and nothing from a run reaches the Cockpit, the Job header or the Job Board.
 
 > **Rule.** The sheet's run list shows each run's result in Job colours, with its exit code, and opens its log.
 > Why: a past rehearsal is worth scanning, a run reads the same on a Studio, on this surface and here, and keeping it inside the sheet stops it reading as the gate's answer. #1277.

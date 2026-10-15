@@ -9,3 +9,5 @@ It collapsed only because Helm needed the room, and Helm stopped needing it.
 **Cost he took:** A control and a remembered choice, where there was a rule.
 
 **Where it landed:** #1591
+
+**Retired with #2301:** the left column, its rail and `⌘\` went with the flight deck as the Cockpit.

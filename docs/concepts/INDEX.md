@@ -16,6 +16,7 @@ assuming it is restated here.
 |---|---|
 | [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
+| [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job and Session, the calls waiting on a person, the worktree slots and the merge queue on one screen |
 | [commander.md](commander.md) | The agent that steers one Job: Helm's conversation hosted by the Job, woken on trouble and by the owner, claiming nothing |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid and the first-run hard gate |
 | [drone.md](drone.md) | The execution runtime for a single Job — a confined Claude Code process with its own worktree |
@@ -29,7 +30,7 @@ assuming it is restated here.
 | [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [landing.md](landing.md) | How a Job's work reaches its target — one pull request, or members landing in order |
-| [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard, Job tabs and rail, by id |
+| [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit panels, Job tabs and places, by id |
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet, Bridge and Drone |
 | [machine.md](machine.md) | How this installation behaves — resources, timing, budget, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |

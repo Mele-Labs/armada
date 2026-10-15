@@ -48,7 +48,7 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 | Step name and position, the current Checks and whether each passed | A brief or an environment value |
 | The Judge's answer as `pass` or `veto`, the pull request, the times | Any path on the Mac |
 
-Which Jobs count as needing the owner follows the Cockpit's Your move filter, in `needs_you` in the same file.
+Which Jobs count as needing the owner follows what the Cockpit raises as a call, in `needs_you` in the same file.
 
 ## Sessions and dispatch
 

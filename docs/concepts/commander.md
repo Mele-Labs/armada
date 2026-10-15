@@ -80,7 +80,7 @@ A Commander cannot reach the owner in a reply he may not read. It reaches him wi
 | Raised by | The Commander, with `ask_the_owner`: what is wrong, what is out of its reach, a question, and two to four options. Fleet, at the loop bound, with the trouble for what is wrong and *Try again* and *Leave it* for the options |
 | Kept as | A row in `commander_cards`, **modelled on a Drone's question and never a held tool call**. Helm's ask is a call held open that dies at fourteen minutes and silence there is a refusal; a card waits until he answers, however long, and a Fleet that restarts still has it |
 | One at a time | A Job has one card out. A second `ask_the_owner` is refused with the question already waiting, and the loop bound leaves a card out as it is |
-| Counts as | The Job waiting on the owner, **like an escalation and without one**: the Job's row reads `asking`, which is what puts it in Your move, and `list_alerts` names it in the blocked list. No status moves |
+| Counts as | The Job waiting on the owner, **like an escalation and without one**: the Job's row reads `asking`, which is what raises it as a call, and `list_alerts` names it in the blocked list. No status moves |
 | Sleep mode | Records it as blocked, whether it went out before the night or during it, and never answers it: the pick is his |
 | Answered by | `answer_commander_card`: the card's id and an option's id, no prose. A card that is not the one out, or an option it never offered, is refused. `agent_access` is `No` |
 | Then | The answer is kept, then the Commander is woken with it: *The owner answered your card, "<question>": <label>*. That wake is not counted against the bound, so he can send it back in |

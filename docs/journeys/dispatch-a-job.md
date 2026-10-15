@@ -20,7 +20,7 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open the Cockpit (scoped to a Manifest by the rail's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
+Open the Cockpit (scoped to a Manifest by the picker at the top of the deck's left column) → browse the Jobs and Sessions list → pick a ready Job → the stage shows it, and its page opens from the stage's Open control → explicit approval action, separate from selection.
 
 ## The dispatch panel
 
@@ -30,7 +30,7 @@ A request is dispatched from a panel, not a screen. The title row's one bar grow
 | --- | --- |
 | The title row's one bar | `n` or `⌘N` opens the bar ready for the work, and `⌘↵` on a row that dispatches grows the panel down from the bar's field, holding the words |
 
-The Cockpit had a dispatch bar of its own that grew the same panel in place. The owner removed it on 13 Oct 2026. Autopilot's bar opens at that place, from a control in the Cockpit's header band, and is not drawn at rest.
+The Cockpit had a dispatch bar of its own that grew the same panel in place. The owner removed it on 13 Oct 2026. Autopilot's bar is the Autopilot lane on the deck's stage, opened by the switch in the Autopilot panel along the deck's foot, and is not drawn at rest.
 
 **The line never moves.** The request is one text field that is not remounted as the panel grows, so the words and the caret stay where they were. Under it a band holds the kind, the repository chip and the act, and a body that depends on the kind.
 
@@ -47,7 +47,7 @@ Tab steps through the kinds on offer, and Autopilot is chosen for one opening on
 | Chip | What is true |
 | --- | --- |
 | Turning ring | The words are being read. An answer to words that have since changed is dropped |
-| Name | Found in the words, picked by hand, or the repository the rail is on. A pick or the rail's repository beats a reading |
+| Name | Found in the words, picked by hand, or the repository the picker is on. A pick or the picker's repository beats a reading |
 | Empty outline | Fleet could not tell, or could not be asked |
 
 **A Job or an Autopilot with no repository asks in the frame.** Pressing the act then lists the set-up repositories under the band, the one Fleet ranks first marked, and choosing one sends the request. Pressing the act while the read is still out waits for it. Pressing the chip lists the same repositories to change a pick.
@@ -60,7 +60,7 @@ The full composer below is the way to say what a line cannot: `⇧↵` on the on
 
 The code is `apps/desktop/src/renderer/src/dispatch-panel/`, and the mock walks are `dispatch-panel-from-the-title-bar` and `dispatched-strip-opens-it`.
 
-See [Job Board](../concepts/job-board.md) for the full board mechanics — what a row says, status states, origin tags. It is a concept rather than a page since 28 Sep 2026; Overview is where the list is read.
+See [Job Board](../concepts/job-board.md) for the full board mechanics — what a row says, status states, origin tags. It is a concept rather than a page since 28 Sep 2026; the Cockpit's list is where it is read.
 
 ## What the full composer holds
 

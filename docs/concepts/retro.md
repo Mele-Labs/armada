@@ -243,7 +243,7 @@ where none is open. `packages/surfaces/jobs/src/open-job.ts`.
 
 | Where | What |
 | --- | --- |
-| **Retros**, a rail surface (glyph `rewind`, Proposed) under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, `All · Sessions · Jobs` for where an item came from, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
+| **Retros**, a System strip page (glyph `rewind`, Proposed) | `list_lessons`, narrowed to the picker's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, `All · Sessions · Jobs` for where an item came from, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
 | **Retro**, in the head of a Job's Record | The same cards, on `get_job_retro` |
 
 Both read when they open and again when the window regains focus, because
