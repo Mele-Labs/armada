@@ -266,6 +266,43 @@ async fn a_repository_with_the_switch_off_claims_nothing_and_draws_no_remote_cla
 }
 
 #[tokio::test]
+async fn a_session_in_a_repository_with_the_switch_off_takes_nothing_and_is_told_so() {
+    let shared = FakeStore::new();
+    let quiet = machine("mac-a", &shared, false).await;
+    red_on(&quiet).await;
+    quiet
+        .fleet
+        .report_session(SessionReport {
+            harness: adapters::HOSTED_HARNESS.into(),
+            session_id: SessionId::carried("s-q"),
+            fact: SessionFact::Started { cwd: root(&quiet.fleet).await, title: None, origin: SessionOrigin::Terminal, mod_version: None },
+        })
+        .await
+        .unwrap();
+    let taken = quiet.fleet.take_main_red(None, ipc::TakeMainRed { session_id: Some(SessionId::carried("s-q")), take_over: false }).await.expect("answers");
+    assert!(!taken.claimed);
+    assert_eq!(quiet.view.calls(), Vec::<&str>::new());
+}
+
+#[tokio::test]
+async fn a_session_asking_again_for_the_red_it_holds_is_not_refused() {
+    let shared = FakeStore::new();
+    let a = machine("mac-a", &shared, true).await;
+    red_on(&a).await;
+    a.fleet
+        .report_session(SessionReport {
+            harness: adapters::HOSTED_HARNESS.into(),
+            session_id: SessionId::carried("s-a"),
+            fact: SessionFact::Started { cwd: root(&a.fleet).await, title: None, origin: SessionOrigin::Terminal, mod_version: None },
+        })
+        .await
+        .unwrap();
+    let ask = || ipc::TakeMainRed { session_id: Some(SessionId::carried("s-a")), take_over: false };
+    assert!(a.fleet.take_main_red(None, ask()).await.expect("first").claimed);
+    assert!(a.fleet.take_main_red(None, ask()).await.expect("again").claimed);
+}
+
+#[tokio::test]
 async fn a_machine_signed_out_claims_nothing() {
     let shared = FakeStore::new();
     let out = machine("mac-a", &shared, true).await;
@@ -293,7 +330,7 @@ async fn green_clears_every_claim_for_both_machines() {
     }
     a.fleet.turn().await.unwrap();
     assert!(row_of(&shared).is_none(), "A cleared the repository");
-    assert!(a.view.calls().contains(&"clear_repository"), "{:?}", a.view.calls());
+    assert_eq!(a.view.calls().iter().filter(|call| **call == "clear_repository").count(), 1, "{:?}", a.view.calls());
     b.fleet.turn().await.unwrap();
     assert!(the_hub(&b.fleet).await.fixing_elsewhere.is_none());
     assert_eq!(kept(&b.fleet).await.unwrap().state, store::MainState::Green);

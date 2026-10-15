@@ -212,6 +212,10 @@ where
             Ok(None) => Ok(false),
             Ok(Some((Claimed::Won, _))) => Ok(true),
             Ok(Some((Claimed::Held(holder), machine))) => {
+                // Asking again for what it already holds is the same take, not a refusal.
+                if holder.kind == kind && holder.id == id && holder.machine == machine {
+                    return Ok(true);
+                }
                 // This machine's own row for a take that ended is replaced, not refused.
                 if !self.is_ours_and_over(&holder, &machine).await {
                     return Err(self.red_held_by(holder));
@@ -278,7 +282,7 @@ mod tests {
     fn a_name_and_a_commit_are_each_a_sha256_in_hex() {
         let (repository, red) = keys_of("mele-labs/armada", "0123abc").expect("keys");
         assert_eq!(repository.as_str(), "b0e2b94c91eef1f1bb6564cbd69c2a16774dca9ac90ffbadc692c96041369b7b");
-        assert_eq!(red.as_str().len(), 64);
+        assert_eq!(red.as_str(), "d22ec3d900a8a525d81d390fe519c894a3890b5578ab2f2a975239f247cad0bf");
         assert_ne!(red.as_str(), repository.as_str());
         assert_eq!(sha256_hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
