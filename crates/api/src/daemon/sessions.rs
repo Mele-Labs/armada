@@ -32,11 +32,12 @@ pub trait Sessions: Send + Sync + 'static {
         rename: RenameSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
-    /// `start_session_run` — run a shell block from a Session's thread. Answers at once with the
-    /// run underway. [`Refusal::Unacceptable`] for a blank command, a Session Fleet has no row
-    /// for, or one that has ended.
+    /// `start_session_run` — run a shell block from a Session's thread, in a terminal of its own.
+    /// Answers at once with the run underway. [`Refusal::Unacceptable`] for a blank command, a
+    /// Session Fleet has no row for, or one that has ended. **Takes the `Arc`** because the Session
+    /// is told how the run ended, long after this call has answered.
     fn start_session_run(
-        &self,
+        self: std::sync::Arc<Self>,
         start: ipc::StartSessionRun,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
@@ -45,6 +46,20 @@ pub trait Sessions: Send + Sync + 'static {
     fn stop_session_run(
         &self,
         stop: ipc::StopSessionRun,
+    ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
+
+    /// `write_session_run` — keys typed into a run's terminal. [`Refusal::Unacceptable`] for a run
+    /// that has ended or Fleet does not hold, as a stop is.
+    fn write_session_run(
+        &self,
+        write: ipc::WriteSessionRun,
+    ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
+
+    /// `resize_session_run` — the run's terminal changed size. [`Refusal::Unacceptable`] as
+    /// `write_session_run`'s, and for a size of no columns or no rows.
+    fn resize_session_run(
+        &self,
+        resize: ipc::ResizeSessionRun,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
     /// `observe_session_run` — a run's output on a socket of its own. [`Refusal::Unacceptable`]
