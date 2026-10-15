@@ -190,8 +190,11 @@
 .deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
 
 /* A Session: its own thread, and the box to answer it. */
-.deck-session { display: flex; flex: 1 1 0; min-height: 0; padding: var(--space-3); }
-.deck-session > * { flex: 1 1 auto; min-width: 0; }
+/* A Session's pane is the Sessions window's own panel, which is the glass: the pane draws none round it. */
+.deck-pane[data-frame] { gap: var(--space-2); border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.deck-pane[data-frame] > .deck-callstrip { margin: 0; }
+.deck-pane[data-frame] > .armada-session-panels { flex: 1 1 0; }
+.deck-stage > .deck-pane[data-frame]:focus-within { border-color: transparent; box-shadow: none; }
 
 /* A call: the real card, in this area and not over the window. */
 .deck-call.armada-cockpit__scrim { position: static; flex: 1 1 0; min-height: 0; background: none; pointer-events: auto; padding: var(--space-3); }
@@ -348,7 +351,11 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 }
 
 .deck-incoming { flex: 2 1 0; }
-.deck-bays { flex: 3 1 0; }
+.deck-bays,
+.deck-ledger { flex: 3 1 0; }
+/* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */
+.deck-ledger__body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-2); }
+.deck-ledger__body > .armada-session-ledger { flex: 1 1 0; width: auto; }
 .deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; }
 .deck-incoming__cards > li { display: flex; flex: none; min-width: 0; }
 

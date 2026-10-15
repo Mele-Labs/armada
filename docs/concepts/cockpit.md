@@ -29,9 +29,9 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 | Repository picker | Top of the left column. Narrows the list, the feed, the bays and the queue to one repository, or All repositories | |
 | Jobs and Sessions | One row for each: its kind, title, what it says and its state's mark | `l` |
 | Activity | What Fleet has been doing, newest first. A press picks the event and the map shows what moved | |
-| Stage | The timeline or the map at rest. When something is picked, that thing: a Job's canvas, a Session's thread, a bay, a pull request, a call, Autopilot's lane | |
+| Stage | The timeline or the map at rest. When something is picked, that thing: a Job's canvas, a Session as the panel the Sessions page draws (its head with the context figure and the rename, its thread and its box), a bay, a pull request, a call, Autopilot's lane | |
 | Merge queue | Main as one light, then a chip for each pull request. A press opens the pull request on the stage | `q` |
-| Bays | The worktree slots and who holds each | `b` |
+| Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's ledger is drawn here instead, and the Bays return when it is closed | `b` |
 | Incoming calls | Every call waiting on a person | `c` |
 | Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles | `f` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |

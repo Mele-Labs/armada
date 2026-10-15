@@ -27,7 +27,7 @@ const rowMarks = (title: string) =>
   [...document.querySelectorAll(".deck-list .deck-row")]
     .filter((row) => row.getAttribute("aria-label") === title)
     .flatMap((row) => [...(row.parentElement?.querySelectorAll<HTMLElement>(".armada-clash-mark") ?? [])]);
-const headMarks = (title: string) => [...document.querySelectorAll<HTMLElement>(`.deck-pane[aria-label$=": ${title}"] .deck-pane__head .armada-clash-mark`)];
+const headMarks = (title: string) => [...document.querySelectorAll<HTMLElement>(`.deck-pane[aria-label$=": ${title}"] :is(.deck-pane__head, .armada-session-frame__head) .armada-clash-mark`)];
 const droneMarks = (title: string) => [...document.querySelectorAll<HTMLElement>(`.bf-drone[data-label="${title}"] .bf-clash`)];
 const said = (marks: HTMLElement[]) => marks.map((one) => one.getAttribute("aria-label"));
 

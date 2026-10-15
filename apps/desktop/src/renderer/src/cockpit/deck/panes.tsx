@@ -1,5 +1,5 @@
 // What fills the flight deck's stage once something is picked: a Job as its mission or the canvas of its run beside what it is
-// doing now, a Session as its own miniature, a bay as the facts about it and who held it, a pull request as the facts the forge
+// doing now, a Session as the Sessions page's own panel, a bay as the facts about it and who held it, a pull request as the facts the forge
 // holds, and a call as the real call card. Every pane has one head with the way back, which Esc is too. Ported from
 // proto/cockpit-flight-deck. #2301.
 
@@ -19,8 +19,8 @@ import { CallCard, type CardKeys } from "../CallCard";
 import { dotsOf } from "../horizon";
 import type { CockpitProps } from "./props";
 import { viewsOf } from "../../merge-line";
-import { SessionMini } from "../../sessions";
-import { useSessions } from "../../sessions-draft";
+import { SessionView } from "../../sessions";
+import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import type { Acts } from "./acts";
 import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as BayHolder, type Ledger } from "./bays";
 import { offeredOf, refusalOf } from "./rescue";
@@ -31,10 +31,21 @@ import { toneOf } from "./order";
 import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck } from "./store";
 
 
-/** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
-export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {
+/** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
+function BackAct() {
   const { sel, from } = useDeck();
   const back = from === undefined ? "Back" : "Back to the bay";
+  return (
+    <Tooltip label={back} shortcut="Esc">
+      <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : goBack())}>
+        <X size={16} aria-hidden="true" />
+      </Button>
+    </Tooltip>
+  );
+}
+
+/** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
+export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {
   return (
     <header className="deck-band deck-pane__head">
       <Tooltip label={kind}>
@@ -47,11 +58,7 @@ export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: {
       {where === undefined ? null : <span className="deck-pane__where">{where}</span>}
       <span className="deck-pane__acts">
         {children}
-        <Tooltip label={back} shortcut="Esc">
-          <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : goBack())}>
-            <X size={16} aria-hidden="true" />
-          </Button>
-        </Tooltip>
+        <BackAct />
       </span>
     </header>
   );
@@ -194,17 +201,39 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
 
 // ---- A Session -----------------------------------------------------------------------------------------
 
-export function SessionPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
-  const tone = toneOf(subject);
+/**
+ * A Session on the stage is the panel the Sessions window draws: its head with the state, the context figure and the rename, its
+ * thread and its box. **Its ledger is drawn in the deck's right column**, in `ledger`, where the Bays were. The deck's own acts
+ * (the pull request, Stop, Open the page, Back) ride in the head after the ones the window has, and the clash mark is the head's.
+ * `openSession` opens another Session where this one is, as the list does.
+ */
+export function SessionPane({ subject, props, acts, onPr, call, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; ledger: HTMLElement | null; openSession: (id: string) => void }) {
+  const session = useSessions().find((one) => one.id === subject.id);
+  const draft = useSessionsDraft();
+  const { state } = props;
+  if (session === undefined || draft === undefined) return null;
   return (
-    <section className="deck-pane" aria-label={`Session: ${subject.title}`}>
-      <PaneHead glyph={SquareTerminal} kind="Session" title={subject.title} where={subject.repo} mark={<><MarkGlyph mark={{ ...subject.mark, tone }} /><ClashMark kind="session" id={subject.id} size={16} /></>}>
-        <SubjectActs subject={subject} acts={acts} onPr={onPr} />
-      </PaneHead>
+    <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`}>
       {call === undefined ? null : <CallStrip item={call} props={props} />}
-      <div className="deck-session">
-        <SessionMini sessionId={subject.id} onOpen={props.onOpenSession} fill />
-      </div>
+      <SessionView
+        session={session}
+        goes={{ onOpenJob: props.onOpen, onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id) => props.onOpenSession(id) }}
+        onOpen={openSession}
+        // The deck's ship already wants the pool while it is drawn.
+        held={{ held: state.held, onWant: () => {} }}
+        board={state.jobs}
+        lines={state.mergeLines}
+        settings={state.settings}
+        deck={{
+          ledger,
+          acts: (
+            <>
+              <SubjectActs subject={subject} acts={acts} onPr={onPr} />
+              <BackAct />
+            </>
+          ),
+        }}
+      />
     </section>
   );
 }

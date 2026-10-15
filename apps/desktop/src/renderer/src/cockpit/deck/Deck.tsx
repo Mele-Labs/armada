@@ -5,7 +5,7 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
@@ -201,7 +201,7 @@ function useBayViews(props: CockpitProps) {
   return useBays(slots, events, undefined, props.now);
 }
 
-function Stage({ props, ship, listed, autopilot }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane> }) {
+function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; autopilot: ReturnType<typeof useAutopilotLane>; ledger: HTMLElement | null }) {
   const deck = useDeck();
   const acts = useShipActs(props, { onMergeJob: props.onMergeJob });
   const sel = deck.sel;
@@ -220,7 +220,13 @@ function Stage({ props, ship, listed, autopilot }: { props: CockpitProps; ship: 
   const owed = subject === undefined ? undefined : callOfSubject(subject, deck.held);
   const asked = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed);
   if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
-  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
+  // A Session this ship does not hold opens on its own page, as a link to one does.
+  const openSession = (id: string) => {
+    const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
+    if (held === undefined) props.onOpenSession(id);
+    else select(selOfSubject(held));
+  };
+  if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} ledger={ledger} openSession={openSession} />;
   const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
   if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} props={props} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
@@ -309,6 +315,16 @@ function BaysPanel({ props, ship, selected }: { props: CockpitProps; ship: Ship;
   const bays = useBayViews(props);
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
   return <Bays views={bays.map((one) => one.view)} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
+}
+
+/** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */
+function LedgerPanel({ host }: { host: (element: HTMLElement | null) => void }) {
+  return (
+    <section className="deck-panel deck-ledger" aria-label="Ledger" tabIndex={-1}>
+      <header className="deck-band">Ledger</header>
+      <div className="deck-ledger__body" ref={host} />
+    </section>
+  );
 }
 
 type Deck = ReturnType<typeof useDeck>;
@@ -510,6 +526,8 @@ export function DeckBody(props: CockpitProps) {
   }, [listed, deck.cursor, props.state.jobs]);
   useCursor(cursorJob, onCursor);
   const incoming = incomingOf(ship.calls, deck.held, deck.visited);
+  const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
+  const reading = deck.sel?.kind === "session" && ship.subjects.some((one) => one.key === deck.sel?.key && one.kind === "session");
   const selected = deck.sel?.key;
   // A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up.
   const events = useFleetEvents();
@@ -537,7 +555,7 @@ export function DeckBody(props: CockpitProps) {
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
-            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} />
+            <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading ? ledgerHost : null} />
             <MergeQueue props={props} ship={ship} selected={deck.sel?.kind === "pr" ? selected : undefined} />
           </div>
           <div className="deck-foot">
@@ -546,7 +564,7 @@ export function DeckBody(props: CockpitProps) {
           </div>
         </div>
         <div className="deck-right">
-          <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} />
+          {reading ? <LedgerPanel host={setLedgerHost} /> : <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} />}
           <Incoming calls={incoming} now={props.now} ship={ship} />
         </div>
       </div>

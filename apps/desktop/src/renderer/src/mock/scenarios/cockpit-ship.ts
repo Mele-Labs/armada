@@ -70,6 +70,7 @@ const asking: Session = {
   id: "q1",
   title: "Cache key",
   manifestId: ARMADA,
+  context: { tokens: 54_000, window: 200_000 },
   turn: { state: "idle" },
   lastTurn: "14:09",
   lastTurnAt: ago(9),
