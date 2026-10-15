@@ -1109,6 +1109,32 @@ pub trait Delivery {
     /// a person to act on. Fetches the base first so the counts are current.
     /// `None` where the repository or its remote base cannot be read.
     fn held_back(&self, in_repo: &str, base: &str) -> Option<HeldBack>;
+
+    /// Whether an edit to the Manifest at `file` can go out as a pull request:
+    /// `in_repo` is a repository with an `origin`, and the file is tracked and
+    /// not ignored there. **False sends the edit to the file on disk.**
+    fn manifest_by_pull_request(&self, in_repo: &str, file: &str) -> bool;
+
+    /// Fetch `base` and read the Manifest at `file` as `origin` holds it.
+    /// **Writes nothing but the remote-tracking ref.**
+    fn manifest_on_the_base(
+        &self,
+        in_repo: &str,
+        base: &str,
+        file: &str,
+    ) -> Result<crate::ManifestOnTheBase, NotDelivered>;
+
+    /// Commit the Manifest on top of `sending.parent`, push the commit to
+    /// `sending.branch`, and where it opens a pull request open one and turn
+    /// auto-merge on.
+    ///
+    /// **Never touches `in_repo`'s tree, index or HEAD**, which a person may be
+    /// working in: the commit is made from objects, not from a checkout.
+    fn send_manifest_edit(
+        &self,
+        in_repo: &str,
+        sending: &crate::ManifestEditToSend,
+    ) -> Result<crate::ManifestEditSent, NotDelivered>;
 }
 
 /// A checkout Fleet would not catch up, and what stands in the way.

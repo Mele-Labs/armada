@@ -176,7 +176,7 @@ pub(crate) fn enable_auto_merge(in_repo: &str, pull_request: &str) -> Result<(),
 
 /// The remote a `merge_by: push` lands on, and the one `crate::base` reads a
 /// default branch from.
-const REMOTE: &str = "origin";
+pub(crate) const REMOTE: &str = "origin";
 
 /// Land a Job's branch with the merge commit made here and the base pushed,
 /// never forced. `merge_by: push`, through [`onto_base`].
