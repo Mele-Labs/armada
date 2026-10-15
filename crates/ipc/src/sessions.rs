@@ -677,6 +677,31 @@ pub struct ClaimPullRequest {
     pub job_id: Option<JobId>,
 }
 
+/// `take_main_red`: a Session takes a repository's red main, so no Job on another machine is
+/// handed it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TakeMainRed {
+    /// Which session takes it. **Read only where the connection places no hosted session**, as
+    /// `ClaimPullRequest::session_id` is. The red is the one in the session's own repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// Replace another machine's claim on the red with this session's. Asked for, never
+    /// assumed: the call follows a refusal that named the holder.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub take_over: bool,
+}
+
+/// What `take_main_red` answers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MainRedTaken {
+    /// The repository, as `get_merge_lines` names it.
+    pub root: String,
+    /// Whether a claim was written to the central store. `false` where the repository's
+    /// *Pull request owners* switch is off or the machine is signed out: nothing was written
+    /// and no other machine will be told.
+    pub claimed: bool,
+}
+
 /// What `claim_pull_request` answers: the pull request now held, and by whom.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullRequestClaimed {

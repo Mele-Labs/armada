@@ -60,6 +60,7 @@ const ATTESTS_MERGES_OR_PUSHES: &[&str] = &[
     "review_pull_request",
     "write_pull_request",
     "claim_pull_request",
+    "take_main_red",
     "delete_branch",
     "set_landing_target",
     "close_as_superseded",

@@ -84,7 +84,7 @@ import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
-import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, pullRequestCardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
@@ -429,7 +429,7 @@ export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: str
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state, card: pullRequestCardOf(one) })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),

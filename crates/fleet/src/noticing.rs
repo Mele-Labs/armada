@@ -158,6 +158,9 @@ pub(crate) struct Sweep {
     /// The CI run on main for each of those merge commits, by root and commit.
     /// A settled one is kept and never asked again.
     pub(crate) main_runs: BTreeMap<String, BTreeMap<String, crate::main_hub::MergedRun>>,
+    /// Another machine's claim on each repository's red, as last read from the
+    /// store, by root. `crate::red_claim`. Never holds this machine's own.
+    pub(crate) elsewhere: BTreeMap<String, adapter_traits::Holder>,
 }
 
 /// What the record's state says on the wire, where it says anything.

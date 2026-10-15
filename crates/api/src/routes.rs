@@ -281,6 +281,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::claim_pull_request::<D>),
         )
         .route(
+            "/sessions/take_main_red",
+            post(crate::sessions::take_main_red::<D>),
+        )
+        .route(
             "/sessions/start_another",
             post(crate::sessions::start_another_session::<D>),
         )

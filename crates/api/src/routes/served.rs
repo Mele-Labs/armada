@@ -428,6 +428,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/claim_pull_request",
     },
     Route {
+        operation: "take_main_red",
+        method: "POST",
+        path: "/sessions/take_main_red",
+    },
+    Route {
         operation: "waiting_for",
         method: "POST",
         path: "/sessions/waiting",

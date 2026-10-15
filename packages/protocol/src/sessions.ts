@@ -208,6 +208,18 @@ export type ClaimPullRequest = { number: number; session_id?: string; job_id?: s
 export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
 
 /**
+ * `POST /sessions/take_main_red`: a Session takes its repository's red main in the central store, so no Job
+ * on another machine is handed it. `session_id` names the Session where the connection places none.
+ * `take_over` replaces another machine's claim, and is asked for after a refusal that named the holder.
+ * Fleet refuses 409 `fleet.main_taken_elsewhere` naming the holder, and 500 `fleet.main_claim_not_made`
+ * where the store would not answer.
+ */
+export type TakeMainRed = { session_id?: string; take_over?: boolean };
+
+/** What `take_main_red` answers. `claimed` is false where the switch is off or the machine is signed out: nothing was written. */
+export type MainRedTaken = { root: string; claimed: boolean };
+
+/**
  * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
  * it (`ask:`, `perm:`, `walk:`) or the agent stated it. Nothing is sent to the agent, except for an item
  * the agent stated: it is told `Owner removed "<item text>"`, with `reason` after it where the person gave one.

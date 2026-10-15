@@ -320,6 +320,26 @@ pub(crate) async fn claim_pull_request<D: Sessions>(
     }
 }
 
+/// A Session takes its repository's red main. 200 with `MainRedTaken`; 409 naming the holder
+/// where it is held elsewhere; 422 for a call that places no Session.
+pub(crate) async fn take_main_red<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let take: ipc::TakeMainRed = match ipc::decode("a red main to take", &body) {
+        Ok(take) => take,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .take_main_red(crate::acting::asking(), take)
+        .await
+    {
+        Ok(taken) => answer(StatusCode::OK, &taken, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A Session's agent starts a Session, held for the person. 200 with `SessionHeld`; 422 for a call that
 /// places no hosted Session, a blank title or message, or a repository Fleet does not serve.
 pub(crate) async fn start_another_session<D: Sessions>(
