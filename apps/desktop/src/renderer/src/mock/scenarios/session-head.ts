@@ -15,6 +15,7 @@ const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository()
 const AT = "2026-10-15T01:20:00.000Z";
 const ID = "e07cfe09-5b21-4c3a-9d0e-7a6f1c2b8d44";
 const HEAVY_ID = "b4a1d2c7-93e0-4f6a-8c15-2d7e9a0b3f61";
+const DONE_ID = "c9e3a5f1-27d8-4b04-a6c2-5e1f8d7b0a39";
 const HEAD_TITLE = "How does armada interface with GitHub (PRs, Issues, Projects)";
 
 const WINDOW = 1_000_000;
@@ -77,6 +78,17 @@ const records = () => [
     attachments: [held("slot", "4"), held("branch", "fix/cart-totals")],
     hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "claude-opus-5-5" },
   }),
+  // A Session that said it is done: its state mark is `power`, beside the act that ends it.
+  hosted(DONE_ID, {
+    title: "Release notes draft",
+    started_at: AT,
+    last_turn_at: new Date().toISOString(),
+    done_since: new Date().toISOString(),
+    usage: used(HEAVY),
+    context_breakdown: breakdown(HEAVY),
+    attachments: [held("slot", "2"), held("branch", "docs/release-notes")],
+    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "opus", resolved_model: "claude-opus-5-5" },
+  }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
@@ -84,6 +96,10 @@ const threads = (): Record<string, SessionRow[]> => ({
     { kind: "message", id: "m1", at: AT, from: { kind: "you" }, text: "How does armada interface with GitHub?" },
     { kind: "tool", id: "t1", at: AT, text: "Read crates/adapters/src/forge.rs" },
     { kind: "message", id: "m2", at: AT, from: { kind: "agent" }, text: "Everything goes through the gh CLI, one adapter, behind the forge trait." },
+  ],
+  [DONE_ID]: [
+    { kind: "message", id: "d1", at: AT, from: { kind: "you" }, text: "Draft the release notes." },
+    { kind: "message", id: "d2", at: AT, from: { kind: "agent" }, text: "Drafted in docs/release-notes.md." },
   ],
 });
 

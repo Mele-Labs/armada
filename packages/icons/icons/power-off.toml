@@ -1,0 +1,13 @@
+[icons.power-off]
+  means = "The power glyph with a diagonal through it - switched off"
+  group = "Session"
+  size = "16px"
+  status = "Specified"
+  notes = "Proposed 15 Oct 2026 for the walk `session-end-icon`. Approved 15 Oct 2026. Stays in `power`'s family, a deliberate stop, and adds the slash, so the act reads as turning the Session off beside the Done mark's plain `power`. Refused: `log-out` and `door-closed`, walked beside it and not picked; `square`, the Stop act in the same view; `x` and `ban`, reserved elsewhere; `circle-*`, Judge verdicts; `unplug`, the accidental half of the power pair."
+
+  [[icons.power-off.usage]]
+    means = "End session, in a Session's head"
+    group = "Session"
+    size = "16px"
+    status = "Specified"
+    notes = "Icon-only, tooltip and aria-label `End session`. A Session in the done state wears `power` as its state mark (`session_standing_marks`), so the act could not wear it too. Approved 15 Oct 2026."
