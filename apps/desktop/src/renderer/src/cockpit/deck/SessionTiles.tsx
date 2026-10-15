@@ -1,7 +1,7 @@
 // The flight controls' tiles while a Session is open on the stage: the same block, size and keys, `1` to `5`, as the six usual
 // ones, with the Session's own acts. What each does and why one is off is in `session-tiles.ts`. A refusal from Fleet is the
 // toast the Session's composer shows, since the same `draft.send` carries it. **Report** swaps the tiles for a box (`ReportBox`);
-// sending starts a Session in the same repository, tells it the owner's words and what Bridge holds about this one
+// sending starts a Session in Armada's repository where Fleet serves it (`reportRoot`), tells it the owner's words and what Bridge holds about this one
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026.
 
 import { useRef, useState } from "react";
@@ -20,10 +20,11 @@ import { select, setView } from "./store";
 
 const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit } as const;
 
-/** The repository the report is about: its root, which the new Session starts in, and its name where it has one. */
+/** The repository the report is about: its root and its name where it has one. */
 export type ReportRepository = { root: string; name?: string };
 
-export function SessionTiles({ session, draft, repository }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined }) {
+/** `startIn` is the root a report's new Session starts in (`reportRoot`); absent, the reported Session's own. */
+export function SessionTiles({ session, draft, repository, startIn }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string }) {
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
   /** The Session a report started, kept while its message is refused so a second press tells the same one. */
@@ -57,7 +58,7 @@ export function SessionTiles({ session, draft, repository }: { session: Session;
   };
   const report = async (words: string): Promise<boolean> => {
     if (repository === undefined) return false;
-    const id = started.current ?? (await draft.start(undefined, repository.root));
+    const id = started.current ?? (await draft.start(undefined, startIn ?? repository.root));
     if (id === undefined) return false;
     started.current = id;
     const brief = reportBrief(words, session, { at: new Date(), screen: "Cockpit, flight controls", root: repository.root, ...(repository.name === undefined ? {} : { repository: repository.name }), events, ...(refused === undefined ? {} : { refused }) });
