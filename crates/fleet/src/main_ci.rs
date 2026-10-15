@@ -289,6 +289,7 @@ where
     pub(crate) async fn read_main(self: &Arc<Self>) -> Result<(), Adrift> {
         let changed = self.notice_main().await?;
         self.main_acted_on(&changed).await;
+        self.red_given_to_sessions(&changed).await;
         self.pulls_told_when_due().await;
         self.builds_told_when_due().await;
         Ok(())

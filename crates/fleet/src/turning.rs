@@ -476,6 +476,8 @@ where
                     fleet.probed(&turned);
                     fleet.walked(&turned);
                     fleet.woken(&turned).await;
+                    // A red a Session merged: it needs the `Arc` the turn itself lacks.
+                    fleet.red_given_to_sessions(&turned.main_changed).await;
                     // Beside the probes, for their reason: a landing is minutes.
                     fleet.lines_driven().await;
                 }

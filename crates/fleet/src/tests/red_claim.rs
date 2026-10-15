@@ -92,6 +92,16 @@ pub(super) struct Machine {
 /// A Fleet signed in to the account, named `name`, reading the shared store
 /// through a view of its own. `switch` is the Manifest's *Pull request owners*.
 pub(super) async fn machine(name: &str, shared: &FakeStore, switch: bool) -> Machine {
+    machine_hosting(name, shared, switch, None).await
+}
+
+/// [`machine`] whose hosted Sessions run on `stand_in`, where one is given.
+pub(super) async fn machine_hosting(
+    name: &str,
+    shared: &FakeStore,
+    switch: bool,
+    stand_in: Option<Arc<crate::tests::session_host::StandIn>>,
+) -> Machine {
     let home = TempDir::new();
     let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.noticing = Noticing::every(Duration::ZERO);
@@ -112,7 +122,10 @@ pub(super) async fn machine(name: &str, shared: &FakeStore, switch: bool) -> Mac
             "2026-10-14T09:00:00.000Z",
         )
         .expect("a profile");
-    let fleet = Fleet::assembled(fittings);
+    let mut fleet = Fleet::assembled(fittings);
+    if let Some(stand_in) = stand_in {
+        fleet = fleet.hosting_sessions_on(Arc::new(crate::tests::session_host::Shared(stand_in)), Duration::from_secs(600));
+    }
     let changes = [("store.url", "https://store.test"), ("machine.name", name)]
         .into_iter()
         .map(|(key, value)| (key.to_string(), Some(ipc::SettingValue::Text(value.to_string()))))

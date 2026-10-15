@@ -17,6 +17,7 @@ pub struct KeptWaiting {
     pub since: String,
     pub act: Option<(String, String)>,
     pub options: Vec<String>,
+    pub steps: Vec<String>,
 }
 
 impl Store {
@@ -26,7 +27,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT item_id, text, since, act_kind, act_target, options
+                "SELECT item_id, text, since, act_kind, act_target, options, steps
                  FROM session_waiting WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(fault(doing))
@@ -36,12 +37,14 @@ impl Store {
                 let kind: Option<String> = row.get(3)?;
                 let target: Option<String> = row.get(4)?;
                 let options: String = row.get(5)?;
+                let steps: String = row.get(6)?;
                 Ok(KeptWaiting {
                     item_id: row.get(0)?,
                     text: row.get(1)?,
                     since: row.get(2)?,
                     act: kind.zip(target),
                     options: serde_json::from_str(&options).unwrap_or_default(),
+                    steps: serde_json::from_str(&steps).unwrap_or_default(),
                 })
             })
             .map_err(fault(doing))
@@ -64,8 +67,8 @@ impl Store {
             for (position, item) in items.iter().enumerate() {
                 transaction.execute(
                     "INSERT INTO session_waiting
-                     (session_id, position, item_id, text, since, act_kind, act_target, options)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                     (session_id, position, item_id, text, since, act_kind, act_target, options, steps)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                     params![
                         session_id,
                         position as i64,
@@ -75,6 +78,7 @@ impl Store {
                         item.act.as_ref().map(|(kind, _)| kind),
                         item.act.as_ref().map(|(_, target)| target),
                         serde_json::to_string(&item.options).unwrap_or_else(|_| "[]".into()),
+                        serde_json::to_string(&item.steps).unwrap_or_else(|_| "[]".into()),
                     ],
                 )?;
             }
