@@ -26,6 +26,19 @@ const WORLD: RefWorld = {
   ],
 };
 
+const FORGED: RefWorld = { ...WORLD, numbered: [{ kind: "pull_request", number: "12", title: "#12 Round once", url: "https://github.com/o/r/pull/12" }] };
+
+describe("the forge's address for one", () => {
+  const found = (text: string) => scanRefs(text, FORGED).map((one) => text.slice(one.from, one.to));
+  it("is the reference, where it is this repository's", () => {
+    expect(found("See https://github.com/o/r/pull/12.")).toEqual(["https://github.com/o/r/pull/12"]);
+  });
+  it("is left alone for another repository, a page of it, or a link already written", () => {
+    expect(found("https://github.com/o/other/pull/12 and https://github.com/o/r/pull/12/files")).toEqual([]);
+    expect(found("[the pull](https://github.com/o/r/pull/12)")).toEqual([]);
+  });
+});
+
 const words = (text: string) => scanRefs(text, WORLD).map((one) => [text.slice(one.from, one.to), one.ref.kind, one.ref.id]);
 
 describe("a number", () => {
