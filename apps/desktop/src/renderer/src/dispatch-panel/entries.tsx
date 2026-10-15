@@ -3,12 +3,22 @@
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
-import { DispatchPanel, useHung } from "./DispatchPanel";
+import { ONE_BAR } from "../one-bar";
+import { DispatchPanel, useHung, type Placement } from "./DispatchPanel";
 import { DispatchedStrip } from "./DispatchedStrip";
 import { useDispatching } from "./dispatching";
 
-/** The panel grown down from the title bar's field when the one bar chose to dispatch. */
-export function TitleDispatchPanel({ anchor }: { anchor?: string }) {
+/**
+ * Where the panel sits. The mock walks two takes of it, picked by the walk's name (`quick-dispatch-centre`) or by
+ * `?placement=`; nothing in the real window chooses, and it takes the first.
+ */
+function placementOfWindow(): Placement {
+  const query = new URLSearchParams(window.location.search);
+  return query.get("placement") === "centre" || query.get("walk")?.endsWith("-centre") === true ? "centre" : "title";
+}
+
+/** The panel, hung from the title bar's field or centred over the window, wherever an entry opened it. */
+export function TitleDispatchPanel() {
   const dispatching = useDispatching();
   const field = useRef<HTMLTextAreaElement>(null);
   const shown = dispatching?.titled === true;
@@ -22,14 +32,14 @@ export function TitleDispatchPanel({ anchor }: { anchor?: string }) {
   }, [shown]);
 
   if (dispatching === undefined || !shown) return null;
-  return <DispatchPanel anchor={anchor} fieldRef={field} onDismiss={dispatching.closeTitled} {...dispatching.panel()} />;
+  return <DispatchPanel anchor={ONE_BAR} placement={placementOfWindow()} fieldRef={field} onDismiss={dispatching.closeTitled} {...dispatching.panel()} />;
 }
 
 /**
  * What a send from the title bar's panel leaves, laid over the one bar's field where the panel grew from.
  * The cursor lands on it, so ↵ opens what was sent, Esc dismisses it, and a key typed starts the next draft.
  */
-export function TitleDispatchedStrip({ anchor }: { anchor?: string }) {
+export function TitleDispatchedStrip({ anchor = ONE_BAR }: { anchor?: string }) {
   const dispatching = useDispatching();
   const root = useRef<HTMLDivElement>(null);
   const sent = dispatching?.sent;

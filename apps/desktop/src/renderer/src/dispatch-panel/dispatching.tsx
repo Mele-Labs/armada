@@ -12,6 +12,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import { DispatchSettings, REQUEST_PLACEHOLDER, useKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
+import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 
 import type { BridgeState } from "../../../shared/bridge";
@@ -21,7 +22,7 @@ import { useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
 import type { PanelProps, PanelReading } from "./DispatchPanel";
-import { optionsFor, useReading } from "./reading";
+import { chipsFor, optionsFor, useReading } from "./reading";
 
 type Host = {
   state: BridgeState;
@@ -63,9 +64,9 @@ export type Dispatching = {
   titled: boolean;
   /** The one bar chose to dispatch: the panel grows down from its field holding these words, for the repository `root` where one is named. */
   openTitled: (words: string, root?: string) => void;
+  /** Every New job and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
+  openNew: (root?: string) => void;
   closeTitled: () => void;
-  /** Words left in the draft by a panel put away: bring the panel back holding them. False where there are none. */
-  reopenDraft: () => boolean;
   panel: () => EntryProps;
   /** The latest send, as the strip draws it. */
   sent: SentView | undefined;
@@ -92,6 +93,7 @@ const firstLine = (words: string) => words.trim().split("\n")[0] ?? "";
 
 export function useDispatch({ state, repositories, proposeFrom, openSession, openJob, openAutopilot, said: tell }: Host): Dispatching {
   const draft = useSessionsDraft();
+  const [recent, recall] = useRecentRepositories();
   const [chosen, remember] = useDispatchKind();
   // Autopilot is chosen for this opening only and never remembered: the next dispatch is for a Job again.
   const [autopilot, setAutopilot] = useState(false);
@@ -201,6 +203,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   function sendJob(at: string) {
     const title = firstLine(words);
     const request = words.trim();
+    recall(at);
     clearAll();
     const mine = leave({ kind: "job", title });
     // A refusal is said on the strip while it is still the latest send, and as a notice once it is not.
@@ -214,6 +217,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   function startSession(at: string) {
     if (draft === undefined) return;
     const text = words.trim();
+    recall(at);
     setSending(true);
     void Promise.resolve(draft.start(undefined, at)).then((id) => {
       if (id === undefined) return setSending(false);
@@ -248,6 +252,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     void window.armada.startAutopilot(manifest, settingsRead.settings).then((answer) => {
       if (mine !== stamp.current) return;
       if (!answer.ok) return (setSending(false), setRefused(said(answer.outcome)));
+      recall(at);
       clearAll();
       leave({ kind: "autopilot", title: by(at)?.name ?? at, root: at });
     });
@@ -324,7 +329,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     kinds,
     onKind: choose,
     reading,
-    options,
+    chips: chipsFor(options, { scoped: by(state.repository)?.root, read: detected?.root, chosen: root, recent }),
+    entries: repositoryEntries(repositories, { scope: root, onlySetUp: true, recent }),
     asking: asking !== false,
     onAsking: (next) => setAsking(next ? "chip" : false),
     onPick: (at) => {
@@ -368,12 +374,18 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       setRefused(undefined);
       setTitled(true);
     },
-    closeTitled: collapse,
-    reopenDraft: () => {
-      if (words.trim() === "") return false;
+    openNew: (at) => {
+      if (at === undefined && words.trim() !== "") return setTitled(true);
+      stamp.current += 1;
+      setWords("");
+      if (at !== undefined) pick(at);
+      setLatest(undefined);
+      setAsking(false);
+      setRead(undefined);
+      setRefused(undefined);
       setTitled(true);
-      return true;
     },
+    closeTitled: collapse,
     panel,
     sent: sentView,
     openSent,
