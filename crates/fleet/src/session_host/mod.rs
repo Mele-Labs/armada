@@ -43,7 +43,7 @@ pub(crate) mod standing;
 mod standing_tick;
 mod thread_cache;
 pub(crate) use agent_starting::UNSENT_ITEM;
-pub(crate) use serving::{mode_of, MESSAGE_EMPTY, NO_SUCH_SESSION};
+pub(crate) use serving::{mode_of, RunEnd, MESSAGE_EMPTY, NO_SUCH_SESSION};
 mod terminal;
 pub(crate) mod uploads;
 pub(crate) mod waiting;
