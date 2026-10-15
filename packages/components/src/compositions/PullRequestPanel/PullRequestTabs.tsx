@@ -20,6 +20,10 @@ export type PullRequestTabsProps = {
   /** What its author wrote of it, as Markdown. The first entry of the conversation. Absent or blank draws none. */
   description?: string;
   onOpenLink: (address: string) => void;
+  /** The file open beside the panel, by path. Its row is marked. */
+  openFile?: string;
+  /** A file's row pressed, or `null` for the open one pressed again. Absent leaves the rows as text. */
+  onFile?: (path: string | null) => void;
 };
 
 const TABS = [
@@ -29,7 +33,7 @@ const TABS = [
   { id: "commits", label: "Commits" },
 ];
 
-export function PullRequestTabs({ page, description, onOpenLink }: PullRequestTabsProps) {
+export function PullRequestTabs({ page, description, onOpenLink, openFile, onFile }: PullRequestTabsProps) {
   const [tab, setTab] = useState("conversation");
   return (
     <div className="armada-pr-tabs">
@@ -37,7 +41,7 @@ export function PullRequestTabs({ page, description, onOpenLink }: PullRequestTa
       <TabPanel tab={tab} role="tabpanel" aria-label={TABS.find((one) => one.id === tab)?.label} className="armada-pr-tabs__panel">
         {tab === "conversation" ? <Conversation page={page} description={description ?? ""} /> : null}
         {tab === "checks" ? <Checks rows={page.checks} onOpenLink={onOpenLink} /> : null}
-        {tab === "files" ? <Files rows={page.files} /> : null}
+        {tab === "files" ? <Files rows={page.files} {...(openFile === undefined ? {} : { open: openFile })} {...(onFile === undefined ? {} : { onFile })} /> : null}
         {tab === "commits" ? <Commits rows={page.commits} /> : null}
       </TabPanel>
     </div>
@@ -171,17 +175,36 @@ function Checks({ rows, onOpenLink }: { rows: readonly PullRequestCheckRow[]; on
   );
 }
 
-function Files({ rows }: { rows: readonly PullRequestFile[] }) {
+function Files({ rows, open, onFile }: { rows: readonly PullRequestFile[]; open?: string; onFile?: (path: string | null) => void }) {
   if (rows.length === 0) return null;
   return (
     <ul className="armada-pr-list armada-pr-rows" aria-label="Files">
       {rows.map((row) => {
         const status = FILE[row.status];
-        return (
-          <li key={row.path} className="armada-pr-row" data-columns="file">
+        const cells = (
+          <>
             <Mark Glyph={status.Glyph} said={status.said} />
             <span className="armada-pr-row__name mono">{row.path}</span>
             <DiffSize additions={row.additions} deletions={row.deletions} />
+          </>
+        );
+        // The whole row is the control. Pressing the open one again closes it.
+        return onFile === undefined ? (
+          <li key={row.path} className="armada-pr-row" data-columns="file">
+            {cells}
+          </li>
+        ) : (
+          <li key={row.path} className="armada-pr-row" data-press>
+            <button
+              type="button"
+              className="armada-pr-row__button"
+              data-columns="file"
+              data-on={row.path === open || undefined}
+              aria-pressed={row.path === open}
+              onClick={() => onFile(row.path === open ? null : row.path)}
+            >
+              {cells}
+            </button>
           </li>
         );
       })}

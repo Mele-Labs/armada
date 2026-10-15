@@ -10,6 +10,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
 import { PullRequestActs, type PullRequestActsProps } from "../PullRequestActs/PullRequestActs";
 import { RegisteredOwnerOf } from "../RegisteredOwner/RegisteredOwner";
+import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
 import { PullRequestComposer, type PullRequestComposerProps } from "./PullRequestComposer";
 import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
 import { DiffSize, PullRequestTabs } from "./PullRequestTabs";
@@ -65,6 +66,14 @@ export type PullRequestPanelProps = {
   pageSaid?: string;
   /** The comment box. Absent draws none. */
   composer?: PullRequestComposerProps;
+  /**
+   * The file open beside the panel, and its diff as the host read it: `files` empty with `emptyNote`
+   * where Fleet said why there is none, and empty with no note while the read is in flight. Absent
+   * draws no diff panel.
+   */
+  file?: { path: string; diff: UnifiedDiffProps };
+  /** A file's row pressed, or `null` for its panel closed. Absent leaves the Files rows as text. */
+  onFile?: (path: string | null) => void;
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
 };
@@ -99,14 +108,19 @@ export function PullRequestPanel({
   page,
   pageSaid,
   composer,
+  file,
+  onFile,
   children,
 }: PullRequestPanelProps) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
   const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(page === undefined ? {} : { review: page.review, approvals: page.approvals, mergeable: page.mergeable })} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
   const description = body?.trim() ?? "";
   const opened = agoOf(page?.created_at);
+  // The diff lies where the plates would, so they move into the body as they do at the floor.
+  const platesInBody = floor || file !== undefined;
   const tone = state === "merged" ? "success" : queued ? "running" : checks.state === "failed" ? "failed" : checks.state === "passed" ? "success" : "neutral";
   return (
+    <>
     <Sheet
       kind="pull-request"
       open
@@ -119,7 +133,8 @@ export function PullRequestPanel({
       closeLabel="Close"
       closeBinding="Esc"
       onClose={onClose}
-      aside={<div className="armada-pr-plates">{plates}</div>}
+      under={file !== undefined}
+      {...(platesInBody ? {} : { aside: <div className="armada-pr-plates">{plates}</div> })}
       {...(composer === undefined ? {} : { footer: <PullRequestComposer {...composer} /> })}
     >
       <div className="armada-pr-panel">
@@ -154,14 +169,14 @@ export function PullRequestPanel({
             </Tooltip>
           </span>
         </div>
-        {floor ? <div className="armada-pr-plates">{plates}</div> : null}
+        {platesInBody ? <div className="armada-pr-plates">{plates}</div> : null}
         {children}
         {pageSaid === undefined || pageSaid === "" ? null : (
           <p className="armada-pr-panel__said" role="alert">
             {pageSaid}
           </p>
         )}
-        {page === undefined ? null : <PullRequestTabs page={page} description={description} onOpenLink={onOpenLink} />}
+        {page === undefined ? null : <PullRequestTabs page={page} description={description} onOpenLink={onOpenLink} {...(file === undefined ? {} : { openFile: file.path })} {...(onFile === undefined ? {} : { onFile })} />}
         {page !== undefined || description === "" ? null : (
           <section className="armada-pr-plate armada-pr-panel__description" data-tone={tone} aria-label="Description">
             <Tooltip label="Description">
@@ -174,5 +189,25 @@ export function PullRequestPanel({
         )}
       </div>
     </Sheet>
+    {file === undefined ? null : (
+      /* Beside the panel, as Plan's task panel holds a file: a second floating sheet to its left
+         that dims nothing. At the floor it lies over the panel, and closing it lands back there. */
+      <Sheet
+        open
+        floating
+        beside="pull-request"
+        kind="pull-request-file"
+        floor={floor}
+        title={file.path}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={() => onFile?.(null)}
+      >
+        <div className="armada-pr-file-diff" aria-busy={file.diff.files.length === 0 && file.diff.emptyNote === undefined ? true : undefined}>
+          <UnifiedDiff {...file.diff} />
+        </div>
+      </Sheet>
+    )}
+    </>
   );
 }

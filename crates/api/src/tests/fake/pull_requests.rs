@@ -108,6 +108,21 @@ impl PullRequestPanel for FakeDaemon {
         Ok(page(manifest_id, number))
     }
 
+    async fn get_pull_request_file(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        path: String,
+    ) -> Result<ipc::PullRequestFilePatch, Refusal> {
+        Ok(ipc::PullRequestFilePatch {
+            manifest_id,
+            number,
+            path,
+            patch: None,
+            said: None,
+        })
+    }
+
     async fn write_pull_request(
         &self,
         manifest_id: ManifestId,

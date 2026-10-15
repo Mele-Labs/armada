@@ -231,6 +231,27 @@ pub struct PullRequestPage {
     pub owner: Option<crate::merge_hub::PullRequestOwner>,
 }
 
+/// `get_pull_request_file`'s query string: the file a person opened, as the page's `files` names it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestFileOf {
+    pub path: String,
+}
+
+/// `get_pull_request_file`: one file of a pull request, read when a person opens it and carried
+/// nowhere. One of `patch` and `said` is set.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestFilePatch {
+    pub manifest_id: ManifestId,
+    pub number: u64,
+    pub path: String,
+    /// The file's hunks as the forge prints them, with no `diff --git` header.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<String>,
+    /// Why there is no patch, in Fleet's words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
+}
+
 /// What the panel's comment box writes. `POST /pull_request_writes/:repository`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

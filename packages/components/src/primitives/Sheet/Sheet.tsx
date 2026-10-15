@@ -249,6 +249,8 @@ export function Sheet({
     else if (kind !== undefined) rememberSheetWidth(kind, next);
   };
   const neighbour = useSheetWidth(beside);
+  // A neighbour nobody dragged draws its own `size`, which is not always the dock's.
+  const neighbourDrawn = useWidthOfKind(beside, open && floating && !floor && beside !== undefined && neighbour === undefined);
 
   // At the floor the sheet is flush to both edges, and there is nothing to
   // resize. Everywhere else there is no ceiling but the area under the scrim
@@ -260,7 +262,7 @@ export function Sheet({
   const room = useWidthOf(scrimRef, open && resizes);
   const atRest = useWidthOf(sheetRef, open && resizes && wanted === undefined);
   const space = tokenPx("--space-4");
-  const followed = follows ? clampToRange(neighbour ?? defaultDockWidth(), rangeIn(room - 2 * space)) : 0;
+  const followed = follows ? clampToRange(neighbour ?? (neighbourDrawn > 0 ? neighbourDrawn : defaultDockWidth()), rangeIn(room - 2 * space)) : 0;
   const range = rangeIn(follows ? room - followed - 4 * space : room - (floating ? 2 : 1) * space);
   // Not measured yet (a first render, or no layout at all): as given.
   const drawn = wanted === undefined || room === 0 ? wanted : clampToRange(wanted, range);
@@ -361,6 +363,7 @@ export function Sheet({
         data-floating={floating || undefined}
         data-side={side}
         data-size={size}
+        data-kind={kind}
         data-floor={floor || undefined}
         role="dialog"
         // Beside another sheet, the pair is the one modal layer: marking both
@@ -416,6 +419,22 @@ export function Sheet({
 function rangeIn(open: number) {
   const { min, max } = dockWidthRange(Number.NaN);
   return { min, max: Number.isFinite(open) ? Math.max(min, open) : max };
+}
+
+/** The width of the open sheet of `kind`, kept current: 0 while none is open or `on` is false. */
+function useWidthOfKind(kind: string | undefined, on: boolean): number {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = kind === undefined ? null : document.querySelector<HTMLElement>(`.armada-sheet[data-kind="${kind}"]`);
+    if (!on || element === null) return;
+    const read = (): void => setWidth(element.getBoundingClientRect().width);
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [kind, on]);
+  return width;
 }
 
 /**

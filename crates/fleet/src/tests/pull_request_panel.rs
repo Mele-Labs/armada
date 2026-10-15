@@ -5,7 +5,7 @@
 //! nothing was written says so by counting what the fake was asked to write.
 
 use adapter_traits::{
-    CheckRow, CheckStanding, CommitLine, FileChange, Mergeability, Omitted, PageFile,
+    CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
     PullRequestPageFacts, PullRequestStanding, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
 };
 use api::PullRequestPanel;
@@ -89,6 +89,68 @@ async fn the_page_is_the_forges_in_the_wires_words() {
         PullRequestEntry::Review { verdict: PullRequestVerdict::ChangesRequested, body, .. }
             if body.is_empty()
     ));
+}
+
+#[tokio::test]
+async fn an_opened_file_is_the_forges_patch_for_it() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet
+        .vcs()
+        .now_pull_request_file_patch(Some(FilePatch::Patch("@@ -1 +1 @@\n-a\n+b".into())));
+    let file = fleet
+        .get_pull_request_file(id, 12, "a.rs".into())
+        .await
+        .expect("read");
+    assert_eq!(file.patch.as_deref(), Some("@@ -1 +1 @@\n-a\n+b"));
+    assert_eq!(file.said, None);
+    assert_eq!(file.path, "a.rs");
+}
+
+#[tokio::test]
+async fn a_file_with_no_patch_says_so() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet
+        .vcs()
+        .now_pull_request_file_patch(Some(FilePatch::NoPatch));
+    let file = fleet
+        .get_pull_request_file(id, 12, "logo.png".into())
+        .await
+        .expect("an answer");
+    assert_eq!(file.patch, None);
+    assert!(file.said.expect("a sentence").starts_with("The forge sent no patch"));
+}
+
+#[tokio::test]
+async fn a_path_the_pull_request_does_not_list_is_refused() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet
+        .vcs()
+        .now_pull_request_file_patch(Some(FilePatch::NoSuchFile));
+    let refused = fleet
+        .get_pull_request_file(id, 12, "z.rs".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.status(), 422);
+    assert_eq!(code(&refused), "fleet.pull_request_file_unknown");
+}
+
+#[tokio::test]
+async fn a_forge_that_will_not_say_what_a_file_changed_is_a_fault() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    let refused = fleet
+        .get_pull_request_file(id, 12, "a.rs".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.status(), 500);
+    assert_eq!(code(&refused), "fleet.pull_request_unreadable");
 }
 
 #[tokio::test]

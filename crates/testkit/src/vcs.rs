@@ -456,6 +456,15 @@ impl Delivery for FakeVcs {
         self.page_read(pull_request)
     }
 
+    fn pull_request_file_patch(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+        path: &str,
+    ) -> Option<adapter_traits::FilePatch> {
+        self.file_patch_read(pull_request, path)
+    }
+
     fn write_pull_request(
         &self,
         _in_repo: &str,

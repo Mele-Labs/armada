@@ -9,13 +9,13 @@
 //! every Session's `pr` row follows it.
 
 use adapter_traits::{
-    AgentHarness, CheckStanding, Delivery, FileChange, Mergeability, PullRequestPageFacts,
+    AgentHarness, CheckStanding, Delivery, FileChange, FilePatch, Mergeability, PullRequestPageFacts,
     PullRequestWrite, ReviewSaid, ReviewStanding, Said, Vcs, WorkProduct,
 };
 use api::{PullRequestPanel, Refusal};
 use ipc::{
     ManifestId, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
-    PullRequestFile, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
+    PullRequestFile, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
     PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, WritePullRequest,
 };
 
@@ -26,6 +26,10 @@ use crate::pull_requesting::{SESSION_UNKNOWN, UNREADABLE};
 const WRITE_BLANK: &str = "fleet.pull_request_write_blank";
 /// The forge would not take the write, in its own sentence. A 409.
 const WRITE_REFUSED: &str = "fleet.pull_request_write_refused";
+/// A file the pull request does not list. A 422.
+const FILE_UNKNOWN: &str = "fleet.pull_request_file_unknown";
+/// What a file says where the forge sent no patch for it.
+const NO_PATCH: &str = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
 
 /// The write a request makes, or why it cannot be made.
 fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> {
@@ -201,6 +205,41 @@ where
     ) -> Result<PullRequestPage, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
         self.page_with_owner(&manifest_id, served.root(), number).await
+    }
+
+    async fn get_pull_request_file(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        path: String,
+    ) -> Result<PullRequestFilePatch, Refusal> {
+        let served = self.served_named(Some(&manifest_id))?;
+        let found = self
+            .vcs()
+            .pull_request_file_patch(served.root(), &number.to_string(), &path)
+            .ok_or_else(|| {
+                Refusal::Fault(self.pr_refusal(
+                    UNREADABLE,
+                    format!("the forge would not say what changed in {path} on pull request {number}"),
+                ))
+            })?;
+        let (patch, said) = match found {
+            FilePatch::Patch(patch) => (Some(patch), None),
+            FilePatch::NoPatch => (None, Some(NO_PATCH.to_string())),
+            FilePatch::NoSuchFile => {
+                return Err(Refusal::Unacceptable(self.pr_refusal(
+                    FILE_UNKNOWN,
+                    format!("pull request {number} has no file {path}"),
+                )))
+            }
+        };
+        Ok(PullRequestFilePatch {
+            manifest_id,
+            number,
+            path,
+            patch,
+            said,
+        })
     }
 
     async fn write_pull_request(

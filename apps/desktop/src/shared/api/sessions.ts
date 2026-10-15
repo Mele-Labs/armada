@@ -11,6 +11,7 @@ import type {
   Outcome,
   PilotOutcome,
   PullRequestClaimed,
+  PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
   RenameSession,
@@ -125,6 +126,8 @@ export type SessionsApi = {
   ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
   /** What the panel's tabs and facts draw, read from the forge when the panel opens. Main names the repository from the Session. */
   readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
+  /** One file of a pull request, read when a person opens it from the Files tab. Main names the repository from the Session. */
+  readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
   /** A comment, an approval or a request for changes on a pull request a Session holds. Answers the page read again after it. */
   writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
   /** Runs a shell block from a Session's thread. Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
@@ -185,6 +188,7 @@ export const SESSIONS_CHANNELS = {
   sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
   readPullRequestPage: "bridge:read-pull-request-page",
+  readPullRequestFile: "bridge:read-pull-request-file",
   writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
   stopSessionRun: "bridge:stop-session-run",

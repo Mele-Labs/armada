@@ -22,6 +22,7 @@ import type {
   FrameRead,
   Outcome,
   PullRequestClaimed,
+  PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
   RenameSession,
@@ -405,6 +406,16 @@ export class SessionsHost {
    */
   async pullRequestPage(sessionId: string, number: number): Promise<SessionActed<PullRequestPage>> {
     return await this.onPage(sessionId, (port, repository) => ask(port, "GET", `/pull_request_details/${repository}/${number}`));
+  }
+
+  /** One file's patch, read from the forge by Fleet when a person opens it. The repository is the session's own. */
+  async pullRequestFile(sessionId: string, number: number, path: string): Promise<SessionActed<PullRequestFilePatch>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
+    if (manifestId === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    const answer = await ask(port, "GET", `/pull_request_files/${encodeURIComponent(manifestId)}/${number}?path=${encodeURIComponent(path)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as PullRequestFilePatch } : { ok: false, outcome: answer.outcome };
   }
 
   /** A comment, an approval or a request for changes. Fleet answers the page read again after it; a refusal carries the forge's words. */

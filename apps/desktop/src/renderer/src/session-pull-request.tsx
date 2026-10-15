@@ -7,6 +7,7 @@ import { PullRequestPanel } from "@armada/components";
 import type { PullRequestActsProps } from "@armada/components";
 import { placeOf } from "@armada/screens";
 import { usePullRequestPage } from "./session-pull-request-page";
+import { usePullRequestFile } from "./session-pull-request-file";
 import { PrOwnersOnTheWire } from "./pr-owners-wire";
 import type { MergeLines } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
@@ -92,6 +93,7 @@ function SessionPullRequestPanel({
   const repository = repositoryOf(one.address);
   const description = promptsOut(one.body);
   const { page, pageSaid, composer } = usePullRequestPage(sessionId, one.number, draft);
+  const { file, onFile } = usePullRequestFile(sessionId, one.number, draft);
   return (
     <PrOwnersOnTheWire lines={lines} panel={{ repository, number: one.number, owner: page?.owner }}>
       <PullRequestPanel
@@ -104,6 +106,8 @@ function SessionPullRequestPanel({
         {...(page === undefined ? {} : { page })}
         {...(pageSaid === undefined ? {} : { pageSaid })}
         {...(composer === undefined ? {} : { composer })}
+        {...(file === undefined ? {} : { file })}
+        {...(onFile === undefined ? {} : { onFile })}
         state={one.state}
         // A check red after the gate passed still reads as failed here: Fleet refuses the merge on it.
         checks={one.checks.state === "failed" || (one.checks.state === "passed" && one.checks.red !== undefined) ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
