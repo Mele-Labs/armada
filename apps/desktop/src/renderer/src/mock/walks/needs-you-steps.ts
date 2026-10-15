@@ -1,7 +1,7 @@
 // An item that waits on the person for a procedure: its row wears the Steps glyph, and a press opens the
 // steps beside the thread in place of the link. The link is the key at the top, each step has a tick that
 // is kept, a step the agent got wrong is edited, dropped or added, and Send takes the corrections with
-// the reply. Over the `needs-you-steps` scenario.
+// the reply, and with the box empty the key reads Done, whatever was ticked. Over the `needs-you-steps` scenario.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
@@ -35,7 +35,7 @@ function steps(): Step[] {
     { look: inside(panel, role("button", "Bring back step 4")), say: "It stays in the list, struck through, and can be brought back" },
     { press: inside(panel, role("button", "Add step")), say: "A step the agent missed is added at the end" },
     { type: "Leave the Client secret alone\n", into: inside(panel, role("textbox", "Step 7")), say: "Worded and saved" },
-    { look: inside(panel, button("Send")), say: "Send is ready with the reply box empty: the corrections go to the agent" },
+    { look: inside(panel, button("Done")), say: "Done is ready with nothing more ticked and the reply box empty: the corrections go with it" },
   ];
 }
 

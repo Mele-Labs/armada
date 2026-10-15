@@ -14,9 +14,10 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  *
  * **The agent may be wrong about the steps, and the person says so here.** A step is edited in place,
  * dropped (it stays in the list, struck through, so the agent sees what was wrong) or added at the end.
- * Ticks are the person's own place-keeping and nothing depends on them. **Corrections travel with Send**,
- * as plain lines after the reply (`messageOf`). Ticks, corrections and the reply are kept under `keep`,
- * so closing the panel or leaving the Session loses none; a send clears all three.
+ * Ticks are the person's own place-keeping and nothing depends on them. **The send key is never disabled:
+ * it reads Done while the reply box is empty and sends "Done", so a procedure can be finished without
+ * ticking every step.** **Corrections travel with it**, as plain lines after the reply (`messageOf`).
+ * Ticks, corrections and the reply are kept under `keep`, so closing the panel or leaving the Session loses none; a send clears all three.
  */
 export type StepsPanelProps = {
   /** The item's words, which name the reply box. */
@@ -39,7 +40,8 @@ export type StepFixes = { edited: Record<number, string>; dropped: number[]; add
 const NO_TICKS: number[] = [];
 const NO_FIXES: StepFixes = { edited: {}, dropped: [], added: [] };
 
-const fixed = (fixes: StepFixes) => Object.keys(fixes.edited).length > 0 || fixes.dropped.length > 0 || fixes.added.length > 0;
+/** What the key sends when the box is empty: the item is finished, whatever was ticked. */
+const DONE = "Done";
 
 /** The reply, then one line a correction, in the order of the steps, so the agent reads what was wrong. */
 export function messageOf(reply: string, steps: readonly string[], fixes: StepFixes): string {
@@ -66,8 +68,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
   const lineOf = (at: number) => (at < steps.length ? (fixes.edited[at] ?? steps[at]!) : fixes.added[at - steps.length]!);
 
   const send = () => {
-    const message = messageOf(text, steps, fixes);
-    if (message === "") return;
+    const message = messageOf(text.trim() === "" ? DONE : text, steps, fixes);
     onSend(message);
     setText("");
     forgetKept(`${keep}:reply`);
@@ -230,12 +231,12 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
-              send();
+              if (text.trim() !== "") send();
             }
           }}
         />
-        <Button variant="secondary" size="sm" disabled={text.trim() === "" && !fixed(fixes)} onClick={send}>
-          Send
+        <Button variant="secondary" size="sm" onClick={send}>
+          {text.trim() === "" ? DONE : "Send"}
         </Button>
       </div>
     </div>
