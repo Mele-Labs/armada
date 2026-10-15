@@ -88,6 +88,7 @@ export * from "./showing";
 export * from "./studio";
 export * from "./territory";
 export * from "./timeline";
+export * from "./bay-history";
 export * from "./added-steps";
 export * from "./alerts";
 export * from "./trigger-holds";

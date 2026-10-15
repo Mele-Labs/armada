@@ -31,6 +31,7 @@ import type { ModelDownshiftApi } from "./api/model-downshift";
 import type { ClashesApi } from "./api/clashes";
 import type { TerritoryApi } from "./api/territory";
 import type { TimelineApi } from "./api/timeline";
+import type { BayHistoryApi } from "./api/bay-history";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
 import type { SketchShareApi } from "./api/sketch-share";
@@ -64,6 +65,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   ClashesApi &
   TerritoryApi &
   TimelineApi &
+  BayHistoryApi &
   IssuesApi &
   AutopilotApi &
   SketchShareApi;
