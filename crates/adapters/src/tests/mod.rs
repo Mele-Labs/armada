@@ -38,6 +38,7 @@ mod landing;
 mod leasing;
 mod leasing_existing_branch;
 mod leasing_jobs;
+mod slot_watching;
 mod leasing_last_session;
 mod leasing_parking;
 mod leasing_rescue;

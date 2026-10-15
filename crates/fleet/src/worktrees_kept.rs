@@ -6,6 +6,12 @@
 //! something changed, and every [`STALE_AFTER`] while anyone asked in the last
 //! [`WATCHED_FOR`]. Nobody asking reads nothing.
 //!
+//! **A read that something changed asks git about the slots that changed.** The
+//! adapter hears the file system (`docs/spikes/032-what-moves-when-a-slot-changes.md`) and keeps the
+//! rest of the pool as it read it. **Only the read every [`STALE_AFTER`] asks
+//! about every slot**, which is what a change nobody heard of waits for: the
+//! list is never wrong for longer than that.
+//!
 //! **Only the list served to Bridge is kept.** The sweep, `armada clean`, a
 //! release and a rescue decide from a slot, and read git themselves.
 //! **Without a keeper every request is live**, which is what a test gets that
@@ -22,11 +28,14 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use crate::daemon::Fleet;
+use crate::leasing::Reading;
 use crate::wire::{worktree_held, worktree_slot};
 
-/// A snapshot this old is read again behind the request that finds it, and on
-/// the timer while anyone is asking.
-pub const STALE_AFTER: Duration = Duration::from_secs(5);
+/// A snapshot this old is read again, every slot, behind the request that finds
+/// it and on the timer while anyone is asking. The owner's bound on how stale
+/// the slot list may be (15 Oct 2026): a change no event announced is shown by
+/// the next one.
+pub const STALE_AFTER: Duration = Duration::from_secs(10);
 
 /// How long after the last request the keeper keeps reading. Past it nothing has
 /// kept the snapshot true, so a request is answered live.
@@ -57,6 +66,9 @@ struct Inner {
     held: Option<Arc<WorktreesHeld>>,
     /// When the read behind `held` began, and when the last read ended.
     begun: Option<Instant>,
+    /// When the last read of every slot began. A read of the slots that
+    /// changed does not move it, so the timer is not pushed back by events.
+    whole: Option<Instant>,
     ended: Option<Instant>,
     asked: Option<Instant>,
     /// Counted by [`Kept::changed`], and what it stood at when `held` began.
@@ -128,7 +140,7 @@ impl Kept {
     pub(crate) fn aged(&self, by: Duration) {
         let mut guard = self.inner.lock().expect("not poisoned");
         let inner = &mut *guard;
-        for at in [&mut inner.begun, &mut inner.ended, &mut inner.asked] {
+        for at in [&mut inner.begun, &mut inner.whole, &mut inner.ended, &mut inner.asked] {
             *at = at.and_then(|at| at.checked_sub(by));
         }
     }
@@ -155,10 +167,18 @@ impl Kept {
         (self.inner.lock().expect("not poisoned").changed, adapter)
     }
 
-    fn kept(&self, held: Arc<WorktreesHeld>, begun: Instant, marks: (u64, u64)) {
+    /// Whether a read beginning at `now` must ask about every slot.
+    fn owes_whole(&self, now: Instant) -> bool {
+        self.inner.lock().expect("not poisoned").whole_is_old(now)
+    }
+
+    fn kept(&self, held: Arc<WorktreesHeld>, begun: Instant, whole: bool, marks: (u64, u64)) {
         let mut inner = self.inner.lock().expect("not poisoned");
         inner.held = Some(held);
         inner.begun = Some(begun);
+        if whole {
+            inner.whole = Some(begun);
+        }
         inner.ended = Some(Instant::now());
         (inner.changed_at_begin, inner.adapter_at_begin) = marks;
     }
@@ -186,10 +206,12 @@ impl Inner {
     /// Changed since it was read, or old enough to be read again.
     fn out_of_date(&self, now: Instant, adapter: u64) -> bool {
         let moved = self.changed != self.changed_at_begin || adapter != self.adapter_at_begin;
-        let old = self
-            .begun
-            .is_none_or(|begun| now.saturating_duration_since(begun) >= STALE_AFTER);
-        moved || old
+        moved || self.whole_is_old(now)
+    }
+
+    fn whole_is_old(&self, now: Instant) -> bool {
+        self.whole
+            .is_none_or(|whole| now.saturating_duration_since(whole) >= STALE_AFTER)
     }
 
     /// Out of date, and the last read ended long enough ago to start another.
@@ -237,11 +259,12 @@ where
             return Ok(held);
         }
         let begun = Instant::now();
+        let whole = self.worktrees_memory().owes_whole(begun);
         let marks = self.worktrees_memory().marks(self.vcs().changes());
-        match self.worktrees_live().await {
+        match self.worktrees_read(Reading::Kept { whole }).await {
             Ok(live) => {
                 let held = Arc::new(live);
-                self.worktrees_memory().kept(Arc::clone(&held), begun, marks);
+                self.worktrees_memory().kept(Arc::clone(&held), begun, whole, marks);
                 Ok(held)
             }
             Err(why) => {
@@ -270,13 +293,18 @@ where
     /// five tests are written once in `crate::holding`, and a filter here that
     /// decided for itself what is safe would be a third opinion. The one thing
     /// dropped is a piloted Job's checkout, through `Holding::offerable` (#367).
+    #[cfg(test)]
     pub(crate) async fn worktrees_live(&self) -> Result<WorktreesHeld, Refusal> {
+        self.worktrees_read(Reading::Live).await
+    }
+
+    async fn worktrees_read(&self, how: Reading) -> Result<WorktreesHeld, Refusal> {
         // One read of the Jobs for both halves, which then run side by side.
         let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
         let jobs = Arc::new(loaded.jobs);
         let (holding, slots) = tokio::join!(
             Fleet::held_among(self, Arc::clone(&jobs)),
-            Fleet::pool_slots_among(self, &jobs),
+            Fleet::pool_slots_among(self, &jobs, how),
         );
         Ok(WorktreesHeld {
             worktrees: holding

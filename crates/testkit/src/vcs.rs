@@ -146,6 +146,7 @@ pub struct FakeVcs {
     /// How many times a pool was read. A snapshot that answers from memory
     /// leaves this where it was.
     pool_reads: AtomicU64,
+    whole_pool_reads: AtomicU64,
 }
 
 impl Delivery for FakeVcs {
@@ -962,6 +963,13 @@ impl Vcs for FakeVcs {
                 })
             })
             .collect()
+    }
+
+    fn slot_pool_kept(&self, pool: &SlotPool, full: bool) -> Vec<SlotReading> {
+        if full {
+            self.whole_pool_reads.fetch_add(1, Ordering::Relaxed);
+        }
+        self.slot_pool(pool)
     }
 
     fn change_slot_pool(
