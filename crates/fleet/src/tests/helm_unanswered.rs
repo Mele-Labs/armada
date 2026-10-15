@@ -57,6 +57,7 @@ async fn why(script: &str, budget: Duration) -> String {
                 path: "/usr/bin:/bin",
                 home: &home_dir,
                 user: "someone",
+                width: checks_runner::CheckWidth::of(2),
             },
         )
         .answering_within(budget),

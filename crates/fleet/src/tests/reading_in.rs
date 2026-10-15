@@ -111,6 +111,7 @@ fn reading_answered(home: &TempDir, read: &str) -> Arc<Reading> {
             path: "/usr/bin:/bin",
             home: &home_dir,
             user: "someone",
+            width: checks_runner::CheckWidth::of(2),
         },
     );
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
