@@ -17,6 +17,12 @@ fn a_remote_reads_the_same_in_each_of_its_spellings() {
 }
 
 #[test]
+fn the_slug_is_owner_and_name_in_lower_case_whichever_way_it_was_cloned() {
+    assert_eq!(address("git@github.com:Mele-Labs/Armada.git").slug(), "mele-labs/armada");
+    assert_eq!(address("https://github.com/Mele-Labs/armada").slug(), "mele-labs/armada");
+}
+
+#[test]
 fn a_path_on_this_machine_is_no_forge() {
     assert_eq!(ForgeAddress::of_remote("/srv/git/armada.git"), None);
     assert_eq!(ForgeAddress::of_remote("file:///srv/git/armada.git"), None);

@@ -283,6 +283,26 @@ where
         self.deliver(job, worktree).await.map(Some)
     }
 
+    /// Register the Job as the owner of the pull request it opened. **A store that does not
+    /// answer is told in the Job's log and changes nothing else**: the delivery is done.
+    async fn registered_in_the_store(&self, job: &Job, url: &str) {
+        let Some(number) = crate::pull_requesting::number_of(url) else { return };
+        let Ok(served) = self.served_by_id(job.id()) else { return };
+        let taker = crate::red_claim::Taker::Job(job.id().clone());
+        if let Err(why) = self.pull_request_registered(served.root(), number, &taker).await {
+            let envelope = Envelope::new(
+                self.now(),
+                Level::Warn,
+                Component::Fleet,
+                self.run().clone(),
+                "the pull request's owner was not registered in the central store",
+            )
+            .in_job(job.id().as_ulid().clone())
+            .with_field("cause", FieldValue::Str(why.said()));
+            self.noted_in_the_log(job.id(), &envelope);
+        }
+    }
+
     /// Assemble the pull request from the record and open it.
     async fn opened_for_review(
         &self,
@@ -334,6 +354,9 @@ where
                 .await
                 .record_pull_request_opened(job.id(), review.title(), self.now().as_str())
                 .map_err(Adrift::Writing)?;
+        }
+        if let Opened::PullRequest { url } | Opened::AlreadyOpen { url } = &opened {
+            self.registered_in_the_store(job, url).await;
         }
         // **The same composition, kept beside the Job.** The pull request
         // already carries `review`'s Markdown; this is what lets `get_job`

@@ -203,6 +203,8 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::TERMINAL_COMMAND,
         s::OPEN_PULL_REQUESTS_IN,
         s::MACHINE_NAME,
+        s::ACCOUNT_CLIENT_ID,
+        s::STORE_URL,
         s::THEME,
     ] {
         assert!(
@@ -224,7 +226,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 15 + 4 + 21 + 2 + 2 + s::prompt_keys().count();
+    let handles = 22 + 15 + 4 + 23 + 2 + 2 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

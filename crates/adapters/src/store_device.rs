@@ -130,7 +130,7 @@ pub fn remember_device(dir: &Path, id: &str) -> Result<(), String> {
 
 /// Letters, digits, `.`, `-` and `_`: what survives a header and a path
 /// unchanged, and the store's own device id, an account id, a dot and hex.
-fn sound_id(id: &str) -> bool {
+pub(crate) fn sound_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= LONGEST_ID
         && id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))

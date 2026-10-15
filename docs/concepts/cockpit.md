@@ -46,7 +46,7 @@ The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 a
 
 ## Calls
 
-A call is something waiting on a person: a Job's gate, a question an agent asked, a Session that replied and went idle. It is raised on the deck as an Incoming call, and the deck is the only Cockpit, so there is no second place one is drawn. A press opens it on the stage, and it leaves Incoming when it is answered or seen.
+A call is something waiting on a person: a Job's gate, a question an agent asked, a Session that finished its turn and is done. A reply asks nothing of him and raises none. It is raised on the deck as an Incoming call, and the deck is the only Cockpit, so there is no second place one is drawn. A press opens it on the stage, and it leaves Incoming when it is answered or seen.
 
 While the window is on another tab a toast says a call has come and a press brings it forward on the stage. On the Cockpit tab no toast is drawn, and the Cockpit tab carries a pip while a call waits and the window is elsewhere. A call in front takes the bare digits and letters the `call` scope names, and the deck's handlers stand down for it.
 

@@ -462,16 +462,16 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 **A claim is made on any take, whoever turned main red.** Blame decides only whether the automatic send-back fires; it is often wrong, and a red nobody local caused is still taken by a person's dispatch or a Session, and claimed then.
 
-- **The claim comes before the Job.** Each way in claims before `approve` or the send-back, and a red already held refuses the take as `MainNotFixable::TakenElsewhere`, naming the machine, holder and age. The automatic pickup skips silently, as it skips a red already held here.
+- **The claim comes before the Job is released.** Each way in reads the row first, so a held red makes nothing, then claims before `approve` or the send-back, and a red already held refuses the take as `MainNotFixable::TakenElsewhere` (409 `fleet.main_taken_elsewhere`), naming the machine, holder and age. **The row names the Job, so a Job minted or proposed for the take is claimed after it is made and before it is approved**; one that loses the race is stopped. The automatic pickup skips silently, as it skips a red already held here.
 - **A store that cannot be reached refuses the take** (the owner, 13 Oct 2026). A fix nobody else can see is the double fix this exists to stop.
 - **A repository with the switch off claims nothing, and shows nothing of another machine's claim.** Its takes proceed on this machine alone, as they did before the store. A machine signed out of the store is the same.
-- **A Session takes a red with `take_main_red`**, which `agent_access` opens to agents as `claim_pull_request` is opened. It writes the same row, with `session_id` where a Job's take has `job_id`, and the same claim. A Session is told who holds the red when it is refused, and not before.
+- **A Session takes a red with `take_main_red`**, which `agent_access` opens to agents as `claim_pull_request` is opened. It writes the same row, with `session_id` where a Job's take has `job_id`, and the same claim; where no store applies it answers `claimed: false` and writes nothing. A Session is told who holds the red when it is refused, and not before.
 - **A take over is asked for, never assumed.** `take_over: true` on `fix_main` or `take_main_red` replaces the other machine's row with this one's. A claim shows its age so a stale one reads as stale.
 - **Reading the other machine's claim** rides the reading that finds the red: one read of the row for that repository and commit. `hub.fixing_elsewhere` `{machine, holder, since}` carries it beside `hub.fixing`. A remote claim is seen as late as the rotation reaches its repository; a take is never late, because it meets the store itself.
-- **A take that ends gives its claim back**: its Fleet deletes the row, so the other machine may take the red.
+- **A take that ends gives its claim back**: its Fleet deletes the row, so the other machine may take the red. It does so on the reading that next finds the red, and only a row of its own machine's whose Job was stopped or whose Session ended; a take of its own that finds such a row replaces it. A Session asking again for the red it already holds is the same take.
 - **Green clears every claim.** Any Fleet that reads green deletes every row under that repository's hash, its own or not, so a claim left by a machine that is asleep still ends.
 
-**The proof is two Fleets on one scripted store** (`crates/acceptance`): A takes the red and B's hub names A; B's `fix_main` and `take_main_red` are refused naming A; a store that refuses every call refuses the take; a repository with the switch off claims nothing; green clears both.
+**The proof is two Fleets on one scripted store** (`crates/fleet`'s `tests::red_claim`, since `crates/acceptance` builds no Fleet): A takes the red and B's hub names A; B's `fix_main` and `take_main_red` are refused naming A; a store that refuses every call refuses the take; a repository with the switch off claims nothing; green clears both.
 
 ## What it depends on
 

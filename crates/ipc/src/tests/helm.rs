@@ -220,3 +220,20 @@ fn the_sent_row_round_trips_and_leaves_empty_lists_out() {
     assert_eq!(decode::<SessionRow>("a row", json.as_bytes()).expect("round-trips"), carrying);
     assert_eq!(carrying.id(), "r2");
 }
+
+/// The agent's own spelling of an option, preview and all, survives a parse and leaves again
+/// under the same key; an option without one leaves no key.
+#[test]
+fn a_question_option_keeps_its_preview() {
+    let tool = br#"{"question":"Use these checks?","header":"Checks","multiSelect":false,"options":[
+        {"label":"Yes","description":"Run them","preview":"cargo test\npnpm test"},
+        {"label":"No","description":"Skip them"}]}"#;
+    let asked = decode::<crate::AskedQuestion>("a question", tool).expect("plain data");
+    assert_eq!(asked.options[0].preview, "cargo test\npnpm test");
+    assert_eq!(asked.options[1].preview, "");
+
+    let json = encode(&asked).expect("plain data");
+    assert!(json.contains(r#""preview":"cargo test\npnpm test""#), "{json}");
+    assert_eq!(json.matches("preview").count(), 1, "no key for an option without one: {json}");
+    assert_eq!(decode::<crate::AskedQuestion>("a question", json.as_bytes()).expect("round-trips"), asked);
+}

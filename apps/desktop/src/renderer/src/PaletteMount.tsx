@@ -12,9 +12,11 @@ import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
 import { SETTINGS_PALETTE } from "@armada/settings";
-import { studioName, titleOf } from "@armada/screens";
+import { isTerminal, studioName, titleOf } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { askToDebugBridge } from "./debug-bridge";
+import { askToOpenSession } from "./open-session";
+import { useSessions } from "./sessions-draft";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
 /** The Job or Studio the palette's rows act on, as `App.tsx` resolved it. */
@@ -46,7 +48,7 @@ export type PaletteMountProps = {
    * Run and Add, which this reaches itself: the rail takes the ask directly, so
    * `App` holds nothing for them.
    */
-  acts: Omit<Parameters<typeof carryOut>[2], "studioRun" | "studioAdd" | "debugBridge">;
+  acts: Omit<Parameters<typeof carryOut>[2], "studioRun" | "studioAdd" | "debugBridge" | "openSession">;
   /** A destructive act chosen from the palette, handed on to confirm. */
   onConfirmAct: (id: string, jobId: string) => void;
   /** The one bar's dispatch row, and the title bar's field it opens over. `one-bar.tsx`. */
@@ -80,6 +82,7 @@ export function PaletteMount({
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
+  const sessions = useSessions();
   return (
     <Palette
       open={open}
@@ -111,7 +114,10 @@ export function PaletteMount({
       board={board}
       repositories={repositories}
       picked={picked}
-      jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
+      // Only the Jobs not over, and below only the live Sessions: the palette jumps to work in hand.
+      jobs={jobs.filter((job) => !isTerminal(job)).map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
+      // A Session is found by any word of its title or by its id, whole or the `s-` address.
+      sessions={sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
@@ -119,7 +125,7 @@ export function PaletteMount({
       dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live, debuggable: window.armadaDev !== undefined, studioRun, studioAdd })}
       absent={absentIn({ reading: reading !== null, cursor, failing: failing !== null })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, on?.id ?? null, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge })
+        carryOut(choice, on?.id ?? null, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd, debugBridge: askToDebugBridge, openSession: askToOpenSession })
       }
       // Every destructive act confirms, even from the palette. It hands the act
       // over and stays open behind the dialog, which is the way back.

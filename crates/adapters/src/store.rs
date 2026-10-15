@@ -26,7 +26,7 @@ use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
 
-use crate::store_device::{device_id, random, remember_device, to_hex, DeviceKey};
+use crate::store_device::{device_id, random, remember_device, sound_id, to_hex, DeviceKey};
 use crate::store_signing;
 
 /// How many owners one read asks for, so the signed query stays a short line.
@@ -245,26 +245,33 @@ impl HttpStore {
     /// Enrol this machine's key with the store, once, with a device-flow access
     /// token the store reads the account from and drops. The device id it
     /// returns is kept beside the key; the token is not.
+    ///
+    /// The error says whether the store was out of reach or said no, so a
+    /// sign-in can tell the person which.
     pub fn enrol(
         base_url: &str,
         dir: &Path,
         token: &Secret<String>,
         machine: &str,
         timeout: Duration,
-    ) -> Result<HttpStore, String> {
-        let key = DeviceKey::open(dir)?;
+    ) -> Result<HttpStore, StoreError> {
+        let key = DeviceKey::open(dir).map_err(StoreError::Refused)?;
         let public_key = key.public_key();
-        let body = body_of(&EnrolBody { token: token.expose(), public_key: &public_key, machine })
-            .map_err(|why| why.said())?;
+        let body = body_of(&EnrolBody { token: token.expose(), public_key: &public_key, machine })?;
         let call = Call { method: "POST", target: "/v1/enrol".to_string(), body };
-        let client = client(timeout)?;
-        let reply = send(&client, base_url, &call, &[]).map_err(|why| why.said())?;
+        let client = client(timeout).map_err(StoreError::Refused)?;
+        let reply = send(&client, base_url, &call, &[])?;
         if !succeeded(&reply) {
-            return Err(not_answered(&reply).said());
+            return Err(not_answered(&reply));
         }
-        let device = decoded::<Enrolled>("enrolment", &reply).map_err(|why| why.said())?.device;
-        remember_device(dir, &device)?;
+        let device = decoded::<Enrolled>("enrolment", &reply)?.device;
+        remember_device(dir, &device).map_err(StoreError::Refused)?;
         Ok(HttpStore { base: base_url.trim_end_matches('/').to_string(), device, key, client, now: unix_now, nonce: fresh_nonce })
+    }
+
+    /// The device id this store signs as.
+    pub fn device(&self) -> &str {
+        &self.device
     }
 
     fn new(base_url: &str, device: String, key: DeviceKey, timeout: Duration) -> Result<HttpStore, String> {
@@ -369,6 +376,14 @@ impl Store for HttpStore {
 
     fn delete_owner(&self, key: &OwnerKey) -> Result<(), StoreError> {
         let call = Call { method: "DELETE", target: format!("/v1/owners/{}", key.as_str()), body: Vec::new() };
+        deleted(&self.send(&call)?)
+    }
+
+    fn delete_device(&self, device: &str) -> Result<(), StoreError> {
+        if !sound_id(device) {
+            return Err(StoreError::Refused("That is not a device id the store would have given.".to_string()));
+        }
+        let call = Call { method: "DELETE", target: format!("/v1/devices/{device}"), body: Vec::new() };
         deleted(&self.send(&call)?)
     }
 }

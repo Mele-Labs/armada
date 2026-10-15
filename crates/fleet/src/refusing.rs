@@ -131,6 +131,12 @@ const MAIN_NOT_RED: &str = "fleet.main_not_red";
 /// A newer commit's CI is running on main, so a red is held and not handed to a Job. A 409.
 const MAIN_CHECKS_RUNNING: &str = "fleet.main_checks_running";
 const MAIN_ALREADY_TAKEN: &str = "fleet.main_already_taken";
+/// Another machine's Job or a Session holds this red in the central store. A
+/// 409, and `take_over` is the answer to it.
+const MAIN_TAKEN_ELSEWHERE: &str = "fleet.main_taken_elsewhere";
+/// The central store could not be asked or said no, so the red was not claimed
+/// and not taken. A 500: the store may answer on the next press.
+const MAIN_CLAIM_NOT_MADE: &str = "fleet.main_claim_not_made";
 /// A Job that cannot be sent back to, or a repository holding no workflow to
 /// dispatch a fix under. A 409.
 const CANNOT_FIX_MAIN: &str = "fleet.cannot_fix_main";
@@ -483,6 +489,8 @@ where
                     Why::Taken(job) => Refusal::IllegalMove(
                         raised(MAIN_ALREADY_TAKEN).about_job(ipc::JobId::from(job)),
                     ),
+                    Why::TakenElsewhere { .. } => Refusal::IllegalMove(raised(MAIN_TAKEN_ELSEWHERE)),
+                    Why::ClaimNotMade(_) => Refusal::Fault(raised(MAIN_CLAIM_NOT_MADE)),
                     Why::NoWorkflow => Refusal::IllegalMove(raised(CANNOT_FIX_MAIN)),
                     Why::CannotSendBack { job, .. } => Refusal::IllegalMove(
                         raised(CANNOT_FIX_MAIN).about_job(ipc::JobId::from(job)),

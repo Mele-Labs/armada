@@ -279,6 +279,36 @@ export const Questions: Story = {
   },
 };
 
+/** An option the agent attached a preview to shows it, line breaks kept, while it is in focus; one without shows nothing. */
+export const QuestionPreview: Story = {
+  args: {
+    rows: ROWS,
+    asked: {
+      command: "Use these checks?",
+      questions: [
+        {
+          question: "Use these checks?",
+          header: "Checks",
+          multi_select: false,
+          options: [
+            { label: "Yes", description: "", preview: "ops: cargo test\nconsumer: pnpm test" },
+            { label: "No", description: "" },
+          ],
+        },
+      ],
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("region", { name: "Preview" })).toBeNull();
+    await userEvent.hover(canvas.getByRole("radio", { name: "Yes" }));
+    const preview = canvas.getByRole("region", { name: "Preview" });
+    await expect(preview.textContent).toBe("ops: cargo test\nconsumer: pnpm test");
+    await expect(getComputedStyle(preview).whiteSpace).toBe("pre");
+    await userEvent.hover(canvas.getByRole("radio", { name: "No" }));
+    await expect(canvas.queryByRole("region", { name: "Preview" })).toBeNull();
+  },
+};
+
 /** A question can be skipped, which the agent is told. */
 export const QuestionsSkipped: Story = {
   args: {

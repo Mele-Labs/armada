@@ -43,6 +43,9 @@ import type { Action, ActionContext, PaletteDispatch, PaletteEntry, PaletteSecti
 /** A Job as a search result. It carries no binding, and that is not a gap. */
 export type PaletteJob = { id: string; label: string };
 
+/** A Session as a search result: found by any word of its title, or by its id. */
+export type PaletteSession = { id: string; label: string; aliases: readonly string[] };
+
 /**
  * A destination in Bridge, with the digit that reaches it where it has one.
  *
@@ -129,6 +132,7 @@ export type PaletteBoardRow = { id: string; label: string; destructive?: boolean
 export type PaletteChoice =
   | { of: "act"; id: string }
   | { of: "job"; id: string }
+  | { of: "session"; id: string }
   | { of: "surface"; id: string }
   | { of: "run"; id: string }
   | { of: "setting"; id: string }
@@ -167,6 +171,8 @@ export type PaletteProps = {
   /** Rows about every Job at once. Absent draws none. */
   board?: readonly PaletteBoardRow[];
   jobs: readonly PaletteJob[];
+  /** Sessions to jump to. Absent draws none. */
+  sessions?: readonly PaletteSession[];
   settings: readonly PaletteSetting[];
   /**
    * The repositories to pick between, and which one is picked (`null` is All). Absent or empty draws
@@ -200,6 +206,7 @@ const CONTEXT = "context";
 const NAVIGATION = "navigation";
 const RUN = "run";
 const JOBS = "jobs";
+const SESSIONS = "sessions";
 const SETTINGS = "settings";
 const REPOSITORIES = "repositories";
 
@@ -254,6 +261,7 @@ export function Palette({
   runnables = [],
   board = [],
   jobs,
+  sessions = [],
   settings,
   repositories = [],
   picked = null,
@@ -276,6 +284,7 @@ export function Palette({
     // Where the title row's picker is, from the keyboard: the same pick, over the same list.
     ...(repositories.length === 0 ? [] : [{ id: REPOSITORIES, title: "Repositories" }]),
     { id: JOBS, title: "Jobs" },
+    ...(sessions.length === 0 ? [] : [{ id: SESSIONS, title: "Sessions" }]),
     { id: SETTINGS, title: "Settings" },
   ];
 
@@ -345,6 +354,7 @@ export function Palette({
           })),
         ]),
     ...jobs.map((job) => ({ id: `job:${job.id}`, section: JOBS, label: job.label })),
+    ...sessions.map((session) => ({ id: `session:${session.id}`, section: SESSIONS, label: session.label, aliases: session.aliases })),
     ...settings.map((setting) => ({
       id: `set:${setting.id}`,
       section: SETTINGS,
@@ -359,7 +369,7 @@ export function Palette({
       open={open}
       sections={sections}
       entries={entries}
-      searched={searchedSentence(jobs.length, settings.length, runnables.length, repositories.length)}
+      searched={searchedSentence(jobs.length, sessions.length, settings.length, runnables.length, repositories.length)}
       onClose={onClose}
       {...(dispatch === undefined ? {} : { dispatch })}
       {...(anchor === undefined ? {} : { anchor })}
@@ -408,6 +418,7 @@ function choiceOf(id: string): PaletteChoice {
   if (id.startsWith("act:")) return { of: "act", id: rest };
   if (id.startsWith("nav:")) return { of: "surface", id: rest };
   if (id.startsWith("job:")) return { of: "job", id: rest };
+  if (id.startsWith("session:")) return { of: "session", id: rest };
   if (id.startsWith("tab:")) return { of: "filter", id: rest };
   if (id.startsWith("run:")) return { of: "run", id: rest };
   if (id.startsWith("board:")) return { of: "board", id: rest };
@@ -423,13 +434,14 @@ function choiceOf(id: string): PaletteChoice {
  * sentence claiming settings on a build that indexes none would be the labelled
  * blank this app refuses everywhere else.
  */
-function searchedSentence(jobs: number, settings: number, runnables: number, repositories: number): string {
+function searchedSentence(jobs: number, sessions: number, settings: number, runnables: number, repositories: number): string {
   const held = [
     "every act available here",
     "every place in Bridge",
     runnables === 0 ? null : "every Check and Command this Manifest declares",
     repositories === 0 ? null : "every repository",
-    jobs === 0 ? null : "every job on this Manifest, at every status",
+    jobs === 0 ? null : "every active job",
+    sessions === 0 ? null : "every live session",
     settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);
   return `${held.slice(0, -1).join(", ")} and ${held[held.length - 1]}`;

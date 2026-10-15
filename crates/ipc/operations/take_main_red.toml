@@ -1,0 +1,18 @@
+[operations.take_main_red]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take the red main of this session's repository in the central store, so no Job on another machine is handed it"
+notes = """
+`POST /sessions/take_main_red`, body `TakeMainRed`: optionally `session_id` and `take_over`. Answered with `MainRedTaken`: the repository's `root` and whether a `claimed` row was written. `docs/capabilities/merge-line.md`, *Fixing a red across machines*, has the model.
+
+**The caller is placed as `claim_pull_request` places it**: a hosted session by the connection, a terminal session by `session_id`. A call that places none is refused with 422 `fleet.main_red_not_takeable`. The red is the one in the session's own repository.
+
+**It writes the same claim a Job's take does**, with the session's id as holder, before the session starts on a fix. Another machine's Fleet then refuses a second fix and its hub names this one.
+
+**A session is told who holds the red only when it is refused**: 409 `fleet.main_taken_elsewhere`, naming the holder's kind and id, the machine and how long it has held it. `take_over: true` replaces that holder with this session; it is asked for after a refusal and never assumed. Also 409: `fleet.main_not_red` where main is not red, `fleet.main_checks_running` while a newer commit's CI is running on main, and `fleet.main_already_taken` where a Job on this machine is already working on it. 500 `fleet.main_claim_not_made` where the store could not be reached or said no: the red was not taken.
+
+**Where the repository's *Pull request owners* switch is off, or the machine is signed out of the store, nothing is written** and the answer says `claimed: false`.
+
+`agent_access` is `Yes`: whether a red is worth a session's time is the session's to say, as noticing an orphaned pull request is.
+"""

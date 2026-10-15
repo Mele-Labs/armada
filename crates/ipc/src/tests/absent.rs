@@ -2,7 +2,7 @@
 //!
 //! A flag with no line was sent as `null`, and drew `file:null`.
 
-use crate::{decode, encode, CitedAt, Instant, ManifestEdited};
+use crate::{decode, encode, CitedAt, DismissWaiting, Instant, ManifestEdited, SessionId};
 
 #[test]
 fn a_citation_about_the_whole_file_carries_no_line_key() {
@@ -14,6 +14,19 @@ fn a_citation_about_the_whole_file_carries_no_line_key() {
     assert_eq!(written, r#"{"file":"src/lib.rs"}"#);
     let read: CitedAt = decode("a citation", written.as_bytes()).expect("it reads");
     assert_eq!(read, at);
+}
+
+/// A removal with no reason leaves no `reason` key, and a Bridge that sends none reads as none.
+#[test]
+fn a_removal_without_a_reason_carries_no_reason_key_and_reads_without_one() {
+    let bare = DismissWaiting { session_id: SessionId::carried("s1"), item_id: "a".into(), reason: None };
+    let written = encode(&bare).expect("a removal encodes");
+    assert_eq!(written, r#"{"session_id":"s1","item_id":"a"}"#);
+    let read: DismissWaiting = decode("a removal", written.as_bytes()).expect("it reads");
+    assert_eq!(read, bare);
+    let why = DismissWaiting { reason: Some("done already".into()), ..bare };
+    let written = encode(&why).expect("a removal encodes");
+    assert_eq!(written, r#"{"session_id":"s1","item_id":"a","reason":"done already"}"#);
 }
 
 /// An edit's answer from a Fleet that sends no `declared` still reads, and one

@@ -8,7 +8,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
-import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RunnableBlock, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
+import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RemoveAct, RemoveBox, RunnableBlock, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
@@ -209,6 +209,10 @@ export function CallCard({
   const sendWords = () => !held && answer.reply?.(text.trim(), () => DRAFTS.delete(item.key));
   const canSend = words ? !held : answer.canSend;
   const send = words ? () => void sendWords() : answer.send;
+  // An item the agent stated is removed with a reason box first, and the agent is told; any other is dismissed outright.
+  const [removing, setRemoving] = useState(false);
+  useEffect(() => setRemoving(false), [item.key]);
+  const removable = answer.remove !== undefined;
   const cover = useCover(() => answer.dismiss());
   answering.current = {
     ...answer,
@@ -217,8 +221,8 @@ export function CallCard({
     ...(long ? { expand: () => setWhole((was) => !was) } : {}),
     // t reaches the Session's own box too, which is always there.
     ...(sleep === undefined && !jobBoxed && !composed ? {} : { change: openChange }),
-    // A key cannot dismiss for good by itself: the cover lifts first.
-    dismiss: cover.press,
+    // A key cannot dismiss for good by itself: the cover lifts first. Removing an item the agent stated opens its reason box instead.
+    dismiss: removable ? () => setRemoving(true) : cover.press,
   };
 
   const sessionId = sessionIdOf(item.key);
@@ -308,12 +312,14 @@ export function CallCard({
         {actionOf("call_later").verb}
         <Kbd>{keyFor("call_later")}</Kbd>
       </Button>
-      <Tooltip label={answer.pending === "dismiss" ? OUT : "Never show this again"}>
-        <Button variant="ghost" pending={answer.pending === "dismiss"} disabled={held} onClick={answer.dismiss}>
-          {actionOf("call_dismiss").verb}
-          <Kbd>{keyFor("call_dismiss")}</Kbd>
-        </Button>
-      </Tooltip>
+      {removable ? null : (
+        <Tooltip label={answer.pending === "dismiss" ? OUT : "Never show this again"}>
+          <Button variant="ghost" pending={answer.pending === "dismiss"} disabled={held} onClick={answer.dismiss}>
+            {actionOf("call_dismiss").verb}
+            <Kbd>{keyFor("call_dismiss")}</Kbd>
+          </Button>
+        </Tooltip>
+      )}
     </>
   );
 
@@ -340,7 +346,16 @@ export function CallCard({
       <Keycap label={actionOf("call_later").verb} keys={keyFor("call_later")} disabled={held} onPress={later} />
     </>
   );
-  const coveredKey = (
+  const coveredKey = removable ? (
+    <Keycap
+      label="Remove"
+      keys={keyFor("call_dismiss")}
+      pending={answer.pending === "dismiss"}
+      disabled={held && answer.pending !== "dismiss"}
+      says={answer.pending === "dismiss" ? OUT : "Remove, and tell the agent"}
+      onPress={() => setRemoving(true)}
+    />
+  ) : (
     <CoveredKeycap
       label={actionOf("call_dismiss").verb}
       keys={keyFor("call_dismiss")}
@@ -465,6 +480,12 @@ export function CallCard({
               </AskAnswers>
             )}
           </AskChoices>
+        )}
+        {answer.remove === undefined ? null : (
+          <div className="armada-callcard__remove">
+            <RemoveAct name={item.fact} open={removing} onPress={() => setRemoving(!removing)} />
+            {removing ? <RemoveBox name={item.fact} keep={`remove:${item.key}`} onRemove={answer.remove} onClose={() => setRemoving(false)} /> : null}
+          </div>
         )}
         {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
           <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />

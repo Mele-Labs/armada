@@ -28,10 +28,14 @@ pub struct KeptHosting {
     pub fork_of: Option<String>,
     /// This is the repository's Helm: told Helm's note, and found by the dock.
     pub helm: bool,
+    /// Started by Setup (`start_session`'s `root`), so it keeps writing the repository's
+    /// setup files in the checkout after its Manifest is served.
+    pub setup: bool,
 }
 
 const COLUMNS: &str =
-    "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, helm";
+    "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, helm, \
+     setup";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -45,6 +49,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         lease_branch: row.get(7)?,
         fork_of: row.get(8)?,
         helm: row.get::<_, i64>(9)? != 0,
+        setup: row.get::<_, i64>(10)? != 0,
     })
 }
 
@@ -54,7 +59,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
                 ),
                 params![
                     hosting.session_id,
@@ -67,6 +72,7 @@ impl Store {
                     hosting.lease_branch,
                     hosting.fork_of,
                     i64::from(hosting.helm),
+                    i64::from(hosting.setup),
                 ],
             )
             .map(|_| ())

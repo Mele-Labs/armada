@@ -82,6 +82,8 @@ export type Answering = {
   pending: string | undefined;
   /** Dismisses the call for good: on Fleet where a Session holds it, here where Fleet raised it. */
   dismiss: () => void;
+  /** Removes an item the agent stated, with the person's reason (empty is fine); Fleet tells the agent. Absent on any other call. */
+  remove?: (reason: string) => void;
 };
 
 /** What an act out to Fleet came to. */
@@ -473,5 +475,6 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     pending: shown,
     // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
     dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),
+    ...(waiting?.item.source === "agent" ? { remove: (reason: string) => wait("dismiss", () => dismissItem(item, reason), dismissed) } : {}),
   };
 }

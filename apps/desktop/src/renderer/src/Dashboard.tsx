@@ -417,7 +417,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const waiting = session.asked !== undefined && !ended;
   const limited = ended ? undefined : session.limitedUntil;
   const line = lineOf(session);
-  const said = stuck ? "Stuck" : replied ? "Replied" : finished ? "Done" : working ? "Working" : "Idle";
+  const said = stuck ? "Stuck" : replied ? "Unread reply" : finished ? "Done" : working ? "Working" : "Idle";
   return {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
@@ -431,7 +431,7 @@ function sessionItem(session: Session, hosts: Hosts): Item {
     title: session.title ?? session.address ?? session.id,
     fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : said.toLowerCase(),
     at: session.lastTurnAt,
-    hue: waiting || replied || finished ? "ask" : ended ? "ok" : stuck ? "issue" : working && limited === undefined ? "running" : "queued",
+    hue: waiting || finished ? "ask" : ended ? "ok" : stuck ? "issue" : working && limited === undefined ? "running" : "queued",
     live: read === "working" && limited === undefined,
     where: session.address ?? "",
     body: waiting ? [["Asks to run", session.asked!.command]] : [],
@@ -461,8 +461,8 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     icon: SquareTerminal,
     kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
     session: true,
-    mark: item.source === "replied" ? Reply : item.source === "done" ? Power : Eye,
-    state: item.source === "permission" ? "Waiting on a command" : item.source === "replied" ? "Replied" : item.source === "done" ? "Done" : "Waiting on you",
+    mark: item.source === "done" ? Power : Eye,
+    state: item.source === "permission" ? "Waiting on a command" : item.source === "done" ? "Done" : "Waiting on you",
     spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
     fact: item.text,
@@ -471,7 +471,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     where: session.address ?? "",
     body: [],
     ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
-    doing: item.source === "replied" ? "Replied" : item.source === "done" ? "Done" : "Waiting on you",
+    doing: item.source === "done" ? "Done" : "Waiting on you",
     context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
     contextHead: "Last messages",
     waiting: { sessionId: session.id, item },

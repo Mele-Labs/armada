@@ -343,7 +343,7 @@ export type SessionQuestion = {
   question: string;
   header: string;
   multi_select: boolean;
-  options: readonly { label: string; description: string }[];
+  options: readonly { label: string; description: string; preview?: string }[];
 };
 
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
@@ -455,7 +455,7 @@ export type SessionsDraft = {
   writePullRequest?: (id: string, number: number, write: Pick<WritePullRequest, "kind" | "body">) => Promise<PullRequestPageRead>;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */
   said?: () => string | undefined;
-  /** What `@` offers beyond other Sessions: Jobs, pull requests and branches. */
+  /** What `@` offers beyond other Sessions: the Jobs. */
   taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;

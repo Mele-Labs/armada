@@ -46,6 +46,11 @@ impl ForgeAddress {
         let mut segments = path.split('/').filter(|one| !one.is_empty());
         ForgeAddress::of(host, segments.next()?, segments.next()?)
     }
+
+    /// `owner/name`, lowercased: the same on every machine whichever way it cloned.
+    pub fn slug(&self) -> String {
+        format!("{}/{}", self.owner, self.repo)
+    }
 }
 
 /// The repository a checkout pushes to: `origin`, or the first remote it has.

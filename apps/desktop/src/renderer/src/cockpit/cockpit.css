@@ -322,6 +322,10 @@ span.armada-view__dot { cursor: default; }
 .armada-queue__strip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-queue__strip[data-deferred] { border-style: dashed; border-left-style: solid; color: var(--fg-muted); }
 
+/* Remove, for an item the agent stated, at the card's foot; its reason box opens across the card under it. */
+.armada-callcard__remove { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.armada-callcard__remove > .armada-session-ledger__remove { flex-basis: 100%; padding: 0; }
+
 /* With consoles, the row under the card is only for the glass too narrow to hold them. */
 .armada-callcard__acts[data-consoled] { display: none; }
 /* armada-allow-off-contract: a container condition cannot read a custom property, same as @media. It reads the glass, not the window.

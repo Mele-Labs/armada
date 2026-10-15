@@ -386,9 +386,9 @@ fn the_lean_check_reaches_back_past_a_long_tail() {
     let back = in_agent("assistant", "s4", "null", r#"[{"type":"tool_use","id":"t2","name":"SubagentHandback","input":{"message":"Done."}}]"#);
     let long = in_agent("user", "u", "null", &format!("\"{}\"", "x".repeat(150 * 1024)));
     let (_home, _root, file) = subagent_file(&[back.clone(), long.clone(), long.clone()]);
-    assert!(crate::terminal_thread::finished_at_the_end(&file).unwrap());
+    assert!(crate::terminal_thread::last_at_the_end(&file).unwrap().finished);
     std::fs::write(&file, [long.clone(), long.clone()].join("\n") + "\n").unwrap();
-    assert!(!crate::terminal_thread::finished_at_the_end(&file).unwrap(), "nothing to decide by");
+    assert!(!crate::terminal_thread::last_at_the_end(&file).unwrap().finished, "nothing to decide by");
 }
 
 /// An unchanged file (same length, same modified time) is not read again: the answer from the

@@ -125,6 +125,7 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                 at: commit.at,
             })
             .collect(),
+        owner: None,
     }
 }
 
@@ -159,6 +160,30 @@ where
     }
 }
 
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// The page, with the owner the last reading of the open pull requests found. **No call to
+    /// the store**: opening the panel waits on the forge already, and not on a second service.
+    async fn page_with_owner(
+        &self,
+        manifest_id: &ManifestId,
+        root: &str,
+        number: u64,
+    ) -> Result<PullRequestPage, Refusal> {
+        let mut page = self.page_read(manifest_id, root, number)?;
+        page.owner = self.owner_known(root, number).await;
+        Ok(page)
+    }
+}
+
 impl<H, V, W> PullRequestPanel for Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -175,7 +200,7 @@ where
         number: u64,
     ) -> Result<PullRequestPage, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
-        self.page_read(&manifest_id, served.root(), number)
+        self.page_with_owner(&manifest_id, served.root(), number).await
     }
 
     async fn write_pull_request(
@@ -211,6 +236,6 @@ where
         if let Ok(state) = self.pull_request_read(&manifest_id, root, number) {
             self.ledger_follows(&state).await;
         }
-        self.page_read(&manifest_id, root, number)
+        self.page_with_owner(&manifest_id, root, number).await
     }
 }

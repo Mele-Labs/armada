@@ -8,7 +8,8 @@ import { Input } from "../../primitives/Input/Input";
 import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
-import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
+import { Kbd, KbdBinding, KbdCmd } from "../../primitives/Kbd/Kbd";
+import { useKeyBindings } from "../../keymap";
 import { StopCard, useCardOpen, type StopCardRow } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
@@ -246,6 +247,9 @@ export function TitleBar({
   wordmark,
 }: TitleBarProps) {
   const revealing = useShortcutReveal();
+  // The palette's key as this person bound it in Settings → Keyboard, redrawn when they rebind it.
+  useKeyBindings();
+  const searchKey = keyFor("command_palette");
   return (
     <div className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
       <div className="armada-title-bar__start">
@@ -266,7 +270,7 @@ export function TitleBar({
           >
             <Search size={16} strokeWidth={2} aria-hidden />
             <span className="armada-title-bar__search-label">Search, or describe work to dispatch</span>
-            <KbdCmd shortcut="⌘K" />
+            {searchKey === "" ? null : <KbdBinding binding={searchKey} />}
           </button>
         )}
       </div>
@@ -359,7 +363,7 @@ export function TitleBar({
                 <button type="button" className="armada-title-bar__menu-item" onClick={onSearch}>
                   <Search size={16} strokeWidth={2} aria-hidden />
                   <span>Search</span>
-                  <KbdCmd shortcut="⌘K" />
+                  {searchKey === "" ? null : <KbdBinding binding={searchKey} />}
                 </button>
               )}
               {onDispatch === undefined ? null : (

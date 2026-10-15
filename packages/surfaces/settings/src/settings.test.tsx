@@ -24,7 +24,7 @@ test("the index lists groups in order, and a group draws each of its sections un
     "Agents", "Prompts", "Fleet", "Features", "Tools", "Appearance", "Phone", "Guides",
   ]);
   await page.getByRole("tab", { name: "Fleet" }).click();
-  for (const section of ["Limits", "Timeouts", "Retention"]) {
+  for (const section of ["Limits", "Timeouts", "Retention", "Machine", "Account", "Store"]) {
     await expect.element(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }
   await expect.element(page.getByRole("textbox", { name: "Drones at once", exact: true })).toHaveValue("3");
@@ -149,7 +149,7 @@ test("before Fleet has answered, each section of a group says its settings are n
   mount({ ...scenario, state: { ...scenario.state, connection: { state: "not_running", absence: { why: "no_runtime_file", path: "/tmp/armada/fleet.json" } } } }, { slices: ["core", "settings"] });
   await openSettings();
   await page.getByRole("tab", { name: "Fleet" }).click();
-  await expect.element(page.getByText("Fleet has not answered yet, so these settings are not here.")).toHaveLength(3);
+  await expect.element(page.getByText("Fleet has not answered yet, so these settings are not here.")).toHaveLength(6);
 });
 
 test("a palette row opens its section's group", async () => {

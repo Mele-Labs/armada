@@ -56,6 +56,7 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { AccountsHost } from "./accounts";
 import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ClashesHost } from "./clashes";
@@ -206,6 +207,8 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** The account and its profiles — `accounts.ts`. */
+  readonly accounts: AccountsHost = new AccountsHost(() => this.connected()?.port ?? null);
   /** The plan's windows — `plan-usage.ts`. */
   readonly planUsage: PlanUsageHost = new PlanUsageHost(() => this.connected()?.port ?? null);
   /** The default model's step down — `model-downshift.ts`. */

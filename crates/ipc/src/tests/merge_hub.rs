@@ -1,5 +1,5 @@
 use crate::{
-    decode, encode, FixMain, FixesMain, FixesMainState, HubJob, HubMergeable, HubMerged,
+    decode, encode, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HolderKind, HubJob, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -61,6 +61,7 @@ fn a_red_hub() -> MergeLineHub {
             review: Some(HubReview::ChangesRequested),
             additions: Some(120),
             deletions: Some(0),
+            owner: None,
         }],
         merged: vec![HubMerged {
             number: 1815,
@@ -79,6 +80,14 @@ fn a_red_hub() -> MergeLineHub {
         fixing: Some(HubJob {
             id: JobId::carried("01FIX"),
             title: "Fix test on main".to_string(),
+        }),
+        fixing_elsewhere: Some(FixingElsewhere {
+            machine: "mac-a".to_string(),
+            holder: ClaimHolder {
+                kind: HolderKind::Job,
+                id: "01OTHER".to_string(),
+            },
+            since: Instant::carried("2026-10-06T09:40:00Z"),
         }),
     }
 }
@@ -106,6 +115,10 @@ fn a_hub_survives_the_wire_and_the_strict_sets_spell_snake_case() {
     );
     assert!(
         spelled.contains(r#""main_run":{"state":"failed""#),
+        "{spelled}"
+    );
+    assert!(
+        spelled.contains(r#""fixing_elsewhere":{"machine":"mac-a","holder":{"kind":"job","id":"01OTHER"},"since":"2026-10-06T09:40:00Z"}"#),
         "{spelled}"
     );
     for pull_fact in [
@@ -139,6 +152,7 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         pull_requests: Vec::new(),
         merged: Vec::new(),
         fixing: None,
+        fixing_elsewhere: None,
     };
     let spelled = encode(&a_line(Some(green))).expect("plain data");
     assert!(!spelled.contains("null"), "{spelled}");
@@ -199,8 +213,11 @@ fn a_jobs_part_in_the_red_and_the_act_that_hands_it_over_survive_the_wire() {
         root: "/srv/shop".to_string(),
         job: None,
         brief: None,
+        take_over: false,
     };
     assert_eq!(encode(&new).unwrap(), r#"{"root":"/srv/shop"}"#);
+    let over = FixMain { take_over: true, ..new.clone() };
+    assert_eq!(encode(&over).unwrap(), r#"{"root":"/srv/shop","take_over":true}"#);
     let back = r#"{"root":"/srv/shop","job":"01JOB","brief":"test fails on main."}"#;
     let read: FixMain = decode("a fix", back.as_bytes()).expect("reads");
     assert_eq!(read.job, Some(JobId::carried("01JOB")));
@@ -218,4 +235,13 @@ fn a_pull_request_from_a_fleet_before_its_facts_reads_with_none_and_sends_none()
     let read: HubPullRequest = decode("a pull request", none.as_bytes()).expect("reads");
     assert_eq!(read.mergeable, Some(HubMergeable::Unknown));
     assert_eq!(read.review, Some(HubReview::None));
+}
+
+#[test]
+fn a_pull_requests_owner_is_a_kind_an_id_a_machine_and_whether_it_is_this_one() {
+    let with = r#"{"number":7,"title":"t","branch":"b","url":"u","owner":{"kind":"session","id":"s-a","machine":"mac-a","this_machine":false}}"#;
+    let read: HubPullRequest = decode("a pull request", with.as_bytes()).expect("reads");
+    let owner = read.owner.as_ref().expect("an owner");
+    assert_eq!((owner.kind, owner.id.as_str(), owner.machine.as_str(), owner.this_machine), (HolderKind::Session, "s-a", "mac-a", false));
+    assert_eq!(encode(&read).unwrap(), with);
 }

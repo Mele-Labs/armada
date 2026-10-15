@@ -38,6 +38,7 @@ import type {
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
+  SessionBand,
   SessionGroup,
   SessionRowView,
   SketchBox,
@@ -51,7 +52,7 @@ import type {
 import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { handoffOf } from "./session-handoff";
-import { readRetro } from "./commands";
+import { readRetro, searchFiles } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
@@ -83,14 +84,14 @@ import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
-import { ARTIFACT_SAID, cardOf, type Known } from "./session-cards";
+import { ARTIFACT_SAID, cardOf, pullRequestCardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
 import { nowOf, todosOf } from "./session-activity";
-import { useViewing } from "./cockpit/viewed";
+import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
 
@@ -254,10 +255,11 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" || state === "replied" || state === "done" },
+  { label: "Needs you", has: (state) => state === "waiting" || state === "done" },
   { label: "Running", has: (state) => state === "working" || state === "stuck" || state === "limited" },
   // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
-  { label: "Idle", has: (state) => state === "idle" || state === "failing" },
+  // A reply stays here too, with its unread mark until he has opened the Session: it asks nothing of him.
+  { label: "Idle", has: (state) => state === "idle" || state === "failing" || state === "replied" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
@@ -400,13 +402,21 @@ function useOpenRetro(session: Session): (retro: number) => void {
   return useCallback((n) => askToOpenRetro({ id, n, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) }), [id, title]);
 }
 
+/** A repository a band is drawn for, by the Manifest id its Sessions carry. */
+export type BandBy = { manifestId: string; name: string };
+
+/** The band for a Session whose repository is not one of those listed, or that has none. */
+const OTHER_BAND = "Other";
+
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
-export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[] }) {
+export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[]; bandsBy?: readonly BandBy[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   const [view, setView] = useView();
   const retro = useRetroPress();
+  // A reply reads as unread until he has been in its Session, so the rows are read again as he goes.
+  useViewedVersion();
   if (draft === undefined) return null;
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -419,7 +429,7 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), ...redOf(one.checks), state: one.state, card: pullRequestCardOf(one) })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
@@ -431,11 +441,22 @@ export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => v
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
-  const groups: SessionGroup[] = HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  const groupsOf = (rows: readonly SessionRowView[]): SessionGroup[] => HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: rows.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  const groups = groupsOf(views);
+  // On All, a band for each repository in the listing's order, and a last one for Sessions with no listed repository.
+  const repositoryOf = new Map(sessions.map((one) => [one.id, one.manifestId]));
+  const known = new Set((bandsBy ?? []).map((one) => one.manifestId));
+  const bands: SessionBand[] | undefined =
+    bandsBy === undefined
+      ? undefined
+      : [
+          ...bandsBy.map((one) => ({ label: one.name, groups: groupsOf(views.filter((row) => repositoryOf.get(row.id) === one.manifestId)) })),
+          { label: OTHER_BAND, groups: groupsOf(views.filter((row) => !known.has(repositoryOf.get(row.id) ?? ""))) },
+        ].filter((band) => band.groups.length > 0);
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
+      <SessionList groups={groups} {...(bands === undefined ? {} : { bands })} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }
@@ -626,6 +647,7 @@ export function entriesOf(
   scrollToAsk: () => void,
   known: Known,
   runner: Runner | undefined,
+  removeWaiting?: (itemId: string, reason: string) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
@@ -663,6 +685,8 @@ export function entriesOf(
       ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
+      // An item the agent stated is the person's to take off; the agent is told, with his reason where he gave one.
+      ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
       onOpen: () => {
         if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
@@ -883,6 +907,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
+    (itemId, reason) => void dismissWaiting(id, itemId, reason),
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -1040,6 +1065,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                 ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
                 ...draft.taggable(),
               ]}
+              searchFiles={(query) => searchFiles(query, session.manifestId)}
               {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}
               draftKey={session.id}
@@ -1203,6 +1229,7 @@ export function SessionsSurface({
   lines = null,
   settings = null,
   startIn,
+  bandsBy,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1214,6 +1241,8 @@ export function SessionsSurface({
   settings?: SettingsList | null;
   /** Where New Session may start, on All: it asks which. */
   startIn?: readonly { root: string; name: string }[];
+  /** On All with more than one repository: the list is drawn in a band for each, in this order. */
+  bandsBy?: readonly BandBy[];
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1236,7 +1265,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }

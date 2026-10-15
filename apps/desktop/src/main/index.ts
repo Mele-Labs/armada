@@ -49,6 +49,7 @@ import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
+import { handleAccounts } from "./accounts-channels";
 import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { DownshiftNotice } from "./downshift-notice";
@@ -595,8 +596,8 @@ void app.whenReady().then(() => {
     (_event, bytes: ArrayBuffer, filename: string, mimeType: string) =>
       stageAttachment(bytes, filename, mimeType),
   );
-  ipcMain.handle(CHANNELS.searchFiles, (event, query: string) =>
-    connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  ipcMain.handle(CHANNELS.searchFiles, (event, query: string, manifestId: unknown) =>
+    connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event)), typeof manifestId === "string" ? manifestId : undefined),
   );
   ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
     connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),
@@ -1040,6 +1041,7 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
+  handleAccounts({ ipc: ipcMain, connection: () => connection });
   ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
   handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleModelDownshift({ ipc: ipcMain, connection: () => connection });

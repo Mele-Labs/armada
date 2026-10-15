@@ -273,6 +273,32 @@ path.armada-session-ledger__picture-later {
   align-self: stretch;
 }
 
+/* The reason box under a removed item: one line, across the row. */
+.armada-session-ledger__remove {
+  display: flex;
+  flex-basis: 100%;
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+.armada-session-ledger__remove > .armada-textarea-field {
+  flex: 1;
+}
+
+/* A command or a question deck the agent stated: its content, with Remove at the end and the reason box below. */
+.armada-session-ledger__run[data-removable],
+.armada-session-ledger__held[data-removable] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.armada-session-ledger__run[data-removable] > :first-child,
+.armada-session-ledger__held[data-removable] > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 /* The section that needs the person carries the awaiting-review edge the list's rows do. */
 .armada-session-ledger__group[aria-label="Waiting on you"] .armada-session-ledger__row {
   border-inline-start: var(--space-1) solid var(--status-awaiting-review);

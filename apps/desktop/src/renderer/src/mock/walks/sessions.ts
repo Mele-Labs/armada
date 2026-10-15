@@ -31,7 +31,7 @@ function steps(narrow: boolean): Step[] {
     { look: role("listbox", "Skills and commands"), say: "Skills first, then commands" },
     { press: role("option", "/simplify"), say: "One chosen" },
     { type: "@", into: message, say: "An at sign opens what can be tagged, grouped by kind" },
-    { look: role("group", "Sessions"), say: "Other Sessions are in it, beside Jobs, pull requests and branches" },
+    { look: role("group", "Sessions"), say: "Other Sessions are in it, above the Jobs" },
     { press: role("option", "Release notes script"), say: "Tagged, so the agent can talk to it" },
     { press: button("Draw sketch"), say: "A sketch is drawn, on the pad Dispatch draws on" },
     { look: sheet("Draw a sketch"), say: "The pad opens over the Session" },

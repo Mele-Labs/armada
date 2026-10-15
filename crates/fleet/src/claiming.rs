@@ -11,6 +11,7 @@ use store::{AttachmentState, Holder, KeptAttachment};
 use crate::daemon::Fleet;
 use crate::pull_owners::Owner;
 use crate::pull_requesting::PR;
+use crate::red_claim::Taker;
 
 const NOT_CLAIMABLE: &str = "fleet.pull_request_not_claimable";
 
@@ -158,6 +159,13 @@ where
         if let Some(record) = record {
             self.publish(ipc::Event::SessionChanged(record));
         }
+        // **Never the claim's to fail**: a store that is off, signed out or out of reach leaves
+        // the claim made here and the row unwritten.
+        let taker = match &me {
+            Owner::Session(id) => Taker::Session(id.clone()),
+            Owner::Job(job) => Taker::Job(job.clone()),
+        };
+        let _ = self.pull_request_registered(&root, number, &taker).await;
         Ok(PullRequestClaimed {
             number,
             branch,

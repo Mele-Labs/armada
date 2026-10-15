@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, waitFor } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { SESSION_PAGE, SessionList, type SessionRowView } from "./SessionList";
 
@@ -56,6 +56,65 @@ export const AtRest: Story = {
     await userEvent.click(canvas.getByRole("button", { name: /Flaky store test/ }));
     await expect(args.onOpen).toHaveBeenCalledWith("s7");
     await expect(canvas.getByRole("img", { name: "Working" })).toBeInTheDocument();
+  },
+};
+
+/** Hovering a pull request's chip opens the ledger's card; the Session is not opened by it. */
+export const PullRequestCard: Story = {
+  args: {
+    groups: [
+      {
+        label: "Needs you",
+        rows: [
+          {
+            ...NOTES,
+            pullRequests: [
+              {
+                number: 1847,
+                checks: "passed",
+                said: "Checks passed",
+                state: "open",
+                card: {
+                  title: "#1847 Release notes script",
+                  facts: [
+                    { label: "Checks", value: "Passed", tone: "passed" },
+                    { label: "State", value: "Open" },
+                    { label: "Branch", value: "armada/release-notes", mono: true },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.hover(canvas.getByRole("img", { name: /^Pull request #1847/ }));
+    const title = await canvas.findByText("#1847 Release notes script");
+    await waitFor(() => expect(title).toBeVisible());
+    await expect(canvas.getByText("armada/release-notes")).toBeVisible();
+    await expect(args.onOpen).not.toHaveBeenCalled();
+  },
+};
+
+/** On All, a band for each repository with the state columns inside it; a repository with no Session is not drawn by the host. */
+export const ByRepository: Story = {
+  args: {
+    groups: [],
+    bands: [
+      { label: "armada", groups: [{ label: "Needs you", rows: [FLAKY, NOTES] }, { label: "Running", rows: [LIVE] }] },
+      { label: "storefront", groups: [{ label: "Running", rows: [{ ...LIVE, id: "s9", title: "Cart totals" }] }] },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const armada = within(canvas.getByRole("region", { name: "armada" }));
+    await expect(armada.getByRole("heading", { name: "Needs you" })).toBeInTheDocument();
+    await expect(armada.getByRole("button", { name: /Flaky store test/ })).toBeInTheDocument();
+    await expect(armada.queryByRole("button", { name: /Cart totals/ })).toBeNull();
+    const storefront = within(canvas.getByRole("region", { name: "storefront" }));
+    await expect(storefront.getByRole("button", { name: /Cart totals/ })).toBeInTheDocument();
+    await expect(storefront.queryByRole("heading", { name: "Needs you" })).toBeNull();
   },
 };
 

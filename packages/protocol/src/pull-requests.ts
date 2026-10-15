@@ -4,6 +4,8 @@
 //
 // The header rules in `protocol.ts` hold here.
 
+import type { PullRequestOwner } from "./merge-lines";
+
 /** Where a pull request stands. A draft is open and not yet ready for review. */
 export type PullRequestStanding = "draft" | "open" | "merged" | "closed";
 
@@ -110,6 +112,8 @@ export type PullRequestPage = {
   checks: PullRequestCheckRow[];
   files: PullRequestFile[];
   commits: PullRequestCommit[];
+  /** Who registered it in the central store, as the merge line's open pull requests carry it. Absent as `HubPullRequest.owner` is. */
+  owner?: PullRequestOwner;
 };
 
 /** What the panel's comment box writes. `POST /pull_request_writes/:repository`. */

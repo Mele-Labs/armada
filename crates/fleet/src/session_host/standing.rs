@@ -6,6 +6,10 @@
 //! own `waiting_for` and `all_done` only add detail, so a Session that never makes either call still
 //! reaches the person. Pure: every fact is passed in, so each rule is read and tested without a Fleet.
 //!
+//! **A reply is a standing and no item.** It asks nothing of the person, so it is the unread mark under
+//! Idle that Bridge draws, and never a call or a line in Needs you. A done asks him whether to end the
+//! Session, so it is an item.
+//!
 //! **The stuck threshold is its own** ([`STUCK_AFTER`]), not `settings.session-quiet-timeout`, which
 //! is how long an idle process is kept and says nothing about a turn that went quiet.
 
@@ -41,23 +45,22 @@ fn millis(at: &str) -> Option<i64> {
     core_model::Timestamp::from_rfc3339(at).epoch_millis()
 }
 
-/// The reply the last turn left, if it still stands: `(item id, what was said, since)`.
-fn reply<'a>(seen: &Seen<'a>) -> Option<(String, &'a str, &'a str)> {
+/// Whether the last turn left a reply that still stands.
+fn replied(seen: &Seen) -> bool {
     if seen.helm || seen.running.is_some() {
-        return None;
+        return false;
     }
-    let (ended, said) = seen.turn_end?;
+    let Some((ended, said)) = seen.turn_end else {
+        return false;
+    };
     if said.trim().is_empty() {
-        return None;
+        return false;
     }
     // He wrote after the turn ended: he has answered it, in the Session.
-    if let (Some(spoke), Some(ended_at)) = (seen.spoke.and_then(millis), millis(ended)) {
-        if spoke > ended_at {
-            return None;
-        }
+    match (seen.spoke.and_then(millis), millis(ended)) {
+        (Some(spoke), Some(ended_at)) => spoke <= ended_at,
+        _ => true,
     }
-    let id = format!("replied:{ended}");
-    (!seen.dismissed.contains(&id)).then_some((id, said, ended))
 }
 
 /// The done the agent stated, if it still stands: `(item id, since)`.
@@ -82,32 +85,26 @@ pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
     }
     if done(seen).is_some() {
         SessionStanding::Done
-    } else if reply(seen).is_some() {
+    } else if replied(seen) {
         SessionStanding::Replied
     } else {
         SessionStanding::Idle
     }
 }
 
-/// The items Fleet derives from the turn: the done, and the reply. **The reply is left off where
-/// something else is already owed** (`others`): the agent said what it needs in that item, and a
-/// second card for the same turn is noise.
-pub(crate) fn derived(seen: &Seen, others: bool) -> Vec<WaitingItem> {
-    let item = |id: String, text: &str, since: &str, source| WaitingItem {
-        id,
-        text: text.to_string(),
-        since: Instant::carried(since),
-        source,
-        act: None,
-        options: Vec::new(),
-        place: None,
-    };
-    if let Some((id, since)) = done(seen) {
-        return vec![item(id, "Done", since, WaitingSource::Done)];
-    }
-    match (others, reply(seen)) {
-        (false, Some((id, said, since))) => vec![item(id, said, since, WaitingSource::Replied)],
-        _ => Vec::new(),
+/// The items Fleet derives from the turn: the done, and only that. The reply is a standing, not an item.
+pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
+    match done(seen) {
+        Some((id, since)) => vec![WaitingItem {
+            id,
+            text: "Done".to_string(),
+            since: Instant::carried(since),
+            source: WaitingSource::Done,
+            act: None,
+            options: Vec::new(),
+            place: None,
+        }],
+        None => Vec::new(),
     }
 }
 

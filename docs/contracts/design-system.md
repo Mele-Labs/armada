@@ -1646,7 +1646,9 @@ the match — a Job is searched by its title, and a title is a sentence. `⌘↵
 composer holding the words, for a file, a sketch or a long request.
 
 **Contents, in order:** actions available on the current context,
-navigation, jobs by id or name, settings.
+navigation, jobs by id or name, sessions by any word of the title or by id,
+settings. Only work in hand is listed: a Job that is not over, a Session
+that is live.
 
 **The palette obeys the lexicon.** Displayed labels always use the
 lexicon term — Kill, Drone, Job Board. The search index may carry aliases

@@ -144,6 +144,12 @@ describe("a call is raised only if he has not been in the Session since it began
     expect(ids([waiting({ rows })])).toEqual(["a"]);
   });
 
+  test("a reply raises no call, and a done beside it still does", () => {
+    const settled = session("w", { waitingFor: [item("replied:t", SINCE, "replied"), item("done:t", SINCE, "done")] });
+    expect(ids([settled])).toEqual(["done:t"]);
+    expect(waitingOf(settled).map((one) => one.id)).toContain("replied:t");
+  });
+
   test("a row with no instant, as a mock's, says nothing about when", () => {
     expect(lastOwnerMessageAt(waiting({ rows: [{ id: "m", at: "09:30:00", kind: "message", from: { kind: "you" }, text: "x" }] }))).toBe(0);
   });

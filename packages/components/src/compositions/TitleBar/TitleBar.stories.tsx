@@ -314,7 +314,7 @@ export const SleepModeOn: Story = {
 const noAct = () => undefined;
 /** An account a window is signed in to, or out of with no profiles; its acts do nothing. */
 const account = (logins: readonly string[], signIn: () => void = noAct): Account => ({
-  profiles: logins.map((login, at) => ({ login, active: at === 0, chosen: false })),
+  profiles: logins.map((login, at) => ({ account_id: 1001 + at, login, active: at === 0, chosen: false })),
   flow: { phase: "idle" },
   syncs: null,
   signIn,

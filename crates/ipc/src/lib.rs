@@ -24,6 +24,8 @@
 //! every operation; the types here serve what M1 needs, and a command adds a
 //! type only where a Job is not what it answers with.
 
+/// The account a machine is signed in to, its profiles, and the sign-in in flight.
+mod accounts;
 /// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
 /// holds, never stored** — which is why nothing publishes `alert.raised`.
 mod alerts;
@@ -395,9 +397,9 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
-    MainStanding, MergeLineHub,
+    MainStanding, MergeLineHub, PullRequestOwner,
 };
 pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
@@ -491,7 +493,7 @@ pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnother
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
-    ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
+    ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership, PullRequestClaimed, RenameSession, TakeMainRed,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
     SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
@@ -505,6 +507,10 @@ pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, Cont
 pub use session_activity::{SessionActivity, SessionTodo, SessionTodoState};
 pub use model_downshift::{ModelDownshift, ModelDownshiftState};
 pub use plan_usage::{PlanUsage, PlanWindow};
+pub use accounts::{
+    AccountFlow, Accounts, Profile, SetActiveAccount, SetUpState, SetUpSteps, SignInEnded, SignInOutcome,
+    SignOut, SignedOut,
+};
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

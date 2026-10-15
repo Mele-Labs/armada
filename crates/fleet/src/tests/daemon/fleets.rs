@@ -247,6 +247,18 @@ pub fn fitted_over<V>(
             crate::tests::settings_json::supplied(),
             config::settings::Env::none(),
         ),
+        // Reaches nothing: a forge nobody types a code for, and a store that
+        // enrols into the fixture's own home. `crate::tests::signing_in` plants
+        // its own where the subject is a sign-in.
+        signing_in: crate::signing_in::SigningIn::new(
+            home.path(),
+            Arc::new(testkit::FakeSignIn::new()),
+            Arc::new(crate::tests::signing_in::Enrolled::new()),
+            Arc::new(Ticking::from_nine()),
+        ),
+        // Reaches nothing: a switch that is off never asks. `crate::tests::red_claim`
+        // plants a store where the subject is a claim.
+        reaching: Arc::new(crate::tests::red_claim::Planted::signed_out()),
         session_quiet: crate::session_host::SHIPPED_QUIET_TIMEOUT,
     }
 }

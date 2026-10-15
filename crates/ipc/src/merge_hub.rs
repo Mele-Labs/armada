@@ -29,6 +29,30 @@ pub struct MergeLineHub {
     /// green.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing: Option<HubJob>,
+    /// Another machine's claim on main's red, read from the central store. Absent
+    /// while nobody else holds it, where the repository's *Pull request owners*
+    /// switch is off, the machine is signed out, and whenever the store could
+    /// not be read: **an unreadable store yields no field and never an error**.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixing_elsewhere: Option<FixingElsewhere>,
+}
+
+/// Who holds main's red on another machine. **No title and no work**: the store
+/// holds neither, and only the machine that holds a claim can say what it is.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FixingElsewhere {
+    /// The host's name, or `machine.name` where two hosts share one.
+    pub machine: String,
+    pub holder: ClaimHolder,
+    /// When it took the red, so a stale claim reads as stale.
+    pub since: Instant,
+}
+
+/// A Job or a Session, by its short id.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimHolder {
+    pub kind: crate::sessions::HolderKind,
+    pub id: String,
 }
 
 /// One pull request recently merged into the base. Since 23.42.
@@ -223,6 +247,25 @@ pub struct HubPullRequest {
     pub additions: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deletions: Option<u32>,
+    /// The Session or Job that claimed it, from the central store. **Absent** where nobody
+    /// registered it, where the repository's switch is off (rows another machine wrote
+    /// included), and whenever the store could not be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<PullRequestOwner>,
+}
+
+/// Who registered a pull request. **A kind, a short id and a machine's name, and nothing
+/// about the pull request**: the store holds no title, repository or code, and only the
+/// machine that holds the claim can say what it is.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestOwner {
+    pub kind: crate::sessions::HolderKind,
+    /// The Session's or Job's short id.
+    pub id: String,
+    /// The host's name, or `machine.name` where two hosts share one.
+    pub machine: String,
+    /// The row was written by this machine.
+    pub this_machine: bool,
 }
 
 /// Whether the forge can merge a pull request as it stands.
@@ -322,4 +365,8 @@ pub struct FixMain {
     /// them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub brief: Option<String>,
+    /// Replace another machine's claim on this red with this one's. Asked for,
+    /// never assumed: the press follows a refusal that named the holder.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub take_over: bool,
 }

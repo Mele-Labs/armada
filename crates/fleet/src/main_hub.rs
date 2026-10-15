@@ -27,6 +27,7 @@ use ipc::{
 use store::{MainCi, MainState};
 
 use crate::daemon::Fleet;
+use crate::pull_registry::PullOwner;
 use crate::repositories::Served;
 
 /// The branch name a log asked for under when it is main's own run. It is the
@@ -56,6 +57,9 @@ impl api::Follow for HeldLog {
 pub(crate) struct OpenPulled {
     pub(crate) pull: OpenPull,
     pub(crate) job: Option<JobId>,
+    /// Who registered it in the central store. Absent where nobody did, the switch is off or
+    /// the store did not answer. `crate::pull_registry`.
+    pub(crate) owner: Option<PullOwner>,
 }
 
 /// A recently merged pull request as last read, with the Job of ours that
@@ -127,12 +131,19 @@ where
             })
             .await;
         let Some(listed) = listed else { return };
+        // **The same visit, not a call of its own**: one `owners` for the repository, and the
+        // rows of what has left the list deleted.
+        let numbers: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
+        let left = self.pulls_that_left(served.root(), &numbers).await;
+        self.owners_deleted(served.root(), left).await;
+        let mut owners = self.owners_read(served.root(), numbers).await;
         let read: Vec<OpenPulled> = {
             let store = self.store().lock().await;
             listed
                 .into_iter()
                 .map(|pull| OpenPulled {
                     job: self.job_of_pull(&store, served, pull.number),
+                    owner: owners.remove(&pull.number),
                     pull,
                 })
                 .collect()
@@ -437,13 +448,14 @@ where
             .iter()
             .map(|served| served.root().to_string())
             .collect();
-        let (pulls, merged, runs, queues) = {
+        let (pulls, merged, runs, queues, elsewhere) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
                 sweep.merged.clone(),
                 sweep.main_runs.clone(),
                 sweep.queues.clone(),
+                sweep.elsewhere.clone(),
             )
         };
         let store = self.store().lock().await;
@@ -478,9 +490,29 @@ where
                     .as_ref()
                     .and_then(|main| self.fixing_of(&store, main))
                     .and_then(|job| titled(&job));
+                hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
+                // A switch turned off since the reading shows none, another machine's rows included.
+                if !self.registers_owners(&root) {
+                    hub.pull_requests.iter_mut().for_each(|pull| pull.owner = None);
+                }
                 Some((root, hub))
             })
             .collect()
+    }
+}
+
+/// Another machine's claim as the hub draws it.
+fn fixing_elsewhere(holder: &adapter_traits::Holder) -> ipc::FixingElsewhere {
+    ipc::FixingElsewhere {
+        machine: holder.machine.clone(),
+        holder: ipc::ClaimHolder {
+            kind: match holder.kind {
+                adapter_traits::HolderKind::Session => ipc::HolderKind::Session,
+                adapter_traits::HolderKind::Job => ipc::HolderKind::Job,
+            },
+            id: holder.id.clone(),
+        },
+        since: ipc::Instant::carried(crate::clock::rfc3339_utc(holder.since * 1000)),
     }
 }
 
@@ -539,6 +571,7 @@ pub(crate) fn hub_of(
             })
             .unwrap_or_default(),
         fixing: None,
+        fixing_elsewhere: None,
     })
 }
 
@@ -686,6 +719,7 @@ fn request(
         }),
         additions: pull.facts.additions,
         deletions: pull.facts.deletions,
+        owner: one.owner.as_ref().map(PullOwner::on_the_wire),
     }
 }
 

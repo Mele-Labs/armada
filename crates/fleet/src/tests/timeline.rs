@@ -263,6 +263,7 @@ fn pull(number: u64, ci: Option<HubPullCi>, queue: Option<HubQueue>) -> HubPullR
         review: None,
         additions: None,
         deletions: None,
+        owner: None,
     }
 }
 
@@ -291,7 +292,7 @@ fn lines(main: Option<MainStanding>, open: Vec<HubPullRequest>, merged: Vec<ipc:
             off: Vec::new(),
             landed: Vec::new(),
             sent_back: Vec::new(),
-            hub: Some(MergeLineHub { main, pull_requests: open, merged, fixing: None }),
+            hub: Some(MergeLineHub { main, pull_requests: open, merged, fixing: None, fixing_elsewhere: None }),
         }],
     }
 }

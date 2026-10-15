@@ -26,7 +26,7 @@ error: test run failed
 ";
 
 /// The repository holds `bug`, the workflow a dispatched fix runs under.
-fn bug() -> config::ResolvedWorkflow {
+pub(super) fn bug() -> config::ResolvedWorkflow {
     let text = "version: 1\nworkflow_id: bug\nname: Bug\nsteps:\n  - id: fix\n    label: \"Fix it\"\n    \
                 evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      - { type: diff_nonempty }\n    \
                 delivers: true\n    advance_gate: auto\n";
@@ -162,7 +162,7 @@ async fn a_person_dispatches_a_new_job_that_claims_the_failing_test() {
 
     let brief = "test fails on main.\nTest: tests::one\nMerged in #1815 (armada/cache).";
     let job = fleet
-        .fix_main(&root(&fleet).await, None, Some(brief))
+        .fix_main(&root(&fleet).await, None, Some(brief), false)
         .await
         .unwrap();
     assert_eq!(job.status(), JobStatus::Queued);
@@ -189,7 +189,7 @@ async fn a_person_dispatches_a_new_job_that_claims_the_failing_test() {
         "Fix test on main"
     );
 
-    let again = fleet.fix_main(&main.repository, None, None).await;
+    let again = fleet.fix_main(&main.repository, None, None, false).await;
     assert!(again.unwrap_err().to_string().contains("already working"));
 }
 
@@ -203,7 +203,7 @@ async fn a_ci_job_with_no_check_is_dispatched_with_no_claim() {
     forge.log_of("21", "error: broke\n");
     fleet.turn().await.unwrap();
     let job = fleet
-        .fix_main(&root(&fleet).await, None, None)
+        .fix_main(&root(&fleet).await, None, None, false)
         .await
         .unwrap();
     assert_eq!(job.title().as_str(), "Fix test-all on main");
@@ -228,7 +228,7 @@ async fn work_sent_back_to_a_job_that_ended_continues_it_on_a_fresh_branch() {
     fleet.turn().await.unwrap();
 
     let job = fleet
-        .fix_main(&root(&fleet).await, Some(earlier.id()), None)
+        .fix_main(&root(&fleet).await, Some(earlier.id()), None, false)
         .await
         .unwrap();
     assert_ne!(job.id(), earlier.id());
@@ -244,13 +244,13 @@ async fn work_cannot_be_sent_back_to_a_job_still_working_or_where_main_is_not_re
     let home = TempDir::new();
     let fleet = a_fleet_holding_bug(&home, true);
     let working = fleet.propose(a_proposal("still at it")).await.unwrap();
-    let green = fleet.fix_main(&root(&fleet).await, None, None).await;
+    let green = fleet.fix_main(&root(&fleet).await, None, None, false).await;
     assert!(green.unwrap_err().to_string().contains("main is not red"));
 
     goes_red(&fleet, 1815);
     fleet.turn().await.unwrap();
     let refused = fleet
-        .fix_main(&root(&fleet).await, Some(working.id()), None)
+        .fix_main(&root(&fleet).await, Some(working.id()), None, false)
         .await
         .unwrap_err();
     assert!(
@@ -267,7 +267,7 @@ async fn a_repository_without_the_bug_workflow_cannot_be_dispatched_for() {
     goes_red(&fleet, 1815);
     fleet.turn().await.unwrap();
     let refused = fleet
-        .fix_main(&root(&fleet).await, None, None)
+        .fix_main(&root(&fleet).await, None, None, false)
         .await
         .unwrap_err();
     assert!(
@@ -283,7 +283,7 @@ async fn the_green_after_a_take_ends_it_and_names_the_job_whose_pull_request_did
     goes_red(&fleet, 1815);
     fleet.turn().await.unwrap();
     let job = fleet
-        .fix_main(&root(&fleet).await, None, None)
+        .fix_main(&root(&fleet).await, None, None, false)
         .await
         .unwrap();
     let url = "https://forge.invalid/armada/pull/1821";
@@ -330,12 +330,12 @@ async fn a_job_that_was_stopped_no_longer_holds_the_red() {
     goes_red(&fleet, 1815);
     fleet.turn().await.unwrap();
     let job = fleet
-        .fix_main(&root(&fleet).await, None, None)
+        .fix_main(&root(&fleet).await, None, None, false)
         .await
         .unwrap();
     Fleet::kill_job(&fleet, job.id()).await.unwrap();
     assert!(the_hub(&fleet).await.fixing.is_none());
-    let again = fleet.fix_main(&root(&fleet).await, None, None).await;
+    let again = fleet.fix_main(&root(&fleet).await, None, None, false).await;
     assert!(again.is_ok(), "offered again once the first was stopped");
 }
 

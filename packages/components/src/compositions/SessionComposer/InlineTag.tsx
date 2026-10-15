@@ -4,8 +4,9 @@ import type { LucideIcon } from "lucide-react";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * What `@` tags: another Session, a Job, a pull request or a branch. **`#` tags an issue or a pull
- * request by its number**; its `id` is the number and its `title` leads with it, `#2214 The title`.
+ * What a message tags: **`@` another Session or a Job**, **`#` an issue or a pull request by its
+ * number**, whose `id` is the number and whose `title` leads with it, `#2214 The title`. A branch is
+ * still a kind a message can carry, though neither trigger offers one.
  */
 export type ComposerTag = {
   kind: "session" | "job" | "pull_request" | "branch" | "issue";

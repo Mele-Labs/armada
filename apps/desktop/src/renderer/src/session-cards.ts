@@ -36,22 +36,27 @@ const JOB_TONE: Record<string, SessionLedgerTone | undefined> = {
 
 const sentence = (said: string) => said.charAt(0).toUpperCase() + said.slice(1);
 
+/** A pull request's card: the ledger row's and the Sessions list chip's, so the two say the same. */
+export function pullRequestCardOf(one: Extract<SessionAttachment, { kind: "pull_request" }>): SessionLedgerCard {
+  return {
+    title: `#${one.number} ${one.title}`,
+    facts: [
+      one.checks.state === "failed"
+        ? { label: "Checks", value: `Failed: ${one.checks.failing}`, tone: "failed" }
+        : one.checks.state === "pending"
+          ? { label: "Checks", value: "Running", tone: "pending" }
+          : { label: "Checks", value: "Passed", tone: "passed" },
+      { label: "State", value: [PR_STATE[one.state], ...factsOf(one).filter((fact) => fact !== "Draft")].join(", ") },
+      { label: "Branch", value: one.branch, mono: true },
+    ],
+  };
+}
+
 /** What hovering a row shows beside it, from what the attachment and the window already hold. */
 export function cardOf(one: SessionAttachment, session: Session, sessions: readonly Session[], known: Known): SessionLedgerCard {
   switch (one.kind) {
     case "pull_request":
-      return {
-        title: `#${one.number} ${one.title}`,
-        facts: [
-          one.checks.state === "failed"
-            ? { label: "Checks", value: `Failed: ${one.checks.failing}`, tone: "failed" }
-            : one.checks.state === "pending"
-              ? { label: "Checks", value: "Running", tone: "pending" }
-              : { label: "Checks", value: "Passed", tone: "passed" },
-          { label: "State", value: [PR_STATE[one.state], ...factsOf(one).filter((fact) => fact !== "Draft")].join(", ") },
-          { label: "Branch", value: one.branch, mono: true },
-        ],
-      };
+      return pullRequestCardOf(one);
     case "job": {
       const row = known.board.find((job) => job.id === one.id);
       const status = row?.status ?? JOB_WIRE[one.state];

@@ -255,6 +255,8 @@ pub mod preparing;
 /// **Not Doctor**, whose grid is ten modules and is not built.
 mod probing;
 pub mod process;
+/// The profiles a machine has joined, each with a directory of its own for its key.
+pub mod profiles;
 /// Starting a scout on a Studio, recording what it read, and stopping it.
 mod promoting;
 /// The prompts a person may override in settings.json: what ships, and what is in force.
@@ -272,6 +274,8 @@ mod claiming;
 mod pull_attaching;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
+/// Which Session or Job claimed a pull request, kept in the central store for the other machines.
+mod pull_registry;
 /// What a pull request's panel reads when it opens, and its comment box writes.
 /// Since 23.83.
 mod pull_request_panel;
@@ -365,6 +369,11 @@ mod settling;
 pub mod showing;
 /// A person asking a Job to show its work, off the turn loop — `#603`.
 mod showing_again;
+/// A red main claimed in the central store, and the claim read back for the hub.
+pub mod red_claim;
+mod taking_red;
+/// Signing in to an account with the forge's device flow, and enrolling the machine with the store.
+pub mod signing_in;
 pub mod silence;
 pub mod slots;
 mod sleeping;
@@ -388,6 +397,7 @@ mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
 pub mod sub_dispatch;
+mod subagents_resumed;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;

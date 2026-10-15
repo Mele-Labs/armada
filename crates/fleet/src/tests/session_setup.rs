@@ -95,11 +95,11 @@ async fn a_setup_session_in_a_folder_fleet_does_not_serve_is_refused() {
         .is_empty());
 }
 
-/// **Only `armada.yml` and `.gitignore` at the root, until the Manifest is served** (the
-/// owner, 13 Oct 2026). Anything else, by a file tool or a shell line, is refused naming
-/// the two; a read still runs.
+/// **Only `armada.yml` and `.gitignore` at any depth, and `.git/info/exclude`, until the
+/// Manifest is served** (the owner, 14 Oct 2026). Anything else, by a file tool or a shell
+/// line, is refused naming them; a read still runs.
 #[tokio::test]
-async fn a_setup_session_writes_only_armada_yml_and_gitignore_at_its_root() {
+async fn a_setup_session_writes_only_its_setup_files_under_its_root() {
     let rig = rig_placing(None);
     let home = TempDir::new();
     let root = unset_up(&rig, &home);
@@ -131,24 +131,38 @@ async fn a_setup_session_writes_only_armada_yml_and_gitignore_at_its_root() {
         .gate_in(&root, &id, "Write", &write(&format!("{root}/src/x.ts")))
         .await;
     assert!(denied(&source), "{source:?}");
-    assert!(reason(&source).contains("armada.yml") && reason(&source).contains(".gitignore"));
-    let nested = rig
-        .gate_in(
-            &root,
-            &id,
-            "Write",
-            &write(&format!("{root}/apps/armada.yml")),
-        )
-        .await;
-    assert!(denied(&nested), "only the root's own");
+    for said in ["armada.yml", ".gitignore", ".git/info/exclude"] {
+        assert!(reason(&source).contains(said), "{}", reason(&source));
+    }
+    for allowed in [
+        format!("{root}/ops/armada.yml"),
+        format!("{root}/services/x/.gitignore"),
+        format!("{root}/.git/info/exclude"),
+        String::from("services/TermsService/armada.yml"),
+    ] {
+        let answer = rig.gate_in(&root, &id, "Write", &write(&allowed)).await;
+        assert_eq!(answer, GateAnswer::pass(), "{allowed}");
+    }
+    for refused in [
+        format!("{root}/ops/app.rb"),
+        format!("{root}/.git/config"),
+        format!("{root}/.git/hooks/armada.yml"),
+        format!("{root}/../other/armada.yml"),
+        format!("{root}/ops/armada.yml.bak"),
+        String::from("../other/armada.yml"),
+    ] {
+        let answer = rig.gate_in(&root, &id, "Write", &write(&refused)).await;
+        assert!(denied(&answer), "{refused}: {answer:?}");
+    }
     let shell = rig
         .gate_in(&root, &id, "Bash", r#"{"command":"touch src/x.ts"}"#)
         .await;
     assert!(denied(&shell), "{shell:?}");
 }
 
-/// **Once the root's Manifest is served, the session is any other session**: its turn's
-/// end loads the armada.yml it wrote, and its next write into the root leases a slot.
+/// **Once the root's Manifest is served, the session leases a slot like any other**, save
+/// its setup files: its turn's end loads the armada.yml it wrote, an app's armada.yml still
+/// lands in the checkout, and a source file leases a slot.
 #[tokio::test]
 async fn once_its_manifest_is_served_a_setup_session_leases_a_slot_like_any_other() {
     let planted = Arc::new(Planted::nothing());
@@ -179,10 +193,27 @@ async fn once_its_manifest_is_served_a_setup_session_leases_a_slot_like_any_othe
     let repository = rig.fleet.repositories().at(&root).expect("served");
     assert!(repository.manifest().is_some(), "the turn's end loaded it");
 
-    let file = format!(r#"{{"file_path":"{root}/armada.yml","content":"x"}}"#);
-    let answer = rig.gate_in(&root, &id, "Write", &file).await;
+    let write = |path: &str| format!(r#"{{"file_path":"{path}","content":"x"}}"#);
+    for setup in ["ops/armada.yml", "armada.yml", ".git/info/exclude"] {
+        let answer = rig
+            .gate_in(&root, &id, "Write", &write(&format!("{root}/{setup}")))
+            .await;
+        assert_eq!(answer, GateAnswer::pass(), "{setup} stays in the checkout");
+    }
+    let answer = rig
+        .gate_in(&root, &id, "Write", &write(&format!("{root}/src/x.ts")))
+        .await;
     assert!(denied(&answer), "{answer:?}");
     assert!(reason(&answer).contains("Slot"), "{}", reason(&answer));
+    let leased = rig
+        .gate_in(
+            &root,
+            &id,
+            "Write",
+            &write(&format!("{root}/consumer/armada.yml")),
+        )
+        .await;
+    assert_eq!(leased, GateAnswer::pass(), "and still once it holds a slot");
     let record = Arc::clone(&rig.fleet)
         .get_session(id.clone())
         .await
@@ -192,6 +223,23 @@ async fn once_its_manifest_is_served_a_setup_session_leases_a_slot_like_any_othe
         record.manifest_id,
         Some(ManifestId::carried("01SETUPMANIFEST"))
     );
+}
+
+/// **The window is Setup's alone**: a session started on a served Manifest leases a slot for
+/// an app's armada.yml as for any other write.
+#[tokio::test]
+async fn a_session_not_started_by_setup_leases_a_slot_for_an_armada_yml() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "change a file").await;
+    rig.stand_in.init(0);
+    let file = format!(
+        r#"{{"file_path":"{}/ops/armada.yml","content":"x"}}"#,
+        rig.root
+    );
+    let answer = rig.gate(&id, "Write", &file).await;
+    assert!(denied(&answer), "{answer:?}");
+    assert!(reason(&answer).contains("Slot"), "{}", reason(&answer));
 }
 
 /// **Its door places it and answers its permission prompt with no Manifest**: the
@@ -224,5 +272,8 @@ async fn a_setup_sessions_permission_prompt_is_answered_with_no_manifest() {
         .ask_the_person_at(asking, None, caller)
         .await
         .expect("answered");
-    assert!(matches!(decided, ipc::RunOrNot::Allow { .. }), "{decided:?}");
+    assert!(
+        matches!(decided, ipc::RunOrNot::Allow { .. }),
+        "{decided:?}"
+    );
 }

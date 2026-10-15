@@ -427,9 +427,8 @@ pub enum WaitingSource {
     /// Fleet: another Session's agent started this one and its first message has not been sent.
     /// The item has no reply, since sending that message is the answer. Since 23.80.
     FirstMessage,
-    /// Fleet: the Session's turn ended on a message of the agent's and the person has not answered it.
-    /// Derived on every read from the turn and the thread, never kept, so it does not depend on the
-    /// agent calling any tool. Id `replied:<turn end>`, text the first line of that message.
+    /// No longer produced. A reply asks nothing of the person, so it is `SessionStanding::Replied`
+    /// and no item. The variant stays so a reader of an older Fleet's items still parses.
     Replied,
     /// Fleet: `done_since` stands. Derived on every read, never kept: id `done:<done_since>`, text
     /// `Done`. The agent's `all_done` states it; nothing the person sees depends on that call alone.
@@ -445,11 +444,12 @@ pub enum SessionStanding {
     Working,
     /// A turn is running and nothing has happened for the quiet threshold.
     Stuck,
-    /// The turn ended on a message of the agent's and the person has not answered since.
+    /// The turn ended on a message of the agent's and the person has not answered since. Under Idle:
+    /// it is the unread mark, and raises no item.
     Replied,
     /// The agent said, through `all_done`, that nothing is left, and the person has not answered.
     Done,
-    /// Nothing is owed. What a `replied` or `done` becomes once the person dismisses it.
+    /// Nothing is owed. What a `done` becomes once the person dismisses it.
     Idle,
 }
 
@@ -457,7 +457,7 @@ pub enum SessionStanding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
     /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
-    /// `window_ask:<row>`, `unsent:<session>`, `replied:<turn end>`, `done:<done_since>`.
+    /// `window_ask:<row>`, `unsent:<session>`, `done:<done_since>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.
@@ -545,11 +545,15 @@ pub struct AnswerWaiting {
     pub mode: Option<WaitingMode>,
 }
 
-/// `dismiss_waiting`: the person drops one item for good. Nothing is sent to the agent.
+/// `dismiss_waiting`: the person drops one item for good. An item the agent stated tells it so;
+/// one Fleet derived is only dropped.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DismissWaiting {
     pub session_id: SessionId,
     pub item_id: String,
+    /// Why he removed it, sent to the agent after the item where it is non-blank. Absent where he gave none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// One row of the ledger as the wire carries it.
@@ -671,6 +675,31 @@ pub struct ClaimPullRequest {
     /// the two, read where `session_id` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_id: Option<JobId>,
+}
+
+/// `take_main_red`: a Session takes a repository's red main, so no Job on another machine is
+/// handed it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TakeMainRed {
+    /// Which session takes it. **Read only where the connection places no hosted session**, as
+    /// `ClaimPullRequest::session_id` is. The red is the one in the session's own repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// Replace another machine's claim on the red with this session's. Asked for, never
+    /// assumed: the call follows a refusal that named the holder.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub take_over: bool,
+}
+
+/// What `take_main_red` answers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MainRedTaken {
+    /// The repository, as `get_merge_lines` names it.
+    pub root: String,
+    /// Whether a claim was written to the central store. `false` where the repository's
+    /// *Pull request owners* switch is off or the machine is signed out: nothing was written
+    /// and no other machine will be told.
+    pub claimed: bool,
 }
 
 /// What `claim_pull_request` answers: the pull request now held, and by whom.
