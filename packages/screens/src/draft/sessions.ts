@@ -10,7 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
-import type { PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
+import type { PullRequestFilePatch, PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
 /** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
@@ -362,6 +362,9 @@ export type ArtifactRead =
 /** A pull request's page as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: false; said: string };
 
+/** One file of a pull request as read, or why it was not: Fleet's words for a refusal. */
+export type PullRequestFileRead = { ok: true; file: PullRequestFilePatch } | { ok: false; said: string };
+
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
 
@@ -450,6 +453,8 @@ export type SessionsDraft = {
    * nothing serves it, and the panel then draws no tabs and no comment box.
    */
   pullRequestPage?: (id: string, number: number) => Promise<PullRequestPageRead>;
+  /** One file of a pull request, read when a person opens it from the Files tab. Absent with `pullRequestPage`. */
+  pullRequestFile?: (id: string, number: number, path: string) => Promise<PullRequestFileRead>;
   /**
    * A comment, an approval or a request for changes on a pull request. **Answers the page read
    * again after it**, or Fleet's words for a refusal. Absent with `pullRequestPage`.

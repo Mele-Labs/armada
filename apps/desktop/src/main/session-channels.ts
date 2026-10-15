@@ -126,6 +126,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.readPullRequestPage, (_event, sessionId: string, number: number) =>
     text(sessionId) && Number.isInteger(number) ? (connection()?.sessions.pullRequestPage(sessionId, number) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.readPullRequestFile, (_event, sessionId: string, number: number, path: string) =>
+    text(sessionId) && Number.isInteger(number) && text(path) ? (connection()?.sessions.pullRequestFile(sessionId, number, path) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.writePullRequest, (_event, sessionId: string, number: number, write: PullRequestWrite) =>
     text(sessionId) && Number.isInteger(number) && WRITES.includes(write?.kind) && (write.body === undefined || typeof write.body === "string")
       ? (connection()?.sessions.writePullRequest(sessionId, number, write) ?? unsent)

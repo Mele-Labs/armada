@@ -24,6 +24,7 @@ import { sessionsOfPicked } from "@armada/screens/src/board";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
+  PullRequestFileRead,
   PullRequestPageRead,
   Session,
   SessionAnswer,
@@ -45,6 +46,9 @@ const NONE: readonly never[] = [];
 /** A page Fleet answered, or the words of its refusal. */
 const pageRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestPage"]>>): PullRequestPageRead =>
   answer.ok ? { ok: true, page: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
+/** A file Fleet answered, or the words of its refusal. */
+const fileRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestFile"]>>): PullRequestFileRead =>
+  answer.ok ? { ok: true, file: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
 const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
@@ -360,6 +364,7 @@ export class WiredStore {
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
+    pullRequestFile: async (id, number, path) => fileRead(await this.api.readPullRequestFile(id, number, path)),
     writePullRequest: async (id, number, write) => pageRead(await this.api.writePullRequest(id, number, write)),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
     openWindow: (id, url) => void this.api.openSessionWindow(id, url),

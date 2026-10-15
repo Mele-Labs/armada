@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import type { PullRequestPage } from "@armada/protocol";
 
 import type { PlaceRow } from "../MergeLine/MergeLine";
@@ -139,6 +139,38 @@ export const FilesTab: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("tab", { name: "Files" }));
     await expect(canvas.getByRole("img", { name: "Removed" })).toBeInTheDocument();
+  },
+};
+
+/** A file pressed in the Files tab: its diff in a panel to the left, the row marked, and the plates in the body. */
+export const AFileOpen: Story = {
+  args: {
+    ...withPage,
+    onFile: fn(),
+    file: {
+      path: PAGE.files[0]?.path ?? "",
+      diff: {
+        files: [
+          {
+            path: PAGE.files[0]?.path ?? "",
+            lines: [
+              { kind: "hunk", text: "@@ -1,2 +1,2 @@" },
+              { kind: "removed", text: "-const before = 1;" },
+              { kind: "added", text: "+const after = 2;" },
+            ],
+          },
+        ],
+      },
+    },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Files" }));
+    const path = PAGE.files[0]?.path ?? "";
+    const row = () => canvas.getByRole("button", { name: (name) => name.includes(path) });
+    await expect(within(document.body).getByRole("dialog", { name: path })).toBeInTheDocument();
+    await expect(row()).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(row());
+    await expect(args.onFile).toHaveBeenCalledWith(null);
   },
 };
 

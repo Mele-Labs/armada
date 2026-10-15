@@ -116,6 +116,19 @@ export type PullRequestPage = {
   owner?: PullRequestOwner;
 };
 
+/**
+ * `get_pull_request_file`: one file of a pull request, read when a person opens it from the Files
+ * tab and carried nowhere. `patch` is the forge's hunks with no `diff --git` header. Where the forge
+ * sent none (binary, or too large) `patch` is absent and `said` is Fleet's sentence.
+ */
+export type PullRequestFilePatch = {
+  manifest_id: string;
+  number: number;
+  path: string;
+  patch?: string;
+  said?: string;
+};
+
 /** What the panel's comment box writes. `POST /pull_request_writes/:repository`. */
 export type WritePullRequest = {
   /** The pull request's number. */

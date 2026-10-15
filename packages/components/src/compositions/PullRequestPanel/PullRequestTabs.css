@@ -124,10 +124,46 @@
   border-bottom: none;
 }
 
+/* A file row that opens its diff: the row's padding moves onto the button so the whole row presses. */
+.armada-pr-row[data-press] {
+  padding: 0;
+}
+
+.armada-pr-row__button {
+  display: grid;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-left: var(--edge-active) solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-pr-row__button:hover,
+.armada-pr-row__button[data-on] {
+  background: var(--bg-hover);
+}
+
+.armada-pr-row__button[data-on] {
+  border-left-color: var(--accent);
+}
+
+.armada-pr-row__button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-pr-row[data-columns="check"] {
   grid-template-columns: auto minmax(0, 1fr) auto var(--space-8);
 }
 
+.armada-pr-row__button[data-columns="file"],
 .armada-pr-row[data-columns="file"] {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
