@@ -182,7 +182,7 @@ fn another_sessions_message_is_accepted_and_the_first_write_is_held_by_a_hook() 
         "{settings}"
     );
     assert!(
-        settings.contains(r#""matcher":"Write|Edit|MultiEdit|NotebookEdit|Bash""#),
+        settings.contains(r#""matcher":"*""#),
         "{settings}"
     );
     assert!(
