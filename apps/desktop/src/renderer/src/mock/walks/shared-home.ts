@@ -2,12 +2,12 @@
 // row for how it stands, the acts a row that is on one side only offers, and the two versions of a
 // row that differs. Over `shared-home`.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, text, toSystemPage, walk } from "../walk";
 
 const MARK = (kind: string, said: string) => inside(region(kind), role("img", said, { exact: true }));
 
 const sharedHome = walk("shared-home", [
-  { press: button("Kit", { exact: true }), say: "Kit" },
+  ...toSystemPage("Kit", "Kit"),
   { look: region("Skills"), say: "A long list scrolls inside its tile" },
   { look: text("nickmele"), say: "The GitHub account the home belongs to, and Sync beside it" },
   { hover: text("nickmele"), say: "The home" },

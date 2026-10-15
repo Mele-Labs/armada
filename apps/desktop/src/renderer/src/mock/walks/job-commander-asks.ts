@@ -3,14 +3,14 @@
 // already are, the Dashboard's Your move and the Job's Now panel. His answer wakes it, and it carries on.
 // Over `job-commander-asks`.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 
 const commander = role("region", "Commander", { exact: true });
 const now = region("Now");
 const card = role("region", /^Commander asks: desktop_test/);
 
 const w = walk("job-commander-asks", [
-  { press: role("button", "Cockpit", { exact: true }), say: "The Dashboard" },
+  { press: place("Cockpit"), say: "The Dashboard" },
   { look: role("region", /^Commander asks/), say: "The card is a call like any other, from the Commander" },
   { press: button("Open Job"), say: "Open the Job" },
   { look: inside(now, card), say: "The same card, in the Now panel's asks" },

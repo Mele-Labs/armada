@@ -5,7 +5,7 @@
 import { button, inside, region, role, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const needs = region("Needs you");
 const preview = inside(needs, button("Refresh preview"));
 const tests = inside(needs, role("group", "pnpm test"));

@@ -4,15 +4,15 @@
 // moment it is answered, ended or looked at, with nobody having to tell Bridge a thing. Over
 // `session-standing`.
 
-import { button, inside, region, role, tab, walk } from "../walk";
+import { button, inside, place, region, role, tab, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const timeline = region("Timeline");
 const sessions = region("Sessions");
 const call = (title: RegExp) => region(title);
 const row = (title: string) => inside(sessions, role("listitem", title));
-const toCockpit = { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back to the Cockpit" } as const;
+const toCockpit = { press: place("Cockpit"), say: "Back to the Cockpit" } as const;
 
 const sessionStanding = walk("session-standing", [
   { look: tab("Your move"), say: "Your move, the call deck over the timeline: four Sessions need him, and three of them never asked for anything" },

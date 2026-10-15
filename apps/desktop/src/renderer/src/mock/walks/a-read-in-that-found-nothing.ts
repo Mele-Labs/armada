@@ -3,12 +3,12 @@
 // `studio-read-nothing.test.tsx` holds the claim.
 
 import { NOTHING_FOUND } from "@armada/studios/fake";
-import { button, inside, role, walk } from "../walk";
+import { button, inside, role, toSystemPage, walk } from "../walk";
 
 const picked = role("group", "What is picked");
 
 export const aReadInThatFoundNothing = walk("studio-read-nothing", [
-  { press: button("Studios", { exact: true }), say: "This repository's Studios" },
+  ...toSystemPage("Studios", "This repository's Studios"),
   { press: button("Open", { exact: true }), say: "A Studio holding one Link, to a glossary page" },
   { press: button("Continue", { exact: true }), say: "Continue it, so it can be read in" },
   { press: role("group", /^Link: /), say: "Pick the Link" },

@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const line = region(/^Session: Land the speed fixes/);
 const question = region(/^Session question: Land the speed fixes/);
 const reply = inside(line, role("textbox", "Message"));

@@ -1144,6 +1144,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
                   onPickRepository={pick}
+                  onGoTo={goTo}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   onRescueSlot={slotActs.onRescueSlot}
                   onMergeJob={(jobId) => commands.mergeProps(jobId).onMergePullRequest(jobId)}

@@ -4,7 +4,7 @@
 // request) is looked up and still tags. What was sent shows in the thread, and a Session in another
 // repository reads that repository's numbers. Over `helm-rich-composer`.
 
-import { button, inside, role, region, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 
 const helm = role("complementary", "Helm");
 const box = inside(helm, role("textbox", "Ask Helm"));
@@ -59,7 +59,7 @@ const helmRichComposer = walk("helm-rich-composer", [
   { press: inside(helm, role("link", "Job 12")), say: "It opens the Job" },
   { look: role("heading", /Stop the Drone count drifting/), say: "The Job's detail" },
 
-  { press: role("button", "Sessions", { exact: true }), say: "A Session in another repository" },
+  { press: place("Sessions"), say: "A Session in another repository" },
   { press: inside(sessions, button("Cart totals rounding")), say: "Cart totals rounding, in storefront" },
   { type: "#41", into: message, say: "A hash and the start of a number" },
   { look: role("listbox", "Tag an issue or pull request"), say: "That repository's issues and pull requests, not armada's" },

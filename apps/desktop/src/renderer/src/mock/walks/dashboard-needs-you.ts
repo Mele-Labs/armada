@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const call = (kind: RegExp) => region(kind);
 const answer = (card: RegExp, name: RegExp) => inside(call(card), role("radio", name));
 // An act is a key on the rail beside the card, and runs on one press.

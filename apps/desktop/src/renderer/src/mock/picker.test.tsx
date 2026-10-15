@@ -80,13 +80,13 @@ async function find(query: string): Promise<void> {
   await userEvent.fill(field().element() as HTMLInputElement, query);
 }
 
-test("the picker is in the app's left column, not over the content", async () => {
+test("the picker is in the title row, not over the content", async () => {
   await show();
 
-  // Not a coordinate: being a child of the column is what makes it impossible
+  // Not a coordinate: being a child of the title row is what makes it impossible
   // for it to cover anything, and a box that happens to miss the content today
   // would still be a layer over it.
-  expect(pickerEl().closest(".armada-shell__left")).not.toBeNull();
+  expect(pickerEl().closest(".armada-title-bar")).not.toBeNull();
   expect(document.getElementById("picker")?.children.length).toBe(0);
   expect(getComputedStyle(pickerEl()).position).not.toBe("fixed");
 });

@@ -5,7 +5,7 @@
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const check = region(/^Check failed: Cap the retry backoff/);
 const stuck = region(/^Drone stuck: Raise the reconnect ceiling/);
 const session = region(/^Session: Cap the retry ceiling/);

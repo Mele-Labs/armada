@@ -4,7 +4,7 @@
 // Session and opens it with a press. Its own thread says where it came from. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
@@ -26,7 +26,7 @@ function steps(narrow: boolean): Step[] {
     ...opened([
       { look: inside(role("region", "Started"), text("Started by Debug Job 14")), say: "The ledger says where it came from" },
     ]),
-    { press: button("Sessions"), say: "Back to the list" },
+    { press: place("Sessions"), say: "Back to the list" },
     { look: inside(sessions, role("heading", "Needs you")), say: "The new Session is under Needs you" },
     { hover: inside(sessions, role("img", /^Waiting on you:/)), say: "A hand, and on hover what it waits on" },
     { press: inside(sessions, button(/Settings loader and the cap/)), say: "He opens it from the list as well" },

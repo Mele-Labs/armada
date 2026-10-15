@@ -2,7 +2,7 @@
 // group's boundary and a merge line's turn. Each segment and each row is one Check; pressing one
 // opens its log in the log panel, following it while the Check runs and readable once it has ended.
 
-import { button, card, dialog, inside, region, role, tab, text, walk } from "../walk";
+import { button, card, dialog, inside, region, role, tab, text, viaPalette, walk } from "../walk";
 
 const BOUNDARY = region("Checks at this boundary");
 const LOG = dialog("Check log");
@@ -28,7 +28,7 @@ export const aChecksLogFromItsStrip = walk("check-logs", [
   { hover: inside(LOG, button("Open in the Record")), say: "It leads on to the Check's own Record row" },
   { press: inside(LOG, button("Open in the Record")), say: "Pressing it goes there" },
   { look: role("heading", "screens_test"), say: "The Check's own row, on the Record" },
-  { press: button("Merge line", { exact: true }), say: "The merge line draws the same strip" },
+  ...viaPalette("Merge line", "The merge line draws the same strip"),
   { press: inside(TURN, button("screens_test, running")), say: "A turn's running Check opens the same panel" },
   { look: inside(LOG, text("Row.test.ts")), say: "Its log grows as the runner writes it" },
   { press: inside(LOG, button("Close")), say: "Put it away" },

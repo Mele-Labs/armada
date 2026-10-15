@@ -3,7 +3,7 @@
 
 import { button, dialog, region, walk } from "../walk";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const call = (kind: RegExp) => region(kind);
 const later = { key: "l", on: cockpit, say: "Later" } as const;
 

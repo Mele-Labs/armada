@@ -4,7 +4,7 @@
 // is lit, and the tile picked opens beside the grid. A Session's thread opens at its newest message
 // and follows a new one. Done lists Jobs and Sessions only. Over `dashboard-dispatch-rows`.
 
-import { button, dialog, inside, region, role, tab, walk } from "../walk";
+import { button, dialog, inside, place, region, role, tab, walk } from "../walk";
 
 const bar = role("combobox");
 const request = inside(dialog("Dispatch"), role("textbox", "Request"));
@@ -25,7 +25,7 @@ const dashboardDispatchRows = walk("dashboard-dispatch-rows", [
   { key: "Meta+n", on: role("textbox", "Message"), say: "Press ⌘N from inside the Session's message box" },
   { look: bar, say: "The one bar again, Session still chosen" },
   { key: "Escape", on: bar, say: "Press Escape" },
-  { press: inside(role("navigation", "Work"), button("Cockpit")), say: "Back to the Cockpit" },
+  { press: place("Cockpit"), say: "Back to the Cockpit" },
   { press: button("Grid"), say: "Grid, the tiles view" },
   { press: tab("Done"), say: "Done" },
   { look: tiles, say: "Done is tiles too, Jobs and Sessions that are over; what landed in the merge line is not one" },

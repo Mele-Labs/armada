@@ -5,7 +5,7 @@
 import { button, inside, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const call = region(/^Pull request: #1904/);
 
 const prCallOwnerWorking = walk("pr-call-owner-working", [

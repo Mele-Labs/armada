@@ -2,14 +2,14 @@
 // it live, a surface about this machine greys it and names the machine. Kit is half
 // each, so it keeps the picker live.
 
-import { button, walk } from "../walk";
+import { button, place, toSystemPage, walk } from "../walk";
 
 export const aPickerThatFollowsTheSurface = walk("every-state", [
   { look: button("All repositories"), say: "On a repository's surface the picker is live" },
   { press: button("Settings"), say: "Settings is this machine's, not a repository's" },
   { look: button("This machine"), say: "The picker says so, and is greyed: a pick changes nothing here" },
-  { press: button("Cockpit"), say: "Back on the Cockpit" },
+  { press: place("Cockpit"), say: "Back on the Cockpit" },
   { look: button("All repositories"), say: "The picker is live again, on the pick it had" },
-  { press: button("Kit"), say: "Kit hands a Drone servers per repository, so it reads the pick" },
+  ...toSystemPage("Kit", "Kit hands a Drone servers per repository, so it reads the pick"),
   { look: button("All repositories"), say: "The picker stays live on Kit" },
 ]);

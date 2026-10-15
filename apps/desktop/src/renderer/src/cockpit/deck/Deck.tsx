@@ -6,10 +6,10 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { useEffect, useMemo } from "react";
-import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, DropdownMenu, Kbd, Switch, Tooltip } from "@armada/components";
+import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Badge, Button, DropdownMenu, Kbd, Switch, Tooltip } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
-import { ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useRecentRepositories } from "@armada/shell";
+import { ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
 import { useDispatching } from "../../dispatch-panel/dispatching";
@@ -23,6 +23,7 @@ import { ActivityFeed, Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
+import { DECK_LINK } from "./links";
 import { useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
 import { JobMission, MapView } from "./MapPane";
@@ -64,6 +65,13 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
           pick(root === ALL ? null : root);
         }}
       />
+      {props.onGoTo === undefined ? null : (
+        <Tooltip label="Manifest" asChild>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Manifest" onClick={() => props.onGoTo?.(DECK_LINK.picker)}>
+            <FileCog size={16} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -225,7 +233,9 @@ function Stage({ props, ship, listed, autopilot }: { props: CockpitProps; ship: 
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
   const views = viewsOf(props.state);
-  if (views.length === 0) return null;
+  // A layout that hides the merge line's panel hides this queue, its one counterpart.
+  const shown = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
+  if (views.length === 0 || !shown) return null;
   const red = views.filter((view) => view.hub?.main?.state === "red").map((view) => ship.repos.find((one) => one.root === view.root)?.name ?? view.root);
   const mainSaid = red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green";
   const marks = views.flatMap((view, at) => [
@@ -260,7 +270,15 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
       <div className="deck-queue__row">
-        <GitMerge size={16} aria-hidden="true" />
+        {props.onGoTo === undefined ? (
+          <GitMerge size={16} aria-hidden="true" />
+        ) : (
+          <Tooltip label="Merge line" asChild>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Merge line" onClick={() => props.onGoTo?.(DECK_LINK.queue)}>
+              <GitMerge size={16} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+        )}
         <ol className="deck-chips">
           <li>
             <Tooltip label={mainSaid} asChild>
@@ -283,7 +301,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
 function BaysPanel({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const bays = useBayViews(props);
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
-  return <Bays views={bays.map((one) => one.view)} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} />;
+  return <Bays views={bays.map((one) => one.view)} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
 }
 
 type Deck = ReturnType<typeof useDeck>;

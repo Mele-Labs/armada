@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const card = region(/^Session: Debug Bridge on Merge line/);
 
 const callCardRunsCommand = walk("call-card-runs-command", [

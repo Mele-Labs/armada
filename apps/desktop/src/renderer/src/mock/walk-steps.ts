@@ -1,23 +1,21 @@
-// Steps a walk over the Dashboard shares. Not a walk: it lives beside `walk.ts`, since `walks/`
+// Steps a walk over the Cockpit shares. Not a walk: it lives beside `walk.ts`, since `walks/`
 // is read as a list of walks.
 
-import { button, region, role, tab } from "./walk";
-import type { Step, Target } from "./walk";
+import { deckRow, region } from "./walk";
+import type { Step } from "./walk";
 
-/** The Dashboard's one panel. */
-export const dashboard = region("Dashboard");
+/** The Cockpit's list of Jobs and Sessions: a keystroke has somewhere on the deck to land. */
+export const dashboard = region("Jobs and Sessions");
 
 /**
- * Put off `calls` calls standing in front of the panel. A call comes forward over the panel whatever
- * the filter, and what is behind it can still be pressed, but the pane beside the grid is under the
- * card, so a walk that works in the pane puts the cards off first.
+ * Calls standing in front of a pane, put off. A call on the deck is a pane of its own, chosen from Incoming, and is never in front of
+ * what a walk works in, so there is nothing to put off and no step is drawn. The count is kept so a walk reads as it was told.
  */
-export function putOff(calls: number): Step[] {
-  return Array.from({ length: calls }, (): Step => ({ key: "l", on: dashboard, say: "Put it off for later" }));
+export function putOff(_calls: number): Step[] {
+  return [];
 }
 
-/** A tile picked on Active, in the grid since the Cockpit opens on its timeline, its detail and acts in the pane beside it. */
+/** A row of the list picked, its page on the stage with its acts. */
 export function pick(title: RegExp | string, say: string): Step[] {
-  const tile: Target = role("option", title);
-  return [{ press: tab("Active"), say: "Active" }, { press: button("Grid"), say: "Grid, the tiles view" }, { press: tile, say }];
+  return [{ press: deckRow(title), say }];
 }

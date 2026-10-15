@@ -3,14 +3,14 @@
 // with its word on hover, and what landed and what was sent back read below it in two lists. On
 // All, each repository Fleet serves a line for has its own panel, named by its repository.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, region, role, text, viaPalette, walk } from "../walk";
 
 const ARMADA = region("Merge line, armada");
 const NOTES = region("Merge line, notes");
 const SCRATCH = region("Merge line, scratch");
 
 export const theMergeLine = walk("merge-line", [
-  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
+  ...viaPalette("Merge line", "The merge line"),
   { look: ARMADA, say: "On All, one panel for each repository with a line" },
   { look: inside(ARMADA, text("armada")), say: "Named by its repository" },
   { look: inside(ARMADA, role("img", "waiting")), say: "Waiting: its order, the mark, the branch" },
@@ -50,7 +50,7 @@ export const theMergeLine = walk("merge-line", [
   { look: inside(SCRATCH, role("img", "Empty")), say: "Nothing ever landed here: a picture and no words" },
   { press: inside(ARMADA, button("Collapse Merge line, armada")), say: "Each panel folds on its own" },
   { press: inside(ARMADA, button("Expand Merge line, armada")), say: "And opens again" },
-  { press: button("Merge line", { exact: true }), say: "Its own row in the rail, under Work" },
+  ...viaPalette("Merge line", "Its own row in the rail, under Work"),
   { look: inside(NOTES, role("list", "Recently landed")), say: "The same panels, one per repository" },
   { look: inside(SCRATCH, role("img", "Empty")), say: "The empty line draws here too" },
 ]);

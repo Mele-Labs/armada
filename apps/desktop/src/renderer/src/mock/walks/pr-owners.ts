@@ -3,7 +3,7 @@
 // other, and one pull request with no row; the repository that does not draws no chip anywhere. The
 // switch that turns registering on is in the repository's Manifest, and its own walk. Over `pr-owners`.
 
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, region, role, text, viaPalette, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const ARMADA = region("Merge line, armada");
@@ -15,7 +15,7 @@ const chip = (scope: ReturnType<typeof region>, who: RegExp) => inside(scope, ro
 const machine = (scope: ReturnType<typeof region>, who: RegExp, name: string) => inside(chip(scope, who), role("img", name, { exact: true }));
 
 const owners = walk("pr-owners", [
-  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
+  ...viaPalette("Merge line", "The merge line"),
   { hover: machine(ARMADA, /^Session a3f9c21e/, "This machine"), say: "A Session on this machine" },
   { hover: machine(ARMADA, /^Session 9c74d82e/, "MacBook Air"), say: "A Session on the other machine" },
   { hover: inside(chip(ARMADA, /^Job 7be40d15/), text("7be40d15")), say: "A Job on the other machine" },

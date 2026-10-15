@@ -2,7 +2,7 @@
 // slot and proposes a Job that continues from its branch. The proposal is a row
 // on the Board, as a dispatched request is, and waits at its gate.
 
-import { button, dialog, inside, role, tab, walk } from "../walk";
+import { deckRow, dialog, inside, place, role, viaPalette, walk } from "../walk";
 
 const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 const TILE = (n: number) => inside(BAY(n), role("button", `slot-${n}`, { exact: true }));
@@ -10,7 +10,7 @@ const PANEL = dialog("slot-4");
 const IN_PANEL = (name: string) => inside(PANEL, role("button", name, { exact: true }));
 
 export const pickingUpASlot = walk("cleanup/slots", [
-  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
+  ...viaPalette("Worktree Slots", "Cleanup, from the rail"),
   { press: TILE(4), say: "The stranded slot's panel opens" },
   { press: IN_PANEL("Rescue"), say: "A Scout starts reading it" },
   { look: inside(PANEL, role("heading", "Unfinished", { exact: true })), say: "Unfinished, with what is left" },
@@ -18,8 +18,6 @@ export const pickingUpASlot = walk("cleanup/slots", [
   { press: IN_PANEL("Pick up"), say: "Picked up at once" },
   { look: inside(PANEL, role("status")), say: "The slot is free, and the commit is named in the panel" },
   { press: IN_PANEL("Close panel Esc"), say: "Close the panel" },
-  { press: button("Cockpit", { exact: true }), say: "Back to the Dashboard" },
-  { press: tab("Active"), say: "Running" },
-  { press: button("Grid"), say: "Grid, the tiles view" },
-  { look: role("option", "Continue the work on branch fleet/an-old-try."), say: "The proposal is a row, titled with its request" },
+  { press: place("Cockpit"), say: "Back to the Cockpit" },
+  { look: deckRow("Continue the work on branch fleet/an-old-try."), say: "The proposal is a row, titled with its request" },
 ]);

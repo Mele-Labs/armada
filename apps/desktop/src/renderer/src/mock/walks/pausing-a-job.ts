@@ -5,7 +5,7 @@
 // itself. From Cleanup, a Job parked at its gate is paused from its tile's panel.
 
 import { putOff } from "../walk-steps";
-import { button, dialog, inside, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, place, role, tab, text, viaPalette, walk } from "../walk";
 
 const RUNNING = "Debounce the Job Board";
 const GATE = "Retry a short read once";
@@ -31,9 +31,9 @@ export const pausingAJob = walk("pausing/jobs", [
   { look: inside(PAUSE_DIALOG, text("The step restarts on Resume")), say: "The step restarts on Resume" },
   { press: inside(PAUSE_DIALOG, button("Pause", { exact: true })), say: "Paused" },
   { hover: MARK, say: "The Job reads queued, and the mark says where its work is" },
-  { press: role("button", "Worktree Slots", { exact: true }), say: "Its slot is back in the pool" },
+  ...viaPalette("Worktree Slots", "Its slot is back in the pool"),
   { look: inside(role("listitem", "slot-1", { exact: true }), role("img", "Free", { exact: true })), say: "slot-1 is free, and the Job's work is on its branch" },
-  { press: role("button", "Cockpit", { exact: true }), say: "Back to the Dashboard" },
+  { press: place("Cockpit"), say: "Back to the Dashboard" },
   { press: tab("Active"), say: "A Job at its review gate, on Active" },
   { press: button("Grid"), say: "Grid, the tiles view" },
   { press: role("option", new RegExp(GATE)), say: "Picked" },
@@ -48,7 +48,7 @@ export const pausingAJob = walk("pausing/jobs", [
   { press: button("Approve and drop them"), say: "It asks about the listed change first, as it does on any Job" },
   { look: inside(RESUME_DIALOG, text("Does not send the act you pressed")), say: "It offers Resume, and does not send the Approve" },
   { press: inside(RESUME_DIALOG, button("Resume", { exact: true })), say: "Resume only resumes" },
-  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup" },
+  ...viaPalette("Worktree Slots", "Cleanup"),
   { press: TILE(3), say: "A Job parked at its gate holds slot-3" },
   { press: inside(PANEL(3), button("Pause", { exact: true })), say: "Pause is on the tile's panel" },
   { look: role("group", "Pause slot-3", { exact: true }), say: "It lists the release, and no process to stop" },

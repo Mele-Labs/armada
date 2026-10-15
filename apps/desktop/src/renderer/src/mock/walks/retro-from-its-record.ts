@@ -4,7 +4,7 @@
 // item there, then reads Accepted on Retros. Job 3; `retro.test.tsx` holds
 // the claims.
 
-import { button, dialog, inside, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, role, tab, text, toSystemPage, walk } from "../walk";
 
 const RETRO = dialog("Retro");
 const item = (words: string) => role("listitem", words);
@@ -22,7 +22,7 @@ export const retroFromItsRecord = walk("retro/job-3", [
   { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command and saves it" },
   { press: inside(DOCS, button("Reject change")), say: "Reject change discards it" },
   { press: inside(RETRO, button("Close")), say: "Back to the Record" },
-  { press: button("Retros", { exact: true }), say: "Every Job's items, on Retros" },
+  ...toSystemPage("Retros", "Every Job's items, on Retros"),
   { press: tab("Accepted"), say: "Accepted: the saved Kit items" },
   { look: GREP, say: "The Kit item, saved" },
 ]);

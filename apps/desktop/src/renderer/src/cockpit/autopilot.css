@@ -5,15 +5,6 @@
 .armada-autopilot-lane { display: grid; flex: none; gap: var(--space-2); padding: 0 0 var(--space-4); }
 
 /* One more station, before Waiting, only while an Autopilot is on. */
-.armada-metro[data-next-up] .armada-metro__head,
-.armada-metro[data-next-up] .armada-metro__row { grid-template-columns: var(--label) repeat(var(--stations, 7), minmax(0, 1fr)); }
-.armada-metro__head > [data-next-up] { color: var(--fg-subtle); font-weight: var(--weight-body); }
-.armada-metro__station[data-next-up]::before { display: none; }
-.armada-metro__stop[data-picked] { border-style: dashed; border-color: var(--border-strong); background: var(--bg-base); }
-.armada-metro__station[data-next-up][data-state="now"] .armada-metro__stop[data-picked] { width: calc(var(--space-2) + var(--border-width) * 4); height: calc(var(--space-2) + var(--border-width) * 4); box-shadow: none; }
-.armada-metro__station[data-next-up][data-state="now"] .armada-metro__stop[data-picked]::after { display: none; }
-.armada-metro__autopilot { flex: none; color: var(--status-running); }
-.armada-metro__legend i[data-picked] { border: calc(var(--border-width) * 2) dashed var(--border-strong); background: transparent; }
 
 .armada-autopilot-sidings { display: grid; }
 .armada-autopilot-next, .armada-autopilot-aside { display: grid; gap: var(--space-1); padding: 0 0 var(--space-2); }

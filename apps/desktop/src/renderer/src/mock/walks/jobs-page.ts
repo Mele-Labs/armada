@@ -1,14 +1,13 @@
-// Jobs, a row of the rail's Work panel beside Cockpit and Sessions: every Job there is, in the Sessions page's own
+// Jobs, a place in the title bar beside Cockpit and Sessions: every Job there is, in the Sessions page's own
 // layout, with Active, Done and All as tabs. Over `fleet-timeline`, which holds Jobs in both states in two repositories.
 
-import { button, inside, region, role, tab, text, walk } from "../walk";
+import { button, inside, place, region, role, tab, text, walk } from "../walk";
 
-const work = role("navigation", "Work");
 const jobs = region("Jobs");
 
 export const jobsPage = walk("fleet-timeline", [
-  { look: inside(work, button("Jobs", { exact: true })), say: "Jobs, second in Work, under Cockpit" },
-  { press: inside(work, button("Jobs", { exact: true })), say: "It opens the list of Jobs" },
+  { look: place("Jobs"), say: "Jobs, the second place in the title bar, after Cockpit" },
+  { press: place("Jobs"), say: "It opens the list of Jobs" },
   { look: jobs, say: "The Sessions page's layout: a band, the tabs under it, a column for each heading. A Job's tile is a Session's: the title on top, the time at the top right, its facts on one line below" },
   { hover: inside(jobs, role("img", "Running")), say: "State is the tile's edge and its mark, which turns only while the Job runs" },
   { look: text(/Edit apps\/desktop\/src\/renderer\/src\/resize-handler\.ts/), say: "A running Job's Now: what its Drone is doing, how long ago, one mono line" },
@@ -21,5 +20,5 @@ export const jobsPage = walk("fleet-timeline", [
   { look: jobs, say: "Failed and landed Jobs, dashed and receded; Redispatch and Clear are behind the ellipsis" },
   { press: tab("All"), say: "All: both" },
   { press: inside(jobs, button("Order the store migrations", { exact: true })), say: "A press anywhere on a tile opens the Job, as it does from the Cockpit" },
-  { look: inside(work, button("Jobs", { exact: true })), say: "Jobs stays marked in the rail while its Job is open" },
+  { look: place("Jobs"), say: "Jobs stays marked in the title bar while its Job is open" },
 ]);

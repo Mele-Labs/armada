@@ -4,12 +4,12 @@
 // 2 Oct 2026, landed the way #1620 now lands one. `studio-zone.test.tsx` holds
 // the claims.
 
-import { button, role, walk } from "../walk";
+import { button, role, toSystemPage, walk } from "../walk";
 
 const zone = role("group", "Zone", { exact: true });
 
 export const aReadInLandsInAZone = walk("studio-zone", [
-  { press: button("Studios", { exact: true }), say: "This repository's Studios" },
+  ...toSystemPage("Studios", "This repository's Studios"),
   { press: button("Open", { exact: true }), say: "The Studio the issue was read into" },
   { press: button("Continue", { exact: true }), say: "Continue it, so it can be moved" },
   { look: zone, say: "Everything the read-in brought back sits in one Zone, with one line to it from the issue" },

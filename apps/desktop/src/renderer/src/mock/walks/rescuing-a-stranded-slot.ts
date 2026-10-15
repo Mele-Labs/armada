@@ -3,7 +3,7 @@
 // shows the Scrap's confirm, which names the files and unpushed commits that
 // would go.
 
-import { dialog, inside, role, text, walk } from "../walk";
+import { dialog, inside, role, text, viaPalette, walk } from "../walk";
 
 const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 const TILE = (n: number) => inside(BAY(n), role("button", `slot-${n}`, { exact: true }));
@@ -12,7 +12,7 @@ const IN_PANEL = (n: number, kind: string, name: string) => inside(PANEL(n), rol
 const SHUT = (n: number) => IN_PANEL(n, "button", "Close panel Esc");
 
 export const rescuingAStrandedSlot = walk("cleanup/slots", [
-  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
+  ...viaPalette("Worktree Slots", "Cleanup, from the rail"),
   { look: BAY(4), say: "A stranded slot: hatched, with its holder gone" },
   { press: TILE(4), say: "Its panel opens" },
   { hover: IN_PANEL(4, "button", "Rescue"), say: "Rescue" },

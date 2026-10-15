@@ -8,7 +8,7 @@
 import { button, inside, region, role, text, walk } from "../walk";
 
 const moon = button("Sleep mode", { exact: true });
-const cockpit = region("Dashboard");
+const cockpit = region("Jobs and Sessions");
 const lunch = region(/^Decided while you slept: Order the lunch/);
 const branch = region(/^Decided while you slept: Name the branch/);
 const job = region(/^Decided while you slept: Shorten the reconnect wait/);

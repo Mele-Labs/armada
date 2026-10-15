@@ -2,9 +2,9 @@
 // a glyph, and the kind of whoever holds it; line two is the facts behind the state, in muted sans, each with its tooltip. Nothing is
 // worded beyond the facts and nothing is counted beside the list. The states are the pool's own (`bays.ts`). #2301.
 
-import { ArrowUpFromLine, Box, FilePenLine, Flame, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
+import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
 import type { ReactNode } from "react";
-import { Tooltip } from "@armada/components";
+import { Button, Tooltip } from "@armada/components";
 
 import { PanelKey } from "./keys";
 import { clockOf, shortOf, spanOf, type BayView, type Holder } from "./bays";
@@ -113,11 +113,18 @@ export function BayFacts({ view }: { view: BayView }) {
 }
 
 /** The bays panel: every slot of the pool, a row each. A press selects the slot. */
-export function Bays({ views, repoName, working, selected, onSelect }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; onSelect: (key: string) => void }) {
+export function Bays({ views, repoName, working, selected, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" tabIndex={-1}>
       <header className="deck-band">
         Bays
+        {onOpenSlots === undefined ? null : (
+          <Tooltip label="Worktree Slots" asChild>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Worktree Slots" onClick={onOpenSlots}>
+              <HardDrive size={16} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+        )}
         <PanelKey id="bays" />
       </header>
       <ul className="deck-bays__rows">
