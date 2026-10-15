@@ -544,6 +544,8 @@ type OldBridgeApi = {
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
+    writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
+    resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 } & AutopilotApi & SketchShareApi;
 
@@ -879,6 +881,8 @@ const OLD_CHANNELS = {
     writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
     stopSessionRun: "bridge:stop-session-run",
+    writeSessionRun: "bridge:write-session-run",
+    resizeSessionRun: "bridge:resize-session-run",
     sessionRunMessage: "bridge:session-run-message",
     ...AUTOPILOT_CHANNELS,
     ...SKETCH_SHARE_CHANNELS,

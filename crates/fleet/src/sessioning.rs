@@ -837,7 +837,7 @@ where
     }
 
     async fn start_session_run(
-        &self,
+        self: Arc<Self>,
         start: ipc::StartSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
         self.begin_session_run(start).await
@@ -848,6 +848,20 @@ where
         stop: ipc::StopSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
         self.end_session_run(stop)
+    }
+
+    async fn write_session_run(
+        &self,
+        write: ipc::WriteSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.type_into_session_run(write).await
+    }
+
+    async fn resize_session_run(
+        &self,
+        resize: ipc::ResizeSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.resize_session_run_terminal(resize)
     }
 
     async fn observe_session_run(&self, run_id: String) -> Result<api::ObservedSessionRun, Refusal> {
