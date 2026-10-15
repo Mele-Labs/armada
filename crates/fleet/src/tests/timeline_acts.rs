@@ -70,6 +70,37 @@ async fn a_wait_a_resolution_and_a_subagent_are_entered_by_what_the_row_changed_
     assert_eq!(second, ["session.started", "session.waiting", "session.ended"], "no resolution, no subagent");
 }
 
+/// A subagent its parent sent more work is entered again, from when it started on it, and finishes again.
+#[tokio::test]
+async fn a_resumed_subagent_is_entered_resuming_and_finishing_again() {
+    let home = TempDir::new();
+    let (fleet, _) = kept(&home);
+    let resumed = subagent("standing", "2026-10-12T09:30:00.000Z").replace("09:21:00", "09:30:00");
+    publish(&fleet, &row("s1", "live", "", ""));
+    publish(&fleet, &row("s1", "live", "", &subagent("standing", "2026-10-12T09:21:00.000Z")));
+    publish(&fleet, &row("s1", "live", "", &subagent("spent", "2026-10-12T09:25:00.000Z")));
+    publish(&fleet, &row("s1", "live", "", &resumed));
+    publish(&fleet, &row("s1", "live", "", &resumed));
+    publish(&fleet, &row("s1", "live", "", &subagent("spent", "2026-10-12T09:35:00.000Z")));
+
+    let said: Vec<_> = read(&fleet)
+        .await
+        .into_iter()
+        .filter(|one| one.kind.as_wire() == "session.subagent")
+        .map(|one| (one.says, one.tone, one.at.as_str().to_string()))
+        .collect();
+    let at = |time: &str| format!("2026-10-12T{time}.000Z");
+    assert_eq!(
+        said,
+        [
+            ("Subagent started".to_string(), TimelineTone::Run, at("09:21:00")),
+            ("Subagent finished".to_string(), TimelineTone::Ok, at("09:25:00")),
+            ("Subagent resumed".to_string(), TimelineTone::Run, at("09:30:00")),
+            ("Subagent finished".to_string(), TimelineTone::Ok, at("09:35:00")),
+        ]
+    );
+}
+
 async fn report(fleet: &super::timeline::Fixture, id: &str, fact: SessionFact) {
     fleet
         .report_session(SessionReport {

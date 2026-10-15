@@ -414,6 +414,13 @@ where
                         .map_err(fault)?;
                 }
             }
+            SessionFact::Settled { attachment, state }
+                if attachment.kind == "subagent" && state == ipc::AttachmentState::Spent =>
+            {
+                changed |= store
+                    .subagent_stopped(&holder, &manifest_of(&session), &attachment.target, &now)
+                    .map_err(fault)?;
+            }
             SessionFact::Settled { attachment, state } => {
                 changed |= store
                     .settle(

@@ -545,7 +545,7 @@ async fn a_resumed_subagent_reads_as_running_while_it_works_and_finished_once_it
         let at = rig.fleet.clock().now();
         let at = at.as_str();
         format!(
-            r#"{{"type":"assistant","uuid":"{at}{reason}","isSidechain":true,"timestamp":"{at}","message":{{"role":"x","stop_reason":{reason},"content":[{{"type":"text","text":"Working."}}]}}}}"#
+            r#"{{"type":"assistant","uuid":"{at}","isSidechain":true,"timestamp":"{at}","message":{{"role":"x","stop_reason":{reason},"content":[{{"type":"text","text":"Working."}}]}}}}"#
         ) + "\n"
     };
     let append = |file: &std::path::Path, text: String| {
@@ -583,15 +583,19 @@ async fn a_resumed_subagent_reads_as_running_while_it_works_and_finished_once_it
     rig.fleet.subagents_followed().await;
     assert_eq!(state("x1").await, Some(ipc::AttachmentState::Spent), "a stop on a spent row still marks when it stopped");
 
-    // One the session gave back, its run cut short, is not opened by its unfinished transcript.
+    // One given back with its run cut short is not opened by its unfinished transcript, only by
+    // work written after: the parent resumed it.
     rig.reports(attached("x2")).await;
     let given = dir.join("agent-x2.jsonl");
     std::fs::write(&given, line(CALLS_A_TOOL)).unwrap();
+    moment().await;
     rig.reports(stopped("x2", ipc::AttachmentState::GivenBack)).await;
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x2").await, Some(ipc::AttachmentState::GivenBack));
     moment().await;
     append(&given, line(CALLS_A_TOOL));
     rig.fleet.subagents_followed().await;
-    assert_eq!(state("x2").await, Some(ipc::AttachmentState::GivenBack));
+    assert_eq!(state("x2").await, Some(ipc::AttachmentState::Standing));
 }
 
 const QUESTION: &str = r#"{"questions":[{"question":"Which size?","header":"Size","multiSelect":false,
