@@ -66,6 +66,14 @@ export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts & Extra): 
   };
 }
 
+/** What Ask for update says to a Session. One text for every place that asks: the deck's flight control and the build ring's button. */
+export const ASK_FOR_UPDATE = "Progress update, please: what is done, what is running now, what is next, and anything blocked.";
+
+/** Asks a Session for an update through the route its composer sends by. Resolves to whether the message arrived; a refusal is already toasted. */
+export async function askForUpdate(draft: SessionsDraft, sessionId: string): Promise<boolean> {
+  return (await draft.send(sessionId, { text: ASK_FOR_UPDATE, files: [], sketches: [], tags: [] })) !== false;
+}
+
 export function useShipActs(props: Hosts, extra: Extra = {}): Acts {
   const draft = useSessionsDraft();
   const { onKill, onFix, onOpen, onOpenSession, onOpenLink } = props;

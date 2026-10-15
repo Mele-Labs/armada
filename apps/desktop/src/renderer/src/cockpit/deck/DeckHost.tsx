@@ -183,10 +183,13 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
     }
     const digit = pressedDigit("deck_tile", event);
     if (digit !== null) {
-      const tile = TILES[digit - 1];
+      // With a Session open the tiles drawn are its own, and a key presses the one it names as a press on it does.
+      const drawn = document.querySelector('.deck-controls__block[data-subject="session"]');
+      const tile = drawn === null ? TILES[digit - 1] : drawn.querySelectorAll<HTMLElement>(".deck-tile")[digit - 1];
       if (tile === undefined) return;
       event.preventDefault();
-      tile.press();
+      if (tile instanceof HTMLElement) tile.click();
+      else tile.press();
       return;
     }
     const slot = pressedSlot("deck_panel", event);

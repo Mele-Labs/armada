@@ -16,7 +16,7 @@ import { clashingOf, useWriteClashes } from "../../clashes";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
-import { useSessions } from "../../sessions-draft";
+import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
@@ -31,6 +31,7 @@ import { PanelKey, panelAt } from "./keys";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
+import { SessionTiles } from "./SessionTiles";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOfSubject, enterAutopilot, incomingOf, keepOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck } from "./store";
@@ -129,6 +130,9 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
   };
   // The row held lit: the one picked, or the one the playhead has last passed. It is brought into view.
   const events = useFleetEvents();
+  // A Job or Session open on the stage is the only one the feed tells of.
+  const open = deck.sel?.kind === "job" || deck.sel?.kind === "session" ? ship.subjects.find((one) => one.key === deck.sel?.key && one.kind === deck.sel.kind) : undefined;
+  const of = useMemo(() => (open === undefined || open.kind === "pr" ? undefined : { kind: open.kind, id: open.id }), [open?.kind, open?.id]);
   const lit = useMemo(() => {
     if (deck.replay === undefined) return deck.focus;
     const { at } = deck.replay;
@@ -147,6 +151,7 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
         views={views}
         filter="running"
         keep={keep as never}
+        {...(of === undefined ? {} : { of })}
         onOpenJob={(id) => pick(`job:${id}`)}
         onOpenSession={(id) => pick(`session:${id}`)}
         onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
@@ -340,28 +345,39 @@ export const TILES: readonly Tile[] = [
   { label: "Timeline", text: "Timeline", Glyph: ChartNoAxesGantt, pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
 ];
 
-/** The four filters and the view switch: one row of six equal tiles. */
-function FlightControl() {
+/**
+ * The four filters and the view switch: one row of six equal tiles. **While a Session is open on the stage they are that
+ * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes.
+ */
+function FlightControl({ ship }: { ship: Ship }) {
   const deck = useDeck();
+  const draft = useSessionsDraft();
+  const sessions = useSessions();
+  const open = deck.sel?.kind === "session" ? ship.subjects.find((one) => one.key === deck.sel?.key && one.kind === "session") : undefined;
+  const session = open === undefined ? undefined : sessions.find((one) => one.id === open.id);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
       <header className="deck-band">
         Flight control
         <PanelKey id="controls" />
       </header>
-      <div className="deck-controls__block">
-        {TILES.map((tile, at) => (
-          <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
-            <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
-              <tile.Glyph size={20} aria-hidden="true" />
-              <span className="deck-tile__text">{tile.text}</span>
-              <Kbd className="deck-tile__key" aria-hidden="true">
-                {at + 1}
-              </Kbd>
-            </button>
-          </Tooltip>
-        ))}
-      </div>
+      {session !== undefined && draft !== undefined ? (
+        <SessionTiles session={session} draft={draft} />
+      ) : (
+        <div className="deck-controls__block">
+          {TILES.map((tile, at) => (
+            <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
+              <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
+                <tile.Glyph size={20} aria-hidden="true" />
+                <span className="deck-tile__text">{tile.text}</span>
+                <Kbd className="deck-tile__key" aria-hidden="true">
+                  {at + 1}
+                </Kbd>
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -559,7 +575,7 @@ export function DeckBody(props: CockpitProps) {
             <MergeQueue props={props} ship={ship} selected={deck.sel?.kind === "pr" ? selected : undefined} />
           </div>
           <div className="deck-foot">
-            <FlightControl />
+            <FlightControl ship={ship} />
             <AutopilotPanel props={props} autopilot={autopilot} />
           </div>
         </div>

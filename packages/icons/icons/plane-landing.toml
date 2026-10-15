@@ -1,0 +1,7 @@
+[icons.plane-landing]
+  means = "An aircraft seen from the side, nose down toward a runway line"
+  group = "Flight control"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Session flight control Auto land, which instructs the Session to land its work and keep it landing until it is in main. Never Autopilot, which is `plane`, and never a merge, which is `git-merge`."
+  notes = "Proposed 15 Oct 2026 with the Session flight controls. A pair of `plane`: landing is the end of a flight. Tooltip `Turn auto land on`, and `Turn auto land off` while it is on."

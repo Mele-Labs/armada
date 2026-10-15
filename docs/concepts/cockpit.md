@@ -28,15 +28,29 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 |---|---|---|
 | Repository picker | Top of the left column. Narrows the list, the feed, the bays and the queue to one repository, or All repositories | |
 | Jobs and Sessions | One row for each: its kind, title, what it says and its state's mark | `l` |
-| Activity | What Fleet has been doing, newest first. A press picks the event and the map shows what moved | |
+| Activity | What Fleet has been doing, newest first. A press picks the event and the map shows what moved. While a Job or Session is open on the stage it tells of that one alone, a Session's subagents included, and tells of all again when it closes | |
 | Stage | The timeline or the map at rest. When something is picked, that thing: a Job's canvas, a Session as the panel the Sessions page draws (its head with the context figure and the rename, its thread and its box), a bay, a pull request, a call, Autopilot's lane | |
 | Merge queue | Main as one light, then a chip for each pull request. A press opens the pull request on the stage | `q` |
 | Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's ledger is drawn here instead, and the Bays return when it is closed | `b` |
 | Incoming calls | Every call waiting on a person | `c` |
-| Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles | `f` |
+| Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles. While a Session is open on the stage, that Session's own (*The Session's flight controls*) | `f` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |
 
 `Esc` returns the stage to what it was. The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
+
+## The Session's flight controls
+
+While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `5`. When it closes the six return.
+
+| Key | Tile | Does | Through |
+|---|---|---|---|
+| `1` | Ask for update | Sends the Session `askForUpdate`'s text | `askForUpdate(draft, sessionId)` in `deck/acts.ts`, over `draft.send`, the route the Sessions page composer sends by |
+| `2` | Auto land | Turns the instruction on or off. On sends "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main." Off sends "Auto land is off. Do not land on your own." | `draft.send`; the state is kept for each Session in the browser's storage (`deck/auto-land.ts`), so the tile reads on after a restart. Fleet has no operation for it |
+| `3` | Compact | Runs the Session's `/compact` | A hosted Session is sent `/compact` as a message, as picking it from `/` does; a terminal Session is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
+| `4` | Report | Drawn off | `file_report` is keyed by a Job and renders that Job's record, so a Session has no route to it |
+| `5` | Map | Closes the Session and shows the map | The stage's view switch, as tile 5 is |
+
+A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
 ## The map
 
@@ -59,7 +73,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a` |
-| A flight control | `1` to `6` |
+| A flight control | `1` to `6`, or `1` to `5` while a Session is open |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 

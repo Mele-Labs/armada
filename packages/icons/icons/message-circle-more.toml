@@ -1,0 +1,7 @@
+[icons.message-circle-more]
+  means = "A speech bubble with three dots: a message waiting for more to be said"
+  group = "Flight control"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Ask for update, which sends a Session a progress request: the Session flight control on the deck, and the build ring's button on Sessions and Jobs. Never an agent's question to the person, which is `message-circle-question`, and never Helm, which is `message-square`."
+  notes = "Proposed 15 Oct 2026 for the owner's ask that an open Session turn the deck's flight controls into its own. The set had no glyph for asking a Session for more: `message-circle-question` is the agent asking the person, the opposite direction, and `refresh-cw` is reserved to churning. Tooltip `Ask the Session for an update`."
