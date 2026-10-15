@@ -219,8 +219,8 @@
   stroke-dasharray: var(--space-2) var(--space-2);
 }
 
-/* A preview is a still drawing until it is played, and then the step's dot is the only thing that moves. */
-.armada-scene-edge[data-flow]:not([data-still]) .armada-scene-edge__line {
+/* A preview is a still drawing until it is played, and the panel stops crawling while it plays: the step's dot is the only thing that moves. */
+.armada-sketch:not([data-playing]) .armada-scene-edge[data-flow]:not([data-still]) .armada-scene-edge__line {
   animation: armada-scene-flow var(--duration-pulse) linear infinite;
 }
 

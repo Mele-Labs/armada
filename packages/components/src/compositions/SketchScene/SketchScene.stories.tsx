@@ -357,3 +357,24 @@ export const PreviewPlayingMovesOnlyTheDot: Story = {
     await expect(new Set(running(canvasElement))).toEqual(new Set(["armada-scene-travel"]));
   },
 };
+
+/** Played in the panel, the dot is the only thing that moves: the other arrows stop their crawl. */
+export const PanelPlayingMovesOnlyTheDot: Story = {
+  args: { scene: HUB, autoplay: true },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).not.toBeNull());
+    await expect(new Set(running(canvasElement))).toEqual(new Set(["armada-scene-travel"]));
+  },
+};
+
+/** Not playing, the panel's flow arrows crawl as before. */
+export const PanelCrawlsWhenNothingPlays: Story = {
+  args: { scene: HUB },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-flow]")).not.toBeNull());
+    await expect(canvasElement.querySelector("[data-playing]")).toBeNull();
+    await waitFor(() => expect(running(canvasElement)).toContain("armada-scene-flow"));
+  },
+};

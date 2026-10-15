@@ -495,6 +495,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
       className="armada-sketch"
       role="group"
       aria-label="Sketch"
+      data-playing={at !== undefined || undefined}
       {...(preview
         ? { "data-preview": true, inert: true }
         : { "aria-keyshortcuts": "+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown", tabIndex: 0, onKeyDown })}
