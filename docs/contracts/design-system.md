@@ -735,6 +735,25 @@ edge and its ground lifts one step at `--duration-fast`.
 `prefers-reduced-motion` every transition duration is zero and each
 state still reads from colour and label.
 
+**A loop that never ends animates `transform` and `opacity` only.** A loop runs for as long
+as the window is open, so what it animates is what Bridge costs idle. The compositor draws
+those two with no repaint; `box-shadow`, `background-position`, `stroke-dashoffset` and the
+rest repaint their element every frame. A glow is a pseudo-element with a static shadow that
+animates `opacity` or `scale`; a dash that marches is a layer that slides one period. Use
+`will-change` on the element that animates, never on a container.
+`apps/desktop/src/renderer/src/compositor-motion.test.ts` refuses a new infinite `@keyframes`
+that animates anything else, and holds the allow-list: each exception names why it cannot move.
+
+| Measured against the mock in headless Chromium, ms per second | Before: `box-shadow` ring | After: `transform` and `opacity` ring |
+|---|---|---|
+| Main thread, window idle (`data-idle`) | 141.6 to 168.1 | 12.6 to 15.6 |
+| Main thread, map moving | 73.2 | 30.6 to 37.2 |
+
+What a loop still costs on the compositor does not depend on what it animates: any running
+animation, even one small ring, holds frame production at the display's rate (about 150 to
+210 ms per second of compositor and Viz time, against about 2 when everything is paused).
+The floor is why a window nobody is looking at stills its loops (`styles/index.css`).
+
 **A layer nobody summoned does not enter.** The licence above is for chrome a
 person asked for, and it is the press that pays for it. A guide card opened by
 a `?` scales from 0.97 like any dialog; the same card opened because somebody
