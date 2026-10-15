@@ -21,6 +21,17 @@ const wide = walk("session-id-links", [
   { press: inside(region("Sessions"), button(/Hand-off thread/)), say: "The first thread again" },
   { press: link("s-e165b4df"), say: "He opens the one in backticks" },
   { look: inside(thread, text("Picking this up from")), say: "That Session's page" },
+  { press: button("Sessions"), say: "Back to the list" },
+  { press: inside(region("Sessions"), button(/Cart rounding hand-off/)), say: "A Session in another repository, naming pull requests and an issue" },
+  { look: link("#401"), say: "A merged pull request links, looked up in that Session's own repository" },
+  { hover: link("#401"), say: "On hover, its title" },
+  { look: link("https://forge.invalid/pull/401"), say: "The forge's address for it is the same reference" },
+  { look: link("#412"), say: "An issue links" },
+  { look: link("#2301"), say: "So does the pull request this Session opened" },
+  { press: link("#2301"), say: "It opens in the Session's own panel" },
+  { look: role("dialog", "Pull request #2301"), say: "The panel" },
+  { look: inside(thread, role("link", "https://example.com/health")), say: "An address inside inline code is a link" },
+  { look: inside(thread, role("link", "https://example.com/ready")), say: "An address inside a code block is a link, and the #412 in its comment is not" },
 ]);
 
 export { wide as "session-id-links" };

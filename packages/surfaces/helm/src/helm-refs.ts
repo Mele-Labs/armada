@@ -10,7 +10,8 @@ import type { MergeLine } from "@armada/protocol";
 export type RefWorld = {
   jobs: readonly { id: string; handle: string; title: string }[];
   sessions: readonly { id: string; title?: string }[];
-  numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string }[];
+  /** `url` is the forge's address for it, which the same number in another repository does not share. */
+  numbered: readonly { kind: "issue" | "pull_request"; number: string; title: string; url?: string }[];
 };
 
 export type RefSpan = { from: number; to: number; ref: ProseReference };
@@ -48,6 +49,11 @@ export function scanRefs(text: string, world: RefWorld): RefSpan[] {
   const found: RefSpan[] = [];
   for (const one of text.matchAll(/(?<![\w&/#])#(\d+)(?!\w)/g)) {
     const hit = world.numbered.find((it) => it.number === one[1]);
+    if (hit !== undefined) found.push({ from: one.index, to: one.index + one[0].length, ref: { kind: hit.kind, id: hit.number, title: bare(hit.title) } });
+  }
+  // The forge's own address for one of them, whole: another repository's `/pull/12` is not this one's.
+  for (const one of text.matchAll(/(?<![(\[<\w])(https?:\/\/[^\s<>`)\]]+?)\/(?:pull|issues)\/(\d+)(?![\w/#?])/g)) {
+    const hit = world.numbered.find((it) => it.number === one[2] && it.url !== undefined && it.url === one[0].replace(/[.,;:!?]+$/, ""));
     if (hit !== undefined) found.push({ from: one.index, to: one.index + one[0].length, ref: { kind: hit.kind, id: hit.number, title: bare(hit.title) } });
   }
   for (const job of world.jobs) {

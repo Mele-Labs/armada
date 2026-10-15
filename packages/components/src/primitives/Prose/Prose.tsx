@@ -146,13 +146,37 @@ function web(href: string | undefined): string | null {
   }
 }
 
+/** Set inside a link, where a second one would be an anchor in an anchor. */
+const InLink = createContext(false);
+
+/** A web address in a span of code, drawn as the link it is. */
+const ADDRESS = /https?:\/\/[^\s<>`]*[^\s<>`.,;:!?'")\]]/g;
+
+function Addressed({ text, open }: { text: string; open: (address: string) => void }) {
+  const parts: ReactNode[] = [];
+  let from = 0;
+  for (const one of text.matchAll(ADDRESS)) {
+    const address = web(one[0]);
+    if (address === null) continue;
+    parts.push(text.slice(from, one.index));
+    parts.push(
+      <a key={one.index} className="armada-prose__link" href={address} title={address} onClick={(event) => { event.preventDefault(); open(address); }} onAuxClick={(event) => event.preventDefault()}>
+        {address}
+      </a>,
+    );
+    from = one.index + one[0].length;
+  }
+  return <>{parts.length === 0 ? text : [...parts, text.slice(from)]}</>;
+}
+
 function Link({ href, children }: { href: string | undefined; children: ReactNode }) {
   const open = useContext(ProseLinks);
   const reference = referenceOf(href);
-  if (reference !== null) return <ReferenceLink reference={reference}>{children}</ReferenceLink>;
+  if (reference !== null) return <InLink.Provider value><ReferenceLink reference={reference}>{children}</ReferenceLink></InLink.Provider>;
   const address = web(href);
   if (address === null || open === null) return <>{children}</>;
   return (
+    <InLink.Provider value>
     <a
       className="armada-prose__link"
       href={address}
@@ -167,6 +191,7 @@ function Link({ href, children }: { href: string | undefined; children: ReactNod
     >
       {children}
     </a>
+    </InLink.Provider>
   );
 }
 
@@ -176,9 +201,12 @@ const InBlock = createContext(false);
 /** Inline code; one that is exactly a command the Session lists gains Run where a terminal Session provides it. */
 function Code({ children }: { children?: ReactNode }) {
   const inBlock = useContext(InBlock);
+  const inLink = useContext(InLink);
+  const open = useContext(ProseLinks);
   const commands = useContext(ProseCommand);
   if (inBlock || commands === null || typeof children !== "string" || !isSlashCommand(children, commands.names)) {
-    return <code className="armada-prose__code">{children}</code>;
+    // A web address is a link in code too; a `#12` in a block is a comment, so only an address is.
+    return <code className="armada-prose__code">{open === null || inLink || typeof children !== "string" ? children : <Addressed text={children} open={open} />}</code>;
   }
   return <SlashCommand text={children} send={commands.send} />;
 }
