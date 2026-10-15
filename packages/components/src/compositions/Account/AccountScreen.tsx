@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Ban, Check, CircleDashed, Copy, Database, GitPullRequest, Hammer, House, Laptop, Link as LinkGlyph, Monitor, Settings, Unplug, UserCheck, UserPen, X } from "lucide-react";
+import { Ban, Check, CircleDashed, Copy, Database, GitPullRequest, Hammer, House, Laptop, Link as LinkGlyph, Settings, Unplug, UserCheck, UserPen, X } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
@@ -342,33 +342,10 @@ function LeftTile({ account, note }: { account: Account; note: NonNullable<Accou
 }
 
 /** What signing in turns on, and what the machine holds of it once it has: three things, off then on. */
-const TURNS_ON: readonly {
-  id: "claims" | "owners" | "home";
-  name: string;
-  Glyph: typeof House;
-  facts: readonly { Glyph?: typeof House; said: string }[];
-}[] = [
-  {
-    id: "claims",
-    name: "Red main claims",
-    Glyph: Hammer,
-    facts: [
-      { Glyph: Monitor, said: "Other machine's claim on a red main" },
-      { Glyph: Laptop, said: "Yours, seen there" },
-    ],
-  },
-  {
-    id: "owners",
-    name: "Pull request owners",
-    Glyph: GitPullRequest,
-    facts: [{ said: "Session or Job that owned a pull request" }, { Glyph: Monitor, said: "Across machines" }],
-  },
-  {
-    id: "home",
-    name: "Shared home",
-    Glyph: House,
-    facts: [{ said: "Skills, agents, instructions" }, { Glyph: Laptop, said: "Per kind, per machine" }, { said: "Every kind off until turned on" }],
-  },
+const TURNS_ON: readonly { id: "claims" | "owners" | "home"; name: string; Glyph: typeof House; said: string }[] = [
+  { id: "claims", name: "Red main claims", Glyph: Hammer, said: "See when your other machine is fixing a red main, and it sees yours" },
+  { id: "owners", name: "Pull request owners", Glyph: GitPullRequest, said: "See which Session or Job owned a pull request, from any machine" },
+  { id: "home", name: "Shared home", Glyph: House, said: "Sync skills, agents and instructions, per kind and per machine" },
 ];
 
 /** What signing in will set up, drawn as the set-up rows will be, none of them yet. */
@@ -407,7 +384,7 @@ function Frame({ label, children }: { label: string; children: ReactNode }) {
 function TurnsOnTiles({ on }: { on: Readonly<Record<"claims" | "owners" | "home", boolean>> }) {
   return (
     <ul className="armada-account-screen__glass" aria-label="Turns on">
-      {TURNS_ON.map(({ id, name, Glyph, facts }) => (
+      {TURNS_ON.map(({ id, name, Glyph, said }) => (
         <li key={id} className="armada-account__tile" data-tile="feature" data-on={on[id] ? "" : undefined} aria-label={`${name}, ${on[id] ? "on" : "off"}`}>
           <header className="armada-account__tile-head">
             <Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -420,20 +397,7 @@ function TurnsOnTiles({ on }: { on: Readonly<Record<"claims" | "owners" | "home"
               </Tooltip>
             </span>
           </header>
-          <ul className="armada-account__facts">
-            {facts.map(({ Glyph: Mark, said }) => (
-              <li key={said} className="armada-account__fact">
-                {Mark === undefined ? (
-                  <span className="armada-account__fact-gap" aria-hidden="true" />
-                ) : (
-                  <span className="armada-account__glyph" aria-hidden="true">
-                    <Mark size={16} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                )}
-                <span>{said}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="armada-account__fact">{said}</p>
         </li>
       ))}
     </ul>

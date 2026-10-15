@@ -73,7 +73,7 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
 
-The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/monitor.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
+The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
 
 ## Built
 
