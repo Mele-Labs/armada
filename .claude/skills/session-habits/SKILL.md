@@ -39,6 +39,8 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   restart onto `main` is never an option (7 and 13 Oct).
 - **Documentation a change made wrong is fixed with the change.** Do not ask
   (18 Sep).
+- **Never ask him to delete a merged branch.** A hosted session calls
+  `finish_up`; `agent-worktrees` has why (15 Oct).
 - **Plumbing is yours to decide** (CI, manifests, layers, test layout). State
   the choice in a line. Ask about what he would see (6 Oct).
 

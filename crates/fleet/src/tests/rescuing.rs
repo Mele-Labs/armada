@@ -105,6 +105,7 @@ pub(super) fn rescuing_on(
             path: "/usr/bin:/bin",
             home: &home_dir,
             user: "someone",
+            width: checks_runner::CheckWidth::of(2),
         },
     );
     Fleet::assembled(fittings).scouting_on(host)

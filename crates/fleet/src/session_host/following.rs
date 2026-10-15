@@ -174,8 +174,23 @@ where
         move |pid| started_within(&roots, pid, self.peers().as_ref())
     }
 
-    /// The branches the session may delete by hand: the one it was leased and each one a slot
-    /// it holds is on, where the base already holds every commit on them.
+    /// The head branch of every pull request the session holds or held on the ledger. **A branch
+    /// the session cut itself is its own** though no slot is on it any more: a session that
+    /// switches its slot back after opening a pull request was refused deleting the merged branch
+    /// and asked the owner to (#2343, 15 Oct 2026).
+    pub(super) async fn pull_branches_of(&self, id: &str, manifest: &str) -> Vec<String> {
+        let rows = self.store().lock().await.attachments_of(&Keeper::session(id));
+        rows.unwrap_or_default()
+            .into_iter()
+            .filter(|row| row.kind == crate::pull_requesting::PR && row.manifest_id == manifest)
+            .filter_map(|row| row.detail.get("branch").cloned())
+            .filter(|branch| !branch.is_empty())
+            .collect()
+    }
+
+    /// The branches the session may delete by hand: the one it was leased, each one a slot it
+    /// holds is on and each of its pull requests', where the base already holds every commit
+    /// on them.
     pub(super) async fn own_merged_branches(
         &self,
         id: &str,
@@ -185,6 +200,7 @@ where
         let pool = crate::leasing::pool_of(served);
         let (vcs, session) = (Arc::clone(self.vcs()), id.to_string());
         let mut branches: Vec<String> = hosting.lease_branch.clone().into_iter().collect();
+        branches.extend(self.pull_branches_of(id, &hosting.manifest_id).await);
         let lease = hosting.lease_slot;
         tokio::task::spawn_blocking(move || {
             for reading in vcs.slot_pool(&pool) {

@@ -281,6 +281,7 @@ where
                     path: &self.host.path,
                     user: &self.host.user,
                     home: &self.host.home,
+                    width: self.places_width(),
                 },
                 // No worktree, no Manifest ports resolved against one -- a
                 // Judge and a proposer call carry neither.
@@ -357,6 +358,7 @@ where
                     path: &self.host.path,
                     user: &self.host.user,
                     home: &self.host.home,
+                    width: self.places_width(),
                 },
                 // No worktree, no Manifest ports resolved against one -- a
                 // Judge and a proposer call carry neither.
@@ -390,6 +392,7 @@ where
                     path: &self.host.path,
                     user: &self.host.user,
                     home: &self.host.home,
+                    width: self.places_width(),
                 },
                 // No worktree, for `judging`'s reason one call over.
                 &[],

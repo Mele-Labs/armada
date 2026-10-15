@@ -25,7 +25,8 @@ where
 {
     /// Release every slot the pool holds for the session, as `armada worktree release` does, and
     /// stop the servers running in each one it released. Then delete the branches those slots were
-    /// on, and the one the session was leased, where the base already holds them. **Anything
+    /// on, the one the session was leased and its pull requests', where the base already holds
+    /// them. **Anything
     /// refused stays and is named in `kept`**; nothing is committed for the agent.
     pub(crate) async fn finished_up(
         &self,
@@ -53,6 +54,7 @@ where
         };
         let mut done = FinishedUp::default();
         let mut branches: Vec<String> = hosting.lease_branch.clone().into_iter().collect();
+        branches.extend(self.pull_branches_of(&id, &hosting.manifest_id).await);
         for (slot, branch) in held {
             let released = {
                 let (vcs, pool, id) = (Arc::clone(self.vcs()), pool.clone(), id.clone());

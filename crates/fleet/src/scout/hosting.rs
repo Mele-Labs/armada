@@ -45,6 +45,8 @@ pub struct ScoutHost {
     path: String,
     home: String,
     user: String,
+    /// What the agent's own builds may take: `crate::drone::HostPaths::width`.
+    width: checks_runner::CheckWidth,
     grace: Duration,
 }
 
@@ -62,12 +64,13 @@ impl ScoutHost {
             path: host.path.to_string(),
             home: host.home.to_string(),
             user: host.user.to_string(),
+            width: host.width,
             grace: GRACE,
         }
     }
 
     /// The CLI and the model Helm's host runs, for `ProcessHost`'s reasons.
-    pub(crate) fn on_this_machine(host: &Host) -> ScoutHost {
+    pub(crate) fn on_this_machine(host: &Host, width: checks_runner::CheckWidth) -> ScoutHost {
         ScoutHost::new(
             HeadlessAgent::at(host.agent_binary.clone()),
             HeadlessAgent::default_model(),
@@ -76,6 +79,7 @@ impl ScoutHost {
                 path: &host.path,
                 home: &host.home,
                 user: &host.user,
+                width,
             },
         )
     }
@@ -91,6 +95,7 @@ impl ScoutHost {
             path: &self.path,
             home: &self.home,
             user: &self.user,
+            width: self.width,
         };
         let env = environment(paths, &[]).map_err(|why| why.said())?;
         let scouting =

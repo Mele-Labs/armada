@@ -576,6 +576,7 @@ where
                     path: &self.host().path,
                     home: &self.host().home,
                     user: &self.host().user,
+                    width: self.places_width(),
                 },
                 &ports,
             )?,

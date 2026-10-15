@@ -340,21 +340,6 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     pub fn assembled(fittings: Fittings<H, V, W>) -> Fleet<H, V, W> {
-        let run = fittings.mint.ulid();
-        let helm = crate::helm::Conversations::hosted_by(
-            Arc::new(crate::helm::ProcessHost::on_this_machine(&fittings.host)),
-            fittings.helm_ask_hold,
-        );
-        let sessions = crate::session_host::Hosts::hosted_by(
-            Arc::new(crate::session_host::ProcessHost::on_this_machine(
-                &fittings.host,
-            )),
-            fittings.session_quiet,
-            fittings.helm_ask_hold,
-        );
-        let scouts = crate::scout::Scouts::hosted_by(Arc::new(
-            crate::scout::ScoutHost::on_this_machine(&fittings.host),
-        ));
         let shipped = Limits {
             concurrency: fittings.concurrency,
             headroom: fittings.headroom,
@@ -365,6 +350,26 @@ where
         // shipped limits and the refusal is served.
         let settings_now = fittings.settings.now();
         let in_force = shipped.overlaid_by(&settings_now);
+        // A Check's width, which the agents' own builds take too
+        // (`crate::drone::HostPaths::width`). Read once for the hosts: a saved
+        // Jobs bound moves it for them at the next start.
+        let width = checks_runner::CheckWidth::read(in_force.concurrency.jobs());
+        let run = fittings.mint.ulid();
+        let helm = crate::helm::Conversations::hosted_by(
+            Arc::new(crate::helm::ProcessHost::on_this_machine(&fittings.host, width)),
+            fittings.helm_ask_hold,
+        );
+        let sessions = crate::session_host::Hosts::hosted_by(
+            Arc::new(crate::session_host::ProcessHost::on_this_machine(
+                &fittings.host,
+                width,
+            )),
+            fittings.session_quiet,
+            fittings.helm_ask_hold,
+        );
+        let scouts = crate::scout::Scouts::hosted_by(Arc::new(
+            crate::scout::ScoutHost::on_this_machine(&fittings.host, width),
+        ));
         let shipped_tuning = fittings.shipped_tuning();
         let tuning = shipped_tuning.overlaid_by(&settings_now);
         let turns = api::Turns::new();
@@ -435,7 +440,7 @@ where
             headroom: std::sync::Mutex::new(in_force.headroom),
             places: crate::places::Places::on_the_machine(
                 in_force.checks_at_once,
-                checks_runner::CheckWidth::read(in_force.concurrency.jobs()),
+                width,
                 fittings.check_slots,
             ),
             shipped,

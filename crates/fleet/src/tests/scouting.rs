@@ -127,6 +127,7 @@ fn hosted(home: &TempDir) -> Arc<Scouted> {
             path: "/usr/bin:/bin",
             home: &home_dir,
             user: "someone",
+            width: checks_runner::CheckWidth::of(2),
         },
     );
     Arc::new(Fleet::assembled(fittings(home, FakeWorkProduct::changed(&[]))).scouting_on(host))
