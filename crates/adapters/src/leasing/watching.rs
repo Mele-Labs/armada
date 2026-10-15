@@ -7,7 +7,7 @@
 //! nobody holds, where an edit changes nothing under `.git`. A held slot's work
 //! tree is not watched: its reading never asks git for status, and a build
 //! there writes `target/` thousands of events a minute. Measured in
-//! `docs/spikes/slot-events.md`.
+//! `docs/spikes/032-what-moves-when-a-slot-changes.md`.
 //!
 //! **Events are a hint, never the truth.** A holder that dies leaves no file
 //! behind to notice, and a stream restarts as a slot is added to it, so every

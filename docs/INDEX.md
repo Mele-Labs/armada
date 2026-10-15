@@ -257,6 +257,10 @@ approximations.
 - [`spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`](spikes/031-can-bridge-answer-a-terminal-permission-prompt.md)
   — a mod allows a terminal's tool call from outside while its dialog is open, by a
   second `next(e)` that `tool.check` allows; no second dialog.
+- [`spikes/032-what-moves-when-a-slot-changes.md`](spikes/032-what-moves-when-a-slot-changes.md)
+  — what drives the slot list instead of a timer: file events on each slot's git
+  directory and on free slots' work trees, never a held slot's, since one build is
+  8,600 events; `git status` is not made cheaper in process.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

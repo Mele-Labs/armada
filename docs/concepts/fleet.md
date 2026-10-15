@@ -568,6 +568,15 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Stash | Commits the uncommitted files to the slot's branch, pushes the branch to `origin` under its own name, and frees the slot. Refused on a checkout on no branch or on the base, and where there is no `origin` |
 | Close, open | A closed slot is never leased until it is opened. A holder keeps one closed under it until its lease ends, and it stays closed after |
 
+**Bridge's Cleanup list is kept from file events, with a deadline.** Fleet keeps the list and
+reads it again behind Bridge's asking: for the slots the file system named (a slot's git
+directory, the base branch's ref, the work tree of a free slot, never a held slot's, whose builds
+write thousands of events a minute), and for every slot every 10 seconds. **The list is never
+wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026); a change an event
+announces shows in under three. What no event announces is a holder dying, another process
+changing the pool's size, and a branch deleted from under a free slot's commits.
+`docs/spikes/032-what-moves-when-a-slot-changes.md` has the measurements.
+
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or

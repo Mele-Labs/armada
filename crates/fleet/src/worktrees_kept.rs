@@ -7,7 +7,7 @@
 //! [`WATCHED_FOR`]. Nobody asking reads nothing.
 //!
 //! **A read that something changed asks git about the slots that changed.** The
-//! adapter hears the file system (`docs/spikes/slot-events.md`) and keeps the
+//! adapter hears the file system (`docs/spikes/032-what-moves-when-a-slot-changes.md`) and keeps the
 //! rest of the pool as it read it. **Only the read every [`STALE_AFTER`] asks
 //! about every slot**, which is what a change nobody heard of waits for: the
 //! list is never wrong for longer than that.
