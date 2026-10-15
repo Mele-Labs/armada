@@ -1380,7 +1380,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 ⌘N       dispatch from a field, where n would type
-⌥1–⌥9    choose a repository in the Dispatch sheet
+⌥1–⌥9    choose a repository to dispatch to
 ⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
 ⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route
