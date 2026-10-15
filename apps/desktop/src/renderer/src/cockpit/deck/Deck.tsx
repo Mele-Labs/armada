@@ -2,10 +2,10 @@
 // that is the timeline until something is picked and then that thing (a Job's canvas, a Session's thread, a bay, a pull
 // request, a call, Autopilot's lane); the merge queue under it; the bays and the incoming calls on the right; and along the
 // foot the flight controls and Autopilot. Esc returns the stage to what it was. The state is held in `store.ts`, so the top bar,
-// the body and the keys are one thing. **Map is the timeline until the battlefield comes (#2301):** the Map tile is drawn and
-// marked not built, and both views of an empty stage draw the timeline. Ported from proto/cockpit-flight-deck.
+// the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
+// proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, type ComponentProps } from "react";
 import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, DropdownMenu, Kbd, Switch, Tooltip } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
@@ -18,27 +18,24 @@ import { useSessions } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
+import { quantized } from "./field";
 import { ActivityFeed, Timeline } from "../Timeline";
 import type { Cockpit } from "../Cockpit";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
 import { useBays, slotKey } from "./bays";
-import { PanelKey } from "./keys";
+import { PanelKey, panelAt } from "./keys";
+import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
+import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck } from "./store";
+import { callOfSubject, enterAutopilot, incomingOf, keepOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import "../cockpit.css";
 import "./deck.css";
 
 type CockpitProps = ComponentProps<typeof Cockpit>;
-
-/**
- * Whether the battlefield is drawn. **It is not yet**: S4b brings it, and until then an empty stage draws the timeline for both
- * of the Map and Timeline tiles (#2301).
- */
-export const MAP_BUILT = false;
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
 export const slotsOf = (props: Pick<CockpitProps, "state" | "picked">): readonly WorktreeSlot[] =>
@@ -104,20 +101,28 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
   );
 }
 
-/** What Fleet has been doing, newest first, in the column under the list. A press picks the Job or Session as a list row does. */
+/**
+ * What Fleet has been doing, newest first, in the column under the list. **A press picks the event**, and the map shows what moved: the
+ * drone it is about, ringed, and the rest dimmed. A Job or Session link inside the row opens it as a list row does.
+ */
 function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
   const deck = useDeck();
   const views = useMemo(() => viewsOf(props.state), [props.state]);
   const keep = useMemo(() => keepOf(listed, deck), [listed, deck.only, deck.needs, deck.checks]);
-  const [lit, setLit] = useState<{ event: string; subject: string }>();
-  // The row stays lit while its subject is what is open.
-  useEffect(() => {
-    if (lit !== undefined && deck.sel?.key !== lit.subject) setLit(undefined);
-  }, [deck.sel?.key, lit]);
   const pick = (key: string) => {
     const subject = ship.subjects.find((one) => one.key === key);
     if (subject !== undefined && subject.kind !== "pr") select(selOfSubject(subject));
   };
+  // The row held lit: the one picked, or the one the playhead has last passed. It is brought into view.
+  const events = useFleetEvents();
+  const lit = useMemo(() => {
+    if (deck.replay === undefined) return deck.focus;
+    const { at } = deck.replay;
+    return inOrder(events).filter((one) => Date.parse(one.at) <= at).at(-1)?.id.toString();
+  }, [events, deck.focus, deck.replay === undefined ? undefined : deck.replay.at]);
+  useEffect(() => {
+    if (lit !== undefined) document.querySelector(`.deck-activity [data-event="${CSS.escape(lit)}"]`)?.scrollIntoView?.({ block: "nearest" });
+  }, [lit]);
   return (
     <section className="deck-panel deck-activity" aria-label="Activity" tabIndex={-1}>
       <header className="deck-band">Activity</header>
@@ -130,15 +135,8 @@ function Activity({ props, listed, ship }: { props: CockpitProps; listed: readon
         keep={keep as never}
         onOpenJob={(id) => pick(`job:${id}`)}
         onOpenSession={(id) => pick(`session:${id}`)}
-        onPick={(event) => {
-          if (event.subject.kind === "main") return;
-          const key = `${event.subject.kind}:${event.subject.id}`;
-          pick(key);
-          setLit({ event: String(event.id), subject: key });
-          moveCursor(key);
-          window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-row="${CSS.escape(key)}"]`)?.focus());
-        }}
-        {...(lit === undefined ? {} : { lit: lit.event })}
+        onPick={(event) => setFocus(event.id, event.subject.kind === "main" ? undefined : `${event.subject.kind}:${event.subject.id}`)}
+        {...(lit === undefined ? {} : { lit })}
       />
     </section>
   );
@@ -207,13 +205,14 @@ function Stage({ props, ship, listed, autopilot }: { props: CockpitProps; ship: 
   const onPr = (one: Pr) => select(selOfPr(one));
   const owed = subject === undefined ? undefined : callOfSubject(subject, deck.held);
   const asked = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed);
-  if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
+  if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
   if (sel?.kind === "session" && subject !== undefined) return <SessionPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} />;
   const bay = slot === undefined ? undefined : bays.find((one) => one.view.key === sel?.key);
   if (slot !== undefined && bay !== undefined) return <SlotPane view={bay.view} ledger={bay.ledger} clock={props.now} repo={repoNameOf(props, slot.manifest_id)} known={new Set(ship.subjects.map((one) => one.key))} props={props} />;
   if (pr !== undefined) return <PrPane pr={pr} owner={ship.subjects.find((one) => one.pr?.key === pr.key)} props={props} acts={acts} />;
   if (call !== undefined) return <CallPane item={call} props={props} />;
   if (lane) return <AutopilotPane props={props} autopilot={autopilot} />;
+  if (deck.view === "map") return <MapView props={props} ship={ship} listed={listed} cursor={deck.cursor} />;
   return <TimelineView props={props} ship={ship} listed={listed} />;
 }
 
@@ -289,19 +288,16 @@ function BaysPanel({ props, ship, selected }: { props: CockpitProps; ship: Ship;
 }
 
 type Deck = ReturnType<typeof useDeck>;
-type Tile = { label: string; tip?: string; text: string; Glyph: typeof Box; built: boolean; pressed: (deck: Deck) => boolean; press: () => void };
+type Tile = { label: string; tip?: string; text: string; Glyph: typeof Box; pressed: (deck: Deck) => boolean; press: () => void };
 
-/**
- * The six tiles in the order their keys, `1` to `6`, press them. Jobs only, Sessions only, Checks and Calls are plain filters. **Map is
- * the battlefield, which is not built (#2301)**: it is drawn and marked so, and a press does nothing.
- */
+/** The six tiles in the order their keys, `1` to `6`, press them. Jobs only, Sessions only, Checks and Calls are plain filters; Map and Timeline are the stage's one switch. */
 export const TILES: readonly Tile[] = [
-  { label: "Jobs only", text: "Jobs", Glyph: Box, built: true, pressed: (deck) => deck.only === "jobs", press: () => toggleOnly("jobs") },
-  { label: "Sessions only", text: "Sessions", Glyph: SquareTerminal, built: true, pressed: (deck) => deck.only === "sessions", press: () => toggleOnly("sessions") },
-  { label: "Checks", tip: "Checks: only what is running one", text: "Checks", Glyph: ShieldCheck, built: true, pressed: (deck) => deck.checks, press: toggleChecks },
-  { label: "Needs me", text: "Calls", Glyph: Megaphone, built: true, pressed: (deck) => deck.needs, press: toggleNeeds },
-  { label: "Map", tip: "Map: not built", text: "Map", Glyph: Orbit, built: MAP_BUILT, pressed: () => false, press: () => {} },
-  { label: "Timeline", text: "Timeline", Glyph: ChartNoAxesGantt, built: true, pressed: (deck) => deck.sel === undefined, press: () => setView("timeline") },
+  { label: "Jobs only", text: "Jobs", Glyph: Box, pressed: (deck) => deck.only === "jobs", press: () => toggleOnly("jobs") },
+  { label: "Sessions only", text: "Sessions", Glyph: SquareTerminal, pressed: (deck) => deck.only === "sessions", press: () => toggleOnly("sessions") },
+  { label: "Checks", tip: "Checks: only what is running one", text: "Checks", Glyph: ShieldCheck, pressed: (deck) => deck.checks, press: toggleChecks },
+  { label: "Needs me", text: "Calls", Glyph: Megaphone, pressed: (deck) => deck.needs, press: toggleNeeds },
+  { label: "Map", text: "Map", Glyph: Orbit, pressed: (deck) => deck.sel === undefined && deck.view === "map", press: () => setView("map") },
+  { label: "Timeline", text: "Timeline", Glyph: ChartNoAxesGantt, pressed: (deck) => deck.sel === undefined && deck.view === "timeline", press: () => setView("timeline") },
 ];
 
 /** The four filters and the view switch: one row of six equal tiles. */
@@ -316,7 +312,7 @@ function FlightControl() {
       <div className="deck-controls__block">
         {TILES.map((tile, at) => (
           <Tooltip key={tile.label} label={tile.tip ?? tile.label} shortcut={String(at + 1)} asChild>
-            <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} aria-disabled={tile.built ? undefined : true} data-unbuilt={tile.built ? undefined : ""} onClick={() => (tile.built ? tile.press() : undefined)}>
+            <button type="button" className="deck-tile" aria-label={tile.label} aria-pressed={tile.pressed(deck)} onClick={tile.press}>
               <tile.Glyph size={20} aria-hidden="true" />
               <span className="deck-tile__text">{tile.text}</span>
               <Kbd className="deck-tile__key" aria-hidden="true">
@@ -472,6 +468,21 @@ export function DeckBody(props: CockpitProps) {
   useCursor(cursorJob, onCursor);
   const incoming = incomingOf(ship.calls, deck.held, deck.visited);
   const selected = deck.sel?.key;
+  // A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up.
+  const events = useFleetEvents();
+  const clock = quantized(props.now);
+  const replayable = useMemo(() => windowOf(events, clock)?.events ?? [], [events, clock]);
+  const repositories = props.state.holds.repositories ?? [];
+  const ownerOf = (number: number) => {
+    const pr = ship.prs.find((one) => one.number === number);
+    return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
+  };
+  const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  useReplayDriver(replayable, props.now, ownerOf, rootOf);
+  useReplayKeys(deck.replay !== undefined, replayable, ownerOf, rootOf, (target) => {
+    const id = panelAt(target)?.id;
+    return id === "stage" ? "map" : id;
+  });
   return (
     <div className="armada-cockpit deck">
       <div className="deck-grid">

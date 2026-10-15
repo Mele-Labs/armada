@@ -5,7 +5,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 
-import { placeCallout, type Anchored } from "./callout";
+import { placeCallout, type Anchored } from "./placement";
 import type { Tip } from "./tip";
 
 /** What the callout hangs from: the element hovered or focused, or a point where the pointer was for a thing too large to have a middle. */

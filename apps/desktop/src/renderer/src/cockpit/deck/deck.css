@@ -176,6 +176,8 @@
 .deck-job__run { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
 .deck-job__run > .armada-approval-canvas { flex: 1 1 0; min-width: 0; block-size: 100%; }
 .deck-job__reading { flex: 1 1 auto; }
+/* The mission: the battlefield's own plane, cut down to the one Job, in the canvas's place. */
+.deck-job__mission { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; border-right: var(--border-width) solid var(--border-default); }
 .deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
 
 /* A Session: its own thread, and the box to answer it. */
@@ -187,7 +189,10 @@
 
 /* ---- The timeline -------------------------------------------------------------------------------------------- */
 
+.deck-map,
 .deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
+/* The battlefield runs edge to edge in its pane. */
+.deck-map { padding: 0; overflow: hidden; }
 .deck-timeline > * { flex: 1 1 auto; min-width: 0; }
 
 /* ---- The merge queue: one row in a glass panel under the stage, as dots or as chips -------------------- */
@@ -311,9 +316,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
 .deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .deck-tile__text { font-size: var(--text-2xs); line-height: var(--leading-xs); }
-/* A tile whose act is not built is drawn, dim, and does nothing. */
-.deck-tile[aria-disabled="true"] { color: var(--fg-subtle); cursor: default; }
-.deck-tile[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-subtle); }
 /* Pressed is lit. */
 .deck-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
 
@@ -514,3 +516,48 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 /* The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue. */
 .deck-scope { flex: none; display: flex; align-items: center; min-width: 0; }
 .deck-scope .armada-dropdown__trigger { width: 100%; justify-content: space-between; }
+
+/* ---- A picked event, and a replay ----------------------------------------------------------------------- */
+
+.bf:focus { outline: none; }
+.deck-focus,
+.deck-replay,
+.deck-replay-mark {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 2);
+  background: color-mix(in srgb, var(--bg-base) 86%, transparent);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
+  backdrop-filter: blur(var(--space-2));
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+/* The caption: the picked event's sentence and its age, with the way into a replay. Top middle of the map. */
+.deck-focus { top: var(--space-3); left: 50%; translate: -50% 0; max-width: calc(100% - var(--space-12) * 3); padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4); }
+.deck-focus__who { color: var(--fg-default); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-focus__says { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-focus__ago { flex: none; color: var(--fg-subtle); }
+/* The marker, so a replayed field is never taken for the live one. */
+.deck-replay-mark { top: var(--space-3); left: var(--space-3); padding: var(--space-1) var(--space-4) var(--space-1) var(--space-3); color: var(--accent); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+/* The bar, along the bottom of the map. */
+.deck-replay { bottom: var(--space-3); left: var(--space-4); right: var(--space-4); padding: var(--space-1) var(--space-3); }
+.deck-replay__speeds { display: flex; flex: none; padding: calc(var(--border-width) * 2); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 2); }
+.deck-replay__speed { min-width: var(--space-8); height: var(--space-6); padding: 0 var(--space-2); border: 0; border-radius: calc(var(--radius-lg) * 2); background: transparent; color: var(--fg-muted); font: inherit; cursor: pointer; }
+.deck-replay__speed[aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); }
+.deck-replay__speed:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-replay__track { position: relative; flex: 1 1 0; min-width: 0; height: var(--space-6); cursor: pointer; touch-action: none; }
+.deck-replay__track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: calc(var(--border-width) * 2); translate: 0 -50%; border-radius: var(--border-width); background: color-mix(in srgb, var(--fg-default) 14%, transparent); }
+.deck-replay__fill { position: absolute; left: 0; top: 50%; height: calc(var(--border-width) * 2); translate: 0 -50%; border-radius: var(--border-width); background: var(--accent); transition: width calc(var(--duration-sheet) / 2) linear; }
+.deck-replay__tick { position: absolute; top: 50%; width: calc(var(--border-width) * 2); height: var(--space-3); translate: calc(var(--border-width) * -1) -50%; border-radius: var(--border-width); background: var(--fg-subtle); }
+.deck-replay__tick[data-passed] { background: var(--accent); }
+.deck-replay__head { position: absolute; top: 50%; width: var(--space-3); height: var(--space-3); translate: -50% -50%; border-radius: 50%; background: var(--accent); box-shadow: 0 0 var(--space-3) var(--accent); transition: left calc(var(--duration-sheet) / 2) linear; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .deck-replay__fill,
+  .deck-replay__head { transition: none; }
+}

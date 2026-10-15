@@ -17,10 +17,11 @@ import { holdFor } from "../Cockpit";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
+import { claimsReplay } from "./replay";
 import { rememberSystemPage, systemPageOf } from "./preview";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, listOf, moveCursor, openCall, release, select, selOfSubject, setHere, setView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
 import { useShip } from "./ship";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
@@ -165,6 +166,8 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
     // A call in front takes the bare digits and letters it names, and the deck stands down for it.
     if (state.sel?.kind === "call") return;
     const panel = panelAt(target);
+    // A replay's own keys, taken by it where it is up.
+    if (state.replay !== undefined && claimsReplay(event, panel?.id === "stage" ? "map" : panel?.id)) return;
     if (event.key === "Tab" || event.key === "F6") {
       // Tab goes round the panels from any of them but the stage while it holds a page of its own, whose controls it is left to reach; F6 always.
       if (event.key === "Tab" && (panel === undefined || (panel.id === "stage" && state.sel !== undefined))) return;
@@ -176,7 +179,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
       const tile = TILES[digit - 1];
       if (tile === undefined) return;
       event.preventDefault();
-      if (tile.built) tile.press();
+      tile.press();
       return;
     }
     const slot = pressedSlot("deck_panel", event);
@@ -189,6 +192,34 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
       event.preventDefault();
       setView("timeline");
       return focusSoon("stage");
+    }
+    // `m` is the Dashboard's switch between its views, read by the deck as the map.
+    if (isPressed("dashboard_view", event)) {
+      event.preventDefault();
+      setView("map");
+      return focusSoon("stage");
+    }
+    // With a Job open, `v` swaps its mission and its canvas, wherever focus is on the deck.
+    if (isPressed("deck_view", event) && state.sel?.kind === "job") {
+      event.preventDefault();
+      return toggleJobView();
+    }
+    // In a Job's pane, 0 is the canvas's own Fit or the mission's whole route: the whole run in the frame.
+    if (event.key === "0" && !event.shiftKey && state.sel?.kind === "job") {
+      const fit = document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job:"] :is(.deck-job__canvas button[aria-label="Fit"], .deck-job__mission button[aria-label="Whole route"])');
+      if (fit !== null) {
+        event.preventDefault();
+        return fit.click();
+      }
+    }
+    // Zoom is the map's wherever focus is, while the map is what the stage is showing.
+    if (["+", "=", "-", "_", "0", "Home"].includes(event.key) && !event.shiftKey && state.sel === undefined && state.view === "map") {
+      const field = document.querySelector(".bf");
+      if (field !== null && !field.contains(target)) {
+        event.preventDefault();
+        field.dispatchEvent(new KeyboardEvent("keydown", { key: event.key, bubbles: true, cancelable: true }));
+      }
+      return;
     }
     const step = pressedSlot("move_focus", event);
     const arrow = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
@@ -236,6 +267,10 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
         goBack();
         // What had focus may have been what was just put away: the list has it then.
         window.requestAnimationFrame(() => panelAt(document.activeElement) === undefined && focusPanel("list", deckNow().cursor));
+      } else if (state.focus !== undefined) {
+        // A picked event lets go.
+        event.preventDefault();
+        setFocus(undefined);
       } else if ((panel !== undefined && panel.id !== "list") || target === document.body) {
         event.preventDefault();
         focusPanel("list", state.cursor);

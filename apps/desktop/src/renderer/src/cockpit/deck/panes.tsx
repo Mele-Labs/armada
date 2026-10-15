@@ -1,11 +1,11 @@
-// What fills the flight deck's stage once something is picked: a Job as the canvas of its run beside what it is doing now, a
-// Session as its own miniature, a bay as the facts about it and who held it, a pull request as the facts the forge holds, and a
-// call as the real call card. Every pane has one head with the way back, which Esc is too. A Job's mission across the field is
-// not here: it is S4b's, with the battlefield. Ported from proto/cockpit-flight-deck. #2301.
+// What fills the flight deck's stage once something is picked: a Job as its mission or the canvas of its run beside what it is
+// doing now, a Session as its own miniature, a bay as the facts about it and who held it, a pull request as the facts the forge
+// holds, and a call as the real call card. Every pane has one head with the way back, which Esc is too. Ported from
+// proto/cockpit-flight-deck. #2301.
 
 import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, NowPanel, Tooltip, isPressed, pressedDigit } from "@armada/components";
+import { Button, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { ScrapConfirm, SlotFinding } from "@armada/components/src/compositions/PoolSlots/SlotFinding";
 import type { JobDetail, RescueAct } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
@@ -29,7 +29,7 @@ import { SlotHistory } from "./SlotHistory";
 import { MarkGlyph, PrChip, StepsBar } from "./shared";
 import type { Pr, Subject } from "./ship";
 import { toneOf } from "./order";
-import { answered, goBack, leaveAutopilot, openFrom, select, useDeck } from "./store";
+import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck } from "./store";
 
 type CockpitProps = ComponentProps<typeof Cockpit>;
 
@@ -147,31 +147,45 @@ function RunCanvas({ subject, props, run }: { subject: Subject; props: CockpitPr
   );
 }
 
+/** The two takes of a Job's run, in its head: the mission across the field it works, and the canvas of its steps. `v` swaps them. */
+const JOB_VIEWS = [
+  { id: "mission", label: "Mission", hint: "Mission view" },
+  { id: "canvas", label: "Canvas", hint: "Canvas view" },
+];
+
 /**
- * A Job: the canvas of its run and what it is doing now. **The Job's mission across the field, the other take of this pane
- * with `v` to swap, is the battlefield's and arrives with it (#2301).**
+ * A Job: its run as a mission across the field, or as the canvas its own page draws, and what it is doing now. `mission` draws the
+ * mission from the run it is handed: it lives with the field's readings, in the map's file, and this pane does not know the field.
  */
-export function JobPane({ subject, props, acts, onPr, call }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined }) {
+export function JobPane({ subject, props, acts, onPr, call, mission }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; mission: (run: Run) => ReactNode }) {
   const nowing = nowPanelOf(props.nows?.[subject.id], { onOpenJob: props.onOpen, onSaid: () => {} });
   const tone = toneOf(subject);
+  const { jobView } = useDeck();
   const run = useRun(subject, props);
   return (
     <section className="deck-pane" aria-label={`Job: ${subject.title}`}>
       <PaneHead glyph={Box} kind="Job" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone }} />}>
+        <Tabs items={JOB_VIEWS} value={jobView} onChange={(id) => setJobView(id === "canvas" ? "canvas" : "mission")} />
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
       {call === undefined || (nowing?.asks?.length ?? 0) > 0 ? null : <CallStrip item={call} props={props} />}
       <div className="deck-job">
-        <div className="deck-job__canvas" role="group" aria-label="Canvas">
-          {subject.step === undefined ? null : (
-            <div className="deck-job__steps">
-              <StepsBar step={subject.step} tone={tone} />
-            </div>
-          )}
-          <div className="deck-job__run">
-            <RunCanvas subject={subject} props={props} run={run} />
+        {jobView === "mission" ? (
+          <div className="deck-job__mission" role="group" aria-label="Mission">
+            {mission(run)}
           </div>
-        </div>
+        ) : (
+          <div className="deck-job__canvas" role="group" aria-label="Canvas">
+            {subject.step === undefined ? null : (
+              <div className="deck-job__steps">
+                <StepsBar step={subject.step} tone={tone} />
+              </div>
+            )}
+            <div className="deck-job__run">
+              <RunCanvas subject={subject} props={props} run={run} />
+            </div>
+          </div>
+        )}
         <div className="deck-job__now" role="group" aria-label="Running now">
           {nowing === undefined ? null : <NowPanel {...nowing} />}
         </div>

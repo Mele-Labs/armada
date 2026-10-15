@@ -69,7 +69,8 @@ test("a drone that holds a call carries a call marker, and an off-screen one an 
   };
   expect(inside(edge)).toBe(true);
 
-  await page.getByRole("button", { name: title }).first().click();
+  // The marker hangs on the border and bobs a little, so it is pressed as a press, not waited on for stillness.
+  edge.click();
   // The camera eases to it: its own marker is now in the pane.
   await expect.poll(() => [...document.querySelectorAll<HTMLElement>(".bf-call")].some((one) => one.getAttribute("aria-label") === title && inside(one)), { timeout: 4000 }).toBe(true);
 });
@@ -131,7 +132,8 @@ test("a Job's Mission and Canvas views show the same acts", async () => {
   await userEvent.keyboard("v");
   await expect.poll(() => pane().querySelector('[role="group"][aria-label="Canvas"]') !== null).toBe(true);
   expect(acts()).toEqual(missionActs);
-  await expect.poll(() => pane().querySelectorAll(".armada-wfstep, [data-step-card]").length).toBeGreaterThan(0);
+  // The canvas is the Job page's own run: every step the mission has a pin for is named on it.
+  await expect.poll(() => pane().textContent ?? "").toContain(pins[0]!);
   const canvas = pane().textContent ?? "";
   for (const name of pins) expect(canvas).toContain(name);
 

@@ -363,7 +363,7 @@ function synth(own: Extract<SessionAttachment, { kind: "pull_request" }>, root: 
   };
 }
 
-const slotsOf = (state: CockpitProps["state"], picked: CockpitProps["picked"]): readonly WorktreeSlot[] =>
+export const slotsOf = (state: CockpitProps["state"], picked: CockpitProps["picked"]): readonly WorktreeSlot[] =>
   state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [];
 
 /** The ship, live. `hosts` is what `useItems` raises calls through. */

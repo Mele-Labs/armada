@@ -3,7 +3,7 @@
 
 import { expect, test } from "vitest";
 
-import { EDGE, GAP, placeCallout } from "./callout";
+import { EDGE, GAP, placeCallout } from "./placement";
 
 const PANE = { width: 900, height: 600 };
 const CARD = { w: 240, h: 130 };

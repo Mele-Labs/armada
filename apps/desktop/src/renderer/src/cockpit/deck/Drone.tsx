@@ -130,7 +130,7 @@ export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, 
       data-hot={hot || undefined}
       data-launching={launching || undefined}
       style={vars({
-        transform: `translate3d(${px(at.x)}, ${px(at.y)}, 0px)`,
+        transform: `translate3d(${px(at.x)}, ${px(at.y)}, ${px(0)})`,
         "--alt": alt,
         "--floor": floor,
         "--beam": Math.max(0, alt - FOOT - floor),
