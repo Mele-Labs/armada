@@ -26,3 +26,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."
+
+  [[icons.shield-check.usage]]
+    means = "The Checks stop on a Session's road to main"
+    group = "Session build"
+    size = "16px"
+    status = "Specified"
+    notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Checks`. The pull request's checks coming to a state."

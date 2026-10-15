@@ -1,0 +1,21 @@
+[icons.message-circle-more]
+  means = "A speech bubble with three dots in it: something being said, and not yet said"
+  group = "Session build"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Asking a Session or a Job for a progress update: the build ring's button on Sessions and Jobs, and the Session flight control. Both send `ASK_FOR_UPDATE` (`cockpit/deck/acts.ts`). Never an agent's question to the person, which is `message-circle-question`, and never Helm, which is `message-square`."
+  notes = "Proposed 15 Oct 2026 for the owner's note on the build ring: wherever the ring is shown, a button asks for an update. Tooltip `Ask for an update`, and `Update asked` after a press. The bubble is the same family as the question mark one, a message in the other direction, and the dots read as a reply on its way."
+
+  [[icons.message-circle-more.usage]]
+    means = "Ask for an update: the Session flight control, beside Stop and Open"
+    group = "Session build"
+    size = "16px"
+    status = "Proposed"
+    notes = "The same meaning and the same act as the ring's button: `askForUpdate(draft, sessionId)` in `cockpit/deck/acts.ts`. Tooltip `Ask for an update`."
+
+  [[icons.message-circle-more.usage]]
+    means = "Ask for an update: the build ring's column header, the drone's pinned card and a Job's mission"
+    group = "Session build"
+    size = "16px"
+    status = "Proposed"
+    notes = "The message is sent to the Session, or to the Job's Commander. The glyph is the same before and after a press; a sent press takes the accent."

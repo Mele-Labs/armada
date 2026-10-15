@@ -12,3 +12,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 13 Oct 2026 with the last holder on a stranded bay. When the holder is gone Fleet runs the Scout itself, so the Finding is waiting before the owner looks. The same frame as the live read, still, with the tooltip Finding ready."
+
+  [[icons.scan-search.usage]]
+    means = "The Scope phase of a Session's build, on its list row and in its ring's tooltip"
+    group = "Session build"
+    size = "16px"
+    status = "Specified"
+    notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Scope`. Nothing edited and no plan yet."

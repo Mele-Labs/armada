@@ -7,6 +7,7 @@
 // that owns commands, because the Cockpit's hosts do not carry it. #2301.
 
 import { useMemo } from "react";
+import type { Outcome } from "@armada/protocol";
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
@@ -31,6 +32,21 @@ export type Acts = {
     fix: () => boolean;
   };
 };
+
+/** What a ring's button, and a Session's flight control, ask a Session or a Job's Commander. */
+export const ASK_FOR_UPDATE = "Progress update, please: what is done, what is running now, what is next, and anything blocked.";
+
+/**
+ * Asks a Session for an update, through the route its composer sends with. Resolves whether Fleet took it: a refusal is worded by the
+ * Sessions draft itself, as for any message, and false is also what an absent draft answers.
+ */
+export async function askForUpdate(draft: SessionsDraft | undefined, sessionId: string): Promise<boolean> {
+  if (draft === undefined) return false;
+  return (await draft.send(sessionId, { text: ASK_FOR_UPDATE, files: [], sketches: [], tags: [] })) !== false;
+}
+
+/** Asks a Job's Commander for an update. The words queue for its next turn and never interrupt one. */
+export const askJobForUpdate = (askCommander: (jobId: string, text: string) => Promise<Outcome>, jobId: string): Promise<Outcome> => askCommander(jobId, ASK_FOR_UPDATE);
 
 /** The acts over what they are made of. Pure, so what each does and does not reach is held by a test. */
 export function actsOf(draft: SessionsDraft | undefined, hosts: Hosts & Extra): Acts {
