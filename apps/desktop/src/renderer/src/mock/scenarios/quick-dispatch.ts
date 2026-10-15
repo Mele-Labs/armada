@@ -1,8 +1,8 @@
 // The Cockpit on All repositories with nothing waiting on the owner, four set-up repositories served
 // (armada with a Job at work and one done, storefront, billing and docs-site with none) and Sessions
 // served. No repository is picked, so the dispatch panel reads one from the words and draws the four as
-// a row of chips. The walks `quick-dispatch-title-bar` and `quick-dispatch-centre` play it: the same
-// panel hung from the title bar's field, and as a centred sheet.
+// a row of chips. The walks `quick-dispatch-deck-button` and `dispatched-strip-opens-it` play it, and so
+// does `dispatch-panel.test.tsx`.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";

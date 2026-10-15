@@ -332,7 +332,7 @@ export const NothingMatchesSoTheWorkLeads: Story = {
   args: {
     ...board,
     defaultQuery: "retire the sleep calls",
-    dispatch: { kind: "job", onDispatch: fn(), onKind: fn(), onCompose: fn() },
+    dispatch: { kind: "job", onDispatch: fn(), onKind: fn() },
   },
   play: async ({ args, canvas, userEvent }) => {
     const row = canvas.getByRole("option", { name: /^Dispatch “retire the sleep calls” as a Job/ });
@@ -348,20 +348,18 @@ export const NothingMatchesSoTheWorkLeads: Story = {
 
 /**
  * **A search that matches keeps ↵ on the match**: the dispatch row waits at the
- * foot, and ⌘↵ sends the words whatever is picked. ⇧↵ is the full composer.
+ * foot, and ⌘↵ sends the words whatever is picked.
  */
 export const AMatchKeepsEnter: Story = {
   args: {
     ...board,
     defaultQuery: "kill",
-    dispatch: { kind: "job", onDispatch: fn(), onCompose: fn() },
+    dispatch: { kind: "job", onDispatch: fn() },
   },
-  play: async ({ args, canvas, userEvent }) => {
+  play: async ({ canvas }) => {
     const options = canvas.getAllByRole("option");
     await expect(options[0]).toHaveAttribute("aria-selected", "true");
     await expect(options[options.length - 1]).toHaveAccessibleName(/^Dispatch “kill” as a Job/);
-    await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
-    await expect(args.dispatch!.onCompose).toHaveBeenCalledWith("kill");
   },
 };
 

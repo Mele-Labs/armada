@@ -1,19 +1,17 @@
-// The Cockpit and the title bar's one bar: n opens it ready for
-// the work, the words typed lead with a row that dispatches them, and ⇧↵ opens the full composer
-// holding them. Over `dashboard-quick-dispatch`.
+// The Cockpit and the Dispatch sheet: n opens it ready for the work, the one repository set up is chosen,
+// and the words typed are the Job's request. Over `dashboard-quick-dispatch`.
 
-import { place, role, text, walk } from "../walk";
+import { inside, place, role, walk } from "../walk";
 
-const bar = role("combobox");
+const frame = role("region", "Dispatch", { exact: true });
+const request = inside(frame, role("textbox", "Request"));
 
 const dashboardQuickDispatch = walk("dashboard-quick-dispatch", [
-  { look: role("button", /^Search, or describe work to dispatch/), say: "One bar in the title row, for search and dispatch alike" },
+  { look: role("button", /^Search, or describe work to dispatch/), say: "One bar in the title row, for search" },
   { key: "n", on: place("Cockpit"), say: "Press n" },
-  { look: bar, say: "The bar opens where it sits, ready for the work" },
-  { type: "Retire the sleep calls in the store tests", into: bar, say: "The first words typed" },
-  { look: role("option", /^Dispatch “Retire the sleep calls/), say: "They lead as the work itself; ⌘↵ sends them whatever is picked" },
-  { key: "Shift+Enter", on: bar, say: "Press ⇧↵ for the full composer, for a file, a sketch or more words" },
-  { look: text("Dispatch a job"), say: "The composer opens holding what was typed" },
+  { look: request, say: "The Dispatch sheet opens, ready for the work" },
+  { type: "Retire the sleep calls in the store tests", into: request, say: "The first words typed" },
+  { look: inside(frame, role("button", "Dispatch", { exact: true })), say: "The act is a Job's Dispatch" },
 ]);
 
 export { dashboardQuickDispatch as "dashboard-quick-dispatch" };

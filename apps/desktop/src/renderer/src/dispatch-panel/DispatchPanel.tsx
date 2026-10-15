@@ -1,5 +1,5 @@
-// The dispatch panel: the place work is described, grown down from the title bar's field when the one
-// bar chose to dispatch. One frame holds it: the line (prompt, request, the key that switches kind)
+// The dispatch panel: the place work is described, a centred sheet over the window that `n`, the Cockpit's
+// Dispatch tile, every New job and a dispatch row chosen in the palette all open. One frame holds it: the line (prompt, request, the key that switches kind)
 // never moves, and a drawer under it opens for the band (kind, repository, the act) and a body that depends on the kind: a Job's
 // Settings, an Autopilot's read settings, nothing for a Session. The request is one textarea that is
 // never remounted, so what was typed and the caret stay where they were while the frame grows.
@@ -8,11 +8,10 @@
 // the one the words name lights as they are typed. Past nine a trailing menu holds the rest. When none is
 // chosen the act gives the row the keys (← and →, ↵ picks and sends) before anything is built.
 // State is carried by the frame (its edge and hue) and by the chosen chip's fill, not by a phrase.
-// `placement` is where the frame sits: hung from the title bar's field, or a centred sheet.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { FolderGit2, LoaderCircle } from "lucide-react";
-import { Button, DropdownMenu, Kbd, SendKbd, Tabs, Tooltip, sendsOn, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, Kbd, SendKbd, Tabs, Tooltip, digitKeyFor, pressedDigit, sendsOn, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -40,9 +39,6 @@ export type RepositoryChip = {
   mark?: "chosen" | "read";
 };
 
-/** Where the frame sits: hung from the title bar's field, or a centred sheet over the window. */
-export type Placement = "title" | "centre";
-
 /** How many chips carry a key. Past them a trailing menu holds the rest. */
 const KEYED = 9;
 
@@ -56,8 +52,6 @@ const WHAT: Record<PanelReading["state"], { name: string; tip: string }> = {
 };
 
 export type PanelProps = {
-  /** The box the frame hangs from: a selector, read when the panel opens. */
-  anchor?: string;
   /** The frame grown. Closed it is the line alone. */
   open: boolean;
   words: string;
@@ -67,7 +61,6 @@ export type PanelProps = {
   kinds: readonly DispatchKind[];
   onKind: (kind: DispatchKind) => void;
   reading: PanelReading;
-  placement?: Placement;
   /** The set-up repositories as the row draws them, in order: the first nine carry ⌥1 to ⌥9. */
   chips: readonly RepositoryChip[];
   /** Every repository, for the trailing menu past nine. */
@@ -95,7 +88,6 @@ export type PanelProps = {
 };
 
 export function DispatchPanel({
-  anchor,
   open,
   words,
   onWords,
@@ -104,7 +96,6 @@ export function DispatchPanel({
   kinds,
   onKind,
   reading,
-  placement = "title",
   chips,
   entries,
   asking,
@@ -124,7 +115,6 @@ export function DispatchPanel({
   const field = useRef<HTMLTextAreaElement | null>(null);
   const row = useRef<HTMLDivElement>(null);
   const asked = useRef(false);
-  const place = useHung(placement === "title", anchor);
 
   // The row takes the keys when the act asks, and gives them back to the request when it stops.
   useEffect(() => {
@@ -139,9 +129,9 @@ export function DispatchPanel({
   };
 
   const keys = (event: KeyboardEvent<HTMLElement>) => {
-    // Option changes the character a key types, so the digit is read by its place on the keyboard.
-    const slot = event.altKey && !event.metaKey && !event.ctrlKey ? /^Digit([1-9])$/.exec(event.code)?.[1] : undefined;
-    const target = slot === undefined ? undefined : chips[Number(slot) - 1];
+    // `dispatch_repository`'s row of digits, rebindable; Option changes the character a digit types, so it is read by its place on the keyboard.
+    const digit = pressedDigit("dispatch_repository", event);
+    const target = digit === null ? undefined : chips[digit - 1];
     if (target !== undefined && !disabled) {
       event.preventDefault();
       event.stopPropagation();
@@ -195,7 +185,6 @@ export function DispatchPanel({
           role="radio"
           aria-checked={one.mark === "chosen"}
           aria-label={`Repository ${one.name}`}
-          aria-keyshortcuts={`Alt+${at + 1}`}
           tabIndex={one.root === tabbable ? 0 : -1}
           className="armada-dispatch-panel__repo"
           data-mark={one.mark}
@@ -203,7 +192,7 @@ export function DispatchPanel({
           onClick={() => pick(one.root)}
         >
           <span className="armada-dispatch-panel__name">{one.name}</span>
-          <Kbd aria-hidden>{`⌥${at + 1}`}</Kbd>
+          <Kbd aria-hidden>{digitKeyFor("dispatch_repository", at + 1) ?? ""}</Kbd>
         </button>
       ))}
       {rest.length === 0 ? null : (
@@ -231,7 +220,6 @@ export function DispatchPanel({
       data-kind={kind}
       data-reading={reading.state}
       data-asking={asking || undefined}
-      style={place}
       onKeyDown={keys}
     >
       <div className="armada-dispatch-panel__line">
@@ -296,7 +284,6 @@ export function DispatchPanel({
     <div
       className="armada-dispatch-panel"
       data-settles
-      data-placement={placement}
       role="dialog"
       aria-modal="true"
       aria-label="Dispatch"
@@ -307,7 +294,7 @@ export function DispatchPanel({
   );
 }
 
-/** Where an anchored frame hangs: the box of the field it grew from, read once as the panel opens. */
+/** Where a frame hangs from a field: the box of the field it grew from, read once as it opens. The strip a send leaves hangs from the title bar's field. */
 export function useHung(on: boolean, anchor: string | undefined): CSSProperties | undefined {
   const [place, setPlace] = useState<CSSProperties>();
   useLayoutEffect(() => {

@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -15,7 +15,6 @@ import { age, useCursor, type Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
-import { deckDispatchOfWindow } from "../../dispatch-panel/take";
 import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
@@ -466,15 +465,10 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   );
 }
 
-/**
- * Dispatch, between the controls and Autopilot: the way to the dispatch sheet where a person can see it. Either one tile that
- * opens the sheet, or a one-line request box on the same draft: the first key typed grows the sheet holding the words.
- */
+/** Dispatch, between the controls and Autopilot: one tile that opens the dispatch sheet, where a person can see it and the key that does. */
 function DispatchDeck() {
   const dispatching = useDispatching();
   if (dispatching === undefined) return null;
-  const take = deckDispatchOfWindow();
-  const { words } = dispatching.panel();
   return (
     <section className="deck-panel deck-dispatch" aria-label="Dispatch controls" tabIndex={-1}>
       <header className="deck-band">
@@ -482,30 +476,15 @@ function DispatchDeck() {
         <PanelKey id="dispatch" />
       </header>
       <div className="deck-dispatch__block">
-        {take === "button" ? (
-          <Tooltip label="Dispatch" shortcut="N" asChild>
-            <button type="button" className="deck-tile deck-dispatch__tile" aria-label="Dispatch" onClick={() => dispatching.openNew()}>
-              <Send size={20} aria-hidden="true" />
-              <span className="deck-tile__text">Dispatch</span>
-              <Kbd className="deck-tile__key" aria-hidden="true">
-                N
-              </Kbd>
-            </button>
-          </Tooltip>
-        ) : (
-          <div className="deck-dispatch__box">
-            <textarea
-              aria-label="Request"
-              className="deck-dispatch__field"
-              rows={1}
-              value={words}
-              onChange={(event) => dispatching.openTitled(event.target.value)}
-            />
-            <Tooltip label="Dispatch" shortcut="N">
-              <Kbd>N</Kbd>
-            </Tooltip>
-          </div>
-        )}
+        <Tooltip label="Dispatch" shortcut={keyFor("new_job")} asChild>
+          <button type="button" className="deck-tile deck-dispatch__tile" aria-label="Dispatch" onClick={() => dispatching.openNew()}>
+            <Send size={20} aria-hidden="true" />
+            <span className="deck-tile__text">Dispatch</span>
+            <Kbd className="deck-tile__key" aria-hidden="true">
+              {keyFor("new_job")}
+            </Kbd>
+          </button>
+        </Tooltip>
       </div>
     </section>
   );

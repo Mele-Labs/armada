@@ -54,7 +54,7 @@ import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
 import { useSessions } from "./sessions-draft";
 import { useThoughtRouting } from "./thought-routing";
-import { TitleDispatchedStrip, TitleDispatchPanel } from "./dispatch-panel/entries";
+import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -217,8 +217,7 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  const [seed, setSeed] = useState<string>(); // Words typed into the title bar's one bar.
-  useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
+  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -442,10 +441,10 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
-  const newJob = (root?: string) => (dispatching.choose("job"), dispatching.openNew(root)); // A New job entry opens the same panel, on a Job.
+  const newJob = () => (dispatching.choose("job"), dispatching.openNew()); // A New job entry opens the same panel, on a Job.
   const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
-  const refsHost: RefsHostProps = { state, repositories, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (goTo(SURFACE.overview), root !== undefined && state.repository !== root && pickRepository(root), newJob(root)), openLink: openProseLink };
+  const refsHost: RefsHostProps = { state, repositories, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (goTo(SURFACE.overview), root !== undefined && state.repository !== root && pickRepository(root), setComposing(true)), openLink: openProseLink };
   const helmRefs = useHelmRefs(refsHost);
   const helmHosted = useHelmHosted({
     manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
@@ -1055,7 +1054,6 @@ export function App({ draft }: AppProps = {}) {
                 onSaid={setTelling}
                 onCopied={setCopied}
                 sketch={composedFrom}
-                seed={seed}
               />
             ) : studying ? (
               <StudiosSurface
@@ -1216,8 +1214,7 @@ export function App({ draft }: AppProps = {}) {
 
         <Locate locating={locate} />
 
-        {/* Centred at 20vh, as the palette is: the owner, 15 Oct 2026. */}
-        <TitleDispatchPanel />
+        <DispatchSheet />
         <TitleDispatchedStrip />
 
         <PaletteMount

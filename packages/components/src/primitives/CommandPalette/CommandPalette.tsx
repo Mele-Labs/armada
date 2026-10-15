@@ -181,11 +181,11 @@ export function CommandPalette({
   }, [entries, sections, query]);
 
   const hits = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
-  // The dispatch row, once something is typed: first where nothing else matches, the words are a
-  // link, or `n` opened the bar, so ↵ sends them; last otherwise, so ↵ still opens what was searched
+  // The dispatch row, once something is typed: first where nothing else matches or the words are a
+  // link, so ↵ sends them; last otherwise, so ↵ still opens what was searched
   // for. ⌘↵ always sends.
   const offered = dispatch !== undefined && query.trim() !== "";
-  const leading = offered && (dispatch.leads === true || hits.length === 0 || readsAsWork(query));
+  const leading = offered && (hits.length === 0 || readsAsWork(query));
   const flat: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
   const place = useAnchor(open, anchor);
 
@@ -279,11 +279,6 @@ export function CommandPalette({
     if (event.key === "Enter") {
       event.preventDefault();
       if (event.metaKey) return send();
-      if (event.shiftKey && dispatch?.onCompose !== undefined) {
-        dispatch.onCompose(query.trim());
-        onClose?.();
-        return;
-      }
       choose(flat[at]);
       return;
     }
@@ -318,7 +313,7 @@ export function CommandPalette({
           aria-controls="armada-palette-list"
           aria-activedescendant={current === undefined ? undefined : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={placeholder}
-          placeholder={dispatch?.leads === true ? "Describe the work, or paste a link to a ticket." : placeholder}
+          placeholder={placeholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}

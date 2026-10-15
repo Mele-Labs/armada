@@ -928,11 +928,11 @@ the **title row** — the bar across the window's top carrying the one bar,
 the plan's limits, Helm's reopen control, Fleet's status dot and one menu
 holding the account, Sleep, Settings and Doctor. A wordmark starts the row, and the
 window's tabs are drawn in its centre (Navigation, below). The menu button carries a moon while Sleep is on and an
-amber dot while signed out. **The one bar searches and
-dispatches** (the owner, 10 Oct 2026): it opens the palette, centred across the window and not on the bar, and
-the palette offers what was typed as the work too, so the row draws no
-Dispatch button. Dispatching grows a panel, down from the bar's field (`docs/journeys/dispatch-a-job.md`);
-the Cockpit has no dispatch bar of its own. The row sits flush on
+amber dot while signed out. **The one bar searches** (the owner, 10 Oct 2026): it opens the palette, centred
+across the window and not on the bar, and the palette offers what was typed as the work too, so the row draws no
+Dispatch button. Dispatching is its own sheet, centred across the window and not hung from the bar
+(`docs/journeys/dispatch-a-job.md`), and `n` opens it without the palette; the Cockpit's deck holds a
+Dispatch tile for the same sheet. The row sits flush on
 `--bg-base` with no rule under it, so the panels below carry the frames. **The dot is
 permanent chrome**, corrected on 18 Sep 2026 from the conditional one #1438
 shipped — see Navigation, below. Costs a custom drag region: the whole row is
@@ -1250,7 +1250,8 @@ These have no trigger, so flip and alignment do not apply to them.
 | Guide card | Centred in the window on both axes |
 | Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
-| Command palette, dispatch panel | Horizontally centred across the window, the field top-anchored at 20% of the viewport's height. Neither opens on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
+| Command palette | Horizontally centred across the window, the field top-anchored at 20% of the viewport's height. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
+| Dispatch sheet | Horizontally centred across the window and wider than the palette, its top at 12% of the viewport's height, over a scrim. The one sheet for `n`, the deck's Dispatch tile, New Job and the palette's `⌘↵` |
 
 **A guide card is framed even though a `?` raised it.** It is the one layer
 that can also open with no trigger at all — the first time a person meets a
@@ -1379,6 +1380,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 ⌘N       dispatch from a field, where n would type
+⌥1–⌥9    choose a repository in the Dispatch sheet
 ⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
 ⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route
@@ -1442,7 +1444,7 @@ R              run                  (open studio only)
 m              show the map   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
-l b c q f a    go to a panel: list, bays, calls, queue, flight controls, Autopilot   (deck only)
+l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopilot, Dispatch   (deck only)
 1–6            press a flight control   (deck only)
 v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
@@ -1470,7 +1472,7 @@ a palette row yet: each is read from the Cockpit's own sheet.
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
 hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
-the keymap does not count them against `t` and `c`. `l b c q f a` go to a panel, `m` shows
+the keymap does not count them against `t` and `c`. `l b c q f a d` go to a panel, `m` shows
 the map, `1–6` press a flight control, `t` shows the timeline, `v` swaps a Job's mission
 and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
 System. A call pane in front takes the bare digits and letters the `call` scope names
@@ -1643,11 +1645,11 @@ you type is a target you misclick.
 
 **What is typed can be dispatched as well as searched.** Once there is a
 query, a row offers it as a Job, as a Session where Sessions are served, or as
-an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches, when the words are a link, or when
-`n` or `⌘N` opened the bar; otherwise it waits at the foot, so ↵ still opens
-the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by opening the dispatch panel where the palette opens, centred across the window at 20% of its height (the owner, 15 Oct 2026). The panel reads the repository from them and asks in its own frame when there is none
-(`docs/journeys/dispatch-a-job.md`). `⇧↵` opens the full
-composer holding the words, for a file, a sketch or a long request.
+an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches or when the words are a link; otherwise it waits at the foot, so ↵ still opens
+the match — a Job is searched by its title, and a title is a sentence. `n` and `⌘N` do not open the palette: they open
+the Dispatch sheet directly (the owner, 15 Oct 2026). `⌘↵` dispatches the words whichever row is picked, by opening that
+sheet holding them. The sheet reads the repository from them and asks in its own frame when there is none
+(`docs/journeys/dispatch-a-job.md`). The full composer for a file or a sketch is opened from a Studio's Sketch.
 
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, sessions by any word of the title or by id,

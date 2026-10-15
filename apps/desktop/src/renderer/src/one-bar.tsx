@@ -1,38 +1,31 @@
-// The title bar's one bar: search and dispatch in one field, proposal D (the owner, 10 Oct 2026). It
-// replaced the Dashboard's dispatch bar and the title bar's Dispatch button; the Cockpit has no bar of its own now.
-// `n` and ⌘N no longer open the palette: they open the dispatch panel on the draft, in one press, from every
-// surface. The palette is search, and a dispatch row chosen in it (↵ on the row, ⌘↵, a pasted link) moves the
-// words into that same panel, in the kind Tab chose. The panel, its draft and the sends are `dispatch-panel/`.
+// The title bar's search field and the keys that dispatch. `n` and ⌘N open the dispatch sheet on the draft, in one
+// press, from every surface; the palette is search only, and a dispatch row chosen in it (↵ on the row, ⌘↵, a pasted
+// link) moves the words into that same sheet, in the kind Tab chose. The sheet, its draft and the sends are `dispatch-panel/`.
 
 import { useEffect, useRef } from "react";
 import { isPressed, type PaletteDispatch } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
 import type { Dispatching } from "./dispatch-panel/dispatching";
-import { DECK_BOX } from "./dispatch-panel/take";
 
-/** The title bar's field, which the panel hangs from. */
+/** The title bar's field, which the strip a send leaves hangs from. */
 export const ONE_BAR = ".armada-title-bar__search";
 
 export function useOneBar({ live, dispatching }: { live: boolean; dispatching: Dispatching }): PaletteDispatch {
-  useOpenedToDispatch(live, () => {
-    const box = document.querySelector<HTMLElement>(DECK_BOX);
-    if (box === null) dispatching.openNew();
-    else box.focus();
-  });
+  useOpenedToDispatch(live, dispatching.openNew);
 
   return {
     kind: dispatching.kind,
     kinds: dispatching.kinds,
     ...(dispatching.kinds.length < 2 ? {} : { onKind: dispatching.choose }),
-    onDispatch: (words) => dispatching.openTitled(words),
+    onDispatch: (words) => dispatching.openSheet(words),
   };
 }
 
 /**
- * `n` and ⌘N open the dispatch panel, from every surface; with the Cockpit's request box on screen they give it the
- * caret instead. Read in the capture phase, so the surface under it never hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the
- * keyboard. Where a panel was put away holding words, they are the draft and the panel comes back holding them.
+ * `n` and ⌘N open the dispatch sheet, from every surface. Read in the capture phase, so the surface under it never
+ * hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the keyboard.
+ * Where a sheet was put away holding words, they are the draft and the sheet comes back holding them.
  */
 function useOpenedToDispatch(live: boolean, open: () => void): void {
   const held = useRef({ live, open });

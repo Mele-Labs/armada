@@ -32,7 +32,7 @@ export const PANELS: readonly Panel[] = [
   { id: "calls", name: "Incoming calls", root: ".deck-incoming", items: ".deck-hail" },
   { id: "queue", name: "Merge queue", root: ".deck-queue", items: "button" },
   { id: "controls", name: "Flight control", root: ".deck-controls", items: ".deck-tile" },
-  { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile, .deck-dispatch__field" },
+  { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile" },
   { id: "autopilot", name: "Autopilot", root: ".deck-autopilot", items: "button", home: '[role="switch"]' },
 ];
 
@@ -40,7 +40,7 @@ export const PANELS: readonly Panel[] = [
 export const OPENS: readonly PanelId[] = ["list", "activity", "bays", "calls", "queue"];
 
 /** The panels `deck_panel`'s slots go to, in the order the row lists its keys. */
-export const PANEL_SLOTS: readonly PanelId[] = ["list", "bays", "calls", "queue", "controls", "autopilot"];
+export const PANEL_SLOTS: readonly PanelId[] = ["list", "bays", "calls", "queue", "controls", "autopilot", "dispatch"];
 
 /** The panel a slot of `deck_panel` goes to. */
 export const panelOfSlot = (slot: number): PanelId | undefined => PANEL_SLOTS[slot];

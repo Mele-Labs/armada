@@ -19,9 +19,9 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 | Sessions        |                                  +------------------+
 |                 +----------------------------------+ Incoming calls   |
 +-----------------+ Merge queue                      |                  |
-| Activity        +------------------+---------------+                  |
-|                 | Flight control   | Autopilot     |                  |
-+-----------------+------------------+---------------+------------------+
+| Activity        +-----------+----------+-----------+                  |
+|                 | Flight    | Dispatch | Autopilot |                  |
++-----------------+-----------+----------+-----------+------------------+
 ```
 
 | Panel | Holds | Key |
@@ -34,6 +34,7 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 | Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's ledger is drawn here instead, with its ring above it where it has one, and the Bays return when it is closed | `b` |
 | Incoming calls | Every call waiting on a person | `c` |
 | Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles. While a Session is open on the stage, that Session's own (*The Session's flight controls*) | `f` |
+| Dispatch | One tile, between Flight control and Autopilot, carrying `n`. It opens the Dispatch sheet, the one `n` and New Job open | `d` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |
 
 The two side columns resize. A handle sits in the gap on each inner edge, drawn only while hovered, focused or dragged, and it is `DockHandle` (`packages/components/src/dock-handle.tsx`), the one Helm's dock and every sheet draw. A drag or `←` `→` moves it, and a double click or `Home` puts the column back to its resting width. The left column stops at 4.5 `--space-12` and the right at 4.75, and neither goes wider than leaves the stage 10 (480px), measured against the window and taken again when it resizes. The widths are kept in this browser as dragged (`armada.bridge.deck-columns`, `deck/columns.ts`), so a column dragged wide in a big window returns to that width when the window does. The deck has no narrow layout, so there is none to leave the handles out of.
@@ -95,7 +96,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | A System page | The strip under the tabs: Kit, Mods, Settings, Guides, Workflows. System opens the page last used. `⌘,` is Settings |
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
-| A panel | `l b c q f a` |
+| A panel | `l b c q f a d` |
 | A flight control | `1` to `6`, or `1` to `5` while a Session is open |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |

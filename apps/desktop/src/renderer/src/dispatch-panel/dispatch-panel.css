@@ -1,14 +1,13 @@
 /* The dispatch panel, in the Cockpit's own glass: a sunken frame, a raised band under the request,
-   a mono body. At rest it is one slim line; open, the drawer under the line
-   grows and nothing above it moves. State is the frame's edge and hue and the chip's icon, never
-   a phrase: accent while the repository is read, the awaiting hue (as a Cockpit call that needs
+   a mono body. The line holds the request; the drawer under it opens for the repository row, the
+   band and the body, and nothing above it moves. State is the frame's edge and hue and the chosen
+   chip's fill, never a phrase: accent while the repository is read, the awaiting hue (as a Cockpit call that needs
    the owner) while Dispatch is waiting on the owner to name one. The repository is a row of chips with
    their keys; the chosen one is filled in the accent, in the weight of a held bay. Tokens only. */
 
 /* ---- Where the frame sits ------------------------------------------------------------------ */
 
-/* Centred across the window, its top at 20vh, where the palette opens; an anchor, where a caller
-   passes one, hangs it from that field instead. A scrim holds the rest of the window. */
+/* A centred sheet over the window, its top at 12vh, wider than the palette and its request taller. A scrim holds the rest of the window. */
 .armada-dispatch-panel {
   position: fixed;
   inset: 0;
@@ -17,32 +16,13 @@
   animation: armada-dispatch-panel-in var(--duration-base) var(--ease);
 }
 
-/* Hung from a field, it is held inside the window: a field near the edge does not push the frame off it. */
 .armada-dispatch-panel > .armada-dispatch-panel__frame {
-  --width: max(var(--hung-width), min(var(--palette-width), calc(100vw - var(--space-6))));
   position: absolute;
-  top: var(--hung-top, 20vh);
-  left: min(var(--hung-left, 50%), calc(100vw - var(--width) - var(--space-3)));
-  width: var(--width);
-  max-width: calc(100vw - var(--space-6));
-}
-
-.armada-dispatch-panel > .armada-dispatch-panel__frame:not([style]) {
-  left: 50%;
-  width: min(calc(var(--palette-width) * 1.25), calc(100vw - var(--space-6)));
-  transform: translateX(-50%);
-}
-
-/* The centred take: a sheet over the window, higher than the palette sits and a good deal wider, its request taller. */
-.armada-dispatch-panel[data-placement="centre"] > .armada-dispatch-panel__frame {
   top: 12vh;
   left: 50%;
   width: min(calc(var(--palette-width) * 1.75), calc(100vw - var(--space-6)));
+  max-width: calc(100vw - var(--space-6));
   transform: translateX(-50%);
-}
-
-.armada-dispatch-panel[data-placement="centre"] .armada-dispatch-panel__frame[data-open] .armada-dispatch-panel__field {
-  height: calc(var(--leading-lg) * 5);
 }
 
 @keyframes armada-dispatch-panel-in {
@@ -129,7 +109,7 @@
   transition: height var(--duration-sheet) var(--ease);
 }
 
-.armada-dispatch-panel__frame[data-open] .armada-dispatch-panel__field { height: calc(var(--leading-lg) * 4); }
+.armada-dispatch-panel__frame[data-open] .armada-dispatch-panel__field { height: calc(var(--leading-lg) * 5); }
 
 .armada-dispatch-panel__field:focus,
 .armada-dispatch-panel__field:focus-visible { outline: none; box-shadow: none; }
