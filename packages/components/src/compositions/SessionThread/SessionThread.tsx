@@ -18,7 +18,7 @@ import { SessionStop } from "./SessionStop";
 import { TASK_GLYPH, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
-import { InlineTag } from "../SessionComposer/InlineTag";
+import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
@@ -538,7 +538,7 @@ function Row({
 }) {
   // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
   const refs = useContext(ProseRefs);
-  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: tag.title.replace(/^#\d+\s*/, "") }));
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (

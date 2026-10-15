@@ -32,7 +32,8 @@ pub struct KeptPick {
     pub pick_id: String,
     pub run_id: String,
     pub manifest_id: String,
-    pub issue_number: u64,
+    /// The tracker's own name for the issue: `#12`, `ABC-12`.
+    pub issue_reference: String,
     pub issue_title: String,
     pub issue_url: String,
     pub workflow_id: Option<String>,
@@ -48,7 +49,7 @@ const AUTOPILOT: &str =
                          state, started_at, ended_at, capped_by";
 const PICK: &str =
     "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
-                    started_job, state, reason, at";
+                    started_job, state, reason, at, issue_reference";
 
 fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
     Ok(KeptAutopilot {
@@ -73,7 +74,11 @@ fn pick_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPick> {
         pick_id: row.get(0)?,
         run_id: row.get(1)?,
         manifest_id: row.get(2)?,
-        issue_number: row.get::<_, i64>(3)?.max(0) as u64,
+        // A pick from before the column has no reference and reads as its number.
+        issue_reference: match row.get::<_, String>(11)? {
+            kept if !kept.is_empty() => kept,
+            _ => format!("#{}", row.get::<_, i64>(3)?.max(0)),
+        },
         issue_title: row.get(4)?,
         issue_url: row.get(5)?,
         workflow_id: row.get(6)?,
@@ -202,13 +207,13 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT INTO autopilot_picks ({PICK})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"
                 ),
                 params![
                     pick.pick_id,
                     pick.run_id,
                     pick.manifest_id,
-                    pick.issue_number as i64,
+                    pick.issue_reference.trim_start_matches('#').parse::<i64>().unwrap_or(0),
                     pick.issue_title,
                     pick.issue_url,
                     pick.workflow_id,
@@ -216,6 +221,7 @@ impl Store {
                     pick.state,
                     pick.reason,
                     pick.at,
+                    pick.issue_reference,
                 ],
             )
             .map(|_| ())

@@ -39,11 +39,11 @@ pub(crate) async fn list_issues<D: Issues>(
 
 pub(crate) async fn get_issue<D: Issues>(
     State(served): State<Served<D>>,
-    Path((repository, number)): Path<(String, u64)>,
+    Path((repository, reference)): Path<(String, String)>,
 ) -> Response {
     match served
         .daemon()
-        .get_issue(ManifestId::carried(repository), number)
+        .get_issue(ManifestId::carried(repository), reference)
         .await
     {
         Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
@@ -55,7 +55,7 @@ pub(crate) async fn get_issue<D: Issues>(
 pub(crate) fn mounted<D: Issues + Autopilots>() -> Router<Served<D>> {
     Router::new()
         .route("/issues/:repository", get(list_issues::<D>))
-        .route("/issues/:repository/:number", get(get_issue::<D>))
+        .route("/issues/:repository/:reference", get(get_issue::<D>))
         .route("/autopilots", get(ap::list_autopilots::<D>))
         .route(
             "/autopilots/:repository",

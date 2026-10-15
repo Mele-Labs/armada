@@ -86,7 +86,7 @@ impl Tracker for Refusing {
         Err(self.no("listing the open issues"))
     }
 
-    fn read_issue(&self, _in_repo: &str, _number: u64) -> Result<Option<ReadIssue>, NotTracked> {
+    fn read_issue(&self, _in_repo: &str, _reference: &str) -> Result<Option<ReadIssue>, NotTracked> {
         Err(self.no("reading the issue"))
     }
 

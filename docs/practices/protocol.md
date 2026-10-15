@@ -3802,7 +3802,7 @@ A Drone can ask several decisions in one ask, and a person answers them all at o
 | `HelmOpened.facts` | `HelmBoxFacts`, always present | What a viewer starts from |
 | `observe_helm` message `facts` | `HelmBoxFacts` | **Live only**: never in the backfill and never written to the thread's file. Sent when the tuning or Helm's own commands change; a change in the Sessions' list is read at the next `opened` |
 | `TagKind::Issue`, `SessionTag.url?` | `issue`; the forge address of an issue or pull request tag | Fleet writes `issue #214 "title" (address)` for the agent, and a leading `#N ` in a title is dropped from the line |
-| `get_issue` (`GET /issues/:repository/:number`) | Answers `IssueRead`: `number`, `title`, `url`, `state` (`open` or `closed`) | 404 `fleet.no_such_issue`, and a pull request's number is not an issue; 500 `fleet.issues_unreadable`; 422 for a repository Fleet does not serve |
+| `get_issue` (`GET /issues/:repository/:reference`) | Answers `IssueRead`: `reference`, `title`, `url`, `state` (`open` or `closed`) | 404 `fleet.no_such_issue`, and a pull request's number is not an issue; 500 `fleet.issues_unreadable`; 422 for a repository Fleet does not serve |
 
 **Start fresh deletes the conversation's uploads**, with the thread that named them. The turn a words-only ask writes is unchanged; an ask with a picture is written as a block list, as a Session's is.
 
@@ -4028,6 +4028,20 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*;
 **Skew.** None to meet beyond the rule: Protocol IDs equal or Bridge opens no socket and the lifeboat is the fallback. The change touches the wire, so the ID moves; there is no order between two IDs and nothing here depends on one. **The lifeboat is untouched**: `/v0/` is still four hand-written routes with no dependency, and none of this is on them.
 
 **What is not on the wire.** The old Helm thread files under the records root are not read. The Helm Session's `helm` flag is on the store's `hosted_sessions` row (migration `20261013T1700Z-helm_session.hosted_helm`), not a second table; `live_helm_of` and `latest_helm_of` find it.
+
+## An issue is named by its tracker's reference
+
+`docs/concepts/tracker.md`. An issue crossed the wire as a number, which names nothing once a tracker has more than one project and drew as `#123` for Jira's `ABC-123`. The protocol ID moves with the files below, and there is no number to take.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `TrackedIssue.number` (`list_issues`) | Fleet writes, Bridge draws | Replaced by `reference`: the tracker's own name as a person writes it, `#123` on the forge and `ABC-123` on Jira. Bridge draws it as it is and never builds one |
+| `IssueRead.number` (`get_issue`) | Fleet writes, Bridge reads | Replaced by `reference`, as above |
+| `get_issue` path | Bridge calls | `GET /issues/:repository/:reference`, percent-encoded. A forge takes `214` or `#214`; Jira takes a key. A reference the tracker does not use, such as a bare number on Jira, is a 404 `fleet.no_such_issue` |
+| `AutopilotPick.issue_number` | Fleet writes, Bridge draws | Replaced by `issue_reference`. The store keeps `issue_number` for picks written before the column, and reads one with no reference as `#` and its number |
+| `getIssue` (preload) | Bridge | Takes the reference as text where it took a number |
+
+**The `#` picker takes a key as well as digits.** An issue's tag id is its key where the tracker names issues by one, and the picker matches what is typed against the reference, ignoring case. A lookup by number reads only numbers. **The event stream is untouched**: no event carries an issue, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
 
 ## Open questions
 

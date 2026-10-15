@@ -214,7 +214,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
         key: `aside:${autopilot.manifest_id}:${pick.pick_id}`,
         icon: Plane,
         kind: "Set aside by Autopilot",
-        title: `#${pick.issue_number} ${pick.issue_title}`,
+        title: `${pick.issue_reference} ${pick.issue_title}`,
         fact: "Autopilot was unsure",
         hue: "issue",
         where: nameOf(autopilot.manifest_id),

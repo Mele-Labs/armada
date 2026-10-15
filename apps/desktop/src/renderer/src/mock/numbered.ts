@@ -9,10 +9,22 @@ import { issueHit, lookedUpPullRequest, pullRequestHit } from "../numbered";
 import type { NumberedSource } from "../numbered";
 
 const issue = (number: number, title: string): TrackedIssue => ({
-  number,
+  reference: `#${number}`,
   title,
   url: `https://forge.invalid/issues/${number}`,
   labels: [],
+  assignees: [],
+  updated_at: "2026-10-11T11:40:00Z",
+  excerpt: "",
+  linked_pull_request: false,
+});
+
+/** An issue of a tracker that names them by key, as Jira does: its reference is the key. */
+const keyed = (reference: string, title: string, labels: string[] = []): TrackedIssue => ({
+  reference,
+  title,
+  url: `https://acme.atlassian.net/browse/${reference}`,
+  labels,
   assignees: [],
   updated_at: "2026-10-11T11:40:00Z",
   excerpt: "",
@@ -72,10 +84,26 @@ const REPOSITORIES: Record<string, Repository> = {
     looked: [done("billing", 74, "Fold the two invoice totals", "merged")],
     closed: [],
   },
+  // A repository whose issues are in Jira, across two projects: `ABC` and `OPS`.
+  ops: {
+    issues: [
+      keyed("ABC-123", "Checkout total rounds twice", ["bug"]),
+      keyed("OPS-7", "Pager rota skips the night shift", ["on-call"]),
+      keyed("ABC-118", "Order export drops the VAT column"),
+      keyed("OPS-12", "Rotate the staging database credentials", ["security"]),
+    ],
+    pulls: [],
+    looked: [],
+    closed: [],
+  },
 };
 
 /** The open issues of the repositories whose own lists differ from the generic four, for the composer's Open issues card. */
-export const REPOSITORY_ISSUES: Record<string, TrackedIssue[]> = { armada: REPOSITORIES["armada"]!.issues, billing: REPOSITORIES["billing"]!.issues };
+export const REPOSITORY_ISSUES: Record<string, TrackedIssue[]> = {
+  armada: REPOSITORIES["armada"]!.issues,
+  billing: REPOSITORIES["billing"]!.issues,
+  ops: REPOSITORIES["ops"]!.issues,
+};
 
 const of = (manifestId: string | undefined): Repository => REPOSITORIES[manifestId ?? "armada"] ?? REPOSITORIES["armada"]!;
 
@@ -89,7 +117,7 @@ export const mockNumbered: NumberedSource = {
       setTimeout(() => {
         const held = of(manifestId);
         const pr = held.looked.find((one) => one.number === number);
-        const closed = held.closed.find((one) => one.number === number);
+        const closed = held.closed.find((one) => one.reference === `#${number}`);
         resolve(pr !== undefined ? lookedUpPullRequest(pr) : closed === undefined ? undefined : { ...issueHit(closed), standing: "Closed" });
       }, LOOKUP_MS),
     ),

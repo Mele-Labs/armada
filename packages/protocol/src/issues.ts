@@ -5,7 +5,8 @@
 
 /** One open issue. Every string is the tracker's own, unedited. */
 export type TrackedIssue = {
-  number: number;
+  /** The tracker's own name for it, as a person writes it: `#123` on the forge, `ABC-123` on Jira. Drawn as it is. */
+  reference: string;
   title: string;
   /** The tracker's address for it: what a dispatch from it sends as the request. */
   url: string;
@@ -28,9 +29,10 @@ export type IssueList = {
   stale?: string;
 };
 
-/** `get_issue` (`GET /issues/:repository/:number`): one issue by number, open or closed. 404 `fleet.no_such_issue`, 500 `fleet.issues_unreadable`. */
+/** `get_issue` (`GET /issues/:repository/:reference`): one issue by reference, open or closed. 404 `fleet.no_such_issue`, 500 `fleet.issues_unreadable`. */
 export type IssueRead = {
-  number: number;
+  /** As `TrackedIssue.reference`. */
+  reference: string;
   title: string;
   /** The tracker's address for it. */
   url: string;

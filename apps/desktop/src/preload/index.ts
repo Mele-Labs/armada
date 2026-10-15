@@ -666,7 +666,7 @@ const api: BridgeApi = {
   getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
-  getIssue: (manifestId: string, number: number): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, number),
+  getIssue: (manifestId: string, reference: string): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, reference),
   getPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
     ipcRenderer.invoke(CHANNELS.getPullRequest, manifestId, number),
   ...autopilotPreload,

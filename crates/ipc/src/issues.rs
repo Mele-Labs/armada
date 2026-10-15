@@ -8,7 +8,9 @@ use crate::{Instant, JobId, ManifestId};
 /// One open issue. Every string is the tracker's own, unedited.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrackedIssue {
-    pub number: u64,
+    /// The tracker's own name for it, as a person writes it: `#123` on the forge, `ABC-123` on
+    /// Jira. Bridge draws it as it is.
+    pub reference: String,
     pub title: String,
     /// The tracker's address for it: what a dispatch from it sends as the request.
     pub url: String,
@@ -45,10 +47,11 @@ pub enum IssueState {
     Closed,
 }
 
-/// `get_issue`' answer: one issue by number, open or closed. Every string is the tracker's own.
+/// `get_issue`' answer: one issue by reference, open or closed. Every string is the tracker's own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IssueRead {
-    pub number: u64,
+    /// As [`TrackedIssue::reference`].
+    pub reference: String,
     pub title: String,
     pub url: String,
     pub state: IssueState,

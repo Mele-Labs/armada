@@ -76,16 +76,16 @@ async fn a_sure_pick_starts_unasked_and_an_unsure_one_is_set_aside_in_the_same_p
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1);
 
     let now = fleet.get_autopilot(here(&fleet)).await.expect("held");
-    let states: Vec<(u64, AutopilotPickState)> = now
+    let states: Vec<(&str, AutopilotPickState)> = now
         .picks
         .iter()
-        .map(|pick| (pick.issue_number, pick.state))
+        .map(|pick| (pick.issue_reference.as_str(), pick.state))
         .collect();
     assert_eq!(
         states,
         vec![
-            (11, AutopilotPickState::SetAside),
-            (12, AutopilotPickState::Started)
+            ("#11", AutopilotPickState::SetAside),
+            ("#12", AutopilotPickState::Started)
         ]
     );
     assert_eq!(now.picks[0].reason, "it may want a design call");
