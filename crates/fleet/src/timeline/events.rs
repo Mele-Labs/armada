@@ -38,8 +38,8 @@ struct SeenSession {
     items: BTreeSet<String>,
     /// What the agent listed itself, by id, so its leaving the list can say what it was.
     listed: BTreeMap<String, String>,
-    /// Each subagent the row held, and whether it was spent.
-    subagents: BTreeMap<String, bool>,
+    /// Each subagent the row held, and the state it was last in.
+    subagents: BTreeMap<String, AttachmentState>,
 }
 
 /// The tap on the event stream.
@@ -267,7 +267,7 @@ impl Hearing {
         before.listed = listed;
         for one in record.attachments.iter().filter(|one| one.kind == "subagent") {
             let spent = one.state == AttachmentState::Spent;
-            let known = before.subagents.insert(one.target.clone(), spent);
+            let known = before.subagents.insert(one.target.clone(), one.state);
             // A Session already held subagents when Fleet first saw it: they began before this.
             if first {
                 continue;
@@ -280,7 +280,11 @@ impl Hearing {
             if known.is_none() {
                 facts.push(subagent(&one.since, T::Run, "Subagent started").live());
             }
-            if spent && known != Some(true) {
+            // Its parent sent it more work: standing again, from when it started on it.
+            if one.state == AttachmentState::Standing && known.is_some_and(|was| was != AttachmentState::Standing) {
+                facts.push(subagent(&one.since, T::Run, "Subagent resumed").live());
+            }
+            if spent && known != Some(AttachmentState::Spent) {
                 facts.push(subagent(&one.changed_at, T::Ok, "Subagent finished"));
             }
         }

@@ -14,7 +14,7 @@
  * burst closes but dates it by the first call, so order by `at` and not by `id`. A Job's edits stay
  * `job.files`. `session.waiting` and `session.resolved` are an item the agent put on, and took off, its
  * `waiting_for` list; `session.asked` is what Fleet raised (a question or permission card, a reply to
- * read). `session.subagent` says `Subagent started` or `Subagent finished` with `Type: description` as its
+ * read). `session.subagent` says `Subagent started`, `Subagent resumed` or `Subagent finished` with `Type: description` as its
  * detail; `session.spawned` is the Session whose agent started another (`detail` its title) or forked itself.
  */
 export type TimelineKind =
