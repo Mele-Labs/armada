@@ -13,7 +13,7 @@ use ipc::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, Instant, ReportedTask, ReportedTaskStatus,
     SessionBuild,
 };
-use store::{AttachmentState, KeptAttachment, KeptBuild, KeptTask, RoadTimes};
+use store::{AttachmentState, KeptAttachment, KeptBuild, KeptTask, RoadTimes, WorkTimes};
 
 /// How many of a repository's recent landed pull requests its forecast reads.
 pub(crate) const FORECAST_WINDOW: u32 = 10;
@@ -37,8 +37,11 @@ const ORDER: [BuildStopId; 5] =
 pub(crate) enum Observed {
     /// A file written.
     Edited,
-    /// A file read, a command run, a commit or a push: the Session is working, and no more is known.
+    /// A file read or a command run: the Session is working, and no more is known.
     Worked,
+    /// A commit or a push. Code changed, even where a script made the edits through a shell, which is
+    /// never heard as an edit, so this sets the first edit where none was heard.
+    Committed,
     /// The agent's whole task list as it now stands.
     Tasks(Vec<ReportedTask>),
     /// The agent left plan mode.
@@ -49,7 +52,7 @@ impl Observed {
     /// Whether this is work that starts a new build once the last one landed. A read or a command after
     /// the merge is the Session tidying up.
     pub(crate) fn begins_work(&self) -> bool {
-        !matches!(self, Observed::Worked)
+        !matches!(self, Observed::Worked | Observed::Committed)
     }
 }
 
@@ -97,6 +100,35 @@ fn cut(text: &str) -> String {
     text.trim().chars().take(TASK_TEXT_AT_MOST).collect()
 }
 
+/// The row with what the timeline kept of the Session's work before Fleet heard any of it filled in,
+/// for a Session whose row is new or has no first edit: Fleet restarted, or the work was heard by an
+/// earlier Fleet. The first edit is the earliest edit, commit or push; the last edit is the last edit
+/// entry. A row that already has a first edit is not touched, and none with nothing kept is made.
+pub(crate) fn seeded(build: Option<KeptBuild>, work: &WorkTimes) -> Option<KeptBuild> {
+    let first = [work.edited.as_ref().map(|(first, _)| first.as_str()), work.first_commit.as_deref(), work.first_push.as_deref()]
+        .into_iter()
+        .flatten()
+        .min();
+    let Some(first) = first else { return build };
+    let mut build = build.unwrap_or_else(|| KeptBuild {
+        begun_at: first.to_string(),
+        first_edit_at: None,
+        last_edit_at: None,
+        last_tool_at: None,
+        plan_left_at: None,
+        tasks_at: None,
+    });
+    if build.first_edit_at.is_some() {
+        return Some(build);
+    }
+    build.first_edit_at = Some(first.to_string());
+    build.last_edit_at = work.edited.as_ref().map(|(_, last)| last.clone());
+    if first < build.begun_at.as_str() {
+        build.begun_at = first.to_string();
+    }
+    Some(build)
+}
+
 /// Take one thing heard into the rows. `build` is `None` for a Session that has done nothing yet.
 pub(crate) fn taken(build: Option<KeptBuild>, tasks: Vec<KeptTask>, heard: &Observed, now: &str) -> Taken {
     let mut build = build.unwrap_or_else(|| KeptBuild {
@@ -122,6 +154,9 @@ pub(crate) fn taken(build: Option<KeptBuild>, tasks: Vec<KeptTask>, heard: &Obse
             build.last_edit_at = Some(now.to_string());
         }
         Observed::Worked => {}
+        Observed::Committed => {
+            build.first_edit_at.get_or_insert_with(|| now.to_string());
+        }
         Observed::PlanLeft => {
             build.plan_left_at = Some(now.to_string());
             visible = true;
@@ -267,13 +302,16 @@ pub(crate) fn derived(read: &Read<'_>) -> SessionBuild {
     let Read { build, tasks, road, .. } = read;
     let landed = road.merged.as_deref().or(read.merged_fallback);
     let stops = reached(road, read.pull_since);
-    // The road begins at the first edit: a stop before it is another piece of work's.
-    let on_the_road = build
-        .first_edit_at
-        .as_deref()
-        .is_some_and(|first| stops.iter().any(|(_, at)| at.as_str() >= first));
+    // The road begins at the first edit: a stop before a known one is another piece of work's. With no
+    // edit ever observed, a stop is the evidence of work there is: a pull request, a push or a walk.
+    let on_the_road = match build.first_edit_at.as_deref() {
+        Some(first) => stops.iter().any(|(_, at)| at.as_str() >= first),
+        None => !stops.is_empty(),
+    };
     let marked = build.tasks_at.as_deref().into_iter().chain(build.plan_left_at.as_deref()).max();
-    let planned = marked.is_some_and(|mark| build.last_edit_at.as_deref().is_none_or(|edit| edit <= mark));
+    // The latest work seen: an edit, or the commit that stood for the first one.
+    let worked = build.last_edit_at.as_deref().or(build.first_edit_at.as_deref());
+    let planned = marked.is_some_and(|mark| worked.is_none_or(|worked| worked <= mark));
     let phase = if landed.is_some() {
         BuildPhase::Landed
     } else if on_the_road {

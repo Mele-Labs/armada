@@ -6,7 +6,8 @@ use ipc::{BuildStopId, SessionBuild};
 use store::{Holder, KeptAttachment, KeptBuild, KeptSession, KeptTask, RoadAsk, RoadTimes, Store, WriteError};
 
 use crate::build_record::{
-    current_pull, derived, landed_since, merged, reached, taken, usual_road, Observed, Read, FORECAST_WINDOW, NEVER,
+    current_pull, derived, landed_since, merged, reached, seeded, taken, usual_road, Observed, Read, FORECAST_WINDOW,
+    NEVER,
 };
 
 /// Keep one thing heard of the Session's work. Answers whether the row shows it.
@@ -14,6 +15,10 @@ use crate::build_record::{
 /// **A build that landed ends with the work after it.** An edit, a plan or a task list heard once its
 /// pull request has merged starts another build, with no list and no road, so a Session that goes on
 /// to a second piece of work is not shown as the first one landed.
+///
+/// **A row with no first edit is filled from the timeline first**, in one bounded read of that
+/// Session's own entries: what Fleet heard before this run started, or before the row was made, is
+/// there and not in the row.
 pub(crate) fn build_heard(store: &mut Store, id: &str, heard: &Observed, now: &str) -> Result<bool, WriteError> {
     let mut build = store.session_build(id)?;
     let mut tasks = store.session_build_tasks(id)?;
@@ -26,12 +31,29 @@ pub(crate) fn build_heard(store: &mut Store, id: &str, heard: &Observed, now: &s
             }
         }
     }
+    if build.as_ref().is_none_or(|one| one.first_edit_at.is_none()) {
+        let from = work_from(store, id)?;
+        build = seeded(build, &store.session_work(id, &from)?);
+    }
     let took = taken(build, tasks, heard, now);
     store.keep_session_build(id, &took.build)?;
     if matches!(heard, Observed::Tasks(_)) {
         store.keep_session_build_tasks(id, &took.tasks)?;
     }
     Ok(took.visible)
+}
+
+/// Where a Session's work is read from: when it started, or when the last pull request it held merged,
+/// whichever is later, since work before a landing belongs to the build that landed.
+fn work_from(store: &Store, id: &str) -> Result<String, WriteError> {
+    let started = store.session(id)?.map(|one| one.started_at).unwrap_or_default();
+    let landed = store
+        .attachments_of(&Holder::session(id))?
+        .into_iter()
+        .filter(|one| one.kind == "pr" && merged(one))
+        .map(|one| one.changed_at)
+        .max();
+    Ok(landed.map_or(started.clone(), |landed| landed.max(started)))
 }
 
 /// What a row's build is derived from, taken from the store.

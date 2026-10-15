@@ -42,11 +42,11 @@ where
             SessionFact::PlanLeft => Observed::PlanLeft,
             SessionFact::Committed { branch } => {
                 self.road_noted(session, TimelineKind::SessionCommitted, "Committed", branch, now);
-                Observed::Worked
+                Observed::Committed
             }
             SessionFact::Pushed { branch } => {
                 self.road_noted(session, TimelineKind::SessionPushed, "Pushed", branch, now);
-                Observed::Worked
+                Observed::Committed
             }
             _ => return Ok(false),
         };
