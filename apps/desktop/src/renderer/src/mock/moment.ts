@@ -13,6 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
+import type { BayHistory } from "../cockpit/deck/bay-history";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -37,6 +38,8 @@ export type MockDraft = ArcDraft & {
   events?: readonly TimelineEvent[];
   /** The write clashes Fleet reports, as `GET /clashes` returns them. Mock only. */
   clashes?: readonly WriteClash[];
+  /** Each bay's leases and checkouts, as the query Fleet will serve returns them, newest first. Mock only. */
+  bayHistories?: readonly BayHistory[];
   /** The directories a repository is drawn in on the flight deck's map: Fleet reports none yet, so the real source is empty. Mock only. */
   areas?: AreaSource;
   /** The shared home this machine is signed in to, and how each row stands against it. Mock only. */

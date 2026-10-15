@@ -13,6 +13,8 @@ import type { TileRow } from "./tiles";
 export type { ClearCost, Offered, TileRow } from "./tiles";
 export { ClearSaves } from "./ClearSaves";
 export { TileSheet } from "./TileSheet";
+export { useTileManage } from "./TileManage";
+export type { TileManageProps } from "./TileManage";
 export { ReleaseConfirm } from "./ReleaseConfirm";
 
 /**

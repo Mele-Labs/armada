@@ -151,6 +151,18 @@ export const slotActs = {
   onPause: pauseOne,
   onResume: resumeOne,
 };
+/**
+ * What a bay's pane on the Cockpit acts with: the tile panel's acts, under the names `BayManage` reads. A constant, so the deck
+ * is not drawn again for a new object each time the window is.
+ */
+export const bayActs = {
+  onChange: slotActs.onChangeSlotPool,
+  onReclaim: slotActs.onReclaim,
+  onDeleteBranch: slotActs.onDeleteBranch,
+  onForget: slotActs.onForget,
+  onPause: slotActs.onPause,
+  onResume: slotActs.onResume,
+};
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
 export const readRemarks = (jobId: string | null): void => void window.armada.readRemarks(jobId);
 /** Pulse's own 10 s tick, held open for as long as the board is drawn. #1571. */

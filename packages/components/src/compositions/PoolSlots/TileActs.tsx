@@ -97,6 +97,27 @@ export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget" | "pa
 }
 
 /**
+ * What each rescue act does, from `RescueAct` in Fleet and `rescue` in the
+ * leasing adapter. **Stash commits what is uncommitted to the branch, pushes it
+ * under its own name and frees the slot.** Pick up is a Stash that then proposes
+ * a Job on that branch. Scrap resets and cleans the checkout, and deletes the
+ * branch only where the base has all its commits.
+ */
+export function rescueTipsOf(row: TileRow): Record<"stop" | "pick_up" | "stash" | "scrap", string> {
+  const { slot, held } = row;
+  const name = nameOf(row);
+  const branch = row.cost?.branch?.name ?? held?.branch ?? slot?.branch ?? "its branch";
+  const base = row.cost?.branch?.base ?? slot?.base ?? "main";
+  const stashed = `Commits the uncommitted files in ${name} to branch ${branch} as a WIP commit, pushes ${branch} to origin and releases the slot`;
+  return {
+    stop: `Stops the Scout reading ${name}.`,
+    pick_up: `${stashed}, then proposes a Job to carry on from ${branch}.`,
+    stash: `${stashed}.`,
+    scrap: `Discards the uncommitted and untracked files in ${name} and releases the slot. Deletes branch ${branch} only if ${base} has all its commits, otherwise keeps it.`,
+  };
+}
+
+/**
  * The acts a tile takes, each only where it applies. Slot acts come from the
  * bay: Rescue or Stop, Close slot or Reopen slot, and Remove slot where the
  * pool would let it go. Worktree acts come from the Job's reading: Clear,
@@ -124,7 +145,7 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }:
       />
     ) : null,
     onRescue !== undefined && slot !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
-      <Act key="stop" label="Stop" said={`Stops the Scout reading ${name}.`} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
+      <Act key="stop" label="Stop" said={rescueTipsOf(row).stop} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
     ) : null,
     onConfirm !== undefined && slot !== undefined && releasable(slot) ? (
       <Act
