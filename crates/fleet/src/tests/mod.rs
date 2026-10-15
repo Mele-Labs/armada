@@ -257,6 +257,8 @@ mod sleeping;
 mod session_checking;
 mod session_running;
 mod sessioning;
+mod signing_in;
+mod signing_in_serving;
 mod settling;
 mod terminal_session;
 mod walk_question;

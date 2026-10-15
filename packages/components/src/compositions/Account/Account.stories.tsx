@@ -31,8 +31,8 @@ const choices = (): SyncChoice[] =>
   }));
 
 const two: readonly Profile[] = [
-  { login: "mele-work", active: true, chosen: false },
-  { login: "nickmele", active: false, chosen: true },
+  { account_id: 1001, login: "mele-work", active: true, chosen: false },
+  { account_id: 1002, login: "nickmele", active: false, chosen: true },
 ];
 
 /** The acts Fleet would carry, held in state; `spy` hears each press. */
@@ -114,7 +114,7 @@ export const SetUp: Story = {
 /** One profile draws no list of profiles, only the act that adds another. */
 export const OneProfile: Story = {
   render: () => (
-    <Held profiles={[{ login: "nickmele", active: true, chosen: false }]}>{(account) => <AccountView account={account} />}</Held>
+    <Held profiles={[{ account_id: 1002, login: "nickmele", active: true, chosen: false }]}>{(account) => <AccountView account={account} />}</Held>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Add profile" })).toBeVisible();

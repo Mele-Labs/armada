@@ -91,7 +91,7 @@ import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft
 import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
 import { nowOf, todosOf } from "./session-activity";
-import { useViewing } from "./cockpit/viewed";
+import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
 
@@ -255,10 +255,11 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 
 /** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
-  { label: "Needs you", has: (state) => state === "waiting" || state === "replied" || state === "done" },
+  { label: "Needs you", has: (state) => state === "waiting" || state === "done" },
   { label: "Running", has: (state) => state === "working" || state === "stuck" || state === "limited" },
   // Failing checks stay here, red: Fleet has told the agent, and it asks through waiting_for if it is blocked.
-  { label: "Idle", has: (state) => state === "idle" || state === "failing" },
+  // A reply stays here too, with its unread mark until he has opened the Session: it asks nothing of him.
+  { label: "Idle", has: (state) => state === "idle" || state === "failing" || state === "replied" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
@@ -414,6 +415,8 @@ export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: str
   const [query, setQuery] = useState("");
   const [view, setView] = useView();
   const retro = useRetroPress();
+  // A reply reads as unread until he has been in its Session, so the rows are read again as he goes.
+  useViewedVersion();
   if (draft === undefined) return null;
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -644,6 +647,7 @@ export function entriesOf(
   scrollToAsk: () => void,
   known: Known,
   runner: Runner | undefined,
+  removeWaiting?: (itemId: string, reason: string) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
@@ -681,6 +685,8 @@ export function entriesOf(
       ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
         ? {}
         : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
+      // An item the agent stated is the person's to take off; the agent is told, with his reason where he gave one.
+      ...(one.source !== "agent" || removeWaiting === undefined ? {} : { onRemove: (reason: string) => removeWaiting(one.id, reason), removeKeep: `remove:${session.id}:${one.id}` }),
       onOpen: () => {
         if (act === undefined || restart !== undefined) return;
         if (act.kind === "walk") openWindow(act.target);
@@ -901,6 +907,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
+    (itemId, reason) => void dismissWaiting(id, itemId, reason),
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));

@@ -47,7 +47,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       const added = offer.add;
       timers.push(
         window.setTimeout(() => {
-          setProfiles((was) => [...was, { login: added.login, active: false, chosen: true }]);
+          setProfiles((was) => [...was, { account_id: 2, login: added.login, active: false, chosen: true }]);
           setKinds((was) => ({ ...was, [added.login]: choices(added) }));
           setOpen(added.login);
           setFlow({ phase: "idle" });
@@ -64,7 +64,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       timers.push(
         window.setTimeout(() => {
           next(steps("done", "done", "done"));
-          setProfiles([{ login, active: true, chosen: false }]);
+          setProfiles([{ account_id: 1, login, active: true, chosen: false }]);
           setAuthorized(false);
         }, STEP_MS * 3),
       );

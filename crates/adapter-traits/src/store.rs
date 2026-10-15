@@ -196,6 +196,11 @@ pub trait Store {
     fn owners(&self, keys: &[OwnerKey]) -> Result<BTreeMap<OwnerKey, Holder>, StoreError>;
 
     fn delete_owner(&self, key: &OwnerKey) -> Result<(), StoreError>;
+
+    /// Sign a device out of the account, this machine's own or another's: the
+    /// store allows any device of an account to, so a lost machine can be
+    /// removed. A device already gone is not an error.
+    fn delete_device(&self, device: &str) -> Result<(), StoreError>;
 }
 
 #[cfg(test)]

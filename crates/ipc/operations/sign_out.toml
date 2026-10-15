@@ -1,0 +1,12 @@
+[operations.sign_out]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Sign a profile out of this machine, and out of the store"
+notes = """
+`POST /accounts/sign_out`, body `SignOut`: the `account_id` of a profile. Answered with `SignedOut`: `accounts` as `get_accounts` answers them, `store_row_remains` and, when it does, `said`.
+
+**The device is signed out of the store first** (`DELETE /v1/devices/{id}`), then the profile's directory is deleted with its key and device id, and the profile leaves the list. **If the store cannot be reached or says no, the local profile is removed all the same** and `store_row_remains` is `true`: a person who signs out must not be held by a store that is down. If the active profile signs out, the first one left becomes active. Other profiles are not touched.
+
+Refused with 422 `fleet.no_such_account` for an id this machine has not joined. `agent_access` is `No`.
+"""

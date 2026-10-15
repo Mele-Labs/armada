@@ -134,9 +134,9 @@ describe("a Session's lane stands by what Fleet says it is doing", () => {
     expect(lane(90, "idle")?.standing).toBe("idle");
   });
 
-  test("Fleet's stuck is stuck, however fresh the entry, and a reply is a call", () => {
+  test("Fleet's stuck is stuck, however fresh the entry, and a reply asks nothing", () => {
     expect(lane(1, "stuck")?.standing).toBe("stuck");
-    expect(lane(90, "replied")?.standing).toBe("ask");
+    expect(lane(90, "replied")?.standing).toBe("idle");
     expect(lane(90, "working")?.standing).toBe("run");
   });
 });

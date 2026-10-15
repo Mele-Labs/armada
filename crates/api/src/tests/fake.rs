@@ -16,6 +16,7 @@
 //! Every refusal a fake can honestly raise is here, beside the `Vec` it reads
 //! to raise it. There are two, and the modules below hold none of their own.
 
+mod accounts;
 mod authoring;
 mod autopilots;
 mod commands;
@@ -34,6 +35,7 @@ mod sessions;
 mod studios;
 mod tools;
 
+pub use accounts::profile;
 pub use conversing::SERVED_MANIFEST;
 pub use studios::{the_studio, THE_FRAME, THE_STUDIO};
 
@@ -102,6 +104,8 @@ pub struct FakeDaemon {
     preferences: Mutex<ipc::Preferences>,
     /// settings.json as the fake holds it, which its own saves change.
     settings: Mutex<ipc::SettingsList>,
+    /// The profiles the fake holds, which its own sign-ins and sign-outs change.
+    pub accounts: Mutex<ipc::Accounts>,
     /// Every rule a person always-allowed for the repository. Set by a test,
     /// and changed by the fake's own removes — `#836`.
     pub repository_allowed: Mutex<Vec<ipc::AllowedCommandRow>>,
@@ -190,6 +194,7 @@ impl FakeDaemon {
             builds: Mutex::new(Vec::new()),
             preferences: Mutex::new(shapes::preferences()),
             settings: Mutex::new(settings::settings()),
+            accounts: Mutex::new(accounts::signed_out()),
             repository_allowed: Mutex::new(Vec::new()),
             kit_servers: Mutex::new(Vec::new()),
             helm_asked: Mutex::new(Vec::new()),

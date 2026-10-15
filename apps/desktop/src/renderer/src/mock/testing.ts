@@ -7,6 +7,7 @@ import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 
+import { forgetViewed } from "../cockpit/viewed";
 import type { FakeOptions } from "./fake";
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
@@ -41,6 +42,8 @@ export function unmountAfterEach(): void {
     mounted = [];
     remembered = {};
     forgetAllKept();
+    // Having been in a Session drops its calls and reads its reply, so a test must not leave him in one for the next.
+    forgetViewed();
   });
 }
 

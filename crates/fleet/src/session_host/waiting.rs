@@ -17,7 +17,13 @@
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
-//! left off every read and an agent item with it is dropped from the kept list.
+//! left off every read and an agent item with it is dropped from the kept list. **Removing an agent
+//! item tells the agent** (`Owner removed "<item>"`, and his reason after it); a derived item is only
+//! dropped, since the agent never stated it.
+//!
+//! **A reply is not a wait.** The turn ending on a message of the agent's makes the Session read as
+//! `replied` (an unread mark under Idle), and raises no item: it asks nothing of the person. A done
+//! does, and stays.
 
 use std::sync::Arc;
 
@@ -389,10 +395,9 @@ where
                 }
                 _ => None,
             }));
-            // The reply and the done are read off the turn, so a Session whose agent never called a
-            // tool still reaches the person. The reply stands aside where something else is owed.
-            let others = !items.is_empty();
-            items.extend(super::standing::derived(&seen, others));
+            // The done is read off the turn, so a Session whose agent never called a tool still
+            // reaches the person. A reply is a standing, not an item.
+            items.extend(super::standing::derived(&seen));
         }
         Waited { items, standing }
     }
@@ -674,46 +679,53 @@ where
         settled
     }
 
-    /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
+    /// `dismiss_waiting`: drop one item for good. **An item the agent stated is told so**: the session
+    /// is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave one, so
+    /// the agent does not state it again for want of knowing. An item Fleet derived is only dropped.
+    /// The message goes first, so a send that fails leaves the item standing to try again.
     pub(crate) async fn dismiss_waited(
-        &self,
+        self: Arc<Self>,
         dismiss: DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
         let id = dismiss.session_id.as_str().to_string();
-        if self.terminal_session(&id).await?.is_some() {
+        let terminal = self.terminal_session(&id).await?;
+        if terminal.is_some() {
             self.terminal_ask_standing(&id).await;
         }
-        let record = {
-            let mut store = self.store().lock().await;
+        let item = {
+            let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
                     self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
                 })?;
-            let held = self
-                .ledger_row(&store, &session)?
-                .waiting_for
-                .iter()
-                .any(|one| one.id == dismiss.item_id);
-            if !held {
-                return Err(Refusal::IllegalMove(WireError::raised(
-                    SESSION_WAITING_UNHELD,
-                    "nothing is waiting under that item. It was settled already, or the session stopped waiting",
-                    self.run_id(),
-                )));
-            }
-            store
-                .dismiss_waiting(&id, &dismiss.item_id)
-                .map_err(|why| self.ledger_fault(why))?;
             self.ledger_row(&store, &session)?
+                .waiting_for
+                .into_iter()
+                .find(|one| one.id == dismiss.item_id)
+                .ok_or_else(|| {
+                    Refusal::IllegalMove(WireError::raised(
+                        SESSION_WAITING_UNHELD,
+                        "nothing is waiting under that item. It was settled already, or the session stopped waiting",
+                        self.run_id(),
+                    ))
+                })?
         };
-        self.publish(ipc::Event::SessionChanged(record.clone()));
-        Ok(record)
+        if item.source == WaitingSource::Agent {
+            let sent = SendSessionMessage {
+                session_id: dismiss.session_id.clone(),
+                text: removed(&item.text, dismiss.reason.as_deref()),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            };
+            Arc::clone(&self).send_known(terminal, sent).await?;
+        }
+        self.drop_answered(&id, &item.id).await
     }
 
-    /// Take an answered agent item off the list for good and tell Bridge, as `dismiss_waited` does.
-    /// It does not refuse an item the agent has since restated away: the answer was delivered.
+    /// Take an agent item off the list for good and tell Bridge, once the person's word on it has been
+    /// delivered. It does not refuse an item the agent has since restated away.
     async fn drop_answered(&self, id: &str, item_id: &str) -> Result<SessionRecord, Refusal> {
         let record = {
             let mut store = self.store().lock().await;
@@ -745,6 +757,15 @@ where
             note: words.or(line).map(str::to_string),
             answers: Vec::new(),
         }
+    }
+}
+
+/// What the agent is told when the person removes an item it stated: the item, and his reason where
+/// he gave one.
+fn removed(item: &str, reason: Option<&str>) -> String {
+    match reason.map(str::trim).filter(|why| !why.is_empty()) {
+        Some(why) => format!("Owner removed \"{item}\": {why}"),
+        None => format!("Owner removed \"{item}\""),
     }
 }
 

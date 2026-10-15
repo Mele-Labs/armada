@@ -92,6 +92,8 @@ mod remembering;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;
+/// Signing in with the forge's device flow.
+mod sign_in;
 /// A worktree before a person's run, and putting back what the run changed.
 pub mod snapshot;
 /// The central store over HTTP, signed with this machine's key.
@@ -147,5 +149,7 @@ pub use scouting::{
 };
 pub use transcript::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 pub use trigger_files::triggers_on_base;
+pub use sign_in::ForgeSignIn;
 pub use store::HttpStore;
+pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use worktree::GitVcs;

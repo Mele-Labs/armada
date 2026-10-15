@@ -1,0 +1,10 @@
+[operations.set_active_account]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Choose which profile this machine acts as"
+notes = """
+`POST /accounts/set_active_account`, body `SetActiveAccount`: the `account_id` of a profile. Answered with `Accounts`. The choice is kept in `profiles.json` in the machine directory, so it survives a restart.
+
+Refused with 422 `fleet.no_such_account` for an id this machine has not joined. `agent_access` is `No`.
+"""

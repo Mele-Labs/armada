@@ -263,7 +263,7 @@ export function SessionList({ groups, bands, query, onQuery, onOpen, onStart, st
   const drawn = bands === undefined ? firstRows(groups, count) : [];
   const drawnBands = bands === undefined ? [] : firstOfBands(bands, count);
   const column = (group: SessionGroup, Heading: "h3" | "h4" = "h3") => (
-    <div className="armada-session-list__group" key={group.label}>
+    <div className="armada-session-list__group" key={group.label} role="group" aria-label={group.label}>
       <Heading className="armada-session-list__eyebrow">{group.label}</Heading>
       <ul className="armada-session-list__rows">
         {group.rows.map((row) => {

@@ -115,9 +115,9 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: another
  * Session's agent started this one and the person has not sent its first message. A `first_message` item
  * has no reply and its `act` is a `message` on the Session, so a press opens it. Fleet also derives
- * `replied` (id `replied:<turn end>`, text the first line of the agent's last message) and `done` (id
- * `done:<done_since>`, text `Done`) from the turn, so a Session that ended its turn on a reply, or said
- * it was done, is on the list whether or not the agent called a tool.
+ * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
+ * the list whether or not the agent called a tool. `replied` is no longer served: a reply is the
+ * Session's `standing`, not an item.
  */
 export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done";
 
@@ -209,9 +209,10 @@ export type PullRequestClaimed = { number: number; branch: string; url: string; 
 
 /**
  * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
- * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
+ * it (`ask:`, `perm:`, `walk:`) or the agent stated it. Nothing is sent to the agent, except for an item
+ * the agent stated: it is told `Owner removed "<item text>"`, with `reason` after it where the person gave one.
  */
-export type DismissWaiting = { session_id: string; item_id: string };
+export type DismissWaiting = { session_id: string; item_id: string; reason?: string };
 
 /** One take of a change a session shows in its window. `url` is `http` or `https`. */
 export type WindowTake = { name: string; url: string };

@@ -67,7 +67,12 @@ export type AskedQuestion = {
   options: AskedChoice[];
 };
 
-export type AskedChoice = { label: string; description: string };
+export type AskedChoice = {
+  label: string;
+  description: string;
+  /** Monospace text the agent attached to show while the option is in focus. Absent where it sent none. */
+  preview?: string;
+};
 
 /** What a person chose for one question: option labels, and their own words where they chose Other. Since protocol 23.71. */
 export type QuestionAnswer = { question: string; chosen: string[] };

@@ -8,7 +8,7 @@ type Extra = Partial<Pick<Setting, "saved" | "applies" | "pending_restart" | "ov
 
 /** Each section's group, as `config::settings` names it. */
 const GROUP: Record<string, string> = {
-  Limits: "Fleet", Timeouts: "Fleet", Retention: "Fleet", Harness: "Agents", Model: "Agents", Effort: "Agents", Plan: "Agents", Prompts: "Prompts",
+  Limits: "Fleet", Timeouts: "Fleet", Retention: "Fleet", Machine: "Fleet", Account: "Fleet", Store: "Fleet", Harness: "Agents", Model: "Agents", Effort: "Agents", Plan: "Agents", Prompts: "Prompts",
   Features: "Features", Editor: "Tools", Terminal: "Tools", Links: "Tools", Bridge: "Appearance",
 };
 
@@ -66,6 +66,9 @@ export const MOCK_SETTINGS: SettingsList = {
     row("Timeouts", "timeouts.stepWallClockSeconds", "Step time limit", "The longest one step may run, its checks included.", seconds(60, 86400), 1500),
     row("Timeouts", "timeouts.bridgeReconnectMs", "Reconnect interval", "How long Bridge waits before it looks for Fleet again after losing it.", count(250, 60000, "ms"), 2000),
     row("Retention", "retention.runLogDays", "Keep run logs", "How long a finished job's logs stay on disk.", count(1, 365, "days"), 30),
+    row("Machine", "machine.name", "Machine name", "How the other machines signed in to your account name this one. Blank uses the host's name.", TEXT, ""),
+    row("Account", "account.clientId", "Sign-in app", "The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable until an app is registered.", TEXT, ""),
+    row("Store", "store.url", "Store address", "The address of the central store your machines share. Blank leaves sign-in unavailable until a store is deployed.", TEXT, ""),
     row("Harness", "harness.agent", "Agent", "The program each drone runs.", { kind: "choice", options: ["agent-cli"] }, "agent-cli", { applies: "at_restart" }),
     row("Harness", "harness.binaryPath", "Agent program", "The agent's program, by name on PATH or by absolute path.", TEXT, "agent", { overridden_by_env: "ARMADA_AGENT_BINARY", value: "/opt/agent/bin/agent" }),
     row("Harness", "harness.dronePath", "Drone PATH", "The directories a drone's PATH holds, in order.", LIST, ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]),

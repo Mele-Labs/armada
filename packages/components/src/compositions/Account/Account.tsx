@@ -39,6 +39,8 @@ export type SyncItem = { name: string; scope: Scope; repo: string };
 export type SyncChoice = { kind: SyncKindWord; on: boolean; pulling: boolean; items: readonly SyncItem[] };
 
 export type Profile = {
+  /** The forge's numeric id, which names the profile in every act on it. */
+  account_id: number;
   login: string;
   active: boolean;
   /** Added on purpose beside the machine's own: what it syncs is the person's choice. */
@@ -84,7 +86,8 @@ export type Account = AccountRead & AccountActs;
 
 const Held = createContext<Account | undefined>(undefined);
 
-export function AccountProvider({ value, children }: { value: Account; children: ReactNode }) {
+/** `undefined` offers none, and keeps the tree where an account arrives later from remounting. */
+export function AccountProvider({ value, children }: { value: Account | undefined; children: ReactNode }) {
   return <Held.Provider value={value}>{children}</Held.Provider>;
 }
 

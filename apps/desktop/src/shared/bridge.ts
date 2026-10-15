@@ -42,6 +42,7 @@ import type { JobsState } from "./api/jobs";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
 import { SLEEP_CHANNELS } from "./api/sleep";
+import { ACCOUNTS_CHANNELS } from "./api/accounts";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
 import { CLASHES_CHANNELS } from "./api/clashes";
@@ -157,6 +158,7 @@ export const CHANNELS = {
   ...JOBS_CHANNELS,
   ...SESSIONS_CHANNELS,
   ...SLEEP_CHANNELS,
+  ...ACCOUNTS_CHANNELS,
   ...PLAN_USAGE_CHANNELS,
   ...MODEL_DOWNSHIFT_CHANNELS,
   ...CLASHES_CHANNELS,

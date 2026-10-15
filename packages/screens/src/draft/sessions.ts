@@ -343,7 +343,7 @@ export type SessionQuestion = {
   question: string;
   header: string;
   multi_select: boolean;
-  options: readonly { label: string; description: string }[];
+  options: readonly { label: string; description: string; preview?: string }[];
 };
 
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */

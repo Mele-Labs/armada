@@ -677,6 +677,22 @@
 .armada-question-deck__option { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--space-3); min-width: 0; }
 .armada-question-deck__description { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); color: var(--fg-muted); }
 
+/* The agent's own text for the option in focus, as it wrote it: monospace, its line breaks kept. */
+.armada-question-deck__preview {
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: pre;
+  overflow: auto;
+  max-height: calc(var(--space-6) * 10);
+}
+
 @keyframes armada-question-up {
   from { opacity: 0.6; transform: translateY(calc(var(--space-6) * -1)) scale(0.97); }
 }

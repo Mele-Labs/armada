@@ -58,6 +58,7 @@ mod rerunning;
 mod scouting;
 mod snapshot;
 mod standing;
+mod sign_in;
 mod store;
 mod store_vector;
 mod terminal_follow;

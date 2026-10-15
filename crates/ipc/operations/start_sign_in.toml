@@ -1,0 +1,14 @@
+[operations.start_sign_in]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Begin signing in with the forge's device flow, and answer with the code to type"
+notes = """
+`POST /accounts/start_sign_in`, no body. Answered with `Accounts` whose `flow` is `code`: the `code` to type, the `address` to type it at and `expires_in_seconds`.
+
+**Fleet polls the forge by itself**, on a thread, at the interval the forge gave and longer after it says to slow down, until the code is typed, turned down or expired. A client reads `get_accounts` to see it move: `setup` while Fleet reads who signed in, enrols this machine's key with the store and keeps the device id, then `idle` with the profile in `profiles`. **The access token is dropped as soon as the store has been told**, and is never written anywhere.
+
+**A second `start_sign_in` replaces the first**, whose code is no longer polled. Signing in again as an account this machine already has is the same profile, not a second; its device is enrolled afresh and the old one is signed out of the store.
+
+Refused with 422 `fleet.sign_in_unavailable` while `account.clientId` or `store.url` is blank, naming which, and with 422 `fleet.sign_in_not_begun` when the forge would not begin one (the app has the device flow off, or the forge could not be reached). `agent_access` is `No`: signing in is the person's.
+"""

@@ -186,6 +186,7 @@ import type {
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
+import type { AccountsActed } from "./api/accounts";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
@@ -194,7 +195,7 @@ import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/i
 import type { HelmAim, HelmCarry } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { ModelDownshiftState, PlanUsage, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
+import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -508,6 +509,10 @@ type OldBridgeApi = {
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
     reviewSleep: (id: string) => Promise<SleepActed>;
+    getAccounts: () => Promise<AccountsActed>;
+    startSignIn: () => Promise<AccountsActed>;
+    signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
+    setActiveAccount: (accountId: number) => Promise<AccountsActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
@@ -838,6 +843,10 @@ const OLD_CHANNELS = {
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
     reviewSleep: "bridge:review-sleep",
+    getAccounts: "bridge:get-accounts",
+    startSignIn: "bridge:start-sign-in",
+    signOut: "bridge:sign-out",
+    setActiveAccount: "bridge:set-active-account",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     runSessionCommand: "bridge:run-session-command",

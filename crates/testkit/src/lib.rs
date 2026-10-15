@@ -28,6 +28,7 @@ mod harness;
 mod job;
 mod judge;
 mod link_lookup;
+mod sign_in;
 mod store;
 mod tracker;
 mod vcs;
@@ -38,6 +39,7 @@ pub use harness::{FakeHarness, FakeHarnessRefused, EDITS, READS, REPLAYED, RUNS}
 pub use job::{asked_for, asking};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;
+pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};
 pub use store::FakeStore;
 pub use tracker::{FakeTracker, TrackerWrite};
 pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Merging};
