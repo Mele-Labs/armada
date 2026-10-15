@@ -4,9 +4,10 @@ import { releasable, releaseHolder } from "@armada/protocol";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ChipOwnership } from "../OwnerChip/OwnerChip";
 import { ScrapConfirm, SlotFinding } from "./SlotFinding";
-import { TileActs, rescuable } from "./TileActs";
+import { TileActs, rescuable, rescueTipsOf } from "./TileActs";
 import type { Confirming } from "./TileActs";
 import { ReleaseConfirm } from "./ReleaseConfirm";
 import { TileConfirm } from "./TileConfirm";
@@ -80,24 +81,33 @@ export function useTileManage({ row, onAct, onRescue, onClear, onRelease, onDele
     if (slot !== undefined) onRescue?.(which, slot.slot);
   };
 
+  const tips = rescueTipsOf(row);
   const foot =
     onRescue === undefined || slot === undefined || rescue === undefined || scrapping || confirming !== null ? undefined : reading ? (
-      <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stop")}>
-        Stop
-      </Button>
+      <Tooltip label={tips.stop}>
+        <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stop")}>
+          Stop
+        </Button>
+      </Tooltip>
     ) : (
       <>
         {toContinue ? (
-          <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("pick_up")}>
-            Pick up
-          </Button>
+          <Tooltip label={tips.pick_up}>
+            <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("pick_up")}>
+              Pick up
+            </Button>
+          </Tooltip>
         ) : null}
-        <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stash")}>
-          Stash
-        </Button>
-        <Button variant="destructive" size="sm" disabled={row.acting === true} onClick={() => setScrapping(true)}>
-          Scrap
-        </Button>
+        <Tooltip label={tips.stash}>
+          <Button variant="secondary" size="sm" ground="sunken" disabled={row.acting === true} onClick={() => rescued("stash")}>
+            Stash
+          </Button>
+        </Tooltip>
+        <Tooltip label={tips.scrap}>
+          <Button variant="destructive" size="sm" disabled={row.acting === true} onClick={() => setScrapping(true)}>
+            Scrap
+          </Button>
+        </Tooltip>
       </>
     );
 

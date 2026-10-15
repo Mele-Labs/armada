@@ -31,6 +31,7 @@ const bayPaneActs = walk("bay-pane-acts", [
   { press: inside(bays, button(/^slot-6, armada, Stranded/)), say: "A stranded bay" },
   { look: act("slot-6", "Close slot"), say: "Close slot, with the rescue acts under it" },
   { look: inside(bay("slot-6"), button("Pick up", { exact: true })), say: "Pick up, Stash and Scrap, from the Scout's Finding, as in the panel" },
+  { hover: inside(bay("slot-6"), button("Pick up", { exact: true })), say: "Hover says what Pick up does in git's words" },
   { press: inside(bay("slot-6"), button("Scrap", { exact: true })), say: "Scrap asks first" },
   { look: inside(bay("slot-6"), role("group", "Scrap slot-6", { exact: true })), say: "It names the uncommitted files and the unpushed commits, and nothing is sent until it is confirmed" },
   { press: inside(bay("slot-6"), button("Cancel", { exact: true })), say: "Cancel puts it away" },
