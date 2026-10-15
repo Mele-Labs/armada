@@ -34,6 +34,7 @@ const waiting: Session = {
         "Name it Armada",
         "Any homepage URL and callback URL",
         "Tick Enable Device Flow",
+        "Upload a logo",
         "Press Register application",
         "Copy the Client ID and send it here",
       ],

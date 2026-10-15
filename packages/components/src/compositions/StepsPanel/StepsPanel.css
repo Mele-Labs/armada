@@ -18,6 +18,7 @@
 }
 
 .armada-steps__step {
+  grid-template-columns: var(--space-6) minmax(0, 1fr) auto;
   align-items: center;
   padding: var(--space-3) 0;
   border-bottom: var(--border-width) solid var(--border-subtle);
@@ -47,4 +48,46 @@
 
 .armada-steps__reply > .armada-textarea-field {
   align-self: stretch;
+}
+
+/* A step's end: the mark that it was reworded, and the keys, which show on hover or focus. */
+.armada-steps__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-steps__keys {
+  display: inline-flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-steps__step:hover .armada-steps__keys,
+.armada-steps__step:focus-within .armada-steps__keys,
+.armada-steps__step[data-dropped] .armada-steps__keys {
+  opacity: 1;
+}
+
+.armada-steps__changed {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+/* Dropped stays in the list, struck through and greyed, and cannot be ticked. */
+.armada-steps__step[data-dropped] .armada-steps__ordinal,
+.armada-steps__step[data-dropped] .armada-checkbox {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.armada-steps__step[data-dropped] .armada-checkbox > span:last-child {
+  color: var(--fg-subtle);
+  text-decoration: line-through;
+}
+
+.armada-steps__add {
+  display: flex;
+  margin-top: calc(var(--space-2) * -1);
 }

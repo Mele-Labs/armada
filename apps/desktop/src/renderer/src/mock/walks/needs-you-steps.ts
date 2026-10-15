@@ -1,6 +1,7 @@
 // An item that waits on the person for a procedure: its row wears the Steps glyph, and a press opens the
 // steps beside the thread in place of the link. The link is the key at the top, each step has a tick that
-// is kept, and the reply box under them answers the item. Over the `needs-you-steps` scenario.
+// is kept, a step the agent got wrong is edited, dropped or added, and Send takes the corrections with
+// the reply. Over the `needs-you-steps` scenario.
 
 import { button, dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
@@ -26,8 +27,14 @@ function steps(): Step[] {
     { press: inside(panel, role("button", /^Close( panel)?( Esc)?$/)), say: "Closed" },
     { press: inside(needs, button(`Open ${TITLE}`)), say: "Opened again" },
     { look: inside(panel, role("checkbox", "Tick Enable Device Flow")), say: "The ticks are kept" },
-    { type: "Client ID is Iv1.8a61f9b3a7aba766", into: inside(panel, role("textbox", `Reply to ${TITLE}`)), say: "What is typed here answers the item" },
-    { look: inside(panel, button("Send")), say: "Send answers it, and the box clears" },
+    { press: inside(panel, role("button", "Edit step 2")), say: "A step the agent got wrong is edited in place" },
+    { type: "Homepage and callback both http://127.0.0.1:8470\n", into: inside(panel, role("textbox", "Step 2")), say: "Enter saves it" },
+    { hover: inside(panel, role("img", /^Step 2 was/)), say: "A small mark, and on hover the agent's own words" },
+    { press: inside(panel, role("button", "Drop step 4")), say: "A step that does not belong is dropped" },
+    { look: inside(panel, role("button", "Bring back step 4")), say: "It stays in the list, struck through, and can be brought back" },
+    { press: inside(panel, role("button", "Add step")), say: "A step the agent missed is added at the end" },
+    { type: "Leave the Client secret alone\n", into: inside(panel, role("textbox", "Step 7")), say: "Worded and saved" },
+    { look: inside(panel, button("Send")), say: "Send is ready with the reply box empty: the corrections go to the agent" },
   ];
 }
 
