@@ -24,7 +24,7 @@ const ALREADY_SERVED: &str = "fleet.repository_served";
 /// A repository served and not written down, so a restart forgets it. A 500.
 const NOT_REMEMBERED: &str = "fleet.repository_not_remembered";
 /// A `?repository=` naming nothing served. A 422.
-const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
+pub(crate) const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
 /// A request that needs a repository, when Fleet serves none yet. A 422.
 const NO_REPOSITORY: &str = "fleet.no_repository";
 

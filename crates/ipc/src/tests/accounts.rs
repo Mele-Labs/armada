@@ -87,6 +87,7 @@ fn choosing_none_is_a_null_account_and_not_an_absent_one() {
     assert_eq!(encode(&none).unwrap(), r#"{"root":"/r/armada","account_id":null}"#);
     let one = decode::<SetRepositoryProfile>("a choice", br#"{"root":"/r/armada","account_id":9919}"#).unwrap();
     assert_eq!(one.account_id, Some(9_919));
+    assert!(decode::<SetRepositoryProfile>("a choice", br#"{"root":"/r/armada"}"#).is_err(), "a forgotten key is not a choice of none");
 }
 
 #[test]

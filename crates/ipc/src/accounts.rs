@@ -157,6 +157,15 @@ pub struct SignedOut {
 pub struct SetRepositoryProfile {
     /// A served repository's root.
     pub root: String,
-    /// `None` is "None": the repository claims and syncs nothing.
+    /// `null` is "None": the repository claims and syncs nothing. **The key must be
+    /// there**, so a body that forgot it is a mistake and not a choice of none.
+    #[serde(deserialize_with = "stated")]
     pub account_id: Option<u64>,
+}
+
+fn stated<'de, D>(input: D) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<u64>::deserialize(input)
 }

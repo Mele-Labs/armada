@@ -11,6 +11,7 @@ use ipc::{Accounts as AccountsList, SetRepositoryProfile, SignOut, SignedOut, Wi
 
 use super::{Begin, Refused, SigningIn};
 use crate::daemon::Fleet;
+use crate::repositories::NO_SUCH_REPOSITORY;
 use crate::repository_profiles::Repo;
 
 /// Sign-in asked for while the sign-in app or the store address is blank. A 422
@@ -21,8 +22,6 @@ const SIGN_IN_UNAVAILABLE: &str = "fleet.sign_in_unavailable";
 const SIGN_IN_NOT_BEGUN: &str = "fleet.sign_in_not_begun";
 /// An act on an account this machine has not joined. A 422.
 const NO_SUCH_ACCOUNT: &str = "fleet.no_such_account";
-/// An act on a repository Fleet does not serve. A 422.
-const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
 /// The profiles could not be read or kept. A 500, and nothing was changed that
 /// the answer does not say.
 const ACCOUNTS_NOT_KEPT: &str = "fleet.accounts_not_kept";
