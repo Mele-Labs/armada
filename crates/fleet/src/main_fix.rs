@@ -275,7 +275,7 @@ where
     /// The brief, and under it the address of the failing job's log and its
     /// last lines as the forge gave them. **Absent where the forge would not
     /// give the text**: the address still goes.
-    async fn with_the_log(&self, served: &Served, main: &MainCi, brief: String) -> String {
+    pub(crate) async fn with_the_log(&self, served: &Served, main: &MainCi, brief: String) -> String {
         let Some(job) = main.failed.first() else {
             return brief;
         };
