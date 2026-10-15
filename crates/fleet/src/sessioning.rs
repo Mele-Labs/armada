@@ -828,6 +828,14 @@ where
         self.finished_up(caller, finish).await
     }
 
+    async fn mark_annotation_done(
+        &self,
+        caller: Option<api::Caller>,
+        mark: ipc::MarkAnnotationDone,
+    ) -> Result<ipc::AnnotationMarked, Refusal> {
+        self.annotation_done(caller, mark).await
+    }
+
     async fn start_session_run(
         &self,
         start: ipc::StartSessionRun,
