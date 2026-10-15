@@ -63,6 +63,22 @@ pub struct RoadTimes {
     pub merged: Option<String>,
 }
 
+/// When a Session's own work was entered on the timeline, inside a stretch. A burst is dated by its
+/// first call, so the last edit here is when the last burst began.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WorkTimes {
+    /// The first and the last `session.edited` entry.
+    pub edited: Option<(String, String)>,
+    pub first_commit: Option<String>,
+    pub first_push: Option<String>,
+}
+
+impl WorkTimes {
+    pub fn is_empty(&self) -> bool {
+        self.edited.is_none() && self.first_commit.is_none() && self.first_push.is_none()
+    }
+}
+
 /// A pull request a Session held that merged: who, which, and when the forge says.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LandedPull {
@@ -196,6 +212,34 @@ impl Store {
             queued: pull("pr.queued")?,
             merged: pull("pr.merged")?,
         })
+    }
+
+    /// What the timeline kept of a Session's edits, commits and pushes from `from` on, in one read.
+    pub fn session_work(&self, session: &str, from: &str) -> Result<WorkTimes, WriteError> {
+        let mut read = self
+            .conn
+            .prepare(
+                "SELECT kind, MIN(at), MAX(at) FROM timeline_events
+                 WHERE subject_kind = 'session' AND subject_id = ?1 AND at >= ?2
+                   AND kind IN ('session.edited', 'session.committed', 'session.pushed')
+                 GROUP BY kind",
+            )
+            .map_err(reading)?;
+        let rows = read
+            .query_map(params![session, from], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+            })
+            .map_err(reading)?;
+        let mut work = WorkTimes::default();
+        for row in rows {
+            let (kind, first, last) = row.map_err(reading)?;
+            match kind.as_str() {
+                "session.edited" => work.edited = Some((first, last)),
+                "session.committed" => work.first_commit = Some(first),
+                _ => work.first_push = Some(first),
+            }
+        }
+        Ok(work)
     }
 
     fn first_entry(
