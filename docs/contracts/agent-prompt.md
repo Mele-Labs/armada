@@ -1697,12 +1697,13 @@ a Session. It needs to be told what makes it Helm.
 | --- | --- | --- |
 | **Opening** | Name the repository and its folder; make a tool call rather than say a thing was done | A session does not know it is docked, or over which repository. The second sentence is the Drone's reporting clause, for the same failure: a model holding tools narrates acts it did not take |
 | **Sessions** | Find a Session with `list_sessions`, matching the person's words on its titles, and ask which only when two fit; pass words to a running one with `tell_session` | A person says "the session I went to poke" and Helm has the live ones in front of it as a line each (`state=ended` for a finished one). `tell_session` reads `Helm only`, so the door grants it, but "send this to the Walk Variations session" had nothing saying Helm could deliver it. It is not an unasked call |
+| **Settings** | Find a setting's key and values with `get_settings`, save it with `save_settings`; limits, sleep mode, mods and Kit servers have their own tools | Nick asked that Helm change any setting he asks it to (15 Oct 2026). `save_settings` and the other setting acts read `Helm only`, and nothing in the note said Helm could reach them |
 | **Where they are** | Read the one line before the message, and call `get_job` for what a named Job holds | `#1075`: Bridge sends the screen, the pick, a chipped Job and the cursor row with every ask, so the person never has to say which Job they mean |
 | **On a Studio** | Add a proposed node, propose an edge and name an untitled Studio unasked; every other act on a Studio waits for the ask | `#1288`, from [Studio](../concepts/studio.md)'s *Helm on a Studio*. The door cannot tell an ask from its absence, so this line is drawn here and nowhere else |
 | **Voice** | None. It tunes length and formality | Rendered only where the setting is set. It comes last, so it adjusts what is above it |
 
 **Read-only swaps one block for another.** Where the machine's authority is read-only the
-Sessions and Studio blocks are replaced by a single block saying Helm may call every
+Sessions, Settings and Studio blocks are replaced by a single block saying Helm may call every
 tool that reads and none that acts, and that where an act would help it says which
 and why and leaves it to the person. A session told not to act with no reason given
 reads the instruction as an error to work around.
@@ -1762,6 +1763,12 @@ refused when it is read, as every prompt is.
 │ them as the person's own message would, and the
 │ thread shows where they went.
 └────────────────────────────────────────────────
+┌─ SETTINGS ─────────────────────────────────────
+│ To change a setting the person asks for, find
+│ its key and values with get_settings, then save
+│ it with save_settings. Limits, sleep mode, mods
+│ and Kit servers have their own tools.
+└────────────────────────────────────────────────
 ┌─ WHERE THEY ARE ───────────────────────────────
 │ Before what the person typed, one line says where
 │ they are in Bridge: the screen, the repository
@@ -1787,7 +1794,7 @@ refused when it is read, as every prompt is.
 └────────────────────────────────────────────────
 ```
 
-Read-only replaces SESSIONS and ON A STUDIO with:
+Read-only replaces SESSIONS, SETTINGS and ON A STUDIO with:
 
 ```
 ┌─ READ ONLY ────────────────────────────────────

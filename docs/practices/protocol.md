@@ -3677,7 +3677,7 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 | --- | --- | --- |
 | `list_mods` (`GET /mods`) | `ModList`: `ModSummary` `name`, `kind?` (`theme` or `layout`), `version?`, `description?`, `enabled`, `valid`, `reason?`, `changed_at?` | A broken mod is a row with `valid` false; a field that could not be read is left out |
 | `scaffold_mod` (`POST /mods/scaffold`) | `ScaffoldMod`: `name`, `description?`, `kind?` (`theme` or `layout`, absent is a theme); answers `ModScaffolded`: `name`, `path` | 422 `fleet.unacceptable_mod` for a name that is not a slug, or a mod that exists. 500 `fleet.mod_not_written` |
-| `set_mod_enabled` (`POST /mods/enable`) | `SetModEnabled`: `name`, `enabled`; answers the `ModSummary` | 404 `fleet.no_such_mod`. `agent_access` is `No` |
+| `set_mod_enabled` (`POST /mods/enable`) | `SetModEnabled`: `name`, `enabled`; answers the `ModSummary` | 404 `fleet.no_such_mod`. `agent_access` is `Helm only` |
 | `validate_mod` (`GET /mods/validate?name=`) | `ModChecked`: `name`, `valid`, `problems[]`, `css?`, `layout?` | `css` is a theme's checked text and `layout` a layout mod's, each present only when `valid` and never both |
 | `promote_mod` (`POST /mods/promote`) | `PromoteMod`: `name`, `manifest_id?`; answers `ModPromoted`: `name`, `branch`, `commit` | 409 `fleet.mod_not_promotable`. `agent_access` is `No` |
 | `mods.changed` (event) | `ModList`, whole | Names no Job. A resync does not carry it |
@@ -3693,7 +3693,7 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 | Where | Carries | Notes |
 | --- | --- | --- |
 | `get_settings` (`GET /settings`) | `SettingsList`: `path`, `refused?` (`key?`, `reason`), `settings[]` | Each `Setting`: `key`, `group`, `section`, `title`, `description`, `kind` (tagged on `kind`: `integer` `min` `max` `unit`, `seconds` `min` `max`, `boolean`, `choice` `options`, `text`, `prompt`, `text_list`, `json`), `default`, `value`, `saved` (`null` where absent), `applies` (`live` or `at_restart`), `pending_restart`, `overridden_by_env` (`null` where none) |
-| `save_settings` (`POST /settings/save`) | `SaveSettings`: `changes`, a key to a value or `null`, which removes it | 422 `fleet.unacceptable_settings` naming the key, and nothing written; 500 `fleet.settings_not_written`. `agent_access` is `No` |
+| `save_settings` (`POST /settings/save`) | `SaveSettings`: `changes`, a key to a value or `null`, which removes it | 422 `fleet.unacceptable_settings` naming the key, and nothing written; 500 `fleet.settings_not_written`. `agent_access` is `Helm only` |
 | `settings.changed` (event) | `SettingsList`, whole | After a save, a hand edit, or a hand edit refused. A resync does not carry it |
 
 Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the rest.
@@ -3840,7 +3840,7 @@ Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, f
 | `keep_downshift` (`POST /model_downshift/keep`) | no body | Valid while `reset`. Leaves the lower model as the default |
 | `settle_downshift` (`POST /model_downshift/settle`) | no body | Valid while `offered`. Makes no second offer in this window |
 
-**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left. All four are `agent_access` `No`, `save_settings`' reason. Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` and `models.session` are `live`. The step down moves `models.session` and never `models.default`, which Drones and Jobs keep.
+**A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left. All four are `agent_access` `No`: a step down answers an offer Bridge draws, and Helm moves `models.session` with `save_settings`. Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` and `models.session` are `live`. The step down moves `models.session` and never `models.default`, which Drones and Jobs keep.
 
 **The event stream.** `model_downshift.changed` is rare: an offer, an accept, a reset, a restore, and the percent moving a whole point while an offer stands. It adds no queue and assumes no delivery is complete: a Bridge that missed one reads `get_model_downshift` on the resync that follows a `Missed`.
 

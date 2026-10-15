@@ -91,6 +91,8 @@ Helm's advantage is not more access than you have. It is reasoning over results 
 
 **Helm passes words to a live Session with `tell_session`, on an ask.** It reads `Helm only` in the inventory, so no other agent's door session and no Drone is offered it, and the note names it in one line (`../contracts/agent-prompt.md`, section 5a). *Routing a thought* has the rest. **The door is a Session's door plus Helm's extras**: `tell_session`, `ask_person_to_approve` and the other `Helm only` rows. Every operation the door offers is tagged, and a new one needs its decision in `crates/api/src/tests/commander_reach.rs`.
 
+**Helm changes any setting on an ask.** Nick asked for it on 15 Oct 2026, so `save_settings`, `set_sleep`, `set_mod_enabled`, `set_repository_profile`, the Kit server acts, `get_limits` and `get_model_downshift` read `Helm only`, beside `save_limits`, `save_preferences` and the per-Job model acts that already did. The note's Settings line sends Helm to `get_settings` for a key and the values it takes. A read-only Helm calls none of them, so it cannot raise its own authority.
+
 **On a Studio, a few commands are Helm's without an ask**: adding a node that starts proposed, proposing an edge, and naming an untitled Studio — `fleet::helm::reach::UNASKED`, named in the note. The door cannot tell an ask from its absence, so that line is drawn in the note and not at the door. It is the one standing rule the note keeps. See [Studio](studio.md), Helm on a Studio.
 
 **The WebSocket events are Bridge-only.** Why: an agent cannot be interrupted mid-turn. Helm may call `get_events_since(cursor)` for what happened since it last looked, a count plus one line per event kind, and is no longer told to at the start of every turn.
