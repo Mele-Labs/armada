@@ -344,6 +344,7 @@ where
                         target: session.id.clone(),
                     }),
                     options: Vec::new(),
+                    steps: Vec::new(),
                     place: None,
                 });
             }
