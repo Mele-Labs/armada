@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@xterm/xterm': 8bf6a90096d69487f433a197cccbb8243fe6642debe5a53b953a585f61a55163
+  '@xterm/xterm': b1fc1e2e563cca653812ee068d6a04e677ba74fd677131f3a740aa7ed892e0d0
 
 importers:
 
@@ -232,7 +232,7 @@ importers:
         version: 0.11.0
       '@xterm/xterm':
         specifier: ^6.0.0
-        version: 6.0.0(patch_hash=8bf6a90096d69487f433a197cccbb8243fe6642debe5a53b953a585f61a55163)
+        version: 6.0.0(patch_hash=b1fc1e2e563cca653812ee068d6a04e677ba74fd677131f3a740aa7ed892e0d0)
       '@xyflow/react':
         specifier: ^12.11.6
         version: 12.11.6(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -6088,7 +6088,7 @@ snapshots:
 
   '@xterm/addon-fit@0.11.0': {}
 
-  '@xterm/xterm@6.0.0(patch_hash=8bf6a90096d69487f433a197cccbb8243fe6642debe5a53b953a585f61a55163)': {}
+  '@xterm/xterm@6.0.0(patch_hash=b1fc1e2e563cca653812ee068d6a04e677ba74fd677131f3a740aa7ed892e0d0)': {}
 
   '@xyflow/react@12.11.6(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
