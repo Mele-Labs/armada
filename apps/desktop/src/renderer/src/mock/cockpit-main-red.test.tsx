@@ -1,0 +1,103 @@
+// A red main's light on the Cockpit's merge queue opens a card with the Merge line's panel for the red: what failed, who holds it,
+// and the same acts to hand it on. A green main has no card. The moments are `main-red-hub`'s: 2 is green, 3 is red with nobody on
+// it, 4 is red with a Job on it.
+
+import type { FixMain } from "@armada/protocol";
+import { repository } from "@armada/screens/src/fixtures/build/base";
+import { expect, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import { mainRed } from "./main-red-hub";
+import { scenarioNamed, type Scenario } from "./scenario";
+import { mount, onScreen, unmountAfterEach } from "./testing";
+
+unmountAfterEach();
+
+function standingAt(moment: number, sent: FixMain[] = []): Scenario {
+  const { later } = mainRed(repository().root);
+  const base = scenarioNamed("main-red-hub")!;
+  return {
+    ...base,
+    state: { ...base.state, ...later[moment - 1]! },
+    later: [],
+    behaves: () => ({
+      fixMain: async (fix) => {
+        sent.push(fix);
+        return { ok: true };
+      },
+    }),
+  };
+}
+
+const light = () => page.getByRole("button", { name: /^Main is red in/ });
+const card = () => page.getByRole("dialog", { name: /^Main is red in/ });
+
+async function deck(scenario: Scenario) {
+  mount(scenario);
+  await onScreen();
+  await expect.element(page.getByRole("region", { name: "Jobs and Sessions" })).toBeVisible();
+}
+
+test("hovering the red light opens the card with the way to hand the red to a Session", async () => {
+  await deck(standingAt(3));
+  expect(card().query()).toBeNull();
+  await light().hover();
+  await expect.element(card()).toBeVisible();
+  await expect.element(card().getByText("desktop_test")).toBeVisible();
+  await expect.element(card().getByRole("button", { name: "Dispatch a new Session" })).toBeVisible();
+  await expect.element(card().getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
+});
+
+test("the card's Dispatch a new Job sends the Merge line's own fix_main", async () => {
+  const sent: FixMain[] = [];
+  await deck(standingAt(3, sent));
+  await light().click();
+  await card().getByRole("button", { name: "Dispatch a new Job" }).click();
+  const dialog = page.getByRole("dialog", { name: "Dispatch a Job to fix main" });
+  await dialog.getByRole("button", { name: "Dispatch", exact: true }).click();
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.root).toBe(repository().root);
+});
+
+test("the card's Dispatch a new Session opens the Dispatch panel on a Session, as the Merge line does", async () => {
+  await deck(standingAt(3));
+  await light().click();
+  await card().getByRole("button", { name: "Dispatch a new Session" }).click();
+  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  await expect.element(panel.getByRole("tab", { name: "Session" })).toHaveAttribute("aria-selected", "true");
+  expect(card().query()).toBeNull();
+});
+
+test("a press pins the card, and Esc puts it away", async () => {
+  await deck(standingAt(3));
+  await light().click();
+  await expect.element(card()).toBeVisible();
+  // Off the light, a pinned card stays.
+  await page.getByRole("region", { name: "Jobs and Sessions" }).hover();
+  await new Promise((done) => window.setTimeout(done, 400));
+  await expect.element(card()).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => card().query()).toBeNull();
+});
+
+test("a Job on the red is named on the card, and no act to hand it on is offered", async () => {
+  await deck(standingAt(4));
+  await light().hover();
+  await expect.element(card().getByText("Debounce the Job Board's resize handler").last()).toBeVisible();
+  expect(card().getByRole("button", { name: "Dispatch a new Session" }).query()).toBeNull();
+});
+
+test("the light is reached by keyboard and opens the card on focus", async () => {
+  await deck(standingAt(3));
+  (light().element() as HTMLElement).focus();
+  await expect.element(card()).toBeVisible();
+});
+
+test("a green main has no card", async () => {
+  await deck(standingAt(2));
+  expect(light().query()).toBeNull();
+  const green = page.getByRole("img", { name: "Main is green" });
+  await green.hover();
+  await new Promise((done) => window.setTimeout(done, 200));
+  expect(page.getByRole("dialog", { name: /^Main is/ }).query()).toBeNull();
+});

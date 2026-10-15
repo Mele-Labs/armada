@@ -4,8 +4,8 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "../../Dashboard";
-import type { Ship, Subject } from "./ship";
-import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, listOf, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly } from "./store";
+import { shipOf, type Ship, type Subject } from "./ship";
+import { arrivedOf, deckNow, forgetDeck, incomingOf, keepOf, needingOf, listOf, moveCursor, setJobView, setView, toggleChecks, toggleNeeds, toggleOnly } from "./store";
 
 const kept = new Map<string, string>();
 
@@ -69,6 +69,40 @@ test("the calls to be opened come newest first by the Item's own arrival, the or
   expect(arrivedOf(call("x", undefined))).toBe(0);
 });
 
+test("a Session or Job raises one call however much it asks, the newest standing for the rest", () => {
+  const job = (key: string, at: string, id: string): Item => ({ key, at, job: { id } }) as Item;
+  const calls = [
+    call("session:s1:q1", "2026-10-14T09:00:00Z"),
+    call("session:s1:q2", "2026-10-14T11:00:00Z"),
+    call("session:s1:w1", "2026-10-14T10:00:00Z"),
+    call("session:s2:q1", "2026-10-14T08:00:00Z"),
+    job("gate:j1", "2026-10-14T07:00:00Z", "j1"),
+    job("check:j1", "2026-10-14T07:30:00Z", "j1"),
+    call("main:/r", "2026-10-14T06:00:00Z"),
+  ];
+
+  expect(incomingOf(calls, new Map(), new Set()).map((one) => one.key)).toEqual(["session:s1:q2", "session:s2:q1", "check:j1", "main:/r"]);
+  // An answered newest gives the Session's next call its place.
+  expect(incomingOf(calls, new Map([["session:s1:q2", 1]]), new Set()).map((one) => one.key)[0]).toBe("session:s1:w1");
+});
+
+test("a seen call stays while its Session still needs the person, and a seen one from elsewhere leaves", () => {
+  const calls = [call("session:s1:q1", "2026-10-14T09:00:00Z"), call("main:/r", "2026-10-14T10:00:00Z")];
+  const seen = new Set(["session:s1:q1", "main:/r"]);
+  expect(incomingOf(calls, new Map(), seen, new Set(["session:s1"])).map((one) => one.key)).toEqual(["session:s1:q1"]);
+  expect(incomingOf(calls, new Map(), seen, new Set())).toEqual([]);
+});
+
+test("a Job that needs the person and raised no call of its own is one, and the Calls filter lists it", () => {
+  const job = { id: "j1", title: "Review me", status: "awaiting_review", owner_manifest_id: "m" } as never;
+  const ship = shipOf({ jobs: [job], sessions: [], lines: [], slots: [], repositories: [], workflows: [], nows: undefined, calls: [], now: 0 });
+  const raised = ship.calls.map((one) => one.key);
+  expect(raised).toEqual(["job:j1:needs"]);
+  expect(incomingOf(ship.calls, new Map(), new Set(raised), needingOf(ship)).map((one) => one.key)).toEqual(["job:j1:needs"]);
+  toggleNeeds();
+  expect(listOf(ship, deckNow()).map((one) => one.key)).toEqual(["job:j1"]);
+});
+
 test("a call that is answered or visited leaves the tray", () => {
   const calls = [call("a", "2026-10-14T09:00:00Z"), call("b", "2026-10-14T10:00:00Z"), call("c", "2026-10-14T11:00:00Z")];
   expect(incomingOf(calls, new Map([["c", 1]]), new Set(["b"])).map((one) => one.key)).toEqual(["a"]);
@@ -97,4 +131,13 @@ test("with no filter on, the feed and the stage keep every subject the list draw
   const keep = keepOf(listed, deckNow());
   expect(keep({ kind: "job", id: "a" })).toBe(true);
   expect(keep({ kind: "main" })).toBe(true);
+});
+
+test("moving the cursor to the row it is on tells nobody", () => {
+  moveCursor("job:a");
+  const before = deckNow();
+  moveCursor("job:a");
+  expect(deckNow()).toBe(before);
+  moveCursor("job:b");
+  expect(deckNow().cursor).toBe("job:b");
 });

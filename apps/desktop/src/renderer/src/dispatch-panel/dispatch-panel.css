@@ -6,8 +6,8 @@
 
 /* ---- Where the frame sits ------------------------------------------------------------------ */
 
-/* Grown down from the title bar's field, which is where the one bar's palette opens, so the
-   frame hangs from that field's top edge and never centres. A scrim holds the rest of the window. */
+/* Centred across the window, its top at 20vh, where the palette opens; an anchor, where a caller
+   passes one, hangs it from that field instead. A scrim holds the rest of the window. */
 .armada-dispatch-panel {
   position: fixed;
   inset: 0;

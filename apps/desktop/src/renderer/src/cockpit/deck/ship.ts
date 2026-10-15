@@ -348,7 +348,29 @@ export function shipOf(input: Inputs): Ship {
   // A Session counts for the Jobs it owns.
   for (const session of sessions) if (session.attachments.some((a) => a.kind === "job" && running.has(`job:${a.id}`))) running.add(`session:${session.id}`);
 
-  return { subjects, mains, main, bays, autopilot: "off", calls, prs, repos, running };
+  // A Job or Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is.
+  const raised = [...calls];
+  for (const subject of subjects) {
+    if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;
+    const job = subject.kind === "job" ? jobs.find((one) => one.id === subject.id) : undefined;
+    const at = subject.kind === "session" ? sessions.find((one) => one.id === subject.id)?.lastTurnAt : undefined;
+    const item: Item = {
+      key: `${subject.kind}:${subject.id}:needs`,
+      icon: subject.mark.Glyph,
+      kind: subject.mark.said,
+      title: subject.title,
+      fact: subject.mark.said,
+      at,
+      hue: "ask",
+      where: subject.repo ?? "",
+      body: [],
+      acts: () => null,
+      ...(job === undefined ? {} : { job }),
+    };
+    raised.push(item);
+    subject.call = item.key;
+  }
+  return { subjects, mains, main, bays, autopilot: "off", calls: raised, prs, repos, running };
 }
 
 /** A pull request a Session holds that the forge's listing does not carry any more. */

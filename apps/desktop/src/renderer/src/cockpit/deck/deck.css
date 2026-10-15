@@ -34,13 +34,24 @@
   display: grid;
   flex: 1 1 0;
   min-height: 0;
-  grid-template-columns: calc(var(--space-12) * 6) minmax(0, 1fr) calc(var(--space-12) * 5.75);
+  grid-template-columns: var(--deck-left, calc(var(--space-12) * 6)) minmax(0, 1fr) var(--deck-right, calc(var(--space-12) * 5.75));
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-3);
 }
 .deck-left,
 .deck-centre,
 .deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
+
+/* A side column's resize handle, on the middle of the gap beside it and out of the flow, so drawing it moves nothing. */
+.deck-left,
+.deck-right { position: relative; }
+.deck-handle {
+  position: absolute;
+  inset-block: 0;
+  margin: 0;
+}
+.deck-left > .deck-handle { inset-inline-end: calc((var(--space-3) + var(--space-2)) / -2); }
+.deck-right > .deck-handle { inset-inline-start: calc((var(--space-3) + var(--space-2)) / -2); }
 
 .deck-panel,
 .deck-pane {
@@ -259,6 +270,28 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* Main's chip: the Cockpit's own green with its glow, red when it is red. */
 .deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
 .deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
+/* A red main's light opens a card, which says what the light's tooltip would. */
+.deck-chip[data-card] .armada-tooltip__bubble { display: none; }
+.deck-main-light { display: contents; }
+/* The card is drawn on the page and placed by the light, so it is not inside the deck's panels (their glass would clip a dialog). */
+.deck-main-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  width: var(--w-dialog-wide);
+  max-width: calc(100vw - var(--space-4) * 2);
+  max-height: calc(100vh - var(--space-4) * 2);
+  overflow-y: auto;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+}
+.deck-main-card__name { margin: 0; padding: var(--space-2) var(--space-3) 0; color: var(--fg-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); }
 
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 
@@ -334,6 +367,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
 .deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .deck-tile__text { font-size: var(--text-2xs); line-height: var(--leading-xs); }
+/* Drawn off: it is still there to be read, its tooltip says why, and a press does nothing. */
+.deck-tile[aria-disabled="true"] { opacity: 0.5; cursor: default; }
+.deck-tile[aria-disabled="true"]:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); color: var(--fg-muted); }
 /* Pressed is lit. */
 .deck-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
 

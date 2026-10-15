@@ -24,18 +24,16 @@ async function deck() {
   return app;
 }
 
-test("calls open as panes and leave Incoming", async () => {
+test("calls open as panes, and a Job or Session that still needs the person keeps its call", async () => {
   await deck();
   await expect.poll(() => hails().length).toBeGreaterThan(0);
   const first = hails()[0]!;
   const before = hails().length;
   await incoming().getByRole("button", { name: first }).click();
 
-  // What it is about opens on the stage, and opening it was the visit.
-  await expect.poll(() => hails().includes(first)).toBe(false);
-  expect(hails()).toHaveLength(before - 1);
-  expect(stage()?.getAttribute("aria-label")).not.toBe("Fleet timeline");
-  expect(stage()?.getAttribute("aria-label")).toContain(first.replace(/^[^:]+: /, ""));
+  // What it is about opens on the stage. Seen is not answered: it still needs him, so the call stays (the owner, 15 Oct 2026).
+  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(first.replace(/^[^:]+: /, ""));
+  expect(hails()).toHaveLength(before);
 });
 
 // A reply alone raises none (main's "Move replies out of Needs you", 9701ecf0c), so the Session asks a question. The deck is the only
@@ -123,10 +121,8 @@ test("in the deck's lists, o opens the item under the cursor as Enter does", asy
   await userEvent.keyboard("o");
   expect(autopilot.getAttribute("aria-checked")).toBe(was);
   expect(stage()?.getAttribute("aria-label")).toBe(AT_REST);
-  // A call opens the Session or Job it is about, and leaves Incoming as it does when pressed.
-  const before = hails().length;
+  // A call opens the Session or Job it is about, as it does when pressed.
   document.querySelector<HTMLElement>(".deck-incoming .deck-hail")!.focus();
   await userEvent.keyboard("o");
-  await expect.poll(() => hails().length).toBe(before - 1);
-  expect(stage()?.getAttribute("aria-label")).not.toBe(AT_REST);
+  await expect.poll(() => stage()?.getAttribute("aria-label")).not.toBe(AT_REST);
 });

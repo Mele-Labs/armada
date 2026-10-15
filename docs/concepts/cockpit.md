@@ -28,15 +28,31 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 |---|---|---|
 | Repository picker | Top of the left column. Narrows the list, the feed, the bays and the queue to one repository, or All repositories | |
 | Jobs and Sessions | One row for each: its kind, title, what it says, one glyph for the phase of its build and its state's mark | `l` |
-| Activity | What Fleet has been doing, newest first. A press picks the event and the map shows what moved | |
+| Activity | What Fleet has been doing, newest first. A press picks the event and the map shows what moved. While a Job or Session is open on the stage it tells of that one alone, a Session's subagents included, and tells of all again when it closes | |
 | Stage | The timeline or the map at rest. When something is picked, that thing: a Job's canvas, a Session as the panel the Sessions page draws (its head with the context figure and the rename, its thread and its box), a bay, a pull request, a call, Autopilot's lane | |
-| Merge queue | Main as one light, then a chip for each pull request. A press opens the pull request on the stage | `q` |
+| Merge queue | Main as one light, then a chip for each pull request. A press on a chip opens the pull request on the stage. While a main is red, hovering or focusing the light opens a card holding the Merge line's red panel for each red repository: what failed, the merge that broke it, who is fixing it or holds the claim, and, where nobody has it, the acts to dispatch a Job or a Session on it, the same acts and routes the Merge line sends. A press on the light pins the card; Esc or a press outside closes it. A green main has no card | `q` |
 | Bays | The worktree slots and who holds each. While a Session is open on the stage, that Session's ledger is drawn here instead, with its ring above it where it has one, and the Bays return when it is closed | `b` |
 | Incoming calls | Every call waiting on a person | `c` |
-| Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles | `f` |
+| Flight control | Jobs only, Sessions only, Checks, Calls, Map and Timeline, as tiles. While a Session is open on the stage, that Session's own (*The Session's flight controls*) | `f` |
 | Autopilot | The switch. On, it gives the stage to the lane, with its sidings, Next up and Set aside | `a` |
 
+The two side columns resize. A handle sits in the gap on each inner edge, drawn only while hovered, focused or dragged, and it is `DockHandle` (`packages/components/src/dock-handle.tsx`), the one Helm's dock and every sheet draw. A drag or `←` `→` moves it, and a double click or `Home` puts the column back to its resting width. The left column stops at 4.5 `--space-12` and the right at 4.75, and neither goes wider than leaves the stage 10 (480px), measured against the window and taken again when it resizes. The widths are kept in this browser as dragged (`armada.bridge.deck-columns`, `deck/columns.ts`), so a column dragged wide in a big window returns to that width when the window does. The deck has no narrow layout, so there is none to leave the handles out of.
+
 `Esc` returns the stage to what it was. The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
+
+## The Session's flight controls
+
+While a Session is open on the stage the tiles are that Session's, in the same block under the same keys, `1` to `5`. When it closes the six return.
+
+| Key | Tile | Does | Through |
+|---|---|---|---|
+| `1` | Ask for update | Sends the Session `askForUpdate`'s text | `askForUpdate(draft, sessionId)` in `deck/acts.ts`, over `draft.send`, the route the Sessions page composer sends by |
+| `2` | Auto land | Turns the instruction on or off. On sends "Auto land is on. When your work is done, land it: open the pull request, merge main in, turn on auto-merge, watch ci, and fix failures and conflicts until it is in main." Off sends "Auto land is off. Do not land on your own." | `draft.send`; the state is kept for each Session in the browser's storage (`deck/auto-land.ts`), so the tile reads on after a restart. Fleet has no operation for it |
+| `3` | Compact | Runs the Session's `/compact` | A hosted Session is sent `/compact` as a message, as picking it from `/` does; a terminal Session is typed it through `draft.command`. Drawn off unless the agent or the terminal listed `compact` |
+| `4` | Report | Drawn off | `file_report` is keyed by a Job and renders that Job's record, so a Session has no route to it |
+| `5` | Map | Closes the Session and shows the map | The stage's view switch, as tile 5 is |
+
+A tile is off with its reason as the tooltip when the Session ended or its terminal is not listening. A press that sends is lit until Fleet answers, and a refusal is the toast the composer shows.
 
 ## The map
 
@@ -67,7 +83,7 @@ Why a ring, and what it cost the owner: [a Session builds a ring](../../.claude/
 
 ## Calls
 
-A call is something waiting on a person: a Job's gate, a question an agent asked, a Session that finished its turn and is done. A reply asks nothing of him and raises none. It is raised on the deck as an Incoming call, and the deck is the only Cockpit, so there is no second place one is drawn. A press opens it on the stage, and it leaves Incoming when it is answered or seen.
+A call is something waiting on a person: a Job's gate, a question an agent asked, a Session that finished its turn and is done. **Every Job or Session whose row says it needs him is a call**, whether or not it raised one, and the Calls tile lists exactly those (the owner, 15 Oct 2026). It is raised on the deck as an Incoming call, and the deck is the only Cockpit, so there is no second place one is drawn. **One call for each Job or Session**, the newest, however many questions and waiting items it holds: opening it opens the Job or Session, which holds them all. A press opens it on the stage. A call from a Job or Session stays in Incoming while that one still needs him; any other call leaves when it is answered or seen. A Session's call opens the Session, whose own thread and Needs you band hold what it asks, so no call strip is drawn above it; a Job's call keeps its strip.
 
 While the window is on another tab a toast says a call has come and a press brings it forward on the stage. On the Cockpit tab no toast is drawn, and the Cockpit tab carries a pip while a call waits and the window is elsewhere. A call in front takes the bare digits and letters the `call` scope names, and the deck's handlers stand down for it.
 
@@ -80,7 +96,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | Doctor | The title bar's menu, top right, or `⌘K` by name |
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a` |
-| A flight control | `1` to `6` |
+| A flight control | `1` to `6`, or `1` to `5` while a Session is open |
 | Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 
@@ -102,3 +118,18 @@ The deck draws what Fleet holds and leaves the rest empty. F1 and F2 of #2301 ar
 **F2 is the last resort for a drone.** A tool burst places a drone first, then what its slot holds against the base, and the open Job's footprint only where neither does. A holder a repository's slots do not name, and a Session in a terminal Fleet does not host, has no such read and rests at its pad. A repository with more than 40 directories is drawn from its 40 largest, and a holder with more than 200 changed paths from the first 200 in the alphabet.
 
 Both reads are polled, since Fleet pushes no event for either: when Fleet connects, and every 35 seconds while the board changes or a holder has changes. A Fleet before them answers 404 and the deck draws none.
+
+## What is capped, and why
+
+The deck stays quick by drawing less, not by drawing it faster. What is held back, and where the line is drawn:
+
+| Held back | By | Why |
+|---|---|---|
+| The Activity feed draws the newest events only | `MOST_FEED` in `cockpit/Timeline.tsx`, cut before the lanes are built, after the filters narrow | A feed row costs a subtree, and Fleet holds far more events than a column shows |
+| Ages move in whole minutes | `AGE_MS` in `cockpit/deck/clock.ts`; `CommandCentral` hands the deck the minute | A clock handed on each second drew the whole deck each second. A part that must move faster keeps a clock of its own: the field and the replay run on five seconds |
+| A burst of events tells its readers at most four times a second, and the last event always lands | `fleet-timeline.ts`, through `TICK_MS` | One event, one draw, was a draw for every append of a burst |
+| An idle drone runs no animation; a working or calling one does, and so does the one selected | `battlefield.css`, on `data-alive` | Any animation that runs forever forces a full frame of the map, whatever it moves. Reduced motion stays static |
+| No rotor turns, and a stranded bay's ring and a picked tile's glow hold steady | `battlefield.css` | A turning SVG group, an SVG stroke and a box shadow repaint the map each frame; the rotors were most of a focused window's cost (the owner, 15 Oct 2026: the machine over the rotors) |
+| The window draws no motion while hidden or unfocused, and the map none after a minute with no input | `still.ts`, `data-still` and `data-idle`, ruled in `styles/index.css` | One loop still holds the compositor at the display's rate. Any input moves the map again |
+
+A part of the deck reads the one field of `store.ts` it draws from, `useDeck((deck) => deck.cursor)`, and not the whole state, so the cursor's move on `j` draws the rows and the map's ring and nothing else.

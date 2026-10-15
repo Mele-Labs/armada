@@ -74,9 +74,21 @@ export type DockHandleProps = {
    */
   grows?: "left" | "right";
   onResize: (width: number) => void;
+  /**
+   * Puts the panel back to its resting width. A double click does it, and so does Home, which
+   * then no longer means the widest. Absent, a double click does nothing.
+   */
+  onReset?: () => void;
+  /**
+   * Drawn only while hovered, focused or dragged, as a line the height of its edge, where a
+   * dock's and a sheet's grip is a short bar always in view. For a column whose edge is a gap
+   * between two panels. The caller places it, with `className`.
+   */
+  quiet?: boolean;
+  className?: string;
 };
 
-export function DockHandle({ width, min, max, label, grows = "left", onResize }: DockHandleProps) {
+export function DockHandle({ width, min, max, label, grows = "left", onResize, onReset, quiet, className }: DockHandleProps) {
   const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   // Only for the line's own intensified colour while dragging — `:hover` drops
   // the moment the cursor leaves the 8px hit area, which a fast drag does
@@ -116,6 +128,7 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize }:
   function keyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "ArrowLeft") onResize(clampToRange(width + sign * DOCK_WIDTH_STEP, range));
     else if (event.key === "ArrowRight") onResize(clampToRange(width - sign * DOCK_WIDTH_STEP, range));
+    else if (event.key === "Home" && onReset !== undefined) onReset();
     else if (event.key === "Home") onResize(sign > 0 ? max : min);
     else if (event.key === "End") onResize(sign > 0 ? min : max);
     else return;
@@ -124,7 +137,7 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize }:
 
   return (
     <div
-      className="armada-dock-handle"
+      className={className === undefined ? "armada-dock-handle" : `armada-dock-handle ${className}`}
       role="separator"
       aria-orientation="vertical"
       aria-label={`Resize ${label}`}
@@ -132,7 +145,9 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize }:
       aria-valuemin={Math.round(min)}
       aria-valuemax={Math.round(max)}
       data-dragging={dragging || undefined}
+      data-quiet={quiet || undefined}
       tabIndex={0}
+      onDoubleClick={onReset}
       onPointerDown={pointerDown}
       onPointerMove={pointerMove}
       onPointerUp={endDrag}

@@ -45,7 +45,7 @@ import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
+import { Overview } from "./Overview"; import { useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { optionsFor } from "./dispatch-panel/reading";
 import { useHelmBox } from "./helm-box";
@@ -1150,7 +1150,7 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={lands.landed}
                   bring={lands.bringing}
                   onBrought={lands.brought}
-                  onOpenLink={openProseLink} onFix={(fix) => commands.fixMain(fix)}
+                  onOpenLink={openProseLink} onFix={(fix) => commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)}
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
                   onPickRepository={pick}
@@ -1209,8 +1209,9 @@ export function App({ draft }: AppProps = {}) {
 
         <Locate locating={locate} />
 
-        <TitleDispatchPanel anchor={ONE_BAR} />
-        <TitleDispatchedStrip anchor={ONE_BAR} />
+        {/* Centred at 20vh, as the palette is: the owner, 15 Oct 2026. */}
+        <TitleDispatchPanel />
+        <TitleDispatchedStrip />
 
         <PaletteMount
           open={palette.open} onClose={palette.onClose} dispatch={oneBar}

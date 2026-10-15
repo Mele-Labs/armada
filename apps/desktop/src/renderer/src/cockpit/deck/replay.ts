@@ -106,11 +106,11 @@ export function seek(events: readonly TimelineEvent[], to: number, ownerOf: (num
   changeReplay({ at: to, plays: [...was.plays.filter((one) => Date.now() - one.at < STAYS), ...plays].slice(-MOST_PLAYING) });
 }
 
-/** Plays the replay forward while it is playing; arriving at now is arriving at Live. */
-export function useReplayDriver(events: readonly TimelineEvent[], now: number, ownerOf: (number: number) => string | undefined, rootOf: (manifest: string | undefined) => string | undefined): void {
-  const latest = useRef({ events, now, ownerOf, rootOf });
-  latest.current = { events, now, ownerOf, rootOf };
-  const replay = useDeck().replay;
+/** Plays the replay forward while it is playing; arriving at now is arriving at Live. **Now is the clock's own**, read each step: the deck is handed the minute. */
+export function useReplayDriver(events: readonly TimelineEvent[], ownerOf: (number: number) => string | undefined, rootOf: (manifest: string | undefined) => string | undefined): void {
+  const latest = useRef({ events, ownerOf, rootOf });
+  latest.current = { events, ownerOf, rootOf };
+  const replay = useDeck((deck) => deck.replay);
   const playing = replay?.playing === true;
   const speed = replay?.speed ?? 1;
   useEffect(() => {
@@ -124,7 +124,8 @@ export function useReplayDriver(events: readonly TimelineEvent[], now: number, o
         const waited = clock - last;
         last = clock;
         const here = deckNow().replay;
-        const { events: all, now: end } = latest.current;
+        const { events: all } = latest.current;
+        const end = Date.now();
         if (here === undefined || !here.playing) return;
         const next = neighbours(all, here.at).after;
         let to = here.at;

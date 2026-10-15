@@ -6,6 +6,8 @@
 
 import { actionOf, formatSlot, slotsOf } from "@armada/components";
 
+import { SESSION_TILES } from "./session-tiles";
+
 export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "autopilot";
 
 export type Panel = {
@@ -82,7 +84,18 @@ export function keySheetOf(): readonly SheetGroup[] {
         { keys: caps("close"), does: actionOf("close").verb },
       ],
     },
-    ...(built("deck_tile") ? [{ head: "Controls", rows: [{ keys: caps("deck_tile"), does: actionOf("deck_tile").verb }] }] : []),
+    ...(built("deck_tile")
+      ? [
+          {
+            head: "Controls",
+            rows: [
+              { keys: caps("deck_tile"), does: actionOf("deck_tile").verb },
+              // With a Session open the same digits press its tiles instead: the first five.
+              ...SESSION_TILES.map((tile, at) => ({ keys: caps("deck_tile").slice(at, at + 1), does: `Session open: ${tile.label}` })),
+            ],
+          },
+        ]
+      : []),
     {
       head: "Calls",
       rows: [

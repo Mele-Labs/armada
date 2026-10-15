@@ -14,6 +14,8 @@ import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { bandingOf } from "./bands";
+import { AGE_MS } from "./clock";
+import { quantized } from "./field";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -22,7 +24,7 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
 import { useShip } from "./ship";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
@@ -53,10 +55,11 @@ export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onG
   onBack: () => void;
   onReplaceNext: () => void;
 }) {
-  const deck = useDeck();
+  const held = useDeck((deck) => deck.held);
+  const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
   const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
-  const waiting = incomingOf(calls, deck.held, deck.visited).length > 0;
+  const waiting = incomingOf(calls, held, visited).length > 0;
   useEffect(() => {
     if (deckTabOf(showing) === "system") rememberSystemPage(showing);
   }, [showing]);
@@ -89,26 +92,30 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const ship = useShip({ ...NO_HOSTS, state, now, picked, nowViews, nows }, false);
-  const deck = useDeck();
+  const ship = useShip({ ...NO_HOSTS, state, now: quantized(now, AGE_MS), picked, nowViews, nows }, false);
+  const only = useDeck((deck) => deck.only);
+  const needs = useDeck((deck) => deck.needs);
+  const checks = useDeck((deck) => deck.checks);
+  const held = useDeck((deck) => deck.held);
+  const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
   useEffect(() => setHere(here), [here]);
 
   // An answered call is held out until Fleet stops carrying it, or `holdFor` has passed.
   useEffect(() => {
-    if (deck.held.size === 0) return;
+    if (held.size === 0) return;
     const live = new Set(ship.calls.map((one) => one.key));
-    const gone = [...deck.held].filter(([key, since]) => !live.has(key) || Date.now() - since >= holdFor.ms).map(([key]) => key);
+    const gone = [...held].filter(([key, since]) => !live.has(key) || Date.now() - since >= holdFor.ms).map(([key]) => key);
     if (gone.length > 0) return release(gone);
-    const next = Math.min(...deck.held.values()) + holdFor.ms - Date.now();
+    const next = Math.min(...held.values()) + holdFor.ms - Date.now();
     const timer = window.setTimeout(() => release([]), Math.max(0, next));
     return () => window.clearTimeout(timer);
-  }, [deck.held, ship.calls]);
+  }, [held, ship.calls]);
 
-  const incoming = incomingOf(ship.calls, deck.held, deck.visited);
+  const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;
   const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
-  const listed = useMemo(() => listOf(ship, deck, banding), [ship, deck.only, deck.needs, deck.checks, deck.held, banding]);
+  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
     const noted = (event: FocusEvent) => remember(event.target);
@@ -186,10 +193,13 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
     }
     const digit = pressedDigit("deck_tile", event);
     if (digit !== null) {
-      const tile = TILES[digit - 1];
+      // With a Session open the tiles drawn are its own, and a key presses the one it names as a press on it does.
+      const drawn = document.querySelector('.deck-controls__block[data-subject="session"]');
+      const tile = drawn === null ? TILES[digit - 1] : drawn.querySelectorAll<HTMLElement>(".deck-tile")[digit - 1];
       if (tile === undefined) return;
       event.preventDefault();
-      tile.press();
+      if (tile instanceof HTMLElement) tile.click();
+      else tile.press();
       return;
     }
     const slot = pressedSlot("deck_panel", event);

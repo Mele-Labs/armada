@@ -2,8 +2,8 @@
 // doing, the territories, the bays as pads, the pull requests as crates, what plays and what each drone's callout says. The map
 // shows all of it and a Job's mission the part that is its own. **Nothing here is held locally and nothing is invented**: a drone no
 // edit places rests at its pad or base, a territory with no areas draws no plots, and a replay stands drones as the events left them.
-// The timeline's appends are taken no faster than four a second and the clock moves in five-second steps, so a busy window draws
-// the field a few times a second at most. #2301.
+// The timeline's appends arrive no faster than four a second (`fleet-timeline.ts`) and the clock moves in five-second steps, so a busy
+// window draws the field a few times a second at most. #2301.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
@@ -19,7 +19,8 @@ import { useBuilds } from "./useBuilds";
 import { useSlotTouches } from "./touches-source";
 import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
-import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, quantized, throttled, TICK_MS } from "./field";
+import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf } from "./field";
+import { useClock } from "./clock";
 import { droneOf, type PrIn, type RepoIn } from "./layout";
 import { fieldAt, windowOf } from "./replay";
 import { MOST_PLAYING, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./plays";
@@ -29,17 +30,7 @@ import { slotsOf, type Ship, type Subject } from "./ship";
 import { clashesOf, touchesFromEvents, touchesOf } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
 
-type FieldProps = Pick<CockpitProps, "state" | "now" | "picked">;
-
-/** The timeline's events, held to a redraw every quarter second however fast they arrive. */
-function useCalmEvents(): readonly TimelineEvent[] {
-  const live = useFleetEvents();
-  const [held, setHeld] = useState(live);
-  const gate = useRef<ReturnType<typeof throttled<readonly TimelineEvent[]>>>(undefined);
-  gate.current ??= throttled<readonly TimelineEvent[]>(setHeld, TICK_MS);
-  useEffect(() => gate.current?.push(live), [live]);
-  return held;
-}
+type FieldProps = Pick<CockpitProps, "state" | "picked">;
 
 /** What the field plays, from the events and from what changes while it is drawn: each played once, and the most that move at once is capped. */
 function usePlays(candidates: readonly Play[], drones: readonly string[], landed: ReadonlyMap<number, string>): Play[] {
@@ -65,13 +56,17 @@ function usePlays(candidates: readonly Play[], drones: readonly string[], landed
 }
 
 export function useField(props: FieldProps, ship: Ship, listed: readonly Subject[]) {
-  const deck = useDeck();
+  const answered = useDeck((deck) => deck.held);
+  const visited = useDeck((deck) => deck.visited);
+  const replay = useDeck((deck) => deck.replay);
+  const focus = useDeck((deck) => deck.focus);
   const sessions = useSessions();
-  const events = useCalmEvents();
+  const events = useFleetEvents();
   const areasOf = useAreas();
   const slotTouched = useSlotTouches();
   const written = useWriteClashes();
-  const clock = quantized(props.now, CLOCK_MS);
+  // The field moves in five-second steps whatever the deck is handed.
+  const clock = useClock(CLOCK_MS);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
   const slots = slotsOf(props.state, props.picked);
   const repositories = props.state.holds.repositories ?? [];
@@ -105,7 +100,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       const made = one.kind === "job" ? props.state.jobs.find((job) => job.id === one.id)?.dispatched_by : undefined;
       const parent = attached !== undefined && attached.kind === "job" ? `job:${attached.id}` : made === undefined ? undefined : `job:${made}`;
       const slot = holder.get(one.key);
-      return droneOf(one, callOfSubject(one, deck.held) !== undefined, {
+      return droneOf(one, callOfSubject(one, answered) !== undefined, {
         parent: parent !== undefined && has.has(parent) ? parent : undefined,
         slot: slot === undefined ? undefined : slotKey(slot),
         shown: shown.has(one.key),
@@ -113,7 +108,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         touches: touchesOf(one.key, touched, slotTouched),
       });
     });
-  }, [all, sessions, holder, props.state.jobs, deck.held, shown, touched, slotTouched]);
+  }, [all, sessions, holder, props.state.jobs, answered, shown, touched, slotTouched]);
 
   const repos = useMemo<RepoIn[]>(() => {
     const roots = [...new Set([...all.map((one) => one.root), ...ship.mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();
@@ -129,7 +124,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     }));
   }, [all, ship.mains, ship.repos, slots, repositories, areasOf]);
 
-  const bays = useBays(slots, events, deck.replay?.at, clock);
+  const bays = useBays(slots, events, replay?.at, clock);
   const pads = useMemo(() => {
     const out = new Map<string, PadIn>();
     for (const { view } of bays) {
@@ -165,17 +160,16 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   // A picked event, and a replay: the field as it was at the playhead, from the events up to it. A replay is the window's: the last two hours.
   const window2h = useMemo(() => windowOf(events, clock), [events, clock]);
   const ordered = window2h?.events ?? [];
-  const replay = deck.replay;
   const passed = replay === undefined ? 0 : ordered.filter((one) => Date.parse(one.at) <= replay.at).length;
   const before = useMemo(() => (replay === undefined ? events : ordered.filter((one) => Date.parse(one.at) <= replay.at)), [events, ordered, replay === undefined, passed]);
   const field = useMemo(() => (replay === undefined ? undefined : fieldAt(ordered, replay.at, drones, prs, ownerOf)), [ordered, replay === undefined, replay?.run, passed, drones, prs]);
-  const picked = deck.focus === undefined ? undefined : events.find((one) => String(one.id) === deck.focus);
+  const picked = focus === undefined ? undefined : events.find((one) => String(one.id) === focus);
   const focusKey = picked === undefined ? undefined : droneOfEvent(picked, ownerOf);
   // What each working drone is doing, from the tool events up to the playhead; a picked tool event shows its own action on its own drone.
   const held = replay === undefined && picked !== undefined && focusKey !== undefined && doingOfEvent(picked) !== undefined ? { key: focusKey, event: picked } : undefined;
   const flying = useMemo(() => withDoing(field?.drones ?? drones, before, replay?.at ?? clock, ownerOf, held), [field, drones, before, clock, held?.event.id]);
   // What each Session has built, as Fleet carries it now. A replay stands the field as it was, and a record of now is not that: it draws none.
-  const built = useBuilds(props.now);
+  const built = useBuilds(clock);
   const builds = useMemo(() => (replay === undefined ? [...built.values()] : []), [built, replay === undefined]);
   const shaped = useMemo(() => flying.map((one) => {
     const build = replay === undefined ? built.get(one.key) : undefined;
@@ -187,7 +181,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const focusPlays = useMemo(() => {
     const play = picked === undefined ? undefined : playOfEvent(picked, `focus:${picked.id}`, ownerOf, rootOfManifest);
     return play === undefined ? [] : [play];
-  }, [deck.focus]);
+  }, [focus]);
   const drawn = replay === undefined ? [...plays, ...focusPlays] : replay.plays;
   const at = replay?.at ?? clock;
 
@@ -200,7 +194,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       if (subject === undefined) continue;
       const build = replay === undefined ? built.get(drone.key) : undefined;
       const { last, ticks } = eventFactsOf(before, drone.key, keyOf, at);
-      const owed = callOfSubject(subject, deck.held);
+      const owed = callOfSubject(subject, answered);
       const call = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed)?.title;
       const pad = drone.slot === undefined ? undefined : pads.get(drone.slot);
       out.set(drone.key, {
@@ -213,7 +207,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
       });
     }
     return out;
-  }, [flying, built, replay === undefined, ship.subjects, ship.calls, before, at, deck.held, pads, ship.prs]);
+  }, [flying, built, replay === undefined, ship.subjects, ship.calls, before, at, answered, pads, ship.prs]);
 
   // The drones that hold a call he has not opened: a call is marked until it is visited or answered. In a replay, those that were calling at the playhead.
   const calls = useMemo(
@@ -222,12 +216,12 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         flying,
         (key) => {
           const subject = ship.subjects.find((one) => one.key === key);
-          return subject === undefined ? undefined : callOfSubject(subject, deck.held);
+          return subject === undefined ? undefined : callOfSubject(subject, answered);
         },
-        deck.visited,
+        visited,
         replay === undefined,
       ),
-    [flying, ship.subjects, deck.held, deck.visited, replay === undefined],
+    [flying, ship.subjects, answered, visited, replay === undefined],
   );
 
   // Where Fleet says two holders write one area, as the marks of the drones the map holds.
@@ -240,5 +234,5 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
     [written, all],
   );
 
-  return { deck, calls, repos, pads, goals, crates, drones: shaped, builds, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
+  return { calls, repos, pads, goals, crates, drones: shaped, builds, flightTrails, drawn, facts, clashes, focusKey, replay, ordered, picked, ownerOf, rootOfManifest, events };
 }
