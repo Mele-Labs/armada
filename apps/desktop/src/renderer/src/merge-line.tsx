@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
-import { MergeLine, useTileGrid } from "@armada/components";
+import { MergeLine, useTileGrid, type FixRefusal } from "@armada/components";
 import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
@@ -54,7 +54,7 @@ export function MergeLinePanel({
   /** A Session the head names. Absent, it is not a press. */
   onOpenSession?: (sessionId: string) => void;
   /** Hands main's red to a Job. Absent, the band offers no way to. */
-  onFix?: (fix: FixMain) => void;
+  onFix?: (fix: FixMain) => void | Promise<FixRefusal | undefined | void>;
   /** Sends main's red to a Session as a message. */
   onSendToSession?: (sessionId: string, message: string) => void;
   focus?: string;
@@ -115,7 +115,7 @@ function OneLine({
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
   onOpenSession?: (sessionId: string) => void;
-  onFix?: (fix: FixMain) => void;
+  onFix?: (fix: FixMain) => void | Promise<FixRefusal | undefined | void>;
   onSendToSession?: (sessionId: string, message: string) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
@@ -152,7 +152,9 @@ function OneLine({
                 ? onSendToSession?.(choice.session, choice.message)
                 : choice.kind === "newSession"
                   ? (dispatching?.choose("session"), dispatching?.openTitled(choice.request, view.root))
-                  : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
+                  : choice.kind === "takeOver"
+                    ? onFix({ root: view.root, take_over: true })
+                    : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
           })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
@@ -179,7 +181,7 @@ export function MergeLineSurface({
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
   onOpenSession?: (sessionId: string) => void;
-  onFix?: (fix: FixMain) => void;
+  onFix?: (fix: FixMain) => void | Promise<FixRefusal | undefined | void>;
   onSendToSession?: (sessionId: string, message: string) => void;
   focus?: string;
 }) {
