@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { ChevronDown, FolderGit2 } from "lucide-react";
+import { ChevronDown, FolderGit2, TriangleAlert } from "lucide-react";
 
+import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -33,7 +34,7 @@ export function SessionRepository({ name, to = [], held, stays, ends = false, on
   if (to.length === 0) {
     return (
       <Tooltip label="Repository">
-        <span className="armada-session-repository" data-plain>
+        <span className="armada-session-repository" data-plain role="img" aria-label={`Repository ${name}`}>
           <FolderGit2 size={12} strokeWidth={2} aria-hidden />
           <span className="armada-session-repository__name">{name}</span>
         </span>
@@ -73,8 +74,14 @@ function MovePanel({ from, to, held, stays, ends, onMove, close }: { from: strin
     const files = stays?.branch === undefined ? <>Its files</> : <><code>{stays.branch}</code> and its files</>;
     return (
       <div className="armada-session-repository__confirm">
-        {stays === undefined ? null : <p className="armada-session-repository__fact">{files} stay in {from}</p>}
-        {ends ? <p className="armada-session-repository__fact">Ends this Session</p> : null}
+        {stays === undefined && !ends ? null : (
+          <Alert tone="caution" icon={<TriangleAlert size={16} strokeWidth={2} aria-hidden />}>
+            <span className="armada-session-repository__warning">
+              {stays === undefined ? null : <span>{files} stay in {from}</span>}
+              {ends ? <span>Ends this Session</span> : null}
+            </span>
+          </Alert>
+        )}
         <div className="armada-session-repository__acts">
           <Button
             variant="primary"

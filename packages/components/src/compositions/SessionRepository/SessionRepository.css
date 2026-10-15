@@ -94,11 +94,14 @@ button.armada-session-repository:focus-visible {
   gap: var(--space-3);
 }
 
-.armada-session-repository__fact {
-  margin: 0;
-  color: var(--fg-muted);
+/* The facts of the move, in the caution Alert: weight and not size carries them. */
+.armada-session-repository__warning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
 }
 
 .armada-session-repository__acts {

@@ -25,6 +25,7 @@ const sessionMoveRepository = walk("session-move-repository", [
   { look: button("Moved from shop"), say: "Its thread starts with a row naming where it came from" },
   { press: button("Moved from shop"), say: "The row opens the old Session" },
   { look: button("Moved to armada"), say: "The old thread ends with a row naming where it went" },
+  { look: role("img", "Repository shop"), say: "Its repository is text now: it cannot be moved twice" },
   { look: role("img", "Ended"), say: "It ended, and nothing more can be said to it" },
   { press: button("Moved to armada"), say: "The row opens the new Session again" },
   { look: button("Repository armada"), say: "Back in armada" },

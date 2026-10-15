@@ -19,11 +19,13 @@ export function SessionRepositoryOf({ session, repositories, onOpen }: { session
   const here = served.find((one) => one.manifest?.id === session.manifestId);
   if (move === undefined || session.helm === true || here === undefined) return null;
   const branch = session.attachments.find((one) => one.kind === "branch")?.name;
+  // One that has moved is not moved again: its repository is text.
+  const moved = session.rows.some((one) => one.kind === "moved" && one.way === "to");
   const holds = branch !== undefined || session.attachments.some((one) => one.kind === "slot");
   return (
     <SessionRepository
       name={repositoryLabel(here, repositories)}
-      to={served.filter((one) => one !== here).map((one) => ({ id: one.manifest!.id, name: repositoryLabel(one, repositories) }))}
+      to={moved ? [] : served.filter((one) => one !== here).map((one) => ({ id: one.manifest!.id, name: repositoryLabel(one, repositories) }))}
       {...(session.terminal === true && session.dead === undefined ? { held: IN_A_TERMINAL } : {})}
       {...(holds ? { stays: branch === undefined ? {} : { branch } } : {})}
       ends={session.dead === undefined}

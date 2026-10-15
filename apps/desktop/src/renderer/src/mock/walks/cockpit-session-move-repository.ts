@@ -17,6 +17,7 @@ const cockpitSessionMoveRepository = walk("session-move-repository", [
   { look: inside(stage, button("Moved from shop")), say: "Its thread starts with a row naming where it came from" },
   { press: inside(stage, button("Moved from shop")), say: "The row opens the old Session, which ended and is not on the deck, so on its own page" },
   { look: button("Moved to armada"), say: "Its thread ends with where it went" },
+  { look: role("img", "Repository shop"), say: "Its repository is text now: it cannot be moved twice" },
 ]);
 
 export { cockpitSessionMoveRepository as "cockpit-session-move-repository" };
