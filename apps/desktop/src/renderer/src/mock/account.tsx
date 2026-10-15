@@ -13,6 +13,7 @@ import type {
   AccountFlow,
   BlankSetting,
   EndedOutcome,
+  BoundRepository,
   Profile,
   SetUpState,
   SignedOutNote,
@@ -20,6 +21,7 @@ import type {
   SignInUnavailable,
   SyncChoice,
   SyncKindWord,
+  UnboundRepository,
 } from "@armada/components";
 import { openSettingsAt } from "@armada/settings";
 
@@ -78,6 +80,8 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
   const [ended, setEnded] = useState<SignInEnd | undefined>(undefined);
   const [unavailable, setUnavailable] = useState<SignInUnavailable | undefined>(undefined);
   const [left, setLeft] = useState<SignedOutNote | undefined>(undefined);
+  // What the person chose for a repository, over what matching said: a login, or `null` for None.
+  const [picked, setPicked] = useState<Readonly<Record<string, string | null>>>({});
   // How many attempts have started, and how the one in flight will end.
   const tried = useRef(0);
   const planned = useRef<EndedOutcome | null>(null);
@@ -177,18 +181,43 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [pulling]);
 
+  // Each repository is bound to one profile: by its owner being the login or one of its organisations, or by choice.
+  // One no profile matches, or two both do, waits unbound until it is chosen.
+  const { bound, unbound } = useMemo(() => {
+    const bound = new Map<string, BoundRepository[]>();
+    const unbound: UnboundRepository[] = [];
+    if (profiles.length === 0) return { bound, unbound };
+    const owns = (login: string, name: string) => {
+      const owner = name.split("/")[0] ?? "";
+      return owner === login || (offer.orgs?.[login] ?? []).includes(owner);
+    };
+    const put = (login: string, row: BoundRepository) => bound.set(login, [...(bound.get(login) ?? []), row]);
+    for (const name of offer.repositories ?? []) {
+      const choice = picked[name];
+      if (choice === null) unbound.push({ name, none: true });
+      else if (choice !== undefined && profiles.some((one) => one.login === choice)) put(choice, { name, by: "chosen" });
+      else {
+        const matches = profiles.filter((one) => owns(one.login, name));
+        if (matches.length === 1 && matches[0] !== undefined) put(matches[0].login, { name, by: "matched" });
+        else unbound.push({ name });
+      }
+    }
+    return { bound, unbound };
+  }, [profiles, picked, offer]);
+
   const value = useMemo<Account>(() => {
     const change = (login: string, kind: SyncKindWord, edit: (one: SyncChoice) => SyncChoice) =>
       setKinds((was) => ({ ...was, [login]: (was[login] ?? []).map((one) => (one.kind === kind ? edit(one) : one)) }));
     return {
-      profiles,
+      profiles: offer.repositories === undefined ? profiles : profiles.map((one) => ({ ...one, repositories: bound.get(one.login) ?? [] })),
       flow,
       syncs: open === null ? null : { login: open, kinds: kinds[open] ?? [] },
       ...(ended === undefined ? {} : { ended }),
       ...(unavailable === undefined ? {} : { unavailable }),
       ...(left === undefined ? {} : { left }),
-      ...(offer.noHome === undefined ? {} : { home: false, syncsWithoutHome: offer.noHome }),
-      ...(offer.place === undefined ? {} : { place: offer.place }),
+      ...(offer.noHome === undefined ? {} : { home: false }),
+      ...(unbound.length === 0 ? {} : { unbound }),
+      ...(offer.repositories === undefined ? {} : { bind: (name: string, login: string | null) => setPicked((was) => ({ ...was, [name]: login })) }),
       ...(offer.machine === undefined ? {} : { machine: offer.machine }),
       cancel: () => {
         planned.current = null;
@@ -217,6 +246,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
         if (gone === undefined) return;
         setProfiles(profiles.filter((one) => one.login !== login).map((one, at) => ({ ...one, active: gone.active ? at === 0 : one.active })));
         setOpen((was) => (was === login ? null : was));
+        setPicked((was) => Object.fromEntries(Object.entries(was).filter(([, to]) => to !== login)));
         const down = offer.storeDown?.includes(login) === true;
         setLeft({ login, storeRowRemains: down, ...(down ? { said: "The store could not be reached." } : {}) });
       },
@@ -231,7 +261,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
         if (open !== null) change(open, kind, (one) => ({ ...one, items: one.items.map((item) => (item.name === name ? { ...item, scope } : item)) }));
       },
     };
-  }, [profiles, flow, kinds, open, offer, ended, unavailable, left, begin]);
+  }, [profiles, flow, kinds, open, offer, ended, unavailable, left, begin, bound, unbound]);
 
   return (
     <AccountProvider value={value}>

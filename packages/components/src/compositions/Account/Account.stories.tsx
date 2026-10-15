@@ -134,17 +134,19 @@ export const OneProfile: Story = {
   },
 };
 
-/** Each profile is a tile with its mark and, from two up, the act to make it active; What syncs is on the profile added on purpose only. */
+/** Each profile is a tile listing the repositories bound to it, each marked for how; a row moves to the other profile. */
 export const TwoProfiles: Story = {
-  render: () => <Held profiles={two}>{(account) => <AccountView account={account} />}</Held>,
-  play: async ({ canvas, userEvent }) => {
-    await expect(within(canvas.getByRole("listitem", { name: "mele-work" })).getByRole("img", { name: "Active" })).toBeVisible();
-    await expect(within(canvas.getByRole("listitem", { name: "nickmele" })).queryByRole("img", { name: "Active" })).toBeNull();
-    await expect(canvas.getAllByRole("button", { name: "What syncs" })).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("button", { name: "Make nickmele active" }));
-    await expect(within(canvas.getByRole("listitem", { name: "nickmele" })).getByRole("img", { name: "Active" })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Make mele-work active" })).toBeVisible();
-  },
+  render: () => (
+    <Held
+      profiles={[
+        { ...two[0]!, repositories: [{ name: "mele-labs/armada", by: "matched" }] },
+        { ...two[1]!, repositories: [{ name: "acme-co/vendor-lib", by: "chosen" }] },
+      ]}
+      extra={{ bind: () => undefined, unbound: [{ name: "shared-org/tools" }] }}
+    >
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
 };
 
 /** Every kind is off until it is turned on; turning one on lists its items, each with a scope. */
@@ -299,27 +301,15 @@ export const SetUpWithoutHome: Story = {
   },
 };
 
-/** First take: What syncs stays where it will be, greyed, and its tooltip says why. */
+/** What syncs stays where it will be, greyed, and its tooltip says why. */
 export const WhatSyncsWithoutHomeDisabled: Story = {
   render: () => (
-    <Held profiles={two} extra={{ home: false, syncsWithoutHome: "disabled" }}>
+    <Held profiles={two} extra={{ home: false }}>
       {(account) => <AccountView account={account} />}
     </Held>
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "What syncs" })).toBeDisabled();
-  },
-};
-
-/** Second take: What syncs is not drawn until the home exists. */
-export const WhatSyncsWithoutHomeHidden: Story = {
-  render: () => (
-    <Held profiles={two} extra={{ home: false, syncsWithoutHome: "hidden" }}>
-      {(account) => <AccountView account={account} />}
-    </Held>
-  ),
-  play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: "What syncs" })).toBeNull();
   },
 };
 

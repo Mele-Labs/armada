@@ -20,3 +20,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walks `sign-in-no-home` and `sign-in-ended`. The stroke broken at rest is what this glyph already says of a thing not started, here a home nothing has made. Tooltips `Not set up yet` and `Not set up`. Never a spinner: the turn is `rotate-cw`'s."
+
+  [[icons.circle-dashed.usage]]
+    means = "A repository waiting for a choice in Not matched"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-repositories`. Tooltip `Waiting for a choice`. No profile matched it, or two both did. The broken ring at rest, as for a home not made."

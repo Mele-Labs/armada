@@ -11,4 +11,4 @@
     group = "Account"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walks `account-page` and `account-rail`. Hammer is the Job working to put main right, and a claim on a red main is the same work held by one machine. Tooltip on the tile's mark is `Off` until a profile exists, then `On`."
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Hammer is the Job working to put main right, and a claim on a red main is the same work held by one machine. Tooltip on the tile's mark is `Off` until a profile exists, then `On`."

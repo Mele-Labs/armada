@@ -24,4 +24,11 @@
     group = "Account"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walks `account-page` and `account-rail`. Tooltip `Never`. The circle and diagonal says this will not happen; the lines are facts and the glyph is the same on each."
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Tooltip `Never`. The circle and diagonal says this will not happen; the lines are facts and the glyph is the same on each."
+
+  [[icons.ban.usage]]
+    means = "A repository given None: it claims and syncs nothing"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-repositories`. In Not matched, tooltip `None`. The circle and diagonal says this will not happen, and the Never lines draw the same glyph."

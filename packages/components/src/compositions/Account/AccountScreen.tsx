@@ -3,11 +3,12 @@ import type { ReactNode } from "react";
 import { Ban, Check, CircleDashed, Copy, Database, GitPullRequest, Hammer, House, Laptop, Link as LinkGlyph, Settings, Unplug, UserCheck, UserPen, X } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
-import { Sheet } from "../../primitives/Sheet/Sheet";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
+import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ForgeMark } from "./ForgeMark";
-import { DEVICE_PAGE, ENDED, SETTING, SIGN_IN_SAID, Turning, accountNeed, useAccount, useAccountPanel } from "./Account";
-import type { Account, AccountFlow, Profile, SetUpId, SetUpState } from "./Account";
+import { DEVICE_PAGE, ENDED, SETTING, SIGN_IN_SAID, Turning, accountNeed, useAccount } from "./Account";
+import type { Account, AccountFlow, Binding, Profile, SetUpId, SetUpState, UnboundRepository } from "./Account";
 
 /**
  * The account as a viewscreen, the way the Kit's setup and the worktree pool are drawn: a sunken glass under
@@ -81,16 +82,6 @@ function Origin({ chosen }: { chosen: boolean }) {
   );
 }
 
-function Active() {
-  return (
-    <Tooltip beside label="Active">
-      <span className="armada-account__active" role="img" aria-label="Active">
-        <Check size={16} strokeWidth={2} aria-hidden="true" />
-      </span>
-    </Tooltip>
-  );
-}
-
 /** Puts a notice away: it stays until this is pressed, or until the next sign-in. */
 function Dismiss({ account }: { account: Account }) {
   return (
@@ -102,37 +93,82 @@ function Dismiss({ account }: { account: Account }) {
   );
 }
 
-/** One profile: its login, whose it is and whether it is active, its set-up rows, and the acts on it. */
-function ProfileTile({ account, profile, setup, only }: { account: Account; profile: Profile; setup: Setup | undefined; only: boolean }) {
+/** The profiles a repository could move to, and None, which makes it claim and sync nothing. */
+function moveEntries(profiles: readonly Profile[], current: string | null): DropdownMenuEntry[] {
+  return [
+    ...profiles.map((one): DropdownMenuEntry => ({ kind: "item", id: one.login, label: one.login, selected: one.login === current })),
+    { kind: "separator", id: "rule" },
+    { kind: "item", id: NONE, label: "None", selected: current === null },
+  ];
+}
+
+const NONE = "none";
+
+/** How a repository came to be bound: its owner is the account or one of its organisations, or the person chose it. */
+function Bound({ by }: { by: Binding }) {
+  const said = by === "matched" ? "Matched" : "Chosen";
+  const Glyph = by === "matched" ? UserCheck : UserPen;
+  return (
+    <Tooltip beside label={said}>
+      <span className="armada-account__mark" role="img" aria-label={said}>
+        <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** The repositories bound to one profile, scrolling inside the tile where there are many. A row's menu moves it. */
+function Repositories({ account, profile }: { account: Account; profile: Profile }) {
+  const { bind } = account;
+  const rows = profile.repositories ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <ul className="armada-account__repos" aria-label={`Repositories of ${profile.login}`}>
+      {rows.map(({ name, by }) => (
+        <li key={name} className="armada-account__repo" aria-label={name}>
+          <span className="armada-account__name">{name}</span>
+          <Bound by={by} />
+          {bind === undefined ? null : (
+            <DropdownMenu
+              triggerLabel="Move"
+              portal
+              triggerAriaLabel={`Move ${name}`}
+              entries={moveEntries(account.profiles, profile.login)}
+              onSelect={(id) => bind(name, id === NONE ? null : id)}
+            />
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** One profile: its login and whose it is, its set-up rows, the repositories bound to it, and the acts on it. */
+function ProfileTile({ account, profile, setup }: { account: Account; profile: Profile; setup: Setup | undefined }) {
   const noHome = account.home === false;
   const steps: Steps = setup?.steps ?? { identity: "done", store: "done", home: noHome && profile.repository === undefined ? "waiting" : "done" };
   const repository = setup === undefined ? (profile.repository ?? "") : setup.repository;
   const unset = repository === "" && steps.home !== "done";
   return (
-    <li className="armada-account__tile" data-tile="profile" data-active={profile.active ? "" : undefined} aria-label={profile.login}>
+    <li className="armada-account__tile" data-tile="profile" aria-label={profile.login}>
       <header className="armada-account__tile-head">
         <UserCheck size={16} strokeWidth={2} aria-hidden="true" />
         <span className="armada-account__login">{profile.login}</span>
         <Origin chosen={profile.chosen} />
-        {profile.active ? <Active /> : null}
       </header>
       <SetUpRows accountId={profile.account_id} login={profile.login} repository={repository} steps={steps} unset={unset} />
+      <Repositories account={account} profile={profile} />
       <footer className="armada-account__tile-foot">
         {!profile.chosen ? null : !noHome ? (
           <Button variant="ghost" size="sm" onClick={() => account.choose(profile.login)}>
             What syncs
           </Button>
-        ) : account.syncsWithoutHome === "hidden" ? null : (
+        ) : (
           <Tooltip beside label="No shared home yet">
             <Button variant="ghost" size="sm" disabled>
               What syncs
             </Button>
           </Tooltip>
-        )}
-        {only || profile.active ? null : (
-          <Button variant="ghost" size="sm" aria-label={`Make ${profile.login} active`} onClick={() => account.switchTo(profile.login)}>
-            Make active
-          </Button>
         )}
         <Button variant="ghost" size="sm" aria-label={`Sign out ${profile.login}`} onClick={() => account.signOut(profile.login)}>
           Sign out
@@ -145,15 +181,54 @@ function ProfileTile({ account, profile, setup, only }: { account: Account; prof
 /** A login that has signed in and is still being set up, before Fleet lists it. */
 function PendingTile({ setup, first }: { setup: Setup; first: boolean }) {
   return (
-    <li className="armada-account__tile" data-tile="profile" data-active={first ? "" : undefined} aria-label={setup.login}>
+    <li className="armada-account__tile" data-tile="profile" aria-label={setup.login}>
       <header className="armada-account__tile-head">
         <UserCheck size={16} strokeWidth={2} aria-hidden="true" />
         <span className="armada-account__login">{setup.login}</span>
         <Origin chosen={!first} />
-        {first ? <Active /> : null}
       </header>
       <SetUpRows accountId={undefined} login={setup.login} repository={setup.repository} steps={setup.steps} unset={setup.repository === "" && setup.steps.home !== "done"} />
     </li>
+  );
+}
+
+/** Repositories no profile owns, or two both match: each waits for a choice, or has been given None. */
+function NotMatched({ account, rows }: { account: Account; rows: readonly UnboundRepository[] }) {
+  const { bind } = account;
+  return (
+    <Frame label="Not matched">
+      <div className="armada-account-screen__glass">
+        <div className="armada-account__tile" data-tile="plan">
+          <ul className="armada-account__repos" aria-label="Not matched">
+            {rows.map(({ name, none }) => {
+              const said = none === true ? "None" : "Waiting for a choice";
+              const Glyph = none === true ? Ban : CircleDashed;
+              return (
+                <li key={name} className="armada-account__repo" aria-label={name}>
+                  <span className="armada-account__name">{name}</span>
+                  <Tooltip beside label={said}>
+                    <span className="armada-account__unset" role="img" aria-label={said}>
+                      <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                  {bind === undefined ? null : (
+                    <DropdownMenu
+                      triggerLabel="Choose"
+                      portal
+                      triggerAriaLabel={`Choose for ${name}`}
+                      entries={moveEntries(account.profiles, null).map((entry) =>
+                        entry.kind === "item" && entry.id === NONE && none !== true ? { ...entry, selected: false } : entry,
+                      )}
+                      onSelect={(id) => bind(name, id === NONE ? null : id)}
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </Frame>
   );
 }
 
@@ -491,14 +566,13 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
         </header>
       )}
       <Frame label="Profiles">
-        <ul className="armada-account-screen__glass" aria-label="Profiles">
+        <ul className="armada-account-screen__glass armada-account-screen__glass--profiles" aria-label="Profiles">
           {profiles.map((one) => (
             <ProfileTile
               key={one.login}
               account={account}
               profile={one}
               setup={setup !== undefined && setup.login === one.login ? setup : undefined}
-              only={profiles.length < 2}
             />
           ))}
           {pending === undefined ? null : <PendingTile setup={pending} first={profiles.length === 0} />}
@@ -527,6 +601,7 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
           )}
         </ul>
       </Frame>
+      {account.unbound === undefined || account.unbound.length === 0 ? null : <NotMatched account={account} rows={account.unbound} />}
       <Frame label="Turns on">
         <TurnsOnTiles on={turnedOn(account, setup)} />
       </Frame>
@@ -541,44 +616,4 @@ export function AccountPage({ onSettings, machine }: { onSettings?: () => void; 
   const account = useAccount();
   if (account === undefined) return null;
   return <AccountView account={account} band machine={machine} {...(onSettings === undefined ? {} : { onSettings })} />;
-}
-
-/** The account as a panel from the rail, over the work. A sign-in in flight stays when it is put away. */
-export function AccountPanel({ onSettings }: { onSettings?: () => void }) {
-  const account = useAccount();
-  const [open, setOpen] = useAccountPanel();
-  const choosing = account?.syncs != null;
-  const closeSyncs = useRef(account?.closeSyncs);
-  closeSyncs.current = account?.closeSyncs;
-  // The panel and What syncs share the trailing edge: one opening puts the other away.
-  useEffect(() => {
-    if (choosing) setOpen(false);
-  }, [choosing, setOpen]);
-  useEffect(() => {
-    if (open) closeSyncs.current?.();
-  }, [open]);
-  if (account === undefined || account.place !== "rail" || !open) return null;
-  return (
-    <Sheet
-      kind="account"
-      open
-      floating
-      through
-      title="Account"
-      {...(account.machine === undefined ? {} : { subtitle: <span className="armada-account-screen__where">{account.machine}</span> })}
-      closeLabel="Close panel"
-      closeBinding="Esc"
-      onClose={() => setOpen(false)}
-    >
-      <div className="armada-account-panel">
-        <AccountView
-          account={account}
-          onSettings={() => {
-            setOpen(false);
-            onSettings?.();
-          }}
-        />
-      </div>
-    </Sheet>
-  );
 }

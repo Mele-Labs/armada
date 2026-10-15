@@ -11,4 +11,11 @@
     group = "Account"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walks `account-page` and `account-rail`. On a profile's head, tooltip `Added`: what it syncs is the person's choice, every kind off until turned on. The machine's own is `laptop`."
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. On a profile's head, tooltip `Added`: what it syncs is the person's choice, every kind off until turned on. The machine's own is `laptop`."
+
+  [[icons.user-pen.usage]]
+    means = "A repository bound to a profile by the person's choice"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-repositories`. On a row in a profile's repositories, tooltip `Chosen`: a repository nothing matched, or one moved by hand. The same pen as an added profile, since both are the person's act."

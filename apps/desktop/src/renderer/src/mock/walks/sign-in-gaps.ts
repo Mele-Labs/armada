@@ -1,7 +1,7 @@
 // The states the Account view was missing, over the scenarios of the same names: a sign-in that ends
 // without signing in four ways and is then refused for blank settings (`sign-in-ended`), a profile
 // signing out with the store down (`sign-out`), and a sign-in where no shared home exists yet, with What
-// syncs greyed (`sign-in-no-home`) or not drawn (`sign-in-no-home-hidden`, the second take).
+// syncs greyed (`sign-in-no-home`).
 
 import { button, dialog, inside, role, text, walk } from "../walk";
 
@@ -72,14 +72,8 @@ const signInNoHome = walk("sign-in-no-home", [
   { hover: button("What syncs", { exact: true }), say: "Why" },
 ]);
 
-const signInNoHomeHidden = walk("sign-in-no-home-hidden", [
-  ...NO_HOME,
-  { look: role("listitem", "mele-work", { exact: true }), say: "What syncs is not drawn" },
-]);
-
 export {
   signInEnded as "sign-in-ended",
   signOut as "sign-out",
   signInNoHome as "sign-in-no-home",
-  signInNoHomeHidden as "sign-in-no-home-hidden",
 };

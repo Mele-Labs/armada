@@ -11,7 +11,7 @@ import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/pro
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
-import type { AccountPlace, BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord, SyncsWithoutHome } from "@armada/components";
+import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -57,11 +57,13 @@ export type MockDraft = ArcDraft & {
     /** Logins whose sign-out leaves a row in the store, because the store is down. */
     storeDown?: readonly string[];
     /** Signing in makes no shared home, and What syncs is drawn this way until one exists. */
-    noHome?: SyncsWithoutHome;
-    /** Where the account opens from: a page, or a panel from the rail. Two takes. Absent is a page. */
-    place?: AccountPlace;
+    noHome?: true;
     /** This machine's name, beside the page's title. */
     machine?: string;
+    /** This machine's repositories as `owner/name`, each bound to the one profile whose login or organisation owns it. Absent draws none. */
+    repositories?: readonly string[];
+    /** The organisations each login belongs to, which matching reads beside the login. */
+    orgs?: Readonly<Record<string, readonly string[]>>;
   };
   /**
    * The owners registered to pull requests, as the central store holds them, and which repositories

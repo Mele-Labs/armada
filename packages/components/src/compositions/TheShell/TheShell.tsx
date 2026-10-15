@@ -36,14 +36,6 @@ export type TheShellProps = {
   repositoryPicker?: ReactNode;
   /** What the panel draws at the 48px rail: the repository as one glyph, its name in a tooltip. */
   repositoryPickerCollapsed?: ReactNode;
-  /**
-   * The account's row, in a small panel under the repository's: the login or Sign in, and the mark for a
-   * sign-in that waits or failed. Absent draws no panel. The caller hands over the whole row, and the shell
-   * draws its frame.
-   */
-  accountRow?: ReactNode;
-  /** What the panel draws at the 48px rail: the glyph alone. */
-  accountRowCollapsed?: ReactNode;
   /** What the title row's one menu opens besides the account and Sleep. */
   menu?: TitleBarProps["menu"];
   /** The picker's entries, for the title row's narrow menu. */
@@ -174,8 +166,6 @@ export function TheShell({
   railHeader,
   repositoryPicker,
   repositoryPickerCollapsed,
-  accountRow,
-  accountRowCollapsed,
   menu,
   repositoryMenu,
   onSearch,
@@ -224,11 +214,6 @@ export function TheShell({
             {repositoryPicker === undefined ? null : (
               <section className="armada-shell__repository" aria-label="Repository" data-collapsed={collapsed || undefined}>
                 {collapsed ? (repositoryPickerCollapsed ?? null) : repositoryPicker}
-              </section>
-            )}
-            {accountRow === undefined ? null : (
-              <section className="armada-shell__repository armada-shell__account" aria-label="Account" data-collapsed={collapsed || undefined}>
-                {collapsed ? (accountRowCollapsed ?? null) : accountRow}
               </section>
             )}
             {panels.map((panel, at) => (

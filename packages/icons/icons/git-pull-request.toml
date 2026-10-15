@@ -16,4 +16,4 @@
     group = "Account"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walks `account-page` and `account-rail`. Which Session or Job owned a pull request, across machines. Tooltip on the tile's mark is `Off` until a profile exists, then `On`."
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Which Session or Job owned a pull request, across machines. Tooltip on the tile's mark is `Off` until a profile exists, then `On`."

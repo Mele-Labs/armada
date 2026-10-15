@@ -22,7 +22,7 @@ import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, NO_CHIP, opened, screenOf } from "@armada/helm";
 import type { ChipState } from "@armada/helm";
-import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks, showAccount, useAccount } from "@armada/components";
+import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -235,7 +235,6 @@ export function App({ draft }: AppProps = {}) {
   const [kitting, setKitting] = useState(false);
   // Whether the account's page is open: from the title row's menu and from Settings. `AccountPage`.
   const [accounting, setAccounting] = useState(false);
-  const account = useAccount();
   // Whether the guide catalogue is open — a rail surface since #1602, and the
   // last row, so it carries no digit. Every guide, numbered and grouped,
   // readable without the screen that raised any of them.
@@ -1121,7 +1120,7 @@ export function App({ draft }: AppProps = {}) {
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
             ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
-              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} onOpenAccount={() => showAccount(account, () => goTo(SURFACE.account))} />
+              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} onOpenAccount={() => goTo(SURFACE.account)} />
             ) : accounting ? (
               <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
             ) : (

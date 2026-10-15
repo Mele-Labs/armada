@@ -1,4 +1,4 @@
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   Ban,
@@ -53,12 +53,22 @@ export type Profile = {
   /** The forge's numeric id, which names the profile in every act on it. */
   account_id: number;
   login: string;
+  /** The wire still carries it; no profile is drawn as the active one, since each repository is bound to one profile. */
   active: boolean;
   /** Added on purpose beside the machine's own: what it syncs is the person's choice. */
   chosen: boolean;
   /** The repository of the shared home it set up, once there is one. */
   repository?: string;
+  /** The repositories bound to this profile, each marked for how it came to be. */
+  repositories?: readonly BoundRepository[];
 };
+
+/** How a repository came to be bound: its owner is the account or one of its organisations, or the person chose it. */
+export type Binding = "matched" | "chosen";
+export type BoundRepository = { name: string; by: Binding };
+
+/** A repository no profile owns: no profile matched it, or two both did. `none` once the person chose that it claims and syncs nothing. */
+export type UnboundRepository = { name: string; none?: boolean };
 
 export type SetUpId = "identity" | "store" | "home";
 export type SetUpState = "waiting" | "working" | "done";
@@ -85,9 +95,6 @@ export type SignInUnavailable = { said: string; blank: readonly BlankSetting[] }
 /** A profile signed out, held until the panel is put away. `storeRowRemains`: the store could not be asked to forget the device. */
 export type SignedOutNote = { login: string; storeRowRemains: boolean; said?: string };
 
-/** What happens to What syncs on a profile while there is no shared home: drawn greyed with its reason, or not drawn. */
-export type SyncsWithoutHome = "disabled" | "hidden";
-
 export type AccountRead = {
   /** Empty is signed out. */
   profiles: readonly Profile[];
@@ -102,16 +109,11 @@ export type AccountRead = {
   left?: SignedOutNote;
   /** Whether the shared home exists. Absent is that it does. */
   home?: boolean;
-  /** Two takes, while the owner chooses. Absent is `disabled`. */
-  syncsWithoutHome?: SyncsWithoutHome;
   /** This machine's name, beside the page's title. */
   machine?: string;
-  /** Where the account opens from: a page of its own, or a panel from the left rail. Two takes, while the owner chooses. Absent is `page`. */
-  place?: AccountPlace;
+  /** Repositories on this machine that wait for a choice. Absent or empty draws nothing. */
+  unbound?: readonly UnboundRepository[];
 };
-
-/** Where the account lives. Both keep a sign-in in flight when they are put away. */
-export type AccountPlace = "page" | "rail";
 
 export type AccountActs = {
   /** Start the device flow. */
@@ -125,6 +127,8 @@ export type AccountActs = {
   /** Give up the sign-in waiting on its code. Absent where Fleet has no such act. */
   cancel?: () => void;
   switchTo: (login: string) => void;
+  /** Binds a repository to a profile, or to none (`null`). Absent where Fleet serves no repositories. */
+  bind?: (repository: string, login: string | null) => void;
   /** Open What syncs for a profile. */
   choose: (login: string) => void;
   closeSyncs: () => void;
@@ -243,55 +247,6 @@ export function AccountBadge({ account }: { account: Account }) {
       <need.Glyph size={12} strokeWidth={2} />
     </span>
   );
-}
-
-// The panel from the rail is open or put away; it is the window's, so anything that opens the account can say so.
-let panelOpen = false;
-const panelListeners = new Set<() => void>();
-const setPanel = (open: boolean) => {
-  if (panelOpen === open) return;
-  panelOpen = open;
-  panelListeners.forEach((on) => on());
-};
-
-/** Whether the account panel is open, and the act that opens or puts it away. */
-export function useAccountPanel(): [boolean, (open: boolean) => void] {
-  const open = useSyncExternalStore(
-    (on) => {
-      panelListeners.add(on);
-      return () => panelListeners.delete(on);
-    },
-    () => panelOpen,
-  );
-  return [open, setPanel];
-}
-
-/** Opens the account where this window keeps it: the panel, or the page `goToPage` reaches. */
-export function showAccount(account: Account | undefined, goToPage: () => void): void {
-  if (account?.place === "rail") setPanel(true);
-  else goToPage();
-}
-
-/** The rail's account row: the login or Sign in, and the mark; at the 48px rail the glyph alone. */
-export function AccountRailRow({ account, collapsed, onOpen }: { account: Account; collapsed: boolean; onOpen: () => void }) {
-  const login = accountLogin(account);
-  const said = login ?? "Sign in";
-  const [open] = useAccountPanel();
-  const mark = <AccountMark account={account} />;
-  const button = (
-    <button
-      type="button"
-      className="armada-account__rail"
-      aria-label={login === undefined ? "Sign in" : `Account ${login}`}
-      aria-expanded={open}
-      onClick={onOpen}
-    >
-      <UserCheck size={16} strokeWidth={2} aria-hidden="true" />
-      {collapsed ? null : <span className="armada-account__rail-name">{said}</span>}
-      {collapsed ? <AccountBadge account={account} /> : mark}
-    </button>
-  );
-  return collapsed ? <Tooltip label={said}>{button}</Tooltip> : button;
 }
 
 /** The signed-in login the menu's account entry names. Undefined while signed out. */

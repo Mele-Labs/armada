@@ -1,6 +1,5 @@
 /* The account as the cockpit draws its viewscreens: each section a sunken glass under a mono band, every
-   profile and every thing sign-in turns on a tile standing on it. State is carried in the frame: the active
-   profile in the accent, what is on in the set-up green, a sign-in in flight dashed, one that ended in the
+   profile and every thing sign-in turns on a tile standing on it. State is carried in the frame: what is on in the set-up green, a sign-in in flight dashed, one that ended in the
    amber the menu's dot already means, a profile signed out dashed and struck through. Tokens only. */
 
 .armada-account-screen {
@@ -95,6 +94,11 @@
   background-size: var(--space-6) var(--space-6);
 }
 
+/* Profiles carry repository names, so their tiles are wider than the rest. */
+.armada-account-screen__glass--profiles {
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 7), 1fr));
+}
+
 /* ---- A tile ------------------------------------------------------------------------------------- */
 
 .armada-account__tile {
@@ -111,11 +115,7 @@
   color: var(--fg-default);
 }
 
-/* The active profile takes the accent, what is on takes the set-up green. */
-.armada-account__tile[data-active] {
-  --hue: var(--accent);
-}
-
+/* What is on takes the set-up green. */
 .armada-account__tile[data-on] {
   --hue: var(--step-advanced);
 }
@@ -347,6 +347,33 @@
   }
 }
 
+/* ---- Repositories: the ones bound to a profile, or waiting for one ------------------------------- */
+
+.armada-account__repos {
+  max-height: calc(var(--h-row) * 6);
+  margin: 0;
+  padding: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.armada-account__repo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-account__repos > li:last-child {
+  border-bottom: 0;
+}
+
 /* ---- Rows: what got set up, or will be --------------------------------------------------------- */
 
 .armada-account__rows {
@@ -419,13 +446,6 @@
   display: inline-flex;
   flex: none;
   color: var(--step-advanced);
-}
-
-/* The one profile the machine acts as: the accent, which the frame shares. */
-.armada-account__active {
-  display: inline-flex;
-  flex: none;
-  color: var(--accent);
 }
 
 /* ---- What syncs ---------------------------------------------------------------------------------- */
@@ -561,14 +581,6 @@
   color: var(--fg-subtle);
 }
 
-/* ---- Where the account lives ------------------------------------------------------------------- */
-
-.armada-account-panel {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-4);
-}
-
 /* A sign-in that wants a look: the amber the menu's dot already means, never a status of its own. */
 .armada-account__need {
   display: inline-flex;
@@ -602,55 +614,6 @@
   .armada-account__badge[data-turning] > svg {
     animation: none;
   }
-}
-
-/* The rail's account row: the repository panel's recipe, a flat row with the mark at its trailing edge. */
-.armada-account__rail {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  height: var(--h-control-sm);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-medium);
-  text-align: left;
-  cursor: pointer;
-}
-
-.armada-account__rail:hover,
-.armada-account__rail[aria-expanded="true"] {
-  background: var(--bg-hover);
-}
-
-.armada-account__rail:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.armada-account__rail > svg {
-  flex: none;
-  color: var(--fg-muted);
-}
-
-.armada-account__rail-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.armada-shell__account[data-collapsed] .armada-account__rail {
-  justify-content: center;
 }
 
 /* The link from Settings' Account section to the account itself, above the section's own settings. */

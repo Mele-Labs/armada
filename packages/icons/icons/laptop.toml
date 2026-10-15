@@ -24,4 +24,4 @@
     group = "Account"
     size = "16px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walks `account-page` and `account-rail`. Beside the page's title it names the machine, tooltip `This machine`; on a profile's head it marks the one the machine started with, tooltip `This machine's own`. `user-pen` marks one added on purpose."
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Beside the page's title it names the machine, tooltip `This machine`; on a profile's head it marks the one the machine started with, tooltip `This machine's own`. `user-pen` marks one added on purpose."
