@@ -38,7 +38,7 @@ function show(label: string, fill: Fill): void {
   heading.textContent = label;
   const close = document.createElement("button");
   close.type = "button";
-  close.textContent = "Close what was saved";
+  close.textContent = "Close";
   close.addEventListener("click", () => panel.remove());
   bar.append(heading, close);
   panel.append(bar);
@@ -50,7 +50,7 @@ const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 
 /** A file as it opens for the person it is sent to. */
 export function showSaved(file: { kind: "html" | "png" | "svg"; name: string; bytes: Uint8Array }): void {
-  show(`Opened ${file.name}`, (panel) => {
+  show(`What they see when they open ${file.name}`, (panel) => {
     if (file.kind === "html") {
       const page = document.createElement("iframe");
       page.title = file.name;
@@ -72,7 +72,7 @@ export function showSaved(file: { kind: "html" | "png" | "svg"; name: string; by
 
 /** What reached the clipboard, as the page that pastes it would see it. */
 function showCopied(text: string): void {
-  show("On the clipboard", (panel) => {
+  show("What they paste", (panel) => {
     const words = document.createElement("pre");
     words.textContent = text;
     words.style.margin = "0";

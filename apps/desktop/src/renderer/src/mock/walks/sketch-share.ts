@@ -12,8 +12,8 @@ function steps(): Step[] {
   const panel = dialog(`Sketch ${TITLE}`);
   const share = inside(panel, button("Share"));
   const item = (name: string) => role("menuitem", name);
-  const opened = (name: string) => region(`Opened ${name}`);
-  const closeSaved = button("Close what was saved");
+  const opened = (name: string) => region(`What they see when they open ${name}`);
+  const closeSaved = button("Close");
   return [
     { press: inside(region("Sessions"), button("How data moves")), say: "A Session whose agent can draw" },
     { type: "Show me how Armada sends data back and forth\n", into: message, say: "Asked for the diagram" },
@@ -23,18 +23,18 @@ function steps(): Step[] {
     { look: item("Save as web page"), say: "Save as web page" },
     { look: item("Save as image"), say: "Save as image" },
     { look: item("Copy as Mermaid"), say: "Copy as Mermaid" },
-    { press: item("Save as web page"), say: "Save as web page: one .html file named for the sketch" },
+    { press: item("Save as web page"), say: "In Bridge a save dialog opens and you choose where the file goes. Here nothing is saved; the next step shows the file as the person you send it to sees it." },
     { look: text(`Saved ${TITLE}.html.`), say: "The save is said in a toast" },
-    { look: opened(`${TITLE}.html`), say: "What the recipient opens, in any browser with no network: the drawing as Bridge draws it, the steps playing in a loop with the dot crossing each arrow, and Play and Restart for them" },
+    { look: opened(`${TITLE}.html`), say: "What the person you send it to sees when they open the file, in any browser with no network: the drawing as Bridge draws it, the steps playing in a loop with the dot crossing each arrow, and Play and Restart for them" },
     { press: closeSaved, say: "Closed" },
     { press: share, say: "Share again" },
-    { press: item("Save as image"), say: "Save as image: the person picks PNG or SVG in the save dialog; here the PNG" },
+    { press: item("Save as image"), say: "In Bridge a save dialog opens, you pick PNG or SVG and choose where the file goes. Here nothing is saved; the next step shows the PNG as the person you send it to sees it." },
     { look: opened(`${TITLE}.png`), say: "A PNG at twice the size, framed to the drawing, in the theme's own colours" },
     { press: closeSaved, say: "Closed" },
     { press: share, say: "Share again" },
-    { press: item("Copy as Mermaid"), say: "Copy as Mermaid" },
+    { press: item("Copy as Mermaid"), say: "Nothing is saved. The text goes on your clipboard; the next steps show it as someone who pastes it sees it." },
     { look: text("The Mermaid text is on the clipboard."), say: "The copy is confirmed as every copy in Bridge is" },
-    { look: region("On the clipboard"), say: "A flowchart of the boxes and labelled arrows, every label quoted and escaped" },
+    { look: region("What they paste"), say: "What they paste into a Mermaid page: a flowchart of the boxes and labelled arrows, every label quoted and escaped" },
     { press: closeSaved, say: "Closed" },
     { press: close(panel), say: "Close" },
   ];
