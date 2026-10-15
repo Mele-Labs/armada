@@ -7,7 +7,7 @@
 // `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, and a question put to Bridge.** A message is reported as who it went to
+// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, and a question put to Bridge.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
@@ -28,12 +28,17 @@ import {
   needAct,
   micros,
   breakdownOf,
+  commitIn,
+  madeTask,
   planOf,
   spentUntil,
   pagesOpenedIn,
   pullRequestsIn,
+  pushIn,
   senderOf,
   titleOf,
+  todoTasks,
+  updatedTask,
   saidOf,
   withoutMarkup,
   effortOf,
@@ -43,7 +48,7 @@ import {
   transcriptPath,
 } from './facts'
 import type { RateLimit } from './facts'
-import type { Asked, Door, Fact, Report } from './fleet'
+import type { Asked, Door, Fact, Report, Task } from './fleet'
 
 const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
@@ -68,6 +73,8 @@ type Known = {
   needs: Map<string, Record<string, string>>
   messages: Map<string, number>
   artifacts: Map<string, Record<string, string>>
+  /** The agent's task list as its tools last left it, in order. */
+  tasks: Task[]
   tuned?: Tuning
 }
 
@@ -96,6 +103,7 @@ function everything(): Report[] {
     ...[...one.artifacts].map(([target, detail]) =>
       told(id, { kind: 'attached', attachment: { kind: 'artifact', target, detail } }),
     ),
+    ...(one.tasks.length === 0 ? [] : [told(id, { kind: 'tasks', tasks: one.tasks })]),
   ])
 }
 
@@ -428,7 +436,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [] })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -523,6 +531,12 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
       settle($, id, 'pr', target, act.act === 'merge' ? 'spent' : 'given_back')
     }
   }
+  // Read from what the commands printed, so a commit with nothing staged and a push with nothing to
+  // send are not told. Fleet enters them on the timeline, where the build record reads its road.
+  const committed = commitIn(command, text)
+  if (committed !== undefined) say($, id, { kind: 'committed', ...committed })
+  const pushed = pushIn(command, text)
+  if (pushed !== undefined) say($, id, { kind: 'pushed', ...pushed })
   if (mayMoveBranch(command) || act?.act === 'create') {
     const cwd = await $.session.cwd()
     if (cwd !== one.cwd) {
@@ -531,6 +545,18 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
     }
     await look($, id)
   }
+}
+
+/**
+ * The agent's task list, whole, after one of its task tools ran. **Only the session's own calls**: a
+ * subagent's list is its own and would replace this one. A list that did not change is not told again.
+ */
+async function planned($: Dollar, next: (list: Task[]) => Task[] | undefined): Promise<void> {
+  const [id, one] = await current($)
+  const tasks = next(one.tasks)
+  if (tasks === undefined || JSON.stringify(tasks) === JSON.stringify(one.tasks)) return
+  one.tasks = tasks
+  say($, id, { kind: 'tasks', tasks })
 }
 
 async function dispatched($: Dollar, via: string, text: string): Promise<void> {
@@ -769,6 +795,44 @@ export const register: Register = on => {
     } finally {
       over.done = true
     }
+  })
+
+  // The plan, from the tools the agent already calls to write it: nothing is asked of the model. The task
+  // tools came in two generations, a whole list in `TodoWrite` and one task at a time in `TaskCreate` and `TaskUpdate`.
+  on('tool.call', { tool: 'TodoWrite' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+      const list = todoTasks(e as Record<string, unknown>)
+      if (list !== undefined) void planned($, () => list).catch(() => undefined)
+    }
+    return ran
+  })
+
+  on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+      void planned($, list => madeTask(list, e as Record<string, unknown>, ran.result, ran.text ?? '')).catch(() => undefined)
+    }
+    return ran
+  })
+
+  on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+      void planned($, list => updatedTask(list, e as Record<string, unknown>)).catch(() => undefined)
+    }
+    return ran
+  })
+
+  // Plan mode left, on the call that leaves it. A plan the person turned down is an error or a refusal, and is not told.
+  on('tool.call', { tool: 'ExitPlanMode' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+      void current($)
+        .then(([id]) => say($, id, { kind: 'plan_left' }))
+        .catch(() => undefined)
+    }
+    return ran
   })
 
   for (const name of DISPATCHES) {

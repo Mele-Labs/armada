@@ -14,7 +14,9 @@ use super::process::Heard;
 use super::rows::UserLine;
 use super::{address_of, Move, Runtime};
 use crate::daemon::Fleet;
-use crate::timeline::Doer;
+use crate::build_keeping::build_heard;
+use crate::build_record::Observed;
+use crate::timeline::{Act, Doer};
 
 /// How long after a turn ends a line Fleet wrote may take to begin the next one. A process takes a
 /// queued line at once, so a longer wait is a line it folded into the turn that just ended.
@@ -162,6 +164,13 @@ where
                 _ => Doer::session(id, None, None),
             };
             self.timeline().used(doer, act, 1, Some(what));
+            // The build record hears the same acts, whichever tool made them.
+            let heard = if act == Act::Edit { Observed::Edited } else { Observed::Worked };
+            let now = self.now().as_str().to_string();
+            let shown = build_heard(&mut *self.store().lock().await, id, &heard, &now).unwrap_or(false);
+            if shown {
+                let _ = self.published_hosted(id).await;
+            }
         }
         match event {
             DroneEvent::Started { model, .. } => {

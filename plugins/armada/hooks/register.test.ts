@@ -984,3 +984,84 @@ test('a measurement whose context did not move asks the engine for no breakdown'
   expect(usages).toEqual([])
   expect('context_breakdown' in facts(posts).find(fact => fact.kind === 'measured')).toBe(false)
 })
+
+const tasksTold = (posts: Posted[]) => facts(posts).filter(fact => fact.kind === 'tasks').map(fact => fact.tasks)
+
+test('the agent\'s task list is told whole by TodoWrite, and by TaskCreate and TaskUpdate one change at a time', async ($, on) => {
+  const { posts, clock } = world(on)
+  let made = 0
+  on('tool.call', (_$, e) => ({ result: e.tool === 'TaskCreate' ? { task: { id: String(++made) } } : {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TodoWrite', todos: [{ content: 'Read the intake', status: 'in_progress' }, { content: 'Test it', status: 'pending' }] })
+  await $.tool.call({ tool: 'TodoWrite', todos: [{ content: 'Read the intake', status: 'in_progress' }, { content: 'Test it', status: 'pending' }] })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Write the migration', description: 'x' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' })
+  await clock.settle()
+
+  const told = tasksTold(posts.slice(before))
+  expect(told.length).toBe(3)
+  expect(told[0]).toEqual([
+    { id: '1', text: 'Read the intake', status: 'in_progress' },
+    { id: '2', text: 'Test it', status: 'pending' },
+  ])
+  expect(told[1].at(-1)).toEqual({ id: '1', text: 'Write the migration', status: 'pending' })
+  expect(told[2].at(-1)).toEqual({ id: '1', text: 'Write the migration', status: 'completed' })
+})
+
+test('a subagent\'s task list is its own and is not told as the session\'s', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TodoWrite', agentId: 'a1', todos: [{ content: 'Map the claims', status: 'pending' }] })
+  await clock.settle()
+
+  expect(tasksTold(posts.slice(before))).toEqual([])
+})
+
+test('leaving plan mode is told, and a plan turned down is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  let accepted = true
+  on('tool.call', () => (accepted ? { result: {}, text: 'ok' } : { result: {}, text: 'rejected', isError: true }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'ExitPlanMode', plan: 'Do the thing' })
+  accepted = false
+  await $.tool.call({ tool: 'ExitPlanMode', plan: 'Do the other thing' })
+  await clock.settle()
+
+  expect(facts(posts.slice(before)).filter(fact => fact.kind === 'plan_left')).toEqual([{ kind: 'plan_left' }])
+})
+
+test('a commit and a push are told from what git printed, and one that printed nothing to show is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  let printed = ''
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: printed, stderr: '', interrupted: false }, text: printed }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  printed = '[armada/topic 1a2b3c4] Pin the clock'
+  await $.tool.call({ tool: 'Bash', command: 'git commit -m "Pin the clock"' })
+  printed = 'To https://github.com/Mele-Labs/armada.git\n * [new branch]      armada/topic -> armada/topic'
+  await $.tool.call({ tool: 'Bash', command: 'git push -u origin armada/topic' })
+  printed = 'Everything up-to-date'
+  await $.tool.call({ tool: 'Bash', command: 'git push' })
+  printed = 'nothing to commit, working tree clean'
+  await $.tool.call({ tool: 'Bash', command: 'git commit -m again' })
+  await clock.settle()
+
+  const road = facts(posts.slice(before)).filter(fact => fact.kind === 'committed' || fact.kind === 'pushed')
+  expect(road).toEqual([
+    { kind: 'committed', branch: 'armada/topic' },
+    { kind: 'pushed', branch: 'armada/topic' },
+  ])
+})

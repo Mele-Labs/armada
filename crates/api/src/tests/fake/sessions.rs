@@ -41,6 +41,7 @@ impl Sessions for FakeDaemon {
             context_breakdown: None,
             helm: false,
             activity: None,
+            build: None,
         })
     }
 

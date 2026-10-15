@@ -61,6 +61,10 @@ pub mod basing;
 mod boot_restart;
 mod boundary;
 pub mod briefing;
+/// What a Session has built: the rules between what Fleet observed and the record on its row.
+mod build_record;
+/// Where the build record meets the store.
+mod build_keeping;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.

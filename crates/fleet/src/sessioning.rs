@@ -14,15 +14,17 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
     ManifestId, Owners, SessionFact, SessionList, SessionRecord, SessionReport, SessionState,
-    WireError,
+    TimelineKind, TimelineTone, WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch, Store};
 
 use crate::adrift::Adrift;
+use crate::build_keeping::{build_heard, build_read, BuildReads};
+use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
 use crate::slot_holders::{pool_backs, stand_in_slot};
-use crate::timeline::{Act, Doer};
+use crate::timeline::{Act, Doer, Fact, Subject};
 
 /// What a session's row reads from the store, taken under the lock.
 pub(crate) struct LedgerReads {
@@ -33,6 +35,8 @@ pub(crate) struct LedgerReads {
     limited: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
     context: Option<String>,
+    /// What the build record is derived from.
+    build: BuildReads,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -172,8 +176,11 @@ where
         session: &KeptSession,
     ) -> Result<LedgerReads, Refusal> {
         let fault = |why| self.ledger_fault(why);
+        let held = store.attachments_of(&Holder::session(&session.id)).map_err(fault)?;
+        let build = build_read(store, session, &held).map_err(fault)?;
         Ok(LedgerReads {
-            held: store.attachments_of(&Holder::session(&session.id)).map_err(fault)?,
+            held,
+            build,
             hosting: if session.origin == "bridge" {
                 store.hosting(&session.id).map_err(fault)?
             } else {
@@ -242,6 +249,11 @@ where
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
+        let workers = record.attachments.iter().filter(|one| one.kind == "subagent" && one.state == ipc::AttachmentState::Standing).map(|one| {
+            let said = |key: &str| one.detail.get(key).map(String::as_str).unwrap_or_default();
+            [said("type"), said("description")].iter().filter(|part| !part.is_empty()).cloned().collect::<Vec<_>>().join(": ")
+        });
+        record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers.collect());
         record
     }
 
@@ -268,6 +280,17 @@ where
             return false;
         };
         mod_is_older(session.mod_version.as_deref(), &current)
+    }
+
+    /// A Session committed or pushed: entered on the timeline, where the build record reads its road from.
+    fn road_noted(&self, session: &KeptSession, kind: TimelineKind, says: &str, branch: Option<String>, now: &str) {
+        self.timeline().note(
+            Fact::new(now, kind, Subject::Session(session.id.clone()), TimelineTone::Idle, says)
+                .titled(session.title.clone())
+                .detail(branch)
+                .in_repository(session.manifest_id.clone())
+                .live(),
+        );
     }
 
     /// A terminal Session wrote these files, named from its directory. **Only in a pool slot**, the
@@ -508,14 +531,38 @@ where
                 if terminal {
                     self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
                 }
+                if !paths.is_empty() {
+                    changed |= build_heard(&mut store, &id, &Observed::Edited, &now).map_err(fault)?;
+                }
             }
-            SessionFact::Read { path } if terminal => {
-                self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+            // The build record hears a hosted Session's reads and commands too: its process says the
+            // same, and a repeat changes nothing.
+            SessionFact::Read { path } => {
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+                }
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Ran { command } if terminal => {
-                self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+            SessionFact::Ran { command } => {
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+                }
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Read { .. } | SessionFact::Ran { .. } => {}
+            SessionFact::Tasks { tasks } => {
+                changed |= build_heard(&mut store, &id, &Observed::Tasks(tasks), &now).map_err(fault)?;
+            }
+            SessionFact::PlanLeft => {
+                changed |= build_heard(&mut store, &id, &Observed::PlanLeft, &now).map_err(fault)?;
+            }
+            SessionFact::Committed { branch } => {
+                self.road_noted(&session, TimelineKind::SessionCommitted, "Committed", branch, &now);
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
+            }
+            SessionFact::Pushed { branch } => {
+                self.road_noted(&session, TimelineKind::SessionPushed, "Pushed", branch, &now);
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -658,6 +705,14 @@ where
                 },
             })
             .await?;
+        // The road reads a walk shown off the timeline. The `walk` item on its list is not entered there.
+        self.timeline().note(
+            Fact::new(self.timeline().now(), TimelineKind::SessionWalked, Subject::Session(id.clone()), TimelineTone::Idle, "Walk shown")
+                .titled(record.title.clone())
+                .detail(Some(title.clone()))
+                .in_repository(record.manifest_id.as_ref().map(|one| one.as_str().to_string()))
+                .live(),
+        );
         self.row_put(
             &id,
             ipc::SessionRow::Window {
@@ -974,5 +1029,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         context_breakdown: None,
         helm: false,
         activity: None,
+        build: None,
     }
 }
