@@ -327,6 +327,33 @@ async fn the_warm_up_runs_in_the_base_checkout_and_marks_the_seed_once_it_succee
     );
 }
 
+/// A warm-up command gets the machine's `${width}`, as a Check does, rather
+/// than building at every core after each move of the base.
+#[tokio::test]
+async fn a_warm_up_runs_at_the_machines_width() {
+    let home = TempDir::new();
+    let spec = base(&home, COMMIT);
+    std::fs::create_dir_all(spec.path()).expect("a base checkout");
+    let fleet = a_seeding_fleet(
+        &home,
+        "/bin/mkdir target-${width}",
+        "/usr/bin/true",
+        Arc::new(Copying::default()),
+    );
+    let width = fleet.room(Asking::Gate).width().get();
+
+    fleet
+        .warm_seeds()
+        .expect("a warm-up starts")
+        .await
+        .expect("the warm-up ends");
+
+    assert!(Path::new(&spec.path())
+        .join(format!("target-{width}"))
+        .is_dir());
+    assert!(Path::new(&spec.seed_marker()).exists());
+}
+
 /// A warm-up that fails leaves no mark, is not retried at the same commit, and
 /// the next Job says what happened to it.
 #[tokio::test]
