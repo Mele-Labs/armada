@@ -786,6 +786,10 @@ plistlib.dump(
         "KeepAlive": {"SuccessfulExit": False},
         "ThrottleInterval": 2,
         "RunAtLoad": False,
+        # Without it launchd limits the whole tree, and a run the owner starts
+        # from Bridge waits behind agents' builds. Agents and their Checks clamp
+        # themselves: docs/concepts/manifest.md, At what priority a Check runs.
+        "ProcessType": "Interactive",
         "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
         "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
         "EnvironmentVariables": {"HOME": home, "PATH": path_env},
