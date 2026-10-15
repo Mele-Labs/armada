@@ -206,16 +206,16 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
  * A Session on the stage is the panel the Sessions window draws: its head with the state, the context figure and the rename, its
  * thread and its box. **Its ledger is drawn in the deck's right column**, in `ledger`, where the Bays were. The deck's own acts
  * (the pull request, Stop, Open the page, Back) ride in the head after the ones the window has, and the clash mark is the head's.
- * `openSession` opens another Session where this one is, as the list does.
+ * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
+ * and Needs you band.
  */
-export function SessionPane({ subject, props, acts, onPr, call, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; ledger: HTMLElement | null; openSession: (id: string) => void }) {
+export function SessionPane({ subject, props, acts, onPr, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; ledger: HTMLElement | null; openSession: (id: string) => void }) {
   const session = useSessions().find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
   const { state } = props;
   if (session === undefined || draft === undefined) return null;
   return (
     <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`}>
-      {call === undefined ? null : <CallStrip item={call} props={props} />}
       <SessionView
         session={session}
         goes={{ onOpenJob: props.onOpen, onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id) => props.onOpenSession(id) }}
