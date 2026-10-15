@@ -24,8 +24,11 @@ one note — a note with `sent` belongs to its Job.
 ### 1. Read the open notes
 
 ```
-setopt nullglob; ls .armada/annotations/ .claude/worktrees/*/.armada/annotations/
+setopt nullglob; ls .armada/annotations/ .armada/preview/.armada/annotations/ .claude/worktrees/*/.armada/annotations/
 ```
+
+**Bridge run from the preview writes its notes under
+`.armada/preview/.armada/annotations/`.**
 
 **The shell is zsh, and a glob that matches nothing aborts the whole line.**
 Without `nullglob`, no worktree holding notes means `no matches found` and not
@@ -154,8 +157,10 @@ the contract wins, and the proof is a story or a mock test, not a screenshot.
 
 ### 5. Mark it done
 
-Set `status` to `"done"` and `updatedAt` to now, in the file, once its change is
-merged or its question answered. The layer re-reads the files each time it is
+Once its change is merged or its question answered: **a note sent to your
+session**, call `mark_annotation_done` with its id; it refuses a note sent to
+any other. A note not sent to a session, set `status` to `"done"` and
+`updatedAt` to now, in the file. The layer re-reads the files each time it is
 turned on, so the pin is gone there and the numbering closes over it — the bar
 says how many are done and shows them again on request. **Never delete a note**,
 unless the owner says to. He deletes his own.
