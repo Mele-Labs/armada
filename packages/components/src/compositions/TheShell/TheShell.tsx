@@ -21,6 +21,8 @@ export type TheShellProps = {
   places?: TitleBarProps["places"];
   /** The word the title row draws at its start in place of the lockup. See `TitleBar`. */
   wordmark?: TitleBarProps["wordmark"];
+  /** The picked repository's name in the title row, read-only. See `TitleBar`. */
+  repository?: TitleBarProps["repository"];
   /** What the title row's one menu opens besides the account and Sleep. */
   menu?: TitleBarProps["menu"];
   /** The picker's entries, for the title row's narrow menu. */
@@ -96,6 +98,7 @@ export type TheShellDock = {
 export function TheShell({
   places,
   wordmark,
+  repository,
   menu,
   repositoryMenu,
   onSearch,
@@ -121,6 +124,7 @@ export function TheShell({
           {...(planUsage === undefined ? {} : { planUsage })}
           {...(places === undefined ? {} : { places })}
           {...(wordmark === undefined ? {} : { wordmark })}
+          {...(repository === undefined ? {} : { repository })}
           fleet={{ state: fleet.state, label: fleet.label, panel: <FleetInAPopover {...fleet} /> }}
         />
         <div className="armada-shell__body">

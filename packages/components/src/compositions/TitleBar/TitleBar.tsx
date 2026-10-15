@@ -159,6 +159,12 @@ export type TitleBarProps = {
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
   repositoryPicker?: ReactNode;
   /**
+   * The picked repository's name, as quiet text after the wordmark, for a surface that has no picker of its
+   * own. Read-only: the pick is changed where the picker is. A long name is cut with an ellipsis and its
+   * `title` holds the whole. Absent draws none. Hidden with the rest of the start below the narrow breakpoint.
+   */
+  repository?: string;
+  /**
    * The picker's own entries, drawn flat in the narrow menu rather than as a
    * list opening inside it (the owner, 30 Sep 2026). Absent draws none there.
    */
@@ -238,6 +244,7 @@ export type TitleBarProps = {
 
 export function TitleBar({
   repositoryPicker,
+  repository,
   repositoryMenu,
   onSearch,
   onDispatch,
@@ -258,6 +265,12 @@ export function TitleBar({
     <div className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
       <div className="armada-title-bar__start">
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
+        {repository === undefined ? null : (
+          // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
+          <span className="armada-title-bar__repository" title={repository}>
+            {repository}
+          </span>
+        )}
         {repositoryPicker === undefined ? null : (
           <div className="armada-title-bar__picker">{repositoryPicker}</div>
         )}
