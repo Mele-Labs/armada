@@ -35,7 +35,6 @@ export type FleetAccounts = {
   getAccounts: () => Promise<AccountsActed>;
   startSignIn: () => Promise<AccountsActed>;
   signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
-  setActiveAccount: (accountId: number) => Promise<AccountsActed>;
   openLink: (address: string) => Promise<unknown>;
 };
 
@@ -79,13 +78,9 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
     dismiss: () => {
       if (refused !== undefined) publish(wire, undefined);
     },
-    switchTo: (login: string) => {
-      const profile = wire?.profiles.find((one) => one.login === login);
-      if (profile === undefined || profile.active) return;
-      const at = ++issued;
-      void fleet.setActiveAccount(profile.account_id).then((answer) => took(answer, at));
-    },
-    // What syncs is not served yet.
+    // A repository is bound to a profile and the machine has none that is active, so there is nothing to
+    // switch; what syncs is not served yet either.
+    switchTo: () => {},
     choose: () => {},
     closeSyncs: () => {},
     setKind: () => {},
@@ -93,7 +88,9 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
   };
 
   const heldOf = (from: Accounts, said: string | undefined): AccountHeld => {
-    const account: Account = { profiles: from.profiles, flow: flowOf(from.flow), syncs: null, ...acts };
+    // The composition still draws one profile as active; Fleet has none, so none is marked.
+    const profiles = from.profiles.map((one) => ({ account_id: one.account_id, login: one.login, chosen: one.chosen, active: false }));
+    const account: Account = { profiles, flow: flowOf(from.flow), syncs: null, ...acts };
     const ended = from.flow.phase === "idle" ? from.flow.ended : undefined;
     return { account, ...(ended === undefined ? {} : { ended }), ...(said === undefined ? {} : { refused: said }) };
   };

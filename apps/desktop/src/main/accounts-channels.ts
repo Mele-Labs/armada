@@ -14,7 +14,4 @@ export function handleAccounts({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.getAccounts, () => connection()?.accounts.get() ?? unsent);
   ipc.handle(CHANNELS.startSignIn, () => connection()?.accounts.startSignIn() ?? unsent);
   ipc.handle(CHANNELS.signOut, (_event, accountId: unknown) => (id(accountId) ? (connection()?.accounts.signOut(accountId) ?? unsent) : unsent));
-  ipc.handle(CHANNELS.setActiveAccount, (_event, accountId: unknown) =>
-    id(accountId) ? (connection()?.accounts.setActive(accountId) ?? unsent) : unsent,
-  );
 }
