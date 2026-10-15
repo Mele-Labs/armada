@@ -35,6 +35,8 @@ pub struct KeptTask {
     pub completed_at: Option<String>,
     /// An edit was seen between the previous completion (or the list's first write) and this one.
     pub edited: bool,
+    /// The label of the subagent that wrote it, as `workers` shows it. Absent for the Session's own.
+    pub made_by: Option<String>,
 }
 
 /// Which stretch of a timeline a road is read from.
@@ -143,7 +145,7 @@ impl Store {
         let mut read = self
             .conn
             .prepare(
-                "SELECT task_id, text, status, first_seen_at, completed_at, edited
+                "SELECT task_id, text, status, first_seen_at, completed_at, edited, made_by
                  FROM session_build_tasks WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -156,6 +158,7 @@ impl Store {
                     first_seen_at: row.get(3)?,
                     completed_at: row.get(4)?,
                     edited: row.get::<_, i64>(5)? == 1,
+                    made_by: row.get(6)?,
                 })
             })
             .map_err(reading)?;
@@ -170,8 +173,8 @@ impl Store {
         for (position, task) in tasks.iter().enumerate() {
             kept.execute(
                 "INSERT INTO session_build_tasks
-                     (session_id, position, task_id, text, status, first_seen_at, completed_at, edited)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                     (session_id, position, task_id, text, status, first_seen_at, completed_at, edited, made_by)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     session_id,
                     position as i64,
@@ -181,6 +184,7 @@ impl Store {
                     task.first_seen_at,
                     task.completed_at,
                     task.edited,
+                    task.made_by,
                 ],
             )
             .map_err(keeping)?;

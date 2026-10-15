@@ -46,7 +46,7 @@ const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 
 /// The last line of a message answering an agent item: it need not say the item again.
-const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
+pub(crate) const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
 
 /// A walk window a session showed, as the merge reads it.
 pub(crate) struct Window {
@@ -785,6 +785,37 @@ where
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
         Ok(record)
+    }
+
+    /// A run the person made ended clean: take off the agent's `run` items for that command, so Bridge
+    /// has none to settle. Whether any was taken off.
+    pub(crate) async fn run_item_settled(&self, id: &str, command: &str) -> bool {
+        let record = {
+            let mut store = self.store().lock().await;
+            let Ok(Some(session)) = store.session(id) else {
+                return false;
+            };
+            let Ok(kept) = store.waiting_for(id) else {
+                return false;
+            };
+            let items: Vec<String> = kept
+                .into_iter()
+                .filter(|one| {
+                    matches!(&one.act, Some((kind, target))
+                        if kind == "run" && target.trim() == command.trim())
+                })
+                .map(|one| one.item_id)
+                .collect();
+            if items.is_empty() || items.iter().any(|one| store.dismiss_waiting(id, one).is_err()) {
+                return false;
+            }
+            let Ok(record) = self.ledger_row(&store, &session) else {
+                return false;
+            };
+            record
+        };
+        self.publish(ipc::Event::SessionChanged(record));
+        true
     }
 
     /// Skip a card, with what the person said or the mode line as the reason the agent reads.

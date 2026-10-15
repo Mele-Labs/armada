@@ -721,7 +721,13 @@ export function sessionsStore(
           at += 1;
         } else if (forever) on({ kind: "out", text: `build.log ${new Date().toLocaleTimeString("en-GB")} waiting\n` });
         else {
-          on({ kind: "end", code: command.includes("vitest") ? 1 : 0 });
+          const code = command.includes("vitest") ? 1 : 0;
+          on({ kind: "end", code });
+          // Fleet takes the item off the list on a clean exit and tells the agent; nothing in Bridge does.
+          if (code === 0) {
+            edit(_id, (one) => ({ ...one, waitingFor: (one.waitingFor ?? []).filter((it) => !(it.act?.kind === "run" && it.act.target.trim() === command.trim())) }));
+            addTo(_id, [said("It ran clean.")]);
+          }
           return;
         }
         handle = window.setTimeout(step, forever ? 700 : 450);

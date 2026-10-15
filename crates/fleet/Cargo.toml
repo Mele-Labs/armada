@@ -53,6 +53,10 @@ sha2 = "0.10"
 # A hosted session's attachments arrive as base64 on the wire. Already in the
 # lockfile through the transport's own graph.
 base64 = "0.22"
+# A Session's run gets a terminal of its own, `crate::session_running`: the child is the session
+# leader with the PTY as its controlling terminal, which `setsid` and `TIOCSCTTY` in a
+# `pre_exec` of ours would need `unsafe` for. WezTerm's crate does it behind a safe API.
+portable-pty = "0.9"
 
 [dev-dependencies]
 # Fixtures and fakes. `testkit` never ships and nothing that ships depends on it.
