@@ -196,6 +196,7 @@ import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/i
 import type { HelmAim, HelmCarry } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
+import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -543,7 +544,7 @@ type OldBridgeApi = {
     startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi;
+} & AutopilotApi & SketchShareApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -878,6 +879,7 @@ const OLD_CHANNELS = {
     stopSessionRun: "bridge:stop-session-run",
     sessionRunMessage: "bridge:session-run-message",
     ...AUTOPILOT_CHANNELS,
+    ...SKETCH_SHARE_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

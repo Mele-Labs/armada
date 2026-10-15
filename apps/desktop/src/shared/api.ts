@@ -33,6 +33,7 @@ import type { TerritoryApi } from "./api/territory";
 import type { TimelineApi } from "./api/timeline";
 import type { IssuesApi } from "./api/issues";
 import type { AutopilotApi } from "./api/autopilot";
+import type { SketchShareApi } from "./api/sketch-share";
 import type { BridgeState } from "./bridge";
 
 /**
@@ -64,4 +65,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   TerritoryApi &
   TimelineApi &
   IssuesApi &
-  AutopilotApi;
+  AutopilotApi &
+  SketchShareApi;
