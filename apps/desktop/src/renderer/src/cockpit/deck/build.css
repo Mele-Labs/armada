@@ -25,6 +25,8 @@
 .bf-pc__brace { fill: none; stroke: var(--status-escalated); stroke-opacity: 0.75; stroke-width: 1; stroke-linecap: round; }
 /* Hollow: done and no edit seen, outlined and not filled. */
 .bf-pc[data-state="hollow"] .bf-pc__seg { fill: none; stroke: var(--fg-default); stroke-opacity: 0.8; stroke-width: 1.4; }
+/* A subagent's piece carries a dot at its middle, the mark of the worker that wrote it. */
+.bf-pc__by { fill: var(--fg-default); fill-opacity: 0.85; pointer-events: none; }
 /* The unfinished part dims the longer the turn sits quiet. */
 .bf-pc[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
 /* A piece that is placed rises into its place once. */
@@ -103,6 +105,10 @@
 .bf-ask { display: inline-flex; margin-left: auto; }
 .bf-ask[data-sent] { color: var(--accent); }
 .bf-col .bf-band { cursor: default; }
+/* A running subagent inside the ring, by the pieces it wrote. Still: only the piece being built moves. */
+.bf-col__worker { --hue: var(--fg-muted); cursor: default; outline: none; }
+.bf-col__worker:focus-visible .bf-col__hit { stroke: var(--accent); }
+.bf-col__hit { fill: transparent; stroke: transparent; pointer-events: all; }
 
 @media (prefers-reduced-motion: reduce) {
   .bf-pc[data-state="solid"],

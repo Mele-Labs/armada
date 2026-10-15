@@ -13,7 +13,7 @@ const opened = [
 ] as const;
 
 const battlefieldProgress = walk("battlefield-progress", [
-  { look: map, say: "Scope. One repository, three drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question. Inside it a faint outline of a ring, whole and unsegmented: there is no task list yet, so nothing says how much is left. Outside it a thinner ring of faint arcs, the road this repository's Sessions usually take, with nothing lit" },
+  { look: map, say: "Scope. One repository, four drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question. Inside it a faint outline of a ring, whole and unsegmented: there is no task list yet, so nothing says how much is left. Outside it a thinner ring of faint arcs, the road this repository's Sessions usually take, with nothing lit" },
   { later: places, say: "It writes a list of seven tasks" },
   { look: map, say: "Plan. A ring lies on the ground under the drone, one dashed ghost segment for each task. The survey is gone" },
   { later: places, say: "Edits land, four subagents start, and four tasks are done" },
@@ -46,6 +46,15 @@ const battlefieldProgress = walk("battlefield-progress", [
   { press: deckRow("Cache the manifest read"), say: "Job page. The bays stay and there is no band" },
   { look: role("listbox", "Route"), say: "Job page. The ring of its plan lies in the map beside the waypoint of the step that works it, and its drone hovers over that waypoint: two tasks done and solid, one handed in and hollow, one being worked in scaffold, one open and dashed. The later waypoints are the road to main" },
   { hover: inside(role("listbox", "Route"), role("option", /^Warm it at start/)), say: "A segment says its task and where it stands" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { later: places, say: "A fourth Session, drawing subagents in the ring, writes a list. Its own agent wrote two tasks and two subagents wrote two each, one of them still running" },
+  { look: map, say: "Subagents. The ring has six pieces. A piece a subagent wrote carries a dot at its middle. The running subagent is a small drone that stands by its two pieces and does not lap. The one that finished has no drone, and its pieces keep their dots" },
+  { hover: inside(map, role("option", /^List the tooltips that name a worker/)), say: "A piece of a subagent says its task, where it stands and what the subagent was asked" },
+  { hover: inside(map, role("option", /^Subagent, map the worker call sites/)), say: "The running worker says what it was asked" },
+  { press: deckRow("Draw subagents in the ring"), say: "Open the Session" },
+  { look: build, say: "The ring tall in the column. The running subagent is drawn inside the ring beside its two pieces, marked with the same dots. Hover a dotted piece or the drone for what the subagent was asked" },
+  { hover: inside(build, role("img", /^Subagent, map the worker call sites/)), say: "The worker says what it was asked" },
+  { hover: inside(build, role("img", /^Test where a worker sits/)), say: "A finished subagent's piece says its task, its state and what that subagent was asked" },
 ]);
 
 export { battlefieldProgress };

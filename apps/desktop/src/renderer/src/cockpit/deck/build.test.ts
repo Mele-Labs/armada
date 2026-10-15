@@ -4,7 +4,7 @@ import type { JobDetail, SessionBuild, TimelineEvent } from "@armada/protocol";
 import { workingAPlan } from "@armada/jobs/fixtures/build/index";
 import { expect, test } from "vitest";
 
-import { PHASE_GLYPH, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, jobBuildOf, jobPhaseOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
+import { PHASE_GLYPH, askedOf, seatOf, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, jobBuildOf, jobPhaseOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
 
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -137,4 +137,17 @@ test("a Job with no live task has no ring, and its row has no phase", () => {
   expect(jobPhaseOf(undefined)).toBeUndefined();
   expect(jobPhaseOf({ done: 0, working: 0, open: 0, dropped: 2 })).toBeUndefined();
   expect(jobPhaseOf({ done: 1, working: 0, open: 0, dropped: 0 })).toBe("implement");
+});
+
+test("a piece a subagent wrote carries its worker's label, kept when the subagent has ended, and one the Session wrote carries none", () => {
+  const read = buildInOf("s1", build({ pieces: [{ id: "a", text: "Read", piece: "solid" }, { id: "b", text: "Find call sites", piece: "scaffold", by: "Explore: map the call sites" }], workers: [] }), NOW);
+  expect(read.tasks).toEqual([{ text: "Read", piece: "solid" }, { text: "Find call sites", piece: "scaffold", by: "Explore: map the call sites" }]);
+  expect(askedOf("Explore: map the call sites")).toBe("map the call sites");
+});
+
+test("a worker sits at the middle of the pieces it wrote, from the top and clockwise, and nowhere where it wrote none", () => {
+  const tasks = [{}, { by: "Explore: a" }, { by: "Explore: a" }, { by: "Plan: b" }];
+  expect(seatOf(tasks, "Explore: a")).toBe(-90 + (1.5 * 360) / 4 + 0 + ((2.5 - 1.5) * 360) / 8);
+  expect(seatOf(tasks, "Plan: b")).toBe(-90 + (3.5 * 360) / 4);
+  expect(seatOf(tasks, "Explore: c")).toBeUndefined();
 });

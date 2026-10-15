@@ -66,20 +66,20 @@ A Session that has built something has a ring lying on the ground under its dron
 
 | Part | What it shows |
 |---|---|
-| Inner ring | One segment for each task. Solid: done, and an edit was seen. Hollow, outlined: done, and no edit was seen. Scaffold: the first task not done, with edits since. Ghost, dashed: any other task not done |
+| Inner ring | One segment for each task. Solid: done, and an edit was seen. Hollow, outlined: done, and no edit was seen. Scaffold: the first task not done, with edits since. Ghost, dashed: any other task not done. The ring counts the whole Session's work: the tasks a subagent writes are segments too, since subagents share the Session's task list, and one carries a dot at its middle and its hover adds what that subagent was asked (`BuildPiece.by`, kept after the subagent ends) |
 | Outer ring | The road to main, a thinner ring of arcs: a walk shown, a push, the pull request opened, its checks, auto-merge, and the landing that closes the circle. A reached stop is lit with when it happened. A stop not reached is faint and is what the repository's recent Sessions usually did next |
 | Survey | While the Session is scoping, a faint grid under the drone with a stake at each corner, and a small marker for each walk shown and each question asked |
-| Workers | A small drone circles the ring for each subagent running. They take the loops the drones leave, so the field never loops more than the existing cap |
+| Workers | A small drone for each subagent running. On the map it circles the ring and takes the loops the drones leave, so the field never loops more than the existing cap; one that has written pieces stands by them and does not lap. In the column it sits inside the ring beside its pieces and is still. Its hover says what it was asked. It leaves when the subagent ends, and its pieces stay |
 | Stalled | Fleet's `stalled` draws the drone still under an amber ring. The unfinished segments dim from 0.3 at ten quiet minutes to 0.65 at forty, read from `quiet_since` |
 | Landed | The last arc closes, the capture flash plays at the flag, and the ring is gone a quarter hour later. What landed is in the Activity feed |
 
-A hover or focus on a segment or an arc says its task or stop and where it stands. No count is drawn beside the items it counts. Pieces are static once placed; only a placed piece's one rise, the workers' laps and the scaffold's brace in the column move, and reduced motion holds all of them still.
+A hover or focus on a segment or an arc says its task or stop and where it stands, and for a subagent's piece who wrote it. No count is drawn beside the items it counts. Pieces are static once placed; only a placed piece's one rise, the map's workers' laps and the scaffold's brace in the column move, and reduced motion holds all of them still.
 
 **Where it is drawn.** On the map, under the drone. While a Session is open, the same ring is drawn tall above its ledger in the right column, and Incoming calls stay. A Job keeps its Bays and has no band: its ring stands in its mission beside the waypoint of the step that works the plan, and its segments are the plan's tasks (done solid, handed in hollow, working scaffold, open or failed ghost, dropped none). It has no outer ring, since its route is the road. A Job's row shows Implement while its plan has tasks.
 
 **Replay shows none.** A record of now is not the field at the playhead, so a replay draws no ring.
 
-Why a ring, and what it cost the owner: [a Session builds a ring](../../.claude/decisions/2026-10-14-a-session-builds-a-ring.md).
+Why a ring, and what it cost the owner: [a Session builds a ring](../../.claude/decisions/2026-10-14-a-session-builds-a-ring.md). The owner chose on 15 Oct 2026 that subagents' work fills the ring.
 
 ## Calls
 

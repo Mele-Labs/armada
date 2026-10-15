@@ -19,7 +19,7 @@ export type StopId = BuildStopId;
 export type Stop = { id: StopId; at: number | undefined };
 
 /** One task of the ring. `said` is what a hover says of it where the piece's own word is not the fact: a Job's task is done or handed in. */
-export type Task = { text: string; piece: Piece; said?: string };
+export type Task = { text: string; piece: Piece; said?: string; /** The subagent that wrote it, as its worker label (`Type: what it was asked`). */ by?: string };
 
 /** Everything the field needs of one construction, at the clock `now`. */
 export type BuildIn = {
@@ -59,6 +59,20 @@ export const STOP_GLYPH: Record<StopId, LucideIcon> = { walk: Footprints, pushed
 /** The unfinished part's dimming from how long the turn has been quiet: nothing before the stall, 0.3 at it, 0.65 at forty minutes. */
 export const dimOf = (quiet: number): number => (quiet < STALL_MIN ? 0 : 0.3 + 0.35 * Math.min(1, (quiet - STALL_MIN) / (DIM_FULL_MIN - STALL_MIN)));
 
+/** What a subagent was asked: its label without the type. */
+export const askedOf = (label: string): string => label.replace(/^[^:]*: /, "");
+
+/**
+ * Where a worker sits on the ring, in degrees as the ring's sectors are laid (from the top, clockwise): the middle of the pieces it
+ * wrote. None where it has written none.
+ */
+export function seatOf(tasks: readonly Pick<Task, "by">[], label: string): number | undefined {
+  const mine = tasks.flatMap((task, k) => (task.by === label ? [k] : []));
+  if (mine.length === 0) return undefined;
+  const mid = (k: number) => -90 + ((k + 0.5) * 360) / tasks.length;
+  return (mid(mine[0]!) + mid(mine[mine.length - 1]!)) / 2;
+}
+
 const at = (iso: string | undefined): number | undefined => (iso === undefined ? undefined : Date.parse(iso));
 
 /** What a stall dims the ring by: how long since Fleet last saw it work. A stall with no instant held is as long as the stall itself. */
@@ -96,7 +110,7 @@ export function buildInOf(id: string, build: SessionBuild, now: number, events: 
     key: `session:${id}`,
     phase: build.phase,
     reached,
-    tasks: build.pieces.map((one) => ({ text: one.text, piece: one.piece })),
+    tasks: build.pieces.map((one) => ({ text: one.text, piece: one.piece, ...(one.by === undefined ? {} : { by: one.by }) })),
     markers: build.phase === "scope" ? markersOf(events, id) : [],
     workers: build.workers,
     ...stall,

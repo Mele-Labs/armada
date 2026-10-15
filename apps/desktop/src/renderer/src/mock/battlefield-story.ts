@@ -48,3 +48,28 @@ export function buildAt(moment: number): SessionBuild {
     workers: m === 2 ? AGENTS : m === 3 || m === 4 ? [AGENTS[3]!] : [],
   };
 }
+
+/** A second Session's ring for the last moment of the walk: the Session's own tasks and two subagents' pieces, one subagent still running and one finished. */
+export const SUBAGENTS = "bp3";
+const RUNNING = "Explore: map the worker call sites";
+const ENDED = "general-purpose: write the ring tests";
+
+export function subagentsBuild(): SessionBuild {
+  const piece = (id: string, text: string, kind: SessionBuild["pieces"][number]["piece"], by?: string) => ({ id, text, piece: kind, ...(by === undefined ? {} : { by }) });
+  return {
+    phase: "implement",
+    pieces: [
+      piece("s1", "Read the ring code", "solid"),
+      piece("s2", "Find the worker call sites", "solid", RUNNING),
+      piece("s3", "List the tooltips that name a worker", "scaffold", RUNNING),
+      piece("s4", "Test where a worker sits", "solid", ENDED),
+      piece("s5", "Test a piece's tooltip", "hollow", ENDED),
+      piece("s6", "Draw the workers in the column", "ghost"),
+    ],
+    stops: [],
+    forecast: [],
+    quiet_since: new Date(Date.now() - 60_000).toISOString(),
+    stalled: false,
+    workers: [RUNNING],
+  };
+}

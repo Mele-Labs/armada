@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import type { Arc, Band, Piece } from "./build";
 
 export type RingProps = {
-  pieces: readonly { piece: Piece }[];
+  pieces: readonly { piece: Piece; by?: string }[];
   big: number;
   /** How far the unfinished part has dimmed, 0 to 1. */
   dim: number;
@@ -59,8 +59,9 @@ export function RingArt({ pieces, big, dim, arcs = [], wrap = plain, wrapArc = p
           <g key={k}>
             {wrap(
               k,
-              <g className="bf-pc" data-state={one.piece} data-open={open(one.piece) || undefined}>
+              <g className="bf-pc" data-state={one.piece} data-open={open(one.piece) || undefined} data-by={one.by !== undefined || undefined}>
                 <path className="bf-pc__seg" d={sector(r0, r1, from, to)} />
+                {one.by === undefined ? null : <circle className="bf-pc__by" cx={(((r0 + r1) / 2) * Math.cos(mid)).toFixed(1)} cy={(((r0 + r1) / 2) * Math.sin(mid)).toFixed(1)} r={1.7 * big} />}
                 {one.piece === "scaffold" ? <path className="bf-pc__brace" d={`M${((r1 + 2) * Math.cos(mid)).toFixed(1)},${((r1 + 2) * Math.sin(mid)).toFixed(1)} L${((r1 + 9) * Math.cos(mid)).toFixed(1)},${((r1 + 9) * Math.sin(mid)).toFixed(1)}`} /> : null}
               </g>,
             )}

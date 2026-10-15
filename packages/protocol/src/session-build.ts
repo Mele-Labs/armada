@@ -17,7 +17,13 @@ export type BuildPhase = "scope" | "plan" | "implement" | "road" | "landed";
 export type BuildPieceKind = "solid" | "hollow" | "scaffold" | "ghost";
 
 /** One task of the agent's list, in list order. `id` is its task tool's, or its place in a `TodoWrite` list. */
-export type BuildPiece = { id: string; text: string; piece: BuildPieceKind };
+export type BuildPiece = {
+  id: string;
+  text: string;
+  piece: BuildPieceKind;
+  /** The subagent that wrote this task, as its `SessionBuild.workers` label (`Type: what it was asked`). Absent for the Session's own agent. Kept after the subagent ends. */
+  by?: string;
+};
 
 /**
  * A place on the road from the Session's edits to main: a walk shown after the first edit, a `git push` that updated a
