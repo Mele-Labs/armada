@@ -358,12 +358,14 @@ where
         let seen = super::standing::Seen {
             helm,
             running,
-            held: asked.is_some() || prompt.is_some(),
+            held: asked.is_some(),
             turn_end: turn_end.as_ref().map(|(at, said)| (at.as_str(), said.as_str())),
             spoke: spoke_at.as_deref(),
             done: done.as_deref(),
             dismissed: &dismissed,
         };
+        // A terminal's own prompt holds the turn on the person, as an open card does.
+        let seen = super::standing::Seen { held: seen.held || prompt.is_some(), ..seen };
         let standing = if ended {
             ipc::SessionStanding::Idle
         } else {
