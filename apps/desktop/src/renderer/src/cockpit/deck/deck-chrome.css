@@ -38,9 +38,10 @@
 
 .deck-chrome {
   flex: none;
-  margin: 0 var(--space-4) var(--space-3);
+  margin: var(--space-3) var(--space-4);
 }
 
 .deck-system {
   display: flex;
+  justify-content: center;
 }
