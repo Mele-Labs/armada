@@ -39,12 +39,12 @@ fn a_word_this_build_has_no_name_for_is_silence_and_not_an_answer() {
 
 #[test]
 fn a_rollup_with_nothing_in_it_is_not_a_pass() {
-    assert_eq!(Checks::default().totalled(), WhatTheForgeRan::NothingRan);
+    assert_eq!(Checks::gated_by("ci").totalled(), WhatTheForgeRan::NothingRan);
 }
 
 #[test]
 fn one_failure_beside_six_pending_is_a_failure() {
-    let mut checks = Checks::default();
+    let mut checks = Checks::gated_by("ci");
     checks.saw("build", "COMPLETED", "FAILURE");
     for _ in 0..6 {
         checks.saw("test", "IN_PROGRESS", "");
@@ -59,7 +59,7 @@ fn one_failure_beside_six_pending_is_a_failure() {
 
 #[test]
 fn a_status_context_is_read_off_its_state_and_a_check_run_off_its_conclusion() {
-    let mut checks = Checks::default();
+    let mut checks = Checks::gated_by("ci");
     // A status context: no `status`, and `state` folded into the same field.
     checks.saw("ci/legacy", "", "PENDING");
     checks.saw("build", "COMPLETED", "SUCCESS");
@@ -74,7 +74,7 @@ fn a_status_context_is_read_off_its_state_and_a_check_run_off_its_conclusion() {
 
 #[test]
 fn a_conclusion_this_build_has_no_word_for_is_not_reported_as_a_pass() {
-    let mut checks = Checks::default();
+    let mut checks = Checks::gated_by("ci");
     checks.saw("build", "COMPLETED", "SOMETHING_NEW");
     assert!(matches!(
         checks.totalled(),
@@ -85,7 +85,7 @@ fn a_conclusion_this_build_has_no_word_for_is_not_reported_as_a_pass() {
 #[test]
 fn a_failure_decides_unless_a_gate_has_not_failed() {
     let weight = |seen: &[(&str, &str, &str)]| {
-        let mut checks = Checks::default();
+        let mut checks = Checks::gated_by("ci");
         for (name, status, conclusion) in seen {
             checks.saw(name, status, conclusion);
         }
@@ -99,6 +99,21 @@ fn a_failure_decides_unless_a_gate_has_not_failed() {
     assert_eq!(weight(&[shard, ("ci", "IN_PROGRESS", "")]), FailureWeight::WhileRunning);
     assert_eq!(weight(&[shard, ("ci", "COMPLETED", "SUCCESS")]), FailureWeight::AfterRequired);
     assert_eq!(weight(&[shard, ("ci", "COMPLETED", "FAILURE")]), FailureWeight::Required);
+}
+
+#[test]
+fn the_check_a_repository_names_is_the_one_that_gates() {
+    let weight = |gate: &str| {
+        let mut checks = Checks::gated_by(gate);
+        checks.saw("build", "COMPLETED", "SUCCESS");
+        checks.saw("ci", "COMPLETED", "FAILURE");
+        match checks.totalled() {
+            WhatTheForgeRan::SomeFailed { weight, .. } => weight,
+            other => panic!("expected a failure, got {other:?}"),
+        }
+    };
+    assert_eq!(weight("ci"), FailureWeight::Required);
+    assert_eq!(weight("build"), FailureWeight::AfterRequired);
 }
 
 // --------------------------------------- the records the reduction prints
@@ -125,7 +140,7 @@ fn what_the_reduction_printed() -> Vec<String> {
 
 #[test]
 fn the_records_fold_into_one_reading() {
-    let read = folded(&what_the_reduction_printed());
+    let read = folded(&what_the_reduction_printed(), "ci");
     assert_eq!(read.people, WhatPeopleSaid::ChangesRequested);
     let WhatTheForgeRan::SomeFailed { failed, checks, .. } = &read.checks else {
         panic!("the status context failed, whatever the two check runs did");
@@ -153,7 +168,7 @@ fn the_records_fold_into_one_reading() {
 #[test]
 fn records_with_no_tag_this_knows_are_no_reading_at_all() {
     let notices = vec![String::from("Warning: something from the tool")];
-    let read = folded(&notices);
+    let read = folded(&notices, "ci");
     assert!(!read.was_answered());
     assert_eq!(read.checks, WhatTheForgeRan::Unreadable);
 }
@@ -162,7 +177,7 @@ fn records_with_no_tag_this_knows_are_no_reading_at_all() {
 /// it — **an answer, and never the silence above it**.
 #[test]
 fn a_pull_request_nobody_has_touched_is_an_answer() {
-    let read = folded(&[String::from("said\t")]);
+    let read = folded(&[String::from("said\t")], "ci");
     assert!(read.was_answered());
     assert_eq!(read.people, WhatPeopleSaid::NobodyHasLooked);
     assert_eq!(read.checks, WhatTheForgeRan::NothingRan);
@@ -196,7 +211,7 @@ fn a_reviewed_and_a_verdict_are_read_off_the_same_review_independently() {
         String::from("said\tAPPROVED"),
         String::from("remark\tPRR_1\talice\t2026-09-08T10:00:00Z\tlooks good"),
         String::from("verdict\talice\tAPPROVED"),
-    ]);
+    ], "ci");
     assert_eq!(read.remarks.len(), 1);
     assert_eq!(read.remarks[0].by.as_written(), "alice");
     assert_eq!(read.verdicts.len(), 1);
@@ -215,7 +230,7 @@ fn a_remarks_url_is_carried_where_the_forge_answers_one() {
             "remark\tIC_1\talice\t2026-09-08T10:00:00Z\tlooks good\thttps://forge.invalid/pull/1#issuecomment-1",
         ),
         String::from("remark\tPRR_1\tbob\t2026-09-08T11:00:00Z\tone more thing"),
-    ]);
+    ], "ci");
     assert_eq!(read.remarks.len(), 2);
     assert_eq!(
         read.remarks[0].url.as_ref().map(|url| url.as_written()),

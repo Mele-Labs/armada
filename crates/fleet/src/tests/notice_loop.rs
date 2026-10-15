@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use adapter_traits::Landing;
 use core_model::Timestamp;
-use testkit::{FakeJudge, FakeLinkLookup, FakeWorkProduct};
+use testkit::{FakeJudge, FakeLinkLookup, FakeTrackers, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::noticing::Noticing;
@@ -65,7 +65,7 @@ async fn an_edited_issue_is_noticed_while_a_turn_cannot_run() {
     fittings.judge = Arc::new(FakeJudge::saying(
         "workflow: bug\ntitle: The reader drops the last row\ndone_when: the last row is read",
     ));
-    fittings.links = links.clone();
+    fittings.trackers = Arc::new(FakeTrackers::empty().links(links.clone()));
     fittings.noticing = Noticing::every(Duration::ZERO);
     let fleet = Arc::new(Fleet::assembled(fittings));
     let made = fleet

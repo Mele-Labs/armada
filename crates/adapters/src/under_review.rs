@@ -27,7 +27,6 @@ use adapter_traits::{
 };
 
 use crate::delivery::asked_lines;
-use crate::pull_watch::GATE;
 
 /// The fields one read of a pull request under review needs.
 ///
@@ -80,9 +79,9 @@ const REDUCTION: &str = "\
 
 /// Ask the forge who has looked at one pull request, what ran against it, and
 /// what anybody wrote on it.
-pub(crate) fn read(in_repo: &str, pull_request: &str) -> UnderReview {
+pub(crate) fn read(in_repo: &str, pull_request: &str, gate: &str) -> UnderReview {
     match asked_lines(in_repo, pull_request, FIELDS, REDUCTION) {
-        Some(lines) => folded(&lines),
+        Some(lines) => folded(&lines, gate),
         None => UnderReview::unreadable(),
     }
 }
@@ -92,12 +91,12 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> UnderReview {
 /// **Split from [`read`] so that a test can hand it what jq prints.** Every
 /// decision worth getting wrong is here — which tag is which, an escape undone,
 /// a rollup totalled — and none of it needs a forge, an account or a network.
-pub(crate) fn folded(lines: &[String]) -> UnderReview {
+pub(crate) fn folded(lines: &[String], gate: &str) -> UnderReview {
     // **Unreadable until a `said` record says otherwise.** A forge that
     // answered lines this has no word for has not said what people said, and
     // the absence of that record is exactly the silence the variant means.
     let mut people = WhatPeopleSaid::Unreadable;
-    let mut checks = Checks::default();
+    let mut checks = Checks::gated_by(gate);
     let mut remarks = Vec::new();
     let mut verdicts = Vec::new();
     for line in lines {
@@ -205,8 +204,9 @@ pub(crate) fn what_review_verdict(state: &str) -> Option<ReviewVerdict> {
 /// **Counted rather than collected.** What leaves is three numbers and the
 /// names of the ones that did not pass, so a pull request with two hundred
 /// green checks costs two hundred increments and holds nothing.
-#[derive(Default)]
 pub(crate) struct Checks {
+    /// The name of the check that gates, where the repository has one. A repository says which.
+    named: String,
     seen: usize,
     finished: usize,
     failed: Vec<FromOutside>,
@@ -215,6 +215,17 @@ pub(crate) struct Checks {
 }
 
 impl Checks {
+    /// A rollup read for a repository whose gate is the check called `gate`.
+    pub(crate) fn gated_by(gate: &str) -> Checks {
+        Checks {
+            named: gate.to_string(),
+            seen: 0,
+            finished: 0,
+            failed: Vec::new(),
+            gate: None,
+        }
+    }
+
     /// One check, from the two words the forge uses for it.
     ///
     /// A check run carries `status` and, once it is over, `conclusion`. A
@@ -224,7 +235,7 @@ impl Checks {
     /// whether the forge says it has finished.
     pub(crate) fn saw(&mut self, name: &str, status: &str, conclusion: &str) {
         self.seen += 1;
-        if name == GATE {
+        if name == self.named {
             self.gate = Some(matches!(conclusion, "SUCCESS" | "NEUTRAL" | "SKIPPED"));
         }
         match conclusion {
@@ -258,7 +269,7 @@ impl Checks {
         if !self.failed.is_empty() {
             // Only the gate decides where there is one, so a failure beside a gate that has not
             // failed is lighter. The refusal to merge does not read this.
-            let gate_failed = self.failed.iter().any(|one| one.as_written() == GATE);
+            let gate_failed = self.failed.iter().any(|one| one.as_written() == self.named);
             let weight = match self.gate {
                 Some(true) if !gate_failed => FailureWeight::AfterRequired,
                 Some(false) if !gate_failed => FailureWeight::WhileRunning,

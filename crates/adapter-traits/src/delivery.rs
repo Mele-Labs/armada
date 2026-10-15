@@ -808,7 +808,7 @@ pub trait Delivery {
     ///
     /// `in_repo` is the repository every worktree was cut from, for
     /// [`landed`](Delivery::landed)'s reason.
-    fn under_review(&self, in_repo: &str, pull_request: &str) -> UnderReview;
+    fn under_review(&self, in_repo: &str, pull_request: &str, gate: &str) -> UnderReview;
 
     /// The comments left on individual lines of the diff, which
     /// [`under_review`](Delivery::under_review) does not fetch. Asked by a
@@ -852,7 +852,7 @@ pub trait Delivery {
     /// call for all of them**, so the cost does not grow with the number open.
     /// `None` is the forge's silence; an empty list is a repository with none
     /// open.
-    fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
+    fn open_pull_requests(&self, in_repo: &str, gate: &str) -> Option<crate::OpenPulls>;
 
     /// The merge queue of `base`, one forge call. `None` is the forge's silence.
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
@@ -860,7 +860,7 @@ pub trait Delivery {
     /// The same pull requests as a watcher reads them: every check on the newest commit with its
     /// log address, whether it conflicts with the base, and where the merge queue holds it. **One
     /// forge call for all of them.** `None` is the forge's silence.
-    fn pull_watch(&self, in_repo: &str) -> Option<crate::WatchedPulls>;
+    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<crate::WatchedPulls>;
 
     /// Put a commit status under `context` on `commit`, replacing the one
     /// there. **A write to the forge, and the one Fleet makes unprompted**: it

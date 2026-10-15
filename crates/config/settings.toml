@@ -588,6 +588,36 @@ notes = """
 Toggle to pause all dispatch for this project (a release freeze, say), independent of per-Job approval. Live — and the checkpoint set is what makes it true: if sub-dispatch is not a gated checkpoint, a frozen Manifest still fans out.
 """
 
+[settings.manifest-tracker]
+name = "Manifest tracker"
+scope = "Manifest only"
+default = "the forge's own"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "config, fleet, adapters"
+notes = """
+The top-level `tracker:` block, for a repository whose issues are not where its pull requests are. `provider` is the only key the central schema holds, as `docs/contracts/adapters.md` fixes for every adapter; the rest of the block is carried as written for that provider to read and refuse. Absent means the forge's own tracker, as before the key existed.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart. A block the provider cannot use never stops Fleet: that repository's calls answer with the reason. `docs/concepts/tracker.md`, *Choosing a tracker*.
+"""
+
+[settings.manifest-ci-gate]
+name = "Manifest CI gate"
+scope = "Manifest only"
+default = "ci"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "config, fleet, adapters"
+notes = """
+The top-level `ci_gate:` key: the name of the check on a pull request that decides its `ci`. Where a pull request carries a check of that name only that one decides; where it carries none, every check does. Absent means `ci`, which every repository was read by before the key existed.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
+"""
+
 [settings.manifest-worktree-slots]
 name = "Worktree slots"
 scope = "Manifest only"

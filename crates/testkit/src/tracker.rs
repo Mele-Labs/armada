@@ -20,6 +20,7 @@ pub struct FakeTracker {
     unreadable: Mutex<Option<String>>,
     refusing: Mutex<Option<String>>,
     writes: Mutex<Vec<TrackerWrite>>,
+    titling: Mutex<bool>,
 }
 
 impl FakeTracker {
@@ -32,6 +33,14 @@ impl FakeTracker {
     pub fn listing(issues: Vec<OpenIssue>) -> FakeTracker {
         let tracker = FakeTracker::default();
         *tracker.issues.lock().expect("issues") = issues;
+        tracker
+    }
+
+    /// A tracker that links by the pull request's title: it marks the title with the issue's
+    /// reference and has no closing line for the body.
+    pub fn linking_by_title() -> FakeTracker {
+        let tracker = FakeTracker::default();
+        *tracker.titling.lock().expect("titling") = true;
         tracker
     }
 
@@ -163,6 +172,13 @@ impl Tracker for FakeTracker {
 
     /// The reference itself, so a test can find it in a body.
     fn closing_line(&self, issue: &IssueAddress) -> Option<String> {
-        Some(format!("Closes {}", issue.reference()))
+        match *self.titling.lock().expect("titling") {
+            true => None,
+            false => Some(format!("Closes {}", issue.reference())),
+        }
+    }
+
+    fn title_mark(&self, issue: &IssueAddress) -> Option<String> {
+        (*self.titling.lock().expect("titling")).then(|| issue.reference().to_string())
     }
 }

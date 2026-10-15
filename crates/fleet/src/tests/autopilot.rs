@@ -7,7 +7,7 @@ use std::sync::Arc;
 use api::{Autopilots, Refusal};
 use core_model::{Actor, JobStatus, Origin, TopLevelOrigin};
 use ipc::{AutopilotCap, AutopilotPickState, AutopilotSettings, AutopilotState, ManifestId};
-use testkit::{FakeHarness, FakeJudge, FakeTracker, FakeVcs, FakeWorkProduct};
+use testkit::{FakeHarness, FakeJudge, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
@@ -34,11 +34,11 @@ fn a_fleet(home: &TempDir, replies: &[&str]) -> (Fixture, Arc<FakeJudge>) {
         .collect();
     let model = Arc::new(FakeJudge::answering_in_turn(replies));
     fittings.judge = model.clone();
-    fittings.tracker = Arc::new(FakeTracker::listing(vec![
+    fittings.trackers = Arc::new(FakeTrackers::empty().tracker(Arc::new(FakeTracker::listing(vec![
         FakeTracker::issue(13, "The reader crashes on an empty file"),
         FakeTracker::issue(12, "The Board labels a killed Job as failed"),
         FakeTracker::issue(11, "Should Helm keep one conversation per repository?"),
-    ]));
+    ]))));
     (Fleet::assembled(fittings), model)
 }
 
@@ -428,7 +428,7 @@ async fn a_pass_that_could_not_pick_says_why_on_the_autopilot_until_one_goes_thr
         "A wrong label",
     )]));
     tracker.will_not_list("nobody is signed in to the forge");
-    fittings.tracker = tracker.clone();
+    fittings.trackers = Arc::new(FakeTrackers::empty().tracker(tracker.clone()));
     let fleet: Fixture = Fleet::assembled(fittings);
     started(&fleet, 1, None).await;
 
@@ -454,7 +454,7 @@ async fn a_picker_that_fails_rests_longer_each_time_and_keeps_its_fault_meanwhil
         .collect();
     let model = Arc::new(FakeJudge::that_fails("the network"));
     fittings.judge = model.clone();
-    fittings.tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(12, "A wrong label")]));
+    fittings.trackers = Arc::new(FakeTrackers::empty().tracker(Arc::new(FakeTracker::listing(vec![FakeTracker::issue(12, "A wrong label")]))));
     let clock = Arc::new(crate::tests::planted::Held::started());
     fittings.clock = clock.clone();
     let fleet: Fixture = Fleet::assembled(fittings);

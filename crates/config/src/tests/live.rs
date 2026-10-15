@@ -479,3 +479,20 @@ fn every_live_key_moving_at_once_is_still_five_sentences() {
     assert_eq!(manifest.cost_cap_micros(), Some(9_000_000));
     assert_eq!(manifest.auto_merge(), AutoMerge::Always);
 }
+
+/// Fleet picks a tracker and a gate when it starts, so a save that moves either
+/// is reported as waiting for a restart rather than adopted.
+#[test]
+fn a_changed_tracker_or_gate_is_reported_and_not_adopted() {
+    let repository = Repository::holding(PATIENT);
+    let (manifest, reloads) = reloadable(&repository.manifest());
+
+    repository.save(&format!(
+        "{PATIENT}ci_gate: build\ntracker:\n  provider: jira\n  project: ABC\n"
+    ));
+    let adopted = reloads.reread().expect("it reads");
+
+    assert_eq!(manifest.ci_gate(), "ci");
+    assert_eq!(manifest.tracker(), None);
+    assert_eq!(adopted.at_restart(), [Frozen::Tracker, Frozen::CiGate]);
+}
