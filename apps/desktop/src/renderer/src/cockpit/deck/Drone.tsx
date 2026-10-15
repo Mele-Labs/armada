@@ -4,14 +4,15 @@
 // fails. A drone that holds a call he has not opened carries a marker over it (a pillar of light and a badge). Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { Megaphone, ShieldCheck } from "lucide-react";
+import { Megaphone, ShieldCheck, Swords } from "lucide-react";
+import { clashSaid, useClashesOf, useOpenClash } from "@armada/components";
 
 import { BOX, FOOT, bracketsOf, short } from "./geometry";
 import { Sprite, keyed, px, vars } from "./bf-parts";
 import type { CallTone } from "./field";
 import type { DroneIn, P3, Point } from "./layout";
 import type { Play } from "./plays";
-import { droneTip, type DroneFacts, type Tip } from "./tip";
+import { clashTip, droneTip, type DroneFacts, type Tip } from "./tip";
 
 /** Raised by a thing that is hovered or focused: what to say, what it hangs from, and where the pointer was if it is too large to have a middle. */
 export type OnTip = (tip: Tip | undefined, target?: Element, at?: { x: number; y: number }) => void;
@@ -103,6 +104,9 @@ export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, 
   const said = `${drone.kind === "job" ? "Job" : "Session"}, ${drone.said}`;
   const show = (event: { currentTarget: Element }) => onTip(droneTip(drone, facts, ShieldCheck), event.currentTarget);
   const launching = play?.kind === "launch" && from !== undefined;
+  // Fleet's clashes are between parties, so a drone with no path under it carries its mark as much as one over a plot.
+  const clashes = useClashesOf(drone.kind, drone.key.slice(drone.kind.length + 1));
+  const openClash = useOpenClash();
   return (
     <div
       className="bf-drone"
@@ -194,6 +198,37 @@ export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, 
             </div>
           </div>
         )}
+        {clashes.map((clash, at) => {
+          const clashed = clashSaid(clash);
+          const tip = (event: { currentTarget: Element }) => onTip(clashTip(clash), event.currentTarget);
+          const opens = clash.with.kind !== "main";
+          return (
+            <div key={`${clash.with.kind}:${clash.with.id}`} className="bf-bb bf-call-at bf-clash-at" style={vars({ "--head": Math.round(40 * big), "--n": at })}>
+              <div className="bf-call-foot">
+                <div
+                  className="bf-call bf-clash"
+                  role={opens ? "button" : "img"}
+                  tabIndex={opens ? 0 : -1}
+                  aria-label={clashed}
+                  data-opens={opens || undefined}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (opens) openClash(clash.with);
+                  }}
+                  onKeyDown={(event) => opens && keyed(event, () => openClash(clash.with))}
+                  onMouseEnter={tip}
+                  onMouseLeave={() => onTip(undefined)}
+                  onFocus={tip}
+                  onBlur={() => onTip(undefined)}
+                >
+                  <span className="bf-call__badge">
+                    <Swords size={14} strokeWidth={2.2} aria-hidden="true" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
         <Sprite x={BOX.x} y={BOX.y} w={BOX.w} h={BOX.h}>
           <g transform={`scale(${big})`}>
             {drone.flare ? (

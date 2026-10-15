@@ -40,7 +40,7 @@ The Cockpit is the one body behind the Cockpit tab. The grid it replaced, the ca
 
 ## The map
 
-The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6). The map draws each repository as directories with a drone over what it is changing, from the tool events Fleet writes when a burst closes. A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes). A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free. `v` swaps a Job's mission and its canvas.
+The stage at rest is the map or the timeline, one switch (`m`, `t`, or tiles 5 and 6). The map draws each repository as directories with a drone over what it is changing, from the tool events Fleet writes when a burst closes. A write clash is an amber hatched slab on the directory both write in, from `list_write_clashes` ([Fleet](fleet.md), Write clashes). Both parties also carry the swords mark wherever they are drawn: their list row, their pane head and their drone, which needs no directory. The mark names the other party and a press opens it on the stage; a clash against main is a picture with nothing to open. A replay plays back the last two hours of events Bridge holds; before a bay's first event in the window it reads as unknown, not free. `v` swaps a Job's mission and its canvas.
 
 **Nothing is drawn that Fleet does not hold.** A drone whose path is not known rests by its bay pad, and a stale tool burst reads as no action.
 

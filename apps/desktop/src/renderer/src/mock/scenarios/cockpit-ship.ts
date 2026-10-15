@@ -486,7 +486,7 @@ const EVENTS: TimelineEvent[] = [...BASE_EVENTS, ...TOOLS, ...SLOTS];
 /** The write clashes Fleet reports, as `GET /clashes` returns them: a Job and a Session in one file, and a Session against a main that moved. */
 const CLASHES: WriteClash[] = [
   {
-    one: { kind: "job", id: reconnect.job.id, label: reconnect.job.handle },
+    one: { kind: "job", id: reconnect.job.id, label: reconnect.job.title },
     other: { kind: "session", id: red.id, label: red.title ?? red.id },
     paths: ["apps/desktop/src/renderer/src/cockpit/reconnect.ts"],
     since: ago(9),

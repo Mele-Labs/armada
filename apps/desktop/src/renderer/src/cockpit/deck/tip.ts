@@ -9,6 +9,7 @@ import { GLYPH as DOING_GLYPH, WORD as DOING_WORD } from "./doing";
 import { pillsOf } from "./field";
 import type { DroneIn, Hue } from "./layout";
 import type { BayState } from "./bays";
+import type { ClashView } from "@armada/components";
 import type { Clash } from "./touches";
 
 /** What colours the card's top edge and its glow. Quiet is gray: a thing with no state to speak of. */
@@ -70,3 +71,6 @@ export const padTip = (pad: PadIn): Tip => ({
 export const NEEDS_YOU: readonly string[] = ["Needs you"];
 /** What a plot under a write clash says: two drones where the map holds both, else that something else changed it too. */
 export const clashLines = (clash: Pick<Clash, "keys">): readonly string[] => [clash.keys.length > 1 ? "Two drones are changing it" : "Changed elsewhere too"];
+
+/** What a drone's clash mark says: the other party, and the paths that conflict. */
+export const clashTip = (clash: ClashView): Tip => ({ label: "Write clash", title: clash.with.label, hue: "ask", lines: clash.paths });

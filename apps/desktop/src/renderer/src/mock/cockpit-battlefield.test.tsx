@@ -116,7 +116,7 @@ test("Esc leaves a replay for Live, and Space plays and pauses it", async () => 
 test("a Job's Mission and Canvas views show the same acts", async () => {
   mount("cockpit-ship-flightdeck");
   await onScreen();
-  await list().getByRole("button", { name: "Shorten the reconnect wait" }).click();
+  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).click();
   const pane = () => document.querySelector<HTMLElement>('.deck-pane[aria-label^="Job: Shorten the reconnect wait"]')!;
   await expect.poll(() => pane() !== null).toBe(true);
   expect(pane().querySelector('[role="group"][aria-label="Mission"]')).not.toBeNull();

@@ -52,7 +52,8 @@ test("a Session that waits on him raises an Incoming call", async () => {
 
 test("the Cockpit tab returns from a page opened from the deck exactly", async () => {
   await deck();
-  await list().getByRole("button", { name: "Shorten the reconnect wait" }).click();
+  // Exactly: the Session in clash with it carries a mark that names it.
+  await list().getByRole("button", { name: "Shorten the reconnect wait", exact: true }).click();
   const pane = page.getByRole("region", { name: /^Job: Shorten the reconnect wait/ });
   await expect.element(pane).toBeVisible();
 

@@ -5,13 +5,15 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, Button, DropdownMenu, Kbd, Switch, Tooltip } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
+import { clashingOf, useWriteClashes } from "../../clashes";
+import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
@@ -93,7 +95,7 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
           const quiet = one.since ?? one.step?.label ?? "";
           const said = quiet.length > 9 ? "" : quiet;
           return (
-            <li key={one.key}>
+            <li key={one.key} className="deck-list__item">
               <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
                 <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
                   <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
@@ -104,6 +106,7 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
                 <span className="deck-row__said">{said}</span>
                 <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
               </button>
+              {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
             </li>
           );
         })}
@@ -460,6 +463,23 @@ function Incoming({ calls, now, ship }: { calls: readonly Item[]; now: number; s
 
 // ---- The body ------------------------------------------------------------------------------------------
 
+/** A clash mark anywhere on the deck opens the other party on the stage, where the window's own answer would leave the deck for a page. */
+function ClashesOpenHere({ ship, children }: { ship: Ship; children: ReactNode }) {
+  const written = useWriteClashes();
+  const value = useMemo<Clashing>(
+    () => ({
+      of: clashingOf(written),
+      open: (holder) => {
+        const subject = ship.subjects.find((one) => one.kind === holder.kind && one.id === holder.id);
+        if (subject === undefined) askToOpenHolder(holder);
+        else select(selOfSubject(subject));
+      },
+    }),
+    [written, ship.subjects],
+  );
+  return <ClashesProvider value={value}>{children}</ClashesProvider>;
+}
+
 export function DeckBody(props: CockpitProps) {
   const ship = useShip(props);
   const deck = useDeck();
@@ -507,6 +527,7 @@ export function DeckBody(props: CockpitProps) {
     return id === "stage" ? "map" : id;
   });
   return (
+    <ClashesOpenHere ship={ship}>
     <div className="armada-cockpit deck">
       <div className="deck-grid">
         <div className="deck-left">
@@ -530,5 +551,6 @@ export function DeckBody(props: CockpitProps) {
         </div>
       </div>
     </div>
+    </ClashesOpenHere>
   );
 }

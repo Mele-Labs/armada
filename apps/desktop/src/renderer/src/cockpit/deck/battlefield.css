@@ -614,6 +614,12 @@
 .bf-call:focus-visible .bf-call__badge,
 .bf-edge:hover,
 .bf-edge:focus-visible { box-shadow: 0 0 0 calc(2 * var(--bf-u)) var(--bg-base), 0 0 0 calc(4 * var(--bf-u)) var(--accent), 0 0 calc(20 * var(--bf-u)) color-mix(in srgb, var(--tone) 70%, transparent); }
+/* A drone in a write clash carries a smaller amber badge beside its head, with no stem and no pillar: it is a mark on the drone, not a
+   call that someone has to open. A second clash stands one badge further out. */
+.bf-clash-at .bf-call-foot { left: calc(90 * var(--bf-u) + calc(32 + 30 * var(--n)) * var(--bf-u) / var(--eye, 1)); }
+.bf-clash .bf-call__stem { display: none; }
+.bf-clash .bf-call__badge { width: calc(26 * var(--bf-u)); height: calc(26 * var(--bf-u)); animation: none; }
+.bf-clash:not([data-opens]) { cursor: default; }
 .bf-call-at[data-leaving],
 .bf-pillar[data-leaving],
 .bf-edge[data-leaving] { animation: bf-call-out calc(var(--duration-pulse) * 0.45) var(--ease) forwards; pointer-events: none; }

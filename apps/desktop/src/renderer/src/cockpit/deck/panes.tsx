@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
-import { Button, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
+import { Button, ClashMark, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { ScrapConfirm, SlotFinding } from "@armada/components/src/compositions/PoolSlots/SlotFinding";
 import type { JobDetail, RescueAct } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
@@ -162,7 +162,7 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
   const run = useRun(subject, props);
   return (
     <section className="deck-pane" aria-label={`Job: ${subject.title}`}>
-      <PaneHead glyph={Box} kind="Job" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone }} />}>
+      <PaneHead glyph={Box} kind="Job" title={subject.title} where={subject.repo} mark={<><MarkGlyph mark={{ ...subject.mark, tone }} /><ClashMark kind="job" id={subject.id} size={16} /></>}>
         <Tabs items={JOB_VIEWS} value={jobView} onChange={(id) => setJobView(id === "canvas" ? "canvas" : "mission")} />
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
@@ -198,7 +198,7 @@ export function SessionPane({ subject, props, acts, onPr, call }: { subject: Sub
   const tone = toneOf(subject);
   return (
     <section className="deck-pane" aria-label={`Session: ${subject.title}`}>
-      <PaneHead glyph={SquareTerminal} kind="Session" title={subject.title} where={subject.repo} mark={<MarkGlyph mark={{ ...subject.mark, tone }} />}>
+      <PaneHead glyph={SquareTerminal} kind="Session" title={subject.title} where={subject.repo} mark={<><MarkGlyph mark={{ ...subject.mark, tone }} /><ClashMark kind="session" id={subject.id} size={16} /></>}>
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
       {call === undefined ? null : <CallStrip item={call} props={props} />}
