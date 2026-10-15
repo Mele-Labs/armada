@@ -218,6 +218,16 @@ pub enum SessionFact {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         branch: Option<String>,
     },
+    /// The harness opened its own permission prompt for `tool`, and the turn waits on a person at the
+    /// terminal. `detail` is the command or the path, one line and cut, empty where the tool has
+    /// none. **The harness's fact, told by the mod**, never the agent's. Since mod 0.3.22.
+    PermissionAsked {
+        tool: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        detail: String,
+    },
+    /// The prompt `permission_asked` told of is closed: the call ran, was refused, or was abandoned.
+    PermissionSettled,
     Ended {
         reason: String,
     },
@@ -362,6 +372,16 @@ pub struct WindowClosed {
     pub session_id: SessionId,
     /// The address the window was opened on, as `show_window` named it.
     pub url: String,
+}
+
+/// `window_failed`: the window a session showed could not show its page. Bridge tells it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowFailed {
+    pub session_id: SessionId,
+    /// The address the window was loading.
+    pub url: String,
+    /// What Bridge saw, in one line: `ERR_CONNECTION_REFUSED`, `HTTP 500`, `the page crashed`.
+    pub why: String,
 }
 
 /// What a press on a waiting item does.

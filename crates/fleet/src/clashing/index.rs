@@ -81,6 +81,8 @@ struct State {
     main_moved: BTreeMap<String, String>,
     /// Messages for Sessions that a Job's Drone left, to be sent by the next pass.
     notes_for_sessions: Vec<(String, String)>,
+    /// Whether the table was filled from the worktrees once since Fleet started.
+    seeded: bool,
 }
 
 /// The table. Shared with the taps that read a Drone's stream, which may not await.
@@ -287,5 +289,10 @@ impl Writes {
 
     pub(crate) fn notes_for_sessions(&self) -> Vec<(String, String)> {
         std::mem::take(&mut self.state().notes_for_sessions)
+    }
+
+    /// True the first time it is asked, when the table is to be filled from what git holds.
+    pub(crate) fn first_pass(&self) -> bool {
+        !std::mem::replace(&mut self.state().seeded, true)
     }
 }

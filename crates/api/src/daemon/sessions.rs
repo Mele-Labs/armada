@@ -104,6 +104,13 @@ pub trait Sessions: Send + Sync + 'static {
         closed: ipc::WindowClosed,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `window_failed` — a session's window could not show its page, and the session is told in
+    /// Fleet's voice. [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn window_failed(
+        self: std::sync::Arc<Self>,
+        failed: ipc::WindowFailed,
+    ) -> impl Future<Output = Result<ipc::WalkTold, Refusal>> + Send;
+
     /// `claim_pull_request` — the caller takes an open pull request no live Session or Job holds,
     /// or whose holder has ended. [`Refusal::Unacceptable`] with the reason for a pull request
     /// that is not open, a live holder, or a call that places no holder.

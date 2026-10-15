@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import { asksAnAgent } from "./standing";
 
-const call = (kind: string, key: string, decisions?: unknown, source?: string) =>
-  ({ kind, key, ...(decisions === undefined ? {} : { decisions }), ...(source === undefined ? {} : { waiting: { sessionId: "s", item: { source } } }) }) as unknown as Parameters<typeof asksAnAgent>[0];
+const call = (kind: string, key: string, decisions?: unknown, source?: string, act?: { kind: string; target: string }) =>
+  ({ kind, key, ...(decisions === undefined ? {} : { decisions }), ...(source === undefined ? {} : { waiting: { sessionId: "s", item: { source, ...(act === undefined ? {} : { act }) } } }) }) as unknown as Parameters<typeof asksAnAgent>[0];
 
 describe("the standing answers", () => {
   test.each([
@@ -24,6 +24,7 @@ describe("the standing answers", () => {
     ["a Job at its review", call("Job", "job:r")],
     ["a page a Session asks him to look at", call("Session walk", "session:s9:walk:u", undefined, "walk")],
     ["a Session's plain line, an errand for him", call("Session", "session:s9:ask:y", undefined, "agent")],
+    ["a terminal's own permission prompt, answered at the terminal", call("Session", "session:t1:perm:x", undefined, "permission", { kind: "message", target: "t1" })],
   ])("do not stand on %s, which Fleet raises about a state", (_, item) => {
     expect(asksAnAgent(item)).toBe(false);
   });

@@ -215,6 +215,28 @@ async fn a_fork_writes_in_none_of_the_slots_of_the_session_it_came_from() {
     assert!(!denied(&tool(&rig, &fork, &rig.root, "Edit", &format!("{mine}/src/lib.rs")).await));
 }
 
+/// The owner, 15 Oct 2026: the ledger draws every slot the session holds, those its subagents
+/// leased included, and none another session holds.
+#[tokio::test]
+async fn the_ledger_draws_every_slot_the_session_holds_its_subagents_included() {
+    use api::HostedSessions as _;
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    // One leased under the session's id, one by a subagent's process that named the session.
+    leased_for(&rig, 9, &id);
+    super::slot_leases::leased(&rig.root, 5, "sessions/sub", super::slot_leases::By::Session(id.as_str()));
+    leased_by(&rig, 6, OTHER);
+
+    let record = std::sync::Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session;
+    let slots: Vec<&str> = record
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "slot" && one.state == ipc::AttachmentState::Standing)
+        .map(|one| one.target.as_str())
+        .collect();
+    assert_eq!(slots, vec!["1", "5", "9"]);
+}
+
 /// What the permission door says to a call the session made, placed by its connection.
 async fn at_the_door(rig: &Rig, tool: &str, input: &str) -> ipc::RunOrNot {
     use api::{Admitting, Conversations};

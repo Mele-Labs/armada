@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  promptDetail,
   artifactOf,
   commitIn,
   effortOf,
@@ -307,4 +308,12 @@ test('a push is read from the ref line git printed, and a rejected, empty or dry
   expect(pushIn('git push', to + ' ! [rejected]        topic -> topic (fetch first)')).toBeUndefined()
   expect(pushIn('git push --dry-run', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toBeUndefined()
   expect(pushIn('git pull', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toBeUndefined()
+})
+
+test('a permission prompt is named by its command line, its path or its address, never content', () => {
+  expect(promptDetail({ command: 'cargo build\n--release' })).toBe('cargo build')
+  expect(promptDetail({ file_path: '/etc/hosts', content: 'secret' })).toBe('/etc/hosts')
+  expect(promptDetail({ url: 'https://example.com/a' })).toBe('https://example.com/a')
+  expect(promptDetail({ command: 'x'.repeat(500) })).toBe('x'.repeat(300))
+  expect(promptDetail({ prompt: 'what to fetch' })).toBe('')
 })

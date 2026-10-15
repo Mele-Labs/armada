@@ -64,4 +64,6 @@ export type Fact =
   | { kind: 'plan_left' }
   | { kind: 'committed'; branch?: string }
   | { kind: 'pushed'; branch?: string }
+  | { kind: 'permission_asked'; tool: string; detail?: string }
+  | { kind: 'permission_settled' }
   | { kind: 'ended'; reason: string }

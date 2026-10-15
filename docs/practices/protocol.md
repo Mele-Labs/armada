@@ -3184,7 +3184,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_started` (since 23.86), `turn_completed` (with `said?` since 23.86), `touched`, `read`, `ran`, `wrote`, `permission_asked`, `permission_settled` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3246,7 +3246,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
-| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, answered at once with `TerminalAsked` `asked` and the call's id; `wait` with that call, held up to 25 seconds and answered with `answered` (the input and its `answers`), `refused`, `gone`, or `waiting` where it ran out; `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does; the question and a Bridge answer are kept in the store until the mod collects them |
+| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, or a permission's with its `tool`, answered at once with `TerminalAsked` `asked` and the call's id; `wait` with that call, held up to 25 seconds and answered with `answered` (the input and its `answers`), `refused`, `gone`, or `waiting` where it ran out; `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does, and none for a permission; the question and a Bridge answer are kept in the store until the mod collects them |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
@@ -3975,7 +3975,7 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 
 ## A Session's build record
 
-Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and the decision of 14 Oct 2026, *A Session builds a ring*. **Additive only**: one optional field on `SessionRecord`, new fact kinds, new timeline kinds and the types they carry. No operation, event kind or error is new. Bridge's half is `packages/protocol/src/session-build.ts`, `sessions.ts` and `timeline.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order. The migration `20261014T2100Z-session_build.record` has a name and not a number, and is additive.
+Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/decisions/2026-10-14-a-session-builds-a-ring.md`. **Additive only**: one optional field on `SessionRecord`, new fact kinds, new timeline kinds and the types they carry. No operation, event kind or error is new. Bridge's half is `packages/protocol/src/session-build.ts`, `sessions.ts` and `timeline.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order. The migration `20261014T2100Z-session_build.record` has a name and not a number, and is additive.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -3988,7 +3988,23 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and the decis
 
 **Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them. **The arrays are always sent**, empty when they hold nothing, so a reader never tests for them. An unreached stop has no `at`, and none is sent as `null`.
 
-**Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod older than this one tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
+**Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod before `0.3.23` tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
+
+## A terminal's permission prompt is a call
+
+Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*; measured in `docs/spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`. **Additive only**: two `SessionFact` variants a terminal's mod reports, an optional `tool` on the mod's `asks`, and a `WaitingItem` with the existing `permission` source. No operation, event kind or error is new. Bridge's mirror of the facts and of `asks` is the mod's `plugins/armada/hooks/fleet.ts`; `packages/protocol` is unchanged, because the item and the open ask are existing shapes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `SessionFact::PermissionAsked` (`report_session`) | `tool`, `detail?`: the command's first line, the path or the address, cut at 300 characters | The harness opened its own permission prompt (Claude Code's `PermissionRequest` hook, where no hook beneath decided it). Ignored for a hosted Session, whose permission is Fleet's own ask |
+| `SessionFact::PermissionSettled` | nothing | The tool call that raised the prompt ended, whichever way it was answered |
+| `TerminalAsk::Asks` (`ask_from_terminal`) | `tool?`, since mod `0.3.22` | The mod puts the prompt to Fleet as it puts a question, and polls for the answer. Absent is `AskUserQuestion`. A permission offers Allow once and Refuse, never Allow and remember, draws no row in the thread, and is not refused while a walk is open |
+| `WaitingItem` (`source: permission`) on a terminal Session | `id` `perm:<call>`, `text` the tool and its detail, `act` `answer`, `options` Allow once and Refuse | The open ask, as a hosted Session's is: `answer_session` and `answer_waiting` reach the polling mod as `answered` or `refused`. The terminal answering first settles it as answered there |
+| `WaitingItem` from the fact alone | `id` `perm:<when Fleet heard it>`, `act` `message` naming the Session, no `options` | Until the ask arrives, and for a mod that reports the fact but cannot put it. `answer_waiting` on it is refused as `fleet.session_waiting_unheld`: only the terminal answers it |
+
+**Held, not stuck.** While a prompt is open the terminal's turn is waiting on the person, so the stuck tick leaves it out, as it does a hosted Session's open ask. A turn starting or ending, and the Session ending, closes the prompt in Fleet without a `permission_settled`. It is kept in memory only; the mod tells it again when a Fleet that was out of reach answers.
+
+**Skew.** A mod before `0.3.22` reports neither fact and puts no permission, so its Session's prompt raises no call and reads stuck after ten minutes, as before. A Fleet before this refuses both facts as unreadable and reads a permission's `asks` as a question; the mod's report is not awaited, so that costs the session nothing.
 
 ## Helm is a Session
 

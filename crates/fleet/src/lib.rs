@@ -62,6 +62,7 @@ mod boot_restart;
 mod boundary;
 pub mod briefing;
 /// What a Session has built: the rules between what Fleet observed and the record on its row.
+mod build_facts;
 mod build_record;
 /// Where the build record meets the store.
 mod build_keeping;

@@ -254,6 +254,12 @@ export type ShowSketch = { title: string; scene: unknown; session_id?: string };
  */
 export type WindowClosed = { session_id: string; url: string };
 
+/**
+ * `POST /sessions/window/failed`: the window a session showed could not show its page. Fleet tells the
+ * session in its own voice; the walk stays open.
+ */
+export type WindowFailed = { session_id: string; url: string; why: string };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 

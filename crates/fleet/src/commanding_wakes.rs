@@ -86,6 +86,9 @@ pub(crate) enum Trouble {
     CapNearlySpent(Nearly),
     /// A repair Drone it sent ended with nothing handed in. `#2170`.
     RepairHandedNothingIn { step: StepId },
+    /// The window walking the Job's served work could not show it, as Bridge
+    /// saw: the address and what went wrong.
+    WalkFailed { url: String, why: String },
 }
 
 impl Trouble {
@@ -99,6 +102,7 @@ impl Trouble {
             Trouble::Churning { .. } => "churning",
             Trouble::Broken { .. } => "broken",
             Trouble::RepairHandedNothingIn { .. } => "repair_handed_nothing_in",
+            Trouble::WalkFailed { .. } => "walk_failed",
             Trouble::CapNearlySpent(Nearly {
                 cap: Overspent::Cost,
                 ..
@@ -117,6 +121,7 @@ impl Trouble {
             Trouble::NothingHandedIn { step, .. }
             | Trouble::GroupRed { step }
             | Trouble::Refused { step, .. } => Some(step.as_ref()),
+            Trouble::WalkFailed { .. } => Some(None),
             Trouble::Drifted { step }
             | Trouble::Churning { step }
             | Trouble::RepairHandedNothingIn { step } => Some(Some(step)),
@@ -154,6 +159,9 @@ impl Trouble {
             Trouble::Broken { found } => format!("No Drone could run: {}", verb(found)),
             Trouble::RepairHandedNothingIn { .. } => {
                 format!("The repair Drone on step {step} ended with nothing handed in")
+            }
+            Trouble::WalkFailed { url, why } => {
+                format!("The walk window could not show step {step}'s work at {url}: {why}")
             }
             Trouble::CapNearlySpent(Nearly {
                 cap: Overspent::Cost,
@@ -349,13 +357,14 @@ where
         self.allowance_for(&record).nearly_spent_by(&spent)
     }
 
-    /// Claim the wake and make it, or say why it was not made.
-    pub(crate) async fn woken_for(self: &Arc<Self>, job: &JobId, trouble: Trouble) {
+    /// Claim the wake and make it, or say why it was not made. `true` where
+    /// the Commander was woken now.
+    pub(crate) async fn woken_for(self: &Arc<Self>, job: &JobId, trouble: Trouble) -> bool {
         let Ok(record) = self.load(job).await else {
-            return;
+            return false;
         };
         if record.status().is_terminal() {
-            return;
+            return false;
         }
         let step = match trouble.step() {
             Some(Some(named)) => Some(named.clone()),
@@ -365,20 +374,25 @@ where
         let step_named = step.as_ref().map(StepId::as_str).unwrap_or_default().to_string();
         let noted = self.claimed(&record, &trouble, step.as_ref(), &step_named).await;
         match noted {
-            Ok(CommanderWake::Already) => {}
+            Ok(CommanderWake::Already) => false,
             Ok(CommanderWake::New { run }) if run > WAKES_PER_PROBLEM => {
                 let words = trouble.words(&step_named);
                 self.noted_not_woken(job, &words, run);
                 self.card_at_the_bound(&record, &words, WAKES_PER_PROBLEM).await;
+                false
             }
             Ok(CommanderWake::New { .. }) => {
                 // A Commander that cannot start has said why in the Job's log,
                 // and the Job stays with the owner as it did before.
-                let _ = Arc::clone(self)
+                Arc::clone(self)
                     .wake_commander(job, &trouble.words(&step_named))
-                    .await;
+                    .await
+                    .is_ok()
             }
-            Err(why) => self.noted_wake_unrecorded(job, trouble.key(), why),
+            Err(why) => {
+                self.noted_wake_unrecorded(job, trouble.key(), why);
+                false
+            }
         }
     }
 

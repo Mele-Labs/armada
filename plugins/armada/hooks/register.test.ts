@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -95,6 +95,7 @@ function world(
   on('turn.complete', () => ({ text: '' }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('classic.StopFailure', () => ({}))
+  on('classic.PermissionRequest', () => options.permission ?? {})
   on('session.usage', (_$, e) => {
     usages.push(e.breakdown)
     return {
@@ -1064,4 +1065,133 @@ test('a commit and a push are told from what git printed, and one that printed n
     { kind: 'committed', branch: 'armada/topic' },
     { kind: 'pushed', branch: 'armada/topic' },
   ])
+})
+
+test('a permission prompt the terminal opens is told to Fleet, and the call ending settles it', async ($, on) => {
+  const { posts, clock } = world(on)
+  let answer: () => void = () => undefined
+  const answered = new Promise<void>(resolve => (answer = resolve))
+  on('tool.call', async () => (await answered, { result: {}, text: 'built' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  // The engine opens its prompt inside the call, and the call ends once it is answered.
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build\n--release' })
+  await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'cargo build\n--release' } })
+  await clock.settle()
+  expect(facts(posts.slice(before))).toEqual([{ kind: 'permission_asked', tool: 'Bash', detail: 'cargo build' }])
+
+  answer()
+  await call
+  await clock.settle()
+  expect(kinds(posts.slice(before)).filter(kind => kind.startsWith('permission'))).toEqual(['permission_asked', 'permission_settled'])
+})
+
+test('a permission a settings hook decided opens no prompt, and nothing is told', async ($, on) => {
+  const { posts, clock } = world(on, { permission: { decision: { behavior: 'allow' } } })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'cargo build' } })
+  await clock.settle()
+
+  expect(kinds(posts)).not.toContain('permission_asked')
+})
+
+test('a prompt still open when Fleet comes back is told again, and one the next turn closed is not', async ($, on) => {
+  let up = true
+  const { posts, clock } = world(on, { running: () => up })
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  const outage = async (then: () => Promise<unknown>) => {
+    up = false
+    await then()
+    await clock.settle()
+    up = true
+    await clock.advance(31_000)
+  }
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  await outage(() => $.classic.PermissionRequest({ tool_name: 'Read', tool_input: { file_path: '/etc/hosts' } }))
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/a.rs' })
+  await clock.settle()
+  expect(facts(posts)).toContainEqual({ kind: 'permission_asked', tool: 'Read', detail: '/etc/hosts' })
+
+  await $.prompt.submit({ text: 'go on', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  const before = posts.length
+  await outage(() => $.tool.call({ tool: 'Read', file_path: '/repos/armada/c.rs' }))
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/b.rs' })
+  await clock.settle()
+  expect(kinds(posts.slice(before))).not.toContain('permission_asked')
+})
+
+/**
+ * The engine beneath the mod for a call the terminal asks permission for. The first run waits on the
+ * terminal's prompt, which answers only where `terminal` says how; a run after it is the one Bridge
+ * allowed, held until `release` where a test reads `tool.check` meanwhile.
+ */
+function prompting(on: Parameters<Parameters<typeof test>[1]>[1], terminal?: Promise<{ result: unknown; text: string }>, release?: Promise<void>) {
+  const seen = { runs: 0 }
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  on('tool.call', async () => {
+    seen.runs += 1
+    if (seen.runs === 1) return terminal ?? new Promise<never>(() => undefined)
+    await release
+    return { result: {}, text: 'built' }
+  })
+  return seen
+}
+
+const BASH = { tool_name: 'Bash', tool_input: { command: 'cargo build' } }
+
+test('a permission allowed in Bridge runs the call again without the prompt, and the first run is dropped', async ($, on) => {
+  const { questions, clock } = world(on, { polls: ['{"outcome":"answered","updated_input":{"command":"cargo build"}}'] })
+  let release: () => void = () => undefined
+  const seen = prompting(on, undefined, new Promise<void>(resolve => (release = resolve)))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await $.classic.PermissionRequest(BASH)
+  await clock.settle()
+  expect(questions[0]).toEqual({ kind: 'asks', session_id: 'S1', tool: 'Bash', input: { command: 'cargo build' } })
+  // While the allowed run goes, the check lets it past the prompt; once it is over, it asks again.
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'cargo build' } })).decision).toBe('allow')
+  release()
+  const ran = await call
+
+  expect(ran.text).toBe('built')
+  expect(seen.runs).toBe(2)
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'cargo build' } })).decision).toBe('ask')
+})
+
+test('a permission refused in Bridge is denied with what Fleet said', async ($, on) => {
+  const { clock } = world(on, { polls: ['{"outcome":"refused","message":"The person refused this."}'] })
+  prompting(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await $.classic.PermissionRequest(BASH)
+  const ran = await call
+
+  expect(ran.deny).toContain('The person refused this.')
+})
+
+test('a permission answered in the terminal first tells Fleet it was settled', async ($, on) => {
+  const { questions, clock } = world(on)
+  let answer: (ran: { result: unknown; text: string }) => void = () => undefined
+  prompting(on, new Promise(resolve => (answer = resolve)))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await $.classic.PermissionRequest(BASH)
+  await clock.settle()
+  answer({ result: {}, text: 'built in the terminal' })
+  const ran = await call
+  await clock.settle()
+
+  expect(ran.text).toBe('built in the terminal')
+  expect(questions).toContainEqual({ kind: 'settled', session_id: 'S1', answered: true })
 })

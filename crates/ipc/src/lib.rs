@@ -499,7 +499,7 @@ pub use sessions::{
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
     SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WindowClosed,
+    WindowClosed, WindowFailed,
 };
 pub use autopilot::{
     Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
@@ -564,7 +564,7 @@ pub use waiting::{
     AskedOption, ChosenAnswer, ChosenDecision, DecisionInFlight, QuestionInFlight, RedirectInFlight,
     RedirectWaiting,
 };
-pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
+pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkFailed, WalkNote, WalkNotes, WalkTold};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
     Submitted, TouchedFile, Work,

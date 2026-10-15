@@ -10,21 +10,24 @@
 //! nothing**, so a harness may report on every turn without a client redrawing
 //! on every one.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
     ManifestId, Owners, SessionFact, SessionList, SessionRecord, SessionReport, SessionState,
-    TimelineKind, TimelineTone, WireError,
+    WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch, Store};
 
 use crate::adrift::Adrift;
+use crate::build_facts::workers_of;
 use crate::build_keeping::{build_heard, build_read, BuildReads};
 use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
 use crate::slot_holders::{pool_backs, stand_in_slot};
-use crate::timeline::{Act, Doer, Fact, Subject};
+use crate::timeline::{Act, Doer};
 
 /// What a session's row reads from the store, taken under the lock.
 pub(crate) struct LedgerReads {
@@ -207,6 +210,9 @@ where
     /// under the store lock.
     pub(crate) fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
         let mut record = session_wire(session, &reads.held);
+        if session.state == store::SessionState::Live {
+            self.slots_held_drawn(session, &mut record.attachments);
+        }
         // A subagent the mod never settles is done once its own transcript shows its turn ended.
         let home = &self.host().home;
         for one in record.attachments.iter_mut().filter(|one| {
@@ -249,12 +255,45 @@ where
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
-        let workers = record.attachments.iter().filter(|one| one.kind == "subagent" && one.state == ipc::AttachmentState::Standing).map(|one| {
-            let said = |key: &str| one.detail.get(key).map(String::as_str).unwrap_or_default();
-            [said("type"), said("description")].iter().filter(|part| !part.is_empty()).cloned().collect::<Vec<_>>().join(": ")
-        });
-        record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers.collect());
+        record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
         record
+    }
+
+    /// A row for every other slot the pool says the session holds: one its subagent leased has no
+    /// row of its own, since the ledger keeps one slot a session works in. **A terminal session
+    /// that moved out of a slot gave it up** though its shell still holds the lease, so a slot the
+    /// ledger gave back for one stays given back.
+    fn slots_held_drawn(&self, session: &KeptSession, attachments: &mut Vec<ipc::Attachment>) {
+        let Some(manifest) = session.manifest_id.as_deref() else {
+            return;
+        };
+        let Some(served) = self.repositories().serving(manifest) else {
+            return;
+        };
+        let terminal = session.origin != "bridge";
+        let drawn = |slot: &str| {
+            attachments.iter().any(|one| {
+                one.kind == "slot"
+                    && one.target == slot
+                    && one.manifest_id.as_ref().map(ManifestId::as_str) == Some(manifest)
+                    && (terminal || one.state == ipc::AttachmentState::Standing)
+            })
+        };
+        let more: Vec<String> = crate::slot_holders::slots_of(&served, &session.id)
+            .into_iter()
+            .map(|slot| slot.to_string())
+            .filter(|slot| !drawn(slot))
+            .collect();
+        let at = wire_instant(&session.last_seen_at);
+        attachments.extend(more.into_iter().map(|target| ipc::Attachment {
+            kind: String::from("slot"),
+            manifest_id: Some(ManifestId::carried(manifest)),
+            target,
+            state: ipc::AttachmentState::Standing,
+            detail: Default::default(),
+            since: at.clone(),
+            changed_at: at.clone(),
+        }));
     }
 
     /// Keep the version a mod reported. A fact that carries none leaves what is kept.
@@ -280,17 +319,6 @@ where
             return false;
         };
         mod_is_older(session.mod_version.as_deref(), &current)
-    }
-
-    /// A Session committed or pushed: entered on the timeline, where the build record reads its road from.
-    fn road_noted(&self, session: &KeptSession, kind: TimelineKind, says: &str, branch: Option<String>, now: &str) {
-        self.timeline().note(
-            Fact::new(now, kind, Subject::Session(session.id.clone()), TimelineTone::Idle, says)
-                .titled(session.title.clone())
-                .detail(branch)
-                .in_repository(session.manifest_id.clone())
-                .live(),
-        );
     }
 
     /// A terminal Session wrote these files, named from its directory. **Only in a pool slot**, the
@@ -519,6 +547,16 @@ where
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
             }
+            // The harness's own prompt, waiting on a person at the terminal. A hosted session's is
+            // Fleet's own ask, so only a terminal's is read here.
+            SessionFact::PermissionAsked { tool, detail } if terminal => {
+                let open = crate::session_host::PromptOpen { tool, detail, since: now.clone() };
+                changed |= self.hosts().terminals().prompt_opened(&id, open);
+            }
+            SessionFact::PermissionSettled if terminal => {
+                changed |= self.hosts().terminals().prompt_closed(&id);
+            }
+            SessionFact::PermissionAsked { .. } | SessionFact::PermissionSettled => {}
             SessionFact::Limited { resets_at } => {
                 changed |= store
                     .keep_session_limit(&id, resets_at.as_str())
@@ -549,19 +587,8 @@ where
                 }
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Tasks { tasks } => {
-                changed |= build_heard(&mut store, &id, &Observed::Tasks(tasks), &now).map_err(fault)?;
-            }
-            SessionFact::PlanLeft => {
-                changed |= build_heard(&mut store, &id, &Observed::PlanLeft, &now).map_err(fault)?;
-            }
-            SessionFact::Committed { branch } => {
-                self.road_noted(&session, TimelineKind::SessionCommitted, "Committed", branch, &now);
-                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
-            }
-            SessionFact::Pushed { branch } => {
-                self.road_noted(&session, TimelineKind::SessionPushed, "Pushed", branch, &now);
-                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
+            fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
+                changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
             }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
@@ -705,14 +732,7 @@ where
                 },
             })
             .await?;
-        // The road reads a walk shown off the timeline. The `walk` item on its list is not entered there.
-        self.timeline().note(
-            Fact::new(self.timeline().now(), TimelineKind::SessionWalked, Subject::Session(id.clone()), TimelineTone::Idle, "Walk shown")
-                .titled(record.title.clone())
-                .detail(Some(title.clone()))
-                .in_repository(record.manifest_id.as_ref().map(|one| one.as_str().to_string()))
-                .live(),
-        );
+        self.walk_noted(&id, &record, &title);
         self.row_put(
             &id,
             ipc::SessionRow::Window {
@@ -760,6 +780,28 @@ where
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?;
         self.ledger_row(&store, &session)
+    }
+
+    async fn window_failed(
+        self: Arc<Self>,
+        failed: ipc::WindowFailed,
+    ) -> Result<ipc::WalkTold, Refusal> {
+        let id = failed.session_id.as_str().trim().to_string();
+        let known = {
+            let store = self.store().lock().await;
+            store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
+        };
+        if !known {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        }
+        let text = format!(
+            "Your walk window could not show {}: {}. The person cannot walk it until it loads. \
+             Fix it, then call show_window again.",
+            failed.url.trim(),
+            failed.why.trim()
+        );
+        let told = self.told_by_fleet(&id, &text).await?;
+        Ok(ipc::WalkTold { told })
     }
 
     async fn waiting_for(

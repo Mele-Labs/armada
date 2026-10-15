@@ -45,6 +45,7 @@ import {
   modeOf,
   modelName,
   MOD_VERSION,
+  promptDetail,
   transcriptPath,
 } from './facts'
 import type { RateLimit } from './facts'
@@ -76,7 +77,11 @@ type Known = {
   /** The agent's task list as its tools last left it, in order. */
   tasks: Task[]
   tuned?: Tuning
+  // The terminal's permission prompts open now, oldest first. Fleet is told of the first.
+  prompts: Prompt[]
 }
+
+type Prompt = { tool: string; detail: string }
 
 type Tuning = Extract<Fact, { kind: 'tuned' }>
 
@@ -104,6 +109,7 @@ function everything(): Report[] {
       told(id, { kind: 'attached', attachment: { kind: 'artifact', target, detail } }),
     ),
     ...(one.tasks.length === 0 ? [] : [told(id, { kind: 'tasks', tasks: one.tasks })]),
+    ...one.prompts.slice(0, 1).map(open => told(id, promptFact(open))),
   ])
 }
 
@@ -340,6 +346,9 @@ async function showPages($: Dollar, urls: string[]): Promise<void> {
   }
 }
 
+/** What is put to Bridge: a question's input, or a call the terminal is asking permission for and its tool. */
+type Asking = { input: unknown; tool?: string }
+
 /** How long Fleet holds one poll, and how long the mod waits on a request before it asks again. */
 const POLL_FETCH_MS = 35_000
 const POLL_RETRY_MS = 3000
@@ -364,13 +373,13 @@ async function postAsk($: Door, port: number, body: unknown, bound: number): Pro
  * prompt is all there is meanwhile. `over` ends the loop once the terminal's prompt has. `first` is
  * Fleet's answer to the post the hook made before the prompt opened, where it came in time.
  */
-async function putToBridge($: Door, id: string, questions: unknown, over: { done: boolean }, first?: Asked): Promise<Asked | undefined> {
+async function putToBridge($: Door, id: string, asking: Asking, over: { done: boolean }, first?: Asked): Promise<Asked | undefined> {
   try {
     if (first !== undefined && first.outcome !== 'asked') return undefined
     let call = first?.outcome === 'asked' ? first.call : undefined
     while (call === undefined && !over.done) {
       const port = await portOf($).catch(() => undefined)
-      const put = port === undefined ? undefined : await postAsk($, port, { kind: 'asks', session_id: id, input: { questions } }, POLL_FETCH_MS).catch(() => undefined)
+      const put = port === undefined ? undefined : await postAsk($, port, { kind: 'asks', session_id: id, ...asking }, POLL_FETCH_MS).catch(() => undefined)
       if (put?.outcome === 'asked') call = put.call
       else if (put?.outcome === 'refused') return put
       else if (put !== undefined) return undefined
@@ -393,11 +402,11 @@ async function putToBridge($: Door, id: string, questions: unknown, over: { done
  * Fleet refuses (a walk is open) never opens one. A Fleet slow or out of reach answers nothing here,
  * and `putToBridge` posts again.
  */
-async function firstPut($: Door, id: string, questions: unknown): Promise<Asked | undefined> {
+async function firstPut($: Door, id: string, asking: Asking): Promise<Asked | undefined> {
   try {
     const port = await portOf($).catch(() => undefined)
     if (port === undefined) return undefined
-    return await postAsk($, port, { kind: 'asks', session_id: id, input: { questions } }, WAIT_MS)
+    return await postAsk($, port, { kind: 'asks', session_id: id, ...asking }, WAIT_MS)
   } catch {
     return undefined
   }
@@ -436,7 +445,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // settings. Fleet marks those launches, and they are not sessions to list.
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [] })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map(), tasks: [], prompts: [] })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -670,7 +679,8 @@ async function titled($: Dollar, prompt: string): Promise<void> {
  */
 async function turnBegan($: Dollar, prompt: string): Promise<void> {
   if (withoutMarkup(prompt).trim().startsWith('/')) return
-  const [id] = await current($)
+  const [id, one] = await current($)
+  one.prompts = []
   say($, id, { kind: 'turn_started' })
 }
 
@@ -700,6 +710,66 @@ async function renamed($: Dollar, typed: string): Promise<void> {
   if (title === undefined) return
   one.title = title
   say($, id, { kind: 'titled', title, named: true })
+}
+
+function promptFact(open: Prompt): Fact {
+  return open.detail === '' ? { kind: 'permission_asked', tool: open.tool } : { kind: 'permission_asked', tool: open.tool, detail: open.detail }
+}
+
+/**
+ * The harness opened its own permission prompt, so the session waits on a person at the terminal.
+ * **The harness says so**, through its `PermissionRequest` hook; the agent is never asked. Fleet is
+ * told of the oldest open, which is the one the terminal shows.
+ */
+async function promptOpened($: Dollar, tool: string, input: unknown): Promise<void> {
+  const [id, one] = await current($)
+  const open = { tool, detail: promptDetail((input ?? {}) as Record<string, unknown>) }
+  one.prompts.push(open)
+  if (one.prompts.length === 1) say($, id, promptFact(open))
+}
+
+/**
+ * A tool call ended, so the prompt it raised is closed: it was answered and ran, or was refused. The
+ * next one open, if any, is told in its place.
+ */
+async function promptSettled($: Dollar, tool: string, input: Record<string, unknown>): Promise<void> {
+  const id = await $.session.id()
+  const one = known.get(id)
+  if (one === undefined || one.prompts.length === 0) return
+  const detail = promptDetail(input)
+  const at = one.prompts.findIndex(open => open.tool === tool && open.detail === detail)
+  if (at < 0) return
+  one.prompts.splice(at, 1)
+  if (at !== 0) return
+  say($, id, { kind: 'permission_settled' })
+  const next = one.prompts[0]
+  if (next !== undefined) say($, id, promptFact(next))
+}
+
+/** A tool call under way whose terminal prompt Bridge may answer first. */
+type Underway = { answer: (asked: Asked) => void; over: { done: boolean }; put: boolean }
+
+// The calls under way by `callKey`, oldest first, and the ones Bridge allowed, which `tool.check` lets
+// run again without the terminal's prompt.
+const underway = new Map<string, Underway[]>()
+const allowedInBridge = new Set<string>()
+
+function callKey(tool: string, input: Record<string, unknown>): string {
+  return `${tool}\n${promptDetail(input)}`
+}
+
+/**
+ * The terminal's prompt, put to Bridge as well: the call that raised it takes Bridge's answer where it
+ * comes first. Fleet keeps it until a person answers or the call ends.
+ */
+async function promptPut($: Dollar, tool: string, input: unknown): Promise<void> {
+  const id = await $.session.id()
+  if (!known.has(id)) return
+  const call = underway.get(callKey(tool, (input ?? {}) as Record<string, unknown>))?.find(one => !one.put)
+  if (call === undefined) return
+  call.put = true
+  const asked = await putToBridge($, id, { tool, input }, call.over)
+  if (asked?.outcome === 'answered' || asked?.outcome === 'refused') call.answer(asked)
 }
 
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
@@ -772,11 +842,11 @@ export const register: Register = on => {
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
     if (await $.env.get('ARMADA_DRONE')) return next(e)
     const id = await $.session.id()
-    const put = await firstPut($, id, e.questions)
+    const put = await firstPut($, id, { input: { questions: e.questions } })
     if (put?.outcome === 'refused') return { deny: put.message }
     const over = { done: false }
     const terminal = next(e).then(ran => ({ ran }))
-    const bridge = putToBridge($, id, e.questions, over, put).then(asked =>
+    const bridge = putToBridge($, id, { input: { questions: e.questions } }, over, put).then(asked =>
       asked?.outcome === 'answered' || asked?.outcome === 'refused'
         ? { asked }
         : new Promise<never>(() => undefined),
@@ -834,6 +904,58 @@ export const register: Register = on => {
     }
     return ran
   })
+
+  // The terminal's own permission prompt is told to Fleet, which raises it as a call and does not read
+  // the session as stuck. Told only where a prompt opens: a hook beneath that decided opens none.
+  // **Only told**: the terminal's prompt is what answers it.
+  on('classic.PermissionRequest', async ($, e, next) => {
+    const out = await next(e)
+    if (out.decision === undefined) {
+      void promptOpened($, e.tool_name, e.tool_input).catch(() => undefined)
+      void promptPut($, e.tool_name, e.tool_input).catch(() => undefined)
+    }
+    return out
+  })
+
+  // The terminal's prompt opens beneath (`next`) while Bridge holds it too, and the first answer wins.
+  // Allowed in Bridge, the call runs again with `tool.check` allowing it, and returning drops the
+  // terminal's prompt (measured on Claude Code 2.1.300, 14 Oct 2026); refused there, it is denied.
+  // The call ending closes the prompt it raised, whichever way it was answered.
+  on('tool.call', async ($, e, next) => {
+    const input = e as Record<string, unknown>
+    const key = callKey(e.tool, input)
+    let answer: (asked: Asked) => void = () => undefined
+    const bridge = new Promise<Asked>(resolve => (answer = resolve))
+    const call: Underway = { answer, over: { done: false }, put: false }
+    underway.set(key, [...(underway.get(key) ?? []), call])
+    try {
+      const terminal = next(e).then(ran => ({ ran }))
+      // Dropped when Bridge answers first, so its end is not left unhandled.
+      terminal.catch(() => undefined)
+      const first = await Promise.race([terminal, bridge.then(asked => ({ asked }))])
+      if ('ran' in first) {
+        if (call.put) void settledInTerminal($, await $.session.id(), first.ran.deny === undefined && first.ran.isError !== true)
+        return first.ran
+      }
+      if (first.asked.outcome === 'refused') return { deny: first.asked.message }
+      allowedInBridge.add(key)
+      try {
+        return await next(e)
+      } finally {
+        allowedInBridge.delete(key)
+      }
+    } finally {
+      call.over.done = true
+      const left = (underway.get(key) ?? []).filter(one => one !== call)
+      if (left.length === 0) underway.delete(key)
+      else underway.set(key, left)
+      void promptSettled($, e.tool, input).catch(() => undefined)
+    }
+  })
+
+  on('tool.check', async ($, e, next) =>
+    allowedInBridge.has(callKey(e.tool, (e.input ?? {}) as Record<string, unknown>)) ? { decision: 'allow' as const } : next(e),
+  )
 
   for (const name of DISPATCHES) {
     on('tool.call', { tool: `mcp__armada-fleet__${name}` }, async ($, e, next) => {
@@ -947,7 +1069,10 @@ export const register: Register = on => {
     const out = await next(e)
     if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
-        .then(([id]) => say($, id, turnEnd(e.answer)))
+        .then(([id, one]) => {
+          one.prompts = []
+          say($, id, turnEnd(e.answer))
+        })
         .catch(() => undefined)
     }
     return out
