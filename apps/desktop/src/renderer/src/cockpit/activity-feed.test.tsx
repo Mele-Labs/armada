@@ -27,7 +27,7 @@ const HELD: readonly TimelineEvent[] = [entry(1, "a", "Scope passed"), entry(2, 
 let off: (() => void) | undefined;
 afterEach(() => off?.());
 
-function feed(props: Partial<Parameters<typeof ActivityFeed>[0]> = {}) {
+function feed(props: Partial<Parameters<typeof ActivityFeed>[0]> = {}, held: readonly TimelineEvent[] = HELD) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -36,7 +36,7 @@ function feed(props: Partial<Parameters<typeof ActivityFeed>[0]> = {}) {
     host.remove();
   };
   root.render(
-    <FleetEventsOver source={{ get: () => HELD, subscribe: () => () => undefined }}>
+    <FleetEventsOver source={{ get: () => held, subscribe: () => () => undefined }}>
       <ActivityFeed now={Date.now()} jobs={[]} filter="running" onOpenJob={() => {}} onOpenSession={() => {}} {...props} />
     </FleetEventsOver>,
   );
@@ -86,4 +86,32 @@ test("lit holds one row, and stacked draws the deck's rows", async () => {
   expect(row("2")!.hasAttribute("data-lit")).toBe(true);
   expect(row("1")!.hasAttribute("data-lit")).toBe(false);
   expect(row("2")!.hasAttribute("data-stacked")).toBe(true);
+});
+
+// A busy two hours holds over a thousand events, and a row for each froze the deck.
+const at = (secondsAgo: number) => new Date(Date.now() - secondsAgo * 1000).toISOString();
+const MANY: readonly TimelineEvent[] = [
+  // Job b's five are the oldest of all; job a's 130 are newer, one a second.
+  ...Array.from({ length: 5 }, (_, i): TimelineEvent => ({ ...entry(1000 + i, "b", `B step ${i}`), at: at(3000 - i) })),
+  ...Array.from({ length: 130 }, (_, i): TimelineEvent => ({ ...entry(i + 1, "a", `A step ${i + 1}`), at: at(130 - i) })),
+];
+
+test("The Activity feed draws at most the newest 100 events", async () => {
+  feed({}, MANY);
+  await expect.poll(() => rows().length).toBe(100);
+
+  // The newest is there and the oldest of the hundred and thirty is not: job b's older five are the ones cut.
+  expect(row("130")).not.toBeNull();
+  expect(row("31")).not.toBeNull();
+  expect(row("30")).toBeNull();
+  expect(row("1000")).toBeNull();
+});
+
+test("a Job opened on the deck narrows the feed to its own events however many newer ones are cut", async () => {
+  feed({ of: { kind: "job", id: "b" } }, MANY);
+  await expect.poll(rows).toEqual(["1000", "1001", "1002", "1003", "1004"]);
+  off?.();
+
+  feed({ keep: (subject) => subject.kind === "job" && subject.id === "b" }, MANY);
+  await expect.poll(rows).toEqual(["1000", "1001", "1002", "1003", "1004"]);
 });

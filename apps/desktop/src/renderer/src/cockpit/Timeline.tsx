@@ -295,13 +295,19 @@ function unfinished(events: readonly FleetEvent[]): Set<string> {
   return new Set([...newest.values()].filter((one) => one.tone === "run").map((one) => one.id));
 }
 
-/** Every event of `lanes`, newest first, in blocks by how long ago; the newest of each subject carries how it stands. */
+/** The most events the feed draws, the newest. A busy two hours holds over a thousand, and a row for each froze the deck. */
+export const MOST_FEED = 100;
+
+/** The newest `MOST_FEED` events of `lanes`, in blocks by how long ago; the newest of each subject carries how it stands. */
 function Feed({ lanes, now, open, tips = false, stacked = false, onPick, lit }: { lanes: readonly Lane[]; now: number; open: Open; /** Each event's whole line, in a tooltip: for a column that cuts it short. */ tips?: boolean; /** Two lines to a row. */ stacked?: boolean } & Picking) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) => setOpened((held) => (held.has(id) ? new Set([...held].filter((one) => one !== id)) : new Set([...held, id])));
   const standing = new Map(lanes.map((lane) => [lane.events[0]!.id, lane.standing]));
   const running = unfinished(lanes.flatMap((lane) => lane.events));
-  const events = lanes.flatMap((lane) => lane.events).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const events = lanes
+    .flatMap((lane) => lane.events)
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+    .slice(0, MOST_FEED);
   const blocks: { said: string; rows: FleetEvent[] }[] = [];
   for (const event of events) {
     const said = bucketOf(event, now);
@@ -450,8 +456,12 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
   );
 }
 
-/** The lanes the Timeline and the feed draw: Fleet's events named from what the window holds, narrowed by the filter and by `keep`. */
-function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of): Lane[] {
+/**
+ * The lanes the Timeline and the feed draw: Fleet's events named from what the window holds, narrowed by the filter and by `keep`.
+ * `most` keeps the newest that many events **of the subjects `keep` and `of` leave**, before the lanes are read, so a narrowed feed is
+ * never emptied by newer events of subjects it does not show.
+ */
+function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of, most?: number): Lane[] {
   const wire = useFleetEvents();
   const sessions = useSessions();
   const events = useMemo(() => {
@@ -470,14 +480,21 @@ function useLanes(now: number, jobs: readonly JobSummary[], views: readonly Merg
     });
   }, [wire, jobs, views, sessions]);
   return useMemo(() => {
-    const all = lanesOf(events, now, (id) => {
+    const drawn =
+      most === undefined
+        ? events
+        : events
+            .filter((one) => (of !== undefined ? one.subject.kind === of.kind && "id" in one.subject && one.subject.id === of.id : keep === undefined || keep(one.subject)))
+            .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+            .slice(0, most);
+    const all = lanesOf(drawn, now, (id) => {
       const held = sessions.find((one) => one.id === id);
       return held === undefined ? undefined : stateOf(held).state;
     });
     // One Job or Session picked: its lane alone, whatever its standing. A Session's subagents are events on its own lane.
     if (of !== undefined) return all.filter((lane) => lane.subject.kind === of.kind && lane.subject.id === of.id);
     return lanesFor(all, filter).filter((lane) => keep === undefined || keep(lane.subject));
-  }, [events, now, filter, sessions, keep, of?.kind, of?.id]);
+  }, [events, now, filter, sessions, keep, of?.kind, of?.id, most]);
 }
 
 const NO_VIEWS: readonly MergeLineView[] = [];
@@ -576,7 +593,7 @@ export function ActivityFeed({
   /** The deck's two-line rows. */
   stacked?: boolean;
 }) {
-  const lanes = useLanes(now, jobs, views, filter, keep, of);
+  const lanes = useLanes(now, jobs, views, filter, keep, of, MOST_FEED);
   const open: Open = (subject) => {
     if (onPick !== undefined) return;
     if (subject.kind === "job") onOpenJob(subject.id);
