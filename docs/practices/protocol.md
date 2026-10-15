@@ -4048,6 +4048,17 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*;
 
 **What is not on the wire.** The old Helm thread files under the records root are not read. The Helm Session's `helm` flag is on the store's `hosted_sessions` row (migration `20261013T1700Z-helm_session.hosted_helm`), not a second table; `live_helm_of` and `latest_helm_of` find it.
 
+## A waiting item's steps
+
+`docs/concepts/session.md`. **Additive only**: one optional field on each of two DTOs. No operation, event or route.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `WaitingInput.steps?` (`waiting_for`, Fleet) | The procedure the person follows, in order, as short lines | Fleet trims each and drops a blank one. An empty list is left off, never sent as `null` |
+| `WaitingItem.steps?` (Bridge) | The same lines, as the agent's item was kept | Only an agent's item carries them. Bridge opens a press on one as a panel beside the thread, and Done or Send answers through `answer_waiting` `text`: Done is the word `Done`, with the person's corrections as lines after it |
+
+**Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. **Kept.** `session_waiting.steps`, a JSON array column (store migration `20261015T1200Z-session_waiting.steps`), additive with a default of `[]`, so an item kept before it reads as no steps. **The event stream.** `session.row` carries the lines with the item, a few short lines at most, so this is neither better nor worse for the unbounded sink.
+
 ## An issue is named by its tracker's reference
 
 `docs/concepts/tracker.md`. An issue crossed the wire as a number, which names nothing once a tracker has more than one project and drew as `#123` for Jira's `ABC-123`. The protocol ID moves with the files below, and there is no number to take.

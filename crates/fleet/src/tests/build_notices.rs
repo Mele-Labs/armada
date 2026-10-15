@@ -159,6 +159,7 @@ impl Rig {
                         text: "Restart onto the new build".into(),
                         act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into() }),
                         options: Vec::new(),
+                        steps: Vec::new(),
                     }],
                 },
             )
