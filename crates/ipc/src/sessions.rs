@@ -468,6 +468,9 @@ pub struct WaitingItem {
     /// Present only on an `answer` item that has choices.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<WaitingOption>,
+    /// The procedure the person follows, in order; its press opens them as steps.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<String>,
     /// Where a question asked in the walk window points. Present only on a `window_ask` item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<WindowPlace>,
@@ -482,6 +485,9 @@ pub struct WaitingInput {
     pub act: Option<WaitingAct>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<WaitingOption>,
+    /// The procedure the person follows, in order; its press opens them as steps.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<String>,
 }
 
 /// `waiting_for`: the agent sets the whole list of what it needs from the person. An empty list clears it.

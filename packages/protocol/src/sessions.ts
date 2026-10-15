@@ -164,6 +164,8 @@ export type WaitingItem = {
   source: WaitingSource;
   act?: WaitingAct;
   options?: WaitingOption[];
+  /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
+  steps?: string[];
   place?: WindowPlace;
 };
 

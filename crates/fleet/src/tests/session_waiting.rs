@@ -21,6 +21,7 @@ fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
         since: "2026-10-09T00:00:00Z".into(),
         act: Some((kind.into(), target.into())),
         options: Vec::new(),
+        steps: Vec::new(),
     }
 }
 
@@ -123,6 +124,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
                     target: "cargo test".into(),
                 }),
                 options: vec![WaitingOption { label: "Yes".into(), description: None }],
+                steps: Vec::new(),
             })
             .collect(),
     }
@@ -156,6 +158,25 @@ async fn the_agents_list_is_replaced_whole_and_an_unchanged_id_keeps_when_it_beg
         .waiting_for(None, SetWaitingFor { items: Vec::new(), session_id: None })
         .await;
     assert!(nameless.is_err(), "a call that places no session sets nothing");
+}
+
+#[tokio::test]
+async fn the_steps_an_agent_gives_an_item_reach_the_served_item_and_survive_a_read() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut call = set(&id, &[("oauth", "Register the OAuth app"), ("plain", "Look")]);
+    call.items[0].steps = vec!["  Name it Armada ".into(), "".into(), "Press Register".into()];
+    let record = rig.fleet.waiting_for(None, call).await.unwrap();
+    let steps = |record: &ipc::SessionRecord, item: &str| {
+        record.waiting_for.iter().find(|one| one.id == item).unwrap().steps.clone()
+    };
+    assert_eq!(steps(&record, "oauth"), ["Name it Armada", "Press Register"], "trimmed, and a blank line is no step");
+    assert!(steps(&record, "plain").is_empty(), "an item without steps has none");
+
+    let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(steps(&kept, "oauth"), ["Name it Armada", "Press Register"], "kept in the store, not only echoed back");
+    let wire = ipc::encode(&kept.waiting_for[1]).unwrap();
+    assert!(!wire.contains("steps"), "an empty list is left off the wire");
 }
 
 fn answer(id: &ipc::SessionId, item: &str) -> AnswerWaiting {
@@ -332,6 +353,7 @@ async fn the_agents_walk_item_for_a_shown_page_never_adds_a_second_call_even_onc
         text: "Look at the other page".into(),
         act: Some(WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5173/never".into() }),
         options: Vec::new(),
+        steps: Vec::new(),
     });
     rig.fleet.waiting_for(None, agent).await.unwrap();
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;

@@ -214,13 +214,6 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
-/**
- * A waiting item as the mock draws it. `steps` is a procedure the person follows, in order: the row's
- * press opens them beside the thread. **Not on the wire yet** (`WaitingItem` is Fleet's), so a Fleet
- * serves none; the mock holds it here until the look is agreed and `crates/ipc` carries it.
- */
-export type OwedItem = WaitingItem & { steps?: readonly string[] };
-
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -278,7 +271,7 @@ export type Session = {
   /** What it is doing now and the agent's todo list. Absent is nothing to say. */
   activity?: SessionActivity;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
-  waitingFor?: readonly OwedItem[];
+  waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /**
@@ -534,7 +527,7 @@ export function attachmentsOf<K extends SessionAttachmentKind>(
  * items, an open card, a walk, a question asked in the window. `replied` and `done` are read from the
  * thread and the turn, so a surface that draws the thread (its last message, its done callout) leaves them out.
  */
-export const owesOf = (session: Session): readonly OwedItem[] =>
+export const owesOf = (session: Session): readonly WaitingItem[] =>
   (session.waitingFor ?? []).filter((one) => one.source !== "replied" && one.source !== "done");
 
 /**
