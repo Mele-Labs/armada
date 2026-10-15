@@ -11,9 +11,9 @@
 //! the right diff, and the three refusals that keep Armada out of a repository
 //! a person is standing in.
 
-use adapter_traits::{Rendering, RepositoryStanding};
+use adapter_traits::{HeldBack, Rendering, RepositoryStanding};
 
-use crate::landing::{caught_up, fields, rendering};
+use crate::landing::{caught_up, checkout_has, fields, held_back, rendering};
 use crate::tests::repo::TempRepo;
 
 // ------------------------------------------------------- one line, four fields
@@ -235,6 +235,96 @@ fn somewhere_that_is_not_a_repository_is_left_alone() {
         caught_up("/nonexistent/armada/landing", "main"),
         RepositoryStanding::LeftAlone { .. }
     ));
+}
+
+// ------------------------------------------- why a checkout was held back
+
+/// Commit `path` in the second checkout and push it, as a merge on the forge.
+fn merged_elsewhere(repo: &TempRepo, path: &str) {
+    let elsewhere = repo.root().with_extension("elsewhere");
+    std::fs::write(elsewhere.join(path), "main's version").expect("writes");
+    for args in [
+        vec!["add", "--", path],
+        vec!["commit", "-m", "main changed it"],
+        vec!["push", "origin", "main"],
+    ] {
+        let run = std::process::Command::new("git")
+            .args(["-c", "user.name=armada", "-c", "user.email=a@b.invalid", "-C"])
+            .arg(&elsewhere)
+            .args(&args)
+            .output()
+            .expect("git on PATH");
+        assert!(run.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&run.stderr));
+    }
+}
+
+/// Behind its remote by nothing, with `armada.yml` tracked on both sides.
+fn a_repository_with_a_manifest_both_sides_have() -> TempRepo {
+    let repo = a_repository_behind_its_remote();
+    repo.git(&["pull", "--quiet", "--ff-only"]);
+    repo.commit_one("armada.yml", "version: 1", "a manifest");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo.root().with_extension("elsewhere"))
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success(), "{}", String::from_utf8_lossy(&run.stderr));
+    repo
+}
+
+#[test]
+fn a_checkout_has_its_own_head_and_its_ancestors_and_nothing_newer() {
+    let repo = TempRepo::with_a_commit();
+    let first = repo.head_str();
+    repo.commit_one("src/next.rs", "next", "the next commit");
+    assert!(checkout_has(&repo.root_str(), &first));
+    assert!(checkout_has(&repo.root_str(), &repo.head_str()));
+    repo.git(&["checkout", "--quiet", &first]);
+    let newer = repo.git(&["rev-parse", "main"]);
+    assert!(!checkout_has(&repo.root_str(), &newer));
+    assert!(!checkout_has(&repo.root_str(), "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"));
+}
+
+#[test]
+fn uncommitted_files_main_did_not_touch_are_held_back_with_no_clash() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "theirs.rs");
+    repo.write("armada.yml", "auto_merge: checks-pass");
+
+    assert_eq!(
+        held_back(&repo.root_str(), "main"),
+        Some(HeldBack {
+            base: String::from("main"),
+            on: None,
+            uncommitted: vec![String::from("armada.yml")],
+            clashing: Vec::new(),
+            behind: 1,
+            ahead: 0,
+        })
+    );
+}
+
+#[test]
+fn an_uncommitted_file_main_also_changed_is_named_as_clashing() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "auto_merge: checks-pass");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!(held.clashing, ["armada.yml"]);
+}
+
+#[test]
+fn a_checkout_on_another_branch_with_its_own_commit_names_both() {
+    let repo = a_repository_behind_its_remote();
+    repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
+    repo.commit_one("src/mine.rs", "mine", "my own commit");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!(held.on.as_deref(), Some("something-of-my-own"));
+    assert_eq!((held.ahead, held.behind), (1, 1));
 }
 
 /// **A repository takes every directory it made with it.**

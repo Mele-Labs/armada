@@ -1100,6 +1100,33 @@ pub trait Delivery {
     /// person is standing in rather than a Job's worktree, so it declines on
     /// anything it cannot do without merging, rebasing or discarding.
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding;
+
+    /// Whether the commit checked out in `in_repo` already has `commit`, read
+    /// in process. `false` where the commit is not here at all.
+    fn checkout_has(&self, in_repo: &str, commit: &str) -> bool;
+
+    /// Why `in_repo` cannot be fast-forwarded to `base` on the remote, read for
+    /// a person to act on. Fetches the base first so the counts are current.
+    /// `None` where the repository or its remote base cannot be read.
+    fn held_back(&self, in_repo: &str, base: &str) -> Option<HeldBack>;
+}
+
+/// A checkout Fleet would not catch up, and what stands in the way.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HeldBack {
+    pub base: String,
+    /// The branch checked out, where it is not the base. `HEAD` when detached.
+    pub on: Option<String>,
+    /// Tracked files with uncommitted changes. Untracked files never block a
+    /// fast-forward and are not named.
+    pub uncommitted: Vec<String>,
+    /// Those of `uncommitted` that the remote base also changed, so an
+    /// autostash could stop on a conflict.
+    pub clashing: Vec<String>,
+    /// Commits the remote base has that the checkout does not.
+    pub behind: usize,
+    /// Commits the checkout has that the remote base does not.
+    pub ahead: usize,
 }
 
 /// A line for a person about where the base came from. Built here so the two

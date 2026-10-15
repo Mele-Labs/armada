@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::ids::{Instant, JobId};
 
 /// One repository's main and open pull requests.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MergeLineHub {
     /// Absent where Fleet has not read main yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,6 +40,31 @@ pub struct MergeLineHub {
     /// not be read: **an unreadable store yields no field and never an error**.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing_elsewhere: Option<FixingElsewhere>,
+    /// The checkout Fleet serves, where main moved past it and Fleet would not
+    /// fast-forward it. Absent while it has main's tip, and from an older Fleet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkout: Option<HeldCheckout>,
+}
+
+/// What stops the served checkout catching up to main. Fleet never forces,
+/// stashes or switches it; a person does.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeldCheckout {
+    pub base: String,
+    /// The branch checked out, where it is not `base`. `HEAD` when detached.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<String>,
+    /// Tracked files with uncommitted changes, as paths from the root.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uncommitted: Vec<String>,
+    /// Those of `uncommitted` that main also changed, so an autostash could
+    /// stop on a conflict.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clashing: Vec<String>,
+    /// Commits main has that the checkout does not.
+    pub behind: u32,
+    /// Commits the checkout has that main does not. Above zero is diverged.
+    pub ahead: u32,
 }
 
 /// Who holds main's red on another machine. **No title and no work**: the store
