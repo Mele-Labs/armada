@@ -367,6 +367,9 @@ mod settling;
 pub mod showing;
 /// A person asking a Job to show its work, off the turn loop — `#603`.
 mod showing_again;
+/// A red main claimed in the central store, and the claim read back for the hub.
+pub mod red_claim;
+mod taking_red;
 /// Signing in to an account with the forge's device flow, and enrolling the machine with the store.
 pub mod signing_in;
 pub mod silence;

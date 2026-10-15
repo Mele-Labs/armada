@@ -524,6 +524,7 @@ dependencies = [
  "rand 0.8.7",
  "serde",
  "sha1",
+ "sha2",
  "store",
  "testkit",
  "tokio",

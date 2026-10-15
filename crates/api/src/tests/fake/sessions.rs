@@ -136,6 +136,17 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn take_main_red(
+        &self,
+        _caller: Option<crate::Caller>,
+        _take: ipc::TakeMainRed,
+    ) -> Result<ipc::MainRedTaken, Refusal> {
+        Ok(ipc::MainRedTaken {
+            root: String::from("/srv/shop"),
+            claimed: true,
+        })
+    }
+
     async fn show_window(
         &self,
         _caller: Option<crate::Caller>,

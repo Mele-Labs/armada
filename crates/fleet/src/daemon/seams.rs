@@ -144,6 +144,10 @@ where
     pub(crate) fn signing_in(&self) -> &crate::signing_in::SigningIn {
         &self.signing_in
     }
+    /// How a claim on a red main reaches the store. See [`crate::red_claim`].
+    pub(crate) fn reaching(&self) -> &Arc<dyn crate::red_claim::Reaching> {
+        &self.reaching
+    }
     /// One read of the live dials, at one instant. See [`crate::tuning`].
     pub(crate) fn tuned<T>(&self, read: impl FnOnce(&crate::tuning::Tuning) -> T) -> T {
         read(

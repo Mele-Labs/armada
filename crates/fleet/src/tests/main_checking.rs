@@ -143,6 +143,7 @@ async fn while_held_the_fix_route_refuses_and_fleet_does_not_pick_the_red_up_unt
             root: root(&fleet).await,
             job: None,
             brief: None,
+            take_over: false,
         })
         .await
         .unwrap_err();
@@ -306,6 +307,7 @@ async fn a_green_run_in_between_clears_a_red_while_newer_checks_are_still_runnin
             root: root(&fleet).await,
             job: None,
             brief: None,
+            take_over: false,
         })
         .await
         .unwrap_err();

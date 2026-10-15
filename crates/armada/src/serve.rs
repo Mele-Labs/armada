@@ -762,6 +762,8 @@ fn assemble(
             Arc::new(OverHttp::within(SIGN_IN_TIMEOUT)),
             Arc::new(SystemClock::new()),
         ),
+        // A claim on a red main reaches the store the same way, and a take waits on it.
+        reaching: Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT)),
         settings,
     });
     Ok(fleet)

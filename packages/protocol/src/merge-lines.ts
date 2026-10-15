@@ -41,6 +41,18 @@ export type MergeLineHub = {
   merged?: HubMerged[];
   /** The Job working on main's red. Since 23.42. */
   fixing?: HubJob;
+  /**
+   * Another machine's claim on main's red, from the central store. Absent while nobody else holds it, where
+   * the repository's switch is off, and whenever the store could not be read.
+   */
+  fixing_elsewhere?: FixingElsewhere;
+};
+
+/** Who holds main's red on another machine: a Job or Session by id, the machine, and since when. No title: only the holder can say. */
+export type FixingElsewhere = {
+  machine: string;
+  holder: { kind: "session" | "job"; id: string };
+  since: string;
 };
 
 /** One pull request recently merged. Since 23.42. */
@@ -76,6 +88,8 @@ export type FixMain = {
   job?: string;
   /** What the Job is told. Absent is the facts Fleet read. */
   brief?: string;
+  /** Replace another machine's claim on the red. Asked for after a refusal `fleet.main_taken_elsewhere`. */
+  take_over?: boolean;
 };
 
 /** A job's part in main's red, on its row. `state` is `fixing` or `fixed`. Since 23.42. */

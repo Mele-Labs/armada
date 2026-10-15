@@ -83,6 +83,9 @@ pub struct Fleet<H, V, W> {
     settings: crate::settings::MachineSettings,
     /// Signing in to an account, and the profiles joined. See [`crate::signing_in`].
     signing_in: crate::signing_in::SigningIn,
+    /// The central store's other half: a repository's forge address and the
+    /// store a profile is enrolled with. See [`crate::red_claim`].
+    reaching: Arc<dyn crate::red_claim::Reaching>,
     judge: Arc<dyn ModelClient + Send + Sync>,
     /// How long a permission question is held inside the Drone's call before
     /// the Drone is told to wait for a turn. See

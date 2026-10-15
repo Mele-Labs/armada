@@ -37,6 +37,11 @@ pub(crate) fn machine_name(configured: &str, host: impl FnOnce() -> String) -> S
     }
 }
 
+/// [`machine_name`] for the host this runs on. **Starts a process**, so off the async workers.
+pub(crate) fn this_machine(configured: &str) -> String {
+    machine_name(configured, host_name)
+}
+
 fn host_name() -> String {
     std::process::Command::new("hostname")
         .output()
