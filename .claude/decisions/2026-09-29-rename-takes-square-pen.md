@@ -23,3 +23,8 @@ only.
 **Where it landed:** annotation `jyee`; `[icons.square-pen]` in
 `packages/icons/icons.toml`; `StudioName`'s heading, on `studios/rename-icon`
 (#1658).
+
+**Widened 15 Oct 2026, by the owner.** `square-pen` also draws the steps panel's
+Edit step, rewording one line of a procedure in place, which he counted as
+renaming a line. He made the call knowingly against the rename-only decision
+above. `pencil` stays the sketch pad's.

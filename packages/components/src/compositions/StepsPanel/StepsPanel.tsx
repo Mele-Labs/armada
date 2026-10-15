@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, Plus, Trash2, Undo2, UserPen } from "lucide-react";
+import { ExternalLink, Plus, SquarePen, Trash2, Undo2, UserPen } from "lucide-react";
 
 import { forgetKept, useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
@@ -188,7 +188,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
                       <>
                         <Tooltip label="Edit step">
                           <Button variant="ghost" size="sm" iconOnly aria-label={`Edit step ${at + 1}`} onClick={() => setEditing({ at, draft: line })}>
-                            <Pencil size={12} strokeWidth={2} aria-hidden />
+                            <SquarePen size={12} strokeWidth={2} aria-hidden />
                           </Button>
                         </Tooltip>
                         <Tooltip label="Drop step">
