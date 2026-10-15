@@ -115,8 +115,9 @@ export function PaletteMount({
       repositories={repositories}
       picked={picked}
       jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
-      // A Session is found by any word of its title or by its id, whole or the `s-` address.
-      sessions={sessions.map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
+      // A Session is found by any word of its title or by its id, whole or the `s-` address. Only the
+      // live ones: an ended or quiet Session is somewhere to look back at, not to jump between.
+      sessions={sessions.filter((one) => one.dead === undefined).map((one) => ({ id: one.id, label: one.title ?? one.address ?? one.id, aliases: [one.id, ...(one.address === undefined ? [] : [one.address])] }))}
       // One row per category of Settings, each opening Settings at it — Fleet
       // settings first. None carries a value: each opens a screen rather than
       // stating a field.
