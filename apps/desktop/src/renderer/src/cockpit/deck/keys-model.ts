@@ -8,7 +8,7 @@ import { actionOf, formatSlot, slotsOf } from "@armada/components";
 
 import { SESSION_TILES } from "./session-tiles";
 
-export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "autopilot";
+export type PanelId = "list" | "activity" | "stage" | "bays" | "calls" | "queue" | "controls" | "dispatch" | "autopilot";
 
 export type Panel = {
   id: PanelId;
@@ -32,6 +32,7 @@ export const PANELS: readonly Panel[] = [
   { id: "calls", name: "Incoming calls", root: ".deck-incoming", items: ".deck-hail" },
   { id: "queue", name: "Merge queue", root: ".deck-queue", items: "button" },
   { id: "controls", name: "Flight control", root: ".deck-controls", items: ".deck-tile" },
+  { id: "dispatch", name: "Dispatch", root: ".deck-dispatch", items: ".deck-tile, .deck-dispatch__field" },
   { id: "autopilot", name: "Autopilot", root: ".deck-autopilot", items: "button", home: '[role="switch"]' },
 ];
 

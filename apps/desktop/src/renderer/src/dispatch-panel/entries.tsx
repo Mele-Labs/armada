@@ -4,18 +4,10 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { ONE_BAR } from "../one-bar";
-import { DispatchPanel, useHung, type Placement } from "./DispatchPanel";
+import { DispatchPanel, useHung } from "./DispatchPanel";
 import { DispatchedStrip } from "./DispatchedStrip";
 import { useDispatching } from "./dispatching";
-
-/**
- * Where the panel sits. The mock walks two takes of it, picked by the walk's name (`quick-dispatch-centre`) or by
- * `?placement=`; nothing in the real window chooses, and it takes the first.
- */
-function placementOfWindow(): Placement {
-  const query = new URLSearchParams(window.location.search);
-  return query.get("placement") === "centre" || query.get("walk")?.endsWith("-centre") === true ? "centre" : "title";
-}
+import { placementOfWindow } from "./take";
 
 /** The panel, hung from the title bar's field or centred over the window, wherever an entry opened it. */
 export function TitleDispatchPanel() {

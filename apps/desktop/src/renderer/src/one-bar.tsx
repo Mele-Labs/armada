@@ -9,12 +9,17 @@ import { isPressed, type PaletteDispatch } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
 import type { Dispatching } from "./dispatch-panel/dispatching";
+import { DECK_BOX } from "./dispatch-panel/take";
 
 /** The title bar's field, which the panel hangs from. */
 export const ONE_BAR = ".armada-title-bar__search";
 
 export function useOneBar({ live, dispatching }: { live: boolean; dispatching: Dispatching }): PaletteDispatch {
-  useOpenedToDispatch(live, dispatching.openNew);
+  useOpenedToDispatch(live, () => {
+    const box = document.querySelector<HTMLElement>(DECK_BOX);
+    if (box === null) dispatching.openNew();
+    else box.focus();
+  });
 
   return {
     kind: dispatching.kind,
@@ -25,8 +30,8 @@ export function useOneBar({ live, dispatching }: { live: boolean; dispatching: D
 }
 
 /**
- * `n` and ⌘N open the dispatch panel, from every surface. Read in the capture phase, so the surface under it
- * never hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the
+ * `n` and ⌘N open the dispatch panel, from every surface; with the Cockpit's request box on screen they give it the
+ * caret instead. Read in the capture phase, so the surface under it never hears the key. `n` leaves a field alone; ⌘N does not. Neither acts over an open dialog, which owns the
  * keyboard. Where a panel was put away holding words, they are the draft and the panel comes back holding them.
  */
 function useOpenedToDispatch(live: boolean, open: () => void): void {
