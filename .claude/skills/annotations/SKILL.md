@@ -14,17 +14,18 @@ A note with `scope: "window"` is on the whole window rather than one element:
 its `<id>.png` is the window, and its `context` names the open Job or Session and
 Doctor's read — start from those, not from `selector`, which is just `body`.
 
-**Two ways a note reaches work.** In the layer, *Send to Fleet* proposes it as a
-Job at the approval gate, and the note carries `sent` with that Job's handle.
-This skill is the other way: a session reads the notes itself. Never do both to
-one note — a note with `sent` belongs to its Job.
+**Three ways a note reaches work.** In the layer, *Send to Fleet* proposes it as
+a Job at the approval gate, and sending it to a Session messages that Session;
+either way the note carries `sent` with where it went. This skill is the third:
+a session reads the notes itself. Never two to one note — a note with `sent`
+belongs to the Job or Session it went to.
 
 ## The loop
 
 ### 1. Read the open notes
 
 ```
-setopt nullglob; ls .armada/annotations/ .armada/preview/.armada/annotations/ .claude/worktrees/*/.armada/annotations/
+setopt nullglob; ls .armada/annotations/ .armada/preview/.armada/annotations/ .armada/slots/*/.armada/annotations/ .claude/worktrees/*/.armada/annotations/
 ```
 
 **Bridge run from the preview writes its notes under
@@ -44,7 +45,7 @@ folder is deleted with the worktree, so when it is done, copy it into the main
 checkout's folder, marked `done`, before the worktree is given back.
 
 Read every file. Skip `status: "done"`, and skip any with `sent` — say which Job
-each went to, so the owner knows it is not lost. Group what is left by
+or Session each went to, so the owner knows it is not lost. Group what is left by
 `component`: three notes on one component are one change.
 
 ### 2. Find the code from the note, not from a guess
