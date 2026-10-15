@@ -65,8 +65,9 @@ export function useHelmRefs({ state, repositories, openSession, openJob, openPul
     const known = [...opened, ...(numbered?.open ?? []), ...Object.entries(looked).flatMap(([key, hit]) => (hit !== null && key.startsWith(`${manifestId}#`) ? [hit] : []))];
     const world: RefWorld = {
       jobs: state.jobs,
-      // Helm's own Session is named by its repository, which would link every mention of it.
-      sessions: sessions.filter((one) => one.dead === undefined && one.helm !== true),
+      // Helm's own Session is named by its repository, which would link every mention of it. An ended one
+      // still has its page.
+      sessions: sessions.filter((one) => one.helm !== true),
       numbered: known.flatMap((one) => (one.tag.kind === "issue" || one.tag.kind === "pull_request" ? [{ kind: one.tag.kind, number: one.tag.id, title: one.tag.title }] : [])),
     };
     const line = state.mergeLines?.lines.find((one) => one.root === root);
