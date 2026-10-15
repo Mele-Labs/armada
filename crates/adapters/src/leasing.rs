@@ -560,7 +560,9 @@ impl Pool {
             // A released slot sits detached on a branch that still names its
             // commits, so a lease loses nothing unless HEAD is all that does.
             Ok(_) if record.is_none() => {
-                match count(&path, &["HEAD", "--not", "--branches", "--remotes"]) {
+                let named = git::unnamed_commits_in_process(&path)
+                    .unwrap_or_else(|| count(&path, &["HEAD", "--not", "--branches", "--remotes"]));
+                match named {
                     0 => None,
                     commits => Some(format!("{commits} commits no branch names")),
                 }
@@ -723,7 +725,9 @@ impl Pool {
     /// branch.
     fn base_ref(&self) -> String {
         let remote = format!("refs/remotes/origin/{}", self.base);
-        match git_ok(&self.root, &["rev-parse", "--verify", "--quiet", &remote]) {
+        let there = git::ref_exists(&self.root, &remote)
+            .unwrap_or_else(|| git_ok(&self.root, &["rev-parse", "--verify", "--quiet", &remote]));
+        match there {
             true => remote,
             false => format!("refs/heads/{}", self.base),
         }
