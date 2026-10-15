@@ -275,6 +275,7 @@ test('a task made takes the id the tool gave it, from its result or its words, e
   expect(madeTask(none!, { subject: 'Test it' }, {}, 'Task #8 created successfully: Test it')?.map(one => one.id)).toEqual(['7', '8'])
   expect(madeTask(none!, { subject: 'Ship it' }, undefined, 'created')?.map(one => one.id)).toEqual(['7', '2'])
   expect(madeTask([], { description: 'no subject' }, {}, '')).toBeUndefined()
+  expect(madeTask(none!, { subject: 'Child' }, { task: { id: '8' } }, '', 'a1')?.[1]).toEqual({ id: '8', text: 'Child', status: 'pending', by: 'a1' })
 })
 
 test('a task updated changes its status or its words, goes when deleted, and is not invented when never seen', () => {
