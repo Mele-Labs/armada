@@ -53,6 +53,8 @@ export type Subject = {
   title: string;
   root: string;
   repo: string;
+  /** The Manifest id it was dispatched under, where it carries one. The list's repository headings read it, as `root` falls back to the first repository. */
+  manifest?: string;
   mark: Mark;
   phase: Phase;
   /** He is owed something: a question, a reply, a done, a review, a failed Check. */
@@ -230,6 +232,7 @@ export function shipOf(input: Inputs): Ship {
       title: job.title,
       root,
       repo: nameOfRoot(root),
+      manifest: job.owner_manifest_id,
       mark,
       phase: needs ? "needs" : job.status === "queued" ? "held" : "working",
       needs,
@@ -264,6 +267,7 @@ export function shipOf(input: Inputs): Ship {
       title: session.title ?? session.id,
       root,
       repo: nameOfRoot(root),
+      ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       mark,
       phase: needs || (alarm && !stuck) ? "needs" : stuck ? "held" : session.turn.state === "working" ? "working" : "done",
       needs,
