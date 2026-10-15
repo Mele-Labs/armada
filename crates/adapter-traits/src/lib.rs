@@ -488,6 +488,17 @@ pub trait Vcs {
     /// Every slot in the pool, as `armada worktree --status` reads it.
     fn slot_pool(&self, pool: &SlotPool) -> alloc::vec::Vec<SlotReading>;
 
+    /// [`slot_pool`](Vcs::slot_pool) for a reader that keeps what it reads:
+    /// a slot nothing has been seen to touch since it was read comes from
+    /// memory. `full` reads every slot again, which is how a reader makes
+    /// sure a touch it was never told of is found by its own deadline.
+    ///
+    /// An adapter that sees no touches reads every slot, as `slot_pool` does.
+    fn slot_pool_kept(&self, pool: &SlotPool, full: bool) -> alloc::vec::Vec<SlotReading> {
+        let _ = full;
+        self.slot_pool(pool)
+    }
+
     /// Add, remove, close or reopen a slot on this machine, answering the
     /// slot it changed. The CLI's lease honours it as Fleet's does.
     fn change_slot_pool(&self, pool: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused>;

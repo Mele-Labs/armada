@@ -27,6 +27,7 @@ mod saving;
 mod shape;
 pub(crate) mod strays;
 mod trim;
+pub(crate) mod watching;
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
@@ -44,6 +45,7 @@ pub use record::Holder;
 use record::Record;
 pub use saving::{save_worktree, NotSaved};
 pub use shape::Unshaped;
+pub(crate) use watching::acted;
 pub use trim::{sweep_repository, trim_target, Trim, Trimmed, CEILING_GIB, TRIM_AFTER_DAYS};
 
 /// Kept across every lease: what a build or an index writes and the next

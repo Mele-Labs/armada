@@ -17,9 +17,14 @@ impl Pool {
     /// handful of git processes, and the base is asked for once rather than by
     /// each.
     pub fn readings(&self) -> Vec<SlotReading> {
+        self.readings_of(&self.bays())
+    }
+
+    /// [`readings`](Pool::readings) of the slots in `numbers` alone.
+    pub(super) fn readings_of(&self, numbers: &[usize]) -> Vec<SlotReading> {
         let shape = self.shape();
         let base = self.base_ref();
-        concurrently(&self.bays(), |&number| {
+        concurrently(numbers, |&number| {
             let (state, status) = self.probe_of(number);
             self.reading(
                 Slot {

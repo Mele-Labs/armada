@@ -15,6 +15,11 @@ adapter-traits = { path = "../adapter-traits" }
 # content rather than a second spelling of the same three names — `#1394`.
 core-model = { path = "../core-model" }
 git2 = { version = "0.19", default-features = false }
+# Which slots of a pool changed, so a reader reads those and not all of them —
+# `leasing/watching.rs`. Here and not in `fleet` because what to watch is git's
+# layout (a slot's git dir, the refs every slot shares). Not vendor-specific, so
+# it needs no seam; `armada` takes the same crate with the same features.
+notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 # Not the wire, the codec. A Drone's stdout is a third place bytes enter the
 # process, and `ipc::decode`/`ipc::encode` is the one route that reads and
 # writes them — which is how this crate stays off gate rule five's list.

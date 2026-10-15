@@ -47,11 +47,14 @@ pub struct GitVcs;
 
 /// What [`Vcs::changes`] counts. **Process-wide, not per value**: `GitVcs`
 /// holds nothing, so every copy of it is the same adapter.
-static CHANGES: AtomicU64 = AtomicU64::new(0);
+pub(crate) static CHANGES: AtomicU64 = AtomicU64::new(0);
 
 /// `done`, after counting it as a change.
 fn noted<T>(done: T) -> T {
     CHANGES.fetch_add(1, Ordering::Relaxed);
+    // What this adapter did is not waited for from the file system: every
+    // kept reading is read again.
+    crate::leasing::acted();
     done
 }
 
@@ -261,6 +264,10 @@ impl Vcs for GitVcs {
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
         crate::leasing::jobs::readings(pool)
+    }
+
+    fn slot_pool_kept(&self, pool: &SlotPool, full: bool) -> Vec<SlotReading> {
+        crate::leasing::jobs::readings_kept(pool, full)
     }
 
     fn change_slot_pool(
