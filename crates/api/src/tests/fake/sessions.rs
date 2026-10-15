@@ -239,6 +239,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::FinishedUp::default())
     }
 
+    async fn mark_annotation_done(
+        &self,
+        _caller: Option<crate::Caller>,
+        mark: ipc::MarkAnnotationDone,
+    ) -> Result<ipc::AnnotationMarked, Refusal> {
+        Ok(ipc::AnnotationMarked { path: format!("/repo/.armada/annotations/{}.json", mark.note_id) })
+    }
+
     async fn all_done(
         &self,
         _caller: Option<crate::Caller>,

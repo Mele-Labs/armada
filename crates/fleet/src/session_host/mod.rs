@@ -10,6 +10,7 @@
 
 pub(crate) mod activity;
 mod agent_starting;
+mod annotating;
 mod asking;
 mod cut_off;
 pub(crate) mod ending;

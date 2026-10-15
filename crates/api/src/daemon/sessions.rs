@@ -173,6 +173,15 @@ pub trait Sessions: Send + Sync + 'static {
         finish: ipc::FinishUp,
     ) -> impl Future<Output = Result<ipc::FinishedUp, Refusal>> + Send;
 
+    /// `mark_annotation_done` — the agent marks done a note Bridge sent it. `caller` places a hosted
+    /// session as `finish_up`'s does. [`Refusal::Unacceptable`] for a note id that is not one, a note
+    /// not found, or one sent to another session.
+    fn mark_annotation_done(
+        &self,
+        caller: Option<crate::Caller>,
+        mark: ipc::MarkAnnotationDone,
+    ) -> impl Future<Output = Result<ipc::AnnotationMarked, Refusal>> + Send;
+
     /// `list_sessions` — the most recently seen first. `manifest_id` absent is
     /// every session on the machine, `text` finds one by title, branch, pull
     /// request, Job or slot, and `state` absent is both.
