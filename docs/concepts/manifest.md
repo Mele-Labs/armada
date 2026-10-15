@@ -388,6 +388,7 @@ Rules that follow:
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` keeps it for `places`' reason: the machine is no wider for the merge having happened.
 - **A single-tenant machine takes every core.** `ARMADA_SOLE_TENANT=1` makes the number the machine's core count, uncapped, for a CI runner that nothing else shares. A declared `width` still lowers it. Half the cores is for a person's machine, where Jobs and sessions share the CPU.
 - **A compile is capped by the same number.** Every Check that compiles Rust spells it: `--build-jobs ${width}` for nextest and `--jobs ${width}` for cargo. Without it cargo builds at one job per core in each worktree, each with a target of its own, and the width bounded only the tests: three sessions compiling at once were 54 rustc jobs on 18 cores (12 Oct 2026). On a sole-tenant machine `${width}` is every core, so CI keeps all of them.
+- **An agent's own build takes it too.** Every Drone, session, Helm and scout starts with `CARGO_BUILD_JOBS` set to the machine's number, so a `cargo` an agent runs outside `armada check` is held to what a Check would be. A `-j` on the command still wins. Sessions, Helm and scouts read the number when Fleet starts, so a saved Jobs bound reaches them at the next start.
 - **The terminal resolves it too.** `armada check` substitutes the same way, so a Check a person runs is the Check a Drone is measured by. It reads the shipped Jobs bound rather than a saved one, and where those differ the gate is the authority.
 
 ### How many Checks run at once

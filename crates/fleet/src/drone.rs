@@ -62,11 +62,14 @@ pub struct HostPaths<'a> {
     /// included, by the owner's choice (spike 023); the mod stays quiet on
     /// `ARMADA_DRONE`.
     pub home: &'a str,
+    /// How many build jobs the agent's own `cargo` may start: a Check's width
+    /// on this machine. See `environment`.
+    pub width: checks_runner::CheckWidth,
 }
 
 /// Everything a Drone's process will hold.
 ///
-/// Four variables, and each one is here because something breaks without it.
+/// Six variables, and each one is here because something breaks without it.
 /// Adding a fifth is a deliberate edit to this function, which is the point:
 /// the list is a diff, not a default.
 ///
@@ -97,8 +100,13 @@ pub fn environment(
         //
         // Measured against a real Drone: same binary, same `HOME`, `USER` the
         // only difference. `LOGNAME` does not substitute.
-        .and("USER", host.user)?;
-    // **A sixth and seventh kind, added when `crate::ports` has something to
+        .and("USER", host.user)?
+        // **A build the agent runs itself gets a Check's width.** Cargo
+        // otherwise starts one job per core in every worktree: three sessions
+        // compiling at once were 54 rustc jobs on 18 cores (12 Oct 2026), and a
+        // smaller machine is taken whole. A `-j` the command passes still wins.
+        .and("CARGO_BUILD_JOBS", &host.width.get().to_string())?;
+    // **A seventh and eighth kind, added when `crate::ports` has something to
     // add.** Empty for every repository that declares no `ports:`, which is
     // most of them — see that module for `ARMADA_PORT_<NAME>` and why a
     // Command's own environment is the guaranteed channel a command string is

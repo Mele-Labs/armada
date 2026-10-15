@@ -184,6 +184,8 @@ pub struct ProcessHost {
     path: String,
     home: String,
     user: String,
+    /// What the agent's own builds may take: `crate::drone::HostPaths::width`.
+    width: checks_runner::CheckWidth,
     budget: Duration,
     /// How hard the model thinks. `None` passes no effort, the harness's own.
     effort: Option<adapter_traits::Effort>,
@@ -205,6 +207,7 @@ impl ProcessHost {
             path: host.path.to_string(),
             home: host.home.to_string(),
             user: host.user.to_string(),
+            width: host.width,
             budget: REPLY_BUDGET,
             effort: None,
             running: Mutex::new(Vec::new()),
@@ -232,7 +235,7 @@ impl ProcessHost {
     /// it to read: `settings.toml` names three Helm rows and a model is not
     /// one of them, so this is a constant until a row exists to say
     /// otherwise.
-    pub(crate) fn on_this_machine(host: &Host) -> ProcessHost {
+    pub(crate) fn on_this_machine(host: &Host, width: checks_runner::CheckWidth) -> ProcessHost {
         let mut process = ProcessHost::new(
             HeadlessAgent::at(host.agent_binary.clone()),
             HeadlessAgent::default_model(),
@@ -241,6 +244,7 @@ impl ProcessHost {
                 path: &host.path,
                 home: &host.home,
                 user: &host.user,
+                width,
             },
         );
         // `timeouts.helmReplySeconds` and `effort.helm`, read at start.
@@ -259,6 +263,7 @@ impl ProcessHost {
             path: &self.path,
             home: &self.home,
             user: &self.user,
+            width: self.width,
         };
         let env = environment(paths, &[]).map_err(|why| failed(why.said()))?;
         if let Seat::Commander(commander) = &carry.seat {
@@ -451,6 +456,7 @@ mod tests {
                 path: "/usr/bin:/bin",
                 home: "/Users/user",
                 user: "someone",
+                width: checks_runner::CheckWidth::of(2),
             },
         );
         host.effort = Some(adapter_traits::Effort::Low);
