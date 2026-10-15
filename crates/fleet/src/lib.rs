@@ -413,6 +413,8 @@ pub mod task_edits;
 /// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
 pub mod tasking;
 pub mod terms;
+/// What each served repository holds and where each agent has changed it, for the deck's map.
+mod territory;
 mod tooling;
 /// A repository's open issues, read from its tracker. #91.
 mod tracking;

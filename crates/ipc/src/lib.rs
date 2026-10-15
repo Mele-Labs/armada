@@ -142,6 +142,9 @@ pub mod key_bindings;
 mod mods;
 /// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.
 mod clashes;
+/// What each served repository holds and where each agent is changing it, for the deck's map.
+/// `docs/concepts/fleet.md`, *The territory*.
+mod territory;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -410,6 +413,9 @@ pub use mods::{
     SetModEnabled,
 };
 pub use clashes::{ClashHolder, ClashSide, WriteClash, WriteClashes};
+pub use territory::{
+    AreaKid, AreasOfRepository, HolderTouches, RepositoryArea, RepositoryAreas, SlotTouches, TouchesInRepository,
+};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};

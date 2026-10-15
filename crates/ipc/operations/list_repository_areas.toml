@@ -1,0 +1,16 @@
+[operations.list_repository_areas]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The directories of every served repository's base branch, to two names deep, each with the files under it"
+notes = """
+`GET /repository_areas`. `RepositoryAreas`. For each served repository, its `manifest_id`, `root`, the base `head` the counts were read at, and `areas`: each top directory (`crates`) with its `files` and the directories inside it that made the list as `kids` (`name`, `files`). The flight deck's map draws one plot for each.
+
+**Git's tree, never the disk.** `git ls-tree -r --name-only` of the base branch's head, counted per top directory and per directory inside one. A file at the top of the repository is in no directory. A file git does not track, and one in a slot that has not landed, is not counted. No directory is walked, and what `.gitignore` names is not in the tree.
+
+**Capped at the 40 largest.** Counting each top directory and each directory inside one, the 40 with most files, ties by name, are listed and `omitted` is how many were left out. A top directory is never listed after a directory inside it, since it holds at least as many files and sorts first on a tie, so a `kid` always has its parent. A repository with a monorepo's thousand directories is drawn from its 40 largest.
+
+**Read once for each head.** Fleet keeps the answer for a repository against the base head it was read at, so a read at an unchanged head asks git for the head only. A repository whose base git cannot name is absent, not an error. There is nothing to filter by: every served repository is in the answer.
+
+`agent_access` is `Bridge only`: it is drawn on a map and no agent decides from it. `docs/concepts/fleet.md`, *The territory*.
+"""

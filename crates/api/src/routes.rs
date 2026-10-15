@@ -183,6 +183,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )
         .route("/clashes", get(crate::needs::list_write_clashes::<D>))
+        .route("/repository_areas", get(crate::needs::list_repository_areas::<D>))
+        .route("/slot_touches", get(crate::needs::list_slot_touches::<D>))
         .route(
             "/pull_requests/:repository/:number",
             get(crate::pull_requests::get_pull_request::<D>),
