@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ReactNode } from "react";
 import { expect, fn, within } from "storybook/test";
-import { AccountProvider, AccountView, SYNC_KINDS, WhatSyncsSheet } from "./Account";
+import { AccountMark, AccountPage, AccountProvider, AccountView, SYNC_KINDS, WhatSyncsSheet } from "./Account";
 import type { Account, AccountFlow, Profile, Scope, SyncChoice, SyncItem } from "./Account";
 
 /**
@@ -320,5 +320,45 @@ export const WhatSyncsWithoutHomeHidden: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "What syncs" })).toBeNull();
+  },
+};
+
+/** The page is the account's home: signed out it offers the one act, and a sign-in in flight draws over the profiles. */
+export const PageSignedOut: Story = {
+  render: () => (
+    <Held spy={{ signIn: tryAgain }}>
+      {() => <AccountPage />}
+    </Held>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Sign in with GitHub" }));
+    await expect(tryAgain).toHaveBeenCalled();
+  },
+};
+
+/** A second login being added keeps the first in view, with the code over it. */
+export const PageAddingAProfile: Story = {
+  render: () => (
+    <Held profiles={[{ account_id: 1002, login: "nickmele", active: true, chosen: false }]} flow={{ phase: "code", code: "KQXP-4N7D" }}>
+      {() => <AccountPage />}
+    </Held>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("group", { name: "Device code" })).toHaveTextContent("KQXP-4N7D");
+    await expect(canvas.getByRole("button", { name: "Add profile" })).toBeVisible();
+  },
+};
+
+/** The mark a place that opens the account carries: the turn while a code waits, the end's glyph once it failed. */
+export const MarkWhileWaitingAndFailed: Story = {
+  render: () => (
+    <div style={{ display: "flex", gap: 16 }}>
+      <Held flow={{ phase: "code", code: "WDJB-MJHT" }}>{(account) => <AccountMark account={account} />}</Held>
+      <Held extra={{ ended: { outcome: "denied", said: "The sign-in was turned down." } }}>{(account) => <AccountMark account={account} />}</Held>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Waiting for GitHub" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Turned down" })).toBeVisible();
   },
 };

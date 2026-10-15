@@ -9,7 +9,8 @@ const SET_UP = (row: string) => inside(role("listitem", row, { exact: true }), r
 const onboardingHome = walk("onboarding-home", [
   { look: button("Menu", { exact: true }), say: "Signed out: the menu button carries a mark" },
   { press: button("Menu", { exact: true }), say: "Open the menu" },
-  { press: inside(MENU, button("Sign in with GitHub", { exact: true })), say: "Sign in" },
+  { press: inside(MENU, button("Sign in", { exact: true })), say: "The account page" },
+  { press: button("Sign in with GitHub", { exact: true }), say: "Sign in" },
   { look: text("WDJB-MJHT"), say: "The code" },
   { hover: role("img", "Waiting for GitHub", { exact: true }), say: "Fleet is waiting" },
   { press: button("Open github.com/login/device"), say: "The page the code is typed at" },

@@ -421,3 +421,115 @@
 .armada-syncs__scope[data-scope="private"] {
   color: var(--fg-subtle);
 }
+
+/* ---- Where the account lives ------------------------------------------------------------------- */
+
+/* The page in the work area: one column of the same cards, held to a measure and scrolling itself. */
+.armada-account-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--space-12) * 9);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+}
+
+.armada-account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* A sign-in that wants a look: the amber the menu's dot already means, never a status of its own. */
+.armada-account__need {
+  display: inline-flex;
+  flex: none;
+  color: var(--status-awaiting-review);
+}
+
+/* The same mark on a button's corner, small, with the turn where one is waiting. */
+.armada-account__badge {
+  position: absolute;
+  bottom: calc(var(--space-1) / -2);
+  right: calc(var(--space-1) / -2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--status-awaiting-review);
+  pointer-events: none;
+}
+
+.armada-account__badge[data-turning] {
+  color: var(--fg-muted);
+}
+
+.armada-account__badge[data-turning] > svg {
+  animation: armada-account-turn var(--duration-pulse) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-account__badge[data-turning] > svg {
+    animation: none;
+  }
+}
+
+/* The rail's account row: the repository panel's recipe, a flat row with the mark at its trailing edge. */
+.armada-account__rail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: var(--h-control-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-account__rail:hover,
+.armada-account__rail[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+
+.armada-account__rail:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-account__rail > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-account__rail-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-shell__account[data-collapsed] .armada-account__rail {
+  justify-content: center;
+}
+
+/* The link from Settings' Account section to the account itself, above the section's own settings. */
+.armada-settings__link {
+  display: flex;
+  margin-bottom: var(--space-3);
+}

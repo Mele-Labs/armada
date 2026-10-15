@@ -64,13 +64,17 @@
 import { FileCog, FolderGit2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  AccountPanel,
+  AccountRailRow,
   Button,
   DockQuestions,
   DropdownMenu,
   isPressed,
   keyFor,
+  showAccount,
   TheShell,
   Tooltip,
+  useAccount,
   useKeyBindings,
   type DockQuestion,
   type FleetPanelProps,
@@ -189,6 +193,9 @@ export function Shell({
   // The chrome draws keys — Helm's, the rail's digits — so it redraws when Settings → Keyboard moves one.
   useKeyBindings();
   const narrow = useNarrow();
+  const account = useAccount();
+  // The account opens where the window keeps it: a page like Settings, or a panel from the rail.
+  const openAccount = () => showAccount(account, () => onSurface?.(SURFACE.account));
   const dock = useDock(narrow);
   // One band, the window's own, and one press. It was two bands until #1583,
   // the second being `--window-fold-left` *and* the dock beside the content —
@@ -222,6 +229,7 @@ export function Shell({
   const searchLabel = repositories.length > 0 ? FIND_A_REPOSITORY : undefined;
 
   return (
+    <>
     <TheShell
       dock={{
         ...dock,
@@ -342,7 +350,14 @@ export function Shell({
           />
         </Tooltip>
       }
+      {...(account?.place !== "rail"
+        ? {}
+        : {
+            accountRow: <AccountRailRow account={account} collapsed={false} onOpen={openAccount} />,
+            accountRowCollapsed: <AccountRailRow account={account} collapsed onOpen={openAccount} />,
+          })}
       menu={{
+        ...(account === undefined ? {} : { account: { onOpen: openAccount } }),
         settings: {
           onOpen: () => onSurface?.(SURFACE.settings),
           ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),
@@ -357,6 +372,8 @@ export function Shell({
     >
       {children}
     </TheShell>
+    <AccountPanel onSettings={() => onSurface?.(SURFACE.settings)} />
+    </>
   );
 }
 

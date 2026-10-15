@@ -6,13 +6,16 @@
 import { button, dialog, inside, role, text, walk } from "../walk";
 
 const MENU = dialog("Menu");
-const SIGN_IN = inside(MENU, button(/^Sign in with/));
+// The account is a page: the menu's one row opens it, and its own button starts the sign-in.
+const OPEN_ACCOUNT = inside(MENU, button("Sign in", { exact: true }));
+const SIGN_IN = button(/^Sign in with/);
 const DEVICE_PAGE = button(/login\/device/);
 const TRY_AGAIN = button("Try again", { exact: true });
 const ENDED = role("region", "Sign-in ended", { exact: true });
 
 const signInEnded = walk("sign-in-ended", [
   { press: button("Menu", { exact: true }), say: "Open the menu" },
+  { press: OPEN_ACCOUNT, say: "The account page" },
   { press: SIGN_IN, say: "Sign in" },
   { press: DEVICE_PAGE, say: "The code is typed" },
   { look: inside(ENDED, text("The sign-in was turned down.")), say: "Turned down, and Try again" },
@@ -35,20 +38,21 @@ const signInEnded = walk("sign-in-ended", [
 
 const signOut = walk("sign-out", [
   { press: button("Menu", { exact: true }), say: "Open the menu" },
-  { press: inside(MENU, button("Account nickmele", { exact: true })), say: "The account" },
+  { press: inside(MENU, button("Account nickmele", { exact: true })), say: "The account page" },
   { look: button("Sign out mele-work", { exact: true }), say: "Sign out is on each profile" },
   { press: button("Sign out mele-work", { exact: true }), say: "Sign the work profile out" },
   { look: role("listitem", "mele-work", { exact: true }), say: "mele-work signed out" },
   { press: button("Sign out nickmele", { exact: true }), say: "Sign the last profile out, the store down" },
   { look: text("Store still lists this device"), say: "The store kept its row" },
   { hover: role("img", "Store not reached", { exact: true }), say: "What the store said" },
-  { press: button("Back to the menu", { exact: true }), say: "Back" },
-  { look: SIGN_IN, say: "Signed out" },
+  { press: button("Menu", { exact: true }), say: "Open the menu" },
+  { look: OPEN_ACCOUNT, say: "Signed out" },
 ]);
 
 /** The steps both takes share: the sign-in, the set-up rows, and a second login added. */
 const NO_HOME = [
   { press: button("Menu", { exact: true }), say: "Open the menu" },
+  { press: OPEN_ACCOUNT, say: "The account page" },
   { press: SIGN_IN, say: "Sign in" },
   { press: DEVICE_PAGE, say: "The code is typed" },
   { look: inside(role("listitem", "Store", { exact: true }), role("img", "Done", { exact: true })), say: "Identity and store done" },
@@ -57,9 +61,6 @@ const NO_HOME = [
     say: "The shared home is not set up yet",
   },
   { hover: role("img", "Not set up yet", { exact: true }), say: "Its tooltip" },
-  { press: button("Menu", { exact: true }), say: "Close the menu" },
-  { press: button("Menu", { exact: true }), say: "Open it again" },
-  { press: inside(MENU, button("Account nickmele", { exact: true })), say: "The account" },
   { press: button("Add profile", { exact: true }), say: "Add profile" },
   { press: DEVICE_PAGE, say: "The work login signs in" },
 ] as const;

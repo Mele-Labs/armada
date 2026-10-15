@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useRef, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   Ban,
@@ -16,6 +16,7 @@ import {
   Unplug,
   UserCheck,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -107,7 +108,12 @@ export type AccountRead = {
   home?: boolean;
   /** Two takes, while the owner chooses. Absent is `disabled`. */
   syncsWithoutHome?: SyncsWithoutHome;
+  /** Where the account opens from: a page of its own, or a panel from the left rail. Two takes, while the owner chooses. Absent is `page`. */
+  place?: AccountPlace;
 };
+
+/** Where the account lives. Both keep a sign-in in flight when they are put away. */
+export type AccountPlace = "page" | "rail";
 
 export type AccountActs = {
   /** Start the device flow. */
@@ -193,24 +199,187 @@ function Turning({ said }: { said: string }) {
 }
 
 /**
- * The account's own content: the device code while signing in, what it set up, then the profiles, with
- * what ended, what was refused and who signed out above them. Absent where there is nothing to show.
- * `onSettings` opens Settings for the buttons that name a blank setting; without it they are not drawn.
+ * The account's own content: the device code while signing in, what it set up, with what ended, what was
+ * refused and who signed out above the profiles. Absent where there is nothing to show. A sign-in in
+ * flight draws over the profiles and never in place of them, so a second login can be added with the
+ * first in view. `onSettings` opens Settings for the buttons that name a blank setting; without it they
+ * are not drawn.
  */
 export function AccountView({ account, onSettings }: { account: Account; onSettings?: () => void }) {
   const here = account.profiles.find((one) => one.active) ?? account.profiles[0];
-  if (account.flow.phase === "code") return <DeviceCode code={account.flow.code} account={account} />;
-  if (account.flow.phase === "setup") return <SetUp flow={account.flow} />;
-  const { left, ended, unavailable } = account;
-  if (here === undefined && left === undefined && ended === undefined && unavailable === undefined) return null;
+  const { flow, left, ended, unavailable } = account;
+  if (flow.phase === "idle" && here === undefined && left === undefined && ended === undefined && unavailable === undefined) return null;
   return (
     <>
-      {left === undefined ? null : <SignedOutCard note={left} />}
+      {flow.phase === "code" ? <DeviceCode code={flow.code} account={account} /> : null}
+      {flow.phase === "setup" ? <SetUp flow={flow} /> : null}
+      {left === undefined ? null : <SignedOutCard note={left} account={account} />}
       {ended === undefined ? null : <EndedCard ended={ended} account={account} />}
       {unavailable === undefined ? null : <UnavailableCard unavailable={unavailable} account={account} onSettings={onSettings} />}
       {here === undefined ? null : <Profiles account={account} />}
     </>
   );
+}
+
+/**
+ * What a place that opens the account has to say: a sign-in waiting on the person, or one that has just
+ * failed. **Nothing for a signed-out machine or a settled one.** Each place draws the glyph, so the way
+ * back to a sign-in that is not in front of them is a mark they can find.
+ */
+export type Need = { Glyph: LucideIcon; said: string; turning: boolean };
+
+export function accountNeed(account: Account): Need | undefined {
+  const { flow, ended, unavailable } = account;
+  if (flow.phase === "code") return { Glyph: RotateCw, said: "Waiting for GitHub", turning: true };
+  if (flow.phase === "setup" && Object.values(flow.steps).some((one) => one !== "done")) {
+    return { Glyph: RotateCw, said: "Setting up", turning: true };
+  }
+  if (ended !== undefined) return { Glyph: ENDED[ended.outcome].Glyph, said: ENDED[ended.outcome].said, turning: false };
+  if (unavailable !== undefined) return { Glyph: CircleDashed, said: "Not set up", turning: false };
+  return undefined;
+}
+
+/** The mark on a row that opens the account, with its tooltip. Nothing where there is nothing to say. */
+export function AccountMark({ account }: { account: Account }) {
+  const need = accountNeed(account);
+  if (need === undefined) return null;
+  if (need.turning) return <Turning said={need.said} />;
+  return (
+    <Tooltip beside label={need.said}>
+      <span className="armada-account__need" role="img" aria-label={need.said}>
+        <need.Glyph size={16} strokeWidth={2} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** The same mark at 12px on a button, with no tooltip of its own: the button's title says it. */
+export function AccountBadge({ account }: { account: Account }) {
+  const need = accountNeed(account);
+  if (need === undefined) return null;
+  return (
+    <span className="armada-account__badge" data-turning={need.turning ? "" : undefined} aria-hidden="true">
+      <need.Glyph size={12} strokeWidth={2} />
+    </span>
+  );
+}
+
+// The panel from the rail is open or put away; it is the window's, so anything that opens the account can say so.
+let panelOpen = false;
+const panelListeners = new Set<() => void>();
+const setPanel = (open: boolean) => {
+  if (panelOpen === open) return;
+  panelOpen = open;
+  panelListeners.forEach((on) => on());
+};
+
+/** Whether the account panel is open, and the act that opens or puts it away. */
+export function useAccountPanel(): [boolean, (open: boolean) => void] {
+  const open = useSyncExternalStore(
+    (on) => {
+      panelListeners.add(on);
+      return () => panelListeners.delete(on);
+    },
+    () => panelOpen,
+  );
+  return [open, setPanel];
+}
+
+/** Opens the account where this window keeps it: the panel, or the page `goToPage` reaches. */
+export function showAccount(account: Account | undefined, goToPage: () => void): void {
+  if (account?.place === "rail") setPanel(true);
+  else goToPage();
+}
+
+/** What the page and the panel both hold: the account's states, and the one act signed out has. */
+function AccountBody({ account, onSettings }: { account: Account; onSettings?: () => void }) {
+  const out = account.profiles.length === 0 && account.flow.phase === "idle" && account.ended === undefined && account.unavailable === undefined;
+  return (
+    <>
+      <AccountView account={account} {...(onSettings === undefined ? {} : { onSettings })} />
+      {!out ? null : (
+        <section className="armada-account__card" aria-label="Sign in">
+          <div className="armada-account__foot" data-alone="">
+            <Button variant="primary" size="sm" onClick={account.signIn}>
+              Sign in with GitHub
+            </Button>
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+/** The account as a page in the work area: the way Settings opens. Nothing where no account is provided. */
+export function AccountPage({ onSettings }: { onSettings?: () => void }) {
+  const account = useAccount();
+  if (account === undefined) return null;
+  return (
+    <div className="armada-account-page" role="region" aria-label="Account">
+      <AccountBody account={account} {...(onSettings === undefined ? {} : { onSettings })} />
+    </div>
+  );
+}
+
+/** The account as a panel from the rail, over the work. A sign-in in flight stays when it is put away. */
+export function AccountPanel({ onSettings }: { onSettings?: () => void }) {
+  const account = useAccount();
+  const [open, setOpen] = useAccountPanel();
+  const choosing = account?.syncs != null;
+  const closeSyncs = useRef(account?.closeSyncs);
+  closeSyncs.current = account?.closeSyncs;
+  // The panel and What syncs share the trailing edge: one opening puts the other away.
+  useEffect(() => {
+    if (choosing) setOpen(false);
+  }, [choosing, setOpen]);
+  useEffect(() => {
+    if (open) closeSyncs.current?.();
+  }, [open]);
+  if (account === undefined || account.place !== "rail" || !open) return null;
+  return (
+    <Sheet
+      kind="account"
+      open
+      floating
+      through
+      title="Account"
+      closeLabel="Close panel"
+      closeBinding="Esc"
+      onClose={() => setOpen(false)}
+    >
+      <div className="armada-account-panel">
+        <AccountBody
+          account={account}
+          onSettings={() => {
+            setOpen(false);
+            onSettings?.();
+          }}
+        />
+      </div>
+    </Sheet>
+  );
+}
+
+/** The rail's account row: the login or Sign in, and the mark; at the 48px rail the glyph alone. */
+export function AccountRailRow({ account, collapsed, onOpen }: { account: Account; collapsed: boolean; onOpen: () => void }) {
+  const login = accountLogin(account);
+  const said = login ?? "Sign in";
+  const [open] = useAccountPanel();
+  const mark = <AccountMark account={account} />;
+  const button = (
+    <button
+      type="button"
+      className="armada-account__rail"
+      aria-label={login === undefined ? "Sign in" : `Account ${login}`}
+      aria-expanded={open}
+      onClick={onOpen}
+    >
+      <UserCheck size={16} strokeWidth={2} aria-hidden="true" />
+      {collapsed ? null : <span className="armada-account__rail-name">{said}</span>}
+      {collapsed ? <AccountBadge account={account} /> : mark}
+    </button>
+  );
+  return collapsed ? <Tooltip label={said}>{button}</Tooltip> : button;
 }
 
 /** The signed-in login the menu's account entry names. Undefined while signed out. */
@@ -308,6 +477,17 @@ const ENDED = {
 /** The setting each blank category names, as Settings calls it. */
 const SETTING: Record<BlankSetting, string> = { account: "Sign-in app", store: "Store address" };
 
+/** Puts a notice away: what ended, what was refused and who left stay until it is pressed, or until the next sign-in. */
+function Dismiss({ account }: { account: Account }) {
+  return (
+    <Tooltip beside label="Dismiss">
+      <Button variant="ghost" size="sm" iconOnly aria-label="Dismiss" onClick={account.dismiss}>
+        <X size={16} strokeWidth={2} aria-hidden="true" />
+      </Button>
+    </Tooltip>
+  );
+}
+
 /** A sign-in that ended without signing in: Fleet's sentence beside the mark for how, and the one act that follows. */
 function EndedCard({ ended, account }: { ended: SignInEnd; account: Account }) {
   const { Glyph, said } = ENDED[ended.outcome];
@@ -320,6 +500,7 @@ function EndedCard({ ended, account }: { ended: SignInEnd; account: Account }) {
           </span>
         </Tooltip>
         <span className="armada-account__said">{ended.said}</span>
+        <Dismiss account={account} />
       </div>
       <div className="armada-account__foot">
         <Button variant="secondary" size="sm" ground="sunken" onClick={account.signIn}>
@@ -349,6 +530,7 @@ function UnavailableCard({
           </span>
         </Tooltip>
         <span className="armada-account__said">{unavailable.said}</span>
+        <Dismiss account={account} />
       </div>
       {onSettings === undefined ? null : (
         <div className="armada-account__foot">
@@ -374,7 +556,7 @@ function UnavailableCard({
 }
 
 /** Who signed out, as the set-up rows read in reverse; the store's row is named only where it stays. */
-function SignedOutCard({ note }: { note: SignedOutNote }) {
+function SignedOutCard({ note, account }: { note: SignedOutNote; account: Account }) {
   return (
     <section className="armada-account__card" aria-label="Signed out">
       <ul className="armada-account__rows">
@@ -385,6 +567,7 @@ function SignedOutCard({ note }: { note: SignedOutNote }) {
             </span>
           </Tooltip>
           <span className="armada-account__name">{note.login}</span>
+          <Dismiss account={account} />
         </li>
         {!note.storeRowRemains ? null : (
           <li className="armada-account__row" aria-label="Store" data-state="ended">

@@ -28,6 +28,7 @@ import type { MockDraft } from "./moment";
 const STEP_MS = 600;
 const ADD_MS = 700;
 const PULL_MS = 450;
+const HOLD_MS = 8000;
 
 const SignedIn = createContext(true);
 
@@ -79,8 +80,8 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     setEnded(undefined);
     setUnavailable(undefined);
     setLeft(undefined);
-    if (attempt !== undefined && "blank" in attempt) return setUnavailable(unavailableFor(attempt.blank));
-    planned.current = attempt === undefined ? null : attempt.ends;
+    if (typeof attempt === "object" && "blank" in attempt) return setUnavailable(unavailableFor(attempt.blank));
+    planned.current = typeof attempt === "object" && "ends" in attempt ? attempt.ends : null;
     setAdding(adds);
     setFlow({ phase: "code", code });
   }, [offer]);
@@ -148,6 +149,13 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
     return () => timers.forEach((one) => window.clearTimeout(one));
   }, [authorized, adding, offer]);
 
+  // What signing in set up is read, then put away: Fleet's flow goes idle once the profile is in.
+  useEffect(() => {
+    if (flow.phase !== "setup" || profiles.length === 0) return undefined;
+    const timer = window.setTimeout(() => setFlow((was) => (was.phase === "setup" ? { phase: "idle" } : was)), HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [flow.phase, profiles.length]);
+
   const pulling = Object.values(kinds).some((one) => one.some((kind) => kind.pulling));
   useEffect(() => {
     if (!pulling) return undefined;
@@ -169,6 +177,7 @@ function Held({ offer, children }: { offer: Offer; children: ReactNode }) {
       ...(unavailable === undefined ? {} : { unavailable }),
       ...(left === undefined ? {} : { left }),
       ...(offer.noHome === undefined ? {} : { home: false, syncsWithoutHome: offer.noHome }),
+      ...(offer.place === undefined ? {} : { place: offer.place }),
       signIn: () => {
         if (flow.phase === "idle") begin(offer.signIn.code, false);
       },

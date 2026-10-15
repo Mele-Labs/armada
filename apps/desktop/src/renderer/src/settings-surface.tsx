@@ -22,10 +22,12 @@ export type SettingsSurfaceProps = {
   live: boolean;
   guarded: Pick<BoundaryProps, "bridge" | "onCopied">;
   onReadGuides: () => void;
+  /** Opens the account, where the window keeps it. */
+  onOpenAccount?: () => void;
 };
 
 /** settings.json's page under its own boundary. Saves and the file's opening go through main. */
-export function SettingsSurface({ settings, live, guarded, onReadGuides }: SettingsSurfaceProps) {
+export function SettingsSurface({ settings, live, guarded, onReadGuides, onOpenAccount }: SettingsSurfaceProps) {
   return (
     <Boundary region="Settings" {...guarded}>
       <BridgeSettings
@@ -34,6 +36,7 @@ export function SettingsSurface({ settings, live, guarded, onReadGuides }: Setti
         onSaveSettings={(changes) => window.armada.saveSettings(changes)}
         onOpenSettingsFile={() => window.armada.openSettingsFile()}
         onReadGuides={onReadGuides}
+        {...(onOpenAccount === undefined ? {} : { onOpenAccount })}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
       />
     </Boundary>

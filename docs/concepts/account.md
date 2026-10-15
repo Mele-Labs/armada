@@ -58,9 +58,10 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 
 | Where | What |
 | --- | --- |
-| Title bar menu | Account or Sign in with GitHub, Sleep, Settings with its key |
-| Menu button | The moon while Sleep is on, an amber dot while signed out |
-| Account entry | Device code, set-up rows, profiles |
+| Title bar menu | One account row (the login, or Sign in), Sleep, Settings with its key |
+| Menu button | The moon while Sleep is on, an amber dot while signed out; the turn while a sign-in waits, the end's glyph once one failed |
+| Account | One place that holds everything below and keeps a sign-in in flight when it is left: a page in the work area like Settings, reached from the menu row and from Settings, or a panel from a row in the left rail. Two takes until the owner chooses |
+| Account contents | Device code, set-up rows, profiles |
 | Sign-in that ended | Denied, expired, not reached or refused: Fleet's sentence beside a mark, and Try again |
 | Sign-in not set up | Fleet's sentence naming the blank setting, and a button to each in Settings |
 | Profiles | A chip each from two profiles, active one marked; Add profile always shown; Sign out on each |
@@ -75,6 +76,6 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 
 **Built, on mock data.** The title bar menu, the device code, the set-up rows, the profiles and What syncs all draw from `draft.account` in the mock Fleet, and the walks `onboarding-home`, `onboarding-work` and `title-bar-menu` play them.
 
-**Drawn in the mock, awaiting the owner's walk.** The sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`, with `sign-in-no-home-hidden` as the second take of What syncs.
+**Drawn in the mock, awaiting the owner's walk.** The account as a page (`account-page`) or a rail panel (`account-rail`), the sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`, with `sign-in-no-home-hidden` as the second take of What syncs.
 
 **Not built, everything behind it.** Nothing signs in, no store exists and Fleet serves none of it.
