@@ -11,7 +11,7 @@ import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/pro
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
-import type { RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
+import type { RedClaimPlacement, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
@@ -55,6 +55,8 @@ export type MockDraft = ArcDraft & {
     repositories: readonly { root: string; name: string; registering: boolean }[];
     rows: readonly { repository: string; number: number; owner: RegisteredOwnerRow }[];
   };
+  /** Where another machine's claim on main's red is drawn: the second take is `head`. Mock only. */
+  redClaimTake?: RedClaimPlacement;
 };
 
 export type Scenario = ScenarioOf<BridgeState, BridgeApi, MockDraft>;

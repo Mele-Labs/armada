@@ -13,7 +13,7 @@
 
 import type { HubJob, HubPull, HubSession, MainRed, MainState } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import type { FollowedLandLog, HubMerged, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
+import type { FixingElsewhere, FollowedLandLog, HubMerged, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { completedSuccess, queued, review, running } from "@armada/jobs/fixtures/build/index";
@@ -280,6 +280,7 @@ function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, 
     main: standing(main),
     pull_requests: pulls.map(requestOf),
     ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
+    ...(main.state === "red" && main.elsewhere !== undefined ? { fixing_elsewhere: main.elsewhere } : {}),
     merged: mergedAt(landings, at),
   };
   return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub } as MergeLine] };
@@ -392,6 +393,51 @@ const SESSION_LANDINGS: Landing[] = [
 export function sessionRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
   const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, SESSION_LANDINGS), jobs: SESSION_MOMENTS[n]!.jobs });
   return { first: at(0), later: SESSION_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
+}
+
+// Main red, and the claim on it held on another machine. A person's pull request turned it red, so no
+// Job of ours was watching it. `red-held-elsewhere` walks it.
+//
+//   0  Another machine's Job has the red, claimed 12 minutes ago.
+//   1  The red is held by a Session on another machine, claimed 3 hours ago: stale.
+//   2  The owner took it over, and a Job here is working on it.
+//   3  Its fix landed: main is green.
+//   4  Red again, nobody holds it. The store cannot be reached when the owner dispatches.
+//   5  The press went through on the second try, and a Job here is working on it.
+
+const MINUTE = 60_000;
+const claimed = (minutes: number): string => new Date(Date.now() - minutes * MINUTE).toISOString();
+
+/** The moments, with each claim's age counted from when the story is built. */
+function elsewhereMoments(): Moment[] {
+  const stranded = BYSTANDING("waiting_on_main", "failed");
+  const working = [rowOf(FIX, "running", fixing(THIRD)), ...stranded.jobs];
+  const held = (elsewhere: FixingElsewhere): Moment => ({ main: { state: "red", red: THIRD, elsewhere }, pulls: stranded.pulls, jobs: stranded.jobs });
+  return [
+    held({ machine: "Mac mini", holder: { kind: "job", id: "7be40d15" }, since: claimed(12) }),
+    held({ machine: "Studio", holder: { kind: "session", id: "9c74d82e" }, since: claimed(3 * 60) }),
+    { main: { state: "red", red: THIRD, taken: hubJob(FIX) }, pulls: stranded.pulls, jobs: working },
+    {
+      main: { state: "green" },
+      pulls: BYSTANDING("passed", "failed").pulls,
+      jobs: [rowOf(FIX, "completed_success", fixed(THIRD, 1823)), ...BYSTANDING("passed", "failed").jobs],
+    },
+    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
+    { main: { state: "red", red: THIRD, taken: hubJob(FIX) }, pulls: stranded.pulls, jobs: working },
+  ];
+}
+
+const ELSEWHERE_LANDINGS: Landing[] = [
+  { at: 0, number: 1799, branch: "nick/ports-cleanup", run: "passed" },
+  { at: 0, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
+  { at: 3, number: 1823, branch: branchOf(FIX), owner: { job: hubJob(FIX) }, run: "passed" },
+];
+
+/** The same red, claimed on another machine and then taken over. */
+export function redHeldElsewhere(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
+  const moments = elsewhereMoments();
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, moments, ELSEWHERE_LANDINGS), jobs: moments[n]!.jobs });
+  return { first: at(0), later: moments.slice(1).map((_, n) => at(n + 1)) };
 }
 
 /** A failed Check's log on main, as the run on the forge printed it. */

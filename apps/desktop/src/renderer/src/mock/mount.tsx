@@ -8,7 +8,7 @@ import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider } from "@armada/components";
+import { HapticsProvider, RedClaimTake } from "@armada/components";
 
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
@@ -146,7 +146,9 @@ export function mountApp(
                                 <AccountFrom account={chosen.draft?.account}>
                                   <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                     <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                      <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                      <RedClaimTake.Provider value={chosen.draft?.redClaimTake ?? "row"}>
+                                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                      </RedClaimTake.Provider>
                                     </PrOwnersFrom>
                                   </SharedHomeFrom>
                                 </AccountFrom>

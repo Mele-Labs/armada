@@ -131,6 +131,28 @@
   flex: none;
 }
 
+/* Another machine's claim: the holder's chip, then its age. A stale claim wears a clock and its age steps back. */
+.armada-main-red__held {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-main-red__age {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+
+.armada-main-red__held[data-stale] .armada-main-red__age {
+  color: var(--fg-subtle);
+}
+
+.armada-main-red__held[data-stale] .armada-main-red__age > svg {
+  color: var(--notice-caution);
+}
+
 /* A Job's mark beside its status badge: a hammer working, then a shield once main is green. */
 .armada-fixing-mark {
   display: inline-flex;
