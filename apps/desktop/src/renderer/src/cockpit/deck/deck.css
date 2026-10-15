@@ -436,20 +436,33 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-hail__title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .deck-hail__age { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
 .deck-hail[data-arrived] { animation: deck-hail-in var(--duration-travel) var(--ease); }
-.deck-hail[data-first] { animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite; }
-.deck-hail[data-first][data-arrived] {
-  animation:
-    deck-hail-in var(--duration-travel) var(--ease),
-    deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out var(--duration-travel) infinite;
+/* The ring is a pseudo-element moved by transform and opacity alone, which the compositor draws with no repaint;
+   the box-shadow it replaced repainted the card every frame, for as long as the call waited. It grows to the same
+   reach as that shadow did, one --space-4 past each edge: the card is its own inline-size container so the scale
+   can be read from its width (the container is the content box, so the card's padding and border go back on), and its
+   height is the control height. */
+.deck-hail { position: relative; container-type: inline-size; }
+.deck-hail[data-first]::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--border-width) * -1);
+  border: calc(var(--border-width) * 3) solid color-mix(in srgb, var(--hue) 70%, transparent);
+  border-radius: inherit;
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite;
 }
+.deck-hail[data-first][data-arrived]::after { animation-delay: var(--duration-travel); }
 .deck-hail[data-first] .deck-hail__kind { animation: deck-hail-icon calc(var(--duration-pulse) * 1.6) ease-in-out infinite; }
 
 @keyframes deck-hail-in {
   from { opacity: 0; transform: translateY(var(--space-8)); }
 }
 @keyframes deck-hail-ring {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent), 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent); }
-  70%, 100% { box-shadow: 0 0 0 var(--space-4) transparent, 0 0 var(--space-3) transparent; }
+  0% { opacity: 1; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(calc(1 + var(--space-4) * 2 / (100cqw + var(--space-3) * 2 + var(--border-width) * 4)), calc(1 + var(--space-4) * 2 / var(--h-control))); }
 }
 @keyframes deck-hail-icon {
   50% { transform: scale(1.35); }
@@ -458,9 +471,8 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* No motion: the front call reads as waiting by a heavier edge and a filled ground. */
 @media (prefers-reduced-motion: reduce) {
   .deck-hail[data-arrived],
-  .deck-hail[data-first],
-  .deck-hail[data-first][data-arrived],
   .deck-hail[data-first] .deck-hail__kind { animation: none; }
+  .deck-hail[data-first]::after { display: none; }
   .deck-hail[data-first] {
     border-width: calc(var(--border-width) * 3);
     background: color-mix(in srgb, var(--hue) 22%, var(--bg-raised));
