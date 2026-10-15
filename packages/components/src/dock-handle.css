@@ -45,3 +45,18 @@
   outline: var(--focus-ring);
   outline-offset: calc(var(--border-width) * -2);
 }
+
+/* A quiet handle (`quiet`): nothing at rest, so the gap between two panels reads as a gap. Hovered, focused or dragged it
+   is a line in the border tone the height of its edge. Its place is the caller's. */
+.armada-dock-handle[data-quiet]::before {
+  top: 0;
+  height: 100%;
+  background: transparent;
+  transform: none;
+}
+
+.armada-dock-handle[data-quiet]:hover::before,
+.armada-dock-handle[data-quiet]:focus-visible::before,
+.armada-dock-handle[data-quiet][data-dragging="true"]::before {
+  background: var(--border-default);
+}

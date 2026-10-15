@@ -88,6 +88,9 @@ export * from "./screens/absent";
 // it frames are drawn by the app on a mock Fleet, #1225.
 export * from "./compositions/TheShell/TheShell";
 
+// The panel edge handle `TheShell`'s dock and every `Sheet` draw, for a surface whose own panels resize.
+export { DockHandle, DOCK_WIDTH_STEP, clampToRange, tokenPx } from "./dock-handle";
+
 // The title row `TheShell` draws above the rail and the panel. #1087.
 export * from "./compositions/TitleBar/TitleBar";
 

@@ -5,9 +5,9 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -18,6 +18,7 @@ import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
+import { useColumns } from "./columns";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { quantized } from "./field";
@@ -555,6 +556,8 @@ export function DeckBody(props: CockpitProps) {
     return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
   };
   const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  const grid = useRef<HTMLDivElement>(null);
+  const { columns, resize, reset } = useColumns(grid);
   useReplayDriver(replayable, props.now, ownerOf, rootOf);
   useReplayKeys(deck.replay !== undefined, replayable, ownerOf, rootOf, (target) => {
     const id = panelAt(target)?.id;
@@ -563,11 +566,12 @@ export function DeckBody(props: CockpitProps) {
   return (
     <ClashesOpenHere ship={ship}>
     <div className="armada-cockpit deck">
-      <div className="deck-grid">
+      <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} cursor={deck.cursor} selected={deck.sel?.kind === "job" || deck.sel?.kind === "session" ? selected : undefined} onPick={(one) => select(selOfSubject(one))} />
           <Activity props={props} listed={listed} ship={ship} />
+          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
           <div className="deck-stage">
@@ -580,6 +584,7 @@ export function DeckBody(props: CockpitProps) {
           </div>
         </div>
         <div className="deck-right">
+          {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
           {reading ? <LedgerPanel host={setLedgerHost} /> : <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} />}
           <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
         </div>
