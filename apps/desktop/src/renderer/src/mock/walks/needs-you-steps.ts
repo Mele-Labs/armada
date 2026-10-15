@@ -21,6 +21,7 @@ function steps(): Step[] {
     { hover: inside(needs, role("img", "Reply")), say: "An ordinary item keeps its own" },
     { press: inside(needs, button(`Open ${TITLE}`)), say: "A press opens its steps, not the link" },
     { look: inside(panel, button(/github\.com\/settings\/applications\/new/)), say: "The link is one key at the top" },
+    { hover: inside(panel, button("Open in browser")), say: "A second key opens it in the browser" },
     { look: inside(panel, role("checkbox", "Name it Armada")), say: "Each step has a tick" },
     { press: inside(panel, role("checkbox", "Name it Armada")), say: "The first step done" },
     { press: inside(panel, role("checkbox", "Tick Enable Device Flow")), say: "The third done, the second left" },

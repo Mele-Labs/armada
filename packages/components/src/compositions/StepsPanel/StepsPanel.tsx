@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, PencilLine, Plus, Trash2, Undo2 } from "lucide-react";
+import { ExternalLink, Pencil, PencilLine, Plus, Trash2, Undo2 } from "lucide-react";
 
 import { forgetKept, useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
@@ -26,7 +26,10 @@ export type StepsPanelProps = {
   steps: readonly string[];
   /** What the ticks, the corrections and the draft are about: the Session and the item. */
   keep: string;
+  /** Opens the page in an Armada window. */
   onOpenAddress: (address: string) => void;
+  /** Opens the page in the person's own browser. */
+  onOpenInBrowser: (address: string) => void;
   onSend: (text: string) => void;
 };
 
@@ -53,7 +56,7 @@ export function messageOf(reply: string, steps: readonly string[], fixes: StepFi
   return [reply.trim(), lines.join("\n")].filter((one) => one !== "").join("\n\n");
 }
 
-export function StepsPanel({ name, address, steps, keep, onOpenAddress, onSend }: StepsPanelProps) {
+export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenInBrowser, onSend }: StepsPanelProps) {
   const [ticked, setTicked] = useKept<number[]>(`${keep}:ticked`, NO_TICKS);
   const [fixes, setFixes] = useKept<StepFixes>(`${keep}:fixes`, NO_FIXES);
   const [text, setText] = useState("");
@@ -108,6 +111,11 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onSend }
           <Tooltip label="Opens the page" asChild>
             <Button variant="secondary" size="sm" onClick={() => onOpenAddress(address)}>
               <span className="mono">{address}</span>
+            </Button>
+          </Tooltip>
+          <Tooltip label="Open in browser">
+            <Button variant="ghost" size="sm" iconOnly aria-label="Open in browser" onClick={() => onOpenInBrowser(address)}>
+              <ExternalLink size={12} strokeWidth={2} aria-hidden />
             </Button>
           </Tooltip>
         </div>

@@ -48,6 +48,7 @@ import type {
   SketchStroke,
   SessionState,
   SessionThreadRow,
+  StepsPanelProps,
   RetroRowItem,
 } from "@armada/components";
 import { sessionOf } from "@armada/jobs";
@@ -483,7 +484,7 @@ export const readingOf = (session: Session, open: Reading | undefined): SessionA
       );
 
 /** A waiting item's steps as the panel beside the thread draws them: the item is not an attachment, so it has its own reading. */
-export type StepsReading = { name: string; address?: string; steps: readonly string[]; keep: string; onOpenAddress: (address: string) => void; onSend: (text: string) => void };
+export type StepsReading = Omit<StepsPanelProps, "onOpenInBrowser">;
 
 export function stepsReadingOf(session: Session, open: Reading | undefined, draft: SessionsDraft | undefined): StepsReading | undefined {
   if (open?.kind !== "steps") return undefined;
@@ -599,7 +600,7 @@ export function ReadingSheet({
     >
       {steps !== undefined ? (
         <div className="armada-session-reading">
-          <StepsPanel {...steps} />
+          <StepsPanel {...steps} onOpenInBrowser={onOpenLink} />
         </div>
       ) : one?.kind === "sketch" ? (
         one.by === "agent" || "nodes" in one.drawing ? (
