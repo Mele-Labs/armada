@@ -492,7 +492,7 @@ function RestartRow({ row, restart }: { row: LedgerEntry; restart: NonNullable<L
 }
 
 /** A row's preview: its title, then one fact a line, each labelled. Spans, because it is drawn inside the row's press. */
-function LedgerPreview({ card }: { card: SessionLedgerCard }) {
+export function LedgerPreview({ card }: { card: SessionLedgerCard }) {
   return (
     <span className="armada-ledger-card">
       <span className="armada-ledger-card__title">{card.title}</span>
