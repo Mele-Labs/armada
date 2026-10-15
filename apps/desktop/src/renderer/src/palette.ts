@@ -145,8 +145,6 @@ export function dormantIn(where: {
     // `Shell.tsx`'s own `useDock` and `App` holds no handle to it — a wiring
     // gap, same shape as the four signposts above.
     helm: "⌘J opens it; not reachable from the palette yet",
-    // Keys that reach a surface and are read where they are pressed: the palette is not where they act.
-    dashboard_filter_number: "a key on the Dashboard, ⌥1 to ⌥3",
     dispatch_from_field: "n does this; ⌘N is for a field",
     // Not a wiring gap: ⌘Enter sends whatever is typed in the field that has
     // focus, and opening the palette took that focus away. The row is drawn so
@@ -155,12 +153,6 @@ export function dormantIn(where: {
     // The Board's own field answered this and went with the Board. This
     // palette is the search now, so a row reopening it would be circular.
     search: "this is the search",
-    // Built by #1591, and a wiring gap like Helm's above rather than a
-    // missing act: the column's own toggle and `⌘\` both live in
-    // `Shell.tsx`'s state, which `App` holds no handle to. It collapses to
-    // the 48px rail and never hides — #1435 read those as the same thing and
-    // was corrected.
-    toggle_sidebar: "⌘\\ collapses the column to its rail; not reachable from the palette yet",
     // The Back trail (`packages/surfaces/jobs/src/trail.ts`) answers ⌘[ inside a
     // Job after a jump between panels, and only there; `App` holds no handle
     // to it, and there is no forward yet.

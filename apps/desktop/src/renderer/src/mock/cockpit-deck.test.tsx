@@ -1,11 +1,10 @@
 // The flight deck in the real Cockpit, through `App` on the ship scenario: a call opens as a pane and leaves Incoming, a
 // Session that replied raises a call, the Cockpit tab comes back to the deck as it was left, Checks narrows what the deck
-// shows, and with the switch off the classic Cockpit and its rail are what is drawn. #2301.
+// shows. The deck is the Cockpit, and no rail is drawn. #2301.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { setDeckPreview } from "../cockpit/deck/preview";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
@@ -90,16 +89,4 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
   expect(timeline()).not.toContain(dropped);
   await controls().getByRole("button", { name: "Checks" }).click();
   await expect.poll(() => rows().length).toBe(whole);
-});
-
-test("the switch off leaves the classic Cockpit and rail untouched", async () => {
-  await deck();
-  // The deck draws no rail; the places stand in the title bar.
-  expect(document.querySelector('nav[aria-label="Work"]')).toBeNull();
-  await expect.element(places()).toBeVisible();
-
-  setDeckPreview(false);
-  await expect.element(page.getByRole("navigation", { name: "Work" })).toBeVisible();
-  expect(document.querySelector('nav[aria-label="Places"]')).toBeNull();
-  expect(document.querySelector(".deck-list, .deck-bays, .deck-incoming, .deck-controls")).toBeNull();
 });

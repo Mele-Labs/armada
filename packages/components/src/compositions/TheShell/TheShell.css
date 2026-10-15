@@ -1,4 +1,4 @@
-/* Helm's dock, the sheet it folds to, and the left column's own handle.
+/* Helm's dock and the sheet it folds to.
    The frame around them is screens.css's. */
 
 /* The canvas under Depth: --bg-base under two faint pools of light, so a quiet
@@ -31,7 +31,7 @@
     var(--bg-base);
 }
 
-/* Positioned, so a folded dock's sheet covers the work and leaves the rail and the bar in view. */
+/* Positioned, so a folded dock's sheet covers the work and leaves the bar in view. */
 .armada-shell__work {
   position: relative;
   flex: 1;
@@ -40,9 +40,8 @@
   min-height: 0;
 }
 
-/* With no rail the work is the only thing in the body: it takes the leading gutter the column's own padding
-   gave it, so the panel's frame has the same room on both sides. */
-.armada-shell__body[data-rail="off"] > .armada-shell__work {
+/* The work is the only thing in the body: it takes the leading gutter, so the panel's frame has the same room on both sides. */
+.armada-shell__body > .armada-shell__work {
   margin-left: var(--space-4);
 }
 
@@ -255,41 +254,4 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-4);
-}
-
-/* The left column's own handle — one drag for Navigation and Fleet
-   together, the same recipe as the dock's own handle above. Its margin
-   supplies the gap `.armada-shell__body` no longer does once it exists —
-   screens.css's `:has()` rule is the dock's own trick, read the other way. */
-.armada-shell__left-handle {
-  flex: none;
-  align-self: stretch;
-  position: relative;
-  width: var(--space-2);
-  margin: var(--space-4) var(--space-1);
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.armada-shell__left-handle::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: var(--border-width);
-  height: var(--space-8);
-  border-radius: var(--radius-sm);
-  background: var(--border-default);
-  transform: translateY(-50%);
-}
-
-.armada-shell__left-handle:hover::before,
-.armada-shell__left-handle:focus-visible::before,
-.armada-shell__left-handle[data-dragging="true"]::before {
-  background: var(--border-strong);
-}
-
-.armada-shell__left-handle:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--border-width) * -2);
 }

@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Plus, Power, RotateCw, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -47,8 +47,7 @@ export type ActionScope =
   | "list"
   | "list and detail"
   | "open studio"
-  | "piloted job"
-  | "rail";
+  | "piloted job";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
 export type IconAbsence = "undecided" | "by design";
@@ -93,19 +92,6 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "bridge_surfaces",
-    kind: "Action",
-    tier: "Global",
-    verb: "Bridge surfaces",
-    icon: null,
-    iconAbsent: "by design",
-    shortcut: "⌘1–⌘9",
-    scope: "rail",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
     id: "helm",
     kind: "Action",
     tier: "Global",
@@ -126,19 +112,6 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌥⌘C",
-    scope: "anywhere",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
-    id: "toggle_sidebar",
-    kind: "Action",
-    tier: "Global",
-    verb: "Toggle sidebar",
-    icon: PanelLeftClose,
-    iconAbsent: null,
-    shortcut: "⌘\\",
     scope: "anywhere",
     destructive: false,
     confirms: false,
@@ -704,23 +677,10 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
-    id: "dashboard_filters",
-    kind: "Action",
-    tier: "Contextual",
-    verb: "Previous and next filter",
-    icon: null,
-    iconAbsent: "undecided",
-    shortcut: "[ ]",
-    scope: "dashboard",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
     id: "dashboard_view",
     kind: "Action",
     tier: "Contextual",
-    verb: "Switch between grid and timeline",
+    verb: "Show the map",
     icon: ChartNoAxesGantt,
     iconAbsent: null,
     shortcut: "m",
@@ -737,19 +697,6 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "?",
-    scope: "dashboard",
-    destructive: false,
-    confirms: false,
-    unbuilt: null,
-  },
-  {
-    id: "dashboard_filter_number",
-    kind: "Action",
-    tier: "Global",
-    verb: "Filter by number",
-    icon: null,
-    iconAbsent: "undecided",
-    shortcut: "⌥1–3",
     scope: "dashboard",
     destructive: false,
     confirms: false,
@@ -826,9 +773,9 @@ export const ACTIONS: readonly Action[] = [
     tier: "Global",
     verb: "Go to a tab",
     icon: null,
-    iconAbsent: "undecided",
-    shortcut: "⌘1–⌘4",
-    scope: "deck",
+    iconAbsent: "by design",
+    shortcut: "⌘1–⌘5",
+    scope: "anywhere",
     destructive: false,
     confirms: false,
     unbuilt: null,

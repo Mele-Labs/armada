@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isPressed, pressedDigit, pressedSlot } from "@armada/components";
-import { DECK_TABS, SURFACE, SYSTEM_PAGES, deckTabOf } from "@armada/shell";
+import { DECK_TABS, SURFACE, deckTabOf, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { useItems, type Hosts } from "../../Dashboard";
@@ -13,12 +13,12 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
-import { holdFor } from "../Cockpit";
+import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
-import { rememberSystemPage, systemPageOf } from "./preview";
+import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
@@ -37,13 +37,15 @@ type Where = {
 const NONE: ReadonlySet<string> = new Set();
 
 /**
- * The places, for the title bar's centre. A call waiting while the window is not on the Cockpit pips the Cockpit tab, as the
- * classic Cockpit's toast does not cover (the toast speaks on the other tabs and this stays on them). **Pressing Cockpit on a page
+ * The places, for the title bar's centre. A call waiting while the window is not on the Cockpit pips the Cockpit tab, which the
+ * toast does not cover (the toast speaks on the other tabs and this stays on them). **Pressing Cockpit on a page
  * that was opened from the deck goes back**, so the deck returns exactly as it was left; pressing another place from over the
  * Cockpit replaces the layers, so Back from it returns to the Cockpit.
  */
-export function DeckPlaces({ state, picked, nowViews, showing, away, onGoTo, onBack, onReplaceNext }: Pick<Where, "state" | "picked" | "nowViews"> & {
+export function DeckPlaces({ state, picked, nowViews, showing, away, hidden, onGoTo, onBack, onReplaceNext }: Pick<Where, "state" | "picked" | "nowViews"> & {
   showing: string;
+  /** Surfaces nothing serves yet, left off the tabs beside what a layout hides. */
+  hidden: readonly string[];
   /** A page opened from the deck stands over the Cockpit: the Job's page, the composer, a report. */
   away: boolean;
   onGoTo: (surface: string) => void;
@@ -51,6 +53,7 @@ export function DeckPlaces({ state, picked, nowViews, showing, away, onGoTo, onB
   onReplaceNext: () => void;
 }) {
   const deck = useDeck();
+  const off = placesOff(hidden, useLayout("rail").all);
   const calls = useItems("command-central", state, picked, nowViews, NO_HOSTS, NONE);
   const waiting = incomingOf(calls, deck.held, deck.visited).length > 0;
   useEffect(() => {
@@ -60,21 +63,23 @@ export function DeckPlaces({ state, picked, nowViews, showing, away, onGoTo, onB
     if (surface === SURFACE.overview && away) return onBack();
     if (away) onReplaceNext();
     // The System tab opens the page last used there.
-    onGoTo(surface === DECK_TABS.find((tab) => tab.id === "system")!.surface ? systemPageOf(SYSTEM_PAGES.map((page) => page.surface), surface) : surface);
+    onGoTo(opensFor(surface, off));
   };
-  return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} />;
+  return <TabBar showing={showing} away={away} onGoTo={go} waiting={waiting} hidden={off} />;
 }
 
 /** The strip of System pages under the bar, there only while System is the place. */
-export function DeckSystem({ showing, onGoTo }: { showing: string; onGoTo: (surface: string) => void }) {
-  return <SystemStrip showing={showing} onGoTo={onGoTo} />;
+export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: string; hidden: readonly string[]; warned: Readonly<Record<string, string>>; onGoTo: (surface: string) => void }) {
+  return <SystemStrip showing={showing} onGoTo={onGoTo} hidden={placesOff(hidden, useLayout("rail").all)} warned={warned} />;
 }
 
 /**
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, onGoTo }: Where & {
+export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo }: Where & {
+  /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
+  hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
   here: boolean;
   openJobId: string | null;
@@ -82,6 +87,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
 }) {
   const ship = useShip({ ...NO_HOSTS, state, now, picked, nowViews, nows }, false);
   const deck = useDeck();
+  const off = placesOff(hidden, useLayout("rail").all);
   useEffect(() => setHere(here), [here]);
 
   // An answered call is held out until Fleet stops carrying it, or `holdFor` has passed.
@@ -114,8 +120,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   };
 
   const go = (place: (typeof PAGE_LETTERS)[PageLetter]) => {
-    const tab = DECK_TABS.find((one) => one.id === place)!;
-    onGoTo(place === "system" ? systemPageOf(SYSTEM_PAGES.map((page) => page.surface), tab.surface) : tab.surface);
+    onGoTo(opensFor(DECK_TABS.find((one) => one.id === place)!.surface, off));
   };
   // The next call, or forward along the ones already opened; Shift goes back along them. A call answered since is passed over.
   const walkCalls = (by: 1 | -1) => {

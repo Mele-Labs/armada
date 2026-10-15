@@ -5,13 +5,13 @@
 // The timeline's appends are taken no faster than four a second and the clock moves in five-second steps, so a busy window draws
 // the field a few times a second at most. #2301.
 
-import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
 
 import { age } from "../../Dashboard";
 import { useWriteClashes } from "../../clashes";
 import { useSessions } from "../../sessions-draft";
-import type { Cockpit } from "../Cockpit";
+import type { CockpitProps } from "./props";
 import { useFleetEvents } from "../fleet-events";
 import { useAreas } from "./areas-source";
 import { slotKey, useBays } from "./bays";
@@ -26,7 +26,7 @@ import { slotsOf, type Ship, type Subject } from "./ship";
 import { clashesOf, touchesFromEvents } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
 
-type FieldProps = Pick<ComponentProps<typeof Cockpit>, "state" | "now" | "picked">;
+type FieldProps = Pick<CockpitProps, "state" | "now" | "picked">;
 
 /** The timeline's events, held to a redraw every quarter second however fast they arrive. */
 function useCalmEvents(): readonly TimelineEvent[] {

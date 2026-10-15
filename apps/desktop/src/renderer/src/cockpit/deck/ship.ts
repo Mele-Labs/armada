@@ -5,7 +5,7 @@
 // `session-state.ts`. **Nothing is held locally.** A pull request is landed when the forge says so, a Session is
 // stopped when Fleet says its turn is, and main is being fixed when the merge line says a Job is on it. #2301.
 
-import { useEffect, useMemo, type ComponentProps } from "react";
+import { useEffect, useMemo } from "react";
 import { Bot, CircleDashed, Eye, ShieldX, type LucideIcon } from "lucide-react";
 import { sessionGlyphOf } from "@armada/components";
 import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
@@ -15,10 +15,9 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { useItems, type Hosts, type Item } from "../../Dashboard";
 import { stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
-import type { Cockpit } from "../Cockpit";
+import type { CockpitProps } from "./props";
 import { sessionIdOf } from "../waiting";
 
-type CockpitProps = ComponentProps<typeof Cockpit>;
 /** What the ship reads: the window's state and the hosts `useItems` raises its calls through, so the title bar can read it without the Cockpit's other props. */
 export type ShipProps = Pick<CockpitProps, "state" | "now" | "picked" | "nowViews" | "nows" | "onWantHeld"> & Hosts;
 

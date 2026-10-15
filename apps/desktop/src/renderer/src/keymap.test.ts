@@ -94,9 +94,8 @@ describe("a press, as the shipped keys answer it", () => {
     expect(isPressed("capture_note", press("ç", { meta: true, alt: true, code: "KeyC" }))).toBe(true);
     expect(isPressed("key_sheet", press("?", { shift: true }))).toBe(true);
     expect(pressedSlot("history", press("]", { meta: true }))).toBe(1);
-    expect(pressedDigit("bridge_surfaces", press("3", { meta: true }))).toBe(3);
-    expect(pressedDigit("dashboard_filter_number", press("¡", { alt: true, code: "Digit1" }))).toBe(1);
-    expect(pressedDigit("dashboard_filter_number", press("4", { alt: true, code: "Digit4" }))).toBeNull();
+    expect(pressedDigit("deck_tabs", press("3", { meta: true }))).toBe(3);
+    expect(pressedDigit("deck_tabs", press("6", { meta: true }))).toBeNull();
   });
 });
 
@@ -118,10 +117,10 @@ describe("a key a person rebound", () => {
   });
 
   it("moves a row of digits by its modifiers", () => {
-    rebind("bridge_surfaces", parseSlots("⌃1–⌃9"));
-    expect(pressedDigit("bridge_surfaces", press("2", { ctrl: true }))).toBe(2);
-    expect(pressedDigit("bridge_surfaces", press("2", { meta: true }))).toBeNull();
-    expect(digitKeyFor("bridge_surfaces", 2)).toBe("⌃2");
+    rebind("deck_tabs", parseSlots("⌃1–⌃5"));
+    expect(pressedDigit("deck_tabs", press("2", { ctrl: true }))).toBe(2);
+    expect(pressedDigit("deck_tabs", press("2", { meta: true }))).toBeNull();
+    expect(digitKeyFor("deck_tabs", 2)).toBe("⌃2");
   });
 
   it("unbinds a key, and binding the shipped key back takes the change away", () => {

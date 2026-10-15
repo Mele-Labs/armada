@@ -1,7 +1,6 @@
 // The toast that says a call has come for the owner while he is somewhere else in Bridge, and takes
-// him to it. A call the cockpit deals is what the Cockpit draws as a card over the glass; this is the
+// him to it. A call the Cockpit deals is what its Incoming calls list; this is the
 // same set read from outside, so an alert and the card it opens are one fact and cannot disagree.
-// Mock only, as the Dashboard is.
 
 import { useEffect, useRef, useState } from "react";
 import { Toast } from "@armada/components";
@@ -10,7 +9,6 @@ import type { CallView } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { useItems, type Hosts } from "../Dashboard";
-import { useDashboardTab } from "../remembered-views";
 import { alertOf, arrived, type Alert, type Held } from "./arrivals";
 
 /** How long an alert stands unpressed. A call is still there on the glass when it goes. */
@@ -37,16 +35,13 @@ export function CallAlerts({
   picked,
   nowViews,
   onCockpit,
-  onDeck = false,
   onShow,
 }: {
   state: BridgeState;
   picked: RepositorySummary | null;
   nowViews: Readonly<Record<string, CallView>> | undefined;
-  /** The cockpit is what is on screen. Its card is in front only where it is on Your move: the deck is drawn nowhere else. */
+  /** The Cockpit is what is on screen: its Incoming calls are always drawn, so a call is already in front. */
   onCockpit: boolean;
-  /** The Cockpit is the flight deck, whose Incoming calls are always drawn: its card is in front on whatever filter the classic Cockpit last had. */
-  onDeck?: boolean;
   /** Bring this call forward on the cockpit. */
   onShow: (key: string) => void;
 }) {
@@ -55,8 +50,7 @@ export function CallAlerts({
   const held = useRef<Held>(null);
   const first = useRef<number | null>(null);
   // **Wherever he is, a new call speaks**: only the deck on Your move already shows it.
-  const [tab] = useDashboardTab();
-  const deckShown = onCockpit && (onDeck || tab === "command-central");
+  const deckShown = onCockpit;
   const here = useRef(deckShown);
   here.current = deckShown;
 

@@ -3,7 +3,7 @@
 // holds, and a call as the real call card. Every pane has one head with the way back, which Esc is too. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
 import { Button, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
 import { ScrapConfirm, SlotFinding } from "@armada/components/src/compositions/PoolSlots/SlotFinding";
@@ -17,13 +17,12 @@ import { age, type Item } from "../../Dashboard";
 import { useAnswering } from "../answers";
 import { CallCard, type CardKeys } from "../CallCard";
 import { dotsOf } from "../horizon";
-import { heldFor } from "../metro";
-import type { Cockpit } from "../Cockpit";
+import type { CockpitProps } from "./props";
 import { viewsOf } from "../../merge-line";
 import { SessionMini } from "../../sessions";
 import { useSessions } from "../../sessions-draft";
 import type { Acts } from "./acts";
-import { clockOf, shortOf, spanOf, type BayView, type Holder as BayHolder, type Ledger } from "./bays";
+import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as BayHolder, type Ledger } from "./bays";
 import { offeredOf, refusalOf } from "./rescue";
 import { SlotHistory } from "./SlotHistory";
 import { MarkGlyph, PrChip, StepsBar } from "./shared";
@@ -31,7 +30,6 @@ import type { Pr, Subject } from "./ship";
 import { toneOf } from "./order";
 import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck } from "./store";
 
-type CockpitProps = ComponentProps<typeof Cockpit>;
 
 /** The one head every pane has: what it is, its name, where it is, its acts, and the way back. */
 export function PaneHead({ glyph: Glyph, kind, title, where, mark, children }: { glyph: LucideIcon; kind: string; title: string; where?: string | undefined; mark?: ReactNode; children?: ReactNode }) {

@@ -21,7 +21,6 @@ import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
 import { forgetDeck } from "../cockpit/deck/store";
-import { setDeckPreview } from "../cockpit/deck/preview";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
@@ -116,11 +115,8 @@ export function mountApp(
   if (shared === undefined) mockThemes.reset();
   mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight(chosen.state.jobs[0]?.id) : undefined);
   if (shared === undefined) mockLayout.reset();
-  // The flight deck is a preview: only the scenario that is about it opens on it, and every window starts with the deck as it begins.
-  if (shared === undefined) {
-    setDeckPreview(chosen.name === "cockpit-ship-flightdeck");
-    forgetDeck();
-  }
+  // Every window starts with the deck as it begins.
+  if (shared === undefined) forgetDeck();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(api);

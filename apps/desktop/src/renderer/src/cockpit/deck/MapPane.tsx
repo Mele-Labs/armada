@@ -2,11 +2,11 @@
 // cut down to the one Job in the canvas's place. Both read the field with the same hook, and both carry the same picked event and
 // the same replay, so a row of Activity and a replay say the same thing wherever they are drawn. #2301.
 
-import { useMemo, type ComponentProps } from "react";
+import { useMemo } from "react";
 import { Orbit } from "lucide-react";
 import { taskGroupsOf } from "@armada/jobs/draft/group";
 
-import type { Cockpit } from "../Cockpit";
+import type { CockpitProps } from "./props";
 import { Battlefield } from "./Battlefield";
 import { missionOf, type SceneIn } from "./mission";
 import type { DroneIn } from "./layout";
@@ -16,8 +16,6 @@ import { select, selOfPr, selOfSubject, startReplay, stopReplay } from "./store"
 import { touchesOfFootprint } from "./touches";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
-
-type CockpitProps = ComponentProps<typeof Cockpit>;
 
 /** The picked event's caption, the replay's marker and its bar: over the field, where it is drawn. */
 function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typeof useField> }) {

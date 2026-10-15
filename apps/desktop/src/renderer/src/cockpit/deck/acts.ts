@@ -6,14 +6,14 @@
 // by-number act on its pull request; a Job's merge is the command the review gate already sends, handed in by the page
 // that owns commands, because the Cockpit's hosts do not carry it. #2301.
 
-import { useMemo, type ComponentProps } from "react";
+import { useMemo } from "react";
 import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { useSessionsDraft } from "../../sessions-draft";
-import type { Cockpit } from "../Cockpit";
+import type { CockpitProps } from "./props";
 import type { Main, Subject } from "./ship";
 
-type Hosts = Pick<ComponentProps<typeof Cockpit>, "onKill" | "onFix" | "onOpen" | "onOpenSession" | "onOpenLink">;
+type Hosts = Pick<CockpitProps, "onKill" | "onFix" | "onOpen" | "onOpenSession" | "onOpenLink">;
 
 /** What a page that owns commands can add: the Job's merge. Absent, a Job's Merge is not offered. */
 export type Extra = { onMergeJob?: ((jobId: string) => void | Promise<void>) | undefined };

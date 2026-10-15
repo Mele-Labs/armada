@@ -1,4 +1,4 @@
-// The Cockpit window's tabs and its strip of system pages, drawn and pressed, and the digits that reach
+// The window's tabs and its strip of system pages, drawn and pressed, and the digits that reach
 // the tabs. Browser: a press and a rendering are what is read.
 
 import { act } from "react";
@@ -67,24 +67,15 @@ test("The Cockpit tab pressed while it is the place goes nowhere, and goes back 
   expect(went).toEqual([SURFACE.overview]);
 });
 
-function Keys({ deck, onSurface }: { deck: boolean; onSurface: (id: string) => void }) {
-  useSurfaceKeys(onSurface, deck);
+function Keys({ onSurface }: { onSurface: (id: string) => void }) {
+  useSurfaceKeys(onSurface);
   return null;
 }
 const cmd = (digit: string) => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: digit, metaKey: true, bubbles: true, cancelable: true })));
 
-test("Cmd+1..4 switch tabs only when the rail is off", () => {
-  const off: string[] = [];
-  mount(<Keys deck onSurface={(id) => off.push(id)} />);
-  for (const digit of ["1", "2", "3", "4", "5"]) cmd(digit);
-  // ⌘5 is the rail's own, Manifest, in either window.
-  expect(off).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.kit, SURFACE.manifest]);
-});
-
-test("With the rail on, the digits are the rail's order and no tab's", () => {
-  const on: string[] = [];
-  mount(<Keys deck={false} onSurface={(id) => on.push(id)} />);
-  for (const digit of ["1", "2", "3", "4", "5"]) cmd(digit);
-  // Cockpit, Studios, then Alerts, which is not built and so reaches nothing, Doctor and Manifest.
-  expect(on).toEqual([SURFACE.overview, SURFACE.studios, SURFACE.doctor, SURFACE.manifest]);
+test("Cmd+1..4 switch tabs and Cmd+5 opens Settings, and no other digit reaches a place", () => {
+  const went: string[] = [];
+  mount(<Keys onSurface={(id) => went.push(id)} />);
+  for (const digit of ["1", "2", "3", "4", "5", "6", "7", "8", "9"]) cmd(digit);
+  expect(went).toEqual([SURFACE.overview, SURFACE.jobs, SURFACE.sessions, SURFACE.kit, SURFACE.settings]);
 });

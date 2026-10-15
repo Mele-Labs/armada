@@ -5,7 +5,7 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, type ComponentProps } from "react";
+import { useEffect, useMemo } from "react";
 import { Box, ChartNoAxesGantt, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, DropdownMenu, Kbd, Switch, Tooltip } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
@@ -20,7 +20,7 @@ import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { quantized } from "./field";
 import { ActivityFeed, Timeline } from "../Timeline";
-import type { Cockpit } from "../Cockpit";
+import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
 import { useBays, slotKey } from "./bays";
@@ -35,7 +35,6 @@ import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import "../cockpit.css";
 import "./deck.css";
 
-type CockpitProps = ComponentProps<typeof Cockpit>;
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
 export const slotsOf = (props: Pick<CockpitProps, "state" | "picked">): readonly WorktreeSlot[] =>
@@ -401,7 +400,9 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   return (
     <section className="deck-pane" aria-label="Autopilot lane">
       <PaneHead glyph={Plane} kind="Autopilot" title="Autopilot" />
-      <div className="deck-pane__body">{props.picked === null ? <RepositoryPicker props={props} autopilot={autopilot} /> : autopilot.bar}</div>
+      <div className="deck-pane__body">{props.picked === null ? <RepositoryPicker props={props} autopilot={autopilot} /> : autopilot.bar}
+        {autopilot.sidings}
+      </div>
     </section>
   );
 }

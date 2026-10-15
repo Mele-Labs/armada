@@ -196,3 +196,11 @@ export function useBays(slots: readonly WorktreeSlot[], events: readonly Timelin
     [slots, events, at, now],
   );
 }
+
+/** How long ago `since` was, in the Board's words: 41m, 2h 05m. */
+export function heldFor(since: string | undefined, now: number): string | undefined {
+  const at = since === undefined ? NaN : Date.parse(since);
+  if (Number.isNaN(at)) return undefined;
+  const minutes = Math.max(0, Math.round((now - at) / 60_000));
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}

@@ -11,7 +11,6 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useEffect, useState } from "react";
-import { dashboardTabNamed, type DashboardTab } from "@armada/overview";
 import { lessonsSourceNamed, lessonsTabNamed, type LessonsSource, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
 
 /** What a press tells the window, so two readers of one key stay in step. */
@@ -19,7 +18,6 @@ const HEARD = "armada:remembered";
 const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
 const LESSONS_SOURCE_KEY = "armada.bridge.lessons-source";
-export const DASHBOARD_KEY = "armada.bridge.dashboard-tab";
 const DISPATCH_KEY = "armada.bridge.dispatch-kind";
 
 /**
@@ -76,11 +74,6 @@ export function useLessonsSource(): [LessonsSource, (source: LessonsSource) => v
   return remembered(LESSONS_SOURCE_KEY, lessonsSourceNamed);
 }
 
-/** Which tab the Dashboard reads. `first` where nothing is stored: Command Central, or the one a layout names. */
-export function useDashboardTab(first: DashboardTab = "command-central"): [DashboardTab, (tab: DashboardTab) => void] {
-  return remembered(DASHBOARD_KEY, (value) => (value === null ? first : dashboardTabNamed(value)));
-}
-
 export type DispatchKind = "job" | "session";
 
 /** What the dispatch panel starts: the last choice, a Job where nothing is stored. */
@@ -98,8 +91,6 @@ export const DECK_VIEW_KEY = "armada.bridge.deck-view";
 export const DECK_JOB_VIEW_KEY = "armada.bridge.deck-job-view";
 export const DECK_ONLY_KEY = "armada.bridge.deck-only";
 export const DECK_FILTERS_KEY = "armada.bridge.deck-filters";
-/** The preview switch: the flight deck in place of the classic Cockpit and the rail. Off where nothing is stored. */
-export const DECK_PREVIEW_KEY = "armada.bridge.deck-preview";
 /** The System page the System tab opens on: the last one used. */
 export const DECK_SYSTEM_KEY = "armada.bridge.deck-system";
 

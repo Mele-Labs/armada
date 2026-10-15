@@ -52,9 +52,6 @@ export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = 
   open_diff: ["patch", "changes", "files"],
   open_stage: ["gate", "phase", "check"],
   state_filter: ["tab", "narrow", "status"],
-  // "hide the rail" left on 2026-09-22 (#1591): nothing hides the column, at
-  // any width, and an alias that promises it is a way in to the wrong act.
-  toggle_sidebar: ["rail", "collapse the column", "expand the column"],
   submit_for_verification: ["hand back", "verify"],
 };
 
@@ -91,9 +88,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   // Keys on the Dashboard's panel and on a call in front: found from its own `?` sheet, not drawn as
   // palette rows, which would each need a handler the panel owns.
   dashboard: [],
-  // The flight deck's keys and the rail's digits: found from the deck's own `?` sheet and the rail itself.
+  // The flight deck's keys: found from the deck's own `?` sheet.
   deck: [],
-  rail: [],
   call: [],
 };
 
@@ -123,11 +119,11 @@ export function actsIn(context: ActionContext): readonly Action[] {
  *
  * **Two rows are left out and neither is an omission.** `command_palette` is
  * the one act that cannot be reached from inside the palette, since the
- * palette is what is already open; and `bridge_surfaces` is one registry row
- * standing for the whole rail, because the contract's rule there is rail order
- * rather than the digits. A palette draws the rail's destinations one per row,
- * from the rail — which is the only thing that knows what `⌘3` currently
- * reaches.
+ * palette is what is already open; and `deck_tabs` is one registry row
+ * standing for the title bar's tabs, because the contract's rule there is the
+ * tab's place in the bar rather than the digits. A palette draws the
+ * destinations one per row, from the roster — which is the only thing that
+ * knows what `⌘3` currently reaches.
  */
 export function globalActs(): readonly Action[] {
   return ACTIONS.filter(
@@ -135,7 +131,7 @@ export function globalActs(): readonly Action[] {
       action.kind === "Action" &&
       action.tier === "Global" &&
       action.id !== "command_palette" &&
-      action.id !== "bridge_surfaces",
+      action.id !== "deck_tabs",
   );
 }
 

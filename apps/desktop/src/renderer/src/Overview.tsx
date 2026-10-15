@@ -1,7 +1,6 @@
-// The Dashboard, as the window mounts it, out of `App.tsx`, which is at the length the gate refuses.
-// Three tabs over the panels: Command Central (what needs the owner), Running, and Done. Work is
-// dispatched from the title bar's one bar (`one-bar.tsx`), one panel over one draft (`dispatch-panel/`). Each reads Jobs, Sessions and the merge line alike. #921 mounted
-// the tile band here first; Overview 27 (#1091) gave every panel a fold, and the tabs replaced the strip.
+// The Cockpit tab, as the window mounts it, out of `App.tsx`, which is at the length the gate refuses. The flight deck is its body
+// (`cockpit/deck/`); where Fleet cannot be reached, is still starting or serves no repository, the lists draw instead. Work is
+// dispatched from the title bar's one bar (`one-bar.tsx`), one panel over one draft (`dispatch-panel/`).
 //
 // `.armada-screen__overview` is the one child `.armada-screen__mounted` gets — the surface's own
 // padding and gap, so neither the strip nor a panel sits against the window's edge. `Boundary`
@@ -13,18 +12,15 @@ import type { NowActed } from "@armada/jobs";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { OverviewLists, dashboardTabOf, overviewPanelId, type DashboardTab } from "@armada/overview";
-import { Boundary, useLayout } from "@armada/shell";
+import { OverviewLists, overviewPanelId } from "@armada/overview";
+import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { Nows, type Hosts } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
-import { KeySheet, useDashboardKeys } from "./cockpit/keys";
-import { useDeckPreview } from "./cockpit/deck/preview";
 import { proposeRequest } from "./dispatch";
 
 import { usePanelOpen } from "./panel-open";
-import { useDashboardTab } from "./remembered-views";
 
 type StripSection = "needs-you" | "running" | "queued" | "recently-ended";
 
@@ -153,10 +149,8 @@ export function Overview({
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
   const [jump, setJump] = useState<{ section: StripSection; at: number } | null>(null);
-  const [tab, setTab] = useDashboardTab(useLayout("dashboard.tabs").first as DashboardTab);
   const onJump = (section: StripSection) => {
     setters[section](true);
-    setTab(dashboardTabOf(section));
     setJump({ section, at: Date.now() });
   };
   // A notification's own landing, taken once Overview is on screen.
@@ -181,11 +175,6 @@ export function Overview({
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
   // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
-
-  // `[` `]` and Option with a digit switch filters, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
-  // The deck has its own keys and its own sheet: the Dashboard's `[ ]`, `⌥1` to `⌥3` and `?` listen only while it is the classic Cockpit.
-  const deck = useDeckPreview();
-  const keys = useDashboardKeys(tab, setTab, !fault && !deck);
 
   return (
     <Boundary region="the overview" {...guarded}>
@@ -215,8 +204,6 @@ export function Overview({
           />
         ) : (
           <CommandCentral
-            filter={tab}
-            onFilter={setTab}
             state={state}
             now={now}
             picked={pickedRepository}
@@ -244,7 +231,6 @@ export function Overview({
             onPickRepository={onPickRepository}
           />
         )}
-        {deck ? null : <KeySheet open={keys.sheet} onClose={keys.closeSheet} />}
       </div>
       </Nows.Provider>
     </Boundary>

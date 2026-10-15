@@ -1,19 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type ComponentProps } from "react";
 import { expect, within } from "storybook/test";
-import { ClipboardList, FolderGit2, HardDrive, Megaphone, Settings as SettingsIcon } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
 import { Tabs } from "../../primitives/Tabs/Tabs";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ActiveJobsList } from "../ActiveJobsList/ActiveJobsList";
 import { DockQuestions } from "../DockQuestions/DockQuestions";
 import { JobRowStacked } from "../JobRowStacked/JobRowStacked";
-import { Select } from "../../primitives/Select/Select";
 import { TheShell } from "./TheShell";
 
 /**
- * The left column, panel and dock — with the surfaces in Navigation that are
- * built, which is two of the five the concept page fixes.
+ * The title row with the window's places, the panel and the dock. There is no left column.
  *
  * The values are the drawing's own: pid 4417, port 7411, six jobs, one of them
  * waiting on you. `today ~$4.80` is left out — nothing measures spend.
@@ -27,31 +24,20 @@ export default meta;
 type Story = StoryObj<typeof TheShell>;
 
 const shell: ComponentProps<typeof TheShell> = {
-  // The picker sits in the rail's own panel above Work, collapsed to a glyph with the rail.
-  repositoryPicker: (
-    <Select aria-label="Project">
-      <option>armada</option>
-    </Select>
-  ),
   onSearch: () => {},
   onDispatch: () => {},
-  // The drawing's rail row carried a label and a count and no glyph, and drew
-  // Active jobs — a surface retired when the Board became every Job with state
-  // as a filter. This is the roster now, with the registry's own glyph for
-  // each. Only the Board carries a count. **Two panels since 28 Sep 2026**, so
-  // the roster arrives grouped and this component counts neither.
-  panels: [
-    {
-      id: "work",
-      label: "Work",
-      surfaces: [
-        { id: "board", label: "Job Board", icon: ClipboardList, count: 6 },
-        { id: "worktrees", label: "Worktree Slots", icon: HardDrive },
-      ],
-    },
-    { id: "machine", label: "Machine", surfaces: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
-  ],
-  activeId: "board",
+  wordmark: "Armada",
+  places: (
+    <Tabs
+      items={[
+        { id: "cockpit", label: "Cockpit" },
+        { id: "jobs", label: "Jobs" },
+        { id: "sessions", label: "Sessions" },
+        { id: "system", label: "System" },
+      ]}
+      value="cockpit"
+    />
+  ),
   children: <div className="armada-screen__mount">The list mounts here — 1d</div>,
   fleet: {
     state: "running",
@@ -80,32 +66,14 @@ const inWindow = (args: ComponentProps<typeof TheShell>) => (
 export const Shell: Story = { args: shell, render: inWindow };
 
 /**
- * `rail={false}`: no left column, no handle, and the content from edge to edge. What the column held that
- * nothing else does, Fleet's panel, opens from the title row's dot.
+ * No left column and the content from edge to edge. What a column would have held, Fleet's panel, opens from the title row's dot.
  */
-export const WithoutTheRail: Story = {
-  name: "With rail={false} the shell draws no rail and full-width content",
-  args: {
-    ...shell,
-    rail: false,
-    onResizeLeft: () => {},
-    wordmark: "Armada",
-    places: (
-      <Tabs
-        items={[
-          { id: "cockpit", label: "Cockpit" },
-          { id: "jobs", label: "Jobs" },
-          { id: "sessions", label: "Sessions" },
-          { id: "system", label: "System" },
-        ]}
-        value="cockpit"
-      />
-    ),
-  },
+export const FleetInAPopover: Story = {
+  name: "The content takes the full width and Fleet opens from the dot",
+  args: shell,
   render: inWindow,
   play: async ({ canvas, canvasElement, userEvent }) => {
     await expect(canvas.queryByRole("navigation", { name: "Work" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("region", { name: "Repository" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("separator", { name: "Resize the left column" })).not.toBeInTheDocument();
     await expect(canvas.getByText("The list mounts here — 1d")).toBeVisible();
     // The content starts where the window does, less its own gutter.
@@ -124,127 +92,14 @@ export const WithoutTheRail: Story = {
   },
 };
 
-/** The default is the rail: the column, its handle where a width is remembered, and a dot that is only a graphic. */
-export const WithTheRailByDefault: Story = {
-  name: "The default draws the rail",
-  args: { ...shell, onResizeLeft: () => {} },
-  render: inWindow,
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("navigation", { name: "Work" })).toBeVisible();
-    await expect(canvas.getByRole("separator", { name: "Resize the left column" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Fleet — Running" })).not.toBeInTheDocument();
-  },
-};
-
-/** The repository picker is the rail's first panel, above Work, and the title row carries none. */
-export const RepositoryPanel: Story = {
-  args: shell,
-  render: inWindow,
-  play: async ({ canvas }) => {
-    const panel = canvas.getByRole("region", { name: "Repository" });
-    await expect(within(panel).getByRole("combobox", { name: "Project" })).toBeVisible();
-    await expect(canvas.getByRole("region", { name: "Repository" }).compareDocumentPosition(canvas.getByRole("navigation", { name: "Work" }))).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  },
-};
-
-/** The rail collapsed: the panel is one glyph with a tooltip naming the repository, and no select. */
-export const RepositoryPanelCollapsed: Story = {
-  args: {
-    ...shell,
-    collapsed: true,
-    repositoryPickerCollapsed: (
-      <Tooltip label="armada">
-        <Button variant="ghost" iconOnly aria-label="armada">
-          <FolderGit2 size={16} strokeWidth={2} aria-hidden />
-        </Button>
-      </Tooltip>
-    ),
-  },
-  render: inWindow,
-  play: async ({ canvas }) => {
-    const panel = canvas.getByRole("region", { name: "Repository" });
-    await expect(within(panel).getByRole("button", { name: "armada" })).toBeVisible();
-    await expect(within(panel).queryByRole("combobox")).toBeNull();
-  },
-};
-
 /**
- * The 48px icon rail, below the layout breakpoint — where the dock has taken
- * itself off screen and the column has room to stand at its narrowest.
- *
- * What a rendering cannot show: that the title row's Fleet dot and the rail's
- * own are both there and both say which state. #1438 drew the row's dot only
- * where this component was told the column had gone, so at this width there
- * was none — and the rail's dot was an `aria-hidden` mark inside a region
- * named "Fleet", so the state was reachable by neither. The owner settled both
- * on 18 Sep 2026.
- */
-export const CollapsedRail: Story = {
-  args: { ...shell, collapsed: true },
-  render: Shell.render,
-  play: async ({ canvas }) => {
-    await expect(canvas.getAllByRole("img", { name: `Fleet — ${shell.fleet.label}` })).toHaveLength(2);
-  },
-};
-
-/**
- * The rail asked for rather than imposed — #1591. What a rendering cannot
- * show: the press reaches the same 48px the breakpoint does, and takes the
- * drag handle with it, there being nothing to size at the rail.
- */
-export const RailByChoice: Story = {
-  args: { ...shell, onResizeLeft: () => {}, onCollapsedChange: () => {}, collapseBinding: "⌘\\" },
-  render: function RailByChoiceShell(args) {
-    const [collapsed, setCollapsed] = useState(false);
-    return inWindow({ ...args, collapsed, onCollapsedChange: setCollapsed });
-  },
-  play: async ({ canvas, userEvent }) => {
-    const handle = () => canvas.queryByRole("separator", { name: "Resize the left column" });
-    await expect(handle()).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Collapse the left column" }));
-    await expect(canvas.queryByText("pid")).toBeNull();
-    await expect(handle()).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Expand the left column" }));
-    await expect(canvas.getByText("pid")).toBeVisible();
-  },
-};
-
-/**
- * Expanded, and the title row's dot is still there — one of it, because the
- * panel says the state in words rather than taking a name of its own. This is
- * the width #1438 drew no dot at, and the one the owner looked at when he said
- * to keep it drawn always.
- */
-export const FleetDotAtEveryWidth: Story = {
-  args: shell,
-  render: Shell.render,
-  play: async ({ canvas }) => {
-    await expect(canvas.getAllByRole("img", { name: `Fleet — ${shell.fleet.label}` })).toHaveLength(1);
-    await expect(canvas.getByText("pid")).toBeVisible();
-  },
-};
-
-/**
- * Fleet down. The Fleet panel says which of the two failures this is — a
+ * Fleet down. The Fleet panel says which of the two failures this is: a
  * missing runtime file and a live pid that does not answer call for
  * different things.
  */
 export const FleetIsNotRunning: Story = {
   args: {
     ...shell,
-    panels: [
-      {
-        id: "work",
-        label: "Work",
-        surfaces: [
-          { id: "board", label: "Job Board", icon: ClipboardList, count: 0 },
-          { id: "worktrees", label: "Worktree Slots", icon: HardDrive },
-        ],
-      },
-      { id: "machine", label: "Machine", surfaces: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
-    ],
     fleet: {
       state: "not-running",
       label: "Not running",
@@ -327,101 +182,6 @@ export const OneRowInATallWindow: Story = {
   render: Shell.render,
 };
 
-/** The left column's own width, so a story can drag and nudge what the app drags and nudges. */
-function WithResizableLeftColumn(args: ComponentProps<typeof TheShell>) {
-  const [leftWidth, setLeftWidth] = useState(args.leftWidth ?? 200);
-  return <TheShell {...args} leftWidth={leftWidth} onResizeLeft={setLeftWidth} />;
-}
-
-/**
- * The left column's trailing edge, grabbable and keyboard-operable — one
- * handle for Navigation and Fleet together, dragged wider, dragged to
- * `--sidebar-min`, or nudged by the arrow keys the ARIA separator pattern
- * names. `onResizeLeft` absent draws no handle at all: `Shell` above is that
- * case.
- */
-export const LeftColumnResizable: Story = {
-  args: { ...shell, leftWidth: 200, onResizeLeft: () => {} },
-  render: (args) => (
-    <div className="armada-screen">
-      <div className="armada-screen__window">
-        <WithResizableLeftColumn {...args} />
-      </div>
-    </div>
-  ),
-  play: async ({ canvas, canvasElement, userEvent }) => {
-    // Navigation and Fleet are one column, so each is as wide as the others.
-    const panelWidths = () =>
-      [...(canvasElement.querySelector(".armada-shell__left")?.children ?? [])].map(
-        (panel) => panel.getBoundingClientRect().width,
-      );
-    const handle = canvas.getByRole("separator", { name: "Resize the left column" });
-    await expect(handle).toHaveAttribute("aria-valuenow", "200");
-    await userEvent.click(handle);
-    await expect(handle).toHaveFocus();
-    await userEvent.keyboard("{ArrowRight}");
-    await expect(handle).toHaveAttribute("aria-valuenow", "216");
-    await expect(new Set(panelWidths()).size).toBe(1);
-    await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
-    await expect(handle).toHaveAttribute("aria-valuenow", "184");
-    await expect(new Set(panelWidths()).size).toBe(1);
-  },
-};
-
-/**
- * Below the breakpoint the rail collapses to 48px and there is nothing left
- * to drag — the handle draws at all, the same way the dock's own disappears
- * while folded.
- */
-export const LeftColumnCollapsedHasNoHandle: Story = {
-  args: { ...shell, collapsed: true, leftWidth: 200, onResizeLeft: () => {} },
-  render: LeftColumnResizable.render,
-  play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("separator", { name: "Resize the left column" })).not.toBeInTheDocument();
-  },
-};
-
-/**
- * The rail with Helm open over it. **The two are unrelated now** (#1583):
- * the column is the rail because the window is under `--layout-breakpoint`,
- * and the dock is a layer that asks it for nothing. Until 22 Sep 2026 this
- * was a band of its own — `--window-fold-left`, where the column gave up its
- * width so the dock could keep 380px — which is why the pair is still drawn
- * together.
- *
- * **#1435 drew nothing here**, and the owner's correction on 18 Sep 2026 is
- * this story: the panels collapse into a single icon-size column, they are not
- * hidden away. The remembered width is untouched either way, so the column
- * comes back where it was.
- */
-export const LeftColumnCollapsedBesideTheDock: Story = {
-  args: {
-    ...shell,
-    collapsed: true,
-    leftWidth: 200,
-    onResizeLeft: () => {},
-    dock: { open: true, binding: "⌘J", onOpen: () => {} },
-  },
-  render: LeftColumnResizable.render,
-  // What a rendering cannot show: that Navigation and Fleet are still
-  // in the tree at the rail rather than unmounted — the #1435 regression is
-  // exactly a tree that is missing them — and that collapsing took nothing
-  // else with it, Helm's dock being the whole point of the band.
-  play: async ({ canvas, canvasElement }) => {
-    const column = canvasElement.querySelector(".armada-shell__left");
-    await expect(column).not.toBe(null);
-    await expect(canvas.queryByRole("separator", { name: "Resize the left column" })).not.toBeInTheDocument();
-    // Both navigation panels, still named at the rail where their labels are
-    // not drawn — two unlabelled regions would be one region said twice.
-    await expect(canvas.getByRole("navigation", { name: "Work" })).toBeInTheDocument();
-    await expect(canvas.getByRole("navigation", { name: "Machine" })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /Job Board/ })).toBeInTheDocument();
-    await expect(canvas.getByLabelText("Helm")).toBeInTheDocument();
-    await expect(canvas.getAllByRole("img", { name: `Fleet — ${shell.fleet.label}` })).toHaveLength(2);
-  },
-};
-
-/** The dock's own open state, so a story can press what the app presses. */
 function WithDock(args: ComponentProps<typeof TheShell>) {
   const [open, setOpen] = useState(args.dock?.open ?? false);
   const dock = args.dock === undefined ? undefined : { ...args.dock, open, onOpen: setOpen };
@@ -577,7 +337,6 @@ export const DockResizable: Story = {
 export const DockFoldedToASheet: Story = {
   args: {
     ...shell,
-    collapsed: true,
     dock: { open: false, folded: true, questions: 3, binding: "⌘J", onOpen: () => {} },
   },
   render: (args) => (

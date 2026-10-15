@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { holdFor } from "../cockpit/Cockpit";
+import { holdFor } from "../cockpit/deck/props";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { SLOW_FLEET } from "./cockpit-routes";
 import { entered, motion, mount, onScreen, rememberingTheGrid, unmountAfterEach } from "./testing";

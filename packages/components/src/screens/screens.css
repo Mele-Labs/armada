@@ -61,8 +61,7 @@
   overflow: hidden;
 }
 
-/* The shell itself: the left column and the panel side by side. Bridge/1088
-   removed the status bar that used to span beneath both. */
+/* The shell itself: the title row over the panel. */
 .armada-shell {
   display: flex;
   flex: 1;
@@ -82,64 +81,6 @@
   gap: var(--space-4);
   min-height: 0;
 }
-
-/* The handle (`TheShell.css`) carries its own margin in the gap it now
-   occupies — the same trick the dock's own handle already plays on its
-   side of `.armada-shell__work`, read here instead of doubled by `gap`. */
-.armada-shell__body:has(.armada-shell__left-handle) {
-  gap: 0;
-}
-
-/* Navigation and Fleet, stacked — the left column Bridge/1088 built to
-   replace the rail and the status bar. Inset on three sides the way the dock
-   already is, because the panel beside it stays flush by design — "the panel
-   *is* the ground", below.
-
-   **A shared width, not three siblings fighting over intrinsic sizing.**
-   Sidebar carries its own resting width inline (`--sidebar-default`,
-   collapsed to `--sidebar-rail`), but FleetPanel (`.armada-panel`)
-   set none — with no width here either, this column resolved to whichever
-   panel's own content ran widest (a pid/port line, a Manifest advisory
-   sentence), and `align-items: stretch` grew the panels to that figure while
-   Sidebar sat at its own inline width, narrower than both. One width, read by
-   all three: Sidebar's own default when the column matches it, and its own
-   rail width when Sidebar is collapsed — `:has()` is what lets this rule
-   follow a child's own state without a prop crossing the two files.
-
-   **The inset is padding, not margin.** The panels are flat now and cast no
-   shadow, but the padding stays: reducing it moves the column's edges, and
-   the layout is the owner's to move (#1319 put it here for the card shadow).
-   The left is all padding, the right's padding is handed back by an equal
-   negative margin (so the box reaches into the gap, where the handle is later
-   in the tree and still takes the pointer), and the top is 12px margin over
-   4px padding, so what scrolls up still clips under the title bar.
-
-   `content-box` so every width here — ours, the rail's 48px, and the inline
-   one a drag writes — stays the cards' width, and the padding adds outside
-   it instead of narrowing them. */
-.armada-shell__left {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  flex: none;
-  min-height: 0;
-  box-sizing: content-box;
-  margin: calc(var(--space-4) - var(--space-1)) calc(var(--space-4) * -1) 0 0;
-  padding: var(--space-1) var(--space-4) var(--space-6);
-  overflow-y: auto;
-  width: var(--sidebar-default);
-}
-
-.armada-shell__left:has(.armada-sidebar[data-collapsed]) {
-  width: var(--sidebar-rail);
-}
-
-/* #1435 kept a rule here for the column being absent — the work supplying the
-   leading inset the column's own padding used to. The column is never absent:
-   under --layout-breakpoint it collapses to the rail above rather than
-   leaving, so its padding is always there and the rule was dead the moment the
-   owner corrected that on 18 Sep 2026. Removed rather than left as a
-   `:not(:has())` that can never match. */
 
 .armada-shell__panel {
   flex: 1;

@@ -145,7 +145,6 @@ export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>>
   history: ["Back", "Forward"],
   move_focus: ["Down", "Up", "Down", "Up"],
   move_in_plan: ["Up", "Down"],
-  dashboard_filters: ["Previous", "Next"],
 };
 
 // ---- What this person has changed ------------------------------------------------------------
@@ -370,7 +369,7 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "deck", "rail", "call"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "call"],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
   list: ["board", "dashboard", "deck"],
@@ -385,8 +384,6 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // names while it is up, and the deck's handlers stand down for it: that is a state of the deck, which
   // the keymap's places do not hold, so `call` and `deck` do not overlap here.
   deck: ["deck"],
-  // The rail's digits listen only while the rail is drawn, and the deck is a window without one.
-  rail: ["rail"],
   call: ["call"],
 };
 
@@ -431,7 +428,7 @@ export type KeymapGroup = { readonly title: string; readonly scopes: readonly Ac
 
 /** Where a person finds an act: by the place they would be standing when they press it. */
 export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
-  { title: "Anywhere", scopes: ["anywhere", "rail"] },
+  { title: "Anywhere", scopes: ["anywhere"] },
   { title: "Lists", scopes: ["list", "list and detail"] },
   { title: "A Job", scopes: ["detail", "dispatch card", "piloted job"] },
   { title: "Dashboard", scopes: ["dashboard", "deck"] },
