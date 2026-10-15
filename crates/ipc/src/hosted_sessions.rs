@@ -539,8 +539,8 @@ pub struct TakeHeld {
 }
 
 /// What the `armada` mod in a terminal session tells Fleet about one
-/// `AskUserQuestion`: that it is open, then that the terminal's own prompt
-/// ended first.
+/// `AskUserQuestion`, or one permission prompt: that it is open, then that the
+/// terminal's own prompt ended first.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TerminalAsk {
@@ -550,6 +550,11 @@ pub enum TerminalAsk {
     Asks {
         session_id: String,
         input: serde_json::Value,
+        /// The tool whose call this is, where it is not `AskUserQuestion`: the terminal's own
+        /// permission prompt for it is open, and Bridge may allow or refuse the call first. Since
+        /// mod 0.3.22.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool: Option<String>,
     },
     /// The terminal's prompt ended: `answered` is false where it was dismissed.
     Settled { session_id: String, answered: bool },

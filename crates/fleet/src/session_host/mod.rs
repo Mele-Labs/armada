@@ -60,6 +60,7 @@ use crate::helm::{Asks, HelmAskHold};
 
 pub use process::{Heard, Process, ProcessHost, Processes, Sink, Start};
 pub use terminal::Terminals;
+pub(crate) use terminal::PromptOpen;
 
 /// How long a session's process may sit with no turn before Fleet ends it, and
 /// the next message resumes it. **`settings.session-quiet-timeout`**.
@@ -158,7 +159,7 @@ impl Hosts {
             .running_quiet()
             .into_iter()
             .map(|(id, _)| id)
-            .filter(|id| self.of(id).state().asked.is_some())
+            .filter(|id| self.of(id).state().asked.is_some() || self.terminals.prompt_of(id).is_some())
             .collect();
         quiet.extend(self.terminals.running_quiet().into_iter().filter(|(id, _)| !asking.contains(id)));
         quiet

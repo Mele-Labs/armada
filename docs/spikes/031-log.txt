@@ -1,0 +1,4 @@
+1792032785640 permission_request Bash
+1792032793628 bridge allows: running again
+1792032793701 check allowed by bridge
+1792032794701 second run: isError=undefined text=(Bash completed with no output)
