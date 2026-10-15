@@ -1,5 +1,5 @@
 use crate::{
-    decode, encode, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HolderKind, HubJob, HubMergeable, HubMerged,
+    decode, encode, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -90,6 +90,7 @@ fn a_red_hub() -> MergeLineHub {
             },
             since: Instant::carried("2026-10-06T09:40:00Z"),
         }),
+        checkout: None,
     }
 }
 
@@ -175,6 +176,7 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         fixing: None,
         fixing_session: None,
         fixing_elsewhere: None,
+        checkout: None,
     };
     let spelled = encode(&a_line(Some(green))).expect("plain data");
     assert!(!spelled.contains("null"), "{spelled}");
@@ -267,4 +269,26 @@ fn a_pull_requests_owner_is_a_kind_an_id_a_machine_and_whether_it_is_this_one() 
     let owner = read.owner.as_ref().expect("an owner");
     assert_eq!((owner.kind, owner.id.as_str(), owner.machine.as_str(), owner.this_machine), (HolderKind::Session, "s-a", "mac-a", false));
     assert_eq!(encode(&read).unwrap(), with);
+}
+
+#[test]
+fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
+    let line = a_line(Some(MergeLineHub {
+        checkout: Some(HeldCheckout {
+            base: "main".to_string(),
+            on: None,
+            uncommitted: vec!["armada.yml".to_string()],
+            clashing: Vec::new(),
+            behind: 880,
+            ahead: 0,
+        }),
+        ..a_red_hub()
+    }));
+    let spelled = encode(&line).expect("plain data");
+    assert!(
+        spelled.contains(r#""checkout":{"base":"main","uncommitted":["armada.yml"],"behind":880,"ahead":0}"#),
+        "{spelled}"
+    );
+    let read: MergeLine = decode("a merge line", spelled.as_bytes()).expect("reads");
+    assert_eq!(read, line);
 }
