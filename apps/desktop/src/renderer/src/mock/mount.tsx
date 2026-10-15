@@ -20,6 +20,7 @@ import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { AreasFrom } from "../cockpit/deck/areas-source";
+import { BayHistoriesFrom } from "../cockpit/deck/bay-history";
 import { forgetDeck } from "../cockpit/deck/store";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
@@ -147,15 +148,17 @@ export function mountApp(
                           <FleetEventsFrom events={chosen.draft?.events}>
                             <SessionsHere held={heldSessions(api)}>
                               <ClashesFrom clashes={chosen.draft?.clashes}>
-                                <AreasFrom source={chosen.draft?.areas}>
-                                  <AccountFrom account={chosen.draft?.account}>
-                                    <SharedHomeFrom home={chosen.draft?.sharedHome}>
-                                      <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                                      </PrOwnersFrom>
-                                    </SharedHomeFrom>
-                                  </AccountFrom>
-                                </AreasFrom>
+                                <BayHistoriesFrom histories={chosen.draft?.bayHistories}>
+                                  <AreasFrom source={chosen.draft?.areas}>
+                                    <AccountFrom account={chosen.draft?.account}>
+                                      <SharedHomeFrom home={chosen.draft?.sharedHome}>
+                                        <PrOwnersFrom owners={chosen.draft?.prOwners}>
+                                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                        </PrOwnersFrom>
+                                      </SharedHomeFrom>
+                                    </AccountFrom>
+                                  </AreasFrom>
+                                </BayHistoriesFrom>
                               </ClashesFrom>
                             </SessionsHere>
                           </FleetEventsFrom>

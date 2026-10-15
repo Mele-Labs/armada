@@ -131,6 +131,7 @@ import {
   readHeld,
   readReports,
   slotActs,
+  bayActs,
   showAgain,
   startRun,
   startCheckoutRun,
@@ -1164,6 +1165,7 @@ export function App({ draft }: AppProps = {}) {
                   onGoTo={goTo}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   onRescueSlot={slotActs.onRescueSlot}
+                  bayActs={bayActs}
                   onMergeJob={(jobId) => commands.mergeProps(jobId).onMergePullRequest(jobId)}
                   nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />
