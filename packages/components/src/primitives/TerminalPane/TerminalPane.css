@@ -157,6 +157,7 @@
   padding: var(--space-2) var(--space-3);
 }
 
+/* xterm's own stylesheet paints this layer black under the padding. The well's colour is the screen's. */
 .armada-xterm .xterm-viewport {
-  border-radius: inherit;
+  background-color: transparent;
 }

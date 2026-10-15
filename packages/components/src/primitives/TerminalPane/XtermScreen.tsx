@@ -51,7 +51,8 @@ const HIDE_CURSOR = "\x1b[?25l";
 /**
  * **The terminal's screen, drawn by xterm.js.** It takes focus as it opens and on a press, sends what is
  * typed to `write`, tells `onSize` its size in cells whenever it fits the pane, and scrolls to the end
- * as output arrives. A key it takes does not reach the window's own shortcuts; one with Cmd held does.
+ * as output arrives. xterm keeps the keys it takes from the window's shortcuts, and a Cmd chord is not
+ * one it takes. When the run ends it lets go of focus.
  */
 export function XtermScreen({ out, run, running, write, onSize }: TerminalScreenProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -104,11 +105,6 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
     const data = terminal.onData((typed) => {
       if (latest.current.running) latest.current.write(typed);
     });
-    // After xterm has read the key, so what it took stops here. A Cmd chord is the window's.
-    const taken = (event: KeyboardEvent) => {
-      if (latest.current.running && !event.metaKey) event.stopPropagation();
-    };
-    element.addEventListener("keydown", taken);
     const retheme = new MutationObserver(() => {
       terminal.options.theme = themeOf(element);
     });
@@ -117,7 +113,6 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
 
     return () => {
       over = true;
-      element.removeEventListener("keydown", taken);
       retheme.disconnect();
       watching.disconnect();
       data.dispose();
@@ -147,7 +142,11 @@ export function XtermScreen({ out, run, running, write, onSize }: TerminalScreen
     terminal.options.disableStdin = !running;
     terminal.options.cursorBlink = running;
     if (running) terminal.focus();
-    else terminal.write(HIDE_CURSOR);
+    else {
+      terminal.write(HIDE_CURSOR);
+      // Keys are the window's again once nothing is listening for them.
+      terminal.blur();
+    }
   }, [running, run]);
 
   return <div ref={host} className="armada-xterm" onClick={() => screen.current?.focus()} />;

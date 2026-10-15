@@ -2,10 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
 import { TerminalPane, type TerminalPaneProps } from "./TerminalPane";
+import { XtermScreen } from "./XtermScreen";
 
 /**
  * A command running in a terminal of its own. The frame is the component and the body is whatever the
- * caller draws: here a plain well, in the app the terminal screen. One story per state of the run.
+ * caller draws: here a plain well, and below it the terminal screen the app draws, which is xterm. One
+ * story per state of the run.
  */
 const meta: Meta<typeof TerminalPane> = {
   title: "Primitives/Terminal pane",
@@ -56,4 +58,30 @@ export const Failed: Story = {
 
 export const Stopped: Story = {
   args: { phase: { state: "ended", code: null }, children: body("^C") },
+};
+
+/** What the app puts in the body: xterm, which takes the focus as it opens and sends what is typed to `write`. */
+export const OnTheTerminalScreen: Story = {
+  args: { phase: { state: "running" } },
+  render: (args) => {
+    const write = fn();
+    const onSize = fn();
+    return (
+      <TerminalPane {...args}>
+        <XtermScreen
+          out={"\u001b[32m$\u001b[39m make\r\nBuilding \u001b[36mstore\u001b[39m\r\n\u001b[31merror\u001b[39m: nothing to do\r\n"}
+          run={1}
+          running
+          write={write}
+          onSize={onSize}
+        />
+      </TerminalPane>
+    );
+  },
+  play: async ({ canvasElement, userEvent }) => {
+    const pane = within(canvasElement);
+    await expect(await pane.findByText(/nothing to do/)).toBeVisible();
+    await expect(await pane.findByRole("textbox", { name: "Terminal input" })).toHaveFocus();
+    await userEvent.keyboard("a");
+  },
 };
