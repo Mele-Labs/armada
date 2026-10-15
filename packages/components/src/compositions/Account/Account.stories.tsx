@@ -93,19 +93,28 @@ function Held({
   );
 }
 
-/** The code over the address it is typed at, and the link that opens that address. */
+/** A sign-in in flight is a tile of its own: the address as a link, the code large, a copy act, the time left, Cancel. */
 const openDevicePage = fn();
+const cancel = fn();
+const writeText = fn(async () => undefined);
 export const DeviceCode: Story = {
   render: () => (
-    <Held flow={{ phase: "code", code: "WDJB-MJHT" }} spy={{ openDevicePage }}>
+    <Held flow={{ phase: "code", code: "WDJB-MJHT", expiresIn: 899 }} spy={{ openDevicePage }} extra={{ cancel }}>
       {(account) => <AccountView account={account} />}
     </Held>
   ),
   play: async ({ canvas, userEvent }) => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await expect(canvas.getByRole("listitem", { name: "Adding" })).toBeVisible();
     await expect(canvas.getByRole("group", { name: "Device code" })).toHaveTextContent("WDJB-MJHT");
     await expect(canvas.getByRole("img", { name: "Waiting for GitHub" })).toBeVisible();
+    await expect(canvas.getByText(/^14:5\d$/)).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Open github.com/login/device" }));
     await expect(openDevicePage).toHaveBeenCalledTimes(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Copy code" }));
+    await expect(writeText).toHaveBeenCalledWith("WDJB-MJHT");
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await expect(cancel).toHaveBeenCalledTimes(1);
   },
 };
 
@@ -135,18 +144,66 @@ export const OneProfile: Story = {
 };
 
 /** Each profile is a tile listing the repositories bound to it, each marked for how; a row moves to the other profile. */
+const bind = fn();
+const bound: readonly Profile[] = [
+  { ...two[0]!, repositories: [{ name: "mele-labs/armada", by: "matched" }] },
+  { ...two[1]!, repositories: [{ name: "acme-co/vendor-lib", by: "chosen" }] },
+];
 export const TwoProfiles: Story = {
   render: () => (
-    <Held
-      profiles={[
-        { ...two[0]!, repositories: [{ name: "mele-labs/armada", by: "matched" }] },
-        { ...two[1]!, repositories: [{ name: "acme-co/vendor-lib", by: "chosen" }] },
-      ]}
-      extra={{ bind: () => undefined, unbound: [{ name: "shared-org/tools" }] }}
-    >
+    <Held profiles={bound} extra={{ bind }}>
       {(account) => <AccountView account={account} />}
     </Held>
   ),
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const menu = within(canvasElement.ownerDocument.body);
+    await expect(within(canvas.getByRole("listitem", { name: "mele-work" })).getByRole("img", { name: "Matched" })).toBeVisible();
+    await expect(within(canvas.getByRole("listitem", { name: "nickmele" })).getByRole("img", { name: "Chosen" })).toBeVisible();
+    // No profile is drawn as the active one.
+    await expect(canvas.queryByRole("img", { name: "Active" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /active$/ })).toBeNull();
+    // What syncs is offered on the profile added on purpose only.
+    await expect(canvas.getAllByRole("button", { name: "What syncs" })).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Move mele-labs/armada" }));
+    await userEvent.click(await menu.findByRole("menuitem", { name: "nickmele" }));
+    await expect(bind).toHaveBeenCalledWith("mele-labs/armada", "nickmele");
+    await userEvent.click(canvas.getByRole("button", { name: "Move acme-co/vendor-lib" }));
+    await userEvent.click(await menu.findByRole("menuitem", { name: "None" }));
+    await expect(bind).toHaveBeenCalledWith("acme-co/vendor-lib", null);
+  },
+};
+
+/** A repository no profile owns waits in Not matched until it is chosen; None keeps its row, marked. */
+export const NotMatched: Story = {
+  render: () => (
+    <Held profiles={bound} extra={{ bind, unbound: [{ name: "shared-org/tools" }, { name: "scratch/notes", none: true }] }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const menu = within(canvasElement.ownerDocument.body);
+    const frame = within(canvas.getByRole("region", { name: "Not matched" }));
+    await expect(within(frame.getByRole("listitem", { name: "shared-org/tools" })).getByRole("img", { name: "Waiting for a choice" })).toBeVisible();
+    await expect(within(frame.getByRole("listitem", { name: "scratch/notes" })).getByRole("img", { name: "None" })).toBeVisible();
+    await userEvent.click(frame.getByRole("button", { name: "Choose for shared-org/tools" }));
+    await userEvent.click(await menu.findByRole("menuitem", { name: "mele-work" }));
+    await expect(bind).toHaveBeenCalledWith("shared-org/tools", "mele-work");
+    await userEvent.click(frame.getByRole("button", { name: "Choose for scratch/notes" }));
+    await userEvent.click(await menu.findByRole("menuitem", { name: "None" }));
+    await expect(bind).toHaveBeenCalledWith("scratch/notes", null);
+  },
+};
+
+/** With nothing to choose for, the frame is not drawn. */
+export const NothingUnmatched: Story = {
+  render: () => (
+    <Held profiles={bound} extra={{ bind }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("region", { name: "Not matched" })).toBeNull();
+  },
 };
 
 /** Every kind is off until it is turned on; turning one on lists its items, each with a scope. */
@@ -230,6 +287,7 @@ export const SignInEndedEveryWay: Story = {
     await expect(canvas.getByRole("img", { name: "Expired" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Not reached" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Refused" })).toBeVisible();
+    await expect(canvas.getAllByRole("button", { name: "Try again" })).toHaveLength(3);
   },
 };
 
@@ -313,7 +371,7 @@ export const WhatSyncsWithoutHomeDisabled: Story = {
   },
 };
 
-/** Signed out the page offers the one act, beside what signing in turns on, sets up and never does. */
+/** Signed out the page offers the one act, beside what signing in turns on (off), what it sets up and what it never does. */
 export const PageSignedOut: Story = {
   render: () => (
     <Held spy={{ signIn: tryAgain }}>
@@ -321,8 +379,10 @@ export const PageSignedOut: Story = {
     </Held>
   ),
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("listitem", { name: "Pull request owners, off" })).toBeVisible();
-    await expect(canvas.getByText("Your token is not kept")).toBeVisible();
+    for (const tile of ["Red main claims, off", "Pull request owners, off", "Shared home, off"]) await expect(canvas.getByRole("listitem", { name: tile })).toBeVisible();
+    for (const row of ["Identity", "Store", "Shared home"]) await expect(within(canvas.getByRole("region", { name: "Sets up" })).getByRole("listitem", { name: row })).toBeVisible();
+    for (const line of ["Nothing is written to your repositories or pull requests", "Your token is not kept", "A work machine syncs nothing until you turn a kind on"])
+      await expect(within(canvas.getByRole("region", { name: "Never" })).getByText(line)).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Sign in with GitHub" }));
     await expect(tryAgain).toHaveBeenCalled();
   },
