@@ -22,7 +22,7 @@ import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, NO_CHIP, opened, screenOf } from "@armada/helm";
 import type { ChipState } from "@armada/helm";
-import { Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
+import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -163,7 +163,7 @@ import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { fleetPanelOf } from "./left-column";
 import { DoctorSurface } from "./doctor/Doctor";
-import { firstContactOf, SettingsSurface } from "./settings-surface";
+import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
@@ -235,6 +235,8 @@ export function App({ draft }: AppProps = {}) {
   // Whether Kit is open — a rail surface since #1275, at `⌘8`. Machine-wide,
   // and the rail's pick is what names its second tier.
   const [kitting, setKitting] = useState(false);
+  // Whether the account's page is open: from the title row's menu and from Settings. `AccountPage`.
+  const [accounting, setAccounting] = useState(false);
   // Whether the guide catalogue is open — a rail surface since #1602, and the
   // last row, so it carries no digit. Every guide, numbered and grouped,
   // readable without the screen that raised any of them.
@@ -524,6 +526,7 @@ export function App({ draft }: AppProps = {}) {
     setManifesting(surfaceId === SURFACE.manifest);
     setSettingsShowing(surfaceId === SURFACE.settings); setModding(surfaceId === SURFACE.mods);
     setKitting(surfaceId === SURFACE.kit);
+    setAccounting(surfaceId === SURFACE.account);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
     asked.setMergeFocus(undefined); asked.setCheckFocus(undefined);
@@ -619,12 +622,12 @@ export function App({ draft }: AppProps = {}) {
   }
   // Helm's dock lists every repository's questions, whatever the pick. `questions` is the dock's own block; `asks` is Helm's.
   const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, now, commands);
-  const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }) === SURFACE.overview; // Its call is already in front.
-  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring });
+  const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting }) === SURFACE.overview; // Its call is already in front.
+  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   const { back, replaceNext } = useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
@@ -1120,7 +1123,9 @@ export function App({ draft }: AppProps = {}) {
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
             ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
-              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} />
+              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} onOpenAccount={() => goTo(SURFACE.account)} />
+            ) : accounting ? (
+              <Boundary region="Account" {...guarded}><AccountPage onSettings={() => goTo(SURFACE.settings)} machine={machineOf(state.settings)} /></Boundary>
             ) : (
               <>
                 <Overview

@@ -11,7 +11,7 @@ import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/pro
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
-import type { RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
+import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
@@ -49,6 +49,24 @@ export type MockDraft = ArcDraft & {
   account?: {
     signIn: { login: string; code: string; repository: string };
     add?: { login: string; code: string; items: Partial<Record<SyncKindWord, readonly SyncItem[]>> };
+    /**
+     * What each attempt at signing in comes to, in turn: ended this way once its code is typed, or refused
+     * at once for these blank settings, or signs in (`"signs_in"`). Past the last, an attempt signs in.
+     * Absent signs in at once.
+     */
+    attempts?: readonly ("signs_in" | { ends: EndedOutcome } | { blank: readonly BlankSetting[] })[];
+    /** The machine starts signed in to these profiles, the first active, and shows the account already set up. */
+    joined?: readonly { login: string; chosen: boolean }[];
+    /** Logins whose sign-out leaves a row in the store, because the store is down. */
+    storeDown?: readonly string[];
+    /** Signing in makes no shared home, and What syncs is drawn this way until one exists. */
+    noHome?: true;
+    /** This machine's name, beside the page's title. */
+    machine?: string;
+    /** This machine's repositories as `owner/name`, each bound to the one profile whose login or organisation owns it. Absent draws none. */
+    repositories?: readonly string[];
+    /** The organisations each login belongs to, which matching reads beside the login. */
+    orgs?: Readonly<Record<string, readonly string[]>>;
   };
   /**
    * The owners registered to pull requests, as the central store holds them, and which repositories

@@ -30,6 +30,7 @@ import {
   isPressed,
   keyFor,
   TheShell,
+  useAccount,
   useKeyBindings,
   type DockQuestion,
   type FleetPanelProps,
@@ -132,6 +133,8 @@ export function Shell({
   // The chrome draws keys, Helm's among them, so it redraws when Settings → Keyboard moves one.
   useKeyBindings();
   const narrow = useNarrow();
+  const account = useAccount();
+  const openAccount = () => onSurface?.(SURFACE.account);
   const dock = useDock(narrow);
   const [dockWidth, resizeDock] = useDockWidth();
   const live = connection.state === "connected";
@@ -189,6 +192,7 @@ export function Shell({
             }),
       }}
       menu={{
+        ...(account === undefined ? {} : { account: { onOpen: openAccount } }),
         settings: {
           onOpen: () => onSurface?.(SURFACE.settings),
           ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),

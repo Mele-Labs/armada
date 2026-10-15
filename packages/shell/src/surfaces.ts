@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Stethoscope,
   SquareTerminal,
+  UserCheck,
   Workflow,
 } from "lucide-react";
 import { digitKeyFor, pressedDigit } from "@armada/components";
@@ -45,6 +46,7 @@ export const SURFACE = {
   sessions: "sessions",
   mods: "mods",
   jobs: "jobs",
+  account: "account",
 } as const;
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
@@ -230,6 +232,16 @@ export const SURFACES: readonly PaletteSurface[] = [
     },
     aliases: ["session", "new session"],
     icon: SquareTerminal,
+  },
+  {
+    id: SURFACE.account,
+    label: "Account",
+    // Past the ninth, so no key; reached from the title row's menu, from Settings, and by name.
+    get shortcut() {
+      return digitOf(SURFACE.account);
+    },
+    aliases: ["sign in", "sign out", "profile", "profiles", "login"],
+    icon: UserCheck,
   },
 ];
 

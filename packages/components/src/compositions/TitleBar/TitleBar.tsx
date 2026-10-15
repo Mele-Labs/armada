@@ -199,6 +199,8 @@ export type TitleBarProps = {
    * no Settings page to offer shows none.
    */
   menu?: {
+    /** Opens the account, a page or a panel, from its row. Absent draws no account row. */
+    account?: { onOpen: () => void };
     settings?: { onOpen: () => void; /** `⌘3` or whichever digit the person has it on. */ shortcut?: string };
   };
   /**
@@ -356,6 +358,7 @@ export function TitleBar({
         <TitleMenu
           {...(sleep === undefined ? {} : { sleep })}
           {...(menu?.settings === undefined ? {} : { settings: menu.settings })}
+          {...(menu?.account === undefined ? {} : { onAccount: menu.account.onOpen })}
           narrow={
             <>
               {repositoryMenu === undefined ? null : <RepositoryRows {...repositoryMenu} />}

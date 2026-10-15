@@ -33,6 +33,12 @@
   pointer-events: none;
 }
 
+/* The account row's mark for a sign-in that waits or failed, at the row's trailing edge. */
+.armada-title-menu__need {
+  display: inline-flex;
+  margin-left: auto;
+}
+
 .armada-title-menu__attention--row {
   position: static;
   flex: none;
@@ -44,13 +50,8 @@
   padding: var(--space-2);
 }
 
-.armada-title-menu__panel[data-view="account"] {
-  width: calc(var(--space-12) * 8);
-}
-
 .armada-title-menu__entries,
-.armada-title-menu__narrow,
-.armada-title-menu__account {
+.armada-title-menu__narrow {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -62,10 +63,6 @@
   margin-top: var(--space-1);
   padding-top: var(--space-2);
   border-top: var(--border-width) solid var(--border-subtle);
-}
-
-.armada-title-menu__account > .armada-button {
-  align-self: flex-start;
 }
 
 .armada-title-menu__item {
@@ -117,14 +114,4 @@
 .armada-title-menu__item[aria-pressed="true"] .armada-title-menu__glyph {
   background: var(--accent);
   color: var(--fg-inverse);
-}
-
-.armada-title-menu__login {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
 }

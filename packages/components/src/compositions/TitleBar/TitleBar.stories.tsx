@@ -326,13 +326,17 @@ const account = (logins: readonly string[], signIn: () => void = noAct): Account
   closeSyncs: noAct,
   setKind: noAct,
   setScope: noAct,
+  signOut: noAct,
+  openSetting: noAct,
 });
 
 const signIn = fn();
 
-/** Nothing signed in: the button's tooltip says so, and the first entry is Sign in with GitHub, which starts the flow. */
+const openAccount = fn();
+
+/** Nothing signed in: the button's tooltip says so, and the first entry is Sign in, which opens the account where the window keeps it. */
 export const SignedOut: Story = {
-  args: { ...SleepModeToggle.args },
+  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
   render: (args) => (
     <AccountProvider value={account([], signIn)}>
       <TitleBar {...args} />
@@ -341,15 +345,15 @@ export const SignedOut: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, signed out");
     await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sign in with GitHub" })).toBeVisible();
-    await userEvent.click(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sign in with GitHub" }));
-    await expect(signIn).toHaveBeenCalledTimes(1);
+    await userEvent.click(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Sign in" }));
+    await expect(openAccount).toHaveBeenCalledTimes(1);
+    await expect(signIn).not.toHaveBeenCalled();
   },
 };
 
-/** Signed in, the entry names the login and the button says nothing more than Menu. */
+/** Signed in, the entry reads Account with no login in it, and the button says nothing more than Menu. */
 export const SignedIn: Story = {
-  args: { ...SleepModeToggle.args },
+  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
   render: (args) => (
     <AccountProvider value={account(["nickmele"])}>
       <TitleBar {...args} />
@@ -358,13 +362,29 @@ export const SignedIn: Story = {
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu");
     await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Account nickmele" })).toBeVisible();
+    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Account" })).toBeVisible();
+    await expect(canvas.queryByText("nickmele")).toBeNull();
+  },
+};
+
+/** A sign-in waiting on the person: the button's title and the account row carry the turn, so the way back is a mark. */
+export const SignInWaiting: Story = {
+  args: { ...SleepModeToggle.args, menu: { account: { onOpen: openAccount } } },
+  render: (args) => (
+    <AccountProvider value={{ ...account([], signIn), flow: { phase: "code", code: "WDJB-MJHT" } }}>
+      <TitleBar {...args} />
+    </AccountProvider>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, signed out, waiting for GitHub");
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await expect(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("img", { name: "Waiting for GitHub" })).toBeVisible();
   },
 };
 
 /** Signed out with Sleep on: both marks ride on the button, and the tooltip names both. */
 export const SignedOutAsleep: Story = {
-  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() } },
+  args: { ...SleepModeToggle.args, sleep: { on: true, onToggle: fn() }, menu: { account: { onOpen: openAccount } } },
   render: SignedOut.render!,
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Menu" })).toHaveAttribute("title", "Menu, sleep mode on, signed out");

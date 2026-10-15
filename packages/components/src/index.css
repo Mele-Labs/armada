@@ -452,4 +452,5 @@
 @import "./compositions/PullRequestPanel/PullRequestPanel.css";
 @import "./compositions/PullRequestPanel/PullRequestTabs.css";
 @import "./compositions/Account/Account.css";
+@import "./compositions/Account/ForgeMark.css";
 @import "./compositions/TitleBar/TitleMenu.css";
