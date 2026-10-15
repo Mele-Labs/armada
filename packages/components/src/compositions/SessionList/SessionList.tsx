@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { BellRing, LoaderCircle, MessageSquare, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -11,6 +11,7 @@ import { useTileGrid } from "../../tile-grid";
 import { ClashMark } from "../ClashMark/ClashMark";
 import { Chip, type OwnerChipRef, type RedChecks } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
+import { LedgerPreview, type SessionLedgerCard } from "../SessionLedger/SessionLedger";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
 /**
@@ -35,7 +36,7 @@ export type SessionRowView = {
   said: string;
   slots: readonly number[];
   /** A merged one is on the Session's ledger and not on its row. */
-  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks; state?: "open" | "draft" | "merged" }[];
+  pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string; red?: RedChecks; state?: "open" | "draft" | "merged"; card?: SessionLedgerCard }[];
   /** What the search matched in this Session, where it matched an attachment. */
   matched?: OwnerChipRef;
   /** The clock time of the last turn, which the tooltip keeps. */
@@ -90,7 +91,7 @@ export function since(at: string, now: number): string | undefined {
   return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
 }
 
-type Item = { key: string; fixed: boolean; label: string; node: ReactNode };
+type Item = { key: string; fixed: boolean; label: string; node: ReactElement; card?: SessionLedgerCard };
 
 /** How many of the droppable items, newest first, fit in `width` beside the fixed ones and a `…`. */
 function keptOf(widths: readonly number[], items: readonly Item[], width: number, gap: number): Set<string> {
@@ -145,7 +146,13 @@ function OpenLine({ items }: { items: readonly Item[] }) {
     <span className="armada-session-list__chips" ref={line}>
       {shown.map((one) => (
         <span className="armada-session-list__item" key={one.key}>
-          {one.node}
+          {one.card === undefined ? (
+            one.node
+          ) : (
+            <Tooltip label={<LedgerPreview card={one.card} />} card beside asChild>
+              {one.node}
+            </Tooltip>
+          )}
         </span>
       ))}
       {rest.length === 0 ? null : (
@@ -184,6 +191,7 @@ function itemsOf(row: SessionRowView): Item[] {
           <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said, ...(pr.red === undefined ? {} : { red: pr.red }) }} />
         </span>
       ),
+      ...(pr.card === undefined ? {} : { card: pr.card }),
     });
   }
   if (row.matched?.kind === "branch" || row.matched?.kind === "job") {

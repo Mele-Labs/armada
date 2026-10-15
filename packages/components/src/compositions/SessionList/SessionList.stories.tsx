@@ -59,6 +59,45 @@ export const AtRest: Story = {
   },
 };
 
+/** Hovering a pull request's chip opens the ledger's card; the Session is not opened by it. */
+export const PullRequestCard: Story = {
+  args: {
+    groups: [
+      {
+        label: "Needs you",
+        rows: [
+          {
+            ...NOTES,
+            pullRequests: [
+              {
+                number: 1847,
+                checks: "passed",
+                said: "Checks passed",
+                state: "open",
+                card: {
+                  title: "#1847 Release notes script",
+                  facts: [
+                    { label: "Checks", value: "Passed", tone: "passed" },
+                    { label: "State", value: "Open" },
+                    { label: "Branch", value: "armada/release-notes", mono: true },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.hover(canvas.getByRole("img", { name: /^Pull request #1847/ }));
+    const title = await canvas.findByText("#1847 Release notes script");
+    await waitFor(() => expect(title).toBeVisible());
+    await expect(canvas.getByText("armada/release-notes")).toBeVisible();
+    await expect(args.onOpen).not.toHaveBeenCalled();
+  },
+};
+
 /** A search found it by the pull request, and that chip is the ringed one. */
 export const Found: Story = {
   args: { groups: [{ label: "Needs you", rows: [{ ...FLAKY, matched: { kind: "pull_request", number: 1843 } }] }], query: "#1843" },
