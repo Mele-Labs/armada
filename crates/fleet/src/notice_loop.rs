@@ -63,8 +63,14 @@ where
         let mut ticker = tokio::time::interval(tick);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let mut slept = tokio::time::Instant::now();
+        let mut followed = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
+            // A subagent its parent sent more work, read as running again from its own transcript.
+            if followed.elapsed() >= crate::subagents_resumed::EVERY {
+                followed = tokio::time::Instant::now();
+                fleet.subagents_followed().await;
+            }
             // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
             if slept.elapsed() >= crate::sleeping::EVERY {
                 slept = tokio::time::Instant::now();

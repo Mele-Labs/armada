@@ -397,6 +397,7 @@ mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
 pub mod sub_dispatch;
+mod subagents_resumed;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;

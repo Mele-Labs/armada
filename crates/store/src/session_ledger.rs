@@ -601,6 +601,37 @@ impl Store {
         )
     }
 
+    /// The subagents of live sessions that read as settled, spent or given back: a parent can send
+    /// one more work, and Fleet reads its transcript to see it start again.
+    pub fn settled_subagents(&self) -> Result<Vec<KeptAttachment>, WriteError> {
+        self.attachments_where(
+            "kind = 'subagent' AND state <> 'standing' AND holder_kind = 'session'
+             AND holder_id IN (SELECT id FROM sessions WHERE state = 'live')",
+            params![],
+        )
+    }
+
+    /// Subagent `target` stopped: spent, and stamped `at` **even where it already read spent**, so
+    /// work its transcript shows after this is a resumed run and none before it is.
+    pub fn subagent_stopped(
+        &mut self,
+        holder: &Holder,
+        manifest_id: &str,
+        target: &str,
+        at: &str,
+    ) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE ledger_attachments SET state = 'spent', changed_at = ?4
+                 WHERE holder_kind = ?1 AND holder_id = ?2 AND kind = 'subagent'
+                   AND manifest_id = ?3 AND target = ?5",
+                params![holder.kind.as_text(), holder.id, manifest_id, at, target],
+            )
+            .map(|rows| rows > 0)
+            .map_err(fault("settling a subagent that stopped"))
+            .map_err(WriteError::Database)
+    }
+
     /// Give back everything `holder` still holds, of `kind` or of every kind.
     /// What a session ending does to its slot.
     pub fn give_back(

@@ -515,6 +515,89 @@ async fn a_subagent_whose_transcript_ended_reads_as_done_on_the_ledger() {
     assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Spent), "and settled for good once read");
 }
 
+/// A resumed subagent reads as running while it works, and as finished once it stops. The parent
+/// sends a finished subagent more work, which is no new spawn, and its row read spent through it
+/// (14 Oct 2026). A transcript can end on a line that reads as still working (13 Oct), so only work
+/// written after the engine said it stopped opens it again.
+#[tokio::test]
+async fn a_resumed_subagent_reads_as_running_while_it_works_and_finished_once_it_stops() {
+    let rig = rig();
+    rig.started().await;
+    let attached = |target: &str| SessionFact::Attached {
+        attachment: ipc::AttachmentReport { kind: "subagent".into(), target: target.into(), detail: Default::default() },
+    };
+    let stopped = |target: &str, state| SessionFact::Settled {
+        attachment: ipc::AttachmentNamed { kind: "subagent".into(), target: target.into() },
+        state,
+    };
+    let state = |target: &'static str| {
+        let fleet = Arc::clone(&rig.fleet);
+        async move {
+            let record = fleet.get_session(SessionId::carried(ID)).await.unwrap().session;
+            record.attachments.iter().find(|one| one.kind == "subagent" && one.target == target).map(|one| one.state)
+        }
+    };
+    let dir = rig.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(&rig.transcript, "").unwrap();
+    // Each line is stamped by Fleet's own clock, a moment apart from the settle beside it.
+    let line = |reason: &str| {
+        let at = rig.fleet.clock().now();
+        let at = at.as_str();
+        format!(
+            r#"{{"type":"assistant","uuid":"{at}","isSidechain":true,"timestamp":"{at}","message":{{"role":"x","stop_reason":{reason},"content":[{{"type":"text","text":"Working."}}]}}}}"#
+        ) + "\n"
+    };
+    let append = |file: &std::path::Path, text: String| {
+        std::fs::OpenOptions::new().append(true).open(file).unwrap().write_all(text.as_bytes()).unwrap();
+    };
+    let moment = || tokio::time::sleep(Duration::from_millis(5));
+    const STILL_GOING: &str = "null";
+    const CALLS_A_TOOL: &str = "\"tool_use\"";
+
+    rig.reports(attached("x1")).await;
+    let file = dir.join("agent-x1.jsonl");
+    std::fs::write(&file, line(STILL_GOING)).unwrap();
+    moment().await;
+    rig.reports(stopped("x1", ipc::AttachmentState::Spent)).await;
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x1").await, Some(ipc::AttachmentState::Spent), "its last line reads as working, but it stopped after it");
+
+    moment().await;
+    append(&file, line(CALLS_A_TOOL));
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x1").await, Some(ipc::AttachmentState::Standing), "work after the stop is a resumed subagent");
+
+    append(&file, line(STILL_GOING));
+    moment().await;
+    rig.reports(stopped("x1", ipc::AttachmentState::Spent)).await;
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x1").await, Some(ipc::AttachmentState::Spent), "its second stop settles it again");
+
+    // A resumed run that ends before Fleet looks: its stop is still the last word.
+    moment().await;
+    append(&file, line(CALLS_A_TOOL));
+    append(&file, line(STILL_GOING));
+    moment().await;
+    rig.reports(stopped("x1", ipc::AttachmentState::Spent)).await;
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x1").await, Some(ipc::AttachmentState::Spent), "a stop on a spent row still marks when it stopped");
+
+    // One given back with its run cut short is not opened by its unfinished transcript, only by
+    // work written after: the parent resumed it.
+    rig.reports(attached("x2")).await;
+    let given = dir.join("agent-x2.jsonl");
+    std::fs::write(&given, line(CALLS_A_TOOL)).unwrap();
+    moment().await;
+    rig.reports(stopped("x2", ipc::AttachmentState::GivenBack)).await;
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x2").await, Some(ipc::AttachmentState::GivenBack));
+    moment().await;
+    append(&given, line(CALLS_A_TOOL));
+    rig.fleet.subagents_followed().await;
+    assert_eq!(state("x2").await, Some(ipc::AttachmentState::Standing));
+}
+
 const QUESTION: &str = r#"{"questions":[{"question":"Which size?","header":"Size","multiSelect":false,
   "options":[{"label":"S","description":"Small"},{"label":"L","description":"Large"}]}]}"#;
 
