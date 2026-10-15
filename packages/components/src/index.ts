@@ -27,6 +27,7 @@ export * from "./primitives/SplitButton/SplitButton";
 export * from "./primitives/Switch/Switch";
 export * from "./primitives/Table/Table";
 export * from "./primitives/Tabs/Tabs";
+export * from "./primitives/TerminalPane/TerminalPane";
 export * from "./primitives/Textarea/Textarea";
 export * from "./primitives/Toast/Toast";
 export * from "./primitives/Tooltip/Tooltip";

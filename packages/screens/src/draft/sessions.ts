@@ -10,6 +10,7 @@
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
+import type { TerminalScreen } from "@armada/components/src/primitives/TerminalPane/TerminalPane";
 import type { PullRequestFilePatch, PullRequestPage, SessionBuild, SessionStanding, ThoughtTarget, WaitingItem, WritePullRequest } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -194,6 +195,8 @@ export type SessionRow =
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
+  /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
@@ -497,7 +500,13 @@ export type SessionsDraft = {
    * Fleet answers it with a Session run (`start_session_run`, `observe_session_run`,
    * `stop_session_run`).
    */
-  run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void; write?: (data: string) => void };
+  /**
+   * The screen a run is drawn on, where one is served: a command run from the thread or the band then
+   * opens as a terminal that takes keys, and `place` is where. `inline` is under the block that was
+   * run, `docked` at the foot of the Session's view. Absent, a run draws its output as lines.
+   */
+  terminal?: { Screen: TerminalScreen; place: "inline" | "docked" };
   /**
    * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
    * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,

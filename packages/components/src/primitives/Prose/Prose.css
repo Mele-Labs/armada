@@ -260,6 +260,17 @@
   opacity: 1;
 }
 
+/* A run docked in the view: the block keeps its mark, always in view, and a press on it brings the pane back. */
+.armada-prose__run-state {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+}
+
+.armada-prose__run[data-docked] .armada-prose__run-acts {
+  display: none;
+}
+
 .armada-prose__run-panel {
   margin-top: var(--space-1);
   border: var(--border-width) solid var(--border-default);

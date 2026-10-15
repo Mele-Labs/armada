@@ -45,8 +45,12 @@ export type Step =
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
-/** A walk is played at the window the test starts from unless it names its own: a narrow one shows what folds. */
-export type Walk = { scenario: string; steps: readonly Step[]; viewport?: { width: number; height: number } };
+/**
+ * A walk is played at the window the test starts from unless it names its own: a narrow one shows what folds.
+ * `remembering` is what the window has been left remembering, by storage key, for a walk that tells one
+ * scenario as two takes.
+ */
+export type Walk = { scenario: string; steps: readonly Step[]; viewport?: { width: number; height: number }; remembering?: Readonly<Record<string, string>> };
 
 /** A walk over `scenario`. Its name is the name it is exported under. */
 export function walk(scenario: string, steps: readonly Step[], viewport?: Walk["viewport"]): Walk {

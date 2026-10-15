@@ -1,0 +1,140 @@
+/* A command running in a terminal of its own. The frame is here; the screen is the caller's, in the body.
+   The body is a well, as a code block is, and the mark takes the hue of a run started by hand. */
+.armada-terminal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-terminal__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-terminal__command {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/* The tooltip's wrapper shrinks with the line, and the line is the one that is cut. */
+.armada-terminal__command > .armada-tooltip {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.armada-terminal__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-terminal__keys {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-terminal__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.armada-terminal-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-terminal-mark[data-result="running"] {
+  color: var(--run-running);
+  animation: armada-terminal-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+.armada-terminal-mark[data-result="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-terminal-mark[data-result="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-terminal-mark[data-result="stopped"] {
+  color: var(--run-stopped);
+}
+
+@keyframes armada-terminal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-terminal-mark[data-result="running"] {
+    animation: none;
+  }
+}
+
+/* Docked at the foot of a view: about two fifths of it, with a handle along its top edge. */
+.armada-terminal-dock {
+  display: flex;
+  flex: 0 0 40%;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-terminal-dock > .armada-terminal {
+  flex: 1;
+}
+
+.armada-terminal-dock__handle {
+  flex: none;
+  position: relative;
+  height: var(--space-2);
+  margin-block: calc(var(--space-1) * -1) 0;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.armada-terminal-dock__handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--space-8);
+  height: var(--border-width);
+  border-radius: var(--radius-sm);
+  background: var(--border-default);
+  transform: translateX(-50%);
+}
+
+.armada-terminal-dock__handle:hover::before,
+.armada-terminal-dock__handle:focus-visible::before,
+.armada-terminal-dock__handle[data-dragging="true"]::before {
+  background: var(--border-strong);
+}
+
+.armada-terminal-dock__handle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -2);
+}

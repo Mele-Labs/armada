@@ -1,8 +1,9 @@
-import { createContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, CircleCheck, CircleX, Play, RotateCcw, Square, SquareTerminal } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
+import { DockedMark, InlineTerminal, ProseTerminal } from "./TerminalRun";
 
 /** What a run says: a chunk of output, then how it ended. `code` is null where it was stopped. */
 export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: number | null };
@@ -10,9 +11,10 @@ export type CodeRunEvent = { kind: "out"; text: string } | { kind: "end"; code: 
 /**
  * Runs a command where the Session works and reports back. The person's own act, so nothing
  * here reaches the agent, unless Bridge's runner settles a waiting item that asked for the command.
- * Bridge provides one per Session; absent, a block draws without Run.
+ * Bridge provides one per Session; absent, a block draws without Run. `write` sends a key to a run
+ * that takes them, which a terminal's does.
  */
-export type CodeRunner = (command: string, on: (event: CodeRunEvent) => void) => { stop: () => void };
+export type CodeRunner = (command: string, on: (event: CodeRunEvent) => void) => { stop: () => void; write?: (data: string) => void };
 
 export const ProseRunner = createContext<CodeRunner | null>(null);
 
@@ -93,13 +95,17 @@ export type CodeRun = {
   /** Starts the command, stopping one already going. */
   start: (command: string) => void;
   stop: () => void;
+  /** A key for a run in a terminal. */
+  write: (data: string) => void;
+  /** Puts a run that has ended away: back to idle, with nothing printed. */
+  close: () => void;
 };
 
 export function useCodeRun(runner: CodeRunner | null | undefined): CodeRun {
   const [phase, setPhase] = useState<CodePhase>({ state: "idle" });
   const [out, setOut] = useState("");
   const [open, setOpen] = useState(true);
-  const handle = useRef<{ stop: () => void } | null>(null);
+  const handle = useRef<{ stop: () => void; write?: (data: string) => void } | null>(null);
   useEffect(() => () => handle.current?.stop(), []);
   const start = (command: string) => {
     if (runner === null || runner === undefined) return;
@@ -112,7 +118,11 @@ export function useCodeRun(runner: CodeRunner | null | undefined): CodeRun {
       else setPhase({ state: "ended", code: event.code });
     });
   };
-  return { phase, out, open, setOpen, start, stop: () => handle.current?.stop() };
+  const close = () => {
+    setPhase({ state: "idle" });
+    setOut("");
+  };
+  return { phase, out, open, setOpen, start, stop: () => handle.current?.stop(), write: (data) => handle.current?.write?.(data), close };
 }
 
 /** The panel under a run: its mark (running, or the exit code), a fold, and the output scrolled to its end. */
@@ -158,37 +168,44 @@ export function RunOutput({ run }: { run: CodeRun }) {
 /** `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. */
 export function RunnableBlock({ command, runner, run: held, children }: { command: string; runner?: CodeRunner; run?: CodeRun; children: ReactNode }) {
   const own = useCodeRun(runner);
+  const terminal = useContext(ProseTerminal);
   const run = held ?? own;
-  const { phase } = run;
+  // A docked pane holds one run for the view, and a block shows it only while it is of this command.
+  const dock = held === undefined && terminal?.place === "docked" ? terminal.dock : null;
+  const docked = dock !== null && dock.command === command ? dock.run : null;
+  const { phase } = dock === null ? run : (docked ?? { phase: { state: "idle" } as const });
   const running = phase.state === "running";
+  const start = () => (dock === null ? run.start(command) : dock.start(command));
+  const stop = dock === null ? run.stop : dock.run.stop;
 
   return (
-    <div className="armada-prose__run" data-state={phase.state} role="group" aria-label={command.split("\n")[0]}>
+    <div className="armada-prose__run" data-state={phase.state} data-docked={docked === null ? undefined : ""} role="group" aria-label={command.split("\n")[0]}>
       <div className="armada-prose__run-block">
         {children}
+        {dock !== null && docked !== null ? <DockedMark dock={dock} phase={phase} /> : null}
         <span className="armada-prose__run-acts">
           {running ? (
             <Tooltip label="Stop">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={run.stop}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={stop}>
                 <Square size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
           ) : phase.state === "idle" ? (
             <Tooltip label="Run">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run" onClick={() => run.start(command)}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run" onClick={start}>
                 <Play size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
           ) : (
             <Tooltip label="Run again">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" onClick={() => run.start(command)}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" onClick={start}>
                 <RotateCcw size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
           )}
         </span>
       </div>
-      <RunOutput run={run} />
+      {terminal?.place === "inline" && held === undefined ? <InlineTerminal run={run} command={command} terminal={terminal} /> : dock !== null ? null : <RunOutput run={run} />}
     </div>
   );
 }
