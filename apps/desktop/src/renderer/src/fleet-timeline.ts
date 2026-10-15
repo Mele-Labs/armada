@@ -7,6 +7,7 @@ import type { TimelineAsk, TimelineEvent } from "@armada/protocol";
 
 import type { FleetTimelineRead } from "../../shared/api/timeline";
 import type { BridgeState } from "../../shared/bridge";
+import { TICK_MS, throttled } from "./cockpit/deck/field";
 
 /** How far back the window reads. The lanes draw the last hour; the feed's earlier blocks reach past it. */
 export const TIMELINE_WINDOW_MS = 2 * 60 * 60_000;
@@ -36,11 +37,14 @@ export function createFleetTimeline(fleet: FleetTimelineHost, now: () => number 
   const listeners = new Set<() => void>();
   let stop: (() => void) | null = null;
 
+  // Every reader redraws on a notice, and a busy Fleet appends dozens a second: they are told no faster than four a second, the first at
+  // once and the last always. What `get` returns is current meanwhile.
+  const tell = throttled<void>(() => listeners.forEach((on) => on()), TICK_MS, { now: () => Date.now(), later: (run, ms) => void setTimeout(run, ms) });
   const merge = (more: readonly TimelineEvent[]): void => {
     const seen = new Map(held.map((one) => [one.id, one]));
     for (const one of more) seen.set(one.id, one);
     held = [...seen.values()].sort((a, b) => a.id - b.id).slice(-KEPT);
-    listeners.forEach((on) => on());
+    tell.push();
   };
   const read = (): void => {
     const since = new Date(now() - TIMELINE_WINDOW_MS).toISOString();

@@ -2,8 +2,8 @@
 // doing, the territories, the bays as pads, the pull requests as crates, what plays and what each drone's callout says. The map
 // shows all of it and a Job's mission the part that is its own. **Nothing here is held locally and nothing is invented**: a drone no
 // edit places rests at its pad or base, a territory with no areas draws no plots, and a replay stands drones as the events left them.
-// The timeline's appends are taken no faster than four a second and the clock moves in five-second steps, so a busy window draws
-// the field a few times a second at most. #2301.
+// The timeline's appends arrive no faster than four a second (`fleet-timeline.ts`) and the clock moves in five-second steps, so a busy
+// window draws the field a few times a second at most. #2301.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineEvent } from "@armada/protocol";
@@ -17,7 +17,7 @@ import { useAreas } from "./areas-source";
 import { useSlotTouches } from "./touches-source";
 import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
-import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, throttled, TICK_MS } from "./field";
+import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf } from "./field";
 import { useClock } from "./clock";
 import { droneOf, type PrIn, type RepoIn } from "./layout";
 import { fieldAt, windowOf } from "./replay";
@@ -29,16 +29,6 @@ import { clashesOf, touchesFromEvents, touchesOf } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
 
 type FieldProps = Pick<CockpitProps, "state" | "picked">;
-
-/** The timeline's events, held to a redraw every quarter second however fast they arrive. */
-function useCalmEvents(): readonly TimelineEvent[] {
-  const live = useFleetEvents();
-  const [held, setHeld] = useState(live);
-  const gate = useRef<ReturnType<typeof throttled<readonly TimelineEvent[]>>>(undefined);
-  gate.current ??= throttled<readonly TimelineEvent[]>(setHeld, TICK_MS);
-  useEffect(() => gate.current?.push(live), [live]);
-  return held;
-}
 
 /** What the field plays, from the events and from what changes while it is drawn: each played once, and the most that move at once is capped. */
 function usePlays(candidates: readonly Play[], drones: readonly string[], landed: ReadonlyMap<number, string>): Play[] {
@@ -66,7 +56,7 @@ function usePlays(candidates: readonly Play[], drones: readonly string[], landed
 export function useField(props: FieldProps, ship: Ship, listed: readonly Subject[]) {
   const deck = useDeck();
   const sessions = useSessions();
-  const events = useCalmEvents();
+  const events = useFleetEvents();
   const areasOf = useAreas();
   const slotTouched = useSlotTouches();
   const written = useWriteClashes();
