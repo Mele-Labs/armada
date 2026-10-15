@@ -98,6 +98,11 @@ pub fn door_tools() -> String {
     format!("mcp__{}", ipc::door::SERVER)
 }
 
+/// The switch that gives a headless process the task tools a terminal has: without it the agent
+/// can write no list, and a Session's build record never has pieces. `CLAUDE_CODE_ENABLE_TASKS`
+/// does not do it — measured on the CLI, 2.1.300.
+pub const TASK_TOOLS: &str = "CLAUDE_CODE_ENABLE_TODO_TOOLS";
+
 /// Everything one message's process is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Conversing {
@@ -217,7 +222,11 @@ impl HeadlessAgent {
             Prompt::assembled("carried on stdin").map_err(ConversationRefused::Unassembled)?,
             conversing.door.clone(),
             Toolbelt::evidence_only(),
-            conversing.environment.clone(),
+            conversing
+                .environment
+                .clone()
+                .and(TASK_TOOLS, "1")
+                .map_err(ConversationRefused::Unassembled)?,
         );
         Ok(Launch::rendered(&borrowed, self.program(), args))
     }
