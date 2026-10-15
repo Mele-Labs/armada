@@ -292,6 +292,11 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
         // A picked event lets go.
         event.preventDefault();
         setFocus(undefined);
+      } else if (state.cursor !== undefined) {
+        // Then the cursor: no row is picked, and the map holds no drone's card.
+        event.preventDefault();
+        moveCursor(undefined);
+        document.querySelector<HTMLElement>(".deck-list")?.focus();
       } else if ((panel !== undefined && panel.id !== "list") || target === document.body) {
         event.preventDefault();
         focusPanel("list", state.cursor);
