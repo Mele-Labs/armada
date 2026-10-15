@@ -301,6 +301,7 @@ export * from "./compositions/KitSetup/KitSetup";
 export * from "./compositions/KitSetup/SharedHome";
 // The account a machine is signed in to: the title bar's spot, its profiles and What syncs.
 export * from "./compositions/Account/Account";
+export * from "./compositions/Account/AccountScreen";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.

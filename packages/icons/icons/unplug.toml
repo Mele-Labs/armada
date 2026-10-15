@@ -25,3 +25,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 13 Oct 2026 with the last holder on a stranded bay. The same gap `unplug` already draws for a Session that ended. Tooltip is Session closed or Job ended. The row carries no reservation."
+
+  [[icons.unplug.usage]]
+    means = "A sign-in that could not reach the forge or the store, and a store that kept its row on sign-out"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walks `sign-in-ended` and `sign-out`. A connection that is gone is what this glyph already says. Tooltips `Not reached` on the sign-in, and Fleet's own sentence on the store row."

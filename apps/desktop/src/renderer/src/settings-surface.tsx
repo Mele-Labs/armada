@@ -17,15 +17,23 @@ export function firstContactOf(settings: SettingsList | null): GuidanceProviderP
   };
 }
 
+/** This machine's name as the person set it, or `undefined` while it is blank and Fleet names it by the host. */
+export function machineOf(settings: SettingsList | null): string | undefined {
+  const value = settings?.settings.find((one) => one.key === "machine.name")?.value;
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
 export type SettingsSurfaceProps = {
   settings: SettingsList | null;
   live: boolean;
   guarded: Pick<BoundaryProps, "bridge" | "onCopied">;
   onReadGuides: () => void;
+  /** Opens the account, where the window keeps it. */
+  onOpenAccount?: () => void;
 };
 
 /** settings.json's page under its own boundary. Saves and the file's opening go through main. */
-export function SettingsSurface({ settings, live, guarded, onReadGuides }: SettingsSurfaceProps) {
+export function SettingsSurface({ settings, live, guarded, onReadGuides, onOpenAccount }: SettingsSurfaceProps) {
   return (
     <Boundary region="Settings" {...guarded}>
       <BridgeSettings
@@ -34,6 +42,7 @@ export function SettingsSurface({ settings, live, guarded, onReadGuides }: Setti
         onSaveSettings={(changes) => window.armada.saveSettings(changes)}
         onOpenSettingsFile={() => window.armada.openSettingsFile()}
         onReadGuides={onReadGuides}
+        {...(onOpenAccount === undefined ? {} : { onOpenAccount })}
         {...(guarded.onCopied === undefined ? {} : { onCopied: guarded.onCopied })}
       />
     </Boundary>

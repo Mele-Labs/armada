@@ -1,0 +1,12 @@
+/* armada-allow-off-contract: the forge's logo policy fixes its mark to pure white or pure black, which no token holds
+   docs/concepts/account.md, the sign-in button */
+
+/* White on a dark ground, black on a light one. */
+.armada-brand-mark {
+  flex: none;
+  fill: #fff;
+}
+
+[data-theme*="light"] .armada-brand-mark {
+  fill: #000;
+}

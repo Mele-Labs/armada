@@ -18,3 +18,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. One of the three scope marks on a synced item in What syncs, tooltip `Private`. The glyph has one meaning, this machine, and private scope is its strict reading: the item is here and nowhere else. The other uses say where a thing is, which another machine could also be; this one says it never leaves. The tooltip `Private` carries that difference, and the two readings never share a surface."
+
+  [[icons.laptop.usage]]
+    means = "This machine, as the account's own profile and as the machine named on its page"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Beside the page's title it names the machine, tooltip `This machine`; on a profile's head it marks the one the machine started with, tooltip `This machine's own`. `user-pen` marks one added on purpose."

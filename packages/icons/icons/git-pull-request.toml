@@ -10,3 +10,10 @@
   size = "12px"
   status = "Specified"
   notes = "Added 7 Oct 2026 with Self repair. Tooltip `New PR`. Ends the repair branch on a canvas; the number beside it is the forge's."
+
+  [[icons.git-pull-request.usage]]
+    means = "The tile for pull request owners, on what signing in turns on"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Which Session or Job owned a pull request, across machines. Tooltip on the tile's mark is `Off` until a profile exists, then `On`."

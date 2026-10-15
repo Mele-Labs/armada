@@ -3,7 +3,8 @@
 // `POLL_MS` until it is. Nothing is held for a Fleet that has no such route or is not connected, and
 // nothing is drawn for it: the title menu offers no account where none is provided.
 
-import type { Account, AccountFlow } from "@armada/components";
+import type { Account, AccountFlow, BlankSetting, SignedOutNote } from "@armada/components";
+import { openSettingsAt } from "@armada/settings";
 import type { AccountFlow as WireFlow, Accounts, SignedOut, SignInEnded } from "@armada/protocol";
 
 import type { AccountsActed } from "../../shared/api/accounts";
@@ -15,16 +16,16 @@ export const POLL_MS = 2_000;
 /** What the window holds of the account: what the title menu draws, and what Fleet said that nothing draws yet. */
 export type AccountHeld = {
   account: Account;
-  /** How the last sign-in ended, as Fleet holds it until the next starts. The composition has no place for it. */
+  /** How the last sign-in ended, as Fleet holds it until the next starts. */
   ended?: SignInEnded;
-  /** Fleet's own words when it would not begin a sign-in, such as the setting that is blank. The composition has no place for it. */
+  /** Fleet's own words when it would not begin a sign-in, such as the setting that is blank. */
   refused?: string;
 };
 
 export type AccountSource = {
   get(): AccountHeld | undefined;
   subscribe(on: () => void): () => void;
-  /** Signs a profile out of this machine. The composition has no act for it yet, so nothing draws it. */
+  /** Signs a profile out of this machine, and holds who left until the panel is put away. */
   signOut(accountId: number): Promise<AccountsActed<SignedOut>>;
 };
 
@@ -47,9 +48,15 @@ const timer: Later = (run, ms) => {
   return () => clearTimeout(id);
 };
 
+/** The settings Fleet's refusal names as blank. Its sentence is all the wire carries of them. */
+const blankIn = (said: string): BlankSetting[] => [
+  ...(said.includes("sign-in app") ? (["account"] as const) : []),
+  ...(said.includes("store address") ? (["store"] as const) : []),
+];
+
 const flowOf = (wire: WireFlow): AccountFlow =>
   wire.phase === "code"
-    ? { phase: "code", code: wire.code }
+    ? { phase: "code", code: wire.code, expiresIn: wire.expires_in_seconds }
     : wire.phase === "setup"
       ? { phase: "setup", login: wire.login, repository: wire.repository, steps: wire.steps }
       : { phase: "idle" };
@@ -57,6 +64,10 @@ const flowOf = (wire: WireFlow): AccountFlow =>
 export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): AccountSource {
   let wire: Accounts | undefined;
   let refused: string | undefined;
+  // Who signed out, until the panel is put away; and the ended sign-in the panel has been put away on.
+  let left: SignedOutNote | undefined;
+  let put: string | undefined;
+  let shown = "";
   let held: AccountHeld | undefined;
   let wasConnected = false;
   let starting = false;
@@ -77,8 +88,18 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
       if (flow?.phase === "code" && flow.address.startsWith("https://")) void fleet.openLink(flow.address);
     },
     dismiss: () => {
-      if (refused !== undefined) publish(wire, undefined);
+      const ended = wire?.flow.phase === "idle" ? wire.flow.ended : undefined;
+      const hide = ended === undefined ? undefined : JSON.stringify(ended);
+      if (refused === undefined && left === undefined && hide === put) return;
+      left = undefined;
+      put = hide;
+      publish(wire, undefined);
     },
+    signOut: (login: string) => {
+      const profile = wire?.profiles.find((one) => one.login === login);
+      if (profile !== undefined) void leave(profile.account_id, login);
+    },
+    openSetting: (setting: BlankSetting) => openSettingsAt(setting, () => undefined),
     switchTo: (login: string) => {
       const profile = wire?.profiles.find((one) => one.login === login);
       if (profile === undefined || profile.active) return;
@@ -93,15 +114,31 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
   };
 
   const heldOf = (from: Accounts, said: string | undefined): AccountHeld => {
-    const account: Account = { profiles: from.profiles, flow: flowOf(from.flow), syncs: null, ...acts };
     const ended = from.flow.phase === "idle" ? from.flow.ended : undefined;
+    const blank = said === undefined ? [] : blankIn(said);
+    // A refusal that names no blank setting is the forge declining to begin: it ends the sign-in, refused.
+    const end =
+      ended === undefined || ended.outcome === "signed_in" || JSON.stringify(ended) === put
+        ? undefined
+        : { outcome: ended.outcome, said: ended.said ?? "" };
+    const account: Account = {
+      profiles: from.profiles,
+      flow: flowOf(from.flow),
+      syncs: null,
+      ...(end === undefined ? {} : { ended: end }),
+      ...(said === undefined ? {} : blank.length > 0 ? { unavailable: { said, blank } } : { ended: { outcome: "refused" as const, said } }),
+      ...(left === undefined ? {} : { left }),
+      ...acts,
+    };
     return { account, ...(ended === undefined ? {} : { ended }), ...(said === undefined ? {} : { refused: said }) };
   };
 
   const publish = (to: Accounts | undefined, said: string | undefined): void => {
-    const same = JSON.stringify([to, said]) === JSON.stringify([wire, refused]);
+    const key = JSON.stringify([to, said, left, put]);
+    const same = key === shown;
     wire = to;
     refused = said;
+    shown = key;
     if (same) return;
     held = to === undefined ? undefined : heldOf(to, said);
     listeners.forEach((on) => on());
@@ -135,6 +172,8 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
   const begin = (): void => {
     if (starting || (wire !== undefined && wire.flow.phase !== "idle")) return;
     starting = true;
+    left = undefined;
+    put = undefined;
     const at = ++issued;
     void fleet
       .startSignIn()
@@ -149,12 +188,27 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
       });
   };
 
+  const leave = async (accountId: number, login: string): Promise<AccountsActed<SignedOut>> => {
+    const at = ++issued;
+    const answer = await fleet.signOut(accountId);
+    if (answer.ok) {
+      left = {
+        login,
+        storeRowRemains: answer.value.store_row_remains,
+        ...(answer.value.said === undefined ? {} : { said: answer.value.said }),
+      };
+      took({ ok: true, value: answer.value.accounts }, at);
+    }
+    return answer;
+  };
+
   const changed = (facts: Pick<BridgeState, "connection">): void => {
     const connected = facts.connection.state === "connected";
     if (connected && !wasConnected) read();
     else if (!connected && wasConnected) {
       cancel?.();
       cancel = null;
+      left = undefined;
       publish(undefined, undefined);
     }
     wasConnected = connected;
@@ -184,11 +238,6 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
         }
       };
     },
-    signOut: async (accountId) => {
-      const at = ++issued;
-      const answer = await fleet.signOut(accountId);
-      if (answer.ok) took({ ok: true, value: answer.value.accounts }, at);
-      return answer;
-    },
+    signOut: (accountId) => leave(accountId, wire?.profiles.find((one) => one.account_id === accountId)?.login ?? ""),
   };
 }
