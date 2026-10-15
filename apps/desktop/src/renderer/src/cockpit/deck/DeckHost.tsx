@@ -13,6 +13,8 @@ import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
+import { AGE_MS } from "./clock";
+import { quantized } from "./field";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -88,7 +90,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const ship = useShip({ ...NO_HOSTS, state, now, picked, nowViews, nows }, false);
+  const ship = useShip({ ...NO_HOSTS, state, now: quantized(now, AGE_MS), picked, nowViews, nows }, false);
   const deck = useDeck();
   const off = placesOff(hidden, useLayout("rail").all);
   useEffect(() => setHere(here), [here]);

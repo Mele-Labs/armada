@@ -5,7 +5,7 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
@@ -21,7 +21,8 @@ import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
-import { quantized } from "./field";
+import { useClock } from "./clock";
+import { CLOCK_MS } from "./field";
 import { ActivityFeed, Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
@@ -513,18 +514,46 @@ function ClashesOpenHere({ ship, children }: { ship: Ship; children: ReactNode }
   return <ClashesProvider value={value}>{children}</ClashesProvider>;
 }
 
-export function DeckBody(props: CockpitProps) {
-  const ship = useShip(props);
-  const deck = useDeck();
-  const autopilot = useAutopilotLane({ picked: props.picked, state: props.state, now: props.now });
-  // An Autopilot's strip, opened, brings the lane up for it once.
+/**
+ * An Autopilot's strip, opened, brings the lane up for it once. A part of its own: the dispatching the window holds is a new object
+ * each time the window draws, so a body that read it drew again every second.
+ */
+function AutopilotAsked({ control }: { control: ReturnType<typeof useAutopilotLane>["control"] }) {
   const dispatching = useDispatching();
   useEffect(() => {
-    if (dispatching?.autopilotAsked !== true || autopilot.control === undefined) return;
-    autopilot.control.openNext();
+    if (dispatching?.autopilotAsked !== true || control === undefined) return;
+    control.openNext();
     enterAutopilot();
     dispatching.autopilotShown();
   });
+  return null;
+}
+
+/** The replay's driver and its keys, apart from the body: they read the events by a five-second clock, and the body is handed the minute. */
+function ReplayHost({ props, ship }: { props: CockpitProps; ship: Ship }) {
+  const deck = useDeck();
+  const events = useFleetEvents();
+  const clock = useClock(CLOCK_MS);
+  const replayable = useMemo(() => windowOf(events, clock)?.events ?? [], [events, clock]);
+  const repositories = props.state.holds.repositories ?? [];
+  const ownerOf = (number: number) => {
+    const pr = ship.prs.find((one) => one.number === number);
+    return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
+  };
+  const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
+  useReplayDriver(replayable, ownerOf, rootOf);
+  useReplayKeys(deck.replay !== undefined, replayable, ownerOf, rootOf, (target) => {
+    const id = panelAt(target)?.id;
+    return id === "stage" ? "map" : id;
+  });
+  return null;
+}
+
+/** **Drawn when what it is handed changes and not each second**: `CommandCentral` hands it the minute and callbacks that do not change. */
+export const DeckBody = memo(function DeckBody(props: CockpitProps) {
+  const ship = useShip(props);
+  const deck = useDeck();
+  const autopilot = useAutopilotLane({ picked: props.picked, state: props.state, now: props.now });
   // A call an alert asked for is opened as a row of the list opens one, once this is on screen. `at` makes a second press land.
   const { bring, onBrought } = props;
   useEffect(() => {
@@ -546,25 +575,13 @@ export function DeckBody(props: CockpitProps) {
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = deck.sel?.kind === "session" && ship.subjects.some((one) => one.key === deck.sel?.key && one.kind === "session");
   const selected = deck.sel?.key;
-  // A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up.
-  const events = useFleetEvents();
-  const clock = quantized(props.now);
-  const replayable = useMemo(() => windowOf(events, clock)?.events ?? [], [events, clock]);
-  const repositories = props.state.holds.repositories ?? [];
-  const ownerOf = (number: number) => {
-    const pr = ship.prs.find((one) => one.number === number);
-    return pr?.owner === undefined ? undefined : `${pr.owner.kind}:${pr.owner.id}`;
-  };
-  const rootOf = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
-  useReplayDriver(replayable, props.now, ownerOf, rootOf);
-  useReplayKeys(deck.replay !== undefined, replayable, ownerOf, rootOf, (target) => {
-    const id = panelAt(target)?.id;
-    return id === "stage" ? "map" : id;
-  });
   return (
     <ClashesOpenHere ship={ship}>
+    {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
+    <ReplayHost props={props} ship={ship} />
+    <AutopilotAsked control={autopilot.control} />
     <div className="armada-cockpit deck">
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
@@ -592,4 +609,4 @@ export function DeckBody(props: CockpitProps) {
     </div>
     </ClashesOpenHere>
   );
-}
+});

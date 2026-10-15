@@ -26,7 +26,7 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
     <>
       {replay === undefined ? null : <ReplayMark />}
       {replay !== undefined || picked === undefined ? null : <FocusChip event={picked} now={props.now} onReplay={reaches ? () => startReplay(Date.parse(picked.at)) : undefined} />}
-      {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} end={props.now} onLive={stopReplay} />}
+      {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} onLive={stopReplay} />}
     </>
   );
 }

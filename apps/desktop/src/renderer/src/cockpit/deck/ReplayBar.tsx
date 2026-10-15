@@ -8,6 +8,7 @@ import { Button, Tooltip } from "@armada/components";
 import type { TimelineEvent } from "@armada/protocol";
 
 import { age } from "../../Dashboard";
+import { useClock } from "./clock";
 import { SPEEDS, inOrder } from "./replay";
 import { changeReplay, type Replay } from "./store";
 
@@ -46,7 +47,9 @@ export function ReplayMark() {
 }
 
 /** Play and pause, the speed, the track from where it began to now with a tick for each event, and the way back to Live. */
-export function ReplayBar({ events, replay, end, onLive }: { events: readonly TimelineEvent[]; replay: Replay; end: number; onLive: () => void }) {
+export function ReplayBar({ events, replay, onLive }: { events: readonly TimelineEvent[]; replay: Replay; onLive: () => void }) {
+  // The track ends at now, a second at a time: it is drawn only while a replay is, and the deck around it is handed the minute.
+  const end = useClock(1000);
   const ticks = inOrder(events).filter((one) => when(one) >= replay.from && when(one) <= end);
   const span = Math.max(1, end - replay.from);
   const at = (ms: number) => `${(Math.min(1, Math.max(0, (ms - replay.from) / span)) * 100).toFixed(2)}%`;

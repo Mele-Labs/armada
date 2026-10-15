@@ -17,7 +17,8 @@ import { useAreas } from "./areas-source";
 import { useSlotTouches } from "./touches-source";
 import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
-import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, quantized, throttled, TICK_MS } from "./field";
+import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, throttled, TICK_MS } from "./field";
+import { useClock } from "./clock";
 import { droneOf, type PrIn, type RepoIn } from "./layout";
 import { fieldAt, windowOf } from "./replay";
 import { MOST_PLAYING, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play } from "./plays";
@@ -27,7 +28,7 @@ import { slotsOf, type Ship, type Subject } from "./ship";
 import { clashesOf, touchesFromEvents, touchesOf } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
 
-type FieldProps = Pick<CockpitProps, "state" | "now" | "picked">;
+type FieldProps = Pick<CockpitProps, "state" | "picked">;
 
 /** The timeline's events, held to a redraw every quarter second however fast they arrive. */
 function useCalmEvents(): readonly TimelineEvent[] {
@@ -69,7 +70,8 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const areasOf = useAreas();
   const slotTouched = useSlotTouches();
   const written = useWriteClashes();
-  const clock = quantized(props.now, CLOCK_MS);
+  // The field moves in five-second steps whatever the deck is handed.
+  const clock = useClock(CLOCK_MS);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
   const slots = slotsOf(props.state, props.picked);
   const repositories = props.state.holds.repositories ?? [];
