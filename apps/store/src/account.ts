@@ -13,7 +13,20 @@ import {
   signedText,
   verifySignature,
 } from "./signing";
-import { HASH, MAX_BODY_BYTES, MAX_KEYS, exactly, holderOf, parseJson, type Holder } from "./rows";
+import {
+  HASH,
+  MAX_BODY_BYTES,
+  MAX_CLAIMS,
+  MAX_DEVICES,
+  MAX_KEYS,
+  MAX_OWNERS,
+  RATE_WINDOW_SECONDS,
+  REQUESTS_PER_MINUTE,
+  exactly,
+  holderOf,
+  parseJson,
+  type Holder,
+} from "./rows";
 
 const NONCE = /^[A-Za-z0-9_-]{16,64}$/;
 const TIME = /^[0-9]{1,12}$/;
@@ -29,8 +42,18 @@ const holderFrom = (row: HolderRow): Holder => ({ kind: row.kind, id: row.id, ma
 export class Account extends DurableObject<Env> {
   private readonly sql = this.ctx.storage.sql;
 
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
+  /** Whether the tables exist. They are made by the first enrolment and by nothing a stranger can send. */
+  private made = false;
+
+  /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has its devices. */
+  register(device: string, publicKey: string, machine: string): "ok" | "full" {
+    this.makeTables();
+    if (this.count("devices") >= MAX_DEVICES) return "full";
+    this.sql.exec("INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)", device, publicKey, machine);
+    return "ok";
+  }
+
+  private makeTables(): void {
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
@@ -38,11 +61,16 @@ export class Account extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS claims (repo TEXT NOT NULL, red TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, red));
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
     `);
+    this.made = true;
   }
 
-  /** Called by the Worker's enrol, which has already checked the key parses. */
-  register(device: string, publicKey: string, machine: string): void {
-    this.sql.exec("INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)", device, publicKey, machine);
+  private hasTables(): boolean {
+    this.made ||= this.sql.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'devices'").toArray().length > 0;
+    return this.made;
+  }
+
+  private count(table: "devices" | "claims" | "owners"): number {
+    return this.sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).one().n;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -64,6 +92,8 @@ export class Account extends DurableObject<Env> {
     if (!device || !time || !nonce || !signature || !TIME.test(time) || !NONCE.test(nonce)) {
       return refuse(401, "unsigned");
     }
+    // An account nobody enrolled has no tables, and a stranger's request must not make them.
+    if (!this.hasTables()) return refuse(401, "unknown_device");
     const row = this.sql.exec<{ public_key: string }>("SELECT public_key FROM devices WHERE id = ?", device).toArray()[0];
     if (!row) return refuse(401, "unknown_device");
 
@@ -74,8 +104,15 @@ export class Account extends DurableObject<Env> {
     const text = signedText(request.method, target, time, nonce, await bodyHash(body));
     if (!(await verifySignature(key, text, signature))) return refuse(401, "bad_signature");
 
-    // Only a request that verified takes a nonce, so garbage cannot fill the table.
+    // Only a request that verified takes a nonce or a place in the minute, so garbage cannot fill the table
+    // or use up a device's requests. The nonces of the last minute are the count.
     this.sql.exec("DELETE FROM nonces WHERE seen < ?", now - NONCE_KEEP_SECONDS);
+    const recent = this.sql
+      .exec<{ n: number }>("SELECT COUNT(*) AS n FROM nonces WHERE device = ? AND seen > ?", device, now - RATE_WINDOW_SECONDS)
+      .one().n;
+    if (recent >= REQUESTS_PER_MINUTE) {
+      return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(RATE_WINDOW_SECONDS) } });
+    }
     const taken = this.sql.exec("INSERT OR IGNORE INTO nonces (device, nonce, seen) VALUES (?, ?, ?)", device, nonce, now);
     return taken.rowsWritten === 0 ? refuse(401, "replayed_nonce") : null;
   }
@@ -117,6 +154,7 @@ export class Account extends DurableObject<Env> {
     if (!body || !holder || !HASH.test(String(body.repo)) || !HASH.test(String(body.red))) return refuse(400, "invalid_body");
     const repo = String(body.repo);
     const red = String(body.red);
+    if (this.count("claims") >= MAX_CLAIMS && !this.claimHolder(repo, red)) return refuse(413, "claims_full");
     const won = this.sql.exec(
       "INSERT OR IGNORE INTO claims (repo, red, kind, id, machine, since) VALUES (?, ?, ?, ?, ?, ?)",
       repo, red, holder.kind, holder.id, holder.machine, holder.since,
@@ -152,6 +190,8 @@ export class Account extends DurableObject<Env> {
     const body = exactly(parseJson(text), ["holder"]);
     const holder = holderOf(body?.holder);
     if (!holder) return refuse(400, "invalid_body");
+    const known = this.sql.exec("SELECT 1 FROM owners WHERE key = ?", key).toArray().length > 0;
+    if (!known && this.count("owners") >= MAX_OWNERS) return refuse(413, "owners_full");
     this.sql.exec(
       `INSERT INTO owners (key, kind, id, machine, since) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (key) DO UPDATE SET kind = excluded.kind, id = excluded.id, machine = excluded.machine, since = excluded.since`,

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { runInDurableObject } from "cloudflare:test";
 import { vi } from "vitest";
 import { signRequest, toBase64, type SignedHeaders } from "../src/signing";
 import worker from "../src/index";
@@ -43,6 +44,8 @@ export async function enrolDevice(account: number, machine = "studio"): Promise<
   try {
     const answer = await toStore(`${STORE}/v1/enrol`, {
       method: "POST",
+      // Each enrolment comes from its own address, so the per-address limit never meets a test that is not about it.
+      headers: { "CF-Connecting-IP": `10.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}` },
       body: JSON.stringify({ token, public_key: spki, machine }),
     });
     const { device } = (await answer.json()) as { device: string };
@@ -71,4 +74,18 @@ export async function call(
 
 export async function claim(device: Device, repo: string, red: string, who: Holder) {
   return call(device, "POST", "/v1/claims", { repo, red, holder: who });
+}
+
+/** The Durable Object for `account`, as the Worker would reach it. */
+export const accountObject = (account: number) => env.ACCOUNT.get(env.ACCOUNT.idFromName(String(account)));
+
+/** Everything a Durable Object holds, as text: `[]` when it holds no table at all. */
+export async function everythingStoredFor(account: number): Promise<string> {
+  return runInDurableObject(accountObject(account), (_instance, state) => {
+    const sql = state.storage.sql;
+    const tables = sql
+      .exec<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'")
+      .toArray();
+    return JSON.stringify(tables.map(({ name }) => ({ name, rows: sql.exec(`SELECT * FROM ${name}`).toArray() })));
+  });
 }
