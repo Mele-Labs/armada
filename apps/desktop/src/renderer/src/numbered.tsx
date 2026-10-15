@@ -12,10 +12,15 @@ import type { ReactNode } from "react";
 import type { ComposerNumbered, NumberedHit } from "@armada/components";
 import type { HubPullRequest, PullRequestState, TrackedIssue } from "@armada/protocol";
 
-/** An open issue, as `#` tags it. */
-export const issueHit = (issue: Pick<TrackedIssue, "number" | "title"> & { url?: string }): NumberedHit => ({
-  tag: { kind: "issue", id: String(issue.number), title: `#${issue.number} ${issue.title}`, ...(issue.url === undefined ? {} : { url: issue.url }) },
-});
+/**
+ * An open issue, as `#` tags it. **Only a numbered issue**: `#` types digits, so an issue whose tracker names it
+ * by a key (`ABC-123`) has nothing to be found by there and is left out.
+ */
+export const issueHit = (issue: Pick<TrackedIssue, "reference" | "title"> & { url?: string }): NumberedHit | undefined => {
+  const number = /^#(\d+)$/.exec(issue.reference)?.[1];
+  if (number === undefined) return undefined;
+  return { tag: { kind: "issue", id: number, title: `#${number} ${issue.title}`, ...(issue.url === undefined ? {} : { url: issue.url }) } };
+};
 
 /** An open pull request off the merge line's hub. */
 export const pullRequestHit = (pull: Pick<HubPullRequest, "number" | "title"> & { url?: string }): NumberedHit => ({

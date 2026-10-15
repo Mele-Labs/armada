@@ -34,8 +34,8 @@ const METRO: Metro = {
 const AUTOPILOT = {
   state: "running",
   picks: [
-    { pick_id: "p1", issue_number: 1850, issue_title: "Log viewer drops the last line", issue_url: "u", job_id: "j1", state: "started", reason: "One file.", at: "" },
-    { pick_id: "p2", issue_number: 1820, issue_title: "Flaky test", issue_url: "u", job_id: "j2", state: "started", reason: "Clear.", at: "" },
+    { pick_id: "p1", issue_reference: "#1850", issue_title: "Log viewer drops the last line", issue_url: "u", job_id: "j1", state: "started", reason: "One file.", at: "" },
+    { pick_id: "p2", issue_reference: "#1820", issue_title: "Flaky test", issue_url: "u", job_id: "j2", state: "started", reason: "Clear.", at: "" },
   ],
 } as Autopilot;
 

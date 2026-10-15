@@ -30,23 +30,23 @@ async function serving(status: number, body: unknown): Promise<{ port: number; a
   return { port: (server.address() as AddressInfo).port, asked };
 }
 
-describe("an issue by number", () => {
+describe("an issue by reference", () => {
   it("is read on the repository's path and answered whole", async () => {
-    const issue = { number: 61, title: "Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61", state: "closed" };
+    const issue = { reference: "#61", title: "Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61", state: "closed" };
     const fleet = await serving(200, issue);
-    const read = await new IssuesHost(() => fleet.port).issue(MANIFEST, 61);
+    const read = await new IssuesHost(() => fleet.port).issue(MANIFEST, "#61");
     expect(read).toEqual({ ok: true, value: issue });
-    expect(fleet.asked).toEqual([`GET /issues/${MANIFEST}/61`]);
+    expect(fleet.asked).toEqual([`GET /issues/${MANIFEST}/%2361`]);
   });
 
   it("is refused in Fleet's own words where there is no such issue", async () => {
     const fleet = await serving(404, { code: "fleet.no_such_issue", message: "There is no issue 9999", run_id: "r", fields: {}, chain: [] });
-    const read = await new IssuesHost(() => fleet.port).issue(MANIFEST, 9999);
+    const read = await new IssuesHost(() => fleet.port).issue(MANIFEST, "9999");
     expect(read).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.no_such_issue" } } });
   });
 
   it("is not asked where Fleet is not connected", async () => {
-    expect(await new IssuesHost(() => null).issue(MANIFEST, 61)).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    expect(await new IssuesHost(() => null).issue(MANIFEST, "ABC-61")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 });
 

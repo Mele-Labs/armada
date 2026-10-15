@@ -25,11 +25,11 @@ export class IssuesHost {
     return { ok: true, value: answer.body as IssueList };
   }
 
-  /** `GET /issues/:repository/:number`: one issue, open or closed. */
-  async issue(manifestId: string, number: number): Promise<IssueNumberRead> {
+  /** `GET /issues/:repository/:reference`: one issue, open or closed, named as its tracker writes it. */
+  async issue(manifestId: string, reference: string): Promise<IssueNumberRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "GET", `/issues/${encodeURIComponent(manifestId)}/${number}`);
+    const answer = await ask(port, "GET", `/issues/${encodeURIComponent(manifestId)}/${encodeURIComponent(reference)}`);
     return answer.ok === true ? { ok: true, value: answer.body as IssueRead } : { ok: false, outcome: answer.outcome };
   }
 

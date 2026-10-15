@@ -18,11 +18,11 @@ function autopilot(over: Partial<Autopilot> = {}): Autopilot {
     jobs_started: 3,
     at_work: 2,
     picks: [
-      { pick_id: "p1", issue_number: 1850, issue_title: "Log viewer drops the last line", issue_url: "u", job_id: "j1", state: "started", reason: "clear", at: "" },
-      { pick_id: "p2", issue_number: 1820, issue_title: "Flaky scout cost test", issue_url: "u", job_id: "j2", state: "started", reason: "clear", at: "" },
-      { pick_id: "p3", issue_number: 1834, issue_title: "Wrong label on Settings", issue_url: "u", job_id: "j3", state: "started", reason: "clear", at: "" },
-      { pick_id: "p4", issue_number: 1802, issue_title: "Which settings file wins", issue_url: "u", state: "set_aside", reason: "A design call.", at: "" },
-      { pick_id: "p5", issue_number: 1790, issue_title: "Old one", issue_url: "u", state: "withdrawn", reason: "clear", at: "" },
+      { pick_id: "p1", issue_reference: "#1850", issue_title: "Log viewer drops the last line", issue_url: "u", job_id: "j1", state: "started", reason: "clear", at: "" },
+      { pick_id: "p2", issue_reference: "#1820", issue_title: "Flaky scout cost test", issue_url: "u", job_id: "j2", state: "started", reason: "clear", at: "" },
+      { pick_id: "p3", issue_reference: "#1834", issue_title: "Wrong label on Settings", issue_url: "u", job_id: "j3", state: "started", reason: "clear", at: "" },
+      { pick_id: "p4", issue_reference: "#1802", issue_title: "Which settings file wins", issue_url: "u", state: "set_aside", reason: "A design call.", at: "" },
+      { pick_id: "p5", issue_reference: "#1790", issue_title: "Old one", issue_url: "u", state: "withdrawn", reason: "clear", at: "" },
     ],
     ...over,
   };
@@ -79,29 +79,29 @@ describe("Next up", () => {
     manifest_id: "armada",
     fetched_at: "",
     issues: [
-      { number: 1850, title: "Picked already", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
-      { number: 1849, title: "Fleet restart drops a lease", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: true },
-      { number: 1853, title: "Copy button missing", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
-      { number: 1856, title: "Badge count off by one", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
+      { reference: "#1850", title: "Picked already", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
+      { reference: "#1849", title: "Fleet restart drops a lease", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: true },
+      { reference: "#1853", title: "Copy button missing", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
+      { reference: "#1856", title: "Badge count off by one", url: "u", labels: [], assignees: [], updated_at: "", excerpt: "", linked_pull_request: false },
     ],
   };
 
   it("numbers what it can choose, leaves out what it picked, and passes over one with a pull request last", () => {
-    expect(nextUpOf(autopilot(), issues).map((one) => [one.order, one.number, one.note])).toEqual([
-      [1, 1853, undefined],
-      [2, 1856, undefined],
-      [undefined, 1849, "has a pull request"],
+    expect(nextUpOf(autopilot(), issues).map((one) => [one.order, one.reference, one.note])).toEqual([
+      [1, "#1853", undefined],
+      [2, "#1856", undefined],
+      [undefined, "#1849", "has a pull request"],
     ]);
     expect(nextUpOf(autopilot(), undefined)).toEqual([]);
   });
 
   it("is bounded however long the backlog", () => {
-    const many = { ...issues, issues: Array.from({ length: 40 }, (_, at) => ({ ...issues.issues[2]!, number: 2000 + at })) };
+    const many = { ...issues, issues: Array.from({ length: 40 }, (_, at) => ({ ...issues.issues[2]!, reference: `#${2000 + at}` })) };
     expect(nextUpOf(autopilot(), many)).toHaveLength(8);
   });
 
   it("leaves the set-aside picks to their own siding", () => {
-    expect(setAsideOf(autopilot()).map((pick) => pick.issue_number)).toEqual([1802]);
+    expect(setAsideOf(autopilot()).map((pick) => pick.issue_reference)).toEqual(["#1802"]);
   });
 });
 

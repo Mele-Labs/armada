@@ -18,7 +18,7 @@ function nextUpStop(pick: AutopilotPick, job: JobSummary): Stop {
       pill: "picked",
       title: "Picked by Autopilot, not started",
       rows: [
-        ["Issue", `#${pick.issue_number} ${pick.issue_title}`],
+        ["Issue", `${pick.issue_reference} ${pick.issue_title}`],
         ["Why", pick.reason],
       ],
       acts: [{ kind: "job", id: job.id, label: "Open Job" }],

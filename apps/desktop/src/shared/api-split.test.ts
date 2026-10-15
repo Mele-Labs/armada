@@ -504,7 +504,7 @@ type OldBridgeApi = {
     settleDownshift: () => Promise<ModelDownshiftRead>;
     onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
-    getIssue: (manifestId: string, number: number) => Promise<IssueNumberRead>;
+    getIssue: (manifestId: string, reference: string) => Promise<IssueNumberRead>;
     getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;

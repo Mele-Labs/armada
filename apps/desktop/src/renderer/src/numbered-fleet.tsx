@@ -87,7 +87,7 @@ export class FleetNumbered {
       .then((read) => {
         held.loading = false;
         if (!read.ok) return;
-        held.hits = read.value.issues.map(issueHit);
+        held.hits = read.value.issues.flatMap((issue) => issueHit(issue) ?? []);
         this.changed();
       })
       .catch(() => {
@@ -112,9 +112,10 @@ export class FleetNumbered {
     // A pull request first, open, merged or closed; a number the forge has no pull request for is tried as an issue.
     const pull = await this.api.getPullRequest(manifestId, number).catch(() => undefined);
     if (pull?.ok === true) return lookedUpPullRequest(pull.value);
-    const issue = await this.api.getIssue(manifestId, number).catch(() => undefined);
+    const issue = await this.api.getIssue(manifestId, `#${number}`).catch(() => undefined);
     if (issue?.ok !== true) return undefined;
     const hit = issueHit(issue.value);
+    if (hit === undefined) return undefined;
     return issue.value.state === "closed" ? { ...hit, standing: "Closed" } : hit;
   };
 

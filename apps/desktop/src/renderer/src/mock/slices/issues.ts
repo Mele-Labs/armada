@@ -16,7 +16,7 @@ function listed(manifestId: string): IssueList {
     fetched_at: "2026-10-11T12:00:00Z",
     issues: [
       {
-        number: 412,
+        reference: "#412",
         title: "The log reader drops the last line",
         url: "https://forge.invalid/storefront/issues/412",
         labels: ["bug"],
@@ -26,7 +26,7 @@ function listed(manifestId: string): IssueList {
         linked_pull_request: false,
       },
       {
-        number: 398,
+        reference: "#398",
         title: "Checkout button stays disabled after a failed card",
         url: "https://forge.invalid/storefront/issues/398",
         labels: [],
@@ -36,7 +36,7 @@ function listed(manifestId: string): IssueList {
         linked_pull_request: true,
       },
       {
-        number: 405,
+        reference: "#405",
         title: "Coupon field accepts an expired code",
         url: "https://forge.invalid/storefront/issues/405",
         labels: ["bug"],
@@ -46,7 +46,7 @@ function listed(manifestId: string): IssueList {
         linked_pull_request: false,
       },
       {
-        number: 409,
+        reference: "#409",
         title: "Order history pages past the last order",
         url: "https://forge.invalid/storefront/issues/409",
         labels: [],
