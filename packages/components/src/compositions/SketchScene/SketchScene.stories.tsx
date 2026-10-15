@@ -468,7 +468,7 @@ export const ShareSaveThatFails: Story = {
   play: async ({ canvas }) => {
     host.save.mockResolvedValueOnce({ saved: false, why: "failed" });
     await choose(canvas, "Save as web page");
-    await waitFor(() => expect(host.said).toHaveBeenCalledWith("Could not save How data moves.html."));
+    await waitFor(() => expect(host.said).toHaveBeenCalledWith("How data moves.html was not saved."));
     host.save.mockResolvedValueOnce({ saved: false, why: "cancelled" });
     await choose(canvas, "Save as web page");
     await waitFor(() => expect(host.save).toHaveBeenCalledTimes(1));

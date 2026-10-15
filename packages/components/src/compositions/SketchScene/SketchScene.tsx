@@ -550,7 +550,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         const said = savedSaid(first.name, saved);
         if (said !== undefined) host.said?.(said);
       } catch {
-        host.said?.(`Could not save ${first.name}.`);
+        host.said?.(`${first.name} was not saved.`);
       }
     };
     if (id === "mermaid") {
@@ -558,7 +558,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
         await copyWith(host, sceneMermaid(shown));
         host.copied?.(MERMAID_COPIED);
       } catch {
-        host.said?.("Could not copy the Mermaid text.");
+        host.said?.("The Mermaid text did not copy.");
       }
     } else if (id === "html") {
       const pulse = pulseMs() > 0 ? pulseMs() : 1600;
@@ -574,7 +574,7 @@ export function SketchScene({ scene: given, against, title, onAsk, marks, onMark
           { kind: "svg", name: sketchFileName(title, "svg"), data: svg },
         ]);
       } catch {
-        host.said?.(`Could not save ${sketchFileName(title, "png")}.`);
+        host.said?.(`${sketchFileName(title, "png")} was not saved.`);
       }
     }
   };

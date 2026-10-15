@@ -33,7 +33,7 @@ export const MERMAID_COPIED = "The Mermaid text";
 /** A save that ended, said in one sentence. */
 export function savedSaid(name: string, saved: SketchShareSaved): string | undefined {
   if (saved.saved) return `Saved ${saved.name}.`;
-  return saved.why === "cancelled" ? undefined : `Could not save ${name}.`;
+  return saved.why === "cancelled" ? undefined : `${name} was not saved.`;
 }
 
 /** The title as a file name: nothing a file system or a shell reads as more than a letter, and never empty. */
