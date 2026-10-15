@@ -34,28 +34,85 @@
   overflow: hidden;
 }
 
+/* The head is one row: the terminal glyph, the title, the acts, the context tank, the marks, and the state mark last. */
 .armada-session-frame__head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
   color: var(--fg-muted);
 }
 
-.armada-session-frame__id {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+/* The terminal glyph carries the address in its tooltip. */
+.armada-session-frame__glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
 }
 
+/* One line, ellipsised, the whole of it in the tooltip. The tooltip's wrapper may shrink so the text can. */
 .armada-session-frame__title {
+  display: flex;
   flex: 1;
   min-width: 0;
   color: var(--fg-default);
   font-weight: var(--weight-medium);
 }
 
-/* The context window's fill: live tokens and the percent, mono and weighted, coloured by how full. No gauge.
-   With a breakdown it is a button and opens a `StopCard`, hung under it with right edges aligned. */
+.armada-session-frame__title > .armada-tooltip {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.armada-session-frame__title-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A title that can be renamed is a button that looks like the text it holds. */
+button.armada-session-frame__title-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: text;
+}
+
+button.armada-session-frame__title-text:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-frame__marks {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-session-frame__marks:empty {
+  display: none;
+}
+
+/* The state mark last, with a rule and room of its own. */
+.armada-session-frame__state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  margin-inline-start: var(--space-1);
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--border-default);
+}
+
+/* The context window as a tank: a mono pill of the live tokens and the percent, filled from its leading edge to the
+   percent in the tone of how full it is, with a crisp edge at the level and a dotted line at the autocompact threshold.
+   With a breakdown it is a button and opens a `StopCard`, hung under it from its leading edge. */
 .armada-session-frame__context {
   flex: none;
   font-family: var(--font-mono);
@@ -66,9 +123,6 @@
 }
 
 button.armada-session-frame__context {
-  padding: 0;
-  border: 0;
-  background: none;
   cursor: pointer;
 }
 
@@ -101,19 +155,7 @@ button.armada-session-frame__context:focus-visible {
   position: absolute;
   z-index: var(--z-tooltip);
   top: 100%;
-  inset-inline-end: 0;
-}
-
-/* The model a Session runs on: a mono name after its glyph, in the head's muted ink. */
-.armada-session-frame__model {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
+  inset-inline-start: 0;
 }
 
 /* A Session that is big or old: a quiet mark, and a card of two acts hung under it as the context card is. */
@@ -156,7 +198,7 @@ button.armada-session-frame__fresh[data-busy] svg {
   position: absolute;
   z-index: var(--z-tooltip);
   top: 100%;
-  inset-inline-end: 0;
+  inset-inline-start: 0;
 }
 
 .armada-session-frame__fresh-acts {
@@ -194,16 +236,6 @@ button.armada-session-frame__fresh[data-busy] svg {
 .armada-context-bar > i:nth-child(6) { background: color-mix(in srgb, var(--tone) 30%, transparent); }
 .armada-context-bar > i[data-kind="free"] { background: var(--bg-sunken); }
 .armada-context-bar > i[data-kind="buffer"] { background: var(--border-default); }
-
-/* A title that can be renamed is a button that looks like the text it holds. */
-button.armada-session-frame__title {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: text;
-}
 
 .armada-session-frame__body {
   display: flex;
@@ -244,4 +276,43 @@ button.armada-session-frame__title {
   gap: var(--space-3);
   min-width: 0;
   min-height: 0;
+}
+
+/* The tank: the pill itself, its fill behind the text. The reading is the button's own, so the fill moves with the value. */
+.armada-session-frame__context {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  isolation: isolate;
+}
+
+.armada-session-frame__context::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--fill, 0);
+  border-inline-end: var(--border-width) solid var(--tone, var(--fg-muted));
+  background: color-mix(in srgb, var(--tone, var(--fg-muted)) 30%, transparent);
+  transition: width var(--duration-fast) var(--ease);
+}
+
+/* Faint, so it does not cut the text it crosses. */
+.armada-session-frame__context[data-threshold]::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  inset-inline-start: var(--threshold, 100%);
+  border-inline-start: var(--border-width) dotted color-mix(in srgb, var(--fg-subtle) 45%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-frame__context::before {
+    transition: none;
+  }
 }

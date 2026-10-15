@@ -459,6 +459,11 @@ export class FakeSessionsFleet {
     return undefined;
   }
 
+  /** A turn of the agent has filled more of a Session's context window: the usage and what the window holds move together. */
+  fillTo(sessionId: string, usage: SessionRecord["usage"], breakdown: SessionRecord["context_breakdown"]): void {
+    this.change(sessionId, (one) => ({ ...one, usage, ...(breakdown === undefined ? {} : { context_breakdown: breakdown }) }));
+  }
+
   private set(records: SessionRecord[]): void {
     this.records = records;
     this.fleet?.publish({ sessions: { state: "read", sessions: records } });

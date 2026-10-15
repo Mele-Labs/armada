@@ -3,7 +3,7 @@
 
 import { expect, test } from "vitest";
 
-import { modelSaid } from "@armada/components/src/compositions/SessionFrame/ModelChip";
+import { modelSaid } from "@armada/components/src/compositions/SessionFrame/model-said";
 
 test("A resolved id is named by its family and version", () => {
   expect(modelSaid("vendor-opus-5-5")).toBe("Opus 5.5");
