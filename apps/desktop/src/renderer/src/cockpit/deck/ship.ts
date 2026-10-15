@@ -9,6 +9,7 @@ import { useEffect, useMemo } from "react";
 import { Bot, CircleDashed, Eye, ShieldX, type LucideIcon } from "lucide-react";
 import { sessionGlyphOf } from "@armada/components";
 import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
+import { ofPicked } from "@armada/screens";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 import type { NowView } from "@armada/jobs/draft/now";
 
@@ -412,7 +413,8 @@ export function useShip(props: ShipProps, hold = true): Ship {
   return useMemo(
     () =>
       shipOf({
-        jobs: state.jobs,
+        // Narrowed as the Board and Sessions are; the id lookups elsewhere keep every Job.
+        jobs: ofPicked(state.jobs, picked),
         sessions,
         lines: state.mergeLines?.lines ?? [],
         slots: slotsOf(state, picked),

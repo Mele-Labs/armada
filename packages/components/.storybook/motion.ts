@@ -3,8 +3,10 @@
 // **The test run emulates reduced motion** (`vitest.config.ts`), so every panel is in place on its
 // first frame. A story that proves a hold filling, a sweep running or a loop looping says
 // `parameters: { motion: "on" }`, and `preview.tsx`'s `beforeEach` brings motion back for it
-// alone. The switch is a Playwright call, so only the test run can make it: `vitest.setup.ts`
-// hands it here, and in `storybook dev` there is none and a story sees the machine's preference.
+// alone. Storybook runs that cleanup when the *next* story starts, so a file's last motion-on story
+// leaves motion on for the next file in the same page; `vitest.setup.ts` reduces it again per file.
+// The switch is a Playwright call, so only the test run can make it: `vitest.setup.ts` hands it
+// here, and in `storybook dev` there is none and a story sees the machine's preference.
 
 type Emulate = (on: boolean) => Promise<void>;
 

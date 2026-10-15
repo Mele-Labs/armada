@@ -528,6 +528,17 @@ export const WithPlacesInASlimWindow: Story = {
   },
 };
 
+/** A surface with no picker of its own: the row names the picked repository, as text, and cuts a long name. */
+export const WithRepository: Story = {
+  args: { ...WithPlaces.args!, repository: "armada" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("armada")).toBeVisible();
+    await expect(canvas.getByText("armada")).toHaveAttribute("title", "armada");
+    await expect(canvas.queryByRole("combobox")).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "armada" })).not.toBeInTheDocument();
+  },
+};
+
 /** Without the slots the row is what it was: the lockup, no tabs, the trigger with its label. */
 export const WithoutPlaces: Story = {
   args: Full.args!,
