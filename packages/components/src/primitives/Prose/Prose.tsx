@@ -265,9 +265,11 @@ function Block({ children }: { children?: ReactNode }) {
     </InBlock.Provider>
   );
   if (source === null) return pre;
+  // The fence's closing newline is not the block's text: pasted into a terminal it would run the command.
+  const copied = source.replace(/\n$/, "");
   if (command !== null) {
     return (
-      <RunnableBlock command={command} runner={runner!} copy={source}>
+      <RunnableBlock command={command} runner={runner!} copy={copied}>
         {pre}
       </RunnableBlock>
     );
@@ -277,7 +279,7 @@ function Block({ children }: { children?: ReactNode }) {
       <div className="armada-prose__run-block">
         {pre}
         <span className="armada-prose__run-acts">
-          <CopyAct text={source} />
+          <CopyAct text={copied} />
         </span>
       </div>
     </div>
