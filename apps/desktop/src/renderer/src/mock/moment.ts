@@ -13,7 +13,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { TimelineEvent, WriteClash } from "@armada/protocol";
 import type { BlankSetting, EndedOutcome, RegisteredOwnerRow, SharedRow, SyncItem, SyncKindWord } from "@armada/components";
 import type { AreaSource } from "../cockpit/deck/areas";
-import type { BayHistory } from "../cockpit/deck/bay-history";
+import type { BayHistory } from "@armada/protocol";
 import type { CommanderStore } from "./commander-fleet";
 import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";

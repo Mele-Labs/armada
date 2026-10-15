@@ -1,21 +1,13 @@
-// A bay's history as Fleet will serve it: every lease and every branch checkout, newest first. The shape is the query's.
-// Nothing serves it yet, so a window with no source draws the history the timeline's slot events give (`historyOfLedger`),
-// which has leases and no checkouts; a mock scenario hands its own list to `BayHistoriesFrom`. Wiring the real query is a
-// source passed to the same provider. #2301.
+// A bay's history as Fleet serves it: every lease and every branch checkout, newest first, asked of `getSlotHistory` when a
+// Bay pane is open and asked again when the timeline brings a slot event for the bay. While the answer is pending or refused
+// the window draws the history the timeline's slot events give (`historyOfLedger`), which has leases and no checkouts; a
+// mock scenario hands its own list to `BayHistoriesFrom`. #2301.
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { BayHistory, BayHistoryEntry, BayHolder } from "@armada/protocol";
 
+import type { BayHistoryRead } from "../../../../shared/api/bay-history";
 import type { Ledger } from "./bays";
-
-export type BayHolder = { kind: "job" | "session" | "agent"; id: string; title?: string };
-
-export type BayHistoryEntry =
-  | { kind: "leased"; at: string; holder: BayHolder; branch?: string }
-  | { kind: "released"; at: string; holder: BayHolder }
-  | { kind: "checkout"; at: string; from?: string; to: string; sha: string };
-
-/** `entries` are newest first. `cut` is set where Fleet kept more than it sent, so the first entry is not the bay's first. */
-export type BayHistory = { manifest_id: string; slot: number; entries: BayHistoryEntry[]; cut: boolean };
 
 /** One holder's time on the bay. A start is absent where the history is cut before it; an end is absent while it holds. */
 export type Stay = { holder: BayHolder; from?: number; to?: number; branch?: string };
@@ -69,22 +61,46 @@ export function historyOfLedger(manifestId: string, slot: number, ledger: Ledger
   return { manifest_id: manifestId, slot, entries, cut: entries.length > 0 };
 }
 
-/** What a window reads a bay's history from: `undefined` where nothing serves one. */
+/** What a window reads a bay's history from, ahead of asking Fleet: `undefined` where nothing is handed one. */
 export type BayHistorySource = (manifestId: string, slot: number) => BayHistory | undefined;
 
 const NONE: BayHistorySource = () => undefined;
 const Held = createContext<BayHistorySource>(NONE);
 
-/** Hand the window the histories a source serves. The mock's mount is the one caller until Fleet serves the query. */
+/** Hand the window the histories a source serves. The mock's mount is the one caller: it never asks Fleet. */
 export function BayHistoriesFrom({ histories, children }: { histories: readonly BayHistory[] | undefined; children: ReactNode }) {
   const source: BayHistorySource = histories === undefined ? NONE : (manifestId, slot) => histories.find((one) => one.manifest_id === manifestId && one.slot === slot);
   return <Held.Provider value={source}>{children}</Held.Provider>;
 }
 
-/** A bay's history as served, or the ledger's where nothing serves one. Nothing where neither has an entry. */
-export function useBayHistory(manifestId: string, slot: number, ledger: Ledger): BayHistory | undefined {
-  const served = useContext(Held)(manifestId, slot);
-  if (served !== undefined) return served;
+const askFleet = (manifestId: string, slot: number): Promise<BayHistoryRead> => window.armada.getSlotHistory(manifestId, slot);
+
+/**
+ * A bay's history as handed to the window, else Fleet's answer, else the ledger's. Fleet is asked when the bay is first drawn
+ * and again whenever a lease or release changes the ledger; the last answer stays up while the next is read. Nothing where
+ * none of the three has an entry.
+ */
+export function useBayHistory(manifestId: string, slot: number, ledger: Ledger, read: (manifestId: string, slot: number) => Promise<BayHistoryRead> = askFleet): BayHistory | undefined {
+  const handed = useContext(Held)(manifestId, slot);
+  const [fetched, setFetched] = useState<BayHistory>();
+  const moved = ledger.leases.map((one) => `${one.from ?? ""}-${one.to ?? ""}`).join("|");
+  useEffect(() => {
+    if (handed !== undefined) return;
+    let live = true;
+    read(manifestId, slot).then(
+      (answer) => {
+        if (live && answer.ok) setFetched(answer.value);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+    // `moved` stands for the ledger: a slot event for this bay is the cue to ask again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manifestId, slot, moved, handed === undefined]);
+  if (handed !== undefined) return handed;
+  if (fetched !== undefined && fetched.manifest_id === manifestId && fetched.slot === slot) return fetched;
   const derived = historyOfLedger(manifestId, slot, ledger);
   return derived.entries.length === 0 ? undefined : derived;
 }

@@ -7,9 +7,10 @@
 import { Fragment, type KeyboardEvent } from "react";
 import { GitBranch, SquareTerminal } from "lucide-react";
 import { Tooltip } from "@armada/components";
+import type { BayHistory, BayHolder } from "@armada/protocol";
 
 import { kindGlyph } from "./BayRows";
-import { rowsOf, type BayHistory, type BayHolder, type Stay } from "./bay-history";
+import { rowsOf, type Stay } from "./bay-history";
 import { clockOf, shortOf, spanOf } from "./bays";
 
 const DAY = 24 * 60 * 60_000;
