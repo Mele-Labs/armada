@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, waitFor } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor } from "storybook/test";
 
 import { SketchScene } from "./SketchScene";
+import { SketchShareContext } from "./SketchShare";
+import type { SketchShareFile, SketchShareHost, SketchShareSaved } from "./share";
 import { NO_MARKS, type Scene, type SceneMarks } from "./scene";
 
 /** A scene drawn in Armada's frames, with pan, zoom, fit, a pen, and a press on a part to ask about it. */
@@ -376,5 +378,109 @@ export const PanelCrawlsWhenNothingPlays: Story = {
     await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-flow]")).not.toBeNull());
     await expect(canvasElement.querySelector("[data-playing]")).toBeNull();
     await waitFor(() => expect(running(canvasElement)).toContain("armada-scene-flow"));
+  },
+};
+
+/** The host the sketch is shared through, stubbed: what each item asks of it is what these stories read. */
+const host = {
+  save: fn(async (files: readonly SketchShareFile[]): Promise<SketchShareSaved> => ({ saved: true, name: files[0]!.name })),
+  copy: fn(async (_text: string) => undefined),
+  copied: fn(),
+  said: fn(),
+} satisfies SketchShareHost;
+
+const shared: Story = {
+  args: { scene: HUB, title: "How data moves" },
+  render: (args) => (
+    <SketchShareContext.Provider value={host}>
+      <SketchScene {...args} />
+    </SketchShareContext.Provider>
+  ),
+};
+
+const choose = async (canvas: Parameters<NonNullable<Story["play"]>>[0]["canvas"], item: string) => {
+  for (const one of Object.values(host)) one.mockClear();
+  await userEvent.click(await canvas.findByRole("button", { name: "Share" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: item }));
+};
+
+const text = (data: string | Uint8Array) => (typeof data === "string" ? data : new TextDecoder().decode(data));
+
+/** Share opens a menu of three, and Save as web page hands the host one page named for the sketch, with the drawing and its steps in it. */
+export const ShareAsWebPage: Story = {
+  ...shared,
+  play: async ({ canvas }) => {
+    await userEvent.click(await canvas.findByRole("button", { name: "Share" }));
+    await expect(screen.getAllByRole("menuitem").map((one) => one.textContent)).toEqual(["Save as web page", "Save as image", "Copy as Mermaid"]);
+    await userEvent.keyboard("{Escape}");
+    await choose(canvas, "Save as web page");
+    await waitFor(() => expect(host.save).toHaveBeenCalledTimes(1));
+    const files = host.save.mock.calls[0]![0];
+    await expect(files.map((one) => [one.kind, one.name])).toEqual([["html", "How data moves.html"]]);
+    const page = text(files[0]!.data);
+    await expect(page.startsWith("<!doctype html>")).toBe(true);
+    await expect(page).toContain("WS /jobs/:id/observe and run observe, HTTP for commands");
+    await expect(page).toContain('id="sketch-steps"');
+    // Every box's words are all there, broken into lines as the canvas broke them.
+    const drawn = new DOMParser().parseFromString(page, "text/html");
+    for (const node of HUB.nodes) {
+      if (node.body === undefined) continue;
+      const lines = [...drawn.querySelectorAll(`[data-node="${node.id}"] .sk-body tspan`)].map((one) => one.textContent ?? "");
+      await expect(lines.join("").replace(/\s/g, "")).toBe(node.body.replace(/\s/g, ""));
+    }
+    await expect(page).not.toMatch(/https?:/);
+    await waitFor(() => expect(host.said).toHaveBeenCalledWith("Saved How data moves.html."));
+  },
+};
+
+/** Save as image offers the same drawing as a PNG at twice its size, and as an SVG, for the person to choose between in the save dialog. */
+export const ShareAsImage: Story = {
+  ...shared,
+  play: async ({ canvas }) => {
+    await choose(canvas, "Save as image");
+    await waitFor(() => expect(host.save).toHaveBeenCalledTimes(1));
+    const [png, svg] = host.save.mock.calls[0]![0] as [SketchShareFile, SketchShareFile];
+    await expect([png.kind, png.name, svg.kind, svg.name]).toEqual(["png", "How data moves.png", "svg", "How data moves.svg"]);
+    await expect([...(png.data as Uint8Array).slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const view = new DataView((png.data as Uint8Array).buffer, (png.data as Uint8Array).byteOffset);
+    const [w, h] = /viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"/.exec(text(svg.data))!.slice(1).map(Number) as [number, number];
+    await expect([view.getUint32(16), view.getUint32(20)]).toEqual([Math.round(w * 2), Math.round(h * 2)]);
+    await expect(text(svg.data)).toContain("Fleet");
+  },
+};
+
+/** Copy as Mermaid puts a flowchart on the clipboard with the arrows' words escaped, and says what was copied. */
+export const ShareAsMermaid: Story = {
+  ...shared,
+  play: async ({ canvas }) => {
+    await choose(canvas, "Copy as Mermaid");
+    await waitFor(() => expect(host.copy).toHaveBeenCalledTimes(1));
+    const mermaid = host.copy.mock.calls[0]![0];
+    await expect(mermaid.startsWith("flowchart ")).toBe(true);
+    await expect(mermaid).toContain('-- "WS /jobs/:id/observe and run observe, HTTP for commands" -->');
+    await waitFor(() => expect(host.copied).toHaveBeenCalledWith("The Mermaid text"));
+  },
+};
+
+/** A save the host could not make is said, and one the person cancelled is not. */
+export const ShareSaveThatFails: Story = {
+  ...shared,
+  play: async ({ canvas }) => {
+    host.save.mockResolvedValueOnce({ saved: false, why: "failed" });
+    await choose(canvas, "Save as web page");
+    await waitFor(() => expect(host.said).toHaveBeenCalledWith("How data moves.html was not saved."));
+    host.save.mockResolvedValueOnce({ saved: false, why: "cancelled" });
+    await choose(canvas, "Save as web page");
+    await waitFor(() => expect(host.save).toHaveBeenCalledTimes(1));
+    await expect(host.said).not.toHaveBeenCalled();
+  },
+};
+
+/** A card in a thread has no rail, so no Share. */
+export const PreviewHasNoShare: Story = {
+  args: { scene: HUB, preview: true },
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(8));
+    await expect(canvas.queryByRole("button", { name: "Share" })).toBeNull();
   },
 };

@@ -16,8 +16,9 @@ export function sceneOfSketch(drawing: SessionSketch | Scene): Scene {
 }
 
 /** What the panel reads of a ledger sketch: its scene, and the one it was drawn against. */
-export function readingOfSketch(one: Sketch): { scene: Scene; against?: { title: string; scene: Scene } } {
+export function readingOfSketch(one: Sketch): { scene: Scene; title: string; against?: { title: string; scene: Scene } } {
   return {
+    title: one.title,
     scene: sceneOfSketch(one.drawing),
     ...(one.against === undefined ? {} : { against: { title: one.against.title, scene: sceneOfSketch(one.against.drawing) } }),
   };

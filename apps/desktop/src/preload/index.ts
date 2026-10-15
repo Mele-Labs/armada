@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
+import { sketchSharePreload } from "./sketch-share";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -671,6 +672,7 @@ const api: BridgeApi = {
   getPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
     ipcRenderer.invoke(CHANNELS.getPullRequest, manifestId, number),
   ...autopilotPreload,
+  ...sketchSharePreload,
   getPlanUsage: (): Promise<PlanUsageRead> => ipcRenderer.invoke(CHANNELS.getPlanUsage),
   onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void): (() => void) => {
     const handler = (_event: unknown, usage: PlanUsage): void => onChanged(usage);

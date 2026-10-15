@@ -69,6 +69,7 @@ import { JobDetail, LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
+import { SketchSharing } from "./sketch-sharing";
 import {
   examine,
   openArtifact,
@@ -656,6 +657,7 @@ export function App({ draft }: AppProps = {}) {
     <ProseLinks.Provider value={openProseLink}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
+        <SketchSharing onCopied={setCopied} onSaid={setTelling}>
         <DispatchingProvider value={dispatching}>
         <Shell
           connection={state.connection}
@@ -1272,6 +1274,7 @@ export function App({ draft }: AppProps = {}) {
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>
+        </SketchSharing>
         </SessionsOwnership>
       </GuidanceProvider>
     </ProseLinks.Provider>

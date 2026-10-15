@@ -25,7 +25,7 @@ export type NowKind = "drone" | "check" | "judge";
  * A sketch the asking Drone drew to go with its question: a scene, which the Overview validates
  * and draws (`SketchScene`). It is handed over as it arrived, so a bad one draws nothing.
  */
-export type NowSketch = { scene: unknown };
+export type NowSketch = { scene: unknown; /** What it is called, for the file it is shared as. */ title?: string };
 
 /** What the Overview is asked to draw: the sketch, and the current-state one it changes, where there is one. */
 export type NowSketchShow = { sketch: NowSketch; against?: NowSketch };

@@ -1,20 +1,27 @@
 import { BaseEdge, Handle, Position, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
   Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, RotateCw, Scale,
-  ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
+  ExternalLink, ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "../../primitives/Button/Button";
+import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
 import { placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
+import { sketchHtml } from "./export-html";
+import { sceneMermaid } from "./export-mermaid";
+import { DEFAULT_METRICS, EXPORT_TOKENS, frameOf, sketchSvg, stepPlan, type ExportGeometry, type ExportMetrics, type SketchSvgInput } from "./export-svg";
+import { MERMAID_COPIED, savedSaid, sketchFileName, type SketchShareFile } from "./share";
+import { copyWith, saveWith, svgToPng, useSketchShareHost } from "./SketchShare";
 import {
-  NO_MARKS, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
+  CHANGE_SAID, NO_MARKS, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
 } from "./scene";
 
@@ -32,6 +39,8 @@ export type SketchSceneProps = {
   scene: unknown;
   /** The current-state scene this one changes. */
   against?: unknown;
+  /** What the sketch is called: the name of a file it is saved as, and the heading of the page it is shared as. */
+  title?: string;
   /** A press on a part opens a small ask about it; this hears what was asked. */
   onAsk?: (about: { id: string; label: string }, said: string) => void;
   /**
@@ -59,8 +68,6 @@ const ICON: Record<SceneIcon, LucideIcon> = {
   hammer: Hammer, "hard-drive": HardDrive, layers: Layers, lock: Lock, package: Package, rocket: Rocket, scale: Scale, "scroll-text": ScrollText,
   server: Server, settings: Settings, "shield-check": ShieldCheck, terminal: Terminal, webhook: Webhook, wrench: Wrench, zap: Zap,
 };
-
-const CHANGE_SAID: Record<SceneChange, string> = { added: "Added", removed: "Removed", changed: "Changed", same: "Unchanged" };
 
 type NodeData = {
   node: SceneNode;
@@ -215,6 +222,12 @@ const tokenPx = (name: string, fallback: number) => {
 /** The label's own type, read from the tokens it is drawn in: the mono face is as wide as 0.6 of its size, every character. */
 const labelMetrics = (): LabelMetrics => ({ charW: tokenPx("--text-xs", 14) * 0.6, lineH: tokenPx("--leading-xs", 20), pad: tokenPx("--space-1", 4) });
 
+const SHARE_ENTRIES: DropdownMenuEntry[] = [
+  { kind: "item", id: "html", label: "Save as web page" },
+  { kind: "item", id: "image", label: "Save as image" },
+  { kind: "item", id: "mermaid", label: "Copy as Mermaid" },
+];
+
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** A step is as long as the pulse token: the dot crosses its edge in most of it and the rest holds the node lit. */
 const pulseMs = () => {
@@ -248,6 +261,37 @@ function Capture({ into, extent, preview }: { into: { current: ReactFlowInstance
 
 const GROUND = new Set(["group", "lane"]);
 
+/** A body's words as the browser broke them into lines: which line each character fell on, read from where it was drawn. */
+function linesOf(body: HTMLElement): string[] | undefined {
+  const text = body.firstChild;
+  if (!(text instanceof Text)) return undefined;
+  const lines: string[] = [];
+  const range = document.createRange();
+  let line = "";
+  let top = Number.NaN;
+  for (let at = 0; at < text.length; at += 1) {
+    const char = text.data.charAt(at);
+    if (char === "\n") {
+      lines.push(line);
+      line = "";
+      top = Number.NaN;
+      continue;
+    }
+    range.setStart(text, at);
+    range.setEnd(text, at + 1);
+    const rect = range.getClientRects()[0];
+    if (rect !== undefined && !Number.isNaN(top) && rect.top - top > rect.height / 2) {
+      lines.push(line.trimEnd());
+      line = "";
+      top = Number.NaN;
+    }
+    if (rect !== undefined && Number.isNaN(top)) top = rect.top;
+    line += char;
+  }
+  lines.push(line.trimEnd());
+  return lines;
+}
+
 /** What the caller built, over what React Flow kept per node: its size and whether it is picked. */
 function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): SceneRfNode[] {
   const held = new Map(kept.map((one) => [one.id, one]));
@@ -258,7 +302,7 @@ function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): S
 }
 const JOINS_THE_PICK = ["Meta", "Control"];
 
-export function SketchScene({ scene: given, against, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false }: SketchSceneProps) {
+export function SketchScene({ scene: given, against, title, onAsk, marks, onMarks, preview = false, autoplay = false, playing = false }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
@@ -273,6 +317,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
   const [joining, setJoining] = useState<string | undefined>(undefined);
   const flow = useRef<ReactFlowInstance | null>(null);
   const figure = useRef<HTMLElement>(null);
+  const host = useSketchShareHost();
   // **A step is a number a node or an arrow carries**, and the nodes and arrows with one number play together.
   const steps = useMemo(
     () => [...new Set([...(shown?.nodes ?? []).map((one) => one.step), ...(shown?.edges ?? []).map((one) => one.step)].filter((one): one is number => one !== undefined))].sort((a, b) => a - b),
@@ -346,7 +391,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
   // Where each arrow's words go, from where the boxes measured. Keyed on their sizes, so a step lighting a node does not re-place anything.
   const estimates = useMemo(() => new Map((shown?.nodes ?? []).map((node) => [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? 200, height: node.h ?? 80 } }])), [shown]);
   const sizes = nodes.map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`).join("|");
-  const places = useMemo(() => {
+  const placed = useMemo(() => {
     const held = new Map(nodes.map((one) => [one.id, one]));
     const rectOf = (id: string): Rect | undefined => {
       const one = held.get(id);
@@ -368,9 +413,15 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
       return [{ id: edge.id, label: edge.label, path }];
     });
     const boxes = (shown?.nodes ?? []).filter((one) => !GROUND.has(one.kind)).flatMap((one) => rectOf(one.id) ?? []);
-    return placeLabels(drawn, boxes, labelMetrics());
+    const rects = new Map<string, Rect>();
+    for (const one of shown?.nodes ?? []) {
+      const r = rectOf(one.id);
+      if (r !== undefined) rects.set(one.id, r);
+    }
+    return { places: placeLabels(drawn, boxes, labelMetrics()), paths: new Map(drawn.map((one) => [one.id, one.path])), rects };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `sizes` stands for what `nodes` measured
   }, [shown, sizes, estimates]);
+  const places = placed.places;
   const edges = useMemo<SceneRfEdge[]>(() => {
     const placed = estimates;
     return (shown?.edges ?? []).map((edge) => {
@@ -447,6 +498,87 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
     setAsked((was) => (was === id || composed?.mine.has(id) ? undefined : id));
   };
 
+
+  /** The drawing as it stands, in the theme's colours now: what every export is made from. */
+  const exportInput = (): SketchSvgInput => {
+    const style = getComputedStyle(figure.current ?? document.documentElement);
+    const tokens = Object.fromEntries(EXPORT_TOKENS.map((name) => [name, style.getPropertyValue(name).trim()]));
+    const px = (name: string, fallback: number) => {
+      const read = Number.parseFloat(tokens[name] ?? "");
+      return Number.isNaN(read) ? fallback : read;
+    };
+    const d = DEFAULT_METRICS;
+    const metrics: ExportMetrics = {
+      textXs: px("--text-xs", d.textXs), textSm: px("--text-sm", d.textSm), leadingXs: px("--leading-xs", d.leadingXs), leadingSm: px("--leading-sm", d.leadingSm),
+      space1: px("--space-1", d.space1), space2: px("--space-2", d.space2), space3: px("--space-3", d.space3), edge: px("--edge-active", d.edge),
+      radiusSm: px("--radius-sm", d.radiusSm), radiusMd: px("--radius-md", d.radiusMd), pad: px("--space-6", d.pad),
+    };
+    const icons: Record<string, string> = {};
+    for (const one of shown.nodes) {
+      if (one.icon === undefined || icons[one.icon] !== undefined) continue;
+      const Glyph = ICON[one.icon];
+      icons[one.icon] = renderToStaticMarkup(<Glyph size={12} strokeWidth={2} />).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+    }
+    const geometry: ExportGeometry = { rects: placed.rects, paths: placed.paths, places };
+    const bodyLines: Record<string, string[]> = {};
+    for (const one of shown.nodes) {
+      const body = figure.current?.querySelector(`.react-flow__node[data-id="${CSS.escape(one.id)}"] .armada-scene-node__body`);
+      const lines = body instanceof HTMLElement ? linesOf(body) : undefined;
+      if (lines !== undefined) bodyLines[one.id] = lines;
+    }
+    return {
+      scene: shown,
+      bodyLines,
+      geometry,
+      metrics,
+      tokens,
+      icons,
+      state: { change: new Map([...(diff?.nodes ?? []), ...(diff?.edges ?? [])]), mine: composed?.mine ?? new Set(), struck: composed?.struck ?? new Set() },
+      title: title ?? "Sketch",
+      standalone: true,
+    };
+  };
+
+  /** Told either way, since a save or a copy is otherwise silent. */
+  const share = async (id: string) => {
+    const name = title ?? "Sketch";
+    const input = exportInput();
+    const save = async (files: readonly SketchShareFile[]) => {
+      const first = files[0]!;
+      try {
+        const saved = await saveWith(host, files);
+        const said = savedSaid(first.name, saved);
+        if (said !== undefined) host.said?.(said);
+      } catch {
+        host.said?.(`${first.name} was not saved.`);
+      }
+    };
+    if (id === "mermaid") {
+      try {
+        await copyWith(host, sceneMermaid(shown));
+        host.copied?.(MERMAID_COPIED);
+      } catch {
+        host.said?.("The Mermaid text did not copy.");
+      }
+    } else if (id === "html") {
+      const pulse = pulseMs() > 0 ? pulseMs() : 1600;
+      const html = sketchHtml({ svg: sketchSvg({ ...input, standalone: false }), title: name, tokens: input.tokens, steps: stepPlan(shown), pulse });
+      await save([{ kind: "html", name: sketchFileName(title, "html"), data: html }]);
+    } else if (id === "image") {
+      const svg = sketchSvg(input);
+      const frame = frameOf(shown, input.geometry, input.metrics);
+      try {
+        const png = await svgToPng(svg, frame.w, frame.h);
+        await save([
+          { kind: "png", name: sketchFileName(title, "png"), data: png },
+          { kind: "svg", name: sketchFileName(title, "svg"), data: svg },
+        ]);
+      } catch {
+        host.said?.(`${sketchFileName(title, "png")} was not saved.`);
+      }
+    }
+  };
+
   const acts: GraphCanvasRailAct[] = [
     ...(onMarks === undefined
       ? []
@@ -482,6 +614,15 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
       disabled: steps.length === 0,
       why: "This sketch has no order to play.",
       onPress: () => setStepAt(0),
+    },
+    {
+      id: "share",
+      name: "Share",
+      icon: ExternalLink,
+      menu: {
+        entries: SHARE_ENTRIES,
+        onSelect: (id: string) => void share(id),
+      },
     },
   ];
 
