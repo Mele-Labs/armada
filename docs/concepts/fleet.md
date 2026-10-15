@@ -578,6 +578,8 @@ the exception**: Fleet ends and resumes its process when it moves slots, so
 `armada worktree lease` there holds as a Job of the session's id, read from
 `ARMADA_SESSION`, and is given back when the session closes. **A terminal agent's lease also records the agent session it ran under**, read from the environment the agent sets in each command it runs, so the pool says which Session holds a slot a process holds. A lease taken by hand, or before this was written, names none.
 
+**Every lease and release is also written to the slot's history**, `slot-<n>.history` beside the record, by the pool in whichever process writes or clears the record, so one an agent took with `armada worktree lease` is in it though Fleet never heard. It is kept thirty days, and `get_slot_history` serves it with the checkouts the slot's own `HEAD` reflog holds (`docs/practices/protocol.md`, *A bay's history*).
+
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
 > waiting for a slot names it.

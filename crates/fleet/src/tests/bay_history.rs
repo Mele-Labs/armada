@@ -22,7 +22,7 @@ async fn a_session(fleet: &Fixture, id: &str, title: &str) {
         .await
         .keep_session(&KeptSession {
             id: id.to_string(),
-            harness: "claude".to_string(),
+            harness: "a-harness".to_string(),
             origin: "terminal".to_string(),
             manifest_id: Some(served(fleet).0),
             cwd: "/slot".to_string(),
