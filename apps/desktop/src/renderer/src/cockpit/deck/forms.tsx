@@ -2,6 +2,8 @@
 // assembled on it, a segmented ring on the ground. A piece is ghost (dashed, planned), scaffold (the next ghost, edits seen), hollow
 // (ticked, no edit seen) or solid. A piece is static once placed; only the crane's jib swings and a craft lifts off, once. #2301.
 
+import type { ReactNode } from "react";
+
 import { Sprite } from "./bf-parts";
 import type { Piece } from "./progress";
 
@@ -17,7 +19,10 @@ export type FormProps = {
   working: boolean;
   /** Where the craft goes, in plane units from where it stands. */
   fly: { x: number; y: number };
+  /** Draws a piece inside something that speaks for it, as the band does to say what each is when it is hovered. */
+  wrap?: (k: number, piece: ReactNode) => ReactNode;
 };
+const plain = (_k: number, piece: ReactNode) => piece;
 
 const A = 21;
 const D = 10.5;
@@ -56,16 +61,13 @@ function Floor({ piece, k }: { piece: Piece; k: number }) {
 }
 
 /** A building: a floor for each task on a diamond footprint, a crane on the highest floor that is placed, a pennant when it lands. */
-export function Tower({ pieces, big, dim, landed, working }: FormProps) {
+export function TowerArt({ pieces, big, dim, landed, working, wrap = plain }: FormProps) {
   const s = big * 0.9;
   const placed = pieces.reduce((n, one, i) => (one.piece === "ghost" ? n : i + 1), 0);
   return (
-    <Sprite x={-50} y={-150} w={100} h={176}>
-      <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="tower" transform={`scale(${s})`}>
+    <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="tower" transform={`scale(${s})`}>
         <polygon className="bf-pc__pad" points={`${-A - 8},0 0,${-D - 4} ${A + 8},0 0,${D + 4}`} transform={`translate(0 ${D * 0.2})`} />
-        {pieces.map((one, k) => (
-          <Floor key={k} piece={one.piece} k={k} />
-        ))}
+        {pieces.map((one, k) => <g key={k}>{wrap(k, <Floor piece={one.piece} k={k} />)}</g>)}
         {pieces.length === 0 || placed === 0 ? null : (
           <g className="bf-crane" transform={`translate(${A * 0.4} ${-placed * H - H * 0.4})`}>
             <path className="bf-crane__mast" d="M0,0 V-18" />
@@ -80,10 +82,15 @@ export function Tower({ pieces, big, dim, landed, working }: FormProps) {
             <path className="bf-pc__pennant" d="M0,-14 L10,-11 L0,-8 Z" />
           </g>
         ) : null}
-      </g>
-    </Sprite>
+    </g>
   );
 }
+
+export const Tower = (props: FormProps) => (
+  <Sprite x={-50} y={-150} w={100} h={176}>
+    <TowerArt {...props} />
+  </Sprite>
+);
 
 const W = 12;
 const S = 9;
@@ -105,27 +112,29 @@ function Section({ piece, k, nose }: { piece: Piece; k: number; nose: boolean })
 }
 
 /** A launch gantry with a craft on it: a section for each task, the nose last, the service arm at the section being fitted. */
-export function Gantry({ pieces, big, dim, landed, working, fly }: FormProps) {
+export function GantryArt({ pieces, big, dim, landed, working, fly, wrap = plain }: FormProps) {
   const s = big * 0.9;
   const tall = Math.max(pieces.length, 1) * S + 16;
   const fitting = Math.max(0, pieces.findIndex((one) => one.piece !== "solid" && one.piece !== "hollow"));
   const rail = (x: number) => `M${x - 2},0 V${-tall} M${x + 2},0 V${-tall} ${Array.from({ length: Math.floor(tall / 8) }, (_, j) => `M${x - 2},${-j * 8} L${x + 2},${-j * 8 - 8}`).join(" ")}`;
   return (
-    <Sprite x={-50} y={-150} w={100} h={176}>
-      <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="pad" transform={`scale(${s})`}>
+    <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="pad" transform={`scale(${s})`}>
         <polygon className="bf-pc__pad" points={`-30,0 0,-15 30,0 0,15`} />
         <path className="bf-gantry" d={`${rail(-17)} ${rail(17)}`} />
         {pieces.length === 0 ? null : <path className="bf-gantry__arm" d={`M17,${-fitting * S - 4} H8`} />}
         <g className="bf-craft" data-flown={landed || undefined} style={{ ["--fx" as string]: `${fly.x.toFixed(0)}px`, ["--fy" as string]: `${fly.y.toFixed(0)}px` }}>
-          {pieces.map((one, k) => (
-            <Section key={k} piece={one.piece} k={k} nose={k === pieces.length - 1} />
-          ))}
+          {pieces.map((one, k) => <g key={k}>{wrap(k, <Section piece={one.piece} k={k} nose={k === pieces.length - 1} />)}</g>)}
         </g>
         <path className="bf-gantry__hook bf-crane__jib" data-swing={working || undefined} d={`M17,${-tall} H5`} />
-      </g>
-    </Sprite>
+    </g>
   );
 }
+
+export const Gantry = (props: FormProps) => (
+  <Sprite x={-50} y={-150} w={100} h={176}>
+    <GantryArt {...props} />
+  </Sprite>
+);
 
 /** One segment of a ring: an annular sector from angle `from` to `to`, in degrees, between radii r0 and r1. */
 const sector = (r0: number, r1: number, from: number, to: number) => {
@@ -133,25 +142,39 @@ const sector = (r0: number, r1: number, from: number, to: number) => {
   return `M${p(r1, from)} A${r1},${r1} 0 0 1 ${p(r1, to)} L${p(r0, to)} A${r0},${r0} 0 0 0 ${p(r0, from)} Z`;
 };
 
-/** A ring lying on the ground round the drone's shadow, a segment for each task. It is on the plane, so the tilt makes it an ellipse. */
-export function Ring({ pieces, big, dim }: FormProps) {
+/** The segments of a ring, a segment for each task, in the plane's own units. */
+export function RingArt({ pieces, big, dim, wrap = plain }: FormProps) {
   const n = Math.max(pieces.length, 1);
   const r1 = 34 * big;
   const r0 = r1 - 7 * big;
-  const edge = r1 + 12;
   return (
-    <svg className="bf-form bf-ring" style={{ ["--dim" as string]: dim, left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`} data-form="ring" aria-hidden="true">
+    <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="ring">
       {pieces.map((one, k) => {
         const from = -90 + (k * 360) / n + 2.5;
         const to = -90 + ((k + 1) * 360) / n - 2.5;
         const mid = ((from + to) / 2) * (Math.PI / 180);
         return (
-          <g key={k} className="bf-pc" data-state={one.piece} data-open={open(one.piece) || undefined}>
-            <path className="bf-pc__seg" d={sector(r0, r1, from, to)} />
-            {one.piece === "scaffold" ? <path className="bf-pc__brace" d={`M${((r1 + 2) * Math.cos(mid)).toFixed(1)},${((r1 + 2) * Math.sin(mid)).toFixed(1)} L${((r1 + 9) * Math.cos(mid)).toFixed(1)},${((r1 + 9) * Math.sin(mid)).toFixed(1)}`} /> : null}
+          <g key={k}>
+            {wrap(
+              k,
+              <g className="bf-pc" data-state={one.piece} data-open={open(one.piece) || undefined}>
+                <path className="bf-pc__seg" d={sector(r0, r1, from, to)} />
+                {one.piece === "scaffold" ? <path className="bf-pc__brace" d={`M${((r1 + 2) * Math.cos(mid)).toFixed(1)},${((r1 + 2) * Math.sin(mid)).toFixed(1)} L${((r1 + 9) * Math.cos(mid)).toFixed(1)},${((r1 + 9) * Math.sin(mid)).toFixed(1)}`} /> : null}
+              </g>,
+            )}
           </g>
         );
       })}
+    </g>
+  );
+}
+
+/** A ring lying on the ground round the drone's shadow. It is on the plane, so the tilt makes it an ellipse. */
+export function Ring(props: FormProps) {
+  const edge = 34 * props.big + 12;
+  return (
+    <svg className="bf-ring" style={{ left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`} aria-hidden="true">
+      <RingArt {...props} />
     </svg>
   );
 }

@@ -10,7 +10,7 @@ import { MOST_LOOPS } from "./doing";
 import { Gantry, Ring, Tower } from "./forms";
 import type { Frame } from "./frame";
 import { FLAT, type Layout, type Point, type Territory } from "./layout";
-import { STOPS, STOP_GLYPH, STOP_WORD, agoOf, anchorOf, type After, type Built, type Stop, type Take } from "./progress";
+import { STOP_GLYPH, STOP_WORD, agoOf, anchorOf, type After, type Built, type Stop, type Take } from "./progress";
 import { SessionGlyph } from "./Drone";
 import type { OnTip } from "./Drone";
 import type { Tip } from "./tip";
@@ -25,6 +25,8 @@ type Placed = { built: Built; tile: Territory["tiles"][number]; anchor: Point; s
 /** Where each structure stands, in layout units. A drone's own shadow is the ring's centre; the other forms stand beside it. */
 export function placeBuilds(builds: readonly Built[], take: Take, layout: Layout, territory: ReadonlyMap<string, Territory>, big: number): Placed[] {
   return builds.flatMap((built) => {
+    // A Job's structure is drawn on its own page only.
+    if (built.key.startsWith("job:")) return [];
     const over = layout.over.get(built.key)?.[0]?.tile.path ?? built.tile;
     const tile = territory.get(built.root)?.tiles.find((one) => one.path === over);
     if (tile === undefined) return [];
@@ -135,8 +137,8 @@ function Road({ from, to, built, floorAt, onTip }: { from: Point; to: Point; bui
   const along = (t: number): Point => ({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t });
   // Segment i ends at stop i; the last runs into the flag, and is lit once the pull request has landed.
   const lit = (t: number) => {
-    const n = Math.min(STOPS.length, Math.ceil(t * 5 - 1e-6));
-    return n >= STOPS.length ? built.landedAt !== undefined : built.stops[n - 1]?.at !== undefined;
+    const n = Math.min(built.stops.length, Math.ceil(t * (built.stops.length + 1) - 1e-6));
+    return n >= built.stops.length ? built.landedAt !== undefined : built.stops[n - 1]?.at !== undefined;
   };
   return (
     <>
@@ -146,7 +148,7 @@ function Road({ from, to, built, floorAt, onTip }: { from: Point; to: Point; bui
         return <i key={i} className="bf-rd" data-lit={lit(t) || undefined} style={{ transform: `translate3d(${px(p.x)}, ${px(p.y)}, ${px(floorAt(along(t)) + 1.2)}) rotateZ(${angle.toFixed(1)}deg)` }} aria-hidden="true" />;
       })}
       {built.stops.map((stop, k) => {
-        const p = along((k + 1) / 5);
+        const p = along((k + 1) / (built.stops.length + 1));
         return <StopNode key={stop.id} stop={stop} at={p} z={floorAt(p)} onTip={onTip} now={built.now} />;
       })}
     </>

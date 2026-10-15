@@ -6,7 +6,7 @@
 // was ticked (the TodoWrite hook), and a walk shown (`show_window`). A tick with an edit burst since the previous tick is solid;
 // a tick with none is hollow, claimed and not seen. #2301.
 
-import { BadgeCheck, Footprints, GitMerge, GitPullRequest, Layers, ListTodo, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Eye, Footprints, GitMerge, GitPullRequest, Layers, ListTodo, Scale, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { TimelineEvent } from "@armada/protocol";
 
 import { FRESH_MS, doingOfEvent, type Doing } from "./doing";
@@ -34,12 +34,15 @@ export type ProgressView = {
   tasks: readonly Task[];
   /** Where on the plot a structure with no drone stands, 0 to 8. */
   slot?: number;
+  /** The stops of its road, where it is not a Session's own. */
+  road?: readonly StopId[];
 };
 export type ProgressFeed = { take: Take; after: After; views: readonly ProgressView[] };
 
 export type Piece = "ghost" | "scaffold" | "hollow" | "solid";
 export type Phase = "scope" | "plan" | "implement" | "road" | "landed";
-export type StopId = "walk" | "pr" | "checks" | "auto";
+/** A Session's road is a walk, a pull request, its Checks and the auto-merge; a Job's is the steps of its workflow after Implement. */
+export type StopId = "walk" | "pr" | "checks" | "auto" | "check" | "judge" | "review" | "land";
 export type Stop = { id: StopId; at: number | undefined };
 
 export type Built = {
@@ -80,8 +83,8 @@ const IS_WALK = (event: TimelineEvent) => event.kind === "session.waiting" && ev
 
 export const PHASE_WORD: Record<Phase, string> = { scope: "Scope", plan: "Plan", implement: "Implement", road: "Road", landed: "Landed" };
 export const PHASE_GLYPH: Record<Phase, LucideIcon> = { scope: ScanSearch, plan: ListTodo, implement: Layers, road: GitPullRequest, landed: BadgeCheck };
-export const STOP_WORD: Record<StopId, string> = { walk: "Walk shown", pr: "Pull request opened", checks: "Checks running", auto: "Auto-merge set" };
-export const STOP_GLYPH: Record<StopId, LucideIcon> = { walk: Footprints, pr: GitPullRequest, checks: ShieldCheck, auto: GitMerge };
+export const STOP_WORD: Record<StopId, string> = { walk: "Walk shown", pr: "Pull request opened", checks: "Checks running", auto: "Auto-merge set", check: "Check", judge: "Judge", review: "Review", land: "Land" };
+export const STOP_GLYPH: Record<StopId, LucideIcon> = { walk: Footprints, pr: GitPullRequest, checks: ShieldCheck, auto: GitMerge, check: ShieldCheck, judge: Scale, review: Eye, land: GitMerge };
 export const STOPS: readonly StopId[] = ["walk", "pr", "checks", "auto"];
 
 /** The unfinished part's dimming from how long the turn has been quiet: nothing before the stall, 0.3 at it, 0.65 at forty minutes. */
@@ -91,7 +94,7 @@ export function builtOf(view: ProgressView): Built {
   const { now } = view;
   const seen = view.events.filter((event) => at(event) <= now).sort((a, b) => at(a) - at(b));
   const planned = view.tasks.filter((task) => Date.parse(task.planned) <= now);
-  const edits = seen.filter((event) => event.kind === "session.edited").map(at);
+  const edits = seen.filter((event) => event.kind === "session.edited" || event.kind === "job.files").map(at);
   const ticks = planned.flatMap((task) => (task.ticked !== undefined && Date.parse(task.ticked) <= now ? [Date.parse(task.ticked)] : [])).sort((a, b) => a - b);
   const since = planned.length === 0 ? now : Math.min(...planned.map((task) => Date.parse(task.planned)));
   const before = (tick: number) => ticks.filter((one) => one < tick).at(-1) ?? since;
@@ -122,14 +125,15 @@ export function builtOf(view: ProgressView): Built {
     const event = found(test, after);
     return event === undefined ? undefined : at(event);
   };
-  const landed = found((event) => event.kind === "pr.merged");
+  const landed = found((event) => event.kind === "pr.merged" || event.kind === "job.landed");
   // The road's walk is one of the finished thing: a walk shown while the build was still going is a survey marker.
-  const stops: Stop[] = [
-    { id: "walk", at: done ? whenFound(IS_WALK, doneAt) : undefined },
-    { id: "pr", at: whenFound((event) => event.kind === "pr.opened") },
-    { id: "checks", at: whenFound((event) => event.kind === "pr.checks") },
-    { id: "auto", at: whenFound((event) => event.kind === "pr.queued") },
-  ];
+  const stopAt = (id: StopId) =>
+    id === "walk" ? (done ? whenFound(IS_WALK, doneAt) : undefined)
+    : id === "pr" ? whenFound((event) => event.kind === "pr.opened")
+    : id === "checks" ? whenFound((event) => event.kind === "pr.checks")
+    : id === "auto" ? whenFound((event) => event.kind === "pr.queued")
+    : whenFound((event) => event.kind === "job.step" && event.detail === id);
+  const stops: Stop[] = (view.road ?? STOPS).map((id) => ({ id, at: stopAt(id) }));
   const reached = stops.filter((stop) => stop.at !== undefined).sort((a, b) => b.at! - a.at!)[0]?.id;
 
   const own = seen.filter((event) => OWN.has(event.kind));
@@ -139,7 +143,7 @@ export function builtOf(view: ProgressView): Built {
   const tool = [...seen].reverse().find((event) => doingOfEvent(event) !== undefined);
   const fresh = tool !== undefined && view.running && at(tool) + FRESH_MS > now ? tool : undefined;
 
-  const phase: Phase = landed !== undefined ? "landed" : done || stops.some((stop) => stop.id === "pr" && stop.at !== undefined) ? "road" : edits.length > 0 ? "implement" : planned.length > 0 ? "plan" : "scope";
+  const phase: Phase = landed !== undefined ? "landed" : done || stops.some((stop) => stop.at !== undefined) ? "road" : edits.length > 0 ? "implement" : planned.length > 0 ? "plan" : "scope";
   return {
     key: view.key,
     root: view.root,

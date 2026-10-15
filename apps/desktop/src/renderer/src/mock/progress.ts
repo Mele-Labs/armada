@@ -19,7 +19,7 @@ export function createMockProgress(): ProgressSource & { reset(script?: Progress
   const listeners = new Set<() => void>();
   const read = () => {
     const query = new URLSearchParams(window.location.search);
-    feed = script === undefined ? undefined : { take: named(TAKES, query.get("build"), "tower"), after: named(AFTERS, query.get("after"), "stand"), views: script(moment) };
+    feed = script === undefined ? undefined : { take: named(TAKES, query.get("build"), "tower"), after: named(AFTERS, query.get("after"), "clear"), views: script(moment) };
     listeners.forEach((on) => on());
   };
   return {

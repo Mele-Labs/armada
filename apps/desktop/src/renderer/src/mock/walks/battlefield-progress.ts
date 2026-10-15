@@ -2,7 +2,7 @@
 // writes most; what stands is read off what Fleet recorded. `?build=tower|pad|ring` is how literally it is drawn and
 // `?after=stand|clear|monument` what a landed structure does a day on. A mock for the owner to decide the look. #2301.
 
-import { inside, role, walk } from "../walk";
+import { deckRow, inside, region, role, walk } from "../walk";
 
 const map = role("listbox", "Map");
 const places = role("navigation", "Places");
@@ -27,7 +27,12 @@ const battlefieldProgress = walk("battlefield-progress", [
   { later: places, say: "It merges" },
   { look: map, say: "Landed. The flag flashes and the structure is complete: a pennant on the tower, the craft lifted off the gantry, the last segment of the ring closed. On `after=clear` it goes after a moment" },
   { later: places, say: "A day later, and Sessions from earlier have landed too" },
-  { look: map, say: "A day on. By default finished structures stand small and weathered and fade over a day, the nearest to landing clearest. `after=clear` leaves the plot bare. `after=monument` keeps every one, a small city on the plot" },
+  { look: map, say: "A day on. By default the plot is bare: a structure goes when it lands. `after=stand` keeps finished ones small and weathered, fading over a day, the nearest to landing clearest. `after=monument` keeps every one, a small city on the plot" },
+  { press: deckRow("Rebuild the dock panel"), say: "Session page. Its row in the list now carries one glyph for its phase, with a tooltip naming it" },
+  { look: inside(region(/^Session: Rebuild the dock panel/), role("group", "Build")), say: "Session page. A band across the top of its thread draws the same structure for the current take, side on, with the road to main as a line of stops to its right. All stops are lit: it has landed. Hover a piece for its task and state" },
+  { hover: inside(region(/^Session: Rebuild the dock panel/), role("img", /^Pull request opened/)), say: "A stop says its name and when it happened. A faint one says it is only what this repository usually does next" },
+  { press: deckRow("Cache the manifest read"), say: "Job page" },
+  { look: inside(region(/^Job: Cache the manifest read/), role("group", "Build")), say: "Job page. The same band above its Now area, from its plan: two tasks done and solid, one handed in and hollow, one being worked in scaffold, one open and ghost. The road is its own workflow after Implement, none of it reached yet" },
 ]);
 
 export { battlefieldProgress };

@@ -10,7 +10,7 @@ import { running } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";
-import { FEATURED, storyAt } from "../battlefield-story";
+import { FEATURED, jobAt, storyAt } from "../battlefield-story";
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 import { mockProgress } from "../progress";
@@ -145,7 +145,7 @@ function build(): Scenario {
     held: pool(),
     // Moments 1 to 8: the Session's turn ends and its pull request opens at the fifth, is queued at the sixth and merges at the seventh.
     later: Array.from({ length: 8 }, (_, i) => ({ mergeLines: lines(i + 1) })),
-    draft: { sessions, events: placed(), areas: mockAreas, progress: storyAt },
+    draft: { sessions, events: placed(), areas: mockAreas, progress: (moment) => [...storyAt(moment), jobAt(moment, cache.job.id)] },
   };
 }
 

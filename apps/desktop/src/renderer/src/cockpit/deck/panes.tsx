@@ -28,6 +28,7 @@ import { SlotHistory } from "./SlotHistory";
 import { MarkGlyph, PrChip, StepsBar } from "./shared";
 import type { Pr, Subject } from "./ship";
 import { toneOf } from "./order";
+import { BuildBand } from "./BuildBand";
 import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck } from "./store";
 
 
@@ -167,6 +168,7 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
       {call === undefined || (nowing?.asks?.length ?? 0) > 0 ? null : <CallStrip item={call} props={props} />}
+      <BuildBand subjectKey={subject.key} />
       <div className="deck-job">
         {jobView === "mission" ? (
           <div className="deck-job__mission" role="group" aria-label="Mission">
@@ -202,6 +204,7 @@ export function SessionPane({ subject, props, acts, onPr, call }: { subject: Sub
         <SubjectActs subject={subject} acts={acts} onPr={onPr} />
       </PaneHead>
       {call === undefined ? null : <CallStrip item={call} props={props} />}
+      <BuildBand subjectKey={subject.key} />
       <div className="deck-session">
         <SessionMini sessionId={subject.id} onOpen={props.onOpenSession} fill />
       </div>

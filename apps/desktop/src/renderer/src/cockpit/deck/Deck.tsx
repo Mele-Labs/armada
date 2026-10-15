@@ -26,6 +26,8 @@ import { Bays } from "./BayRows";
 import { DECK_LINK } from "./links";
 import { useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
+import { glyphOf, wordOf, type Built } from "./progress";
+import { useBuilds } from "./progress-source";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
@@ -78,7 +80,21 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   );
 }
 
+/** Where a Session or Job is in its build, as the one glyph of its phase; an empty cell where it has none. */
+function Phase({ built }: { built: Built | undefined }) {
+  if (built === undefined) return <span className="deck-row__phase" />;
+  const Glyph = glyphOf(built);
+  return (
+    <Tooltip label={wordOf(built)}>
+      <span className="deck-row__phase" role="img" aria-label={wordOf(built)}>
+        <Glyph size={14} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
 function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subject[]; cursor: string | undefined; selected: string | undefined; onPick: (subject: Subject) => void }) {
+  const { by: builds } = useBuilds();
   return (
     <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1}>
       <header className="deck-band">
@@ -100,6 +116,7 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
                 </Tooltip>
                 <span className="deck-row__title">{one.title}</span>
                 <span className="deck-row__said">{said}</span>
+                <Phase built={builds.get(one.key)} />
                 <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
               </button>
             </li>

@@ -111,3 +111,30 @@
   .bf-craft[data-flown] { animation: none; opacity: 0; }
   .bf-built, .bf-built :is(.bf-sprite, .bf-ring), .bf-pc[data-open] { transition: none; }
 }
+
+/* ---- The band: the same structure on a Session's or a Job's page ------------------------------------------ */
+
+.bf-band { display: flex; flex: none; align-items: center; gap: var(--space-6); height: calc(96 * var(--border-width)); padding: 0 var(--space-4); border-bottom: var(--border-width) solid var(--border-glass); background: color-mix(in srgb, var(--fg-default) 3%, var(--bg-base)); }
+.bf-band__phase { display: flex; flex: none; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: calc(88 * var(--border-width)); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.bf-band__glyph { display: inline-flex; color: var(--fg-muted); }
+.bf-band__quiet { color: var(--status-awaiting-review); }
+.bf-band__art { flex: none; width: calc(150 * var(--border-width)); height: calc(88 * var(--border-width)); overflow: visible; }
+.bf-band__art[data-take="ring"] { width: calc(170 * var(--border-width)); }
+.bf-band__stall { fill: none; stroke: var(--status-awaiting-review); stroke-width: 1.6; animation: bf-band-breathe calc(var(--duration-pulse) * 1.5) ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes bf-band-breathe { 50% { opacity: 0.35; } }
+/* Pieces here are static; only the one being built (scaffold) moves, and a stalled one holds still under its ring. */
+.bf-band .bf-pc, .bf-band .bf-pc__pennant { animation: none; }
+.bf-band .bf-pc:is([data-state="ghost"], [data-state="scaffold"], [data-state="hollow"]) :is(.bf-pc__line, .bf-pc__body, .bf-pc__cap, .bf-pc__seg) { fill: transparent; }
+.bf-band .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: bf-band-breathe calc(var(--duration-pulse) * 1.2) ease-in-out infinite; }
+.bf-band__piece { cursor: default; }
+.bf-band__road { display: flex; flex: 1; align-items: center; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.bf-band__leg { display: flex; flex: 1; align-items: center; min-width: 0; }
+.bf-band__link { flex: 1; height: calc(2 * var(--border-width)); border-radius: var(--border-width); background: var(--fg-subtle); opacity: 0.3; }
+.bf-band__leg[data-lit] .bf-band__link { background: var(--accent); opacity: 0.85; }
+.bf-band__stop { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; width: calc(26 * var(--border-width)); height: calc(26 * var(--border-width)); border: calc(1.3 * var(--border-width)) dashed var(--fg-subtle); border-radius: 50%; color: var(--fg-subtle); opacity: 0.55; }
+.bf-band__leg[data-lit] .bf-band__stop { border: calc(1.6 * var(--border-width)) solid var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--bg-base)); color: var(--fg-default); opacity: 1; }
+.bf-pc__brace { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-band__stall, .bf-band .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: none; }
+}

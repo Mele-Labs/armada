@@ -6,7 +6,7 @@ import { Tooltip } from "@armada/components";
 
 import type { BuildTip, Piece } from "./progress";
 
-const SAID: Record<Piece, string> = { solid: "Ticked, edits seen", hollow: "Ticked, no edits seen", scaffold: "Open, edits seen", ghost: "Open" };
+export const SAID: Record<Piece, string> = { solid: "Ticked, edits seen", hollow: "Ticked, no edits seen", scaffold: "Open, edits seen", ghost: "Open" };
 
 export function BuildCard({ build }: { build: BuildTip }) {
   return (

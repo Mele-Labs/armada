@@ -110,3 +110,26 @@ export function storyAt(moment: number): readonly ProgressView[] {
   const featured: ProgressView = { key: `session:${FEATURED}`, root: ROOT, tile: BUILT_ON, running: moment < 5, now, events: EVENTS, tasks: TASKS };
   return moment < 8 ? [featured] : [featured, ...OLD.map((one) => earlier(one, now))];
 }
+
+/**
+ * A Job mid-run, for its page: a plan of five tasks, two done with edits seen (solid), one handed in with none seen (hollow), one
+ * being worked (edits and no tick), one open. Its road is its own workflow after Implement, none of it reached.
+ */
+export function jobAt(moment: number, id: string): ProgressView {
+  const now = T0 + NOW[Math.min(moment, NOW.length - 1)]! * 60_000;
+  const files = (minutes: number): TimelineEvent => {
+    count += 1;
+    return { id: count, at: iso(minutes), kind: "job.files", subject: { kind: "job", id }, tone: "run", says: "Changed 1 file", detail: "packages/components/src/Tabs.tsx", manifest_id: ARMADA };
+  };
+  const task = (n: number, text: string, ticked?: number): Task => ({ id: `j${n}`, text, planned: iso(100), ...(ticked === undefined ? {} : { ticked: iso(ticked) }) });
+  return {
+    key: `job:${id}`,
+    root: ROOT,
+    tile: "packages/components",
+    running: false,
+    now,
+    events: [files(140), files(190), files(300)],
+    tasks: [task(1, "Tabs keyboard model", 150), task(2, "Tabs overflow menu", 205), task(3, "Tabs docs", 250), task(4, "Tabs drag order"), task(5, "Tabs tests")],
+    road: ["check", "judge", "review", "land"],
+  };
+}
