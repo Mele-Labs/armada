@@ -8,7 +8,7 @@ import { DispatchedStrip } from "./DispatchedStrip";
 import { useDispatching } from "./dispatching";
 
 /** The panel grown down from the title bar's field when the one bar chose to dispatch. */
-export function TitleDispatchPanel({ anchor }: { anchor: string }) {
+export function TitleDispatchPanel({ anchor }: { anchor?: string }) {
   const dispatching = useDispatching();
   const field = useRef<HTMLTextAreaElement>(null);
   const shown = dispatching?.titled === true;
@@ -29,7 +29,7 @@ export function TitleDispatchPanel({ anchor }: { anchor: string }) {
  * What a send from the title bar's panel leaves, laid over the one bar's field where the panel grew from.
  * The cursor lands on it, so ↵ opens what was sent, Esc dismisses it, and a key typed starts the next draft.
  */
-export function TitleDispatchedStrip({ anchor }: { anchor: string }) {
+export function TitleDispatchedStrip({ anchor }: { anchor?: string }) {
   const dispatching = useDispatching();
   const root = useRef<HTMLDivElement>(null);
   const sent = dispatching?.sent;

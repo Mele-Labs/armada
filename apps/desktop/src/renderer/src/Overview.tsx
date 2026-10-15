@@ -7,7 +7,7 @@
 // renders its children straight through when nothing has thrown.
 
 import { useEffect, useState } from "react";
-import type { FixMain, RepositorySummary } from "@armada/protocol";
+import type { RepositorySummary } from "@armada/protocol";
 import type { NowActed } from "@armada/jobs";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -44,6 +44,7 @@ export function Overview({
   onOpenLink,
   onOpenSession,
   onFix,
+  onSendToSession,
   nowViews,
   nows,
   onTell,
@@ -97,7 +98,9 @@ export function Overview({
   /** A Session the list opened. Where no Sessions are served the list draws nothing. */
   onOpenSession: (sessionId: string) => void;
   /** Hands main's red to a Job, from the merge line's band. */
-  onFix?: (fix: FixMain) => void;
+  onFix?: Hosts["onFix"];
+  /** Sends main's red to a Session as a message, from the merge line's band. */
+  onSendToSession?: Hosts["onSendToSession"];
   /** What each Job asks and has gone wrong in, by Job id: the draft's, else what Fleet serves for the active Jobs. */
   nowViews?: Readonly<Record<string, CallView>>;
   /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. The draft's, else what Fleet serves. */
@@ -222,6 +225,7 @@ export function Overview({
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
             onFix={onFix}
+            onSendToSession={onSendToSession}
             onPropose={propose}
             onKill={onKill}
             onRedispatch={onRedispatch}

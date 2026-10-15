@@ -1,0 +1,7 @@
+[icons.fold-vertical]
+  means = "Two arrows pressing toward a dashed line from above and below: a long thing made short"
+  group = "Flight control"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Session flight control Compact, which runs the Session's compact on its context. Never a collapsed section or a closed panel."
+  notes = "Proposed 15 Oct 2026 with the Session flight controls. `maximize` is the set's only resizing glyph and says the opposite. Tooltip `Compact the Session's context`."

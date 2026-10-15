@@ -1,5 +1,5 @@
 // An Incoming call opens what it is about, never the card. The Items are the ones the Dashboard builds off a Session's
-// `waiting_for`, so a Session that asks twice has two calls and one of them is not the key on its subject. The card is only
+// `waiting_for`: a Session that asks twice raises two, and Incoming draws one call for the Session, the newest. The card is only
 // for a call about neither a Job, a Session nor a pull request, and `cockpit-deck.test.tsx` holds that one. #2301.
 
 import { expect, test } from "vitest";
@@ -19,19 +19,18 @@ async function deck() {
   mount("cockpit-call-owner");
   await onScreen();
   await expect.element(list()).toBeVisible();
-  await expect.poll(() => hails().length).toBe(3);
+  await expect.poll(() => hails().length).toBe(2);
 }
 
 test("an Incoming call from a Session opens that Session on the stage, not the card", async () => {
   await deck();
-  // Both of the Session's questions, the one its row carries and the one it does not.
-  for (const at of [0, 1]) {
-    const mine = hails().filter((one) => one === "Session question: Session / Job Progress");
-    expect(mine.length).toBe(2 - at);
-    await incoming().getByRole("button", { name: "Session question: Session / Job Progress" }).first().click();
-    await expect.element(page.getByRole("region", { name: "Session: Session / Job Progress" })).toBeVisible();
-    expect(card()).toBeNull();
-  }
+  // The Session asked twice, and is one call.
+  expect(hails().filter((one) => one === "Session question: Session / Job Progress").length).toBe(1);
+  await incoming().getByRole("button", { name: "Session question: Session / Job Progress" }).click();
+  await expect.element(page.getByRole("region", { name: "Session: Session / Job Progress" })).toBeVisible();
+  expect(card()).toBeNull();
+  // Seen, it still needs the person, so its call stays.
+  expect(hails().filter((one) => one === "Session question: Session / Job Progress").length).toBe(1);
 });
 
 test("a call whose Session the deck does not list opens the Session's page, not the card", async () => {

@@ -13,7 +13,7 @@ import { missionOf, type SceneIn } from "./mission";
 import type { DroneIn } from "./layout";
 import type { Run } from "./panes";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
-import { select, selOfPr, selOfSubject, startReplay, stopReplay } from "./store";
+import { select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
 import { jobBuildOf } from "./build";
 import { CLOCK_MS, quantized } from "./field";
 import { touchesOfFootprint } from "./touches";
@@ -29,12 +29,13 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
     <>
       {replay === undefined ? null : <ReplayMark />}
       {replay !== undefined || picked === undefined ? null : <FocusChip event={picked} now={props.now} onReplay={reaches ? () => startReplay(Date.parse(picked.at)) : undefined} />}
-      {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} end={props.now} onLive={stopReplay} />}
+      {replay === undefined ? null : <ReplayBar events={ordered} replay={replay} onLive={stopReplay} />}
     </>
   );
 }
 
-export function MapView({ props, ship, listed, cursor }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; cursor: string | undefined }) {
+export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
+  const cursor = useDeck((deck) => deck.cursor);
   const field = useField(props, ship, listed);
   const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds } = field;
   return (

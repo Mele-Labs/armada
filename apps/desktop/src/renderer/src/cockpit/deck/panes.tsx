@@ -33,11 +33,12 @@ import { answered, goBack, leaveAutopilot, openFrom, select, setJobView, useDeck
 
 /** The way back, which every pane's head ends on: to the bay it was opened from, else to the map or timeline. */
 function BackAct() {
-  const { sel, from } = useDeck();
-  const back = from === undefined ? "Back" : "Back to the bay";
+  const autopilot = useDeck((deck) => deck.sel?.kind === "autopilot");
+  const fromBay = useDeck((deck) => deck.from !== undefined);
+  const back = fromBay ? "Back to the bay" : "Back";
   return (
     <Tooltip label={back} shortcut="Esc">
-      <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (sel?.kind === "autopilot" ? leaveAutopilot() : goBack())}>
+      <Button variant="ghost" size="sm" iconOnly aria-label={back} onClick={() => (autopilot ? leaveAutopilot() : goBack())}>
         <X size={16} aria-hidden="true" />
       </Button>
     </Tooltip>
@@ -165,7 +166,7 @@ const JOB_VIEWS = [
 export function JobPane({ subject, props, acts, onPr, call, mission }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; mission: (run: Run) => ReactNode }) {
   const nowing = nowPanelOf(props.nows?.[subject.id], { onOpenJob: props.onOpen, onSaid: () => {} });
   const tone = toneOf(subject);
-  const { jobView } = useDeck();
+  const jobView = useDeck((deck) => deck.jobView);
   const run = useRun(subject, props);
   return (
     <section className="deck-pane" aria-label={`Job: ${subject.title}`}>
@@ -205,16 +206,16 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
  * A Session on the stage is the panel the Sessions window draws: its head with the state, the context figure and the rename, its
  * thread and its box. **Its ledger is drawn in the deck's right column**, in `ledger`, where the Bays were. The deck's own acts
  * (the pull request, Stop, Open the page, Back) ride in the head after the ones the window has, and the clash mark is the head's.
- * `openSession` opens another Session where this one is, as the list does.
+ * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
+ * and Needs you band.
  */
-export function SessionPane({ subject, props, acts, onPr, call, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; call?: Item | undefined; ledger: HTMLElement | null; openSession: (id: string) => void }) {
+export function SessionPane({ subject, props, acts, onPr, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; ledger: HTMLElement | null; openSession: (id: string) => void }) {
   const session = useSessions().find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
   const { state } = props;
   if (session === undefined || draft === undefined) return null;
   return (
     <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`}>
-      {call === undefined ? null : <CallStrip item={call} props={props} />}
       <SessionView
         session={session}
         goes={{ onOpenJob: props.onOpen, onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id) => props.onOpenSession(id) }}

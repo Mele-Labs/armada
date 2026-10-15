@@ -1,0 +1,95 @@
+// The widths of the deck's two side columns, which a handle on each inner edge drags. Kept in this browser as dragged
+// (`localStorage`, as `auto-land.ts` keeps its set) and clamped on each look to the window as it is now, so a column dragged
+// wide in a big window comes back to what it was when the window does. A column never dragged has no entry and is drawn at
+// its resting width. All lengths are multiples of `--space-12`, the unit `deck.css` sizes the columns by.
+
+import { useCallback, useLayoutEffect, useMemo, useState, type RefObject } from "react";
+import { clampToRange, tokenPx } from "@armada/components";
+
+export type Side = "left" | "right";
+type Kept = Partial<Record<Side, number>>;
+
+const KEY = "armada.bridge.deck-columns";
+
+/** Resting widths, as `deck.css` draws the grid before anything is dragged, in `--space-12`. */
+const REST: Record<Side, number> = { left: 6, right: 5.75 };
+/** The narrowest each column goes before its rows clip: the left's row is a kind, a title, a few words and a mark. */
+const FLOOR: Record<Side, number> = { left: 4.5, right: 4.75 };
+/** The least the stage keeps: a Job's canvas beside its mission, a Session's thread. */
+const CENTRE_FLOOR = 10;
+
+export type Columns = {
+  left: number;
+  right: number;
+  /** Each column's range given the other as drawn, so the centre keeps its floor. */
+  range: Record<Side, { min: number; max: number }>;
+};
+
+/** What each column is drawn at, given the room the three share (the grid less its two gaps) and the unit in px. */
+export function settle(kept: Kept, room: number, unit: number): Columns {
+  const floor = { left: FLOOR.left * unit, right: FLOOR.right * unit };
+  const centre = CENTRE_FLOOR * unit;
+  const wanted = (side: Side) => kept[side] ?? REST[side] * unit;
+  const rightMax = Math.max(floor.right, room - floor.left - centre);
+  const right = clampToRange(wanted("right"), { min: floor.right, max: rightMax });
+  const leftMax = Math.max(floor.left, room - right - centre);
+  const left = clampToRange(wanted("left"), { min: floor.left, max: leftMax });
+  return { left, right, range: { left: { min: floor.left, max: leftMax }, right: { min: floor.right, max: Math.max(floor.right, room - left - centre) } } };
+}
+
+function read(): Kept {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? "{}");
+    if (typeof parsed !== "object" || parsed === null) return {};
+    const { left, right } = parsed as Record<string, unknown>;
+    return { ...(typeof left === "number" && Number.isFinite(left) ? { left } : {}), ...(typeof right === "number" && Number.isFinite(right) ? { right } : {}) };
+  } catch {
+    return {};
+  }
+}
+
+function write(next: Kept): void {
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // A failed write leaves the widths unremembered past this window.
+  }
+}
+
+/**
+ * The columns' widths for the grid in `grid`, and how to move or reset one. `undefined` until the grid has been measured,
+ * when the stylesheet's own resting widths hold and no handle is drawn.
+ */
+export function useColumns(grid: RefObject<HTMLElement | null>) {
+  const [kept, setKept] = useState<Kept>(read);
+  const [room, setRoom] = useState<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const element = grid.current;
+    if (element === null) return;
+    const measure = () => setRoom(element.clientWidth - 2 * tokenPx("--space-3"));
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const watching = new ResizeObserver(measure);
+    watching.observe(element);
+    return () => watching.disconnect();
+  }, [grid]);
+  const columns = useMemo(() => {
+    const unit = tokenPx("--space-12");
+    return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit);
+  }, [kept, room]);
+  const resize = useCallback((side: Side, width: number) => {
+    setKept((was) => {
+      const next = { ...was, [side]: Math.round(width) };
+      write(next);
+      return next;
+    });
+  }, []);
+  const reset = useCallback((side: Side) => {
+    setKept((was) => {
+      const { [side]: _gone, ...next } = was;
+      write(next);
+      return next;
+    });
+  }, []);
+  return { columns, resize, reset };
+}
