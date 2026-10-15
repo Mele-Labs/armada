@@ -97,8 +97,8 @@ test("a Job that needs the person and raised no call of its own is one, and the 
   const job = { id: "j1", title: "Review me", status: "awaiting_review", owner_manifest_id: "m" } as never;
   const ship = shipOf({ jobs: [job], sessions: [], lines: [], slots: [], repositories: [], workflows: [], nows: undefined, calls: [], now: 0 });
   const raised = ship.calls.map((one) => one.key);
-  expect(raised).toEqual(["job:j1:needs"]);
-  expect(incomingOf(ship.calls, new Map(), new Set(raised), needingOf(ship)).map((one) => one.key)).toEqual(["job:j1:needs"]);
+  expect(raised).toEqual(["job:j1:needs:awaiting_review"]);
+  expect(incomingOf(ship.calls, new Map(), new Set(raised), needingOf(ship)).map((one) => one.key)).toEqual(["job:j1:needs:awaiting_review"]);
   toggleNeeds();
   expect(listOf(ship, deckNow()).map((one) => one.key)).toEqual(["job:j1"]);
 });

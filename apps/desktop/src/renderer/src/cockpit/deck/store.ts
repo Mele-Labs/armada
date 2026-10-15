@@ -231,8 +231,8 @@ export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, num
     });
 }
 
-/** The Jobs and Sessions that need the person now, by the key `callOwnerOf` gives their calls. */
-export const needingOf = (ship: Pick<Ship, "subjects">): ReadonlySet<string> => new Set(ship.subjects.filter((one) => one.kind !== "pr" && one.phase === "needs").map((one) => one.key));
+/** The Jobs and Sessions waiting on the person's answer, by the key `callOwnerOf` gives their calls: seeing their call does not end it. */
+export const needingOf = (ship: Pick<Ship, "asking">): ReadonlySet<string> => ship.asking;
 
 /**
  * Whom a call is from: its Session, its Job, the owner a pull request's or main's call names, else the call alone. **One call each**:
