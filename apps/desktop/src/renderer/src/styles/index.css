@@ -92,6 +92,14 @@ body::after {
   opacity: 1;
 }
 
+/* A window that is hidden or has lost focus draws no motion (`still.ts`): the map's loops alone held the
+   compositor at the display's rate. State still updates. */
+:root[data-still] *,
+:root[data-still] *::before,
+:root[data-still] *::after {
+  animation-play-state: paused !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body::after {
     transition: none;
