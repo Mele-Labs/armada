@@ -741,7 +741,7 @@ those two with no repaint; `box-shadow`, `background-position`, `stroke-dashoffs
 rest repaint their element every frame. A glow is a pseudo-element with a static shadow that
 animates `opacity` or `scale`; a dash that marches is a layer that slides one period. Use
 `will-change` on the element that animates, never on a container.
-`apps/desktop/src/renderer/src/compositor-motion.test.ts` refuses a new infinite `@keyframes`
+`apps/desktop/src/main/compositor-motion.test.ts` refuses a new infinite `@keyframes`
 that animates anything else, and holds the allow-list: each exception names why it cannot move.
 
 | Measured against the mock in headless Chromium, ms per second | Before: `box-shadow` ring | After: `transform` and `opacity` ring |

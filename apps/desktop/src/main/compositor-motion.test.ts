@@ -7,7 +7,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-const ROOT = new URL("../../../../../", import.meta.url).pathname;
+const ROOT = new URL("../../../../", import.meta.url).pathname;
 const SOURCES = ["apps/desktop/src", "packages"];
 const SKIPPED = new Set(["node_modules", "out", "dist", "storybook-static", "target"]);
 
