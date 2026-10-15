@@ -40,7 +40,7 @@ impl Planted {
 }
 
 /// The view a machine holds, handed out as the store.
-struct Viewed(Arc<FakeStore>);
+pub(super) struct Viewed(pub(super) Arc<FakeStore>);
 
 impl Store for Viewed {
     fn claim(&self, repository: &adapter_traits::RepositoryKey, red: &adapter_traits::RedKey, holder: &Holder) -> Result<Claimed, adapter_traits::StoreError> {
@@ -106,7 +106,11 @@ pub(super) async fn machine(name: &str, shared: &FakeStore, switch: bool) -> Mac
     let view = Arc::new(shared.view());
     fittings.reaching = Arc::new(Planted { store: Some(Arc::clone(&view)) });
     crate::profiles::Profiles::in_machine_directory(home.path())
-        .join(&adapter_traits::SignedInAs { id: 583_231, login: "octocat".into() }, "2026-10-14T09:00:00.000Z")
+        .join(
+            &adapter_traits::SignedInAs { id: 583_231, login: "octocat".into() },
+            crate::profiles::Orgs::Read(vec!["mele-labs".into()]),
+            "2026-10-14T09:00:00.000Z",
+        )
         .expect("a profile");
     let fleet = Fleet::assembled(fittings);
     let changes = [("store.url", "https://store.test"), ("machine.name", name)]
