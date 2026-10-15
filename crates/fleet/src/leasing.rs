@@ -53,6 +53,23 @@ const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.
 pub(crate) const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
 
+/// Every slot number the pool has on this machine. **A person may add slots past
+/// `setup.worktrees`**, and a lease takes any of them, so a count from the Manifest
+/// missed a session's slot-9 on a machine of fifteen (15 Oct 2026).
+pub(crate) fn bays_of(served: &Served) -> Vec<u32> {
+    let pool = pool_of(served);
+    adapters::leasing::Pool::at(
+        std::path::Path::new(pool.repo_root()),
+        pool.slots() as usize,
+        pool.base(),
+        pool.keep().to_vec(),
+    )
+    .bays()
+    .into_iter()
+    .filter_map(|bay| u32::try_from(bay).ok())
+    .collect()
+}
+
 /// The served repository's pool, as its root Manifest sizes it.
 pub(crate) fn pool_of(served: &Served) -> SlotPool {
     let manifest = served.manifest();

@@ -8,6 +8,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
+import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ApprovalCard } from "../HelmThread/ApprovalCard";
 import type { HelmApprovalCard } from "../HelmThread/ApprovalCard";
@@ -81,6 +82,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
+  /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /**
@@ -577,6 +580,24 @@ function Row({
           <AppWindow size={12} strokeWidth={2} aria-hidden />
           {row.title}
         </button>
+      </li>
+    );
+  }
+  if (row.kind === "ran") {
+    const phase = { state: "ended", code: row.code } as const;
+    const first = row.command.split("\n")[0] ?? "";
+    return (
+      <li className="armada-session-fold armada-session-fold--ran">
+        <details>
+          <summary className="armada-session-fold__head" aria-label={`${row.code === null ? "Stopped" : `Exit ${row.code}`}: ${first}`}>
+            <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+            <TerminalMark phase={phase} />
+            <code className="armada-session-fold__target">{first}</code>
+          </summary>
+          <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Session">
+            {row.tail}
+          </pre>
+        </details>
       </li>
     );
   }

@@ -392,8 +392,9 @@ it("starts a run, reads its socket to the exit, and hands a refusal back", async
       if (message.kind === "exited") done();
     }),
   );
-  expect(await sessions.startRun({ session_id: "a", command: "echo hi" })).toEqual({ ok: true, value: { run_id: "r1" } });
+  expect(await sessions.startRun({ session_id: "a", command: "echo hi", cols: 100, rows: 30 })).toEqual({ ok: true, value: { run_id: "r1" } });
   await closed;
+  expect(sent[0]?.body).toEqual({ session_id: "a", command: "echo hi", cols: 100, rows: 30 });
   expect(heard.map((one) => one.kind)).toEqual(["opened", "output", "exited"]);
   expect(heard[2]).toEqual({ kind: "exited", code: 0 });
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/run/start", "UPGRADE /sessions/run/r1/observe"]);

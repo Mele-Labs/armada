@@ -409,6 +409,18 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target: Option<String>,
     },
+    /// A command the person ran from the thread or the Needs-you band, ended, and what the
+    /// session was told of it. `code` is absent where the run was stopped or a signal ended it;
+    /// `tail` is the last lines it printed as plain text, the same Fleet sent the agent. Written
+    /// instead of a message from Fleet. Since 23.89.
+    Ran {
+        id: String,
+        at: Instant,
+        command: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        code: Option<i32>,
+        tail: String,
+    },
     /// A Session's retro being written. **The row is replaced by id** as the writing goes
     /// and stays when it is done. `items` settle while the model writes and are empty once
     /// `written`, when `retro` names the kept one for `get_session_retro`. Since 23.78.
@@ -491,6 +503,7 @@ impl SessionRow {
             | SessionRow::Window { id, .. }
             | SessionRow::Started { id, .. }
             | SessionRow::Check { id, .. }
+            | SessionRow::Ran { id, .. }
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Sent { id, .. }

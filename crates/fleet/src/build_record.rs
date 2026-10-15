@@ -234,6 +234,7 @@ fn merged_tasks(build: &KeptBuild, kept: &[KeptTask], list: &[ReportedTask], now
                 first_seen_at: was.map_or_else(|| now.to_string(), |was| was.first_seen_at.clone()),
                 completed_at,
                 edited: edit,
+                made_by: item.by.clone(),
             }
         })
         .collect();
@@ -287,6 +288,7 @@ fn pieces(build: &KeptBuild, tasks: &[KeptTask]) -> Vec<BuildPiece> {
         .map(|(at, task)| BuildPiece {
             id: task.id.clone(),
             text: task.text.clone(),
+            by: task.made_by.clone(),
             piece: match (&task.completed_at, task.edited) {
                 (Some(_), true) => BuildPieceKind::Solid,
                 (Some(_), false) => BuildPieceKind::Hollow,

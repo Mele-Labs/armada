@@ -13,7 +13,7 @@ export function runnerOf(draft: SessionsDraft, session: Session, settle: (now: (
   const run = draft.run;
   if (run === undefined) return undefined;
   const names = new Set((session.commands ?? []).map((one) => one.name));
-  return (command, on) => {
+  return (command, on, size) => {
     // A command the terminal lists is a skill or slash command: it goes to the terminal as typed, not to a shell.
     if (session.terminal === true && draft.command !== undefined && isSlashCommand(command.trim(), names)) {
       draft.command(session.id, command.trim());
@@ -22,6 +22,6 @@ export function runnerOf(draft: SessionsDraft, session: Session, settle: (now: (
       if (asked !== undefined) settle(() => draft.answerWaiting?.(session.id, asked.id, { text: "Ran: exit 0" }));
       return { stop: () => {} };
     }
-    return run(session.id, command, on);
+    return run(session.id, command, on, size);
   };
 }

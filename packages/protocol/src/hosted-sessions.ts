@@ -236,6 +236,12 @@ export type SessionRow =
    */
   | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /**
+   * A command the person ran from the thread or the Needs-you band, ended, and what the Session was told of it, in place
+   * of a message from Fleet. `code` is absent where the run was stopped or a signal ended it; `tail` is the last lines it
+   * printed as plain text, the same the agent was sent. Since 23.89.
+   */
+  | { kind: "ran"; id: string; at: string; command: string; code?: number; tail: string }
+  /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for
    * `get_session_retro n`, on `written`; `why` is Fleet's words, on `failed`. Since 23.78.

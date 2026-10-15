@@ -16,6 +16,8 @@ import {
   PilotAct,
   PilotConfirm,
   PilotExits,
+  DockedTerminal,
+  ProseTerminal,
   RetroPress,
   Tooltip,
   Sheet,
@@ -30,9 +32,12 @@ import {
   StepsPanel,
   TileSheet,
   pressedSlot,
+  useCodeRun,
   useKept,
+  useTerminalDock,
 } from "@armada/components";
 import type {
+  ProseTerminalValue,
   ChipOwnershipValue,
   FreshStart,
   OpenInSessionValue,
@@ -918,6 +923,9 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     return head.length + before.length + tail.length === 0 ? thread : [...head, ...before, ...thread, ...tail];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
   }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at]);
+  // A run drawn as a terminal: the pane is the view's own, docked above its box.
+  const runner = draft === undefined ? undefined : runnerOf(draft, session);
+  const dock = useTerminalDock(useCodeRun(runner), session.id);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -926,7 +934,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     setLedgerOpen(false);
     open(...args);
   };
-  const runner = runnerOf(draft, session);
+  const terminal: ProseTerminalValue | null = draft.terminalRuns === undefined ? null : { dock };
   const hours = session.trail === undefined ? 0 : Math.floor((Date.now() - Date.parse(session.trail.started)) / 3_600_000);
   const tokens = session.context?.tokens ?? 0;
   const lastRow = thread[thread.length - 1];
@@ -983,6 +991,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
   return (
     <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
+      <ProseTerminal.Provider value={terminal}>
       <SessionFrame
         state={state}
         said={said}
@@ -1110,6 +1119,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                 })}
             onOpenSession={onOpen}
           />
+          {terminal === null ? null : <DockedTerminal dock={terminal.dock} />}
           {session.dead !== undefined ? null : (
             <SessionComposer
               modeLocked={session.terminal === true}
@@ -1193,6 +1203,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         }}
       />
       {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
+      </ProseTerminal.Provider>
     </SessionRefs>
   );
 }

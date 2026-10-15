@@ -3474,6 +3474,18 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.78 answers 404 and Bridge shows the refusal as for any act on a Session. A Bridge before it never calls the route. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
+## Protocol 23.89: a run's end is a row in the thread
+
+`docs/concepts/session.md`, *Running a block*. **Additive only**: one thread row, and no operation changes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `session.row`, `get_session` | `SessionRow` kind `ran`: `id`, `at`, `command`, `code?`, `tail` | A hosted Session's thread keeps one when a run ends, in place of the message from Fleet it kept before. `code` is absent where the run was stopped or a signal ended it. `tail` is the last 40 lines as a person would have read them, escapes and carriage-return overwrites resolved: the text the agent is sent, and empty where the run printed nothing |
+
+The agent is sent the same words as before (the command, `Exit <code>.` or `Stopped.`, the last lines, and the note that Fleet took a waiting item off), **once**, and the thread shows no message from Fleet beside the row. A terminal Session's thread is the transcript its CLI keeps and Fleet cannot write to it, so it has no `ran` row and its mod is still handed the words.
+
+**Skew.** A Bridge before 23.89 reads a `ran` row as a kind it does not know and draws nothing for it, or draws it badly. A Fleet before sends the message. The IDs differ, so the two are refused regardless, and the lifeboat serves. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Protocol 23.88: a Session's run is on a terminal
 
 `docs/concepts/session.md`, *Running a block*. **Two things change that exist, two operations are new.** Both operations are `agent_access: No`: running a block and typing into it are the person's own acts.
@@ -3485,7 +3497,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `write_session_run` (`POST /sessions/run/write`) | `WriteSessionRun`: `run_id`, `data`. Answers 200 `SessionRunUnderway` | `data` is written to the terminal as it is. Ctrl-C is the byte 3 and reaches the command as SIGINT. 422 on a run that has ended or Fleet does not hold, the shape a stop has |
 | `resize_session_run` (`POST /sessions/run/resize`) | `ResizeSessionRun`: `run_id`, `cols`, `rows`. Answers 200 `SessionRunUnderway` | 422 as `write_session_run`'s, and for a size of 0 |
 
-**The Session is told when the run ends**, as Fleet tells a Session anything: the command, `Exit <code>.` or `Stopped.`, and the last 40 lines with escapes and carriage-return overwrites resolved. A `run` item in the Session's `waiting_for` whose target is the command, trimmed, is taken off the list in the same moment when the exit is 0. Bridge no longer answers it. A Session that has ended is not told. A slash command sent to a terminal Session is no run, and Bridge still settles its item.
+**The Session is told when the run ends**, as Fleet tells a Session anything: the command, `Exit <code>.` or `Stopped.`, and the last 40 lines with escapes and carriage-return overwrites resolved. A `run` item in the Session's `waiting_for` whose target is the command, trimmed, is taken off the list in the same moment when the exit is 0. Bridge no longer answers it. A Session that has ended is not told. *Protocol 23.89 keeps a hosted thread's telling as a `ran` row.* A slash command sent to a terminal Session is no run, and Bridge still settles its item.
 
 **Skew.** A Fleet before 23.88 sends `lines`, which a newer Bridge ignores, and answers 404 to the two routes. A Bridge before it ignores `output`. The IDs differ, so the two are refused regardless. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest. There is no number to take: `armada need --status` showed nothing standing on these paths.
 
@@ -4008,12 +4020,14 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/
 | --- | --- | --- |
 | `SessionRecord.build` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `SessionBuild`: `phase`, `pieces[]`, `stops[]`, `forecast[]`, `landed_at?`, `quiet_since?`, `stalled`, `workers[]`. Left out for a Session that has done nothing Fleet observed |
 | `SessionBuild.phase` | Fleet writes, Bridge matches | `scope`, `plan`, `implement`, `road`, `landed` |
-| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) |
+| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) and `by?`, the writing subagent's label in the form `workers` uses (`Type: what it was asked`), left out for the Session's own tasks |
 | `SessionBuild.stops[]`, `forecast[]` | Fleet writes, Bridge matches `id` | `BuildStop`: `id` (`walk`, `pushed`, `pr`, `checks` or `auto_merge`) and `at?`, left out for a stop not yet reached |
-| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`). `committed` and `pushed` carry `branch?` |
+| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`) and `by?`, the `agentId` of the subagent that wrote the task, absent for the Session's own (mod 0.3.24). `committed` and `pushed` carry `branch?` |
 | `TimelineKind` `session.walked`, `session.committed`, `session.pushed` | Fleet writes, Bridge draws | Strict. A walk's detail is the page's title, the others' the branch |
 
 **Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them. **The arrays are always sent**, empty when they hold nothing, so a reader never tests for them. An unreached stop has no `at`, and none is sent as `null`.
+
+**Subagents' tasks, 15 Oct 2026. Additive:** `ReportedTask.by?` and `BuildPiece.by?`, both optional and left out when absent, and the migration `20261015T2000Z-session_build.task_worker` adding a nullable `made_by` to `session_build_tasks`. A row kept before it reads as the Session's own tasks. A Bridge that predates `by` ignores it and draws every piece as the Session's. A mod before `0.3.24` tells no subagent's task, so the ring lacks them.
 
 **Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod before `0.3.23` tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
 
