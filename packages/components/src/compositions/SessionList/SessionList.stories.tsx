@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, waitFor } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { SESSION_PAGE, SessionList, type SessionRowView } from "./SessionList";
 
@@ -95,6 +95,26 @@ export const PullRequestCard: Story = {
     await waitFor(() => expect(title).toBeVisible());
     await expect(canvas.getByText("armada/release-notes")).toBeVisible();
     await expect(args.onOpen).not.toHaveBeenCalled();
+  },
+};
+
+/** On All, a band for each repository with the state columns inside it; a repository with no Session is not drawn by the host. */
+export const ByRepository: Story = {
+  args: {
+    groups: [],
+    bands: [
+      { label: "armada", groups: [{ label: "Needs you", rows: [FLAKY, NOTES] }, { label: "Running", rows: [LIVE] }] },
+      { label: "storefront", groups: [{ label: "Running", rows: [{ ...LIVE, id: "s9", title: "Cart totals" }] }] },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const armada = within(canvas.getByRole("region", { name: "armada" }));
+    await expect(armada.getByRole("heading", { name: "Needs you" })).toBeInTheDocument();
+    await expect(armada.getByRole("button", { name: /Flaky store test/ })).toBeInTheDocument();
+    await expect(armada.queryByRole("button", { name: /Cart totals/ })).toBeNull();
+    const storefront = within(canvas.getByRole("region", { name: "storefront" }));
+    await expect(storefront.getByRole("button", { name: /Cart totals/ })).toBeInTheDocument();
+    await expect(storefront.queryByRole("heading", { name: "Needs you" })).toBeNull();
   },
 };
 
