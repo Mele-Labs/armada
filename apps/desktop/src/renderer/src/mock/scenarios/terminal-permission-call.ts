@@ -1,6 +1,6 @@
 // A Session in a terminal stopped on its harness's own permission prompt, which nobody is at the
-// terminal to answer. Its mod told Fleet, so it is a call in the Cockpit; only the terminal can
-// answer it, so the call's one act opens the Session. The walk `terminalPermissionCall` plays it.
+// terminal to answer. Its mod put the prompt to Fleet, so it is a call in the Cockpit, answered from
+// Bridge as a hosted Session's is: ▶ on its command is Allow once. The walk `terminalPermissionCall` plays it.
 
 import { featureRunning } from "@armada/jobs/fake";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -28,8 +28,16 @@ const SESSION: Session = {
     { id: "t2", at: "21:52:40", kind: "message", from: { kind: "agent" }, text: "The store compiles. Building the workspace next." },
   ],
   attachments: [],
+  asked: { command: "cargo build --release", call: "c7", offers: ["allow_once", "refuse"] },
   waitingFor: [
-    { id: "perm:2026-10-14T21:53:10.000Z", text: "Bash cargo build --release", since: ago(5), source: "permission", act: { kind: "message", target: "t7" } },
+    {
+      id: "perm:c7",
+      text: "Bash cargo build --release",
+      since: ago(5),
+      source: "permission",
+      act: { kind: "answer", target: "c7" },
+      options: [{ label: "Allow once" }, { label: "Refuse" }],
+    },
   ],
 };
 

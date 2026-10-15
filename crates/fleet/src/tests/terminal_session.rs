@@ -704,6 +704,37 @@ async fn a_terminal_question_is_an_ask_row_and_a_bridge_answer_reaches_the_polli
     assert!(rig.opened().await.is_empty(), "no waiting card is left");
 }
 
+/// **A terminal's own permission prompt is answered from Bridge.** It is a call with Allow once and
+/// Refuse and no card in the thread, and Allow once goes back to the polling mod as the call's own
+/// input, which it runs as allowed.
+#[tokio::test]
+async fn a_terminal_permission_is_allowed_from_its_call_and_the_allow_reaches_the_polling_mod() {
+    let rig = rig();
+    rig.started().await;
+    let ask = format!(r#"{{"kind":"asks","session_id":"{ID}","tool":"Bash","input":{{"command":"cargo build"}}}}"#);
+    let ipc::TerminalAsked::Asked { call } = rig.mod_says(ask).await.unwrap() else {
+        panic!("a permission is answered with its call");
+    };
+    let polling = rig.mod_waits(&call);
+
+    let record = Arc::clone(&rig.fleet).get_session(SessionId::carried(ID)).await.unwrap().session;
+    let [item] = record.waiting_for.as_slice() else { panic!("one call: {:?}", record.waiting_for) };
+    assert_eq!(item.source, ipc::WaitingSource::Permission);
+    assert_eq!(item.text, "Bash cargo build");
+    let offered: Vec<&str> = item.options.iter().map(|one| one.label.as_str()).collect();
+    assert_eq!(offered, ["Allow once", "Refuse"], "nothing writes a terminal's rule, so it offers no remembering");
+    assert!(rig.opened().await.is_empty(), "a permission is no card in the thread");
+
+    Arc::clone(&rig.fleet)
+        .answer_waiting(ipc::AnswerWaiting { session_id: SessionId::carried(ID), item_id: item.id.clone(), choice: Some(0), text: None, mode: None })
+        .await
+        .expect("Allow once is answerable from the call");
+    let ipc::TerminalAsked::Answered { updated_input } = polling.await.unwrap().unwrap() else {
+        panic!("an allowed permission comes back answered");
+    };
+    assert_eq!(updated_input.pointer("/command").unwrap(), "cargo build");
+}
+
 /// **No poll need be under way when Bridge answers.** The answer is kept, the
 /// card closes, and the mod's next poll collects it, however many times.
 #[tokio::test]

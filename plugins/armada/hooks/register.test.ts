@@ -1043,3 +1043,74 @@ test('a prompt still open when Fleet comes back is told again, and one the next 
   await clock.settle()
   expect(kinds(posts.slice(before))).not.toContain('permission_asked')
 })
+
+/**
+ * The engine beneath the mod for a call the terminal asks permission for. The first run waits on the
+ * terminal's prompt, which answers only where `terminal` says how; a run after it is the one Bridge
+ * allowed, held until `release` where a test reads `tool.check` meanwhile.
+ */
+function prompting(on: Parameters<Parameters<typeof test>[1]>[1], terminal?: Promise<{ result: unknown; text: string }>, release?: Promise<void>) {
+  const seen = { runs: 0 }
+  on('tool.check', () => ({ decision: 'ask' as const }))
+  on('tool.call', async () => {
+    seen.runs += 1
+    if (seen.runs === 1) return terminal ?? new Promise<never>(() => undefined)
+    await release
+    return { result: {}, text: 'built' }
+  })
+  return seen
+}
+
+const BASH = { tool_name: 'Bash', tool_input: { command: 'cargo build' } }
+
+test('a permission allowed in Bridge runs the call again without the prompt, and the first run is dropped', async ($, on) => {
+  const { questions, clock } = world(on, { polls: ['{"outcome":"answered","updated_input":{"command":"cargo build"}}'] })
+  let release: () => void = () => undefined
+  const seen = prompting(on, undefined, new Promise<void>(resolve => (release = resolve)))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await $.classic.PermissionRequest(BASH)
+  await clock.settle()
+  expect(questions[0]).toEqual({ kind: 'asks', session_id: 'S1', tool: 'Bash', input: { command: 'cargo build' } })
+  // While the allowed run goes, the check lets it past the prompt; once it is over, it asks again.
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'cargo build' } })).decision).toBe('allow')
+  release()
+  const ran = await call
+
+  expect(ran.text).toBe('built')
+  expect(seen.runs).toBe(2)
+  expect((await $.tool.check({ tool: 'Bash', input: { command: 'cargo build' } })).decision).toBe('ask')
+})
+
+test('a permission refused in Bridge is denied with what Fleet said', async ($, on) => {
+  const { clock } = world(on, { polls: ['{"outcome":"refused","message":"The person refused this."}'] })
+  prompting(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await $.classic.PermissionRequest(BASH)
+  const ran = await call
+
+  expect(ran.deny).toContain('The person refused this.')
+})
+
+test('a permission answered in the terminal first tells Fleet it was settled', async ($, on) => {
+  const { questions, clock } = world(on)
+  let answer: (ran: { result: unknown; text: string }) => void = () => undefined
+  prompting(on, new Promise(resolve => (answer = resolve)))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  const call = $.tool.call({ tool: 'Bash', command: 'cargo build' })
+  await $.classic.PermissionRequest(BASH)
+  await clock.settle()
+  answer({ result: {}, text: 'built in the terminal' })
+  const ran = await call
+  await clock.settle()
+
+  expect(ran.text).toBe('built in the terminal')
+  expect(questions).toContainEqual({ kind: 'settled', session_id: 'S1', answered: true })
+})
