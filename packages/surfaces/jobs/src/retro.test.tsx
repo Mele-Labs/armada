@@ -37,8 +37,8 @@ test("Retros is a page under System, and lists every Job's items newest first", 
   await onScreen();
 
   const titles = await lessons();
-  // The strip marks where the window is.
-  await expect.element(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Retros" })).toHaveAttribute("aria-selected", "true");
+  // The places bar marks where the window is.
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Retros" })).toHaveAttribute("aria-selected", "true");
   const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent);
   // Job 3's four items, then Job 2's one: Fleet's order, newest retro first.
   expect(from).toEqual([...Array<string>(4).fill("Job 3"), "Job 2"]);

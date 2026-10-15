@@ -117,13 +117,14 @@ export function actsIn(context: ActionContext): readonly Action[] {
 /**
  * The global acts, which reach a surface rather than a Job.
  *
- * **Two rows are left out and neither is an omission.** `command_palette` is
+ * **Three rows are left out and none is an omission.** `command_palette` is
  * the one act that cannot be reached from inside the palette, since the
- * palette is what is already open; and `deck_tabs` is one registry row
+ * palette is what is already open; `deck_tabs` is one registry row
  * standing for the title bar's tabs, because the contract's rule there is the
- * tab's place in the bar rather than the digits. A palette draws the
- * destinations one per row, from the roster — which is the only thing that
- * knows what `⌘3` currently reaches.
+ * tab's place in the bar rather than the digits; and `open_settings` is the
+ * Settings destination's own key, which the roster's Settings row already
+ * draws. A palette draws the destinations one per row, from the roster —
+ * which is the only thing that knows what `⌘3` currently reaches.
  */
 export function globalActs(): readonly Action[] {
   return ACTIONS.filter(
@@ -131,7 +132,8 @@ export function globalActs(): readonly Action[] {
       action.kind === "Action" &&
       action.tier === "Global" &&
       action.id !== "command_palette" &&
-      action.id !== "deck_tabs",
+      action.id !== "deck_tabs" &&
+      action.id !== "open_settings",
   );
 }
 

@@ -468,7 +468,7 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   );
 }
 
-function Incoming({ calls, now, ship }: { calls: readonly Item[]; now: number; ship: Ship }) {
+function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
   return (
     <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1}>
       <header className="deck-band">
@@ -480,7 +480,7 @@ function Incoming({ calls, now, ship }: { calls: readonly Item[]; now: number; s
           const Icon = item.icon;
           return (
             <li key={item.key}>
-              <button type="button" className="deck-hail" data-hue={item.hue} data-first={at === 0 || undefined} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item)}>
+              <button type="button" className="deck-hail" data-hue={item.hue} data-first={at === 0 || undefined} aria-label={`${item.kind}: ${item.title}`} onClick={() => openCall(ship, item, hosts)}>
                 <Tooltip label={item.kind}>
                   <span className="deck-hail__kind" role="img" aria-label={item.kind}>
                     <Icon size={16} aria-hidden="true" />
@@ -533,7 +533,7 @@ export function DeckBody(props: CockpitProps) {
   useEffect(() => {
     if (bring === undefined || bring === null) return;
     const item = ship.calls.find((one) => one.key === bring.key);
-    if (item !== undefined) openCall(ship, item);
+    if (item !== undefined) openCall(ship, item, props);
     onBrought?.();
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
@@ -593,7 +593,7 @@ export function DeckBody(props: CockpitProps) {
               <LedgerPanel host={setLedgerHost} />
             </>
           ) : <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} />}
-          <Incoming calls={incoming} now={props.now} ship={ship} />
+          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
         </div>
       </div>
     </div>

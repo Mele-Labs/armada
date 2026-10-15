@@ -143,13 +143,14 @@ export async function motion(): Promise<void> {
   onTestFinished(() => commands.motion(false));
 }
 
-/** A place in the title bar: Cockpit, Jobs, Sessions or System. Pressing the one a person is in goes up to its list. */
-export async function toPlace(name: "Cockpit" | "Jobs" | "Sessions" | "System"): Promise<void> {
+/** A place in the title bar: Cockpit, Jobs, Sessions, Studios, Retros or System. Pressing the one a person is in goes up to its list. */
+export async function toPlace(name: "Cockpit" | "Jobs" | "Sessions" | "Studios" | "Retros" | "System"): Promise<void> {
   await userEvent.click(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name }));
 }
 
-/** A page on the System strip, from anywhere: System, then the page's tab. */
+/** A page on the System strip, from anywhere: System, then the page's tab. Studios and Retros are tabs of their own, one press. */
 export async function toSystemPage(name: string): Promise<void> {
+  if (name === "Studios" || name === "Retros") return toPlace(name);
   await toPlace("System");
   await userEvent.click(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name }));
 }

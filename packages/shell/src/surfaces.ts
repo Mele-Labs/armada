@@ -3,8 +3,9 @@
 // **One roster, read by everything that navigates.** The title bar's tabs and System strip draw from it and the palette lists
 // it. A second copy is how a place ends up in one and not the other, or answers a key the other spells differently.
 //
-// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘4` are Cockpit, Jobs, Sessions and System, and `⌘5` is
-// Settings. Every other destination is reached from the System strip, a link on the deck or the palette by name, and takes no key.
+// **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘6` are Cockpit, Jobs, Sessions, Studios, Retros and System,
+// and Settings is `⌘,`. Every other destination is reached from the System strip, the title bar's menu, a link on the deck or
+// the palette by name, and takes no key.
 
 import { useEffect, useRef } from "react";
 import {
@@ -25,7 +26,7 @@ import {
   UserCheck,
   Workflow,
 } from "lucide-react";
-import { digitKeyFor, pressedDigit } from "@armada/components";
+import { digitKeyFor, isPressed, keyFor, pressedDigit } from "@armada/components";
 
 import type { PaletteSurface } from "./Palette";
 
@@ -51,12 +52,13 @@ export const SURFACE = {
 
 type SurfaceId = (typeof SURFACE)[keyof typeof SURFACE];
 
-/** The digit each surface answers to: the tab it is, and Settings. A place with none is reached by name. */
+/** The digit each surface answers to: the tab it is. A place with none is reached by name, and Settings has `⌘,`. */
 const DIGIT: Readonly<Partial<Record<SurfaceId, number>>> = {
   [SURFACE.overview]: 1,
   [SURFACE.jobs]: 2,
   [SURFACE.sessions]: 3,
-  [SURFACE.settings]: 5,
+  [SURFACE.studios]: 4,
+  [SURFACE.lessons]: 5,
 };
 
 /** What reaches a surface, spelled as this person has `deck_tabs`: `⌘3` unless Settings → Keyboard moved the row. */
@@ -153,7 +155,7 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.settings,
     label: "Settings",
     get shortcut() {
-      return digitOf(SURFACE.settings);
+      return keyFor("open_settings");
     },
     // No alias: `fleet_settings` is the palette's own row, in its own
     // section, and it names an id rather than a word somebody already knows.
@@ -246,7 +248,7 @@ export const SURFACES: readonly PaletteSurface[] = [
 ];
 
 /**
- * The window's four tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘4` reach them.
+ * The window's six tabs, and the surface each opens. These tabs are how a person moves about, and `⌘1` to `⌘6` reach them.
  *
  * System has no surface of its own: it opens the first of the strip's pages, Kit, and the strip under the
  * title row lists them all.
@@ -255,6 +257,8 @@ export const DECK_TABS = [
   { id: "cockpit", label: "Cockpit", surface: SURFACE.overview },
   { id: "jobs", label: "Jobs", surface: SURFACE.jobs },
   { id: "sessions", label: "Sessions", surface: SURFACE.sessions },
+  { id: "studios", label: "Studios", surface: SURFACE.studios },
+  { id: "retros", label: "Retros", surface: SURFACE.lessons },
   { id: "system", label: "System", surface: SURFACE.kit },
 ] as const;
 
@@ -270,12 +274,9 @@ export const SYSTEM_PAGES: readonly { surface: string; label: string }[] = [
   SURFACE.settings,
   SURFACE.guides,
   SURFACE.workflows,
-  SURFACE.doctor,
-  SURFACE.studios,
-  SURFACE.lessons,
 ].map((surface) => ({ surface, label: SURFACES.find((one) => one.id === surface)?.label ?? surface }));
 
-/** The places a layout may name: the three tabs that are a surface, then the System strip's pages the layout reaches. */
+/** The places a layout may name: the tabs that are a surface, then the System strip's pages the layout reaches. */
 export const PLACES: readonly string[] = [
   SURFACE.overview,
   SURFACE.jobs,
@@ -296,13 +297,13 @@ export function deckTabOf(showing: string): DeckTabId | undefined {
   return SYSTEM_PAGES.some((page) => page.surface === showing) ? "system" : undefined;
 }
 
-/** What `⌘<digit>` reaches: the tab's surface for `⌘1` to `⌘4`, and Settings for `⌘5`. */
+/** What `⌘<digit>` reaches: the tab's surface for `⌘1` to `⌘6`. */
 export function surfaceOfDigit(digit: number): string | undefined {
-  return DECK_TABS[digit - 1]?.surface ?? (digit === DIGIT[SURFACE.settings] ? SURFACE.settings : undefined);
+  return DECK_TABS[digit - 1]?.surface;
 }
 
 /**
- * `⌘1` to `⌘5`, bound as `deck_tabs` has them.
+ * `⌘1` to `⌘6`, bound as `deck_tabs` has them, and Settings on `open_settings`.
  *
  * **A modified key, so a focused field does not suppress it.** `⌘K` is bound the same way and for the same reason: the
  * contextual tier is suppressed while a text input holds focus precisely so that typing cannot act, and the whole point of the
@@ -316,6 +317,11 @@ export function useSurfaceKeys(onSurface: (surfaceId: string) => void): void {
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
+      if (isPressed("open_settings", event)) {
+        event.preventDefault();
+        latest.current(SURFACE.settings);
+        return;
+      }
       const digit = pressedDigit("deck_tabs", event);
       if (digit === null) return;
       const surface = surfaceOfDigit(digit);

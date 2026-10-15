@@ -352,7 +352,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  // `⌘1` to `⌘4` are the title bar's four tabs and `⌘5` is Settings.
+  // `⌘1` to `⌘6` are the title bar's tabs and `⌘,` is Settings.
   const layoutRail = useLayout("rail");
   useSurfaceKeys((surface) => goTo(opensFor(surface, placesOff(hidden, layoutRail.all))));
 
@@ -1213,7 +1213,7 @@ export function App({ draft }: AppProps = {}) {
         <TitleDispatchedStrip anchor={ONE_BAR} />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar} anchor={ONE_BAR}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar}
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}
@@ -1263,7 +1263,7 @@ export function App({ draft }: AppProps = {}) {
           onCopied={setCopied}
         >
           <DownshiftAlert choose={openModelSetting} />
-          <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} />
+          <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>

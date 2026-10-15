@@ -95,3 +95,38 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
   await controls().getByRole("button", { name: "Checks" }).click();
   await expect.poll(() => rows().length).toBe(whole);
 });
+
+// **The owner, 15 Oct 2026**: when navigating the lists, `o` opens the item along with Enter. `open` is the registry's own row
+// for it, in the `list` scope the deck's lists are in, so this is the deck reading a key the registry already ships.
+test("in the deck's lists, o opens the item under the cursor as Enter does", async () => {
+  await deck();
+  // What the stage is labelled while nothing is picked.
+  const AT_REST = "Flight map";
+  const opened = async (selector: string, key: string) => {
+    const item = document.querySelector<HTMLElement>(selector);
+    expect(item, selector).not.toBeNull();
+    item!.focus();
+    await userEvent.keyboard(key);
+    await expect.poll(() => stage()?.getAttribute("aria-label") ?? "", { message: `${key} on ${selector}` }).toMatch(new RegExp(`^(?!${AT_REST}$).+`));
+    const label = stage()!.getAttribute("aria-label");
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").not.toBe(label);
+    return label;
+  };
+  for (const selector of [".deck-list .deck-row", ".deck-bays .deck-bay", ".deck-queue button.deck-chip"]) {
+    expect(await opened(selector, "o"), selector).toBe(await opened(selector, "{Enter}"));
+  }
+  // A control is not an item: `o` on the Autopilot switch leaves it as it was.
+  const autopilot = document.querySelector<HTMLElement>('.deck-autopilot [role="switch"]')!;
+  const was = autopilot.getAttribute("aria-checked");
+  autopilot.focus();
+  await userEvent.keyboard("o");
+  expect(autopilot.getAttribute("aria-checked")).toBe(was);
+  expect(stage()?.getAttribute("aria-label")).toBe(AT_REST);
+  // A call opens the Session or Job it is about, and leaves Incoming as it does when pressed.
+  const before = hails().length;
+  document.querySelector<HTMLElement>(".deck-incoming .deck-hail")!.focus();
+  await userEvent.keyboard("o");
+  await expect.poll(() => hails().length).toBe(before - 1);
+  expect(stage()?.getAttribute("aria-label")).not.toBe(AT_REST);
+});

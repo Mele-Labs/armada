@@ -182,7 +182,7 @@ test("with the pointer off the board, a paste lands in the middle of the view", 
   await openEditable();
   const before = kept().length;
   const at = await pressBoard(0);
-  await userEvent.hover(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Studios" }));
+  await userEvent.hover(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Studios" }));
   expect(paste({ strings: { "text/plain": "Off the board" } })).toBe(true);
   await landed(before);
   await expect.element(node(/^Note: Off the board/)).toBeVisible();

@@ -201,7 +201,9 @@ export type TitleBarProps = {
   menu?: {
     /** Opens the account, a page or a panel, from its row. Absent draws no account row. */
     account?: { onOpen: () => void };
-    settings?: { onOpen: () => void; /** `⌘3` or whichever digit the person has it on. */ shortcut?: string };
+    settings?: { onOpen: () => void; /** `⌘,` or whichever key the person has it on. */ shortcut?: string };
+    /** Opens the Doctor page, from its row. Absent draws no Doctor row. */
+    doctor?: { onOpen: () => void };
   };
   /**
    * The plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
@@ -353,11 +355,12 @@ export function TitleBar({
           </span>
         )}
 
-        {/* The row's one menu, at every width: the account, Sleep and Settings, and under them, where the
+        {/* The row's one menu, at every width: the account, Sleep, Settings and Doctor, and under them, where the
             row is narrow, everything the row above carries. */}
         <TitleMenu
           {...(sleep === undefined ? {} : { sleep })}
           {...(menu?.settings === undefined ? {} : { settings: menu.settings })}
+          {...(menu?.doctor === undefined ? {} : { doctor: menu.doctor })}
           {...(menu?.account === undefined ? {} : { onAccount: menu.account.onOpen })}
           narrow={
             <>

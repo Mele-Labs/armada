@@ -33,6 +33,9 @@ export const PANELS: readonly Panel[] = [
   { id: "autopilot", name: "Autopilot", root: ".deck-autopilot", items: "button", home: '[role="switch"]' },
 ];
 
+/** The panels that are lists of items to open: where `o` opens the one under the cursor as Enter does. Not the stage, whose page has keys of its own, nor the controls. */
+export const OPENS: readonly PanelId[] = ["list", "activity", "bays", "calls", "queue"];
+
 /** The panels `deck_panel`'s slots go to, in the order the row lists its keys. */
 export const PANEL_SLOTS: readonly PanelId[] = ["list", "bays", "calls", "queue", "controls", "autopilot"];
 
@@ -75,7 +78,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       head: "Within",
       rows: [
         { keys: [down, up, "←", "→", downArrow, upArrow].filter((one): one is string => one !== undefined), does: actionOf("move_focus").verb },
-        { keys: caps("open_focused"), does: "Open" },
+        { keys: [...caps("open_focused"), ...caps("open")], does: "Open" },
         { keys: caps("close"), does: actionOf("close").verb },
       ],
     },
@@ -119,6 +122,7 @@ export function keySheetOf(): readonly SheetGroup[] {
       rows: [
         ...(built("deck_page") && first !== undefined ? (Object.entries(PAGE_LETTERS) as [PageLetter, string][]).map(([letter, place]) => ({ keys: [first, letter], does: place === "cockpit" ? "Cockpit" : place === "jobs" ? "Jobs" : place === "sessions" ? "Sessions" : "System" })) : []),
         ...(built("deck_tabs") ? [{ keys: caps("deck_tabs"), does: actionOf("deck_tabs").verb }] : []),
+        ...(built("open_settings") ? [{ keys: caps("open_settings"), does: actionOf("open_settings").verb }] : []),
         { keys: caps("new_job"), does: actionOf("new_job").verb },
         { keys: caps("command_palette"), does: "Search" },
         { keys: caps("history"), does: actionOf("history").verb },

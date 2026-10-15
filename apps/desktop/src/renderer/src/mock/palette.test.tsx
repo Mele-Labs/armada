@@ -8,7 +8,7 @@ import { running } from "@armada/jobs/fixtures/build/index";
 import { boardJobs, boardWorkflows } from "@armada/screens/src/fixtures/build/board";
 
 import { onBoard, onJob } from "./scenario";
-import { mount, unmountAfterEach } from "./testing";
+import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -79,4 +79,16 @@ test("searching expand and offers no Expand and collapse", async () => {
   const list = await searched("expand and");
   await expect.element(list.getByText("Nothing matches “expand and”.", { exact: false })).toBeVisible();
   expect(list.getByRole("option", { name: /^Expand and collapse/ }).query()).toBeNull();
+});
+
+// **The owner, 15 Oct 2026**: even though the search is not centred in the title bar, the palette still opens in the
+// middle of the screen, a little to the north. Its field stays fixed at 20vh, the top-anchored rule of `CommandPalette.css`.
+test("the palette opens centred across the window, not on the search field", async () => {
+  mount("every-state");
+  await onScreen();
+  const list = await palette();
+  const box = list.element().getBoundingClientRect();
+  expect(document.querySelector(".armada-palette-layer")?.hasAttribute("data-anchored")).toBe(false);
+  expect(box.left + box.width / 2).toBeCloseTo(window.innerWidth / 2, 0);
+  expect(box.top).toBeCloseTo(window.innerHeight * 0.2, 0);
 });

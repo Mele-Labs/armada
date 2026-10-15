@@ -16,7 +16,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
-import { PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
+import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
@@ -77,13 +77,16 @@ export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: strin
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo }: Where & {
+export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
   hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
   here: boolean;
   openJobId: string | null;
   onGoTo: (surface: string) => void;
+  /** Where a call about a Job or Session the deck does not list goes, as a link to it does. */
+  onOpen: (jobId: string) => void;
+  onOpenSession: (sessionId: string) => void;
 }) {
   const ship = useShip({ ...NO_HOSTS, state, now, picked, nowViews, nows }, false);
   const deck = useDeck();
@@ -135,8 +138,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
       callTrail.at = callTrail.keys.length - 1;
     }
     if (to === undefined) return;
-    openCall(ship, to);
-    if (!deckNow().here) onGoTo(SURFACE.overview);
+    if (openCall(ship, to, { onOpen, onOpenSession }) && !deckNow().here) onGoTo(SURFACE.overview);
   };
 
   useDeckKeys((event) => {
@@ -244,7 +246,8 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
       if (next !== undefined) rowFocus(next.key);
       return;
     }
-    if (isPressed("open_focused", event)) {
+    // `o` is Enter's twin where there is a list to open from: the stage's own page keeps its `o`, and a tile or the Autopilot switch is a control, not an item.
+    if (isPressed("open_focused", event) || (isPressed("open", event) && panel !== undefined && OPENS.includes(panel.id))) {
       // Pressed on a button of the deck: the press, taken here so a walk playing does not also step on it.
       if (target.tagName === "BUTTON" || target.tagName === "A") {
         if (target.closest(".deck") === null) return;

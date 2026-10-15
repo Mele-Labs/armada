@@ -926,10 +926,10 @@ breakpoint.
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
 the **title row** — the bar across the window's top carrying the one bar,
 the plan's limits, Helm's reopen control, Fleet's status dot and one menu
-holding the account, Sleep and Settings. A wordmark starts the row, and the
+holding the account, Sleep, Settings and Doctor. A wordmark starts the row, and the
 window's tabs are drawn in its centre (Navigation, below). The menu button carries a moon while Sleep is on and an
 amber dot while signed out. **The one bar searches and
-dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
+dispatches** (the owner, 10 Oct 2026): it opens the palette, centred across the window and not on the bar, and
 the palette offers what was typed as the work too, so the row draws no
 Dispatch button. Dispatching grows a panel, down from the bar's field (`docs/journeys/dispatch-a-job.md`);
 the Cockpit has no dispatch bar of its own. The row sits flush on
@@ -952,10 +952,10 @@ governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
 
 ```
 title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · menu
-tabs        Cockpit · Jobs · Sessions · System        ⌘1 to ⌘4
+tabs        Cockpit · Jobs · Sessions · Studios · Retros · System        ⌘1 to ⌘6
 strip       under the tabs while System is the place
-            Kit · Mods · Settings · Guides · Workflows · Doctor · Studios · Retros
-menu        account · Sleep · Settings (⌘5)
+            Kit · Mods · Settings · Guides · Workflows
+menu        account · Sleep · Settings (⌘,) · Doctor
 ```
 
 > **Rule.** The window's places are declared, not derived from the surface roster.
@@ -1250,7 +1250,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | Guide card | Centred in the window on both axes |
 | Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
-| Command palette | Over the title row's one bar, its field on the bar's own. Horizontally centred and top-anchored where the bar is not drawn |
+| Command palette | Horizontally centred across the window, its field top-anchored at 20% of the viewport's height. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
 
 **A guide card is framed even though a `?` raised it.** It is the one layer
 that can also open with no trigger at all — the first time a person meets a
@@ -1379,7 +1379,8 @@ is the back-fill by hand that this section existed to prevent.
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 ⌘N       dispatch from a field, where n would type
-⌘1–⌘5    go to a tab: Cockpit, Jobs, Sessions or System, and ⌘5 to Settings
+⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
+⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)
@@ -1539,12 +1540,15 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘4` are the title bar's tabs and `⌘5` is Settings.** The tabs are Cockpit, Jobs,
-Sessions and System, in the order the bar draws them, and System opens the page last used
-there. The rule is the tab's place in the bar, not the number, so a tab added later
-moves what follows it. Settings keeps a digit because it is the one System page a person
-reaches often enough to want one; every other page is reached from the System strip, a
-link on the deck or the palette by name, and takes no key.
+**`⌘1`–`⌘6` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
+Sessions, Studios, Retros and System, in the order the bar draws them, and System opens
+the page last used there. The rule is the tab's place in the bar, not the number, so a tab
+added later moves what follows it. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
+(the owner: *"Studios and retros should live in the main bar at the top of the app"*), which
+moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform's own key for
+preferences. Doctor left the System strip the same day for the title bar's menu (*"Doctor
+should live in the menu in the top right"*). Every other page is reached from the System
+strip, a link on the deck or the palette by name, and takes no key.
 
 **The rail's digits are gone with the rail (#2301).** Until then `⌘1`–`⌘9` followed the
 rail's rows, and each arrival of a row moved the digits behind it: Held worktrees (now
@@ -1555,7 +1559,7 @@ pressed `⌘3` for Studios now presses it for Sessions, and the palette, which d
 the binding beside every entry, is where they find out. **Helm moved from `⌘6` to `⌘J`
 on 2026-09-13** (#948) and keeps it.
 
-**`1`–`6` and `⌘1`–`⌘5` are different acts on one row of keys.** One is
+**`1`–`6` and `⌘1`–`⌘6` are different acts on one row of keys.** One is
 modified and one is not, which is the whole separation. It was drawn
 that way deliberately rather than by omission.
 
@@ -1623,8 +1627,8 @@ A floating layer, so `--bg-overlay` and a shadow.
 ```
 surface    --bg-overlay · --border-default · --radius-lg · shadow
 width      560px · max-height 400px · scroll-area beyond
-anchor     over the title row's one bar; top-aligned at 20% of viewport
-           height where the bar is not drawn; never centered
+anchor     horizontally centred across the window; field top-aligned at
+           20% of viewport height; never vertically centered
 input      --text-base · no border · --fg-default · placeholder --fg-subtle
            bottom rule --border-subtle
 row        32px · 12px padding · --text-sm · --fg-default
@@ -1641,7 +1645,7 @@ you type is a target you misclick.
 query, a row offers it as a Job, as a Session where Sessions are served, or as
 an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches, when the words are a link, or when
 `n` or `⌘N` opened the bar; otherwise it waits at the foot, so ↵ still opens
-the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the bar's field. The panel reads the repository from them and asks in its own frame when there is none
+the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the title row's one bar. The panel reads the repository from them and asks in its own frame when there is none
 (`docs/journeys/dispatch-a-job.md`). `⇧↵` opens the full
 composer holding the words, for a file, a sketch or a long request.
 

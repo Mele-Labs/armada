@@ -261,12 +261,12 @@ export const InASlimWindow: Story = {
   },
 };
 
-/** The menu's own entries, Sleep and Settings with its key. Pressing Settings opens it and puts the panel away. */
+/** The menu's own entries, Sleep, Settings with its key and Doctor. Pressing Settings or Doctor opens it and puts the panel away. */
 export const MenuEntries: Story = {
   args: {
     ...Full.args,
     sleep: { on: false, onToggle: fn() },
-    menu: { settings: { onOpen: fn(), shortcut: "⌘8" } },
+    menu: { settings: { onOpen: fn(), shortcut: "⌘," }, doctor: { onOpen: fn() } },
   },
   play: async ({ args, canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
@@ -276,6 +276,10 @@ export const MenuEntries: Story = {
     await expect(settings.querySelector("kbd")).toBeInTheDocument();
     await userEvent.click(settings);
     await expect(args.menu?.settings?.onOpen).toHaveBeenCalledTimes(1);
+    await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
+    await userEvent.click(within(canvas.getByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Doctor" }));
+    await expect(args.menu?.doctor?.onOpen).toHaveBeenCalledTimes(1);
     await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
   },
 };
