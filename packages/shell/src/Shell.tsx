@@ -84,6 +84,8 @@ export type ShellProps = {
   places?: TheShellProps["places"];
   /** The title row's word in place of the lockup. See `TheShell`. */
   wordmark?: TheShellProps["wordmark"];
+  /** The title row's read-only name of the picked repository. See `TheShell`. */
+  repository?: TheShellProps["repository"];
   /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
   /** Every question waiting on a person, from every repository, as the dock's cards. Oldest first. */
@@ -123,6 +125,7 @@ export function Shell({
   planUsage,
   places,
   wordmark,
+  repository,
   onSurface,
   questions = [],
   asking = 0,
@@ -157,6 +160,7 @@ export function Shell({
     <TheShell
       {...(places === undefined ? {} : { places })}
       {...(wordmark === undefined ? {} : { wordmark })}
+      {...(repository === undefined ? {} : { repository })}
       dock={{
         ...dock,
         // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.

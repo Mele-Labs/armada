@@ -669,6 +669,8 @@ export function App({ draft }: AppProps = {}) {
           onSearch={palette.onOpen}
           {...titleRow}
           wordmark="Armada"
+          // The Cockpit's picker names it there; every other surface has none, so the row does.
+          {...(atCockpit || repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
           places={<DeckPlaces state={state} picked={pickedRepository} nowViews={nowing.feed.calls} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
           questions={questions}
           asking={asks.length}
