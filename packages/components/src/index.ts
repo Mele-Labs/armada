@@ -447,6 +447,8 @@ export * from "./compositions/NowPanel/NowPanel";
 export * from "./compositions/SessionThread/SketchRow";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
+export * from "./compositions/SketchScene/share";
+export { SketchShareContext } from "./compositions/SketchScene/SketchShare";
 export * from "./compositions/AskerView/AskerView";
 export * from "./compositions/OwnerChip/OwnerChip";
 // The owner a pull request was registered to, from any machine under one GitHub login.

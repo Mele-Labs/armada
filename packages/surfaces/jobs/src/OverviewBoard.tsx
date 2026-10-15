@@ -186,6 +186,7 @@ export function OverviewBoard({
       {sketching ? (
         <SketchScene
           scene={sketch.sketch.scene}
+          {...(sketch.sketch.title === undefined ? {} : { title: sketch.sketch.title })}
           {...(sketch.against === undefined ? {} : { against: sketch.against.scene })}
           marks={marks}
           onMarks={setMarks}

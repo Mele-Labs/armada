@@ -35,7 +35,7 @@ export function wrapLabel(text: string): string[] {
 }
 
 /** The points of a React Flow bezier (`M sx,sy C c1 c2 tx,ty`) at `t`. */
-function bezierAt(path: string, t: number): { x: number; y: number } | undefined {
+export function bezierAt(path: string, t: number): { x: number; y: number } | undefined {
   const n = path.match(/-?\d+(?:\.\d+)?(?:e-?\d+)?/g)?.map(Number);
   if (n === undefined || n.length < 8) return undefined;
   const [x0, y0, x1, y1, x2, y2, x3, y3] = n as [number, number, number, number, number, number, number, number];

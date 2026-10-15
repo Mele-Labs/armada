@@ -139,6 +139,9 @@ export function sceneOfDrawing(drawing: {
 
 export type SceneChange = "added" | "removed" | "changed" | "same";
 
+/** How a part's change is said in its accessible name. */
+export const CHANGE_SAID: Record<SceneChange, string> = { added: "Added", removed: "Removed", changed: "Changed", same: "Unchanged" };
+
 export type SceneDiff = {
   /** The after scene with what the before scene had and the after lacks, kept where it was. */
   scene: Scene;
