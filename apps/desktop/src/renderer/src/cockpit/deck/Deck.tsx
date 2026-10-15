@@ -39,6 +39,7 @@ import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { SessionTiles } from "./SessionTiles";
+import { reportRoot } from "./session-tiles";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
@@ -434,8 +435,10 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const sessions = useSessions();
   const open = sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === "session") : undefined;
   const session = open === undefined ? undefined : sessions.find((one) => one.id === open.id);
-  const found = session?.manifestId === undefined ? undefined : (props.state.holds.repositories ?? []).find((one) => one.manifest?.id === session.manifestId);
+  const served = props.state.holds.repositories ?? [];
+  const found = session?.manifestId === undefined ? undefined : served.find((one) => one.manifest?.id === session.manifestId);
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
+  const startIn = reportRoot(served, repository?.root);
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
       <header className="deck-band">
@@ -443,7 +446,7 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
         <PanelKey id="controls" />
       </header>
       {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} repository={repository} />
+        <SessionTiles session={session} draft={draft} repository={repository} {...(startIn === undefined ? {} : { startIn })} />
       ) : (
         <div className="deck-controls__block">
           {TILES.map((tile, at) => (
