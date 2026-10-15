@@ -142,7 +142,73 @@ fn the_phase_follows_the_edits_the_plan_and_the_road() {
     assert_eq!(phase(&edited, &road(None, Some(3), None, None)), BuildPhase::Road);
     assert_eq!(phase(&edited, &road(None, Some(1), None, None)), BuildPhase::Implement, "a push before the first edit is not on this road");
     assert_eq!(phase(&edited, &road(Some(3), None, Some(4), Some(9))), BuildPhase::Landed);
-    assert_eq!(phase(&[(0, Observed::Worked)], &road(None, Some(3), None, None)), BuildPhase::Scope, "no edit seen, no road");
+    assert_eq!(phase(&[(0, Observed::Worked)], &none), BuildPhase::Scope, "no edit and no stop is still scope");
+}
+
+/// **With no edit ever observed, a stop is the road, since a pull request, a push or a walk is evidence of work; a stop before a
+/// first edit that is known still belongs to other work.**
+#[test]
+fn a_stop_is_the_road_when_no_edit_was_ever_observed() {
+    let phase = |steps: &[(u32, Observed)], road: &RoadTimes| {
+        let (build, tasks) = after(steps);
+        record(&build, &tasks, road, &[]).phase
+    };
+    assert_eq!(phase(&[(0, Observed::Worked)], &road(None, Some(3), None, None)), BuildPhase::Road, "a push, no edit heard");
+    assert_eq!(phase(&[(0, Observed::Worked)], &road(None, None, Some(3), None)), BuildPhase::Road, "a pull request, no edit heard");
+    assert_eq!(phase(&[(5, Observed::Edited)], &road(None, Some(3), None, None)), BuildPhase::Implement, "a stop before a known first edit");
+}
+
+/// **A commit or a push proves code changed, so it sets the first edit where none was heard; a read or a command does not, and an edit
+/// already heard is not moved.**
+#[test]
+fn a_commit_counts_as_the_first_edit_and_a_read_does_not() {
+    let (build, _) = after(&[(0, Observed::Worked), (1, Observed::Worked)]);
+    assert_eq!(build.first_edit_at, None, "reads and commands are not edits");
+    let (build, _) = after(&[(0, Observed::Worked), (4, Observed::Committed)]);
+    assert_eq!((build.first_edit_at, build.last_edit_at), (Some(at(4)), None), "a commit is the first edit and no later edit");
+    let (build, _) = after(&[(0, Observed::Edited), (4, Observed::Committed)]);
+    assert_eq!((build.first_edit_at, build.last_edit_at), (Some(at(0)), Some(at(0))), "an edit heard stands");
+    let (build, tasks) = after(&[(0, list(&[Todo])), (4, Observed::Committed)]);
+    assert_eq!(record(&build, &tasks, &RoadTimes::default(), &[]).phase, BuildPhase::Implement, "work after the plan is implementing");
+    let (build, tasks) = after(&[(0, Observed::Committed), (4, list(&[Todo]))]);
+    assert_eq!(record(&build, &tasks, &RoadTimes::default(), &[]).phase, BuildPhase::Plan, "a plan written after the commit");
+}
+
+/// **A commit does not start the build that follows a landing, as a read does not.**
+#[test]
+fn a_commit_after_a_landing_does_not_begin_work() {
+    assert!(!Observed::Committed.begins_work());
+    assert!(!Observed::Worked.begins_work());
+    assert!(Observed::Edited.begins_work());
+}
+
+fn work(edited: Option<(u32, u32)>, commit: Option<u32>, push: Option<u32>) -> store::WorkTimes {
+    store::WorkTimes {
+        edited: edited.map(|(first, last)| (at(first), at(last))),
+        first_commit: commit.map(at),
+        first_push: push.map(at),
+    }
+}
+
+/// **A row with no first edit is filled from what the timeline kept: the earliest edit, commit or push is the first edit, and the
+/// last edit entry the last; a row with a first edit, or nothing kept, is not touched.**
+#[test]
+fn the_timeline_fills_a_row_that_has_no_first_edit() {
+    let (made, _) = after(&[(30, Observed::Worked)]);
+    let seeded = crate::build_record::seeded(Some(made.clone()), &work(Some((5, 20)), Some(25), Some(26))).expect("a row");
+    assert_eq!((seeded.first_edit_at, seeded.last_edit_at), (Some(at(5)), Some(at(20))));
+    assert_eq!(seeded.begun_at, at(5), "the build began with the work, not when Fleet first heard it");
+
+    let by_commit = crate::build_record::seeded(Some(made.clone()), &work(None, Some(25), Some(26))).expect("a row");
+    assert_eq!((by_commit.first_edit_at, by_commit.last_edit_at), (Some(at(25)), None), "a commit stands for the first edit only");
+
+    assert_eq!(crate::build_record::seeded(Some(made.clone()), &work(None, None, None)), Some(made.clone()), "nothing kept");
+    assert_eq!(crate::build_record::seeded(None, &work(None, None, None)), None, "no row is made from nothing");
+    let new = crate::build_record::seeded(None, &work(Some((5, 20)), None, None)).expect("a row from the kept work");
+    assert_eq!((new.begun_at.clone(), new.first_edit_at.clone()), (at(5), Some(at(5))));
+
+    let (heard, _) = after(&[(30, Observed::Edited)]);
+    assert_eq!(crate::build_record::seeded(Some(heard.clone()), &work(Some((5, 20)), None, None)), Some(heard), "an edit heard stands");
 }
 
 #[test]
@@ -341,4 +407,75 @@ fn a_repositorys_forecast_is_read_off_its_recent_landed_sessions() {
     let usual = crate::build_keeping::forecast_of(&store, "armada").expect("reads");
     assert_eq!(usual, [BuildStopId::Walk, BuildStopId::Pr, BuildStopId::Checks], "two of three walked");
     assert!(crate::build_keeping::forecast_of(&store, "another").expect("reads").is_empty());
+}
+
+fn timeline_entry(minute: u32, kind: &str) -> store::TimelineEntry {
+    store::TimelineEntry {
+        at: at(minute),
+        kind: kind.to_string(),
+        subject_kind: "session".to_string(),
+        subject_id: "t1".to_string(),
+        subject_url: None,
+        title: None,
+        repo: Some("armada".to_string()),
+        tone: "idle".to_string(),
+        says: "x".to_string(),
+        detail: None,
+        items: Vec::new(),
+        live: false,
+        over: false,
+    }
+}
+
+/// **A Session whose edits were entered on the timeline before Fleet heard it reads as implementing, not scoping: the first thing
+/// heard of it fills the row from the timeline, in a read of its own entries only.**
+#[test]
+fn a_session_heard_after_a_restart_is_filled_from_the_edits_the_timeline_kept() {
+    let dir = TempDir::new();
+    let mut store = store::Store::open(&dir.path().join("armada.db")).expect("opens");
+    for e in [timeline_entry(2, "session.edited"), timeline_entry(9, "session.edited"), timeline_entry(11, "session.committed")] {
+        store.append_timeline(&e).expect("appended");
+    }
+    let mut another = timeline_entry(1, "session.edited");
+    another.subject_id = "t2".to_string();
+    store.append_timeline(&another).expect("appended");
+
+    assert!(crate::build_keeping::build_heard(&mut store, "t1", &Observed::Worked, &at(30)).expect("heard"));
+    let build = store.session_build("t1").expect("reads").expect("a row");
+    assert_eq!((build.first_edit_at, build.last_edit_at, build.begun_at), (Some(at(2)), Some(at(9)), at(2)));
+    assert_eq!(build.last_tool_at, Some(at(30)));
+    assert!(store.session_build("t2").expect("reads").is_none(), "another Session's entries are its own");
+
+    // A row that already has a first edit is not read again.
+    store.append_timeline(&timeline_entry(1, "session.edited")).expect("appended");
+    crate::build_keeping::build_heard(&mut store, "t1", &Observed::Worked, &at(31)).expect("heard");
+    assert_eq!(store.session_build("t1").expect("reads").expect("a row").first_edit_at, Some(at(2)));
+}
+
+/// **Work before a landing belongs to the build that landed**, so a Session that merged and went on is filled only from after.
+#[test]
+fn a_filled_row_reads_only_from_the_last_landing_on() {
+    let dir = TempDir::new();
+    let mut store = store::Store::open(&dir.path().join("armada.db")).expect("opens");
+    store
+        .attach(
+            &KeptAttachment {
+                holder: Holder::session("t1"),
+                kind: "pr".to_string(),
+                manifest_id: "armada".to_string(),
+                target: "12".to_string(),
+                state: AttachmentState::Spent,
+                detail: Default::default(),
+                since: at(0),
+                changed_at: at(10),
+            },
+            false,
+        )
+        .expect("attached");
+    store.append_timeline(&timeline_entry(5, "session.edited")).expect("appended");
+    store.append_timeline(&timeline_entry(20, "session.edited")).expect("appended");
+
+    crate::build_keeping::build_heard(&mut store, "t1", &Observed::Worked, &at(30)).expect("heard");
+    let build = store.session_build("t1").expect("reads").expect("a row");
+    assert_eq!((build.first_edit_at, build.last_edit_at), (Some(at(20)), Some(at(20))), "the edit before the merge is the last build's");
 }

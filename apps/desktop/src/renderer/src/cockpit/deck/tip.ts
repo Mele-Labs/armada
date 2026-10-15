@@ -9,6 +9,7 @@ import { GLYPH as DOING_GLYPH, WORD as DOING_WORD } from "./doing";
 import { pillsOf } from "./field";
 import type { DroneIn, Hue } from "./layout";
 import type { BayState } from "./bays";
+import type { BuildTip } from "./build";
 import type { ClashView } from "@armada/components";
 import type { Clash } from "./touches";
 
@@ -35,12 +36,15 @@ export type Tip = {
   /** The last hour of its events, oldest first, one bar for each five minutes. */
   ticks?: readonly number[];
   lines?: readonly string[];
+  build?: BuildTip;
+  /** The drone's key, where it has a ring to ask for an update about. The pinned card draws the button. */
+  ask?: string;
   /** A card of its own, drawn under the kind in place of the title and the state: a step's real node card. */
   node?: ReactNode;
 };
 
 /** What a drone's callout says beyond the drone itself: its state as the list draws it, the call it holds, what it last did and when, its last hour. */
-export type DroneFacts = { state: { Glyph: LucideIcon; said: string; tone: "calm" | "ask" | "bad" }; call?: string; last?: { says: string; ago: string }; ticks: readonly number[]; bay?: { slot: number; Glyph: LucideIcon; word: string } };
+export type DroneFacts = { state: { Glyph: LucideIcon; said: string; tone: "calm" | "ask" | "bad" }; call?: string; last?: { says: string; ago: string }; ticks: readonly number[]; bay?: { slot: number; Glyph: LucideIcon; word: string }; build?: BuildTip };
 
 /** A bay as the map draws its pad. */
 export type PadIn = { key: string; slot: number; bay: BayState | "held" | "kept"; word: string; repo: string; Glyph: LucideIcon; holder?: string; holderKind?: "job" | "session"; /** It is the one that held it last. */ holderWas?: boolean; branch?: string };
@@ -57,6 +61,7 @@ export const droneTip = (drone: DroneIn, facts: DroneFacts | undefined, fallback
   ...(facts?.last === undefined ? {} : { last: facts.last }),
   ...(facts?.call === undefined ? {} : { call: facts.call }),
   ...(facts === undefined ? {} : { ticks: facts.ticks }),
+  ...(facts?.build === undefined ? {} : { build: facts.build, ask: drone.key }),
 });
 
 export const padTip = (pad: PadIn): Tip => ({

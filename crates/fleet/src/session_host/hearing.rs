@@ -118,6 +118,16 @@ where
                     self.hear(id, &runtime, event).await;
                 }
             }
+            Heard::Subagent(events) => {
+                {
+                    let mut state = runtime.state();
+                    state.last_active = std::time::Instant::now();
+                    state.reattached_busy = false;
+                }
+                for event in &events {
+                    self.work_heard(id, event).await;
+                }
+            }
         }
     }
 
@@ -156,15 +166,16 @@ where
         }
     }
 
-    async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
+    /// A tool call of the session's, or of a subagent in it: entered on the timeline and heard by the
+    /// build record, whichever tool made it.
+    async fn work_heard(self: &Arc<Self>, id: &str, event: &DroneEvent) {
         // A terminal session's own mod tells these; a hosted one is heard here.
-        if let Some((act, what)) = crate::timeline::tool_of(&**self.harness(), &event) {
+        if let Some((act, what)) = crate::timeline::tool_of(&**self.harness(), event) {
             let doer = match self.store().lock().await.session(id) {
                 Ok(Some(session)) => Doer::of_session(&session),
                 _ => Doer::session(id, None, None),
             };
             self.timeline().used(doer, act, 1, Some(what));
-            // The build record hears the same acts, whichever tool made them.
             let heard = if act == Act::Edit { Observed::Edited } else { Observed::Worked };
             let now = self.now().as_str().to_string();
             let shown = build_heard(&mut *self.store().lock().await, id, &heard, &now).unwrap_or(false);
@@ -172,6 +183,10 @@ where
                 let _ = self.published_hosted(id).await;
             }
         }
+    }
+
+    async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
+        self.work_heard(id, &event).await;
         match event {
             DroneEvent::Started { model, .. } => {
                 self.limit_cleared(id).await;

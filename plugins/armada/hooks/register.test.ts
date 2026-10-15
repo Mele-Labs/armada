@@ -1068,6 +1068,24 @@ test('a commit and a push are told from what git printed, and one that printed n
   ])
 })
 
+test('what a subagent edits, reads, runs and commits is told as the session\'s own work', async ($, on) => {
+  const { posts, clock } = world(on)
+  let printed = ''
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: printed, stderr: '', interrupted: false }, text: printed }))
+  on('tool.call', { tool: 'Edit' }, () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/a.rs', old_string: 'a', new_string: 'b', agentId: 'sub1' })
+  printed = '[armada/topic 1a2b3c4] Pin the clock'
+  await $.tool.call({ tool: 'Bash', command: 'git commit -m "Pin the clock"', agentId: 'sub1' })
+  await clock.settle()
+
+  const told = facts(posts.slice(before)).filter(fact => ['touched', 'ran', 'committed'].includes(fact.kind))
+  expect(told.map(fact => fact.kind).sort()).toEqual(['committed', 'ran', 'touched'])
+})
+
 test('a permission prompt the terminal opens is told to Fleet, and the call ending settles it', async ($, on) => {
   const { posts, clock } = world(on)
   let answer: () => void = () => undefined

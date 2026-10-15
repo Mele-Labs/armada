@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "A walk waiting for the owner to look at it. Never a Job's progress."
   notes = "Approved 9 Oct 2026 with sleep mode."
+
+  [[icons.footprints.usage]]
+    means = "The Walk shown stop on a Session's road to main"
+    group = "Session build"
+    size = "16px"
+    status = "Specified"
+    notes = "Shared with the reservation above by the owner's choice on 15 Oct 2026 (kept the double use). Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Walk shown`. A walk shown after the first edit. Not a Job's progress."

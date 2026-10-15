@@ -511,6 +511,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
       ? {}
       : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
     ...(activity === undefined ? {} : { activity }),
+    ...(ended || record.build === undefined ? {} : { build: record.build }),
     ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),

@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "At the approval gate and in the detail header only, never in a Job Board row \u2014 the row already names the first write target and counts the rest in text. Read `means = \"convoy\"` until 22 Sep 2026: the owner retired every kind name that day (#1530), and the glyph had always stood for blast radius rather than for a shape of Job. `docs/contracts/iconography.md`, Blast radius, is the rule."
+
+  [[icons.layers.usage]]
+    means = "The Implement phase of a Session's or Job's build, on its list row"
+    group = "Session build"
+    size = "16px"
+    status = "Specified"
+    notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Implement`. A Job shows it while its plan has tasks in it. This is the Cockpit's list row, not the Job Board's."

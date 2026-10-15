@@ -39,3 +39,16 @@ He meant: *"just land the work, dont worry about formalities."* So it is built
 and landed, not filed, in three stages: Fleet and the mod learn the plan and
 the road (no wait), then Bridge draws the ring on the flight deck once #2301 is
 in `main`. The button's line was reworded to say so in #2325.
+
+## 15 Oct 2026: no list, no segments; the road in any phase; ask for an update
+
+His words on the first live Session: *"This session ring is only showing half
+filled and there is no outer ring."* Its record had no task list and the road's
+stops in the scope phase.
+
+| Rule | Why |
+|---|---|
+| The road's arcs are drawn whenever the record has a stop, in any phase | The ring read half filled because only the lit arcs showed, and the phase gate hid the rest on the field |
+| With no task list the ring is one unsegmented band: a faint outline while scoping or planning, an even scaffold texture once edits are seen, solid when landed. The texture turns only while the drone is writing | A partial fill implies a fraction nobody measured |
+| Wherever a ring is drawn, a button asks for an update: the column's header, the drone's pinned card, a Job's mission | He wants an answer without opening the thread |
+| A Session is sent the words through its composer's call. A Job's go to its Commander. The button reads sent until the reply is in the thread, or five minutes where no reply can be seen | A Job's Commander thread is not held by the deck |

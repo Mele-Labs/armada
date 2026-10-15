@@ -513,6 +513,26 @@ async fn a_document_a_hosted_session_writes_is_on_its_ledger_and_code_is_not() {
     assert_eq!(kept, [("/repo/docs/spikes/clock.md", Some("file"))]);
 }
 
+/// **What a hosted session's subagent edits is the session's work**: the build record hears it, though the thread does not draw it.
+#[tokio::test]
+async fn a_subagents_edit_is_the_hosted_sessions_work_in_its_build() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "build it").await;
+    rig.stand_in.init(0);
+    let call = |tool: &str, detail: &str| DroneEvent::Called {
+        tool: tool.into(),
+        call: "toolu_9".into(),
+        detail: CallDetail::of(detail),
+    };
+    rig.stand_in.hears(0, Heard::Subagent(vec![call(testkit::EDITS, "/repo/src/clock.rs")]));
+    eventually(|| async {
+        let listed = rig.fleet.list_sessions(None, None, None).await.unwrap();
+        listed.sessions[0].build.as_ref().is_some_and(|build| build.phase == ipc::BuildPhase::Implement)
+    })
+    .await;
+}
+
 #[tokio::test]
 async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     let rig = rig();
