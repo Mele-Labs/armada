@@ -13,13 +13,12 @@ import type { ComposerNumbered, NumberedHit } from "@armada/components";
 import type { HubPullRequest, PullRequestState, TrackedIssue } from "@armada/protocol";
 
 /**
- * An open issue, as `#` tags it. **Only a numbered issue**: `#` types digits, so an issue whose tracker names it
- * by a key (`ABC-123`) has nothing to be found by there and is left out.
+ * An open issue, as `#` tags it. **The tag's id is the number on a forge, and the key where the tracker names
+ * issues by one** (`ABC-123`), and its title leads with the reference either way.
  */
-export const issueHit = (issue: Pick<TrackedIssue, "reference" | "title"> & { url?: string }): NumberedHit | undefined => {
+export const issueHit = (issue: Pick<TrackedIssue, "reference" | "title"> & { url?: string }): NumberedHit => {
   const number = /^#(\d+)$/.exec(issue.reference)?.[1];
-  if (number === undefined) return undefined;
-  return { tag: { kind: "issue", id: number, title: `#${number} ${issue.title}`, ...(issue.url === undefined ? {} : { url: issue.url }) } };
+  return { tag: { kind: "issue", id: number ?? issue.reference, title: `${issue.reference} ${issue.title}`, ...(issue.url === undefined ? {} : { url: issue.url }) } };
 };
 
 /** An open pull request off the merge line's hub. */

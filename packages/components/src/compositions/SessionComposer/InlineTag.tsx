@@ -16,6 +16,16 @@ export type ComposerTag = {
   url?: string;
 };
 
+/**
+ * The title without the reference it leads with: `#2214 ` on the forge, and a key such as `ABC-12 ` where
+ * the issue's tag id is that key.
+ */
+export function titleWithoutReference(tag: Pick<ComposerTag, "kind" | "id" | "title">): string {
+  const forge = tag.title.replace(/^#\d+\s*/, "");
+  if (forge !== tag.title || tag.kind !== "issue") return forge;
+  return tag.title.toLowerCase().startsWith(tag.id.toLowerCase()) ? tag.title.slice(tag.id.length).trimStart() : tag.title;
+}
+
 export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
   session: SquareTerminal,
   job: Box,
@@ -33,7 +43,7 @@ export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; a
   const Glyph = TAG_GLYPH[tag.kind];
   if (onOpen !== undefined) {
     return (
-      <Tooltip label={`${TAG_KIND_SAID[tag.kind]} · ${tag.title.replace(/^#\d+\s*/, "")}`} asChild>
+      <Tooltip label={`${TAG_KIND_SAID[tag.kind]} · ${titleWithoutReference(tag)}`} asChild>
         <a
           className="armada-inline-tag armada-inline-tag--link"
           href={`#${tag.kind}`}

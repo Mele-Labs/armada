@@ -109,7 +109,6 @@ What to look for: each issue has `key` and `fields.summary` (or `summary`), `fie
 
 | Missing | Waiting on it |
 |---|---|
-| An issue named by a key in the `#` picker | `#` types digits, so a Jira issue is left out of it. It is in the issue list and Autopilot's |
 | A label put on without a read | Until `--labels` is known to add rather than replace |
 | A Job's address outside Bridge | The started comment names the Job by number and title, since there is no link to give |
 | A milestone's issues on their own | `../journeys/dispatch-a-milestone.md`, step 1 |

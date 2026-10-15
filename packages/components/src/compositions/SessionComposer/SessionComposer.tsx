@@ -9,7 +9,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { modelSaid } from "../SessionFrame/model-said";
-import { TAG_GLYPH } from "./InlineTag";
+import { TAG_GLYPH, titleWithoutReference } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } from "./message-dom";
 
@@ -191,11 +191,16 @@ function matching<T extends { name: string }>(commands: readonly T[], query: str
 
 type Item = { id: string; name: string; says?: string; standing?: string; tag?: ComposerTag; file?: string };
 
-/** A `#` row: the number in the name, the title after it. */
+const isNumber = (id: string): boolean => /^\d+$/.test(id);
+
+/** How its tracker names it: `#2214` on the forge, the key itself (`ABC-12`) where the id is one. */
+const referenceOf = (tag: ComposerTag): string => (isNumber(tag.id) ? `#${tag.id}` : tag.id);
+
+/** A `#` row: the reference in the name, the title after it. */
 const numberedRow = (hit: NumberedHit): Item => ({
   id: `${hit.tag.kind}${hit.tag.id}`,
-  name: `#${hit.tag.id}`,
-  says: hit.tag.title.replace(/^#\d+\s*/, ""),
+  name: referenceOf(hit.tag),
+  says: titleWithoutReference(hit.tag),
   ...(hit.standing === undefined ? {} : { standing: hit.standing }),
   tag: hit.tag,
 });
@@ -213,23 +218,32 @@ function tokenAt(text: string, caret: number): { trigger: "/" | "@" | "#"; query
   if (slash !== null) return { trigger: "/", query: slash[1] ?? "", from: 0 };
   const at = /(^|\s)@(\S*)$/.exec(head);
   if (at !== null) return { trigger: "@", query: at[2] ?? "", from: head.length - (at[2]?.length ?? 0) - 1 };
-  const hash = /(^|\s)#(\d*)$/.exec(head);
+  // Digits, or a key's letters and then its number: `#22`, `#ops`, `#OPS-7`.
+  const hash = /(^|\s)#(\d*|[A-Za-z][A-Za-z0-9_]*(?:-\d*)?)$/.exec(head);
   if (hash !== null) return { trigger: "#", query: hash[2] ?? "", from: head.length - (hash[2]?.length ?? 0) - 1 };
   return undefined;
 }
 
 /**
- * What `#` offers for a number typed so far: the open ones that start with it, newest number first,
- * with a number looked up on its own coming ahead of them. A tag already in the message is not offered twice.
+ * What `#` offers for what is typed so far: the open ones whose reference starts with it, ignoring case.
+ * Digits match the numbered ones, newest number first; letters match a key, in the order the source gave
+ * them. A number looked up on its own comes ahead of them. A tag already in the message is not offered twice.
  */
+/** Nothing typed offers everything; digits offer the numbered; letters offer the keys that begin so. */
+function matchesTyped(tag: ComposerTag, query: string): boolean {
+  if (query === "") return true;
+  if (isNumber(query)) return isNumber(tag.id) && tag.id.startsWith(query);
+  return !isNumber(tag.id) && referenceOf(tag).toLowerCase().startsWith(query.toLowerCase());
+}
+
 function numberedItems(numbered: ComposerNumbered | undefined, query: string, looked: NumberedHit | undefined, held: readonly ComposerTag[]): Item[] {
   if (numbered === undefined) return [];
   const has = (tag: ComposerTag) => held.some((had) => had.kind === tag.kind && had.id === tag.id);
   const hits = [
     ...(looked === undefined ? [] : [looked]),
     ...numbered.open
-      .filter((one) => one.tag.id.startsWith(query) && (looked === undefined || one.tag.id !== looked.tag.id))
-      .sort((a, b) => Number(b.tag.id) - Number(a.tag.id)),
+      .filter((one) => matchesTyped(one.tag, query) && (looked === undefined || one.tag.id !== looked.tag.id))
+      .sort((a, b) => (isNumber(a.tag.id) ? 1 : 0) - (isNumber(b.tag.id) ? 1 : 0) || (isNumber(a.tag.id) ? Number(b.tag.id) - Number(a.tag.id) : 0)),
   ];
   return hits.filter((one) => !has(one.tag)).slice(0, NUMBERED_ROWS).map(numberedRow);
 }
@@ -290,7 +304,7 @@ export function SessionComposer({
   const listId = useId();
 
   const token = tokenAt(head, head.length);
-  const wanted = token?.trigger === "#" && token.query !== "" ? Number(token.query) : undefined;
+  const wanted = token?.trigger === "#" && isNumber(token.query) ? Number(token.query) : undefined;
   // A number that is not open is looked up once it has rested, and offered first when it resolves.
   const [found, setFound] = useState<{ number: number; hit: NumberedHit } | undefined>();
   const source = useRef(numbered);

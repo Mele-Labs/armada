@@ -715,7 +715,7 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 
 **`@` offers the other Sessions, then the Jobs, and once letters follow it the repository's files that match them.** A file is written into the words as `@path` and is not a tag: the agent reads the path itself. Pull requests are `#`'s, and no trigger offers a branch, though the kind is still accepted.
 
-**`#` at the start of a word offers the repository's open issues and open pull requests**, matched on the number, and reads one number that is neither (a merged pull request, a closed issue) when it is typed whole. The repository is the Session's own. Helm's box offers the same, for the repository its conversation answers for (`helm.md`, *The message box*). `url` on a tag is optional and only the two forge kinds carry it.
+**`#` at the start of a word offers the repository's open issues and open pull requests**, matched on the number, or on the key where the tracker names issues by one (`#ops` offers `OPS-7` and `OPS-12`, whatever the case), and reads one number that is neither (a merged pull request, a closed issue) when it is typed whole. The repository is the Session's own. Helm's box offers the same, for the repository its conversation answers for (`helm.md`, *The message box*). `url` on a tag is optional and only the two forge kinds carry it.
 
 ## A Session's Checks
 

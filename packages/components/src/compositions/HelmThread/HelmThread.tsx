@@ -1,5 +1,6 @@
 import { useContext, type ReactNode } from "react";
 import { Prose, ProseRefs } from "../../primitives/Prose/Prose";
+import { titleWithoutReference } from "../SessionComposer/InlineTag";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 import { placeTagsIn, SentWith } from "../SessionThread/SessionThread";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
@@ -59,7 +60,7 @@ export function HelmThread({
   // A chip in a row of the person's is a link where the host can open what it names.
   const openTag = (tag: ComposerTag): void => {
     if (tag.kind === "branch" || refs === null) return;
-    refs.open({ kind: tag.kind, id: tag.id, title: tag.title.replace(/^#\d+\s*/, "") });
+    refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) });
   };
   return (
     <div className="armada-helm-thread">

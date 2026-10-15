@@ -6,6 +6,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
+import { FakeSessionsFleet } from "../sessions-fleet";
 
 const STOREFRONT: RepositorySummary = {
   root: "/Users/user/code/storefront",
@@ -18,8 +19,17 @@ const OPS: RepositorySummary = {
   manifest: { ...repository().manifest!, id: "ops", repository: "ops", path: "ops/armada.yml" },
 };
 
-export const s246IssueBacklogs: Scenario = {
-  ...onBoard([], { repositories: [STOREFRONT, OPS] }),
-  name: "issue-backlogs",
-  says: "Two repositories on All: the composer's open issues from the forge, and from Jira",
-};
+const board = onBoard([], { repositories: [STOREFRONT, OPS] });
+
+/** Served as the Sessions fleet serves a scenario, so Helm's box is the Sessions box and `#` reads each repository's issues. */
+function build(): Scenario {
+  const served = new FakeSessionsFleet([], {}).scenario(board);
+  return {
+    ...served,
+    name: "issue-backlogs",
+    says: "Two repositories on All: the composer's open issues from the forge, and from Jira",
+    behaves: (handle) => new FakeSessionsFleet([], {}).scenario(board).behaves!(handle),
+  };
+}
+
+export const s246IssueBacklogs: Scenario = build();

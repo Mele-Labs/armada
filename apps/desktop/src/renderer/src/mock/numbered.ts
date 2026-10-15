@@ -111,15 +111,14 @@ const of = (manifestId: string | undefined): Repository => REPOSITORIES[manifest
 const LOOKUP_MS = 250;
 
 export const mockNumbered: NumberedSource = {
-  open: (manifestId) => [...of(manifestId).issues.flatMap((one) => issueHit(one) ?? []), ...of(manifestId).pulls.map(pullRequestHit)],
+  open: (manifestId) => [...of(manifestId).issues.map(issueHit), ...of(manifestId).pulls.map(pullRequestHit)],
   find: (manifestId, number) =>
     new Promise((resolve) =>
       setTimeout(() => {
         const held = of(manifestId);
         const pr = held.looked.find((one) => one.number === number);
         const closed = held.closed.find((one) => one.reference === `#${number}`);
-        const closedHit = closed === undefined ? undefined : issueHit(closed);
-        resolve(pr !== undefined ? lookedUpPullRequest(pr) : closedHit === undefined ? undefined : { ...closedHit, standing: "Closed" });
+        resolve(pr !== undefined ? lookedUpPullRequest(pr) : closed === undefined ? undefined : { ...issueHit(closed), standing: "Closed" });
       }, LOOKUP_MS),
     ),
 };

@@ -4025,7 +4025,7 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 | `AutopilotPick.issue_number` | Fleet writes, Bridge draws | Replaced by `issue_reference`. The store keeps `issue_number` for picks written before the column, and reads one with no reference as `#` and its number |
 | `getIssue` (preload) | Bridge | Takes the reference as text where it took a number |
 
-**The `#` picker types digits.** An issue named by a key has nothing to be found by there, so Bridge leaves it out of `#` and draws it in the issue list and Autopilot only. **The event stream is untouched**: no event carries an issue, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
+**The `#` picker takes a key as well as digits.** An issue's tag id is its key where the tracker names issues by one, and the picker matches what is typed against the reference, ignoring case. A lookup by number reads only numbers. **The event stream is untouched**: no event carries an issue, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
 
 ## Open questions
 
