@@ -65,10 +65,11 @@ export type Profile = {
 
 /** How a repository came to be bound: its owner is the account or one of its organisations, or the person chose it. */
 export type Binding = "matched" | "chosen";
-export type BoundRepository = { name: string; by: Binding };
+/** `root` names the repository in every act and is never drawn: two checkouts can share a folder name. */
+export type BoundRepository = { root: string; name: string; by: Binding };
 
 /** A repository no profile owns: no profile matched it, or two both did. `none` once the person chose that it claims and syncs nothing. */
-export type UnboundRepository = { name: string; none?: boolean };
+export type UnboundRepository = { root: string; name: string; none?: boolean };
 
 export type SetUpId = "identity" | "store" | "home";
 export type SetUpState = "waiting" | "working" | "done";
@@ -127,8 +128,8 @@ export type AccountActs = {
   /** Give up the sign-in waiting on its code. Absent where Fleet has no such act. */
   cancel?: () => void;
   switchTo: (login: string) => void;
-  /** Binds a repository to a profile, or to none (`null`). Absent where Fleet serves no repositories. */
-  bind?: (repository: string, login: string | null) => void;
+  /** Binds the repository at `root` to a profile, or to none (`null`). Absent where Fleet serves no repositories. */
+  bind?: (root: string, login: string | null) => void;
   /** Open What syncs for a profile. */
   choose: (login: string) => void;
   closeSyncs: () => void;

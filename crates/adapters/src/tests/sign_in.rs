@@ -17,8 +17,11 @@ fn reply(status: u16, body: &str) -> Reply {
 const DEVICE: &str = r#"{"device_code":"dc-secret","user_code":"WDJB-MJHT","verification_uri":"https://forge.test/login/device","expires_in":900,"interval":5}"#;
 
 #[test]
-fn beginning_sends_the_client_id_and_nothing_else() {
-    assert_eq!(sign_in::begin_form("Iv1.abc"), [("client_id", "Iv1.abc".to_string())]);
+fn beginning_sends_the_client_id_and_the_one_read_only_organisation_scope() {
+    assert_eq!(
+        sign_in::begin_form("Iv1.abc"),
+        [("client_id", "Iv1.abc".to_string()), ("scope", "read:org".to_string())]
+    );
 }
 
 #[test]
@@ -113,6 +116,30 @@ fn a_refusal_never_repeats_a_body_that_could_hold_the_token() {
     assert!(!said.contains("tok-secret"), "{said}");
 }
 
+#[test]
+fn the_organisations_are_their_logins_in_lowercase_and_a_refused_listing_is_a_refusal() {
+    let listed = reply(200, r#"[{"login":"Mele-Labs","id":1},{"login":"acme","id":2}]"#);
+    assert_eq!(sign_in::organisations_of(&listed).unwrap(), ["mele-labs", "acme"]);
+    assert_eq!(sign_in::organisations_of(&reply(200, "[]")).unwrap(), Vec::<String>::new());
+    assert!(matches!(sign_in::organisations_of(&reply(403, r#"{"message":"tok-secret"}"#)), Err(SignInError::Refused(_))));
+    assert!(!sign_in::organisations_of(&reply(403, r#"{"message":"tok-secret"}"#)).err().unwrap().said().contains("tok-secret"));
+    assert!(sign_in::organisations_of(&reply(502, "")).err().unwrap().is_unreachable());
+}
+
+#[test]
+fn organisations_are_read_a_page_at_a_time_until_a_short_page_with_the_token_on_each() {
+    let full: &'static str = Box::leak(
+        format!("[{}]", (0..100).map(|n| format!(r#"{{"login":"org-{n}"}}"#)).collect::<Vec<_>>().join(",")).into_boxed_str(),
+    );
+    let (url, server) = serve(vec![(200, full), (200, r#"[{"login":"Last"}]"#)]);
+    let listed = forge_at(&url).organisations(&Secret::new("tok-secret".to_string())).unwrap();
+    assert_eq!((listed.len(), listed.last().map(String::as_str)), (101, Some("last")));
+    let seen = server.join().unwrap();
+    let targets: Vec<_> = seen.iter().map(|s| s.target.as_str()).collect();
+    assert_eq!(targets, ["/user/orgs?per_page=100&page=1", "/user/orgs?per_page=100&page=2"]);
+    assert!(seen.iter().all(|s| s.header("authorization") == Some("Bearer tok-secret")));
+}
+
 fn forge_at(url: &str) -> ForgeSignIn {
     ForgeSignIn::against(
         &format!("{url}/login/device/code"),
@@ -152,7 +179,7 @@ fn the_three_calls_go_to_their_endpoints_asking_for_json_and_the_token_rides_onl
         assert_eq!(one.header("accept"), Some("application/json"));
         assert!(one.header("user-agent").is_some(), "the forge's API refuses a request with none");
     }
-    assert_eq!(String::from_utf8(seen[0].body.clone()).unwrap(), "client_id=Iv1.abc");
+    assert_eq!(String::from_utf8(seen[0].body.clone()).unwrap(), "client_id=Iv1.abc&scope=read%3Aorg");
     let polled = String::from_utf8(seen[1].body.clone()).unwrap();
     assert!(polled.contains("device_code=dc-secret") && polled.contains("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"), "{polled}");
     assert_eq!(seen[3].header("authorization"), Some("Bearer tok-secret"));

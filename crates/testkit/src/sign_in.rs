@@ -34,6 +34,8 @@ enum Step {
 struct State {
     steps: VecDeque<Step>,
     accounts: BTreeMap<String, SignedInAs>,
+    organisations: BTreeMap<String, Vec<String>>,
+    organisations_unread: bool,
     begin_refused: Option<String>,
     unreachable: bool,
     begun: Vec<String>,
@@ -75,6 +77,18 @@ impl FakeSignIn {
             state.steps.push_back(Step::Granted(token.to_string()));
             state.accounts.insert(token.to_string(), account);
         }
+        self
+    }
+
+    /// The organisations `organisations` lists for the account `token` was granted to.
+    pub fn in_organisations(self, token: &str, logins: &[&str]) -> FakeSignIn {
+        self.state().organisations.insert(token.to_string(), logins.iter().map(|login| login.to_string()).collect());
+        self
+    }
+
+    /// `organisations` is refused, as for a token that was not given the scope.
+    pub fn refusing_organisations(self) -> FakeSignIn {
+        self.state().organisations_unread = true;
         self
     }
 
@@ -173,6 +187,17 @@ impl SignIn for FakeSignIn {
             .get(token.expose())
             .cloned()
             .ok_or_else(|| SignInError::Refused("The forge did not accept the token.".to_string()))
+    }
+
+    fn organisations(&self, token: &Secret<String>) -> Result<Vec<String>, SignInError> {
+        let state = self.state();
+        if state.unreachable {
+            return Err(down());
+        }
+        if state.organisations_unread {
+            return Err(SignInError::Refused("The forge would not list the organisations.".to_string()));
+        }
+        Ok(state.organisations.get(token.expose()).cloned().unwrap_or_default())
     }
 }
 

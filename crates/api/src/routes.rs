@@ -374,7 +374,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))
-        .route("/accounts/set_active_account", post(crate::accounting::set_active_account::<D>))
+        .route("/accounts/set_repository_profile", post(crate::accounting::set_repository_profile::<D>))
         .route("/health", get(get_health::<D>))
         .route("/usage", get(get_usage::<D>))
         .route("/alerts", get(list_alerts::<D>))

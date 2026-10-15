@@ -146,8 +146,8 @@ export const OneProfile: Story = {
 /** Each profile is a tile listing the repositories bound to it, each marked for how; a row moves to the other profile. */
 const bind = fn();
 const bound: readonly Profile[] = [
-  { ...two[0]!, repositories: [{ name: "mele-labs/armada", by: "matched" }] },
-  { ...two[1]!, repositories: [{ name: "acme-co/vendor-lib", by: "chosen" }] },
+  { ...two[0]!, repositories: [{ root: "/work/mele-labs/armada", name: "mele-labs/armada", by: "matched" }] },
+  { ...two[1]!, repositories: [{ root: "/work/acme-co/vendor-lib", name: "acme-co/vendor-lib", by: "chosen" }] },
 ];
 export const TwoProfiles: Story = {
   render: () => (
@@ -166,17 +166,17 @@ export const TwoProfiles: Story = {
     await expect(canvas.getAllByRole("button", { name: "What syncs" })).toHaveLength(1);
     await userEvent.click(canvas.getByRole("button", { name: "Move mele-labs/armada" }));
     await userEvent.click(await menu.findByRole("menuitem", { name: "nickmele" }));
-    await expect(bind).toHaveBeenCalledWith("mele-labs/armada", "nickmele");
+    await expect(bind).toHaveBeenCalledWith("/work/mele-labs/armada", "nickmele");
     await userEvent.click(canvas.getByRole("button", { name: "Move acme-co/vendor-lib" }));
     await userEvent.click(await menu.findByRole("menuitem", { name: "None" }));
-    await expect(bind).toHaveBeenCalledWith("acme-co/vendor-lib", null);
+    await expect(bind).toHaveBeenCalledWith("/work/acme-co/vendor-lib", null);
   },
 };
 
 /** A repository no profile owns waits in Not matched until it is chosen; None keeps its row, marked. */
 export const NotMatched: Story = {
   render: () => (
-    <Held profiles={bound} extra={{ bind, unbound: [{ name: "shared-org/tools" }, { name: "scratch/notes", none: true }] }}>
+    <Held profiles={bound} extra={{ bind, unbound: [{ root: "/work/shared-org/tools", name: "shared-org/tools" }, { root: "/work/scratch/notes", name: "scratch/notes", none: true }] }}>
       {(account) => <AccountView account={account} />}
     </Held>
   ),
@@ -187,10 +187,10 @@ export const NotMatched: Story = {
     await expect(within(frame.getByRole("listitem", { name: "scratch/notes" })).getByRole("img", { name: "None" })).toBeVisible();
     await userEvent.click(frame.getByRole("button", { name: "Choose for shared-org/tools" }));
     await userEvent.click(await menu.findByRole("menuitem", { name: "mele-work" }));
-    await expect(bind).toHaveBeenCalledWith("shared-org/tools", "mele-work");
+    await expect(bind).toHaveBeenCalledWith("/work/shared-org/tools", "mele-work");
     await userEvent.click(frame.getByRole("button", { name: "Choose for scratch/notes" }));
     await userEvent.click(await menu.findByRole("menuitem", { name: "None" }));
-    await expect(bind).toHaveBeenCalledWith("scratch/notes", null);
+    await expect(bind).toHaveBeenCalledWith("/work/scratch/notes", null);
   },
 };
 

@@ -2,13 +2,17 @@
 //! machine's name, runs the blocking work off the async workers, and spells a
 //! refusal on the wire.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Accounts, Refusal};
 use config::settings as keys;
-use ipc::{Accounts as AccountsList, SetActiveAccount, SignOut, SignedOut, WireError};
+use ipc::{Accounts as AccountsList, SetRepositoryProfile, SignOut, SignedOut, WireError};
 
 use super::{Begin, Refused, SigningIn};
 use crate::daemon::Fleet;
+use crate::repositories::NO_SUCH_REPOSITORY;
+use crate::repository_profiles::Repo;
 
 /// Sign-in asked for while the sign-in app or the store address is blank. A 422
 /// naming which, so the person knows what to put in Settings.
@@ -61,14 +65,23 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Run `work` where blocking is allowed. The forge and the store are
-    /// blocking clients, which panic if used or dropped on an async worker.
+    /// Run `work` where blocking is allowed, with the repositories Fleet serves
+    /// and the forge address of each. The forge and the store are blocking
+    /// clients, which panic if used or dropped on an async worker, and a
+    /// repository's address is read off its checkout.
     async fn signing<T: Send + 'static>(
         &self,
-        work: impl FnOnce(SigningIn) -> Result<T, Refused> + Send + 'static,
+        work: impl FnOnce(SigningIn, Vec<Repo>) -> Result<T, Refused> + Send + 'static,
     ) -> Result<T, Refusal> {
         let signing = self.signing_in().clone();
-        match tokio::task::spawn_blocking(move || work(signing)).await {
+        let roots: Vec<String> = self.repositories().every().iter().map(|one| one.root().to_string()).collect();
+        let reaching = Arc::clone(self.reaching());
+        match tokio::task::spawn_blocking(move || {
+            let repositories = roots.iter().map(|root| Repo::new(root, reaching.slug(root))).collect();
+            work(signing, repositories)
+        })
+        .await
+        {
             Ok(done) => done.map_err(|refused| self.refused_account(refused)),
             Err(why) => Err(Refusal::Fault(WireError::raised(
                 ACCOUNTS_NOT_KEPT,
@@ -88,6 +101,11 @@ where
                 format!("This machine has not joined account {id}."),
                 run,
             )),
+            Refused::NoSuchRepository(root) => Refusal::Unacceptable(WireError::raised(
+                NO_SUCH_REPOSITORY,
+                format!("Fleet does not serve {root}."),
+                run,
+            )),
             Refused::Fault(said) => Refusal::Fault(WireError::raised(ACCOUNTS_NOT_KEPT, said, run)),
         }
     }
@@ -104,7 +122,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     async fn get_accounts(&self) -> Result<AccountsList, Refusal> {
-        self.signing(|signing| signing.accounts()).await
+        self.signing(|signing, repositories| signing.accounts(&repositories)).await
     }
 
     /// **The settings are read here and handed down**, so a change to either is
@@ -116,19 +134,22 @@ where
             store_url: now.get(keys::STORE_URL),
             machine: now.get(keys::MACHINE_NAME),
         };
-        self.signing(move |signing| {
+        self.signing(move |signing, repositories| {
             let machine = machine_name(&begin.machine, host_name);
-            signing.start(Begin { machine, ..begin })
+            signing.start(Begin { machine, ..begin }, &repositories)
         })
         .await
     }
 
     async fn sign_out(&self, sign_out: SignOut) -> Result<SignedOut, Refusal> {
         let store_url: String = self.machine_settings().now().get(keys::STORE_URL);
-        self.signing(move |signing| signing.sign_out(sign_out.account_id, &store_url)).await
+        self.signing(move |signing, repositories| signing.sign_out(sign_out.account_id, &store_url, &repositories)).await
     }
 
-    async fn set_active_account(&self, set: SetActiveAccount) -> Result<AccountsList, Refusal> {
-        self.signing(move |signing| signing.set_active(set.account_id)).await
+    async fn set_repository_profile(&self, set: SetRepositoryProfile) -> Result<AccountsList, Refusal> {
+        self.signing(move |signing, repositories| {
+            signing.set_repository_profile(&set.root, set.account_id, &repositories)
+        })
+        .await
     }
 }
