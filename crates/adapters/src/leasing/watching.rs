@@ -240,26 +240,44 @@ impl PoolWatch {
         bays.iter().filter_map(|n| self.kept.get(n).cloned()).collect()
     }
 
+    /// **No call into the watcher is made with the state locked.** Adding or
+    /// removing a path waits on the thread that delivers events, and that
+    /// thread may be in `heard`, waiting for the lock: each waits on the other.
     fn arm(&mut self, pool: &Pool, numbers: &[usize]) {
         let Some(watcher) = self.watcher.as_mut() else {
             return;
         };
-        let mut state = self.shared.state();
+        let mut found = Vec::new();
         for &number in numbers {
             let path = canonical(&pool.path_of(number));
-            let Ok(repo) = git2::Repository::open(&path) else {
-                continue;
-            };
-            let gitdir = canonical(repo.path());
-            state.gitdirs.retain(|(_, n)| *n != number);
-            state.gitdirs.push((gitdir, number));
-            if self.armed.contains(&number) || watcher.watch(&path, RecursiveMode::Recursive).is_err()
-            {
+            if let Ok(repo) = git2::Repository::open(&path) {
+                found.push((canonical(repo.path()), path, number));
+            }
+        }
+        {
+            let mut state = self.shared.state();
+            for (gitdir, _, number) in &found {
+                state.gitdirs.retain(|(_, n)| n != number);
+                state.gitdirs.push((gitdir.clone(), *number));
+            }
+        }
+        for (_, path, number) in found {
+            if self.armed.contains(&number) {
                 continue;
             }
-            self.armed.insert(number);
-            state.trees.push((path, number));
-            state.free.insert(number);
+            // Counted before it is watched, so an edit as it starts is heard.
+            {
+                let mut state = self.shared.state();
+                state.trees.push((path.clone(), number));
+                state.free.insert(number);
+            }
+            if watcher.watch(&path, RecursiveMode::Recursive).is_ok() {
+                self.armed.insert(number);
+            } else {
+                let mut state = self.shared.state();
+                state.trees.retain(|(_, n)| *n != number);
+                state.free.remove(&number);
+            }
         }
     }
 
@@ -268,7 +286,6 @@ impl PoolWatch {
         let Some(watcher) = self.watcher.as_mut() else {
             return;
         };
-        let mut state = self.shared.state();
         for number in self.armed.clone() {
             let free = bays.contains(&number)
                 && self
@@ -278,9 +295,9 @@ impl PoolWatch {
             if free {
                 continue;
             }
-            let path = canonical(&pool.path_of(number));
-            let _ = watcher.unwatch(&path);
+            let _ = watcher.unwatch(&canonical(&pool.path_of(number)));
             self.armed.remove(&number);
+            let mut state = self.shared.state();
             state.trees.retain(|(_, n)| *n != number);
             state.free.remove(&number);
         }
