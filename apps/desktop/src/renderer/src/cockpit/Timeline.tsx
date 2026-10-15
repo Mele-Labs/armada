@@ -451,7 +451,7 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
 }
 
 /** The lanes the Timeline and the feed draw: Fleet's events named from what the window holds, narrowed by the filter and by `keep`. */
-function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined): Lane[] {
+function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of): Lane[] {
   const wire = useFleetEvents();
   const sessions = useSessions();
   const events = useMemo(() => {
@@ -469,20 +469,21 @@ function useLanes(now: number, jobs: readonly JobSummary[], views: readonly Merg
       return drawn === undefined ? [] : [drawn];
     });
   }, [wire, jobs, views, sessions]);
-  return useMemo(
-    () =>
-      lanesFor(
-        lanesOf(events, now, (id) => {
-          const held = sessions.find((one) => one.id === id);
-          return held === undefined ? undefined : stateOf(held).state;
-        }),
-        filter,
-      ).filter((lane) => keep === undefined || keep(lane.subject)),
-    [events, now, filter, sessions, keep],
-  );
+  return useMemo(() => {
+    const all = lanesOf(events, now, (id) => {
+      const held = sessions.find((one) => one.id === id);
+      return held === undefined ? undefined : stateOf(held).state;
+    });
+    // One Job or Session picked: its lane alone, whatever its standing. A Session's subagents are events on its own lane.
+    if (of !== undefined) return all.filter((lane) => lane.subject.kind === of.kind && lane.subject.id === of.id);
+    return lanesFor(all, filter).filter((lane) => keep === undefined || keep(lane.subject));
+  }, [events, now, filter, sessions, keep, of?.kind, of?.id]);
 }
 
 const NO_VIEWS: readonly MergeLineView[] = [];
+
+/** The Job or Session the feed narrows to. */
+export type Of = { kind: "job" | "session"; id: string };
 
 export function Timeline({
   now,
@@ -557,12 +558,15 @@ export function ActivityFeed({
   onPick,
   lit,
   stacked,
+  of,
 }: {
   now: number;
   jobs: readonly JobSummary[];
   views?: readonly MergeLineView[];
   filter: DashboardTab;
   keep?: (subject: Subject) => boolean;
+  /** Narrows the feed to this Job or Session alone: the one open on the flight deck's stage. Absent keeps every lane `keep` does. */
+  of?: Of;
   onOpenJob: (id: string) => void;
   onOpenSession: (id: string) => void;
   /** The flight deck's: a press on a row picks the event, and the name opens nothing. */
@@ -572,7 +576,7 @@ export function ActivityFeed({
   /** The deck's two-line rows. */
   stacked?: boolean;
 }) {
-  const lanes = useLanes(now, jobs, views, filter, keep);
+  const lanes = useLanes(now, jobs, views, filter, keep, of);
   const open: Open = (subject) => {
     if (onPick !== undefined) return;
     if (subject.kind === "job") onOpenJob(subject.id);
