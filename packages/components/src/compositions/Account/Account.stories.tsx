@@ -5,8 +5,10 @@ import { AccountProvider, AccountView, SYNC_KINDS, WhatSyncsSheet } from "./Acco
 import type { Account, AccountFlow, Profile, Scope, SyncChoice, SyncItem } from "./Account";
 
 /**
- * The account a machine signs in to: the device code, what signing in set up, the profiles and What syncs.
- * Each story holds the state a Fleet would, so a press shows its result.
+ * The account a machine signs in to: the device code, what signing in set up, the profiles and What syncs,
+ * and the states that are not the happy path: a sign-in that ended, one that was never set up, a profile
+ * signed out, and a shared home that does not exist yet. Each story holds the state a Fleet would, so a
+ * press shows its result.
  */
 const meta: Meta = {
   title: "Compositions/Account",
@@ -40,13 +42,16 @@ function Held({
   profiles: first = [],
   flow: start = { phase: "idle" },
   syncs: opened = false,
+  extra,
   spy,
   children,
 }: {
   profiles?: readonly Profile[];
   flow?: AccountFlow;
   syncs?: boolean;
-  spy?: Partial<Record<keyof Account, () => void>>;
+  /** Fields of the account beyond the profiles and the flow: what ended, who left, whether a home exists. */
+  extra?: Partial<Account>;
+  spy?: Partial<Record<keyof Account, (...args: never[]) => void>>;
   children: (account: Account) => ReactNode;
 }) {
   const [profiles, setProfiles] = useState(first);
@@ -54,9 +59,15 @@ function Held({
   const [open, setOpen] = useState(opened);
   const [kinds, setKinds] = useState(choices);
   const account: Account = {
+    ...extra,
     profiles,
     flow,
     syncs: open ? { login: "nickmele", kinds } : null,
+    signOut: (login) => {
+      spy?.signOut?.(login as never);
+      setProfiles((was) => was.filter((one) => one.login !== login));
+    },
+    openSetting: (setting) => spy?.openSetting?.(setting as never),
     signIn: () => spy?.signIn?.(),
     openDevicePage: () => spy?.openDevicePage?.(),
     addProfile: () => spy?.addProfile?.(),
@@ -181,5 +192,133 @@ export const ScopeMarkCycles: Story = {
     await userEvent.click(dialog.getByRole("button", { name: "Private, gitnexus" }));
     await expect(dialog.getByRole("button", { name: "Global, gitnexus" })).toBeVisible();
     await expect(dialog.queryByRole("button", { name: "Repository, gitnexus" })).toBeNull();
+  },
+};
+
+/** A sign-in that ended without signing in: Fleet's sentence, a mark for how it ended, and the one act that follows. */
+const tryAgain = fn();
+export const SignInEnded: Story = {
+  render: () => (
+    <Held flow={{ phase: "idle" }} extra={{ ended: { outcome: "denied", said: "The sign-in was turned down." } }} spy={{ signIn: tryAgain }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("region", { name: "Sign-in ended" })).toHaveTextContent("The sign-in was turned down.");
+    await expect(canvas.getByRole("img", { name: "Turned down" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
+    await expect(tryAgain).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Each way a sign-in ends has its own mark, and its tooltip gives the word. */
+export const SignInEndedEveryWay: Story = {
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <Held extra={{ ended: { outcome: "expired", said: "The code ran out before it was typed." } }}>{(account) => <AccountView account={account} />}</Held>
+      <Held extra={{ ended: { outcome: "unreachable", said: "The forge could not be reached: the connection timed out." } }}>
+        {(account) => <AccountView account={account} />}
+      </Held>
+      <Held extra={{ ended: { outcome: "refused", said: "The forge refused the sign-in: the app has the device flow off." } }}>
+        {(account) => <AccountView account={account} />}
+      </Held>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Expired" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Not reached" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Refused" })).toBeVisible();
+  },
+};
+
+/** Sign-in was refused for a blank setting: Fleet names which, and each blank one has a button into Settings. */
+const openSetting = fn();
+const openSettings = fn();
+export const SignInUnavailable: Story = {
+  render: () => (
+    <Held
+      extra={{ unavailable: { said: "Sign-in is unavailable: the sign-in app and the store address are blank in Settings.", blank: ["account", "store"] } }}
+      spy={{ openSetting }}
+    >
+      {(account) => <AccountView account={account} onSettings={openSettings} />}
+    </Held>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("region", { name: "Sign-in unavailable" })).toHaveTextContent("the sign-in app and the store address are blank");
+    await userEvent.click(canvas.getByRole("button", { name: "Store address" }));
+    await expect(openSetting).toHaveBeenCalledWith("store");
+    await expect(openSettings).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Signing a profile out removes it from the list and says who left; the store keeping its row is a plain fact beside it. */
+export const SignedOutStoreRemains: Story = {
+  render: () => (
+    <Held profiles={two}>
+      {(account) => (
+        <AccountView
+          account={{ ...account, left: { login: "mele-work", storeRowRemains: true, said: "The store could not be reached." } }}
+        />
+      )}
+    </Held>
+  ),
+  play: async ({ canvas }) => {
+    await expect(within(canvas.getByRole("region", { name: "Signed out" })).getByRole("listitem", { name: "mele-work" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Store not reached" })).toBeVisible();
+    await expect(canvas.getByText("Store still lists this device")).toBeVisible();
+  },
+};
+
+/** Sign out is on each profile of two or more, and beside Add profile for one. */
+const signedOut = fn();
+export const SignOutFromProfiles: Story = {
+  render: () => (
+    <Held profiles={two} spy={{ signOut: signedOut }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Sign out mele-work" }));
+    await expect(signedOut).toHaveBeenCalledWith("mele-work");
+    await expect(canvas.queryByRole("button", { name: "mele-work" })).toBeNull();
+  },
+};
+
+/** The shared home is not made yet: the home row is not set up, without the slash a repository would follow it with. */
+export const SetUpWithoutHome: Story = {
+  render: () => (
+    <Held flow={{ phase: "setup", login: "nickmele", repository: "", steps: { identity: "done", store: "done", home: "waiting" } }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas }) => {
+    const home = within(canvas.getByRole("listitem", { name: "Shared home" }));
+    await expect(home.getByRole("img", { name: "Not set up yet" })).toBeVisible();
+    await expect(canvas.getByRole("listitem", { name: "Shared home" })).not.toHaveTextContent("/");
+    await expect(home.queryByRole("img", { name: "Setting up" })).toBeNull();
+  },
+};
+
+/** First take: What syncs stays where it will be, greyed, and its tooltip says why. */
+export const WhatSyncsWithoutHomeDisabled: Story = {
+  render: () => (
+    <Held profiles={two} extra={{ home: false, syncsWithoutHome: "disabled" }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "What syncs" })).toBeDisabled();
+  },
+};
+
+/** Second take: What syncs is not drawn until the home exists. */
+export const WhatSyncsWithoutHomeHidden: Story = {
+  render: () => (
+    <Held profiles={two} extra={{ home: false, syncsWithoutHome: "hidden" }}>
+      {(account) => <AccountView account={account} />}
+    </Held>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "What syncs" })).toBeNull();
   },
 };

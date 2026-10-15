@@ -11,3 +11,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator, on the owner's word after walking it. A file that cannot run is declined by Fleet, which is what the circle and diagonal already say. One outline for both the row's mark and the rail row's warning, so the two read as the same fact. The tooltip names it; no count is drawn. `triangle-alert` stays Doctor's and is not drawn here."
+
+  [[icons.ban.usage]]
+    means = "A sign-in the person turned down at the forge"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `sign-in-ended`. Denied is a decision, which is what this glyph already says; it is not a failure. Tooltip `Turned down`. The row carries no reservation."

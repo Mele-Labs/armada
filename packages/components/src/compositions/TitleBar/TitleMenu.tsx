@@ -111,7 +111,17 @@ export function TitleMenu({ sleep, settings, narrow }: TitleMenuProps) {
                   <ChevronLeft size={16} strokeWidth={2} aria-hidden />
                 </Button>
               </Tooltip>
-              <AccountView account={account} />
+              <AccountView
+                account={account}
+                {...(settings === undefined
+                  ? {}
+                  : {
+                      onSettings: () => {
+                        settings.onOpen();
+                        away.current();
+                      },
+                    })}
+              />
             </div>
           ) : (
             <div className="armada-title-menu__entries">

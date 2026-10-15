@@ -61,7 +61,11 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | Title bar menu | Account or Sign in with GitHub, Sleep, Settings with its key |
 | Menu button | The moon while Sleep is on, an amber dot while signed out |
 | Account entry | Device code, set-up rows, profiles |
-| Profiles | A chip each from two profiles, active one marked; Add profile always shown |
+| Sign-in that ended | Denied, expired, not reached or refused: Fleet's sentence beside a mark, and Try again |
+| Sign-in not set up | Fleet's sentence naming the blank setting, and a button to each in Settings |
+| Profiles | A chip each from two profiles, active one marked; Add profile always shown; Sign out on each |
+| Signed out | Who left, struck through; the store's row named only where it stays |
+| Home not made yet | The set-up row for the shared home is not set up, and What syncs is greyed with its reason |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
 
@@ -70,5 +74,7 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 ## Built
 
 **Built, on mock data.** The title bar menu, the device code, the set-up rows, the profiles and What syncs all draw from `draft.account` in the mock Fleet, and the walks `onboarding-home`, `onboarding-work` and `title-bar-menu` play them.
+
+**Drawn in the mock, awaiting the owner's walk.** The sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`, with `sign-in-no-home-hidden` as the second take of What syncs.
 
 **Not built, everything behind it.** Nothing signs in, no store exists and Fleet serves none of it.

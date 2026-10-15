@@ -325,6 +325,8 @@ const account = (logins: readonly string[], signIn: () => void = noAct): Account
   closeSyncs: noAct,
   setKind: noAct,
   setScope: noAct,
+  signOut: noAct,
+  openSetting: noAct,
 });
 
 const signIn = fn();

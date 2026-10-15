@@ -1,6 +1,22 @@
 import { createContext, useContext } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, Database, FolderGit2, Globe, House, Laptop, Link as LinkGlyph, RotateCw, UserCheck } from "lucide-react";
+import {
+  Ban,
+  Check,
+  CircleDashed,
+  Clock,
+  Database,
+  FolderGit2,
+  Globe,
+  House,
+  Laptop,
+  Link as LinkGlyph,
+  RotateCw,
+  Settings,
+  Unplug,
+  UserCheck,
+  X,
+} from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
@@ -57,12 +73,40 @@ export type AccountFlow =
   /** What signing in set up, row by row. */
   | { phase: "setup"; login: string; repository: string; steps: Readonly<Record<SetUpId, SetUpState>> };
 
+/** How a sign-in came to nothing. A sign-in that signed in has no end to show. */
+export type EndedOutcome = "denied" | "expired" | "unreachable" | "refused";
+
+/** The last sign-in that ended without signing in. `said` is Fleet's own sentence, drawn as it comes. */
+export type SignInEnd = { outcome: EndedOutcome; said: string };
+
+/** The Settings category a blank setting lives in: the sign-in app, or the store address. */
+export type BlankSetting = "account" | "store";
+
+/** Sign-in refused before it began, because a setting it needs is blank. `said` is Fleet's sentence naming which. */
+export type SignInUnavailable = { said: string; blank: readonly BlankSetting[] };
+
+/** A profile signed out, held until the panel is put away. `storeRowRemains`: the store could not be asked to forget the device. */
+export type SignedOutNote = { login: string; storeRowRemains: boolean; said?: string };
+
+/** What happens to What syncs on a profile while there is no shared home: drawn greyed with its reason, or not drawn. */
+export type SyncsWithoutHome = "disabled" | "hidden";
+
 export type AccountRead = {
   /** Empty is signed out. */
   profiles: readonly Profile[];
   flow: AccountFlow;
   /** The profile whose What syncs is open. */
   syncs: { login: string; kinds: readonly SyncChoice[] } | null;
+  /** The last sign-in ended without signing in. Absent while one is in flight or none has ended. */
+  ended?: SignInEnd;
+  /** Starting a sign-in was refused for a blank setting. */
+  unavailable?: SignInUnavailable;
+  /** A profile signed out. */
+  left?: SignedOutNote;
+  /** Whether the shared home exists. Absent is that it does. */
+  home?: boolean;
+  /** Two takes, while the owner chooses. Absent is `disabled`. */
+  syncsWithoutHome?: SyncsWithoutHome;
 };
 
 export type AccountActs = {
@@ -80,6 +124,10 @@ export type AccountActs = {
   closeSyncs: () => void;
   setKind: (kind: SyncKindWord, on: boolean) => void;
   setScope: (kind: SyncKindWord, name: string, scope: Scope) => void;
+  /** Sign a profile out of this machine. */
+  signOut: (login: string) => void;
+  /** Point Settings at a blank setting; the view that drew the button then opens Settings. */
+  openSetting: (setting: BlankSetting) => void;
 };
 
 export type Account = AccountRead & AccountActs;
@@ -144,12 +192,25 @@ function Turning({ said }: { said: string }) {
   );
 }
 
-/** The account's own content: the device code while signing in, what it set up, then the profiles. Absent where there is nothing to show. */
-export function AccountView({ account }: { account: Account }) {
+/**
+ * The account's own content: the device code while signing in, what it set up, then the profiles, with
+ * what ended, what was refused and who signed out above them. Absent where there is nothing to show.
+ * `onSettings` opens Settings for the buttons that name a blank setting; without it they are not drawn.
+ */
+export function AccountView({ account, onSettings }: { account: Account; onSettings?: () => void }) {
   const here = account.profiles.find((one) => one.active) ?? account.profiles[0];
   if (account.flow.phase === "code") return <DeviceCode code={account.flow.code} account={account} />;
   if (account.flow.phase === "setup") return <SetUp flow={account.flow} />;
-  return here === undefined ? null : <Profiles account={account} />;
+  const { left, ended, unavailable } = account;
+  if (here === undefined && left === undefined && ended === undefined && unavailable === undefined) return null;
+  return (
+    <>
+      {left === undefined ? null : <SignedOutCard note={left} />}
+      {ended === undefined ? null : <EndedCard ended={ended} account={account} />}
+      {unavailable === undefined ? null : <UnavailableCard unavailable={unavailable} account={account} onSettings={onSettings} />}
+      {here === undefined ? null : <Profiles account={account} />}
+    </>
+  );
 }
 
 /** The signed-in login the menu's account entry names. Undefined while signed out. */
@@ -198,8 +259,10 @@ function SetUp({ flow }: { flow: Extract<AccountFlow, { phase: "setup" }> }) {
       <ul className="armada-account__rows">
         {SET_UP.map(({ id, label, Glyph }) => {
           const state = flow.steps[id];
+          // The home Fleet has named no repository for does not exist yet: that is not a step under way.
+          const unset = id === "home" && flow.repository === "" && state !== "done";
           return (
-            <li key={id} className="armada-account__row" aria-label={label} data-state={state}>
+            <li key={id} className="armada-account__row" aria-label={label} data-state={unset ? "waiting" : state}>
               <Tooltip beside label={label}>
                 <span className="armada-account__glyph" role="img" aria-label={label}>
                   <Glyph size={16} strokeWidth={2} aria-hidden="true" />
@@ -207,10 +270,16 @@ function SetUp({ flow }: { flow: Extract<AccountFlow, { phase: "setup" }> }) {
               </Tooltip>
               <span className="armada-account__name">
                 {id === "store" ? "Store" : flow.login}
-                {id === "home" ? <span className="armada-account__repo">/{flow.repository}</span> : null}
+                {id === "home" && !unset ? <span className="armada-account__repo">/{flow.repository}</span> : null}
               </span>
               <span className="armada-account__state">
-                {state === "working" ? (
+                {unset ? (
+                  <Tooltip beside label="Not set up yet">
+                    <span className="armada-account__unset" role="img" aria-label="Not set up yet">
+                      <CircleDashed size={16} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                ) : state === "working" ? (
                   <Turning said="Setting up" />
                 ) : state === "done" ? (
                   <Tooltip beside label="Done">
@@ -228,12 +297,119 @@ function SetUp({ flow }: { flow: Extract<AccountFlow, { phase: "setup" }> }) {
   );
 }
 
+/** One glyph per way a sign-in ended, and the word its tooltip gives it. */
+const ENDED = {
+  denied: { Glyph: Ban, said: "Turned down" },
+  expired: { Glyph: Clock, said: "Expired" },
+  unreachable: { Glyph: Unplug, said: "Not reached" },
+  refused: { Glyph: X, said: "Refused" },
+} as const;
+
+/** The setting each blank category names, as Settings calls it. */
+const SETTING: Record<BlankSetting, string> = { account: "Sign-in app", store: "Store address" };
+
+/** A sign-in that ended without signing in: Fleet's sentence beside the mark for how, and the one act that follows. */
+function EndedCard({ ended, account }: { ended: SignInEnd; account: Account }) {
+  const { Glyph, said } = ENDED[ended.outcome];
+  return (
+    <section className="armada-account__card" aria-label="Sign-in ended">
+      <div className="armada-account__row armada-account__row--said" data-state="ended">
+        <Tooltip beside label={said}>
+          <span className="armada-account__glyph" role="img" aria-label={said}>
+            <Glyph size={16} strokeWidth={2} aria-hidden="true" />
+          </span>
+        </Tooltip>
+        <span className="armada-account__said">{ended.said}</span>
+      </div>
+      <div className="armada-account__foot">
+        <Button variant="secondary" size="sm" ground="sunken" onClick={account.signIn}>
+          Try again
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** Sign-in refused for a blank setting: Fleet's sentence, and a button to each blank setting in Settings. */
+function UnavailableCard({
+  unavailable,
+  account,
+  onSettings,
+}: {
+  unavailable: SignInUnavailable;
+  account: Account;
+  onSettings: (() => void) | undefined;
+}) {
+  return (
+    <section className="armada-account__card" aria-label="Sign-in unavailable">
+      <div className="armada-account__row armada-account__row--said" data-state="ended">
+        <Tooltip beside label="Not set up">
+          <span className="armada-account__glyph" role="img" aria-label="Not set up">
+            <CircleDashed size={16} strokeWidth={2} aria-hidden="true" />
+          </span>
+        </Tooltip>
+        <span className="armada-account__said">{unavailable.said}</span>
+      </div>
+      {onSettings === undefined ? null : (
+        <div className="armada-account__foot">
+          {unavailable.blank.map((setting) => (
+            <Button
+              key={setting}
+              variant="secondary"
+              size="sm"
+              ground="sunken"
+              onClick={() => {
+                account.openSetting(setting);
+                onSettings();
+              }}
+            >
+              <Settings size={16} strokeWidth={2} aria-hidden="true" />
+              {SETTING[setting]}
+            </Button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Who signed out, as the set-up rows read in reverse; the store's row is named only where it stays. */
+function SignedOutCard({ note }: { note: SignedOutNote }) {
+  return (
+    <section className="armada-account__card" aria-label="Signed out">
+      <ul className="armada-account__rows">
+        <li className="armada-account__row" aria-label={note.login} data-state="gone">
+          <Tooltip beside label="Signed out">
+            <span className="armada-account__glyph" role="img" aria-label="Signed out">
+              <UserCheck size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+          </Tooltip>
+          <span className="armada-account__name">{note.login}</span>
+        </li>
+        {!note.storeRowRemains ? null : (
+          <li className="armada-account__row" aria-label="Store" data-state="ended">
+            <Tooltip beside label={note.said ?? "Store not reached"}>
+              <span className="armada-account__glyph" role="img" aria-label="Store not reached">
+                <Unplug size={16} strokeWidth={2} aria-hidden="true" />
+              </span>
+            </Tooltip>
+            <span className="armada-account__said">Store still lists this device</span>
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
 /** The profiles this machine has joined, one chip each, which is active marked, and the act to add one. */
 function Profiles({ account }: { account: Account }) {
+  const alone = account.profiles.length < 2;
+  const noHome = account.home === false;
+  const here = account.profiles.find((one) => one.active) ?? account.profiles[0];
   return (
     <section className="armada-account__card" aria-label="Profiles">
       {/* One profile is the account chip alone; the chips draw once a second joins. */}
-      {account.profiles.length < 2 ? null : (
+      {alone ? null : (
       <ul className="armada-account__rows">
         {account.profiles.map((one) => (
           <li key={one.login} className="armada-account__profile" data-active={one.active ? "" : undefined}>
@@ -254,19 +430,33 @@ function Profiles({ account }: { account: Account }) {
                 </Tooltip>
               ) : null}
             </button>
-            {one.chosen ? (
+            {!one.chosen ? null : !noHome ? (
               <Button variant="ghost" size="sm" onClick={() => account.choose(one.login)}>
                 What syncs
               </Button>
-            ) : null}
+            ) : account.syncsWithoutHome === "hidden" ? null : (
+              <Tooltip beside label="No shared home yet">
+                <Button variant="ghost" size="sm" disabled>
+                  What syncs
+                </Button>
+              </Tooltip>
+            )}
+            <Button variant="ghost" size="sm" aria-label={`Sign out ${one.login}`} onClick={() => account.signOut(one.login)}>
+              Sign out
+            </Button>
           </li>
         ))}
       </ul>
       )}
-      <div className="armada-account__foot" data-alone={account.profiles.length < 2 ? "" : undefined}>
+      <div className="armada-account__foot" data-alone={alone ? "" : undefined}>
         <Button variant="secondary" size="sm" ground="sunken" onClick={account.addProfile}>
           Add profile
         </Button>
+        {!alone || here === undefined ? null : (
+          <Button variant="ghost" size="sm" aria-label={`Sign out ${here.login}`} onClick={() => account.signOut(here.login)}>
+            Sign out
+          </Button>
+        )}
       </div>
     </section>
   );

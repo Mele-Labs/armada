@@ -13,3 +13,10 @@
     status = "Specified"
     reserved = "TaskMark's (packages/components) open state only, docs/concepts/plan.md. Never a step's own not_started, which is the table above."
     notes = "Added 2026-09-13 for #896/#898. Reuses the same claim one level below a step: a stroke broken at rest rather than in motion, for a task no work has touched yet. Renders at --fg-subtle, the same contrast-floor exception the table above already carries — no second exception needed."
+
+  [[icons.circle-dashed.usage]]
+    means = "Not set up yet: the shared home before it exists, and a sign-in whose settings are blank"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walks `sign-in-no-home` and `sign-in-ended`. The stroke broken at rest is what this glyph already says of a thing not started, here a home nothing has made. Tooltips `Not set up yet` and `Not set up`. Never a spinner: the turn is `rotate-cw`'s."
