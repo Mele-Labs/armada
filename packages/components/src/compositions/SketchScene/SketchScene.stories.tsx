@@ -185,6 +185,8 @@ export const StepsOnArrowsPlayByHand: Story = {
   },
 };
 
+const running = (root: HTMLElement) => root.getAnimations({ subtree: true }).filter((one): one is CSSAnimation => one instanceof CSSAnimation && one.playState === "running").map((one) => one.animationName);
+
 /** A preview is the same drawing in a card's box: still until it is told to play, and nothing in it is operable. */
 export const PreviewStill: Story = {
   args: { scene: SEQUENCE, preview: true, playing: false },
@@ -275,5 +277,104 @@ export const RemoveAPart: Story = {
     await userEvent.click(await canvas.findByRole("group", { name: "Your box" }));
     await userEvent.click(await canvas.findByRole("button", { name: "Remove" }));
     await waitFor(() => expect(mine(canvasElement, ".armada-scene-node")).toBe(0));
+  },
+};
+
+/** The hub an agent drew for how data moves through Fleet: converging labelled arrows, and a body longer than the `h` it asked for. */
+const HUB: Scene = {
+  nodes: [
+    { id: "you", kind: "label", x: 118, y: -80, title: "you", step: 1 },
+    { id: "bridge", kind: "box", x: 0, y: 0, w: 240, h: 100, title: "Bridge", icon: "globe", body: "Electron, apps/desktop.\nOne connection, never talks to a Drone", step: 2 },
+    { id: "sessions", kind: "box", x: 520, y: 0, w: 240, h: 100, title: "Agent sessions", icon: "bot", body: "armada-fleet MCP. No stream: poll with a cursor", step: 9 },
+    { id: "check", kind: "box", x: -420, y: 300, w: 240, h: 100, title: "Check", icon: "hammer", body: "The repo's own Check, run in the Job's worktree", step: 5 },
+    { id: "fleet", kind: "box", x: 0, y: 300, w: 240, h: 100, title: "Fleet", icon: "server", body: "Rust daemon: fleet + api + ipc.\nProtocol ID must match Bridge's or no socket opens; /v0 lifeboat stays up for a refused Bridge", step: 3 },
+    { id: "sqlite", kind: "box", x: 520, y: 300, w: 240, h: 100, title: "SQLite", icon: "hard-drive", body: "crates/store", step: 7 },
+    { id: "drone-a", kind: "box", x: -120, y: 590, w: 240, h: 90, title: "Drone", icon: "terminal", body: "Own worktree, --strict-mcp-config, no push", step: 4 },
+    { id: "drone-b", kind: "box", x: 240, y: 590, w: 240, h: 90, title: "Drone", icon: "terminal", body: "Own worktree, --strict-mcp-config, no push", step: 4 },
+  ],
+  edges: [
+    { id: "e0", from: "you", to: "bridge", step: 1 },
+    { id: "e1", from: "bridge", to: "fleet", label: "WS /jobs/:id/observe and run observe, HTTP for commands", step: 8 },
+    { id: "e2", from: "sessions", to: "fleet", label: "MCP: get_events_since(upto), get_job, start_run, show_sketch", step: 9 },
+    { id: "e3", from: "fleet", to: "check", label: "code: advances, retry, fails", step: 5 },
+    { id: "e4", from: "fleet", to: "sqlite", label: "every transition", step: 7 },
+    { id: "e5", from: "drone-a", to: "fleet", label: "evidence via Armada's tool", step: 4 },
+    { id: "e6", from: "drone-b", to: "fleet", label: "evidence via Armada's tool", step: 4 },
+  ],
+};
+
+const rectOf = (el: Element) => el.getBoundingClientRect();
+const crosses = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+/** What a person sees of the arrows' words: each on its own backing, clear of every other and of every box, and a box tall enough for all of its. */
+export const LabelsClearAndBoxesFit: Story = {
+  args: { scene: HUB },
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(8));
+    await waitFor(() => expect(fitted(canvasElement)).toBe(true));
+    // The words are placed from the boxes' measured sizes, a beat after the fit.
+    await new Promise((done) => setTimeout(done, 300));
+    const backings = [...canvasElement.querySelectorAll(".armada-scene-edge__backing")];
+    await expect(backings).toHaveLength(6);
+    const boxes = [...canvasElement.querySelectorAll(".armada-scene-node:not([data-kind='label'])")];
+    for (const [i, one] of backings.entries()) {
+      for (const other of backings.slice(i + 1)) await expect(crosses(rectOf(one), rectOf(other))).toBe(false);
+      for (const box of boxes) await expect(crosses(rectOf(one), rectOf(box))).toBe(false);
+    }
+    // The words stay inside their backing, and the full text is the arrow's name.
+    for (const word of canvasElement.querySelectorAll(".armada-scene-edge__label")) {
+      const backing = rectOf(word.closest(".armada-scene-edge__words")!.querySelector(".armada-scene-edge__backing")!);
+      const text = rectOf(word);
+      await expect(text.left).toBeGreaterThanOrEqual(backing.left - 1);
+      await expect(text.right).toBeLessThanOrEqual(backing.right + 1);
+    }
+    await expect(canvas.getByRole("button", { name: "MCP: get_events_since(upto), get_job, start_run, show_sketch" })).toBeInTheDocument();
+    // A body longer than the box's `h` grows the box rather than being cut.
+    for (const box of canvasElement.querySelectorAll(".armada-scene-node")) await expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight);
+    await expect(canvas.getByText(/lifeboat stays up/)).toBeVisible();
+    const fleet = canvas.getByRole("group", { name: "Fleet" }).querySelector(".armada-scene-node")!;
+    await expect(fleet.getBoundingClientRect().height / scale(canvasElement)).toBeGreaterThan(100);
+  },
+};
+
+/** A card the thread is not playing is still: its arrows do not crawl, and no dot travels. */
+export const PreviewStillDoesNotMove: Story = {
+  args: { scene: HUB, preview: true, playing: false },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(8));
+    await waitFor(() => expect(canvasElement.querySelectorAll(".armada-scene-edge__line")).toHaveLength(7));
+    await expect(running(canvasElement)).toEqual([]);
+  },
+};
+
+/** Played, a card moves the step's dot and nothing else: the other arrows do not crawl under it. */
+export const PreviewPlayingMovesOnlyTheDot: Story = {
+  args: { scene: HUB, preview: true, playing: true },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).not.toBeNull());
+    await expect(new Set(running(canvasElement))).toEqual(new Set(["armada-scene-travel"]));
+  },
+};
+
+/** Played in the panel, the dot is the only thing that moves: the other arrows stop their crawl. */
+export const PanelPlayingMovesOnlyTheDot: Story = {
+  args: { scene: HUB, autoplay: true },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).not.toBeNull());
+    await expect(new Set(running(canvasElement))).toEqual(new Set(["armada-scene-travel"]));
+  },
+};
+
+/** Not playing, the panel's flow arrows crawl as before. */
+export const PanelCrawlsWhenNothingPlays: Story = {
+  args: { scene: HUB },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-flow]")).not.toBeNull());
+    await expect(canvasElement.querySelector("[data-playing]")).toBeNull();
+    await waitFor(() => expect(running(canvasElement)).toContain("armada-scene-flow"));
   },
 };

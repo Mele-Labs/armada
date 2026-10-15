@@ -9,6 +9,7 @@
 import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
 import { removedSaid } from "./removed";
+import { DATA_FLOW, DATA_FLOW_TITLE } from "./data-flow-sketch";
 import { PINNED, PINNED_TITLE, READS, READS_AGAIN, READS_TITLE, SEQUENCE, SEQUENCE_TITLE, WORKFLOW, WORKFLOW_TITLE } from "./sketches";
 import type { Scene } from "@armada/components";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
@@ -34,6 +35,9 @@ export type Pace = { answerMs: number; settleMs: number; held?: Gate };
 
 /** The Session that draws a sketch each time it is spoken to: the first, the same title again, and a change to it. */
 export const SKETCHER = "s14";
+
+/** The Session that draws how data moves through Fleet: a hub of boxes, converging labelled arrows, a long body. */
+export const HUBBER = "s15";
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
@@ -615,6 +619,12 @@ export function sessionsStore(
             showSketch(id, WORKFLOW_TITLE, WORKFLOW);
             addTo(id, [said("Build and Test run together, and the Gate waits for both.")]);
           }
+          finishOf(id, "14:52");
+        });
+      } else if (id === HUBBER) {
+        after(900, () => {
+          showSketch(id, DATA_FLOW_TITLE, DATA_FLOW);
+          addTo(id, [said("Bridge talks to Fleet alone. Drones send evidence back through Fleet, and the Check decides the step.")]);
           finishOf(id, "14:52");
         });
       } else if (id === MINE && !started) {
