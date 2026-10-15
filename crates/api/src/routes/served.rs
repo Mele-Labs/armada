@@ -388,6 +388,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/run/stop",
     },
     Route {
+        operation: "write_session_run",
+        method: "POST",
+        path: "/sessions/run/write",
+    },
+    Route {
+        operation: "resize_session_run",
+        method: "POST",
+        path: "/sessions/run/resize",
+    },
+    Route {
         operation: "observe_session_run",
         method: "GET",
         path: "/sessions/run/:run_id/observe",
