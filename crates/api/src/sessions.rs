@@ -54,7 +54,7 @@ pub(crate) async fn start_session_run<D: Sessions>(
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().start_session_run(start).await {
+    match served.shared().start_session_run(start).await {
         Ok(underway) => answer(StatusCode::ACCEPTED, &underway, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -71,6 +71,36 @@ pub(crate) async fn stop_session_run<D: Sessions>(
     };
     match served.daemon().stop_session_run(stop).await {
         Ok(stopped) => answer(StatusCode::OK, &stopped, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the run's id; 422 for a run that is not in flight.
+pub(crate) async fn write_session_run<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let write: ipc::WriteSessionRun = match ipc::decode("keys for a session run", &body) {
+        Ok(write) => write,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().write_session_run(write).await {
+        Ok(written) => answer(StatusCode::OK, &written, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the run's id; 422 for a run that is not in flight, or a size with no cells.
+pub(crate) async fn resize_session_run<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let resize: ipc::ResizeSessionRun = match ipc::decode("a session run to resize", &body) {
+        Ok(resize) => resize,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().resize_session_run(resize).await {
+        Ok(resized) => answer(StatusCode::OK, &resized, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -26,6 +26,7 @@ const OUTCOMES = ["take_over", "restart_step"];
 const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
+const cells = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
@@ -119,6 +120,12 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.stopSessionRun, (_event, runId: string) =>
     text(runId) ? (connection()?.sessions.stopRun({ run_id: runId }) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.writeSessionRun, (_event, runId: string, data: string) =>
+    text(runId) && typeof data === "string" ? (connection()?.sessions.writeRun({ run_id: runId, data }) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.resizeSessionRun, (_event, runId: string, cols: number, rows: number) =>
+    text(runId) && cells(cols) && cells(rows) ? (connection()?.sessions.resizeRun({ run_id: runId, cols, rows }) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
