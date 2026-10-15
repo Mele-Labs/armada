@@ -98,9 +98,12 @@ async fn chunks(observed: ObservedSessionRun) -> (Vec<String>, Option<i32>) {
     };
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            match live.recv().await.expect("the run ends with exited") {
-                SessionRunEvent::Output(more) => seen.push(more),
-                SessionRunEvent::Exited(code) => return (seen, code),
+            // A reader that falls behind reads on, as the socket does with `missed`.
+            match live.recv().await {
+                Ok(SessionRunEvent::Output(more)) => seen.push(more),
+                Ok(SessionRunEvent::Exited(code)) => return (seen, code),
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                Err(closed) => panic!("the run ends with exited: {closed:?}"),
             }
         }
     })
