@@ -12,7 +12,7 @@ use axum::Router;
 use core_model::{Actor, JobId, JobStatus, Target};
 use http_body_util::BodyExt;
 use ipc::{Redispatched, RunId, WireError};
-use testkit::{FakeHarness, FakeJudge, FakeLinkLookup, FakeVcs, FakeWorkProduct};
+use testkit::{FakeHarness, FakeJudge, FakeLinkLookup, FakeTrackers, FakeVcs, FakeWorkProduct};
 use tower::ServiceExt;
 
 use crate::daemon::Fleet;
@@ -389,7 +389,7 @@ fn a_fleet_naming_a_link(
         .map(|workflow| (workflow.id().clone(), workflow))
         .collect();
     fittings.judge = Arc::new(proposer);
-    fittings.links = links;
+    fittings.trackers = Arc::new(FakeTrackers::empty().links(links));
     Fleet::assembled(fittings)
 }
 

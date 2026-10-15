@@ -198,6 +198,10 @@ pub enum Frozen {
     /// person that a `quiet_after_seconds` they just changed needs a restart,
     /// which is the opposite of true.
     DroneExcludePaths,
+    /// The tracker is chosen when Fleet starts, so a changed block waits for a restart.
+    Tracker,
+    /// Read for the same reason as `Tracker`.
+    CiGate,
 }
 
 impl Frozen {
@@ -210,6 +214,8 @@ impl Frozen {
             Frozen::Commands => "commands",
             Frozen::Setup => "setup",
             Frozen::DroneExcludePaths => "drone.exclude_paths",
+            Frozen::Tracker => "tracker",
+            Frozen::CiGate => "ci_gate",
         }
     }
 }
@@ -294,6 +300,8 @@ struct AtStart {
     commands: Vec<String>,
     setup: Vec<String>,
     exclude_paths: Vec<String>,
+    tracker: Option<crate::manifest::TrackerBlock>,
+    ci_gate: String,
 }
 
 impl AtStart {
@@ -317,6 +325,8 @@ impl AtStart {
                 .iter()
                 .map(|path| path.as_str().to_string())
                 .collect(),
+            tracker: manifest.tracker().cloned(),
+            ci_gate: manifest.ci_gate().to_string(),
         }
     }
 
@@ -347,6 +357,12 @@ impl AtStart {
         }
         if self.exclude_paths != other.exclude_paths {
             changed.push(Frozen::DroneExcludePaths);
+        }
+        if self.tracker != other.tracker {
+            changed.push(Frozen::Tracker);
+        }
+        if self.ci_gate != other.ci_gate {
+            changed.push(Frozen::CiGate);
         }
         changed
     }

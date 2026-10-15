@@ -50,7 +50,11 @@ where
             return Ok(None);
         };
         let address = IssueAddress::at(&source.reference, &source.url);
-        let Some(call) = self.links().edited(&address) else {
+        // A Job whose repository is no longer served has no tracker to ask.
+        let Ok(served) = self.served_by_id(&job) else {
+            return Ok(None);
+        };
+        let Some(call) = self.links_of(&served).edited(&address) else {
             return Ok(None);
         };
         let Ok(said) = crate::proposal::resolved(&call).await else {

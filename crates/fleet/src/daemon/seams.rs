@@ -13,7 +13,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, CiConfiguration, Delivery, LinkLookup, SpawnConfigRefused, Vcs, WorkProduct,
+    AgentHarness, CiConfiguration, Delivery, SpawnConfigRefused, Trackers, Vcs, WorkProduct,
 };
 use core_model::{Job, JobId, ManifestId, Timestamp, Ulid};
 use tokio::sync::Mutex;
@@ -460,10 +460,10 @@ where
     pub(crate) fn session_model(&self) -> String {
         self.machine_settings().now().get(config::settings::MODELS_SESSION)
     }
-    /// What a request's own link resolves to. Read by `crate::proposal`
-    /// before a request becomes a Job's `facts`.
-    pub(crate) fn links(&self) -> &Arc<dyn LinkLookup + Send + Sync> {
-        &self.links
+    /// Which tracker and link reader a repository's choice names. Asked
+    /// through `crate::tracking`, per repository.
+    pub(crate) fn trackers(&self) -> &Arc<dyn Trackers + Send + Sync> {
+        &self.trackers
     }
     /// The tracker and what Fleet holds of it — `crate::tracking`.
     pub(crate) fn tracking(&self) -> &crate::tracking::Tracking {

@@ -25,6 +25,7 @@ struct Script {
     asked_logs: usize,
     asked_merged: usize,
     asked_pulls: usize,
+    gates: Vec<String>,
     statuses: Vec<CommitStatus>,
     status_refused: Option<String>,
 }
@@ -76,6 +77,12 @@ impl MainCiScript {
     /// The recently merged pull requests the forge lists, newest first.
     pub fn recently_merged_are(&self, recent: Option<RecentlyMergedPulls>) {
         self.with(|it| it.recent = recent);
+    }
+
+    /// The gate every pull request reading was asked with, in order: which check a repository
+    /// says its `ci` is read from.
+    pub fn gates_asked(&self) -> Vec<String> {
+        self.with(|it| it.gates.clone())
     }
 
     /// Every status published so far, in order.
@@ -160,6 +167,10 @@ impl MainCiScript {
 
     pub(super) fn merge_queue(&self) -> Option<MergeQueue> {
         self.with(|it| it.queue.clone())
+    }
+
+    pub(super) fn gated_by(&self, gate: &str) {
+        self.with(|it| it.gates.push(gate.to_string()));
     }
 
     pub(super) fn watched(&self) -> Option<WatchedPulls> {

@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use api::{Issues, Refusal};
 use ipc::{IssueState, ManifestId};
-use testkit::{FakeHarness, FakeTracker, FakeVcs, FakeWorkProduct};
+use testkit::{FakeHarness, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
@@ -21,7 +21,7 @@ fn manifest(fleet: &Hosted) -> ManifestId {
 
 fn a_fleet(home: &TempDir, tracker: Arc<FakeTracker>) -> Hosted {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
-    fittings.tracker = tracker;
+    fittings.trackers = Arc::new(FakeTrackers::empty().tracker(tracker));
     Fleet::assembled(fittings)
 }
 

@@ -155,6 +155,8 @@ mod mods_promote;
 mod needs;
 mod needs_served;
 mod needs_status;
+mod ci_gate;
+mod tracker_per_manifest;
 mod job_auto_merge;
 mod noticing;
 mod orphans;

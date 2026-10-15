@@ -125,9 +125,10 @@ where
     /// Read one repository's open pull requests. **A forge that will not answer
     /// keeps the last reading**, rather than drawing every pull request as gone.
     pub(crate) async fn notice_pulls(&self, served: &Served) {
+        let gate = served.manifest().ci_gate().to_string();
         let listed = self
-            .forge_asked(served.root(), |vcs: &V, root: &str| {
-                vcs.open_pull_requests(root)
+            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                vcs.open_pull_requests(root, &gate)
             })
             .await;
         let Some(listed) = listed else { return };

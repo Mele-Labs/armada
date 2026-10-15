@@ -26,6 +26,10 @@ export class AccountsHost {
     return await this.act<SignedOut>("POST", "/accounts/sign_out", { account_id: accountId });
   }
 
+  async setRepositoryProfile(root: string, accountId: number | null): Promise<AccountsActed> {
+    return await this.act<Accounts>("POST", "/accounts/set_repository_profile", { root, account_id: accountId });
+  }
+
   private async act<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<AccountsActed<T>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };

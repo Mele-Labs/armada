@@ -24,7 +24,7 @@ const LATER: &str = "2026-10-14T10:00:05.000Z";
 const SAID: &str = "The cap is five.";
 
 fn between() -> Seen<'static> {
-    Seen { helm: false, running: None, held: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[] }
+    Seen { helm: false, running: None, subagents: false, held: false, turn_end: Some((ENDED, SAID)), spoke: None, done: None, dismissed: &[] }
 }
 
 fn kinds(seen: &Seen) -> Vec<(String, WaitingSource, String)> {
@@ -68,6 +68,17 @@ fn a_new_turn_ends_the_reply_and_the_done() {
     let running = Seen { running: Some(Duration::from_secs(1)), done: Some(LATER), ..between() };
     assert_eq!(standing(&running, STUCK_AFTER), SessionStanding::Working);
     assert!(derived(&running).is_empty());
+}
+
+/// A Session whose subagent is still at work is working, though its own turn ended to wait on it: the
+/// list read it as idle while its subagents ran (14 Oct 2026). It is never stuck, since the subagent is
+/// what is heard from.
+#[test]
+fn a_session_whose_subagent_is_at_work_reads_as_working() {
+    let waiting = Seen { subagents: true, ..between() };
+    assert_eq!(standing(&waiting, STUCK_AFTER), SessionStanding::Working);
+    assert_eq!(standing(&Seen { subagents: true, turn_end: None, ..between() }, STUCK_AFTER), SessionStanding::Working);
+    assert_eq!(standing(&between(), STUCK_AFTER), SessionStanding::Replied, "once the last one stops, the reply stands");
 }
 
 /// A dismissed done never comes back, and the Session stands as idle.

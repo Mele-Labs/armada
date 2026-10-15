@@ -12,7 +12,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, Delivery, OpenIssue, Tracker, Vcs, WorkProduct};
+use adapter_traits::{
+    AgentHarness, Delivery, LinkLookup, OpenIssue, Tracker, TrackerChoice, Vcs, WorkProduct,
+};
 use api::{Issues, Refusal};
 use core_model::Timestamp;
 use ipc::{Instant, IssueList, IssueRead, IssueState, JobId, ManifestId, TrackedIssue, WireError};
@@ -29,11 +31,10 @@ const UNREADABLE: &str = "fleet.issues_unreadable";
 /// The tracker has no issue by that number, or the number is a pull request's. A 404.
 const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
-/// The tracker, what was last read from it per repository, and when Fleet last
+/// What was last read from each repository's tracker, and when Fleet last
 /// wrote back. **In memory**: a list is the tracker's, and is read again after
 /// a restart; what was *said* on an issue is the store's.
 pub(crate) struct Tracking {
-    tracker: Arc<dyn Tracker + Send + Sync>,
     lists: std::sync::Mutex<BTreeMap<String, Held>>,
     pub(crate) written_back: tokio::sync::Mutex<Option<Timestamp>>,
     /// What Autopilot's pass remembers about these lists between intervals. #2092.
@@ -47,18 +48,12 @@ struct Held {
 }
 
 impl Tracking {
-    pub(crate) fn with(tracker: Arc<dyn Tracker + Send + Sync>) -> Tracking {
+    pub(crate) fn new() -> Tracking {
         Tracking {
-            tracker,
             lists: std::sync::Mutex::new(BTreeMap::new()),
             written_back: tokio::sync::Mutex::new(None),
             autopilot: crate::autopilot::Remembered::default(),
         }
-    }
-
-    /// Cloned, because every call to it runs off the async thread.
-    pub(crate) fn tracker(&self) -> Arc<dyn Tracker + Send + Sync> {
-        Arc::clone(&self.tracker)
     }
 
     fn held(&self, manifest: &str) -> Option<Held> {
@@ -74,6 +69,15 @@ impl Tracking {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(manifest.to_string(), held);
+    }
+}
+
+/// What a Manifest chose, as the seam takes it. **No `tracker:` is the forge's own**, which is
+/// what every repository had before the key existed.
+fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
+    match manifest.tracker() {
+        Some(block) => TrackerChoice::named(block.provider(), block.keys()),
+        None => TrackerChoice::of_the_forge(),
     }
 }
 
@@ -107,6 +111,17 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The tracker `served`'s Manifest chose. Cloned, because every call to it
+    /// runs off the async thread.
+    pub(crate) fn tracker_of(&self, served: &crate::repositories::Served) -> Arc<dyn Tracker + Send + Sync> {
+        self.trackers().tracker(&choice_of(served.manifest()))
+    }
+
+    /// What reads a link into the tracker `served`'s Manifest chose.
+    pub(crate) fn links_of(&self, served: &crate::repositories::Served) -> Arc<dyn LinkLookup + Send + Sync> {
+        self.trackers().links(&choice_of(served.manifest()))
+    }
+
     /// The list as the wire carries it: each issue with the Job dispatched from
     /// it, where one has not ended.
     async fn issue_list(
@@ -162,7 +177,7 @@ where
     /// is closed or not an issue, and a person pressing it wants what is there now.
     async fn get_issue(&self, manifest_id: ManifestId, number: u64) -> Result<IssueRead, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
-        let tracker = self.tracking().tracker();
+        let tracker = self.tracker_of(&served);
         let root = served.root().to_string();
         let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, number))
             .await
@@ -226,7 +241,7 @@ where
                 return Ok((held.clone(), None));
             }
         }
-        let tracker = self.tracking().tracker();
+        let tracker = self.tracker_of(&served);
         let root = served.root().to_string();
         let read = tokio::task::spawn_blocking(move || tracker.open_issues(&root))
             .await

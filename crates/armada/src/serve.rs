@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapters::{ActionsWorkflows, GitVcs, HeadlessAgent, IssueLookup};
+use adapters::{ActionsWorkflows, GitVcs, HeadlessAgent};
 use adapter_traits::Model;
 use config::settings::{self as keys, Key, Resolved};
 use config::Roster;
@@ -743,11 +743,9 @@ fn assemble(
         retro_model,
         commander_model,
         second_opinion_model,
-        // The one link shape resolved before dispatch. See
-        // `adapters::IssueLookup` for why it is the only one.
-        links: Arc::new(IssueLookup),
-        // The one tracker read and written back on: the same forge. #91.
-        tracker: Arc::new(adapters::IssueTracker),
+        // The tracker and link reader each repository's Manifest chose; the
+        // forge's own where it chose none. #91.
+        trackers: Arc::new(adapters::TrackersByProvider),
         // The one CI provider Scan follows; the rest read as not followed.
         ci_configuration: Arc::new(ActionsWorkflows),
         models,

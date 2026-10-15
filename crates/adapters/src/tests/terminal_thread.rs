@@ -380,6 +380,27 @@ fn the_lean_subagent_check_finishes_on_end_turn_or_hand_back_and_resumes_on_work
     assert!(!crate::terminal_thread::subagent_ended("/nowhere", "abc-123", "x1"), "no file, not finished");
 }
 
+/// A run cut off (its parent's `TaskStop`, or the person stopping it) is finished: its transcript ends
+/// on the CLI's interrupt line and no stop follows, so it read as running for good (14 Oct 2026). Work
+/// after the interrupt is a resumed run.
+#[test]
+fn a_subagent_cut_off_mid_run_is_finished_until_it_works_again() {
+    let call = in_agent("assistant", "s2", "\"tool_use\"", r#"[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]"#);
+    let cut = |uuid: &str, content: &str| in_agent("user", uuid, "null", content);
+    let parts = cut("s3", r#"[{"type":"text","text":"[Request interrupted by user for tool use]"}]"#);
+    let prose = cut("s4", r#""[Request interrupted by user]""#);
+    let cases: [(&str, Vec<String>, bool); 3] = [
+        ("an interrupt in parts", vec![call.clone(), parts.clone()], true),
+        ("an interrupt as prose", vec![call.clone(), prose.clone()], true),
+        ("work after the interrupt", vec![call.clone(), parts.clone(), call.clone()], false),
+    ];
+    for (name, lines, want) in cases {
+        let (_home, root, file) = subagent_file(&lines);
+        assert_eq!(crate::terminal_thread::subagent_ended(&root, "abc-123", "x1"), want, "{name}");
+        assert_eq!(crate::terminal_thread::read_subagent(&file).unwrap().finished, want, "{name}, as read_subagent has it");
+    }
+}
+
 /// The deciding line can be further from the end than one read: the scan widens until it finds it.
 #[test]
 fn the_lean_check_reaches_back_past_a_long_tail() {

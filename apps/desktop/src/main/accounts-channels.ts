@@ -14,4 +14,9 @@ export function handleAccounts({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.getAccounts, () => connection()?.accounts.get() ?? unsent);
   ipc.handle(CHANNELS.startSignIn, () => connection()?.accounts.startSignIn() ?? unsent);
   ipc.handle(CHANNELS.signOut, (_event, accountId: unknown) => (id(accountId) ? (connection()?.accounts.signOut(accountId) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.setRepositoryProfile, (_event, root: unknown, accountId: unknown) =>
+    typeof root === "string" && root !== "" && (accountId === null || id(accountId))
+      ? (connection()?.accounts.setRepositoryProfile(root, accountId) ?? unsent)
+      : unsent,
+  );
 }

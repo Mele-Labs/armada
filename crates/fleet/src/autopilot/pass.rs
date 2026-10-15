@@ -267,7 +267,8 @@ where
         let issue = sure.issue().clone();
         // The same read of the issue a dispatch makes, so the Drone is briefed from the issue
         // itself rather than its title.
-        let outcome = enrich(&issue.url, self.links().as_ref()).await;
+        let links = self.links_of(served);
+        let outcome = enrich(&issue.url, links.as_ref()).await;
         let read_an_issue = matches!(outcome, Enriched::Resolved(_));
         let brief = match &outcome {
             Enriched::Resolved(text) => format!("{}\n\n{text}", issue.url),
@@ -305,8 +306,7 @@ where
         }
         // The issue is its source whether or not the lookup read it: the tracker named it, and
         // #91's write-back reads this row.
-        let reference = self
-            .links()
+        let reference = links
             .issue(&issue.url)
             .map(|address| address.reference().to_string())
             .unwrap_or_else(|| format!("#{}", issue.number));

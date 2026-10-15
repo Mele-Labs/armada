@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   Stethoscope,
   SquareTerminal,
+  UserCheck,
   Workflow,
 } from "lucide-react";
 import { digitKeyFor, pressedDigit } from "@armada/components";
@@ -85,6 +86,8 @@ const RAIL = [
   "mods",
   // The sixteenth, on the same terms: no digit moves and it takes none. It sits second in the Work panel.
   "jobs",
+  // The seventeenth, on the same terms. Reached from the title row's menu, and by name; it has no rail row.
+  "account",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -106,6 +109,7 @@ export const SURFACE = {
   sessions: "sessions",
   mods: "mods",
   jobs: "jobs",
+  account: "account",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -292,6 +296,16 @@ export const SURFACES: readonly PaletteSurface[] = [
     },
     aliases: ["session", "new session"],
     icon: SquareTerminal,
+  },
+  {
+    id: SURFACE.account,
+    label: "Account",
+    // Past the ninth, so no key; reached from the title row's menu, from Settings, and by name.
+    get shortcut() {
+      return digitOf(SURFACE.account);
+    },
+    aliases: ["sign in", "sign out", "profile", "profiles", "login"],
+    icon: UserCheck,
   },
 ];
 

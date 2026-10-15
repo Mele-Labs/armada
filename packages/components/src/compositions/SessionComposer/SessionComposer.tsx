@@ -8,6 +8,7 @@ import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { modelSaid } from "../SessionFrame/model-said";
 import { TAG_GLYPH } from "./InlineTag";
 import type { ComposerTag } from "./InlineTag";
 import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } from "./message-dom";
@@ -99,6 +100,11 @@ export type SessionComposerProps = {
   models: readonly string[];
   /** The model a Session follows while it names none. The empty option reads it, so the box shows what the next turn runs on. */
   defaultModel?: string;
+  /**
+   * The model the Session's process last resolved, as its id. **The selected option reads it** ("Opus 5.5" for `opus`) when its
+   * family is the option's, and every label is as it was before a turn has resolved one or once another model is picked.
+   */
+  resolvedModel?: string;
   efforts: readonly string[];
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** What `/` offers. */
@@ -235,6 +241,7 @@ export function SessionComposer({
   effort,
   models,
   defaultModel,
+  resolvedModel,
   efforts,
   onTune,
   commands,
@@ -260,6 +267,10 @@ export function SessionComposer({
   draftKey,
   focusFor,
 }: SessionComposerProps) {
+  // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
+  const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
+  const resolvedSaidFor = (alias: string | undefined): string | undefined =>
+    resolvedSaid !== undefined && alias !== undefined && alias.toLowerCase().includes((resolvedSaid.split(" ")[0] ?? "").toLowerCase()) ? resolvedSaid : undefined;
   const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
     stored: (one) => ({ text: one.text, tags: one.tags }),
     revive: (raw) => {
@@ -593,10 +604,10 @@ export function SessionComposer({
           <>
             <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
               <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-                <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? defaultModel : `${defaultModel} · default`}</option>
+                <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel) : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`}</option>
                 {models.map((one) => (
                   <option key={one} value={one}>
-                    {one}
+                    {resolvedSaidFor(model === one ? one : undefined) ?? one}
                   </option>
                 ))}
               </Select>

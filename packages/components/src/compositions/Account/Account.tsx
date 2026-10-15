@@ -1,8 +1,19 @@
 import { createContext, useContext } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Check, Database, FolderGit2, Globe, House, Laptop, Link as LinkGlyph, RotateCw, UserCheck } from "lucide-react";
+import {
+  Ban,
+  CircleDashed,
+  Clock,
+  FolderGit2,
+  Globe,
+  Laptop,
+  RotateCw,
+  Unplug,
+  UserCheck,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
-import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -42,20 +53,47 @@ export type Profile = {
   /** The forge's numeric id, which names the profile in every act on it. */
   account_id: number;
   login: string;
+  /** The wire still carries it; no profile is drawn as the active one, since each repository is bound to one profile. */
   active: boolean;
   /** Added on purpose beside the machine's own: what it syncs is the person's choice. */
   chosen: boolean;
+  /** The repository of the shared home it set up, once there is one. */
+  repository?: string;
+  /** The repositories bound to this profile, each marked for how it came to be. */
+  repositories?: readonly BoundRepository[];
 };
+
+/** How a repository came to be bound: its owner is the account or one of its organisations, or the person chose it. */
+export type Binding = "matched" | "chosen";
+export type BoundRepository = { name: string; by: Binding };
+
+/** A repository no profile owns: no profile matched it, or two both did. `none` once the person chose that it claims and syncs nothing. */
+export type UnboundRepository = { name: string; none?: boolean };
 
 export type SetUpId = "identity" | "store" | "home";
 export type SetUpState = "waiting" | "working" | "done";
 
 export type AccountFlow =
   | { phase: "idle" }
-  /** The device code, shown until it is typed at GitHub. */
-  | { phase: "code"; code: string }
+  /** The device code, shown until it is typed at GitHub. `expiresIn` is the seconds it had left at this reading. */
+  | { phase: "code"; code: string; expiresIn?: number }
   /** What signing in set up, row by row. */
   | { phase: "setup"; login: string; repository: string; steps: Readonly<Record<SetUpId, SetUpState>> };
+
+/** How a sign-in came to nothing. A sign-in that signed in has no end to show. */
+export type EndedOutcome = "denied" | "expired" | "unreachable" | "refused";
+
+/** The last sign-in that ended without signing in. `said` is Fleet's own sentence, drawn as it comes. */
+export type SignInEnd = { outcome: EndedOutcome; said: string };
+
+/** The Settings category a blank setting lives in: the sign-in app, or the store address. */
+export type BlankSetting = "account" | "store";
+
+/** Sign-in refused before it began, because a setting it needs is blank. `said` is Fleet's sentence naming which. */
+export type SignInUnavailable = { said: string; blank: readonly BlankSetting[] };
+
+/** A profile signed out, held until the panel is put away. `storeRowRemains`: the store could not be asked to forget the device. */
+export type SignedOutNote = { login: string; storeRowRemains: boolean; said?: string };
 
 export type AccountRead = {
   /** Empty is signed out. */
@@ -63,6 +101,18 @@ export type AccountRead = {
   flow: AccountFlow;
   /** The profile whose What syncs is open. */
   syncs: { login: string; kinds: readonly SyncChoice[] } | null;
+  /** The last sign-in ended without signing in. Absent while one is in flight or none has ended. */
+  ended?: SignInEnd;
+  /** Starting a sign-in was refused for a blank setting. */
+  unavailable?: SignInUnavailable;
+  /** A profile signed out. */
+  left?: SignedOutNote;
+  /** Whether the shared home exists. Absent is that it does. */
+  home?: boolean;
+  /** This machine's name, beside the page's title. */
+  machine?: string;
+  /** Repositories on this machine that wait for a choice. Absent or empty draws nothing. */
+  unbound?: readonly UnboundRepository[];
 };
 
 export type AccountActs = {
@@ -72,14 +122,22 @@ export type AccountActs = {
   openDevicePage: () => void;
   /** Start the device flow for another login. */
   addProfile: () => void;
-  /** Put the panel away. */
+  /** Put a notice away: what ended, what was refused, who signed out. */
   dismiss: () => void;
+  /** Give up the sign-in waiting on its code. Absent where Fleet has no such act. */
+  cancel?: () => void;
   switchTo: (login: string) => void;
+  /** Binds a repository to a profile, or to none (`null`). Absent where Fleet serves no repositories. */
+  bind?: (repository: string, login: string | null) => void;
   /** Open What syncs for a profile. */
   choose: (login: string) => void;
   closeSyncs: () => void;
   setKind: (kind: SyncKindWord, on: boolean) => void;
   setScope: (kind: SyncKindWord, name: string, scope: Scope) => void;
+  /** Sign a profile out of this machine. */
+  signOut: (login: string) => void;
+  /** Point Settings at a blank setting; the view that drew the button then opens Settings. */
+  openSetting: (setting: BlankSetting) => void;
 };
 
 export type Account = AccountRead & AccountActs;
@@ -131,10 +189,14 @@ export const SYNC_KINDS: readonly SyncKindWord[] = [
   "memory",
 ];
 
-const DEVICE_PAGE = "github.com/login/device";
+/** The address the code is typed at. */
+export const DEVICE_PAGE = "github.com/login/device";
+
+/** The one act signed out has. */
+export const SIGN_IN_SAID = "Sign in with GitHub";
 
 /** The mark on a waiting or in-progress row: the turn is the only motion. */
-function Turning({ said }: { said: string }) {
+export function Turning({ said }: { said: string }) {
   return (
     <Tooltip beside label={said}>
       <span className="armada-account__turn" role="img" aria-label={said}>
@@ -144,133 +206,59 @@ function Turning({ said }: { said: string }) {
   );
 }
 
-/** The account's own content: the device code while signing in, what it set up, then the profiles. Absent where there is nothing to show. */
-export function AccountView({ account }: { account: Account }) {
-  const here = account.profiles.find((one) => one.active) ?? account.profiles[0];
-  if (account.flow.phase === "code") return <DeviceCode code={account.flow.code} account={account} />;
-  if (account.flow.phase === "setup") return <SetUp flow={account.flow} />;
-  return here === undefined ? null : <Profiles account={account} />;
+/**
+ * What a place that opens the account has to say: a sign-in waiting on the person, or one that has just
+ * failed. **Nothing for a signed-out machine or a settled one.** Each place draws the glyph, so the way
+ * back to a sign-in that is not in front of them is a mark they can find.
+ */
+export type Need = { Glyph: LucideIcon; said: string; turning: boolean };
+
+export function accountNeed(account: Account): Need | undefined {
+  const { flow, ended, unavailable } = account;
+  if (flow.phase === "code") return { Glyph: RotateCw, said: "Waiting for GitHub", turning: true };
+  if (flow.phase === "setup" && Object.values(flow.steps).some((one) => one !== "done")) {
+    return { Glyph: RotateCw, said: "Setting up", turning: true };
+  }
+  if (ended !== undefined) return { Glyph: ENDED[ended.outcome].Glyph, said: ENDED[ended.outcome].said, turning: false };
+  if (unavailable !== undefined) return { Glyph: CircleDashed, said: "Not set up", turning: false };
+  return undefined;
 }
 
-/** The signed-in login the menu's account entry names. Undefined while signed out. */
-export function accountLogin(account: Account): string | undefined {
-  return (account.profiles.find((one) => one.active) ?? account.profiles[0])?.login;
-}
-
-/** The code, large, over the address it is typed at; the turn says Fleet is waiting. */
-function DeviceCode({ code, account }: { code: string; account: Account }) {
+/** The mark on a row that opens the account, with its tooltip. Nothing where there is nothing to say. */
+export function AccountMark({ account }: { account: Account }) {
+  const need = accountNeed(account);
+  if (need === undefined) return null;
+  if (need.turning) return <Turning said={need.said} />;
   return (
-    <section className="armada-account__card" aria-label="Device code">
-      <header className="armada-account__band">
-        <button type="button" className="armada-account__link" aria-label={`Open ${DEVICE_PAGE}`} onClick={account.openDevicePage}>
-          <LinkGlyph size={16} strokeWidth={2} aria-hidden="true" />
-          <span>{DEVICE_PAGE}</span>
-        </button>
-        <Turning said="Waiting for GitHub" />
-      </header>
-      <div className="armada-account__code" role="group" aria-label="Device code">
-        {code.split("").map((character, at) =>
-          character === "-" ? (
-            <span key={at} className="armada-account__code-gap">
-              -
-            </span>
-          ) : (
-            <span key={at} className="armada-account__code-cell">
-              {character}
-            </span>
-          ),
-        )}
-      </div>
-    </section>
+    <Tooltip beside label={need.said}>
+      <span className="armada-account__need" role="img" aria-label={need.said}>
+        <need.Glyph size={16} strokeWidth={2} aria-hidden="true" />
+      </span>
+    </Tooltip>
   );
 }
 
-const SET_UP: readonly { id: SetUpId; label: string; Glyph: typeof House }[] = [
-  { id: "identity", label: "Identity", Glyph: UserCheck },
-  { id: "store", label: "Store", Glyph: Database },
-  { id: "home", label: "Shared home", Glyph: House },
-];
-
-/** What signing in set up: one row each, a registry glyph and a mark for how far it has got. */
-function SetUp({ flow }: { flow: Extract<AccountFlow, { phase: "setup" }> }) {
+/** The same mark at 12px on a button, with no tooltip of its own: the button's title says it. */
+export function AccountBadge({ account }: { account: Account }) {
+  const need = accountNeed(account);
+  if (need === undefined) return null;
   return (
-    <section className="armada-account__card" aria-label="Set up">
-      <ul className="armada-account__rows">
-        {SET_UP.map(({ id, label, Glyph }) => {
-          const state = flow.steps[id];
-          return (
-            <li key={id} className="armada-account__row" aria-label={label} data-state={state}>
-              <Tooltip beside label={label}>
-                <span className="armada-account__glyph" role="img" aria-label={label}>
-                  <Glyph size={16} strokeWidth={2} aria-hidden="true" />
-                </span>
-              </Tooltip>
-              <span className="armada-account__name">
-                {id === "store" ? "Store" : flow.login}
-                {id === "home" ? <span className="armada-account__repo">/{flow.repository}</span> : null}
-              </span>
-              <span className="armada-account__state">
-                {state === "working" ? (
-                  <Turning said="Setting up" />
-                ) : state === "done" ? (
-                  <Tooltip beside label="Done">
-                    <span className="armada-account__done" role="img" aria-label="Done">
-                      <Check size={16} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  </Tooltip>
-                ) : null}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <span className="armada-account__badge" data-turning={need.turning ? "" : undefined} aria-hidden="true">
+      <need.Glyph size={12} strokeWidth={2} />
+    </span>
   );
 }
 
-/** The profiles this machine has joined, one chip each, which is active marked, and the act to add one. */
-function Profiles({ account }: { account: Account }) {
-  return (
-    <section className="armada-account__card" aria-label="Profiles">
-      {/* One profile is the account chip alone; the chips draw once a second joins. */}
-      {account.profiles.length < 2 ? null : (
-      <ul className="armada-account__rows">
-        {account.profiles.map((one) => (
-          <li key={one.login} className="armada-account__profile" data-active={one.active ? "" : undefined}>
-            <button
-              type="button"
-              className="armada-account__chip armada-account__chip--wide"
-              aria-pressed={one.active}
-              aria-label={one.active ? `${one.login}, active` : one.login}
-              onClick={() => account.switchTo(one.login)}
-            >
-              <UserCheck size={12} strokeWidth={2} aria-hidden="true" />
-              <span>{one.login}</span>
-              {one.active ? (
-                <Tooltip beside label="Active">
-                  <span className="armada-account__done" role="img" aria-label="Active">
-                    <Check size={16} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-              ) : null}
-            </button>
-            {one.chosen ? (
-              <Button variant="ghost" size="sm" onClick={() => account.choose(one.login)}>
-                What syncs
-              </Button>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      )}
-      <div className="armada-account__foot" data-alone={account.profiles.length < 2 ? "" : undefined}>
-        <Button variant="secondary" size="sm" ground="sunken" onClick={account.addProfile}>
-          Add profile
-        </Button>
-      </div>
-    </section>
-  );
-}
+/** One glyph per way a sign-in ended, and the word its tooltip gives it. */
+export const ENDED = {
+  denied: { Glyph: Ban, said: "Turned down" },
+  expired: { Glyph: Clock, said: "Expired" },
+  unreachable: { Glyph: Unplug, said: "Not reached" },
+  refused: { Glyph: X, said: "Refused" },
+} as const;
+
+/** The setting each blank category names, as Settings calls it. */
+export const SETTING: Record<BlankSetting, string> = { account: "Sign-in app", store: "Store address" };
 
 /** The next scope in the order a kind offers, wrapping. */
 function nextScope(kind: SyncKindWord, now: Scope): Scope {

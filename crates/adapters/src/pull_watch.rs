@@ -7,9 +7,6 @@ use adapter_traits::{CiState, FromOutside, PullQueue, WatchedCheck, WatchedPull,
 use crate::delivery::{run_in, FORGE};
 use crate::under_review::as_written;
 
-/// The check whose result gates a pull request, where it has one.
-pub(crate) const GATE: &str = "ci";
-
 /// A job gets 45 minutes. One that ended cancelled after at least this long was stopped by the
 /// limit, and a runner that hung is the likeliest cause.
 const HUNG_AFTER_SECONDS: u64 = 40 * 60;
@@ -34,7 +31,7 @@ const LINES: &str = "\
     | join(\"\\u001e\"))] | @tsv";
 
 /// Every open pull request, `None` where the forge would not answer.
-pub(crate) fn read(in_repo: &str) -> Option<WatchedPulls> {
+pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
     let query = format!("query={QUERY}");
     let run = run_in(
         in_repo,
@@ -56,12 +53,13 @@ pub(crate) fn read(in_repo: &str) -> Option<WatchedPulls> {
     run.status.success().then(|| {
         String::from_utf8_lossy(&run.stdout)
             .lines()
-            .filter_map(pull_of_line)
+            .filter_map(|line| pull_of_line(line, gate))
             .collect()
     })
 }
 
-fn pull_of_line(line: &str) -> Option<WatchedPull> {
+/// `gate` is the check that decides where the pull request carries one.
+fn pull_of_line(line: &str, gate: &str) -> Option<WatchedPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let branch = field.next().unwrap_or_default();
@@ -92,9 +90,9 @@ fn pull_of_line(line: &str) -> Option<WatchedPull> {
             }
         })
         .collect();
-    let gated = checks.iter().any(|check| check.name.as_written() == GATE);
+    let gated = checks.iter().any(|check| check.name.as_written() == gate);
     for check in &mut checks {
-        check.required = !gated || check.name.as_written() == GATE;
+        check.required = !gated || check.name.as_written() == gate;
     }
     Some(WatchedPull {
         number,
@@ -143,7 +141,7 @@ mod tests {
         let line = format!(
             "7\tb\tu\t{SHA}\tCONFLICTING\tUNMERGEABLE\trust_test\u{1f}COMPLETED\u{1f}FAILURE\u{1f}http://l/1\u{1f}60\u{1e}ci\u{1f}COMPLETED\u{1f}FAILURE\u{1f}\u{1f}0"
         );
-        let pull = pull_of_line(&line).unwrap();
+        let pull = pull_of_line(&line, "ci").unwrap();
         assert!(pull.conflicting);
         assert_eq!(pull.queue, PullQueue::Unmergeable);
         assert_eq!(pull.head.as_deref(), Some(SHA));
@@ -163,11 +161,25 @@ mod tests {
     }
 
     #[test]
+    fn the_check_a_repository_names_is_the_one_that_gates() {
+        let line = format!(
+            "7\tb\tu\t{SHA}\t\t\tci\u{1f}COMPLETED\u{1f}SUCCESS\u{1f}\u{1f}0\u{1e}build\u{1f}COMPLETED\u{1f}FAILURE\u{1f}\u{1f}0"
+        );
+        let required = |gate: &str| -> Vec<bool> {
+            let pull = pull_of_line(&line, gate).unwrap();
+            pull.checks.iter().map(|check| check.required).collect()
+        };
+        assert_eq!(required("ci"), [true, false]);
+        assert_eq!(required("build"), [false, true]);
+        assert_eq!(required("nothing-by-that-name"), [true, true]);
+    }
+
+    #[test]
     fn a_cancelled_job_that_ran_the_whole_limit_is_hung_and_a_quick_one_is_not() {
         let hung = |seconds: u64, conclusion: &str| {
             let line =
                 format!("1\tb\tu\t\t\t\tci\u{1f}COMPLETED\u{1f}{conclusion}\u{1f}\u{1f}{seconds}");
-            pull_of_line(&line).unwrap().checks[0].hung
+            pull_of_line(&line, "ci").unwrap().checks[0].hung
         };
         assert!(hung(2700, "CANCELLED"));
         assert!(
@@ -179,7 +191,7 @@ mod tests {
 
     #[test]
     fn nothing_known_is_no_conflict_no_queue_and_a_check_not_finished_is_pending() {
-        let pull = pull_of_line("8\tc\tu2\tdef\tUNKNOWN\t\tci\u{1f}IN_PROGRESS\u{1f}\u{1f}\u{1f}0")
+        let pull = pull_of_line("8\tc\tu2\tdef\tUNKNOWN\t\tci\u{1f}IN_PROGRESS\u{1f}\u{1f}\u{1f}0", "ci")
             .unwrap();
         assert!(!pull.conflicting);
         assert_eq!(pull.queue, PullQueue::Outside);

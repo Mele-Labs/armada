@@ -202,6 +202,30 @@ export const FollowsTheDefault: Story = {
   args: { defaultModel: "opus" },
 };
 
+/** Once a turn has resolved the model, the selected option reads its version. */
+export const ResolvedModel: Story = {
+  args: { model: "opus", resolvedModel: "claude-opus-5-5" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("combobox", { name: "Model" })).toHaveDisplayValue("Opus 5.5");
+  },
+};
+
+/** The default option reads it too, and still says it is the default. */
+export const ResolvedDefault: Story = {
+  args: { defaultModel: "opus", resolvedModel: "claude-opus-5-5" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("combobox", { name: "Model" })).toHaveDisplayValue("Opus 5.5 · default");
+  },
+};
+
+/** A pick of another family keeps its own name: the resolved model is the last turn's, not the next. */
+export const PickedAfterResolved: Story = {
+  args: { model: "sonnet", resolvedModel: "claude-opus-5-5" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("combobox", { name: "Model" })).toHaveDisplayValue("sonnet");
+  },
+};
+
 /** A session in a terminal holds its permission mode: it is shown and cannot be set. */
 export const ModeLocked: Story = {
   args: { modeLocked: true, mode: "plan" },

@@ -20,6 +20,7 @@ const MACHINE: ReadonlySet<string> = new Set([
   SURFACE.guides,
   SURFACE.mods,
   SURFACE.doctor,
+  SURFACE.account,
 ]);
 
 export function surfaceScope(surface: string): SurfaceScope {

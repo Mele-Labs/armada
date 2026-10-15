@@ -66,6 +66,10 @@ mod inline_comments;
 mod issue_lookup;
 /// Reading a repository's open issues and writing back on one. #91.
 mod issue_tracker;
+/// The keys, addresses and filters of a Manifest's Jira `tracker:` block. #91.
+mod jira;
+mod jira_lookup;
+mod jira_tracker;
 mod judge;
 mod keeping_current;
 mod landing;
@@ -102,6 +106,7 @@ mod store_device;
 mod store_signing;
 /// A terminal session's thread, drawn from the transcript its agent CLI keeps.
 pub mod terminal_thread;
+mod tracker_providers;
 mod transcript;
 /// The repository's Trigger files as `main` holds them.
 mod trigger_files;
@@ -132,6 +137,7 @@ pub use harness::{
 pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
 pub use issue_lookup::IssueLookup;
 pub use issue_tracker::IssueTracker;
+pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, the_drones_servers, Published, REPOSITORY_CONFIG};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,
