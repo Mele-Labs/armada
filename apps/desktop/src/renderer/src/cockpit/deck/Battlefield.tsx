@@ -28,7 +28,7 @@ import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import { ALONG, type Play } from "./plays";
 import { CAM, FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size } from "./layout";
 import { sceneOf, type SceneIn } from "./mission";
-import type { After, Built, Take } from "./progress";
+import type { After, Built, RoadAt, Take } from "./progress";
 import { aimAt, camera as kept } from "./store";
 import { clashLines, droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
@@ -55,6 +55,7 @@ export type BattlefieldProps = {
   builds?: readonly Built[] | undefined;
   take?: Take | undefined;
   after?: After | undefined;
+  road?: RoadAt | undefined;
   /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
   standAt?: string | undefined;
   /** A Job's mission, in place of the whole field: the same plane, cut down to the plots one Job touches and laid with its route. */
@@ -67,7 +68,7 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly Built[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, take = "tower", after = "stand", standAt, onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, take = "tower", after = "stand", road = "outer", standAt, onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
@@ -380,7 +381,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
 
             <Doings layout={layout} frame={frame} plays={plays} droneBy={droneBy} loops={loops} focus={focus} />
 
-            <Builds placed={placed} take={take} after={after} frame={frame} territory={territory} big={big} loops={loops} onTip={showTip} />
+            <Builds placed={placed} take={take} after={after} road={road} frame={frame} territory={territory} big={big} loops={loops} onTip={showTip} />
 
             <Lifted
               layout={layout}

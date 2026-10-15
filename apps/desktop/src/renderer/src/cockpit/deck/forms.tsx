@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 
 import { Sprite } from "./bf-parts";
-import type { Piece } from "./progress";
+import type { Arc, Piece, RoadAt } from "./progress";
 
 type Pieces = readonly { piece: Piece }[];
 export type FormProps = {
@@ -21,6 +21,13 @@ export type FormProps = {
   fly: { x: number; y: number };
   /** Draws a piece inside something that speaks for it, as the band does to say what each is when it is hovered. */
   wrap?: (k: number, piece: ReactNode) => ReactNode;
+  /** The ring's road, one arc for each stop and the landing last, and which side of the task ring it lies on. */
+  arcs?: readonly Arc[];
+  road?: RoadAt;
+  /** Speaks for an arc, as `wrap` does for a piece. */
+  wrapArc?: (k: number, arc: ReactNode) => ReactNode;
+  /** Drawn in the middle of the ring, inside the road where the road is inside. */
+  centre?: ReactNode;
 };
 const plain = (_k: number, piece: ReactNode) => piece;
 
@@ -142,11 +149,14 @@ const sector = (r0: number, r1: number, from: number, to: number) => {
   return `M${p(r1, from)} A${r1},${r1} 0 0 1 ${p(r1, to)} L${p(r0, to)} A${r0},${r0} 0 0 0 ${p(r0, from)} Z`;
 };
 
-/** The segments of a ring, a segment for each task, in the plane's own units. */
-export function RingArt({ pieces, big, dim, wrap = plain }: FormProps) {
+/** The segments of a ring, a segment for each task, in the plane's own units, and the road as a thinner ring of arcs outside or inside it. */
+export function RingArt({ pieces, big, dim, arcs = [], road = "outer", wrap = plain, wrapArc = plain, centre }: FormProps) {
   const n = Math.max(pieces.length, 1);
   const r1 = 34 * big;
   const r0 = r1 - 7 * big;
+  // The road is a ring of its own, 4.5 thick, a gap of 4 from the task ring.
+  const [a0, a1] = road === "outer" ? [r1 + 4 * big, r1 + 8.5 * big] : [r0 - 8.5 * big, r0 - 4 * big];
+  const m = Math.max(arcs.length, 1);
   return (
     <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="ring">
       {pieces.map((one, k) => {
@@ -165,6 +175,17 @@ export function RingArt({ pieces, big, dim, wrap = plain }: FormProps) {
           </g>
         );
       })}
+      {arcs.map((arc, k) => (
+        <g key={arc.id}>
+          {wrapArc(
+            k,
+            <g className="bf-arc" data-lit={arc.at !== undefined || undefined}>
+              <path className="bf-arc__seg" d={sector(a0, a1, -90 + (k * 360) / m + 3, -90 + ((k + 1) * 360) / m - 3)} />
+            </g>,
+          )}
+        </g>
+      ))}
+      {centre}
     </g>
   );
 }

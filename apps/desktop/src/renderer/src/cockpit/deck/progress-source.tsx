@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
-import { builtOf, type After, type Built, type ProgressFeed, type Take } from "./progress";
+import { builtOf, type After, type Built, type ProgressFeed, type RoadAt, type Take } from "./progress";
 
 export type ProgressSource = { get: () => ProgressFeed | undefined; subscribe: (on: () => void) => () => void };
 
@@ -21,7 +21,7 @@ export function useProgress(): ProgressFeed | undefined {
 }
 
 /** What each Session and Job has built, read once, by drone key. Empty where Fleet reports none. */
-export function useBuilds(): { by: ReadonlyMap<string, Built>; take: Take; after: After } {
+export function useBuilds(): { by: ReadonlyMap<string, Built>; take: Take; after: After; road: RoadAt } {
   const feed = useProgress();
-  return useMemo(() => ({ by: new Map((feed?.views ?? []).map((view) => [view.key, builtOf(view)] as const)), take: feed?.take ?? "tower", after: feed?.after ?? "clear" }), [feed]);
+  return useMemo(() => ({ by: new Map((feed?.views ?? []).map((view) => [view.key, builtOf(view)] as const)), take: feed?.take ?? "tower", after: feed?.after ?? "clear", road: feed?.road ?? "outer" }), [feed]);
 }

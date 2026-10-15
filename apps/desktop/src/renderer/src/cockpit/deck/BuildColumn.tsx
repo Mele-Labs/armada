@@ -7,14 +7,14 @@ import { Tooltip } from "@armada/components";
 
 import { SAID } from "./BuildCard";
 import { GantryArt, RingArt, TowerArt } from "./forms";
-import { PHASE_GLYPH, PHASE_WORD, STOP_GLYPH, STOP_WORD, agoOf, glyphOf, wordOf, type Built, type Take } from "./progress";
+import { PHASE_GLYPH, PHASE_WORD, STOP_GLYPH, STOP_WORD, agoOf, arcSaid, arcWord, arcsOf, glyphOf, wordOf, type Built, type RoadAt, type Take } from "./progress";
 import { useBuilds } from "./progress-source";
 import "./progress.css";
 
 const ART = { tower: TowerArt, pad: GantryArt, ring: RingArt } as const;
 const VIEW: Record<Take, string> = { tower: "-36 -92 72 108", pad: "-36 -92 72 108", ring: "-44 -44 88 88" };
 
-function Structure({ built, take }: { built: Built; take: Take }) {
+function Structure({ built, take, road }: { built: Built; take: Take; road: RoadAt }) {
   const Art = ART[take];
   const wrap = (k: number, piece: ReactNode): ReactNode => {
     const task = built.tasks[k]!;
@@ -28,16 +28,38 @@ function Structure({ built, take }: { built: Built; take: Take }) {
     );
   };
   const ring = take === "ring";
+  // The ring carries its road in itself: one arc for each stop and the landing last, outside the task ring or inside it.
+  const arcs = ring ? arcsOf(built) : undefined;
+  const wrapArc = (k: number, arc: ReactNode): ReactNode => {
+    const one = arcs![k]!;
+    const said = `${arcWord(one.id)}, ${arcSaid(one, built.now)}`;
+    return (
+      <Tooltip label={said} asChild>
+        <g className="bf-col__piece" role="img" aria-label={said}>
+          {arc}
+        </g>
+      </Tooltip>
+    );
+  };
+  const Phase = glyphOf(built);
+  const centre =
+    ring && road === "inner" ? (
+      <Tooltip label={wordOf(built)} asChild>
+        <g className="bf-col__piece" role="img" aria-label={wordOf(built)}>
+          <Phase x={-8} y={-8} size={16} strokeWidth={2} aria-hidden="true" />
+        </g>
+      </Tooltip>
+    ) : undefined;
   return (
     <svg className="bf-col__art" data-take={take} viewBox={VIEW[take]} preserveAspectRatio="xMidYMid meet">
       {built.stalled ? <ellipse className="bf-col__stall" cx={0} cy={ring ? 0 : 4} rx={ring ? 42 : 30} ry={ring ? 42 : 9} /> : null}
-      <Art pieces={built.tasks} big={1} dim={built.dim} landed={built.landedAt !== undefined} working={false} fly={{ x: 0, y: 0 }} wrap={wrap} />
+      <Art pieces={built.tasks} big={1} dim={built.dim} landed={built.landedAt !== undefined} working={false} fly={{ x: 0, y: 0 }} wrap={wrap} {...(arcs === undefined ? {} : { arcs, road, wrapArc, centre })} />
     </svg>
   );
 }
 
 export function BuildColumn({ subjectKey }: { subjectKey: string }) {
-  const { by, take } = useBuilds();
+  const { by, take, road } = useBuilds();
   const built = by.get(subjectKey);
   if (built === undefined) return null;
   const PhaseGlyph = glyphOf(built);
@@ -56,22 +78,24 @@ export function BuildColumn({ subjectKey }: { subjectKey: string }) {
         </Tooltip>
       </header>
       <div className="bf-col__body">
-        <Structure built={built} take={take} />
-        <ol className="bf-col__road" aria-label="Road to main">
-          {legs.map((leg) => {
-            const said = leg.at === undefined ? `${leg.word}, usually next on this repo` : `${leg.word}, ${agoOf(built.now - leg.at)}`;
-            return (
-              <li key={leg.id} className="bf-col__leg" data-lit={leg.at !== undefined || undefined}>
-                <i className="bf-col__link" />
-                <Tooltip label={said} asChild>
-                  <span className="bf-col__stop" role="img" aria-label={said}>
-                    <leg.Glyph size={14} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-              </li>
-            );
-          })}
-        </ol>
+        <Structure built={built} take={take} road={road} />
+        {take === "ring" ? null : (
+          <ol className="bf-col__road" aria-label="Road to main">
+            {legs.map((leg) => {
+              const said = leg.at === undefined ? `${leg.word}, usually next on this repo` : `${leg.word}, ${agoOf(built.now - leg.at)}`;
+              return (
+                <li key={leg.id} className="bf-col__leg" data-lit={leg.at !== undefined || undefined}>
+                  <i className="bf-col__link" />
+                  <Tooltip label={said} asChild>
+                    <span className="bf-col__stop" role="img" aria-label={said}>
+                      <leg.Glyph size={14} strokeWidth={2} aria-hidden="true" />
+                    </span>
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </div>
     </section>
   );

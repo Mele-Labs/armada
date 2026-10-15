@@ -10,7 +10,7 @@ import { MOST_LOOPS } from "./doing";
 import { Gantry, Ring, Tower } from "./forms";
 import type { Frame } from "./frame";
 import { FLAT, type Layout, type Point, type Territory } from "./layout";
-import { STOP_GLYPH, STOP_WORD, agoOf, anchorOf, type After, type Built, type Stop, type Take } from "./progress";
+import { STOP_GLYPH, STOP_WORD, agoOf, anchorOf, arcSaid, arcWord, arcsOf, type After, type Built, type RoadAt, type Stop, type Take } from "./progress";
 import { SAID } from "./BuildCard";
 import { SessionGlyph } from "./Drone";
 import type { OnTip } from "./Drone";
@@ -118,6 +118,18 @@ function Worker({ i, detail, loop, big, onTip }: { i: number; detail: string; lo
   );
 }
 
+/** What an arc of the ring's road says when it is hovered: its name, and when or that it is only what comes next here. */
+const speakArc = (built: Built, onTip: OnTip) => (k: number, arc: ReactNode): ReactNode => {
+  const one = arcsOf(built)[k];
+  if (one === undefined) return arc;
+  const tip: Tip = { label: "Road", title: arcWord(one.id), hue: one.at === undefined ? "quiet" : "good", lines: [arcSaid(one, built.now)] };
+  return (
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={`${arcWord(one.id)}, ${arcSaid(one, built.now)}`} onMouseEnter={(event) => onTip(tip, event.currentTarget)} onMouseLeave={() => onTip(undefined)} onFocus={(event) => onTip(tip, event.currentTarget)} onBlur={() => onTip(undefined)}>
+      {arc}
+    </g>
+  );
+};
+
 /** One stop on the road: lit once it happened, with when; faint where it is only what this repository's sessions usually do next. */
 function StopNode({ stop, at, z, onTip, now }: { stop: Stop; at: Point; z: number; onTip: OnTip; now: number }) {
   const lit = stop.at !== undefined;
@@ -178,6 +190,7 @@ export type BuildsProps = {
   placed: readonly Placed[];
   take: Take;
   after: After;
+  road: RoadAt;
   frame: Frame;
   territory: ReadonlyMap<string, Territory>;
   big: number;
@@ -185,7 +198,7 @@ export type BuildsProps = {
   onTip: OnTip;
 };
 
-export function Builds({ placed, take, after, frame, territory, big, loops, onTip }: BuildsProps) {
+export function Builds({ placed, take, after, road, frame, territory, big, loops, onTip }: BuildsProps) {
   const { heights, floorAt } = frame;
   // The workers take the loops the drones leave, so the field never loops more than `MOST_LOOPS` things at once.
   let spare = Math.max(0, MOST_LOOPS - loops.size);
@@ -201,7 +214,9 @@ export function Builds({ placed, take, after, frame, territory, big, loops, onTi
         const goal = territory.get(built.root)?.goal;
         const to = goal === undefined ? { x: 0, y: 0 } : { x: goal.x - anchor.x, y: (goal.y - anchor.y) * 0.94 };
         const surveying = built.phase === "scope" || built.phase === "plan";
-        const roaded = (built.phase === "road" || built.phase === "landed") && goal !== undefined && (sinceLand === undefined || sinceLand <= FRESH_LAND_MS);
+        const laid = built.phase === "road" || built.phase === "landed";
+        // The ring carries its road in itself; the other two lay a line from the structure to the flag.
+        const roaded = laid && take !== "ring" && goal !== undefined && (sinceLand === undefined || sinceLand <= FRESH_LAND_MS);
         const writing = loops.has(built.key) && built.doing === "write" && !built.stalled;
         const orbit = take === "ring" && shadow !== undefined ? onPlane(shadow) : flat;
         return (
@@ -213,7 +228,7 @@ export function Builds({ placed, take, after, frame, territory, big, loops, onTi
               ))}
               {built.tasks.length === 0 ? null : (
                 <div className="bf-built" data-take={take} data-after={after} data-landed={built.landedAt !== undefined || undefined} data-small={small || undefined} data-aged={(small && after === "stand") || undefined} style={vars({ "--age": Math.min(1, (sinceLand ?? 0) / DAY).toFixed(3) })}>
-                  <Form pieces={built.tasks} big={big} dim={built.dim} landed={built.landedAt !== undefined && !small} working={writing} fly={{ x: to.x, y: to.y }} wrap={speak(built, onTip)} />
+                  <Form pieces={built.tasks} big={big} dim={built.dim} landed={built.landedAt !== undefined && !small} working={writing} fly={{ x: to.x, y: to.y }} wrap={speak(built, onTip)} {...(take === "ring" && laid ? { arcs: arcsOf(built), road, wrapArc: speakArc(built, onTip) } : {})} />
                 </div>
               )}
             </div>

@@ -59,6 +59,7 @@ export function MapView({ props, ship, listed, cursor }: { props: CockpitProps; 
           builds={builds}
           take={feed?.take}
           after={feed?.after}
+          road={feed?.road}
           selected={cursor}
           onSelect={(key) => {
             const subject = ship.subjects.find((one) => one.key === key);
@@ -166,6 +167,7 @@ export function JobMission({ props, ship, listed, subject, run }: { props: Cockp
         builds={standing === undefined ? undefined : [standing]}
         take={feed?.take}
         after={feed?.after}
+        road={feed?.road}
         standAt={standAt}
         onSelect={(key) => {
           const other = key === job ? undefined : ship.subjects.find((one) => one.key === key);

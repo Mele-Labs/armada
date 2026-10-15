@@ -17,6 +17,8 @@ import type { DroneIn, Point, Rect } from "./layout";
 export type Take = "tower" | "pad" | "ring";
 /** What a landed structure does: stands small and weathered for a day, goes on landing, or stays. */
 export type After = "stand" | "clear" | "monument";
+/** Where the ring take lays the road after Implement: a thinner ring round the task ring, or one inside it. */
+export type RoadAt = "outer" | "inner";
 
 /** One task of the list the Session wrote. `ticked` is when it marked it done. */
 export type Task = { id: string; text: string; planned: string; ticked?: string };
@@ -38,7 +40,7 @@ export type ProgressView = {
   /** The stops of its road, where it is not a Session's own. */
   road?: readonly StopId[];
 };
-export type ProgressFeed = { take: Take; after: After; views: readonly ProgressView[] };
+export type ProgressFeed = { take: Take; after: After; road?: RoadAt; views: readonly ProgressView[] };
 
 export type Piece = "ghost" | "scaffold" | "hollow" | "solid";
 export type Phase = "scope" | "plan" | "implement" | "road" | "landed";
@@ -188,6 +190,12 @@ export function jobBuiltOf(whole: JobDetail, key: string, root: string, doing: D
   if (tasks.length === 0) return undefined;
   return { key, root, tile: "", phase: "implement", reached: undefined, tasks, markers: [], workers: [], quiet: 0, stalled: false, dim: 0, doing, via: undefined, stops: [], landedAt: undefined, now, slot: undefined };
 }
+
+/** One arc of the ring's road: a stop, or the landing that closes the circle. */
+export type Arc = { id: StopId | "landed"; at: number | undefined };
+export const arcsOf = (built: Built): readonly Arc[] => [...built.stops.map((stop) => ({ id: stop.id, at: stop.at })), { id: "landed", at: built.landedAt }];
+export const arcWord = (id: Arc["id"]): string => (id === "landed" ? PHASE_WORD.landed : STOP_WORD[id]);
+export const arcSaid = (arc: Arc, now: number): string => (arc.at === undefined ? "Usually next on this repo" : agoOf(now - arc.at));
 
 /** A Session's construction as its card tells it: the phase, how long it has been quiet, each task as its piece stands, and the road's stops (`ago` absent is one not yet reached). */
 export type BuildTip = {
