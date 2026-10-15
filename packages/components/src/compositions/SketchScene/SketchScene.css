@@ -240,14 +240,18 @@
   stroke: var(--edge-focus);
 }
 
+/* The words sit on a backing the size of the words, so a line behind them never reads through. */
+.armada-scene-edge__backing {
+  fill: var(--bg-sunken);
+  rx: var(--radius-sm);
+}
+
 .armada-scene-edge__label {
   fill: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-anchor: middle;
-  paint-order: stroke;
-  stroke: var(--bg-sunken);
-  stroke-width: var(--space-1);
+  dominant-baseline: central;
 }
 
 /* The press target: wide, and drawn nowhere. */

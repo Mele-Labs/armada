@@ -1,4 +1,4 @@
-import { BaseEdge, Handle, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
+import { BaseEdge, Handle, Position, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
   Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, RotateCw, Scale,
   ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
@@ -12,6 +12,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
 import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
 import { Ink, type SketchPoint } from "../SketchPad/Ink";
+import { placeLabels, type LabelMetrics, type LabelPlace, type Rect } from "./edge-labels";
 import {
   NO_MARKS, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
   type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
@@ -73,7 +74,7 @@ type NodeData = {
   onBody: (body: string) => void;
 };
 type SceneRfNode = Node<NodeData, "scene">;
-type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; still: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
+type EdgeData = { place: LabelPlace | undefined; edge: SceneEdge; change: SceneChange | undefined; dim: boolean; active: boolean; still: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
 type SceneRfEdge = Edge<EdgeData, "flow">;
 
 function Sides({ type }: { type: "source" | "target" }) {
@@ -135,7 +136,8 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         data-mine={mine || undefined}
         data-struck={struck || undefined}
         data-joining={joining || undefined}
-        style={node.w === undefined || node.h === undefined ? undefined : { width: node.w, height: node.h }}
+        // **`h` is a floor, not a clip**: a box grows to hold its words. A group and a lane have none, so keep theirs.
+        style={node.w === undefined || node.h === undefined ? undefined : GROUND.has(node.kind) ? { width: node.w, height: node.h } : { width: node.w, minHeight: node.h }}
       >
         {mine ? (
           // `nodrag nopan`: typing and selecting words must not move the box or the view.
@@ -159,10 +161,11 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
 }
 
 function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps<SceneRfEdge>) {
-  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   if (data === undefined) return null;
-  const { edge, change, dim, active, still, asked, mine, struck, onPress } = data;
+  const { edge, place, change, dim, active, still, asked, mine, struck, onPress } = data;
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
+  const at = place;
   return (
     <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-flow={edge.flow !== false || undefined}>
       <defs>
@@ -172,10 +175,16 @@ function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePos
       </defs>
       <BaseEdge id={id} path={path} markerEnd={`url(#head-${id})`} className="armada-scene-edge__line" />
       {active ? <circle className="armada-scene-edge__dot" style={{ offsetPath: `path("${path}")` }} /> : null}
-      {edge.label === undefined ? null : (
-        <text className="armada-scene-edge__label" x={labelX} y={labelY}>
-          {edge.label}
-        </text>
+      {at === undefined || edge.label === undefined ? null : (
+        // The words may be cut to fit, so the arrow's name carries all of them.
+        <g className="armada-scene-edge__words" role="img" aria-label={edge.label}>
+          <rect className="armada-scene-edge__backing" x={at.x - at.w / 2} y={at.y - at.h / 2} width={at.w} height={at.h} />
+          {at.lines.map((line, index) => (
+            <text key={line + String(index)} className="armada-scene-edge__label" x={at.x} y={at.y - at.h / 2 + at.pad + (index + 0.5) * at.lineH}>
+              {line}
+            </text>
+          ))}
+        </g>
       )}
       {still ? null : (
       <path
@@ -198,6 +207,13 @@ const NODE_TYPES = { scene: SceneNodeView };
 const EDGE_TYPES = { flow: SceneEdgeView };
 const FIT = { padding: 0.1 };
 const PAN = 80;
+
+const tokenPx = (name: string, fallback: number) => {
+  const read = typeof document === "undefined" ? NaN : Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+  return Number.isNaN(read) ? fallback : read;
+};
+/** The label's own type, read from the tokens it is drawn in: the mono face is as wide as 0.6 of its size, every character. */
+const labelMetrics = (): LabelMetrics => ({ charW: tokenPx("--text-xs", 14) * 0.6, lineH: tokenPx("--leading-xs", 20), pad: tokenPx("--space-1", 4) });
 
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** A step is as long as the pulse token: the dot crosses its edge in most of it and the rest holds the node lit. */
@@ -327,8 +343,36 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
   latest.current = fresh;
   const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
   const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
+  // Where each arrow's words go, from where the boxes measured. Keyed on their sizes, so a step lighting a node does not re-place anything.
+  const estimates = useMemo(() => new Map((shown?.nodes ?? []).map((node) => [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? 200, height: node.h ?? 80 } }])), [shown]);
+  const sizes = nodes.map((one) => `${one.id}:${String(one.measured?.width)}x${String(one.measured?.height)}`).join("|");
+  const places = useMemo(() => {
+    const held = new Map(nodes.map((one) => [one.id, one]));
+    const rectOf = (id: string): Rect | undefined => {
+      const one = held.get(id);
+      return one === undefined ? undefined : { x: one.position.x, y: one.position.y, w: one.measured?.width ?? one.data.node.w ?? 240, h: one.measured?.height ?? one.data.node.h ?? 80 };
+    };
+    const side = (r: Rect, at: Position) =>
+      at === Position.Left ? { x: r.x, y: r.y + r.h / 2 } : at === Position.Right ? { x: r.x + r.w, y: r.y + r.h / 2 } : at === Position.Top ? { x: r.x + r.w / 2, y: r.y } : { x: r.x + r.w / 2, y: r.y + r.h };
+    const drawn = (shown?.edges ?? []).flatMap((edge) => {
+      const from = rectOf(edge.from);
+      const to = rectOf(edge.to);
+      if (from === undefined || to === undefined) return [];
+      // The sides the arrow is drawn between, as `edges` below picks them.
+      const faced = facingSides(estimates.get(edge.from), estimates.get(edge.to));
+      const out = faced.sourceHandle.slice(2) as Position;
+      const into = faced.targetHandle.slice(2) as Position;
+      const a = side(from, out);
+      const b = side(to, into);
+      const [path] = getBezierPath({ sourceX: a.x, sourceY: a.y, targetX: b.x, targetY: b.y, sourcePosition: out, targetPosition: into });
+      return [{ id: edge.id, label: edge.label, path }];
+    });
+    const boxes = (shown?.nodes ?? []).filter((one) => !GROUND.has(one.kind)).flatMap((one) => rectOf(one.id) ?? []);
+    return placeLabels(drawn, boxes, labelMetrics());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sizes` stands for what `nodes` measured
+  }, [shown, sizes, estimates]);
   const edges = useMemo<SceneRfEdge[]>(() => {
-    const placed = new Map((shown?.nodes ?? []).map((node) => [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? 200, height: node.h ?? 80 } }]));
+    const placed = estimates;
     return (shown?.edges ?? []).map((edge) => {
       const change = diff?.edges.get(edge.id);
       return {
@@ -339,6 +383,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         ...facingSides(placed.get(edge.from), placed.get(edge.to)),
         data: {
           edge,
+          place: places.get(edge.id),
           change,
           dim: (diff !== undefined && change === "same") || (at !== undefined && edge.step !== at),
           active: at !== undefined && edge.step === at,
@@ -350,7 +395,7 @@ export function SketchScene({ scene: given, against, onAsk, marks, onMarks, prev
         },
       };
     });
-  }, [shown, diff, at, asked, composed, preview]);
+  }, [shown, diff, at, asked, composed, preview, places, estimates]);
 
   if (shown === undefined || base === undefined) return <figure className="armada-sketch" data-preview={preview || undefined} role="group" aria-label="Sketch" />;
 
