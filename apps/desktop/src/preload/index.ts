@@ -40,6 +40,7 @@ import type { AccountsActed } from "../shared/api/accounts";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
+import type { BayHistoryRead } from "../shared/api/bay-history";
 import type { WriteClashesRead } from "../shared/api/clashes";
 import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
@@ -694,6 +695,7 @@ const api: BridgeApi = {
     };
   },
   getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
+  getSlotHistory: (manifestId: string, slot: number): Promise<BayHistoryRead> => ipcRenderer.invoke(CHANNELS.getSlotHistory, manifestId, slot),
   onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
     const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
     ipcRenderer.on(CHANNELS.timelineAppended, handler);

@@ -12,7 +12,7 @@ notes = """
 
 **The entries are kept thirty days**, pruned on the next write. An entry is the fact as it read when it happened, title included, so a Job forgotten since still has its history.
 
-**Not kept: anything before this was shipped, and a slot an agent leases with `armada worktree lease`**, which never reaches Fleet. A Session already live when Fleet starts is entered once it first changes, with the start it has.
+**Not kept: anything before this was shipped, and a slot an agent leases with `armada worktree lease`**, which never reaches Fleet (`get_slot_history` reads those from the pool). A Session already live when Fleet starts is entered once it first changes, with the start it has.
 
 Each entry has an `id` that rises with the order Fleet wrote them. A client holding a window and then hearing `timeline.appended` drops an entry whose `id` it already holds. Not offered to agents: a fleet-wide sweep stays in the session for the rest of it, the cost `get_events_since` names.
 """

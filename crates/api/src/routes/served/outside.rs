@@ -63,6 +63,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/timeline",
     },
+    // One slot's leases and checkouts: the repository and the slot are both asked for, so a query string.
+    Route {
+        operation: "get_slot_history",
+        method: "GET",
+        path: "/slot_history",
+    },
     // Which served repository a request's words are about: typed text, so a
     // query string for `search_files`' reason, and under `/repositories`
     // beside the list it picks from.

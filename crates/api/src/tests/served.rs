@@ -1094,6 +1094,26 @@ async fn timeline_is_windowed_by_since_until_and_limit() {
     assert!(cut.cut);
 }
 
+/// One bay's history. **Both the repository and the slot are asked for**, an entry's `kind` tags
+/// what happened, and an optional field the entry lacks is left out and never sent as `null`.
+#[tokio::test]
+async fn a_bays_history_is_asked_by_repository_and_slot() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+
+    let (status, body) = call(&app, "GET", "/slot_history?manifest_id=armada&slot=10", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let read: ipc::BayHistory = ipc::decode("a bay history", &body).expect("a bay history");
+    assert_eq!((read.manifest_id.as_str(), read.slot), ("armada", 10));
+    assert_eq!(read.entries.len(), 3);
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains(r#""kind":"checkout""#) && text.contains(r#""kind":"leased""#), "{text}");
+    assert!(!text.contains("null") && !text.contains("cut"), "{text}");
+
+    let (status, _) = call(&app, "GET", "/slot_history?manifest_id=armada", "").await;
+    assert_ne!(status, StatusCode::OK, "a slot is asked for");
+}
+
 fn a_transition() -> ipc::Event {
     let message: StreamMessage = ipc::decode(
         "stream message",

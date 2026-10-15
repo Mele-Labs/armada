@@ -114,6 +114,8 @@ mod stream;
 mod studios;
 /// What happened across the Fleet in a window of time. Since 23.82.
 mod timeline;
+/// One slot's leases and checkouts, for the Cockpit's Bay pane.
+mod bay_history;
 /// A Job's walk notes, captured and taken back. Since 23.18.
 mod walking;
 /// A person's run's output, on a socket of its own per run — never `/events`.

@@ -114,14 +114,14 @@ impl Holder {
         }
     }
 
-    fn written(&self) -> String {
+    pub(super) fn written(&self) -> String {
         match self {
             Holder::Process { pid, started } => format!("{pid} {started}"),
             Holder::Job(id) => format!("job {id}"),
         }
     }
 
-    fn read(said: &str) -> Option<Holder> {
+    pub(super) fn read(said: &str) -> Option<Holder> {
         if let Some(id) = said.strip_prefix("job ") {
             return Some(Holder::job(id));
         }

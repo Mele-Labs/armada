@@ -18,6 +18,7 @@
 mod answers;
 mod existing;
 mod git;
+mod history;
 pub(crate) mod jobs;
 mod parking;
 mod reading;
@@ -41,6 +42,7 @@ pub use answers::{
 };
 use existing::Onto;
 use git::{count, git, git_ok};
+pub use history::{checkouts_in, checkouts_of, turns_of, Checkout, Turn, KEPT_DAYS};
 pub use record::Holder;
 use record::Record;
 pub use saving::{save_worktree, NotSaved};
@@ -454,6 +456,7 @@ impl Pool {
         }
         git(&slot, &["switch", "--detach", "--quiet"]).map_err(ReleaseRefused::Vcs)?;
         Record::clear(&self.record_path(number)).map_err(ReleaseRefused::Vcs)?;
+        self.noted_release(number, &record);
         trim_target(&slot.join("target"), self.trim, SystemTime::now());
         Ok(Released {
             slot: number,
@@ -646,7 +649,12 @@ impl Pool {
             clean.extend(["-e", kept.as_str()]);
         }
         git(&path, &clean).map_err(LeaseRefused::Vcs)?;
-        Record {
+        // A record still here is a holder that went without giving the slot back, and this lease
+        // takes the slot from it.
+        if let Some(gone) = Record::read(&self.record_path(number)) {
+            self.noted_release(number, &gone);
+        }
+        let record = Record {
             branch: branch.to_string(),
             holder: holder.clone(),
             since,
@@ -655,9 +663,20 @@ impl Pool {
             // last one's is gone with the old record, and `note_session` fills in the rest.
             session: self.session.clone().filter(|_| matches!(holder, Holder::Process { .. })),
             completed: false,
-        }
-        .write(&self.record_path(number))
-        .map_err(LeaseRefused::Vcs)?;
+        };
+        record
+            .write(&self.record_path(number))
+            .map_err(LeaseRefused::Vcs)?;
+        history::note(
+            &path,
+            &Turn {
+                at_ms: history::now_ms(),
+                leased: true,
+                holder: record.holder,
+                session: record.session,
+                branch: Some(record.branch),
+            },
+        );
         Ok(Lease {
             slot: number,
             path,
@@ -745,6 +764,20 @@ impl Pool {
             args.push(&local);
         }
         count(at, &args)
+    }
+
+    /// Write on slot `number`'s history that `record`'s holder no longer holds it.
+    fn noted_release(&self, number: usize, record: &Record) {
+        history::note(
+            &self.path_of(number),
+            &Turn {
+                at_ms: history::now_ms(),
+                leased: false,
+                holder: record.holder.clone(),
+                session: record.session.clone(),
+                branch: None,
+            },
+        );
     }
 
     fn record_path(&self, number: usize) -> PathBuf {

@@ -222,6 +222,8 @@ pub mod mint;
 mod naming;
 /// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
 pub mod timeline;
+/// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
+mod bay_history;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
 pub mod notice_loop;

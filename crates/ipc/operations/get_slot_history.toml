@@ -1,0 +1,20 @@
+[operations.get_slot_history]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Who held one worktree slot and what was checked out in it, newest first, for thirty days"
+notes = """
+`GET /slot_history?manifest_id=&slot=`, for the Cockpit's Bay pane. Both are asked for. Answers `BayHistory`: `manifest_id`, `slot`, `entries` newest first, and `cut` when older entries inside the thirty days were left out to keep to 300 (`MOST_BAY_HISTORY`). A repository Fleet does not serve is refused; a slot with no history, or one that is not made, answers no entries.
+
+Each entry has a `kind` and an `at`. `leased` carries the `holder` and the `branch` it was leased onto. `released` carries the `holder` that no longer holds the slot. `checkout` carries `from` (absent where the reflog names none), `to` and the `sha` `HEAD` stood at once it moved. A `holder` is `kind` (`job`, `session` or `agent`), `id` and `title`, absent where Fleet no longer has it.
+
+**Leases are the pool's own record, and include the ones Fleet never hears of.** `armada worktree lease` is a command of its own, so the timeline's `slot.leased` misses a slot an agent leased with it. The pool writes a line to `slot-<n>.history`, beside the lease record, in whichever process writes or clears the record, under the slot's lock. A Job's lease, a hosted Session's, an agent's and a person's are all in it. Fleet is not asked and need not be running. A lease taken from a holder that had gone without giving the slot back is entered as that holder's release, dated when the lease took the slot, since nothing dates the holder's going.
+
+**Who a holder is.** A Job's lease is written as the Job's id, and a hosted Session's as a Job of its own id, so an id Fleet has no Job for is a `session`; a repair's holder is shown as its Job. A lease a process took is an `agent`: its `id` is the agent Session the lease was taken for, else the process's pid, and the `title` is the Session's. Titles are read when asked and not kept with the entry, so a Job forgotten since has none and a Session renamed since shows the new name.
+
+**Checkouts are the slot's own `HEAD` reflog**, the `checkout: moving from X to Y` lines, read as a file and never by running git. They include the checkout a lease makes. `from` and `to` are a branch name, or a commit where the head was detached.
+
+**Kept thirty days**, as the timeline is: the history file is cut on its next write, and older reflog lines are not read. Git's own expiry of a reflog is longer.
+
+Not offered to agents: it answers for a slot whoever the asker is, and the holder list is what `list_worktrees` already gives an agent.
+"""

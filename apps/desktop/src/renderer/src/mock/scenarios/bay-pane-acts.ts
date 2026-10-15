@@ -3,9 +3,8 @@
 // saw, so its history comes from the bay history query's shape (`draft.bayHistories`) and not from slot events. Held, free,
 // closed and stranded bays each have a history, the held one a long one. The claims are in `walks/bay-pane-acts.ts`.
 
-import type { WorktreeSlot } from "@armada/protocol";
+import type { BayHistory, BayHistoryEntry, BayHolder, WorktreeSlot } from "@armada/protocol";
 
-import type { BayHistory, BayHistoryEntry, BayHolder } from "../../cockpit/deck/bay-history";
 import type { Scenario } from "../moment";
 import { s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
 
