@@ -21,6 +21,7 @@ import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
+import { bandingOf, bandsOf, type Banding } from "./bands";
 import { useClock } from "./clock";
 import { CLOCK_MS } from "./field";
 import { ActivityFeed, Timeline } from "../Timeline";
@@ -105,8 +106,29 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
   );
 }
 
-function List({ subjects, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
+function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
   const cursor = useDeck((deck) => deck.cursor);
+  const row = (one: Subject) => {
+    const Kind = one.kind === "job" ? Box : SquareTerminal;
+    const quiet = one.since ?? one.step?.label ?? "";
+    const said = quiet.length > 9 ? "" : quiet;
+    return (
+      <li key={one.key} className="deck-list__item">
+        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
+          <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
+            <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
+              <Kind size={14} aria-hidden="true" />
+            </span>
+          </Tooltip>
+          <span className="deck-row__title">{one.title}</span>
+          <span className="deck-row__said">{said}</span>
+          <Phase subject={one} builds={builds} jobs={jobs} />
+          <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
+        </button>
+        {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
+      </li>
+    );
+  };
   return (
     <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1}>
       <header className="deck-band">
@@ -114,27 +136,14 @@ function List({ subjects, selected, builds, jobs, onPick }: { subjects: readonly
         <PanelKey id="list" />
       </header>
       <ul className="deck-list__rows">
-        {subjects.map((one) => {
-          const Kind = one.kind === "job" ? Box : SquareTerminal;
-          const quiet = one.since ?? one.step?.label ?? "";
-          const said = quiet.length > 9 ? "" : quiet;
-          return (
-            <li key={one.key} className="deck-list__item">
-              <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
-                <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
-                  <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
-                    <Kind size={14} aria-hidden="true" />
-                  </span>
-                </Tooltip>
-                <span className="deck-row__title">{one.title}</span>
-                <span className="deck-row__said">{said}</span>
-                <Phase subject={one} builds={builds} jobs={jobs} />
-                <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
-              </button>
-              {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
-            </li>
-          );
-        })}
+        {banding === undefined
+          ? subjects.map(row)
+          : bandsOf(subjects, banding).map((band) => (
+              <li key={`band:${band.key}`} className="deck-list__band">
+                <h3 className="deck-list__repository">{band.label}</h3>
+                <ul className="deck-list__group">{band.subjects.map(row)}</ul>
+              </li>
+            ))}
       </ul>
     </section>
   );
@@ -291,35 +300,56 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   );
   const red = reds.map((one) => one.name);
   const mainSaid = red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green";
-  const marks = views.flatMap((view, at) => [
-    ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
-    ...dotsOf(view, props.state.mergeLines, views, sessions).map((dot) => {
-      const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
-      const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
-      const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
-      const inside = (
-        <>
-          <span className="deck-chip__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} aria-hidden="true" />
-          <span>{dot.card.heading}</span>
-        </>
-      );
-      return (
-        <li key={`${view.root}:${dot.key}`}>
-          <Tooltip label={dot.tip} asChild>
-            {pr === undefined ? (
-              <span className="deck-chip" role="img" aria-label={dot.tip}>
-                {inside}
-              </span>
-            ) : (
-              <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
-                {inside}
-              </button>
-            )}
-          </Tooltip>
-        </li>
-      );
-    }),
-  ]);
+  const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
+    const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
+    const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
+    const tone = pr?.stage === "red" ? "bad" : owner?.mergeable === true ? "ask" : "calm";
+    const place = dot.queued ? dot.card.place : undefined;
+    const inside = (
+      <>
+        {place === undefined ? null : <span className="deck-chip__place" aria-hidden="true">{place}</span>}
+        <span className="deck-chip__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} aria-hidden="true" />
+        <span>{dot.card.heading}</span>
+      </>
+    );
+    return (
+      <li key={`${view.root}:${dot.key}`}>
+        <Tooltip label={dot.tip} asChild>
+          {pr === undefined ? (
+            <span className="deck-chip" role="img" aria-label={dot.tip}>
+              {inside}
+            </span>
+          ) : (
+            <button type="button" className="deck-chip" data-selected={selected === pr.key || undefined} aria-label={dot.tip} onClick={() => select(selOfPr(pr))}>
+              {inside}
+            </button>
+          )}
+        </Tooltip>
+      </li>
+    );
+  };
+  // Each repository's queue first, in its order and framed as the queue, then its other pull requests past a rule.
+  const marks = views.flatMap((view, at) => {
+    const dots = dotsOf(view, props.state.mergeLines, views, sessions);
+    const queued = dots.filter((dot) => dot.queued).sort((a, b) => (a.card.place ?? Infinity) - (b.card.place ?? Infinity));
+    const open = dots.filter((dot) => !dot.queued);
+    return [
+      ...(at === 0 ? [] : [<li key={`gap:${view.root}`} className="deck-queue__gap" aria-hidden="true" />]),
+      ...(queued.length === 0
+        ? []
+        : [
+            <li key={`queue:${view.root}`}>
+              <Tooltip label="Merge queue">
+                <ol className="deck-queue__track" aria-label="Merge queue">
+                  {queued.map((dot) => chipOf(view, dot))}
+                </ol>
+              </Tooltip>
+            </li>,
+          ]),
+      ...(queued.length === 0 || open.length === 0 ? [] : [<li key={`rule:${view.root}`} className="deck-queue__rule" aria-hidden="true" />]),
+      ...open.map((dot) => chipOf(view, dot)),
+    ];
+  });
   return (
     <section className="deck-panel deck-queue" aria-label="Merge queue" tabIndex={-1}>
       <div className="deck-queue__row">
@@ -332,7 +362,10 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
             </Button>
           </Tooltip>
         )}
-        <ol className="deck-chips">
+        <ol className="deck-chips" onWheel={(event) => {
+          // A wheel turned over the line moves it along, since it scrolls only across.
+          if (event.deltaY !== 0 && event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
+        }}>
           <li>
             {reds.length > 0 ? (
               <MainLight props={props} ship={ship} reds={reds} said={mainSaid} />
@@ -620,7 +653,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     onBrought?.();
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
-  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }), [ship, only, needs, checks, held]);
+  const banding = useMemo(() => bandingOf(props.picked, props.state.holds.repositories ?? []), [props.picked, props.state.holds.repositories]);
+  const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
@@ -640,7 +674,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
+          <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
           <Activity props={props} listed={listed} ship={ship} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>

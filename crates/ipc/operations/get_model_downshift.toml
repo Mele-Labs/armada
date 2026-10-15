@@ -1,7 +1,7 @@
 [operations.get_model_downshift]
 kind = "query"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Helm only"
 description = "Whether the Session model is offered a step down, stepped down, or due back, as the weekly plan window runs out"
 notes = """
 `GET /model_downshift`, answered with `ModelDownshiftState`: `downshift?`, absent where there is none. Present, it is tagged by `phase`: `offered` (`percent`, `was`, `to`), `shifted` (`was`, `to`, `until`) or `reset` (`was`, `to`).

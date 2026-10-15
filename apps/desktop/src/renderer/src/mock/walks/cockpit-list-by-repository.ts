@@ -1,0 +1,17 @@
+// The flight deck's Jobs and Sessions list on All repositories is headed by repository, in the listing's order, with
+// Jobs and Sessions in several states under each. One repository picked draws no heading. Over `cockpit-list-by-repository`.
+
+import { button, inside, region, role, text, walk } from "../walk";
+
+const list = region("Jobs and Sessions");
+
+const cockpitListByRepository = walk("cockpit-list-by-repository", [
+  { look: inside(list, role("heading", "armada")), say: "On All, armada is the first heading, in the repository listing's order" },
+  { look: inside(list, text("The retry loop")), say: "Its Jobs and Sessions are under it" },
+  { look: inside(list, role("heading", "storefront")), say: "storefront is the next heading, with its own rows" },
+  { press: button("Repository"), say: "Pick one repository" },
+  { press: role("menuitem", "storefront"), say: "storefront" },
+  { look: inside(list, text("Round the cart totals")), say: "The list has no heading" },
+]);
+
+export { cockpitListByRepository as "cockpit-list-by-repository" };

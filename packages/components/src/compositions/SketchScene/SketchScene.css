@@ -217,6 +217,10 @@
 
 .armada-scene-edge[data-flow] .armada-scene-edge__line {
   stroke-dasharray: var(--space-2) var(--space-2);
+}
+
+/* A preview is a still drawing until it is played, and the panel stops crawling while it plays: the step's dot is the only thing that moves. */
+.armada-sketch:not([data-playing]) .armada-scene-edge[data-flow]:not([data-still]) .armada-scene-edge__line {
   animation: armada-scene-flow var(--duration-pulse) linear infinite;
 }
 
@@ -240,14 +244,18 @@
   stroke: var(--edge-focus);
 }
 
+/* The words sit on a backing the size of the words, so a line behind them never reads through. */
+.armada-scene-edge__backing {
+  fill: var(--bg-sunken);
+  rx: var(--radius-sm);
+}
+
 .armada-scene-edge__label {
   fill: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-anchor: middle;
-  paint-order: stroke;
-  stroke: var(--bg-sunken);
-  stroke-width: var(--space-1);
+  dominant-baseline: central;
 }
 
 /* The press target: wide, and drawn nowhere. */

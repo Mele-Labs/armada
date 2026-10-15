@@ -81,6 +81,7 @@ import {
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees, JobSummary, MergeLines, SettingsList } from "@armada/protocol";
+import { SessionRefs } from "./helm-refs";
 import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
@@ -963,7 +964,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const needs = doneShown ? [] : entries.filter((one) => one.kind === "waiting" && !carded.has(one.key));
   const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
   return (
-    <>
+    <SessionRefs session={session} show={(number) => read({ kind: "pull_request", number })}>
       <SessionFrame
         state={state}
         said={said}
@@ -1173,7 +1174,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         }}
       />
       {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
-    </>
+    </SessionRefs>
   );
 }
 

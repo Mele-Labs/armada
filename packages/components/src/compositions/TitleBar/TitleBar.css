@@ -39,6 +39,7 @@
  * `Button` takes no `className` to carry a title-bar-only hook on, so the
  * picker and sleep get a wrapper `<div>` this row owns itself. */
 .armada-title-bar__picker,
+.armada-title-bar__repository,
 .armada-title-bar__places,
 .armada-title-bar__search,
 .armada-title-bar__helm,
@@ -136,6 +137,18 @@
   font-weight: var(--weight-heading);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
+}
+
+/* The picked repository, named where no picker is drawn. Quiet: the wordmark is the row's one loud word. */
+.armada-title-bar__repository {
+  min-width: 0;
+  max-width: var(--w-menu);
+  margin-inline-start: var(--space-3);
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .armada-title-bar__places {

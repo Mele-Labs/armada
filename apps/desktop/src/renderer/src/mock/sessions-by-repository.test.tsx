@@ -12,7 +12,7 @@ unmountAfterEach();
 test("All draws a band for each repository, and one repository picked draws none", async () => {
   mount("sessions-by-repository");
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await userEvent.click(page.getByRole("tab", { name: "Sessions", exact: true }));
   const list = page.getByRole("region", { name: "Sessions" });
   const armada = list.getByRole("region", { name: "armada" });
   const storefront = list.getByRole("region", { name: "storefront" });
@@ -21,8 +21,11 @@ test("All draws a band for each repository, and one repository picked draws none
   await expect.element(armada.getByRole("button", { name: /Round the cart totals/ })).not.toBeInTheDocument();
   await expect.element(storefront.getByRole("button", { name: /Round the cart totals/ })).toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "All repositories" }));
+  // The picker is on the Cockpit; the pick holds on Sessions.
+  await userEvent.click(page.getByRole("tab", { name: "Cockpit" }));
+  await userEvent.click(page.getByText("All repositories"));
   await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
+  await userEvent.click(page.getByRole("tab", { name: "Sessions", exact: true }));
   await expect.element(list.getByRole("button", { name: /Round the cart totals/ })).toBeVisible();
   await expect.element(list.getByRole("region", { name: "storefront" })).not.toBeInTheDocument();
   await expect.element(list.getByRole("region", { name: "armada" })).not.toBeInTheDocument();

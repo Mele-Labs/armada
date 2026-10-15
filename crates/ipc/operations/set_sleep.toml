@@ -1,7 +1,7 @@
 [operations.set_sleep]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Helm only"
 description = "Turn sleep mode on, which starts a new night, or off"
 notes = """
 `POST /sleep`, body `SetSleep`: `on`. Answered with `SleepState`, and `SleepChanged` is published.

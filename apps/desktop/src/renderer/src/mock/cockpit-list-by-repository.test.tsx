@@ -1,0 +1,62 @@
+// The flight deck's Jobs and Sessions list through `App`: on All with two repositories served the list is headed by
+// repository in the listing's order, each heading holding its own rows; one repository picked draws no heading; and the
+// cursor walks the rows in the order they are drawn. The walk `cockpit-list-by-repository` draws it.
+
+import { expect, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import { mount, onScreen, unmountAfterEach } from "./testing";
+
+unmountAfterEach();
+
+const list = () => page.getByRole("region", { name: "Jobs and Sessions" });
+const headings = () => [...document.querySelectorAll(".deck-list__repository")].map((one) => one.textContent);
+const drawn = (heading: string) => {
+  const band = [...document.querySelectorAll(".deck-list__band")].find((one) => one.querySelector(".deck-list__repository")?.textContent === heading);
+  return [...(band?.querySelectorAll("[data-row]") ?? [])].map((one) => one.getAttribute("aria-label"));
+};
+const keys = () => [...document.querySelectorAll(".deck-list [data-row]")].map((one) => one.getAttribute("data-row")!);
+const rowOf = (key: string) => document.querySelector<HTMLElement>(`.deck-list [data-row="${CSS.escape(key)}"]`)!;
+
+async function onAll() {
+  mount("cockpit-list-by-repository");
+  await onScreen();
+  await expect.element(list()).toBeVisible();
+  await expect.poll(() => headings().length).toBe(2);
+}
+
+test("All heads the list by repository, in the listing's order, each with its own rows", async () => {
+  await onAll();
+  expect(headings()).toEqual(["armada", "storefront"]);
+  expect([...drawn("armada")].sort()).toEqual(["Draft the migration notes", "Fix the flaky store test", "Prune the stale branches", "The retry loop", "Trim the feed"]);
+  expect([...drawn("storefront")].sort()).toEqual(["Lay out the invoice PDF", "Resize the product images", "Round the cart totals", "Round the tax lines"]);
+});
+
+test("the cursor steps from the last row of one group to the first of the next", async () => {
+  await onAll();
+  const rows = keys();
+  const last = drawn("armada").length - 1;
+  rowOf(rows[last]!).focus();
+  await userEvent.keyboard("j");
+  await expect.poll(() => document.activeElement?.getAttribute("data-row")).toBe(rows[last + 1]);
+  expect(rowOf(rows[last + 1]!).getAttribute("aria-label")).toBe(drawn("storefront")[0]);
+});
+
+test("one repository picked draws the list with no heading and only its Jobs", async () => {
+  await onAll();
+  await userEvent.click(page.getByRole("button", { name: "Repository" }).first());
+  await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
+  await expect.element(list().getByRole("button", { name: "Round the cart totals" })).toBeVisible();
+  expect(headings()).toEqual([]);
+  await expect.element(list().getByRole("button", { name: "Prune the stale branches" })).not.toBeInTheDocument();
+  // Its Jobs go as its Sessions do: no armada Job is listed, and storefront's still are.
+  for (const title of ["The retry loop", "Trim the feed"]) await expect.element(list().getByRole("button", { name: title })).not.toBeInTheDocument();
+  for (const title of ["Round the tax lines", "Resize the product images"]) await expect.element(list().getByRole("button", { name: title })).toBeVisible();
+  // The rows sit straight in the one list, as they did before.
+  expect(document.querySelectorAll(".deck-list__rows > .deck-list__item")).toHaveLength(keys().length);
+});
+
+test("All lists both repositories' Jobs", async () => {
+  await onAll();
+  for (const title of ["The retry loop", "Trim the feed", "Round the tax lines", "Resize the product images"]) await expect.element(list().getByRole("button", { name: title })).toBeVisible();
+});

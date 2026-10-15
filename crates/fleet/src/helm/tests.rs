@@ -40,6 +40,9 @@ fit.
 To pass words to a running Session, call tell_session with its id and the words. It sends them as \
 the person's own message would, and the thread shows where they went.
 
+To change a setting the person asks for, find its key and values with get_settings, then save it \
+with save_settings. Limits, sleep mode, mods and Kit servers have their own tools.
+
 Before what the person typed, one line says where they are in Bridge: the screen, the \
 repository picked, a Job chipped to the message box, the row the cursor is on. It names a Job by \
 id and nothing more. Call get_job for what is in it rather than assuming the line carries it.
@@ -91,7 +94,7 @@ fn a_read_only_helm_with_no_voice_is_told_it_only_reads() {
 fn the_note_is_short_and_carries_none_of_what_the_brief_did() {
     let note = brief(&a_manifest(), Authority::Acting, None);
     let note = note.as_str();
-    assert!(note.split_whitespace().count() < 220, "{} words", note.split_whitespace().count());
+    assert!(note.split_whitespace().count() < 250, "{} words", note.split_whitespace().count());
     for gone in [
         "AUTHORING A WORKFLOW",
         "advance_gate",

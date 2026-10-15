@@ -24,15 +24,16 @@ async function deck() {
   return app;
 }
 
-test("calls open as panes, and a Job or Session that still needs the person keeps its call", async () => {
+test("calls open as panes, and a Session's question keeps its call until it is answered", async () => {
   await deck();
-  await expect.poll(() => hails().length).toBeGreaterThan(0);
-  const first = hails()[0]!;
+  await expect.poll(() => hails().some((one) => one.startsWith("Session question: "))).toBe(true);
+  const asked = hails().find((one) => one.startsWith("Session question: "))!;
   const before = hails().length;
-  await incoming().getByRole("button", { name: first }).click();
+  await incoming().getByRole("button", { name: asked }).click();
 
-  // What it is about opens on the stage. Seen is not answered: it still needs him, so the call stays (the owner, 15 Oct 2026).
-  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(first.replace(/^[^:]+: /, ""));
+  // What it is about opens on the stage. Seen is not answered, so a question's call stays (the owner, 15 Oct 2026); a reply's
+  // leaves when seen (`store.test.ts`).
+  await expect.poll(() => stage()?.getAttribute("aria-label") ?? "").toContain(asked.replace(/^[^:]+: /, ""));
   expect(hails()).toHaveLength(before);
 });
 

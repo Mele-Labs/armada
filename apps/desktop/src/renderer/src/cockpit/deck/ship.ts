@@ -9,6 +9,7 @@ import { useEffect, useMemo } from "react";
 import { Bot, CircleDashed, Eye, ShieldX, type LucideIcon } from "lucide-react";
 import { sessionGlyphOf } from "@armada/components";
 import type { HubJob, HubPullRequest, JobSummary, MergeLine, RepositorySummary, WorktreeSlot } from "@armada/protocol";
+import { ofPicked } from "@armada/screens";
 import { attachmentsOf, type Session, type SessionAttachment } from "@armada/screens/src/draft/sessions";
 import type { NowView } from "@armada/jobs/draft/now";
 
@@ -53,6 +54,8 @@ export type Subject = {
   title: string;
   root: string;
   repo: string;
+  /** The Manifest id it was dispatched under, where it carries one. The list's repository headings read it, as `root` falls back to the first repository. */
+  manifest?: string;
   mark: Mark;
   phase: Phase;
   /** He is owed something: a question, a reply, a done, a review, a failed Check. */
@@ -109,6 +112,8 @@ export type Ship = {
   repos: readonly { root: string; name: string }[];
   /** The Jobs and Sessions with a Check running now: a Job's own, or one on the pull request a Job or Session holds. */
   running: ReadonlySet<string>;
+  /** The Jobs and Sessions waiting on an answer from the person: a question, a waiting item, a gate. Their call stays until answered. */
+  asking: ReadonlySet<string>;
 };
 
 const NONE: ReadonlySet<string> = new Set();
@@ -228,6 +233,7 @@ export function shipOf(input: Inputs): Ship {
       title: job.title,
       root,
       repo: nameOfRoot(root),
+      manifest: job.owner_manifest_id,
       mark,
       phase: needs ? "needs" : job.status === "queued" ? "held" : "working",
       needs,
@@ -262,6 +268,7 @@ export function shipOf(input: Inputs): Ship {
       title: session.title ?? session.id,
       root,
       repo: nameOfRoot(root),
+      ...(session.manifestId === undefined ? {} : { manifest: session.manifestId }),
       mark,
       phase: needs || (alarm && !stuck) ? "needs" : stuck ? "held" : session.turn.state === "working" ? "working" : "done",
       needs,
@@ -344,14 +351,17 @@ export function shipOf(input: Inputs): Ship {
   // A Session counts for the Jobs it owns.
   for (const session of sessions) if (session.attachments.some((a) => a.kind === "job" && running.has(`job:${a.id}`))) running.add(`session:${session.id}`);
 
-  // A Job or Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is.
+  // A Job or Session that needs the person is a call, whether or not it raised one: its row's mark, opened as the row is. One that
+  // asks (a question, a waiting item, a gate) keeps it until answered; a reply, a done turn or a stuck one is a call until seen.
+  // The key carries the turn, so the next reply is a new call.
+  const asking = new Set(subjects.filter((one) => (one.kind === "job" && one.needs) || (one.kind === "session" && stateOf(sessions.find((s) => s.id === one.id)!).state === "waiting")).map((one) => one.key));
   const raised = [...calls];
   for (const subject of subjects) {
     if (subject.kind === "pr" || subject.phase !== "needs" || subject.call !== undefined) continue;
     const job = subject.kind === "job" ? jobs.find((one) => one.id === subject.id) : undefined;
     const at = subject.kind === "session" ? sessions.find((one) => one.id === subject.id)?.lastTurnAt : undefined;
     const item: Item = {
-      key: `${subject.kind}:${subject.id}:needs`,
+      key: `${subject.kind}:${subject.id}:needs:${at ?? job?.status ?? ""}`,
       icon: subject.mark.Glyph,
       kind: subject.mark.said,
       title: subject.title,
@@ -366,7 +376,7 @@ export function shipOf(input: Inputs): Ship {
     raised.push(item);
     subject.call = item.key;
   }
-  return { subjects, mains, main, bays, autopilot: "off", calls: raised, prs, repos, running };
+  return { subjects, mains, main, bays, autopilot: "off", calls: raised, prs, repos, running, asking };
 }
 
 /** A pull request a Session holds that the forge's listing does not carry any more. */
@@ -403,7 +413,8 @@ export function useShip(props: ShipProps, hold = true): Ship {
   return useMemo(
     () =>
       shipOf({
-        jobs: state.jobs,
+        // Narrowed as the Board and Sessions are; the id lookups elsewhere keep every Job.
+        jobs: ofPicked(state.jobs, picked),
         sessions,
         lines: state.mergeLines?.lines ?? [],
         slots: slotsOf(state, picked),

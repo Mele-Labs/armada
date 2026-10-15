@@ -42,7 +42,8 @@ export default defineConfig({
       // 0ms under it (`packages/tokens/src/motion.css`), so a sheet or dialog
       // is in place on its first frame and a `play` press cannot land on one
       // still sliding in. A story whose claim is the motion itself says
-      // `parameters: { motion: "on" }`.
+      // `parameters: { motion: "on" }`. Emulation is per page and a page runs its files one
+      // after another, so `vitest.setup.ts` re-reduces it at the top of each file.
       provider: playwright({ contextOptions: { reducedMotion: "reduce" } }),
       commands: { motion },
       instances: [{ browser: "chromium" }],

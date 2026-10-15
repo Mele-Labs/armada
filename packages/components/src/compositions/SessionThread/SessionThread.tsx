@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Prose, ProseCommand, ProseRefs, ProseRunner } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ApprovalCard } from "../HelmThread/ApprovalCard";
@@ -736,6 +736,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
           pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
         }}
       >
+        <ProseWalk.Provider value={onOpenWindow ?? null}>
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
@@ -757,6 +758,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
         </ol>
         </ProseCommand.Provider>
         </ProseRunner.Provider>
+        </ProseWalk.Provider>
       </div>
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">

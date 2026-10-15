@@ -6,9 +6,9 @@
 //!
 //! **A note and not a brief.** Helm is a hosted Session (`docs/concepts/helm.md`), so it has what a
 //! Session has and is told only what makes it Helm: where it is docked, what the Fleet tools
-//! reach, how to pass words to a Session, and what the first line of each message means. The
-//! workflow schema, its sample and the rules that held Helm to one observation and one poll a
-//! turn went with the brief they were in.
+//! reach, how to pass words to a Session, how to change a setting, and what the first line of
+//! each message means. The workflow schema, its sample and the rules that held Helm to one
+//! observation and one poll a turn went with the brief they were in.
 
 use std::path::Path;
 
@@ -60,6 +60,10 @@ fit.
 
 To pass words to a running Session, call tell_session with its id and the words. It sends them as \
 the person's own message would, and the thread shows where they went.";
+
+const SETTINGS: &str = "\
+To change a setting the person asks for, find its key and values with get_settings, then save it \
+with save_settings. Limits, sleep mode, mods and Kit servers have their own tools.";
 
 const WHERE_THEY_ARE: &str = "\
 Before what the person typed, one line says where they are in Bridge: the screen, the repository \
@@ -118,7 +122,7 @@ pub(crate) fn worded(
 /// where Helm acts, and of `prompts.helmReadOnly` where it only reads.
 pub(crate) fn shipped(authority: Authority) -> String {
     match authority {
-        Authority::Acting => vec![OPENING, SESSIONS, WHERE_THEY_ARE, STUDIO],
+        Authority::Acting => vec![OPENING, SESSIONS, SETTINGS, WHERE_THEY_ARE, STUDIO],
         Authority::ReadOnly => vec![OPENING, WHERE_THEY_ARE, READ_ONLY],
     }
     .join("\n\n")
