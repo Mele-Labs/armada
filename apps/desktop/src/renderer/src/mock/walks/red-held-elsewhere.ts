@@ -1,6 +1,6 @@
 // Main is red and another machine holds the claim. The band names the holder by its chip and age,
 // Take over replaces Dispatch and asks once, and a store that cannot be reached refuses a Dispatch.
-// Over `red-held-elsewhere`; `red-held-elsewhere-b` draws the claim in the band's head.
+// Over `red-held-elsewhere`.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
@@ -37,6 +37,14 @@ const heldElsewhere = walk("red-held-elsewhere", [
   { press: inside(RED, button("Try again")), say: "Try again" },
   { later: inside(RED, button("Dispatch a new Job")), say: "The claim is made" },
   { look: inside(RED, button(FIXING)), say: "Fixing here" },
+  { later: inside(RED, button(FIXING)), say: "The fix lands" },
+  { later: inside(MERGE, role("img", "Main is green")), say: "Main is red again, and another machine has just claimed it" },
+  { press: inside(RED, button("Dispatch a new Job")), say: "Dispatch a new Job, before this machine has read that claim" },
+  { press: inside(DISPATCH, button("Dispatch", { exact: true })), say: "Dispatch it" },
+  { look: inside(RED, text("Held on another machine")), say: "Refused: another machine holds it" },
+  { later: inside(RED, button("Try again")), say: "Fleet reads the claim" },
+  { look: inside(RED, role("group", /^Job c41e90a7, work-mac-mini/)), say: "Drawn as any held red is: its holder and its age" },
+  { look: inside(RED, button("Take over")), say: "With Take over" },
 ]);
 
 export { heldElsewhere as "red-held-elsewhere" };

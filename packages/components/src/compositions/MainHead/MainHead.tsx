@@ -1,4 +1,4 @@
-import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Box, Clock, GitMerge, Hammer, Monitor, SquareTerminal } from "lucide-react";
 
 import { CHECK_OUTCOME } from "../../generated/vocabulary";
@@ -74,7 +74,7 @@ export type HeldElsewhere = {
   since: string;
 };
 
-/** A claim older than this reads as stale. A mock's figure until the owner settles one. */
+/** A claim older than this reads as stale. */
 const STALE_AFTER_MS = 60 * 60_000;
 
 /** A newer commit on main whose CI is still running: its pull request where the forge named one, else the commit. */
@@ -102,15 +102,17 @@ export type FixChoice =
   /** Replace the claim another machine holds, and dispatch a new Job on the facts Fleet read. */
   | { kind: "takeOver" };
 
-/** What Fleet said to a press, where the band draws it: the store that holds claims could not be reached. */
-export type FixRefusal = "claim_not_made";
-
 /**
- * Where another machine's claim is drawn. **Two takes until one is chosen**: `row` is the Fixing row,
- * where a local take is drawn; `head` is the band's own head, where the acts it replaces were.
+ * What Fleet said to a press, where the band draws it: the store that holds claims could not be
+ * reached, or another machine's claim was not yet in the hub when the press was made.
  */
-export type RedClaimPlacement = "row" | "head";
-export const RedClaimTake = createContext<RedClaimPlacement>("row");
+export type FixRefusal = "claim_not_made" | "taken_elsewhere";
+
+/** What the band says of each refusal. */
+const REFUSED: Record<FixRefusal, string> = {
+  claim_not_made: "Not made, store unreachable",
+  taken_elsewhere: "Held on another machine",
+};
 
 const MARK = 16;
 const SMALL = 12;
@@ -195,13 +197,13 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
   // Another machine holds the red: its Job is not ours to start, and the one act left is to take it over.
   const asks = free && elsewhere === undefined;
   const takesOver = free && elsewhere !== undefined;
-  const placement = useContext(RedClaimTake);
   const [asking, setAsking] = useState<"new" | "back" | "takeOver" | null>(null);
-  // The press the store refused, kept so Try again sends the same one.
-  const [refused, setRefused] = useState<FixChoice | null>(null);
+  // The press Fleet refused, kept so Try again sends the same one.
+  const [refused, setRefused] = useState<{ choice: FixChoice; why: FixRefusal } | null>(null);
   const send = async (choice: FixChoice) => {
     setRefused(null);
-    if ((await onFix?.(choice)) === "claim_not_made") setRefused(choice);
+    const why = await onFix?.(choice);
+    if (why === "claim_not_made" || why === "taken_elsewhere") setRefused({ choice, why });
   };
   const claim =
     elsewhere === undefined || taken !== undefined ? null : (
@@ -242,7 +244,6 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
           ) : (
             <span className="armada-main-red__title">Main is red</span>
           )}
-          {placement !== "head" ? null : claim}
           {!asks ? null : (
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
@@ -317,18 +318,18 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
               </dd>
             </>
           )}
-          {refused === null || taken !== undefined ? null : (
+          {refused === null || taken !== undefined || elsewhere !== undefined ? null : (
             <>
               <dt>Claim</dt>
               <dd className="armada-main-red__taken">
-                <span>Not made, store unreachable</span>
-                <Button variant="ghost" size="sm" ground="sunken" onClick={() => void send(refused)}>
+                <span>{REFUSED[refused.why]}</span>
+                <Button variant="ghost" size="sm" ground="sunken" onClick={() => void send(refused.choice)}>
                   Try again
                 </Button>
               </dd>
             </>
           )}
-          {placement === "head" || claim === null ? null : (
+          {claim === null ? null : (
             <>
               <dt>Fixing</dt>
               <dd className="armada-main-red__taken">{claim}</dd>

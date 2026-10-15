@@ -404,6 +404,9 @@ export function sessionRed(root: string): { first: Partial<BridgeState>; later: 
 //   3  Its fix landed: main is green.
 //   4  Red again, nobody holds it. The store cannot be reached when the owner dispatches.
 //   5  The press went through on the second try, and a Job here is working on it.
+//   6  Its fix landed: main is green.
+//   7  Red again, nobody holds it in the hub. Another machine claimed it a moment ago, so a Dispatch is refused.
+//   8  The hub has read that claim.
 
 const MINUTE = 60_000;
 const claimed = (minutes: number): string => new Date(Date.now() - minutes * MINUTE).toISOString();
@@ -424,6 +427,13 @@ function elsewhereMoments(): Moment[] {
     },
     { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
     { main: { state: "red", red: THIRD, taken: hubJob(FIX) }, pulls: stranded.pulls, jobs: working },
+    {
+      main: { state: "green" },
+      pulls: BYSTANDING("passed", "failed").pulls,
+      jobs: [rowOf(FIX, "completed_success", fixed(THIRD, 1823)), ...BYSTANDING("passed", "failed").jobs],
+    },
+    { main: { state: "red", red: THIRD }, pulls: stranded.pulls, jobs: stranded.jobs },
+    held({ machine: "work-mac-mini", holder: { kind: "job", id: "c41e90a7" }, since: claimed(2) }),
   ];
 }
 
