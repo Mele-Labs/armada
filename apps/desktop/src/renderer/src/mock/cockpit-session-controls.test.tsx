@@ -1,5 +1,5 @@
 // With a Session open on the flight deck's stage, the flight controls are that Session's: Ask for update sends it a status
-// request, Compact runs its compact, Report is drawn off (a report is filed on a Job), Auto land sends the land instruction and is kept, and Map
+// request, Compact runs its compact, Report hands off to a new Session, Auto land sends the land instruction and is kept, and Map
 // returns to the map. Activity narrows to the Session's own events and returns to all of them when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
 
@@ -45,12 +45,9 @@ test("Compact runs the Session's compact", async () => {
   await expect.poll(() => pane().element().textContent?.includes("/compact")).toBe(true);
 });
 
-test("Report is drawn off and presses nothing", async () => {
+test("Report is offered where the Session's repository is known", async () => {
   await open();
-  const report = controls().getByRole("button", { name: "Report issue with session" });
-  await expect.element(report).toHaveAttribute("aria-disabled", "true");
-  await report.click({ force: true });
-  await expect.element(pane()).toBeVisible();
+  await expect.element(controls().getByRole("button", { name: "Report issue with session" })).not.toHaveAttribute("aria-disabled");
 });
 
 test("turning Auto land on sends the Session the land instruction, and the tile reads on after a reload", async () => {

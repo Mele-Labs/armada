@@ -422,7 +422,7 @@ export const TILES: readonly Tile[] = [
  * The four filters and the view switch: one row of six equal tiles. **While a Session is open on the stage they are that
  * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes.
  */
-function FlightControl({ ship }: { ship: Ship }) {
+function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   const only = useDeck((deck) => deck.only);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
@@ -433,6 +433,8 @@ function FlightControl({ ship }: { ship: Ship }) {
   const sessions = useSessions();
   const open = sel?.kind === "session" ? ship.subjects.find((one) => one.key === sel.key && one.kind === "session") : undefined;
   const session = open === undefined ? undefined : sessions.find((one) => one.id === open.id);
+  const found = session?.manifestId === undefined ? undefined : (props.state.holds.repositories ?? []).find((one) => one.manifest?.id === session.manifestId);
+  const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   return (
     <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1}>
       <header className="deck-band">
@@ -440,7 +442,7 @@ function FlightControl({ ship }: { ship: Ship }) {
         <PanelKey id="controls" />
       </header>
       {session !== undefined && draft !== undefined ? (
-        <SessionTiles session={session} draft={draft} />
+        <SessionTiles session={session} draft={draft} repository={repository} />
       ) : (
         <div className="deck-controls__block">
           {TILES.map((tile, at) => (
@@ -685,7 +687,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
             <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
           </div>
           <div className="deck-foot">
-            <FlightControl ship={ship} />
+            <FlightControl ship={ship} props={props} />
             <AutopilotPanel props={props} autopilot={autopilot} />
           </div>
         </div>

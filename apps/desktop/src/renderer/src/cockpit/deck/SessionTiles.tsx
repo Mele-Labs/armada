@@ -1,23 +1,37 @@
 // The flight controls' tiles while a Session is open on the stage: the same block, size and keys, `1` to `5`, as the six usual
 // ones, with the Session's own acts. What each does and why one is off is in `session-tiles.ts`. A refusal from Fleet is the
-// toast the Session's composer shows, since the same `draft.send` carries it. The owner's ask of 15 Oct 2026.
+// toast the Session's composer shows, since the same `draft.send` carries it. **Report** swaps the tiles for a box (`ReportBox`);
+// sending starts a Session in the same repository, tells it the owner's words and what Bridge holds about this one
+// (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Bug, FoldVertical, MessageCircleMore, Orbit, PlaneLanding } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
+import { useSessionsSaid } from "../../sessions-draft";
+import { useFleetEvents } from "../fleet-events";
 import { setAutoLand, useAutoLand } from "./auto-land";
 import { askForUpdate } from "./acts";
+import { ReportBox } from "./ReportBox";
+import { reportBrief } from "./report-brief";
 import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, offeredOf, plain, type SessionTileId } from "./session-tiles";
-import { setView } from "./store";
+import { select, setView } from "./store";
 
 const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit } as const;
 
-export function SessionTiles({ session, draft }: { session: Session; draft: SessionsDraft }) {
+/** The repository the report is about: its root, which the new Session starts in, and its name where it has one. */
+export type ReportRepository = { root: string; name?: string };
+
+export function SessionTiles({ session, draft, repository }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined }) {
   const [pending, setPending] = useState<SessionTileId | undefined>();
+  const [reporting, setReporting] = useState(false);
+  /** The Session a report started, kept while its message is refused so a second press tells the same one. */
+  const started = useRef<string | undefined>(undefined);
+  const events = useFleetEvents();
+  const refused = useSessionsSaid();
   const on = useAutoLand(session.id);
-  const { off, compact } = offeredOf(session, draft);
+  const { off, compact } = offeredOf(session, draft, repository?.root);
   const sent = async (text: string): Promise<boolean> => (await draft.send(session.id, plain(text))) !== false;
   const run = async (tile: SessionTileId, act: () => Promise<void>) => {
     if (pending !== undefined) return;
@@ -38,8 +52,19 @@ export function SessionTiles({ session, draft }: { session: Session; draft: Sess
       if (compact?.how === "terminal") draft.command?.(session.id, `/${COMPACT}`);
       else void run("compact", async () => void (await sent(`/${COMPACT}`)));
     },
-    report: () => {},
+    report: () => setReporting((open) => !open),
     map: () => setView("map"),
+  };
+  const report = async (words: string): Promise<boolean> => {
+    if (repository === undefined) return false;
+    const id = started.current ?? (await draft.start(undefined, repository.root));
+    if (id === undefined) return false;
+    started.current = id;
+    const brief = reportBrief(words, session, { at: new Date(), screen: "Cockpit, flight controls", root: repository.root, ...(repository.name === undefined ? {} : { repository: repository.name }), events, ...(refused === undefined ? {} : { refused }) });
+    if ((await draft.send(id, plain(brief))) === false) return false;
+    started.current = undefined;
+    select({ kind: "session", key: `session:${id}` });
+    return true;
   };
   const tip: Record<SessionTileId, string> = {
     ask: "Ask the Session for an update",
@@ -48,6 +73,18 @@ export function SessionTiles({ session, draft }: { session: Session; draft: Sess
     report: "Report an issue with the Session",
     map: "Map",
   };
+  if (reporting) {
+    return (
+      <ReportBox
+        keep={`report:${session.id}`}
+        send={report}
+        onClose={() => {
+          started.current = undefined;
+          setReporting(false);
+        }}
+      />
+    );
+  }
   return (
     <div className="deck-controls__block" data-subject="session">
       {SESSION_TILES.map((tile, at) => {
