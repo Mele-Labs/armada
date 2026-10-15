@@ -29,7 +29,8 @@ export type Usage = {
 }
 
 /** One task of the agent's list. `id` is its task tool's, or its place in a `TodoWrite` list. */
-export type Task = { id: string; text: string; status: 'pending' | 'in_progress' | 'completed' }
+/** `by` is the subagent that made the task, absent for the session's own. */
+export type Task = { id: string; text: string; status: 'pending' | 'in_progress' | 'completed'; by?: string }
 
 export type Fact =
   | { kind: 'started'; cwd: string; title?: string; origin: 'terminal'; mod_version?: string }

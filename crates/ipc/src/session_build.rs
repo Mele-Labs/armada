@@ -47,6 +47,11 @@ pub struct BuildPiece {
     pub id: String,
     pub text: String,
     pub piece: BuildPieceKind,
+    /// The subagent that wrote the task, as its `SessionBuild::workers` label (`Type: what it was
+    /// asked`), so Bridge draws the piece with its worker. Absent for the Session's own tasks. Kept
+    /// after the subagent ends, as its pieces stay on the ring.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<String>,
 }
 
 /// A place on the road from the Session's edits to main. Landing is not one: it closes the road and
@@ -123,4 +128,8 @@ pub struct ReportedTask {
     pub id: String,
     pub text: String,
     pub status: ReportedTaskStatus,
+    /// The subagent's `agentId` where a subagent wrote the task. Subagents share the Session's task
+    /// list, so theirs are in it. Fleet turns this into the worker's label for [`BuildPiece::by`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<String>,
 }
