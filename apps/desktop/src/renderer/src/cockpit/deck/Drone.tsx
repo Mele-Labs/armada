@@ -52,7 +52,7 @@ function JobGlyph() {
 }
 
 /** A Session: the small plus quad, a round pod between four short arms. */
-function SessionGlyph() {
+export function SessionGlyph() {
   return (
     <g className="bf-glyph" data-kind="session">
       <path className="bf-arm" d="M-13,0 L-4,0 M13,0 L4,0 M0,-8 L0,-3 M0,8 L0,3" />

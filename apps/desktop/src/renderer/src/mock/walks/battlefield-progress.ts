@@ -1,0 +1,51 @@
+// A Session's work as a ring on the Cockpit battlefield, twelve hours in eight presses of `later`. One drone builds under its own
+// shadow; what lies there is the `build` Fleet carries on the Session's record. #2301.
+
+import { deckRow, inside, region, role, walk } from "../walk";
+
+const map = role("listbox", "Map");
+const places = role("navigation", "Places");
+const dock = inside(map, role("option", "Rebuild the dock panel"));
+const stage = region(/^(Job|Session): /);
+const build = region("Build");
+const opened = [
+  { press: deckRow("Rebuild the dock panel"), say: "Open the Session" },
+] as const;
+
+const battlefieldProgress = walk("battlefield-progress", [
+  { look: map, say: "Scope. One repository, three drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question. Inside it a faint outline of a ring, whole and unsegmented: there is no task list yet, so nothing says how much is left. Outside it a thinner ring of faint arcs, the road this repository's Sessions usually take, with nothing lit" },
+  { later: places, say: "It writes a list of seven tasks" },
+  { look: map, say: "Plan. A ring lies on the ground under the drone, one dashed ghost segment for each task. The survey is gone" },
+  { later: places, say: "Edits land, four subagents start, and four tasks are done" },
+  { look: map, say: "Implement. A task done with edits seen is a solid segment. One done with none seen is outlined and hollow. The next task has scaffold round it because edits came with no tick. Four small drones circle the ring while their subagents run" },
+  { hover: dock, say: "Its card. The phase as a glyph and a word, and each task as a swatch drawn as its segment is: solid, outlined or dashed" },
+  ...opened,
+  { look: build, say: "The Session open. The ring is drawn tall above its ledger, in the place the bays had. A segment for each task: solid, outlined, the next in scaffold, the rest dashed. Incoming calls stay where they were. A button with a speech bubble in the header asks the Session for an update" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { look: region("Bays"), say: "The bays are back" },
+  { later: places, say: "Ten minutes with no tool call in a running turn. Three subagents end" },
+  { look: map, say: "Stalled. The drone hangs still under the amber ring. The unfinished segments have dimmed. One worker is still flying: its subagent has not ended" },
+  { later: places, say: "Thirty more minutes of quiet" },
+  { look: map, say: "Forty minutes quiet. The unfinished segments are dimmer again" },
+  ...opened,
+  { look: build, say: "The same at forty minutes. The unfinished segments are dim and an amber ring lies round the ring" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { later: places, say: "It works again and finishes, shows a walk of the built thing, pushes and opens a pull request. Its turn ends" },
+  { look: map, say: "The road. The walk, the push and the pull request light, each with when it happened. Checks and auto-merge are faint: this repository's Sessions usually do them next" },
+  { hover: inside(map, role("option", /^Checks/)), say: "A faint arc says so, and a lit one says when" },
+  { later: places, say: "Checks run and auto-merge is set" },
+  { look: map, say: "Every stop is lit" },
+  { later: places, say: "It merges" },
+  { look: map, say: "Landed. The flag flashes and the last arc closes the circle. The ring goes after a moment" },
+  { later: places, say: "Twenty-six minutes later" },
+  { look: map, say: "The plot is bare. What landed is in the Activity feed" },
+  { press: deckRow("Rebuild the dock panel"), say: "Session page. Its row in the list carries one glyph for its phase, with a tooltip naming it" },
+  { look: build, say: "Session page. The ring above the ledger, every arc lit: it has landed. Hover a segment for its task and state" },
+  { hover: inside(build, role("img", /^Pull request opened/)), say: "An arc says its name and when it happened. A faint one says it is only what this repository usually does next" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { press: deckRow("Cache the manifest read"), say: "Job page. The bays stay and there is no band" },
+  { look: role("listbox", "Route"), say: "Job page. The ring of its plan lies in the map beside the waypoint of the step that works it, and its drone hovers over that waypoint: two tasks done and solid, one handed in and hollow, one being worked in scaffold, one open and dashed. The later waypoints are the road to main" },
+  { hover: inside(role("listbox", "Route"), role("option", /^Warm it at start/)), say: "A segment says its task and where it stands" },
+]);
+
+export { battlefieldProgress };

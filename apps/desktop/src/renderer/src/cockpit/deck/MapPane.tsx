@@ -4,6 +4,7 @@
 
 import { useMemo } from "react";
 import { Orbit } from "lucide-react";
+import { stepThatWorksTheGroups } from "@armada/jobs";
 import { taskGroupsOf } from "@armada/jobs/draft/group";
 
 import type { CockpitProps } from "./props";
@@ -13,6 +14,8 @@ import type { DroneIn } from "./layout";
 import type { Run } from "./panes";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
 import { select, selOfPr, selOfSubject, startReplay, stopReplay, useDeck } from "./store";
+import { jobBuildOf } from "./build";
+import { CLOCK_MS, quantized } from "./field";
 import { touchesOfFootprint } from "./touches";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
@@ -34,7 +37,7 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
 export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
   const cursor = useDeck((deck) => deck.cursor);
   const field = useField(props, ship, listed);
-  const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey } = field;
+  const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds } = field;
   return (
     <section className="deck-pane" aria-label="Flight map">
       <header className="deck-band deck-pane__head">
@@ -55,6 +58,7 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
           calls={calls}
           clashes={clashes}
           focus={replay === undefined ? focusKey : undefined}
+          builds={builds}
           selected={cursor}
           onSelect={(key) => {
             const subject = ship.subjects.find((one) => one.key === key);
@@ -129,6 +133,11 @@ export function JobMission({ props, ship, listed, subject, run }: { props: Cockp
     () => (mission === undefined ? undefined : { mission, repo: { root: subject.root, name: subject.repo }, drones: cluster, job, serves, pad: cluster.find((one) => one.key === job)?.slot }),
     [mission, cluster, job, serves, subject.root, subject.repo],
   );
+  // The ring of the Job's plan lies at the waypoint of the step that works it, or where the Job is at when no step is named for it.
+  const clock = quantized(props.now, CLOCK_MS);
+  const standing = useMemo(() => (run.whole === null ? undefined : jobBuildOf(run.whole, job, clock)), [run.whole, job, clock]);
+  const worksAt = run.whole === null ? undefined : stepThatWorksTheGroups(run.whole);
+  const standAt = worksAt === undefined ? mission?.live : `step:${worksAt}`;
   const keys = useMemo(() => new Set(cluster.map((one) => one.key)), [cluster]);
   const mine = useMemo(() => crates.filter((pr) => pr.owner === job), [crates, job]);
   const numbers = new Set(mine.map((pr) => pr.number));
@@ -154,6 +163,8 @@ export function JobMission({ props, ship, listed, subject, run }: { props: Cockp
         focus={replay === undefined && focusKey !== undefined && keys.has(focusKey) ? focusKey : undefined}
         selected={undefined}
         scene={scene}
+        builds={standing === undefined ? undefined : [standing]}
+        standAt={standAt}
         onSelect={(key) => {
           const other = key === job ? undefined : ship.subjects.find((one) => one.key === key);
           if (other !== undefined) select(selOfSubject(other));

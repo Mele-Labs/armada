@@ -8,7 +8,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
-import type { WorktreeSlot } from "@armada/protocol";
+import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
@@ -27,6 +27,9 @@ import { ActivityFeed, Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
+import { BuildColumn } from "./BuildColumn";
+import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
+import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
@@ -85,7 +88,23 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   );
 }
 
-function List({ subjects, selected, onPick }: { subjects: readonly Subject[]; selected: string | undefined; onPick: (subject: Subject) => void }) {
+/** Where a Session or Job is in its build, as the one glyph of its phase. A Session with no build and a Job with no plan have an empty cell. */
+function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[] }) {
+  const build = subject.kind === "session" ? builds.get(subject.key) : undefined;
+  const phase = subject.kind === "job" ? jobPhaseOf(jobs.find((one) => one.id === subject.id)?.tasks) : undefined;
+  const Glyph = build !== undefined ? glyphOf(build) : phase === undefined ? undefined : PHASE_GLYPH[phase];
+  const word = build !== undefined ? wordOf(build) : phase === undefined ? undefined : PHASE_WORD[phase];
+  if (Glyph === undefined || word === undefined) return <span className="deck-row__phase" />;
+  return (
+    <Tooltip label={word}>
+      <span className="deck-row__phase" role="img" aria-label={word}>
+        <Glyph size={14} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
+function List({ subjects, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
   const cursor = useDeck((deck) => deck.cursor);
   return (
     <section className="deck-panel deck-list" aria-label="Jobs and Sessions" tabIndex={-1}>
@@ -108,6 +127,7 @@ function List({ subjects, selected, onPick }: { subjects: readonly Subject[]; se
                 </Tooltip>
                 <span className="deck-row__title">{one.title}</span>
                 <span className="deck-row__said">{said}</span>
+                <Phase subject={one} builds={builds} jobs={jobs} />
                 <MarkGlyph mark={{ ...one.mark, tone: toneOf(one) }} />
               </button>
               {one.kind === "pr" ? null : <ClashMark kind={one.kind} id={one.id} />}
@@ -599,6 +619,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
+  // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
+  const builds = useBuilds(props.now);
+  const building = reading && selected !== undefined ? builds.get(selected) : undefined;
   return (
     <ClashesOpenHere ship={ship}>
     {/* A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up. */}
@@ -609,7 +632,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} onPick={(one) => select(selOfSubject(one))} />
+          <List subjects={listed} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
           <Activity props={props} listed={listed} ship={ship} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
@@ -625,7 +648,12 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         </div>
         <div className="deck-right">
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
-          {reading ? <LedgerPanel host={setLedgerHost} /> : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
+          {reading ? (
+            <>
+              {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
+              <LedgerPanel host={setLedgerHost} />
+            </>
+          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
           <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
         </div>
       </div>

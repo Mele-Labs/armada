@@ -243,7 +243,7 @@ pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
-pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes};
+pub use session_build::{KeptBuild, KeptTask, LandedPull, RoadAsk, RoadTimes, WorkTimes};
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use issue_writeback::{WriteBackOwed, WrittenBack};

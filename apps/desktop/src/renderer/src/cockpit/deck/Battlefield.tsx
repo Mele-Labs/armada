@@ -9,9 +9,11 @@
 // down to its route (`scene`). Ported from proto/cockpit-flight-deck. #2301.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Crosshair, Megaphone, Minus, Plus, Scan } from "lucide-react";
+import { Crosshair, Megaphone, Minus, Plus, Scan, ShieldCheck } from "lucide-react";
 import { Button, Tooltip, WorkflowStepCard } from "@armada/components";
 
+import { Builds, aimedAt, placeBuilds } from "./Builds";
+import { AskUpdate } from "./AskUpdate";
 import { Callout, type Anchor } from "./Callout";
 import { Doings } from "./Doings";
 import { Drone, type OnTip } from "./Drone";
@@ -27,8 +29,9 @@ import { bodiesOf, labelsOf, plotNamed } from "./labels";
 import { ALONG, type Play } from "./plays";
 import { CAM, FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point, type PrIn, type RepoIn, type Size } from "./layout";
 import { sceneOf, type SceneIn } from "./mission";
+import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
-import { clashLines, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
+import { clashLines, droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import { useCamera } from "./useCamera";
 import "./battlefield.css";
@@ -49,6 +52,10 @@ export type BattlefieldProps = {
   /** The drone a picked event is about. */
   focus?: string | undefined;
   selected: string | undefined;
+  /** The ring under each drone that is building one. None where Fleet reports none. */
+  builds?: readonly BuildIn[] | undefined;
+  /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
+  standAt?: string | undefined;
   /** A Job's mission, in place of the whole field: the same plane, cut down to the plots one Job touches and laid with its route. */
   scene?: Omit<SceneIn, "big" | "wide" | "clashes"> | undefined;
   onSelect: (key: string) => void;
@@ -57,7 +64,9 @@ export type BattlefieldProps = {
   onPr: (key: string) => void;
 };
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
+const NO_BUILDS: readonly BuildIn[] = [];
+
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, standAt, onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
@@ -92,7 +101,12 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     const at = onPlane(t === undefined ? { x: world.width / 2, y: world.height } : { x: t.base.x - t.base.w / 2 + 36, y: t.base.y + 8 });
     return { ...at, z: 20 };
   };
-  const frame = useMemo(() => frameOf({ layout, drones, plays, big, missionJob: scene?.job }), [layout, drones, plays, big, scene?.job]);
+  const stand = standAt === undefined ? undefined : built?.route.pins.find((one) => one.id === standAt)?.at;
+  const placed = useMemo(() => placeBuilds(builds, layout, stand), [builds, layout, stand?.x, stand?.y]);
+  // A Job's ring in its mission is asked for an update from the stack beside the zoom, since the ring itself takes no press.
+  const mine = scene === undefined ? undefined : placed.find((one) => one.build.key.startsWith("job:"))?.build.key;
+  const base = useMemo(() => frameOf({ layout, drones, plays, big, missionJob: scene?.job }), [layout, drones, plays, big, scene?.job]);
+  const frame = useMemo(() => aimedAt(base, placed), [base, placed]);
   const { heights, floorAt, altOf, flying, aimOf, doers } = frame;
   const droneBy = new Map(drones.map((one) => [one.key, one] as const));
   const sorted = [...drones].sort((a, b) => (layout.at.get(a.key)?.y ?? 0) - (layout.at.get(b.key)?.y ?? 0));
@@ -238,6 +252,12 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     return () => window.removeEventListener("keydown", away, true);
   }, []);
 
+  // The Session he is looking at, if it is building something: its card stays open beside it until the pointer is on something else.
+  const building = selected === undefined ? undefined : facts.get(selected)?.build;
+  const lockedDrone = selected === undefined ? undefined : droneBy.get(selected);
+  const lockedEl = building === undefined || host.current === null ? null : host.current.querySelector(`[data-key="${selected}"]`);
+  const lockedTip = useMemo(() => (building === undefined || lockedDrone === undefined || selected === undefined ? undefined : droneTip(lockedDrone, facts.get(selected), ShieldCheck)), [building, lockedDrone, facts, selected]);
+  const lockedAnchor = useMemo(() => (lockedEl === null ? undefined : { target: lockedEl }), [lockedEl]);
   const locked = selected !== undefined && lock !== undefined;
   const [hotTile, setHotTile] = useState<string>();
   // The plots: a name for those the selected drone is over and those a calling drone is over, a lift for those a working drone is over,
@@ -362,6 +382,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
             )}
 
             <Doings layout={layout} frame={frame} plays={plays} droneBy={droneBy} loops={loops} focus={focus} />
+
+            <Builds placed={placed} frame={frame} big={big} loops={loops} onTip={showTip} />
 
             <Lifted
               layout={layout}
@@ -505,8 +527,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         );
       })}
       {tip === undefined || host.current === null ? null : <Callout tip={tip.tip} anchor={tip.anchor} host={host.current} />}
+      {tip !== undefined || pinned !== undefined || lockedTip === undefined || lockedAnchor === undefined || host.current === null ? null : <Callout key={`locked:${selected}`} tip={lockedTip} anchor={lockedAnchor} host={host.current} pinned />}
       {pinned === undefined || card === undefined || host.current === null ? null : <Callout key={pinned.id} tip={card} anchor={{ target: pinned.target }} host={host.current} pinned />}
       <div className="bf-zoom">
+        {mine === undefined ? null : <AskUpdate subject={mine} />}
         <Tooltip label="Zoom in" shortcut="+" asChild>
           <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= limits.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>
             <Plus size={16} aria-hidden="true" />
