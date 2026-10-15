@@ -2,12 +2,12 @@
 // the Check's name. Opened, each run is a line with what it was narrowed to. A different Check between
 // them starts a fold of its own, and the run still out ends the thread.
 
-import { button, inside, region, walk } from "../walk";
+import { button, inside, place, region, walk } from "../walk";
 
 const THREAD = region("Thread");
 
 export const foldRepeatedCheckRuns = walk("fold-repeated-check-runs", [
-  { press: button("Sessions", { exact: true }), say: "Sessions" },
+  { press: place("Sessions"), say: "Sessions" },
   { press: inside(region("Sessions"), button("Session check folds")), say: "A Session whose agent kept running `test`" },
   { look: inside(THREAD, button("Check test, latest failed")), say: "The runs of `test` fold into one row, showing the latest" },
   { look: inside(THREAD, button("Check desktop:typecheck, passed")), say: "A different Check between them ends the fold" },

@@ -1,0 +1,49 @@
+// How loud a Job or Session is, and the order the deck's list reads them in. Gray is the baseline, one hue says he is
+// owed something, and red is a Check failing right now and nothing handled, old or somebody else's.
+
+import type { Phase, Ship, Subject, Tone } from "./ship";
+
+export type Group = "needs" | "working" | "held" | "done";
+export const GROUPS: readonly { id: Group; name: string }[] = [
+  { id: "needs", name: "Needs you" },
+  { id: "working", name: "Working" },
+  { id: "held", name: "Stuck or held" },
+  { id: "done", name: "Done" },
+];
+
+/**
+ * **Amber says he is owed something; red says a Check is failing on it right now.** A Session that is stuck is held in
+ * its own group and gray, and a red pull request on an idle Session is drawn quiet on its chip: the Job that is on the
+ * same failure carries the red.
+ */
+const QUIET_AFTER = 15;
+const minutes = (subject: Subject) => Number.parseInt(subject.since ?? "0", 10) || 0;
+
+export function toneOf(subject: Subject): Tone {
+  if (subject.kind === "job") return subject.mark.said === "Check failed" ? "bad" : subject.mark.tone === "ask" ? "ask" : "calm";
+  if (subject.kind === "session") {
+    if (subject.mark.tone === "ask") return "ask";
+    // A failure nobody has touched for a quarter of an hour is old news and drawn quiet; so is a stuck Session.
+    if (subject.mark.tone === "bad") return subject.phase === "held" || minutes(subject) >= QUIET_AFTER ? "calm" : "bad";
+  }
+  return "calm";
+}
+
+export function groupOf(subject: Subject): Group {
+  if (toneOf(subject) !== "calm") return "needs";
+  const phase: Phase = subject.phase;
+  return phase === "needs" ? "done" : phase;
+}
+
+const LOUD: Record<Tone, number> = { bad: 0, ask: 1, calm: 2 };
+
+/** The Jobs and Sessions of the ship, grouped by standing, the loudest first inside each. */
+export function groupedOf(ship: Ship): { group: (typeof GROUPS)[number]; rows: Subject[] }[] {
+  const rows = ship.subjects.filter((one) => one.kind !== "pr");
+  return GROUPS.map((group) => ({
+    group,
+    rows: rows.filter((one) => groupOf(one) === group.id).sort((a, b) => LOUD[toneOf(a)] - LOUD[toneOf(b)]),
+  })).filter((one) => one.rows.length > 0);
+}
+
+export const orderOf = (ship: Ship): Subject[] => groupedOf(ship).flatMap((one) => one.rows);

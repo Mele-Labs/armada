@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -78,7 +78,7 @@ test("a row opens its facts and log, and its Drone opens on this Job's Drones ta
 test("the Checks page has the same filter row", async () => {
   mount("job-checks");
   await onScreen();
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Checks", exact: true }).click();
+  await toPageByName("Checks");
   await expect.element(page.getByRole("button", { name: "docs_test", exact: true })).toBeVisible();
   const filters = page.getByRole("tab", { name: /^(All|Active|Waiting|Completed|Passed|Failed|Skipped)$/ });
   expect(filters.elements().map((one) => one.textContent)).toEqual(FILTERS);

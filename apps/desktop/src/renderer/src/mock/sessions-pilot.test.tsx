@@ -4,7 +4,7 @@
 // publishes the Job and the Session changing. The walk (`walks/piloting.ts`) proves what the screens
 // draw from fixtures; this proves they draw it from, and act on, what Fleet serves.
 
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { completedSuccess } from "@armada/jobs/fixtures/build/index";
@@ -13,11 +13,10 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard, onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, putOffEveryCall, rememberingTheGrid, unmountAfterEach } from "./testing";
+import { mount, onScreen, toJobPage, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 // The Cockpit opens on its timeline; these pick a Job's tile, so they start from the grid.
-beforeEach(rememberingTheGrid);
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -29,13 +28,10 @@ function served(fleet: FakeSessionsFleet): Scenario {
   return fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root }));
 }
 
-/** The stopped Job's tile picked on Active, so its acts are in the pane beside the grid. */
+/** The stopped Job's page, from its row in the Cockpit's list. */
 async function toTheJob(): Promise<void> {
   await onScreen();
-  // The Job asks, so its call is in front of the panel; put it off to reach the pane under it.
-  await putOffEveryCall();
-  await userEvent.click(page.getByRole("tab", { name: "Active" }));
-  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
+  await toJobPage(/^The retry loop/);
 }
 
 /** Pilot, confirmed with its default outcome, from the Job's act in its pane. */
@@ -94,9 +90,8 @@ test("Pilot wired: the Board says which Session has the Job, and its card opens 
   await pilotIt();
   await expect.element(handoff()).toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "Cockpit", exact: true }));
-  await userEvent.click(page.getByRole("tab", { name: "Active" }));
-  await userEvent.click(page.getByRole("option", { name: "The retry loop, Job" }));
+  await toPlace("Cockpit");
+  await userEvent.click(page.getByRole("region", { name: "Jobs and Sessions" }).getByRole("button", { name: /^The retry loop/ }));
   await expect.element(page.getByRole("img", { name: "Piloted in The retry loop" })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Job 52" }));
   const card = page.getByRole("group", { name: "Owned by The retry loop" });
@@ -168,7 +163,7 @@ test("Pilot wired: the `/` list is what the agent named, and the composer offers
   const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", hosted: { turn: { state: "idle" }, mode: "auto", running: false, commands: ["compact", "review"] } })]);
   mount(served(fleet));
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
   await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "/");
   await expect.element(page.getByRole("option", { name: "/compact" })).toBeVisible();

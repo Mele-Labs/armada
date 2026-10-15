@@ -1,4 +1,4 @@
-// The title row's picker: what it calls a repository, and the control beside
+// The Cockpit's repository picker: what it calls a repository, and the control beside
 // it that opens that repository's Manifest — the owner, 28 Sep 2026.
 //
 // *"Is it possible to use a real fake name of a repo/manifest here instead of a
@@ -22,8 +22,9 @@ test("the picker names a repository, and never its Manifest's minted id", async 
   mount("studios");
   await onScreen();
 
-  const trigger = page.getByRole("button", { name: /armada/ });
+  const trigger = page.getByRole("button", { name: "Repository", exact: true });
   await expect.element(trigger).toBeVisible();
+  expect(trigger.element().textContent ?? "").toMatch(/armada/);
   expect(trigger.element().textContent ?? "").not.toMatch(ULID);
 });
 
@@ -32,8 +33,7 @@ test("the control beside the pick opens that repository's Manifest", async () =>
   await onScreen();
 
   await openManifest().click();
-  // The surface's own file tab, named by the path it reads — what the rail row
-  // has always landed on.
+  // The surface's own file tab, named by the path it reads.
   await expect.element(page.getByRole("tab", { name: /armada\.yml/ })).toBeVisible();
 });
 

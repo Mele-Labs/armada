@@ -46,7 +46,7 @@ export function KbdChord({
 
 /**
  * A Global-tier binding of the shape `⌘X` — every one of them but
- * `bridge_surfaces` and `history`, which already spell a range or a pair —
+ * `deck_tabs` and `history`, which already spell a range or a pair —
  * drawn as one box, `⌘` and the key as separate flex children. A caller
  * with a range or a pair to draw still owns its own cut.
  */

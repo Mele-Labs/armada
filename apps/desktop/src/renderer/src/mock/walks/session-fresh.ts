@@ -4,7 +4,7 @@
 // Session that opens on a short handoff, and a fork. Over the `session-fresh` scenario.
 
 import { toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 
 const sessions = region("Sessions");
 const mark = button("Fresh start");
@@ -16,7 +16,7 @@ const fresh = walk("session-fresh", [
   { press: inside(sessions, button(/Release notes script/)), say: "Small and new" },
   { look: model, say: "The model its process resolved, in the composer" },
   { look: role("img", "Context 5%"), say: "53.8k of the window, and no mark" },
-  { press: button("Sessions"), say: "Back to the list" },
+  { press: place("Sessions"), say: "Back to the list" },
   { press: inside(sessions, button(/Invoice PDF layout/)), say: "Past a day old, at 88k" },
   { look: model, say: "A picked alias, resolved to its version" },
   { look: mark, say: "A quiet mark after the context tank" },
@@ -29,7 +29,7 @@ const fresh = walk("session-fresh", [
   { press: mark, say: "Opened again" },
   { press: inside(card, button("Fork")), say: "Fork" },
   { look: region("Session s-01FORK00"), say: "It opens at once" },
-  { press: button("Sessions"), say: "Back to the list" },
+  { press: place("Sessions"), say: "Back to the list" },
   { press: inside(sessions, button(/Cart totals rounding/)), say: "612k, started hours ago" },
   { look: model, say: "Opus again" },
   { look: role("img", "Context 61%"), say: "The context figure" },

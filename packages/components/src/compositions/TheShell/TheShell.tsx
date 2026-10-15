@@ -1,8 +1,7 @@
 import { MessageSquare } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BoardEmptyState } from "../BoardEmptyState/BoardEmptyState";
 import { FleetPanel, type FleetPanelProps } from "../FleetPanel/FleetPanel";
-import { Sidebar, type SidebarItem } from "../Sidebar/Sidebar";
 import { TitleBar, type TitleBarProps } from "../TitleBar/TitleBar";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
@@ -11,31 +10,17 @@ import { HelmSheet } from "./HelmSheet";
 import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } from "../../dock-handle";
 
 /**
- * The shell — the left column, panel and dock. Bridge/1088 replaced the rail
- * and the status bar with two rounded panels — Navigation and
- * Fleet — stacked in one column. Spend and advice left with the bar and
- * appear nowhere here.
+ * The shell: the title row, the panel the work mounts in, and Helm's dock. **There is no left column.** The places are the title
+ * row's tabs and the System strip, which the caller passes as `places`, and Fleet's panel is a popover on the title row's dot,
+ * because nothing else would hold its restart, its build and its Doctor roll-up.
  *
- * **The roster is the caller's.** One surface is in the rail because one
- * surface exists, so the surfaces arrive as a prop and this component counts
- * nothing.
- *
- * The panel scrolls; the left column and the dock do not. `min-height: 0` on
- * the scrolling child is what stops the window growing instead.
+ * The panel scrolls; the dock does not. `min-height: 0` on the scrolling child is what stops the window growing instead.
  */
 export type TheShellProps = {
-  /** Beneath the rail's own section label — nothing draws here since #1087
-   *  moved the Manifest picker to the title row; kept for a caller that wants
-   *  the rail to carry something else. */
-  railHeader?: ReactNode;
-  /**
-   * The repository picker, in a small panel at the top of the left column, above
-   * Navigation. **It was in the title row from #1087 until the owner decluttered the row
-   * on 14 Oct 2026.** Absent draws no panel.
-   */
-  repositoryPicker?: ReactNode;
-  /** What the panel draws at the 48px rail: the repository as one glyph, its name in a tooltip. */
-  repositoryPickerCollapsed?: ReactNode;
+  /** The places the title row draws in its centre, before the search trigger. See `TitleBar`. */
+  places?: TitleBarProps["places"];
+  /** The word the title row draws at its start in place of the lockup. See `TitleBar`. */
+  wordmark?: TitleBarProps["wordmark"];
   /** What the title row's one menu opens besides the account and Sleep. */
   menu?: TitleBarProps["menu"];
   /** The picker's entries, for the title row's narrow menu. */
@@ -50,68 +35,14 @@ export type TheShellProps = {
   sleep?: TitleBarProps["sleep"];
   /** The plan's limits, as figures in the title row. Absent draws none. */
   planUsage?: TitleBarProps["planUsage"];
-  /**
-   * The rail's panels, each its own rounded panel in the column — the owner
-   * split Navigation in two on 28 Sep 2026. **The roster and the grouping are
-   * both the caller's**: this counts nothing and names nothing.
-   *
-   * The collapse toggle is drawn in the first panel's head alone. Two toggles
-   * for one column would be two controls on one act.
-   */
-  panels: { id: string; label: string; surfaces: SidebarItem[] }[];
-  activeId?: string;
-  /**
-   * The 48px icon rail — the column's narrowest, and the narrowest it ever
-   * gets. The surface decides, from two terms: the window is under
-   * `--layout-breakpoint`, or the person asked for it (#1591). **The dock's
-   * state is not one of them** and was until #1583 — a second bound collapsed
-   * the column while the dock was taking 380px off the content, so opening
-   * Helm made the content wider.
-   *
-   * **There is no third width.** #1435 added one — the column absent
-   * altogether — and the owner corrected it on 18 Sep 2026: the panels
-   * collapse into an icon-size column, they are not hidden away. A person's
-   * press reaches this same rail, never a second narrow state.
-   */
-  collapsed?: boolean;
-  /**
-   * The press that collapses the column and brings it back — drawn in
-   * Navigation's own head by `Sidebar`. **Absent draws no control**, which is
-   * what the shell's caller passes under `--layout-breakpoint`: the rail is
-   * the only width there, so there is no choice to offer. Remembering the
-   * answer across a restart is the caller's, as `leftWidth` already is.
-   */
-  onCollapsedChange?: (collapsed: boolean) => void;
-  /** `toggle_sidebar`'s binding, for that control's tooltip. */
-  collapseBinding?: string;
-  onSelect?: (id: string) => void;
   /** The panel body. The one region that scrolls. No head above it: #1090
-   *  ended the panel head every screen used to spend on its own name — the
-   *  rail already says where you are, so a screen's own controls sit at the
-   *  top of its content instead. */
+   *  ended the panel head every screen used to spend on its own name, so a
+   *  screen's own controls sit at the top of its content instead. */
   children: ReactNode;
   /** Helm's dock, on every surface. Absent draws none. */
   dock?: TheShellDock;
-  /** The left column's second panel, what the status bar used to read. */
+  /** Fleet's panel, opened from the title row's dot. */
   fleet: Omit<FleetPanelProps, "narrow">;
-  /**
-   * The left column's resting width in px, for Navigation and Fleet
-   * together — one width, the same way `.armada-shell__left` already shares
-   * it among the panels (#1124). Absent draws `--sidebar-default`. Ignored
-   * while `collapsed`, which always draws `--sidebar-rail` — there is nothing
-   * to size at 48px.
-   */
-  leftWidth?: number;
-  /**
-   * Drags and arrow-key nudges the trailing-edge handle, clamped between
-   * `--sidebar-min` and `--sidebar-max` — `clampLeftWidth`. **Absent draws no
-   * handle at all**, the dock's own reasoning: an edge that looks grabbable
-   * and does nothing is worse than no edge. Hidden outright while `collapsed`,
-   * the same way the dock's handle disappears while folded — nothing to drag
-   * at the rail's 48px. Persisting the result across a restart is the
-   * caller's, the same way the dock's own `width` is.
-   */
-  onResizeLeft?: (width: number) => void;
 };
 
 /**
@@ -142,8 +73,8 @@ export type TheShellDock = {
   width?: number;
   /**
    * Drags and arrow-key nudges the leading-edge handle, clamped between
-   * `--w-dock-min` and whatever the window leaves once the left column and
-   * `--w-work-min` are accounted for — `clampDockWidth`. **Absent draws no
+   * `--w-dock-min` and whatever the window leaves once `--w-work-min` is
+   * accounted for — `clampDockWidth`. **Absent draws no
    * handle at all** — an edge that looks grabbable and does nothing is worse
    * than no edge. Persisting the result across a restart is the caller's, the
    * same way `open` is.
@@ -163,9 +94,8 @@ export type TheShellDock = {
 };
 
 export function TheShell({
-  railHeader,
-  repositoryPicker,
-  repositoryPickerCollapsed,
+  places,
+  wordmark,
   menu,
   repositoryMenu,
   onSearch,
@@ -173,22 +103,10 @@ export function TheShell({
   dispatchDisabled,
   sleep,
   planUsage,
-  panels,
-  activeId,
-  collapsed,
-  onCollapsedChange,
-  collapseBinding,
-  onSelect,
   children,
   dock,
   fleet,
-  leftWidth,
-  onResizeLeft,
 }: TheShellProps) {
-  // The effective width whether or not a caller passed one — read by the
-  // handle's own `width` and by the dock's chrome calc below, so a dock
-  // dragged wide never assumes the column is narrower than it actually is.
-  const leftWidthValue = clampLeftWidth(leftWidth ?? defaultLeftWidth());
   return (
     <ShortcutRevealProvider>
       <div className="armada-shell">
@@ -201,50 +119,16 @@ export function TheShell({
           helm={helmButtonOf(dock)}
           {...(sleep === undefined ? {} : { sleep })}
           {...(planUsage === undefined ? {} : { planUsage })}
-          // Every width. The panel carries the same state from the same two
-          // fields; the owner settled the duplication on 18 Sep 2026 — keep
-          // it, drawn always, rather than mounting chrome on a resize.
-          fleet={{ state: fleet.state, label: fleet.label }}
+          {...(places === undefined ? {} : { places })}
+          {...(wordmark === undefined ? {} : { wordmark })}
+          fleet={{ state: fleet.state, label: fleet.label, panel: <FleetInAPopover {...fleet} /> }}
         />
         <div className="armada-shell__body">
-          <div
-            className="armada-shell__left"
-            style={collapsed || leftWidth === undefined ? undefined : { width: `${leftWidthValue}px` }}
-          >
-            {repositoryPicker === undefined ? null : (
-              <section className="armada-shell__repository" aria-label="Repository" data-collapsed={collapsed || undefined}>
-                {collapsed ? (repositoryPickerCollapsed ?? null) : repositoryPicker}
-              </section>
-            )}
-            {panels.map((panel, at) => (
-              <Sidebar
-                key={panel.id}
-                // The first panel alone carries the header slot and the
-                // collapse control: the header is the drag region under the
-                // traffic lights, and one column has one toggle.
-                {...(at === 0 ? { header: railHeader } : {})}
-                sectionLabel={panel.label}
-                surfaces={panel.surfaces}
-                activeId={activeId}
-                collapsed={collapsed}
-                {...(at === 0 && onCollapsedChange !== undefined ? { onCollapsedChange } : {})}
-                {...(at === 0 && collapseBinding !== undefined ? { collapseBinding } : {})}
-                // The column holds the width. Left to its own 200px default, the
-                // nav stayed put while Fleet followed a drag.
-                width="100%"
-                onSelect={onSelect}
-              />
-            ))}
-            <FleetPanel {...fleet} narrow={collapsed} />
-          </div>
-          {collapsed || onResizeLeft === undefined ? null : (
-            <LeftHandle width={leftWidthValue} onResize={onResizeLeft} />
-          )}
           <div className="armada-shell__work">
             <div className="armada-shell__panel">
               <div className="armada-shell__mount">{children}</div>
             </div>
-            {dock === undefined ? null : <Dock {...dock} leftWidth={leftWidthValue} />}
+            {dock === undefined ? null : <Dock {...dock} />}
           </div>
         </div>
       </div>
@@ -252,24 +136,26 @@ export function TheShell({
   );
 }
 
+/** Fleet's panel as the title row's dot opens it: its own open state, since nothing else holds one. */
+function FleetInAPopover(props: Omit<FleetPanelProps, "narrow" | "open" | "onOpenChange">) {
+  const [open, setOpen] = useState(true);
+  return <FleetPanel {...props} open={open} onOpenChange={setOpen} />;
+}
+
 const DOCK_TITLE = "Helm";
 
 /**
  * The dock's drag range — `dockWidthRange` (`dock-handle.tsx`), given the room
  * the window leaves. `availableWidth` is the caller's `window.innerWidth`,
- * minus the chrome around the dock that isn't the panel or the dock itself —
- * the left column's width, its margin, the gap, the handle's hit area and the
- * dock's own margin, four `--space-4` gutters and the left column between
- * them, all from `TheShell.css`. `leftWidth` is the column's actual width now
- * that it resizes too; absent falls back to `--sidebar-default`, what this
- * always read before.
+ * minus the chrome around the dock that isn't the panel or the dock itself:
+ * the gap, the handle's hit area and the dock's own margin, four `--space-4`
+ * gutters, all from `TheShell.css`.
  *
  * **The arithmetic did not move when the dock did** (#1583). `--w-work-min`
  * was the panel's floor beside the dock; it is what stays uncovered under it.
  */
-function dockWidthBounds(availableWidth: number, leftWidth?: number): { min: number; max: number } {
-  const sidebar = leftWidth ?? tokenPx("--sidebar-default");
-  return dockWidthRange(availableWidth - sidebar - 4 * tokenPx("--space-4"));
+function dockWidthBounds(availableWidth: number): { min: number; max: number } {
+  return dockWidthRange(availableWidth - 4 * tokenPx("--space-4"));
 }
 
 /** The window's own width, read live — the one figure here no CSS token can
@@ -296,117 +182,8 @@ export { defaultDockWidth };
  * stale, from a narrower window, or from a build that carried different
  * tokens — never draws past what today's window and today's tokens allow.
  */
-export function clampDockWidth(width: number, availableWidth: number, leftWidth?: number): number {
-  return clampToRange(width, dockWidthBounds(availableWidth, leftWidth));
-}
-
-const LEFT_WIDTH_MIN_FALLBACK = 160;
-const LEFT_WIDTH_MAX_FALLBACK = 320;
-const LEFT_WIDTH_DEFAULT_FALLBACK = 200;
-
-/**
- * The left column's drag range — Navigation and Fleet resize as one,
- * so the range is the rail's own tokens: `--sidebar-min` and `--sidebar-max`,
- * the same ceiling Sidebar's own `max-width` already enforces (#1124).
- * **No window-relative ceiling here**, unlike the dock — the dock holds
- * whatever a Drone hands back with no natural size of its own; the left
- * column is two panels of fixed content the design system already sized.
- */
-function leftWidthBounds(): { min: number; max: number } {
-  if (typeof document === "undefined") {
-    return { min: LEFT_WIDTH_MIN_FALLBACK, max: LEFT_WIDTH_MAX_FALLBACK };
-  }
-  const style = getComputedStyle(document.documentElement);
-  const min = parseFloat(style.getPropertyValue("--sidebar-min"));
-  const max = parseFloat(style.getPropertyValue("--sidebar-max"));
-  return {
-    min: Number.isFinite(min) ? min : LEFT_WIDTH_MIN_FALLBACK,
-    max: Number.isFinite(max) ? max : LEFT_WIDTH_MAX_FALLBACK,
-  };
-}
-
-/** The left column's own resting width, for a caller with none of its own to remember yet. */
-export function defaultLeftWidth(): number {
-  if (typeof document === "undefined") return LEFT_WIDTH_DEFAULT_FALLBACK;
-  const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-default"));
-  return Number.isFinite(value) ? value : LEFT_WIDTH_DEFAULT_FALLBACK;
-}
-
-/** Clamped to `leftWidthBounds`, the same reasoning `clampDockWidth` uses for the dock. */
-export function clampLeftWidth(width: number): number {
-  const { min, max } = leftWidthBounds();
-  return Math.min(max, Math.max(min, width));
-}
-
-/** One `--space-4` per arrow press, matching the dock's own step. */
-const LEFT_WIDTH_STEP = 16;
-
-/**
- * The left column's trailing-edge handle — one handle for Navigation
- * and Fleet together, never one per panel. Right widens the column, since it
- * sits on the window's leading edge and dragging toward the content is
- * dragging the edge that grows it; Home and End match a plain slider's own
- * sense, unlike the dock's inverted one, since this column is not mirrored
- * to the opposite edge the way the dock is.
- */
-function LeftHandle({ width, onResize }: { width: number; onResize: (width: number) => void }) {
-  const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
-
-  function pointerDown(event: PointerEvent<HTMLDivElement>): void {
-    if (event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
-    setDragging(true);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    event.currentTarget.focus();
-    event.preventDefault();
-  }
-
-  function pointerMove(event: PointerEvent<HTMLDivElement>): void {
-    if (drag.current === null || drag.current.pointerId !== event.pointerId) return;
-    const delta = event.clientX - drag.current.startX;
-    onResize(clampLeftWidth(drag.current.startWidth + delta));
-  }
-
-  function endDrag(event: PointerEvent<HTMLDivElement>): void {
-    if (drag.current?.pointerId !== event.pointerId) return;
-    drag.current = null;
-    setDragging(false);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-  }
-
-  function keyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    const { min, max } = leftWidthBounds();
-    if (event.key === "ArrowRight") onResize(clampLeftWidth(width + LEFT_WIDTH_STEP));
-    else if (event.key === "ArrowLeft") onResize(clampLeftWidth(width - LEFT_WIDTH_STEP));
-    else if (event.key === "Home") onResize(min);
-    else if (event.key === "End") onResize(max);
-    else return;
-    event.preventDefault();
-  }
-
-  const { min, max } = leftWidthBounds();
-  return (
-    <div
-      className="armada-shell__left-handle"
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize the left column"
-      aria-valuenow={Math.round(width)}
-      aria-valuemin={Math.round(min)}
-      aria-valuemax={Math.round(max)}
-      data-dragging={dragging || undefined}
-      tabIndex={0}
-      onPointerDown={pointerDown}
-      onPointerMove={pointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onKeyDown={keyDown}
-    />
-  );
+export function clampDockWidth(width: number, availableWidth: number): number {
+  return clampToRange(width, dockWidthBounds(availableWidth));
 }
 
 function Dock({
@@ -418,8 +195,7 @@ function Dock({
   onOpen,
   action,
   children,
-  leftWidth,
-}: TheShellDock & { leftWidth: number }) {
+}: TheShellDock) {
   const availableWidth = useWindowWidth();
   const body = children ?? (
     <BoardEmptyState quiet>Questions waiting on you, and Helm, will be here.</BoardEmptyState>
@@ -432,7 +208,7 @@ function Dock({
     // and its arrow-key math a number the aside on screen already disagrees
     // with. Clamping once here keeps every reader of `restingWidth` — the
     // aside's style included — looking at what is actually drawn.
-    const restingWidth = clampDockWidth(width ?? defaultDockWidth(), availableWidth, leftWidth);
+    const restingWidth = clampDockWidth(width ?? defaultDockWidth(), availableWidth);
     // **The handle rides on the layer with the dock, not in the flow beside
     // it.** Left behind in `__work` it would still be a 16px track, so the
     // content would move by that much on every open — the same defect as the
@@ -442,7 +218,7 @@ function Dock({
         {onResize === undefined ? null : (
           <DockHandle
             width={restingWidth}
-            {...dockWidthBounds(availableWidth, leftWidth)}
+            {...dockWidthBounds(availableWidth)}
             label={DOCK_TITLE}
             onResize={onResize}
           />

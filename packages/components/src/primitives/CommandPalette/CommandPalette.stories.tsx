@@ -29,7 +29,7 @@ const CONTEXT = "job_2d90bb — coalesce the session refresh";
 
 /**
  * The whole rail, one row per destination. Each glyph is the icon registry's
- * own assignment for that surface; the registry's `bridge_surfaces` row carries
+ * own assignment for that surface; the registry's `deck_tabs` row carries
  * none by design, because one glyph standing for all of them is not a thing —
  * which is also why the rail expands into rows here rather than that one row
  * being drawn. Helm is not among them: it is a sibling surface with a registry
@@ -110,8 +110,8 @@ function sections(title: string): PaletteSection[] {
  * navigation, jobs, settings.
  *
  * Navigation is the rail's destinations plus the global acts the rail is not.
- * `bridge_surfaces` is one registry row over every destination, because the
- * rule there is rail order rather than the digits — so the rail is what
+ * `deck_tabs` is one registry row over the tabs, because the
+ * rule there is the tab's place rather than the digits — so the roster is what
  * expands it, and Helm arrives from the registry as the digit after the last
  * of them.
  */

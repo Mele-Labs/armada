@@ -5,14 +5,14 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 async function onWriteUp(): Promise<void> {
   mount("session-ledger");
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: "Write up the store clock" }));
 }
 

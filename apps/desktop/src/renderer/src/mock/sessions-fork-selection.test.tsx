@@ -11,7 +11,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -40,7 +40,7 @@ function served(fleet: FakeSessionsFleet): Scenario {
 }
 
 async function open() {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   const list = page.getByRole("region", { name: "Sessions" });
   await userEvent.click(list.getByRole("tab", { name: "Active" }));
   await userEvent.click(list.getByRole("button", { name: "A live hosted one" }));

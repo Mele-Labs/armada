@@ -40,6 +40,8 @@ import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
 import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } from "./app-effects";
 import { CallAlerts } from "./cockpit/CallAlerts";
+import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
+import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -164,7 +166,7 @@ import { DoctorSurface } from "./doctor/Doctor";
 import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
-import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
+import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
 
 /** Re-exported so nothing importing it has to learn a new path. */
 export const WAITING: BridgeState = NOTHING_YET;
@@ -350,7 +352,9 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo);
+  // `⌘1` to `⌘6` are the title bar's tabs and `⌘,` is Settings.
+  const layoutRail = useLayout("rail");
+  useSurfaceKeys((surface) => goTo(opensFor(surface, placesOff(hidden, layoutRail.all))));
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -619,9 +623,10 @@ export function App({ draft }: AppProps = {}) {
   // Helm's dock lists every repository's questions, whatever the pick. `questions` is the dock's own block; `asks` is Helm's.
   const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, now, commands);
   const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting }) === SURFACE.overview; // Its call is already in front.
+  const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting });
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
-  useHistory(
+  const { back, replaceNext } = useHistory(
     { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
@@ -651,7 +656,6 @@ export function App({ draft }: AppProps = {}) {
         <SessionsOwnership onOpen={openSession}>
         <DispatchingProvider value={dispatching}>
         <Shell
-          hidden={hidden} warned={workflowsWarned(state.health)}
           connection={state.connection}
           repositories={repositories}
           listed={listed}
@@ -662,6 +666,8 @@ export function App({ draft }: AppProps = {}) {
           onCompose={() => setComposing(true)}
           onSearch={palette.onOpen}
           {...titleRow}
+          wordmark="Armada"
+          places={<DeckPlaces state={state} picked={pickedRepository} nowViews={nowing.feed.calls} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
           questions={questions}
           asking={asks.length}
           helm={
@@ -721,16 +727,13 @@ export function App({ draft }: AppProps = {}) {
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}
-          // Which row the rail marks — `showing.ts`.
-          showing={showingOf({
-            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting,
-          })}
           onSurface={goTo}
         >
           {/* Real CSS, not utilities: nothing Tailwind spells emits a rule in
               this app, so the class that bounds this box lives in the app's own
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
+          <DeckSystem showing={showingNow} hidden={hidden} warned={workflowsWarned(state.health)} onGoTo={goTo} />
           <div className="armada-screen__mounted">
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
@@ -1151,7 +1154,11 @@ export function App({ draft }: AppProps = {}) {
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
                   onPickRepository={pick}
+                  onAddRepository={locate.onOpen}
+                  onGoTo={goTo}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
+                  onRescueSlot={slotActs.onRescueSlot}
+                  onMergeJob={(jobId) => commands.mergeProps(jobId).onMergePullRequest(jobId)}
                   nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />
 
@@ -1206,7 +1213,7 @@ export function App({ draft }: AppProps = {}) {
         <TitleDispatchedStrip anchor={ONE_BAR} />
 
         <PaletteMount
-          open={palette.open} onClose={palette.onClose} dispatch={oneBar} anchor={ONE_BAR}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar}
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}
@@ -1256,6 +1263,7 @@ export function App({ draft }: AppProps = {}) {
           onCopied={setCopied}
         >
           <DownshiftAlert choose={openModelSetting} />
+          <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>

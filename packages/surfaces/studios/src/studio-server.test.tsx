@@ -12,7 +12,7 @@ import { page, userEvent } from "vitest/browser";
 import type { ServerState, Studio, StudioNode } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
-import { sheet, mountApp, type Mounted, studying } from "@armada/desktop/mock";
+import { sheet, mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -101,7 +101,7 @@ function serving() {
 }
 
 async function openTheStudio(): Promise<void> {
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The app, running", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 }

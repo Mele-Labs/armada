@@ -10,7 +10,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { entered, mount, unmountAfterEach } from "@armada/desktop/mock";
+import { entered, mount, toPageByName, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
@@ -108,7 +108,7 @@ test("a log still being written has no Record row yet, so no way on is drawn", a
 
 test("a merge line row's running Check opens its log, which grows as the runner writes it", async () => {
   mount("check-logs", SLICES);
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Merge line", exact: true }).click();
+  await toPageByName("Merge line");
   const turn = page.getByRole("listitem", { name: /^worktree-agent-aef3c24792026e2c3/ });
   await turn.getByRole("button", { name: "screens_test, running" }).click();
 
@@ -119,7 +119,7 @@ test("a merge line row's running Check opens its log, which grows as the runner 
 
 test("a merge line Check that failed and was sent back opens its whole log", async () => {
   mount("check-logs", SLICES);
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Merge line", exact: true }).click();
+  await toPageByName("Merge line");
   const sent = page.getByRole("listitem", { name: /^fleet\/pulse-log-rows/ });
   await sent.getByRole("button", { name: "desktop_test, failed" }).click();
 

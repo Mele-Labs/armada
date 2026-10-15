@@ -15,6 +15,7 @@ import {
   SCRATCH,
   SHEET_READ,
   settingUp,
+  toPlace,
   unmountAfterEach,
   VERIFY_ENDED,
 } from "@armada/desktop/mock";
@@ -36,6 +37,12 @@ async function setup(options: SettingUp = {}) {
   await expect.element(list).toBeVisible();
   return list;
 }
+
+// The title bar's places are a tablist too, so the Manifest's own is the one holding Set up workspaces.
+const manifestTabs = () => page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Set up workspaces" }) });
+
+/** The repository picker on the Cockpit: labelled Repository, and its text is the name of the one chosen. */
+const repositoryPicker = () => page.getByRole("button", { name: "Repository", exact: true });
 
 /** A workspace's proposal, opened from the picker, in place to be pressed. */
 async function open(list: ReturnType<typeof page.getByRole>, dir: string) {
@@ -208,7 +215,7 @@ const TWO: SettingUp = { repositories: [repository(), SCRATCH], sheet: SHEET_REA
 
 test("a set-up and a not-set-up repository: both listed, the one not set up grouped as such", async () => {
   mount(settingUp(TWO), SLICES);
-  await page.getByRole("button", { name: MANIFEST_NAME }).click();
+  await repositoryPicker().click();
   await expect.element(page.getByRole("menuitem", { name: MANIFEST_NAME })).toBeInTheDocument();
   const menu = page.getByRole("menu");
   await expect.element(menu.getByText("Not set up")).toBeVisible();
@@ -220,7 +227,7 @@ test("a set-up and a not-set-up repository: both listed, the one not set up grou
 test("picking one not set up opens Setup alone; a workspace verifies before the root is set up", async () => {
   const onVerify = vi.fn();
   mount(settingUp({ ...TWO, onVerify }), SLICES);
-  await page.getByRole("button", { name: MANIFEST_NAME }).click();
+  await repositoryPicker().click();
   await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = page.getByRole("region", { name: "Workspaces" });
   const sheet = await open(list, "apps/web");
@@ -234,7 +241,7 @@ test("picking one not set up opens Setup alone; a workspace verifies before the 
 
 test("pick one not set up, write its root, and it reads as set up with an Edit tab", async () => {
   mount(settingUp(TWO), SLICES);
-  await page.getByRole("button", { name: MANIFEST_NAME }).click();
+  await repositoryPicker().click();
   await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = page.getByRole("region", { name: "Workspaces" });
   await expect.element(list).toBeVisible();
@@ -242,13 +249,15 @@ test("pick one not set up, write its root, and it reads as set up with an Edit t
   const sheet = await open(list, ".");
   await sheet.getByRole("button", { name: "Write armada.yml" }).click();
   await expect.element(sheet.getByRole("region", { name: "Verify" }).getByRole("button", { name: "Verify" })).toBeEnabled();
-  // The sheet covers the rail while it is up, so it closes before the picker is pressed.
+  // The sheet covers the page while it is up, and the picker is on the Cockpit, so it closes and the Cockpit is opened first.
   await sheet.getByRole("button", { name: "Back to the workspaces" }).click();
-  await page.getByRole("button", { name: "scratch" }).click();
+  await toPlace("Cockpit");
+  await repositoryPicker().click();
   const menu = page.getByRole("menu");
   await expect.element(menu.getByRole("menuitem", { name: "scratch" })).toBeInTheDocument();
   expect(menu.getByText("Not set up").query()).toBeNull();
   await userEvent.keyboard("{Escape}");
+  await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
   await expect.element(page.getByRole("tab", { name: "Edit" })).toBeVisible();
 });
 
@@ -260,11 +269,11 @@ test("a batch taller than the window scrolls under tabs that stay put, and a pro
   expect(scrollerOf(list.element())).toBe(picker);
   expect(picker!.scrollHeight).toBeGreaterThan(picker!.clientHeight);
   expect(endShownIn(batch, picker!)).toBe(false);
-  const tabsAt = page.getByRole("tablist").element().getBoundingClientRect().top;
+  const tabsAt = manifestTabs().element().getBoundingClientRect().top;
 
   picker!.scrollTop = picker!.scrollHeight;
   await expect.poll(() => endShownIn(batch, picker!)).toBe(true);
-  expect(page.getByRole("tablist").element().getBoundingClientRect().top).toBe(tabsAt);
+  expect(manifestTabs().element().getBoundingClientRect().top).toBe(tabsAt);
   const last = page.elementLocator(batch).getByRole("button", { name: "packages/pkg-16" }).elements();
   expect(pressable(last[0]!)).toBe(true);
 

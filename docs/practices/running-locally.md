@@ -615,7 +615,7 @@ scenario** for a vitest browser test. Name the file `.test.tsx` under
 test`. `every-state.test.tsx` beside it opens every `every-state` row.
 
 **`testing.ts` is what a test starts from.** `mount(scenario)` mounts it and
-`unmountAfterEach()` takes it down. `openBoard()` reaches the Board by the rail,
+`unmountAfterEach()` takes it down. `openHelm()` opens Helm's dock,
 and `mountTwo` sets two windows on one main. `onBoard(jobs, …)` in
 `scenario.ts` builds a scenario from rows a test picks. A test that used to be a
 Storybook `play` asserts what `App` does with a press — the dialog, the

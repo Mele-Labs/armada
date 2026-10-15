@@ -1,0 +1,18 @@
+[operations.list_slot_touches]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "For each Job or Session holding a worktree slot, the paths it has changed there since the slot met the base branch"
+notes = """
+`GET /slot_touches`. `SlotTouches`. Grouped by served repository (`manifest_id`), each with `holders`: `kind` (`job` or `session`), `id`, `slot`, `paths` and `omitted`. The flight deck's map hovers a drone over the directories of these paths when it has seen no tool burst of the drone's own.
+
+**What counts.** A slot's tree as it stands against the tree of its merge base with the base branch: what the branch committed, what is edited or deleted and not committed, and what is not tracked yet, less what `.gitignore` names. It is read through a scratch copy of the slot's index, so the slot's own index, branch and files are never written, and a write no hook saw is in it. What the base branch changed since the slot was cut is not the holder's and is not here.
+
+**Who.** The Job or hosted Session `list_worktrees` names as holding a slot. A slot held by a process Fleet does not host, a free slot and a stranded one name no holder, so they are not here, and neither is a holder whose slot has no change. A subagent's slot names the Session it began from and is not read. A holder is never in two rows.
+
+**Capped at 200 paths for each holder**, sorted by path, and `omitted` is how many were left out. Sorted means the 200 are the first in the alphabet, so a holder that changed more than that is drawn over the directories that sort first.
+
+**Kept 20 seconds**, for the whole answer, so Bridge asking for it every 35 seconds, and a second Bridge, ask git for it once. A read is one `git merge-base`, one scratch-index tree and one `git diff-tree` for each held slot; the keeper of `list_worktrees` is what says which slots are held, so this asks it and adds no pool read of its own. A slot git cannot read is left out for that read and not reported as unchanged.
+
+`agent_access` is `Bridge only`, for `list_repository_areas`' reason. `docs/concepts/fleet.md`, *The territory*.
+"""

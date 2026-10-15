@@ -1,20 +1,21 @@
-/* The mock's scenario picker, in the app's own left column — the owner asked
-   for it there on 30 Sep 2026. It used to float in the trailing bottom corner
-   and be dragged out of the way; wherever it was dropped it was still over
-   something, which is what the drag was already the second answer to. */
+/* The mock's scenario picker, at the title row's leading end beside the
+   wordmark. It was in the left column until the flight deck became the Cockpit
+   (#2301) and the column went; the title row is the strip every page keeps. */
 .armada-mock-picker {
-  display: flex;
+  display: inline-flex;
   position: relative;
   flex: none;
   min-width: 0;
+  margin-left: var(--space-3);
+  vertical-align: middle;
+  text-transform: none;
 }
 
 /* The one control at rest: the scenario, and nothing beside it saying so —
-   the button's own name and tooltip carry that for a reader. It fills the
-   column so the name has every pixel the column has. */
+   the button's own name and tooltip carry that for a reader. */
 .armada-mock-picker [data-said] {
   justify-content: flex-start;
-  width: 100%;
+  max-width: var(--w-menu);
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -27,29 +28,15 @@
   white-space: nowrap;
 }
 
-/* At the column's rail the name has nowhere to go, so the button is its glyph
-   alone — what every other row in the rail is there. The scenario is still in
-   the tooltip and in the accessible name. Keyed off the app's own collapsed
-   rail rather than a breakpoint, because a person can choose the rail at any
-   width (#1591). */
-.armada-shell__left:has(.armada-sidebar[data-collapsed]) .armada-mock-picker [data-said] {
-  justify-content: center;
-}
-
-.armada-shell__left:has(.armada-sidebar[data-collapsed]) .armada-mock-picker__current {
-  display: none;
-}
-
-/* The list, while it is open. **Fixed, not absolute**: the column scrolls and
-   clips, and a layer anchored inside it would be cut off at the fold. It is
-   pinned to the column's trailing edge and to the bottom of the window, so it
-   grows upward out of the control rather than down off the screen. */
+/* The list, while it is open. **Fixed, not absolute**: the title row clips, and
+   a layer anchored inside it would be cut off. It is pinned under the row at the
+   window's leading edge, so it grows down out of the control. */
 .armada-mock-picker__layer {
   position: fixed;
   left: var(--space-4);
-  /* Clear of the control, so the scenario it says is still readable while the
+  /* Under the control, so the scenario it says is still readable while the
      list is up — the one thing the picker has to draw at all times. */
-  bottom: calc(var(--space-6) + var(--h-control-sm) + var(--space-2));
+  top: calc(var(--h-title-bar) + var(--space-2));
   /* Above a walk's card, which can cross to this corner and would sit over the list. */
   z-index: calc(var(--z-palette) + 2);
   display: flex;

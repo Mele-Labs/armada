@@ -3,13 +3,13 @@
 // palette's Add rows draw the rail's icons, and Run has a palette row and `R`.
 // `studio-zone.test.tsx` and `studio-palette.test.tsx` hold the claims.
 
-import { button, inside, role, walk } from "../walk";
+import { button, inside, role, toSystemPage, walk } from "../walk";
 
 const rail = role("group", "What you can put on this Studio");
 const proposal = button(/^You proposed: /);
 
 export const fourStudioFixes = walk("studio-zone-proposal", [
-  { press: button("Studios", { exact: true }), say: "This repository's Studios" },
+  ...toSystemPage("Studios", "This repository's Studios"),
   { press: button("Open", { exact: true }), say: "A Studio with a Zone, opened read-only" },
   { look: proposal, say: "The relation you proposed is a dot on its line, moved off the Note the line crosses" },
   { press: proposal, say: "Pointed at, it opens: who proposed it, and that Continue answers it" },

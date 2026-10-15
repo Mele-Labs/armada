@@ -6,7 +6,7 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, NeedAnswer, NeedCall, NeedList, WriteClashes};
+use ipc::{ManifestId, NeedAnswer, NeedCall, NeedList, RepositoryAreas, SlotTouches, WriteClashes};
 
 use crate::daemon::Refusal;
 
@@ -35,4 +35,12 @@ pub trait Needs: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
         holder: Option<String>,
     ) -> impl Future<Output = Result<WriteClashes, Refusal>> + Send;
+
+    /// `list_repository_areas` — the directories of every served repository's base, to two names
+    /// deep, with the files under each. Read from git at the base's head, and kept against it.
+    fn list_repository_areas(&self) -> impl Future<Output = Result<RepositoryAreas, Refusal>> + Send;
+
+    /// `list_slot_touches` — what each Job or hosted Session holding a slot has changed in it, by
+    /// repository. Read from git and kept a few seconds.
+    fn list_slot_touches(&self) -> impl Future<Output = Result<SlotTouches, Refusal>> + Send;
 }

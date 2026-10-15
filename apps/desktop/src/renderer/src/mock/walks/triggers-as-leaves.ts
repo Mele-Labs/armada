@@ -3,7 +3,7 @@
 // branch stand the same way, the Workflow tab's canvas offers the same acts, and the Workflow editor draws a
 // Trigger set for every workflow as a leaf on each workflow's canvas.
 
-import { button, card, inside, region, role, tab, text, walk } from "../walk";
+import { button, card, inside, region, role, tab, text, toSystemPage, walk } from "../walk";
 
 const RUN = region("This Job's run");
 
@@ -18,7 +18,7 @@ export const triggersAsLeaves = walk("real/job-2-leaves", [
   { look: button("This branch"), say: "This branch" },
   { look: button("New PR"), say: "New PR" },
   { look: button("Rerun"), say: "And Rerun and Skip on a hold" },
-  { press: button("Workflows", { exact: true }), say: "Workflows, from the rail" },
+  ...toSystemPage("Workflows", "Workflows, from the rail"),
   { press: button("feature, carried"), say: "The Feature workflow" },
   { hover: role("img", "Every workflow"), say: "A Trigger set for every workflow is a leaf off the step it fires at, marked" },
   { look: inside(card("Implement"), text("On pass")), say: "A Trigger set for this workflow alone is a line on the step" },

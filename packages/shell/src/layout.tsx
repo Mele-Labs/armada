@@ -1,4 +1,4 @@
-// Layout: which Cockpit filters and panels, Job detail tabs and rail rows Bridge draws, and in what
+// Layout: which Cockpit panels, Job detail tabs and places Bridge draws, and in what
 // order. `docs/concepts/layout-mods.md`.
 //
 // The registry is the one list of what can be arranged. A mod's `layout.json` and the owner's own
@@ -9,13 +9,9 @@ import { createContext, useContext, useMemo, useSyncExternalStore } from "react"
 import {
   Activity,
   Bot,
-  CircleCheck,
-  CircleDot,
   GitMerge,
   LayoutDashboard,
   ListTodo,
-  LoaderCircle,
-  Rows3,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -24,9 +20,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
+import { PLACES, SURFACE, SURFACES } from "./surfaces";
 
-export type LayoutRegion = "dashboard.tabs" | "dashboard.panels" | "job.tabs" | "rail";
+export type LayoutRegion = "dashboard.panels" | "job.tabs" | "rail";
 
 export type LayoutEntry = {
   id: string;
@@ -41,28 +37,17 @@ export type LayoutEntry = {
 
 type Spec = {
   label: string;
-  /** Whether a layout may reorder it. The rail's order is the shell's own. */
+  /** Whether a layout may reorder it. The tab bar's order is the shell's own. */
   ordered: boolean;
   /** Whether a layout may say which entry opens first. */
   firstable: boolean;
   entries: readonly LayoutEntry[];
 };
 
-const RAIL_FIXED: readonly string[] = [SURFACE.overview, SURFACE.settings, SURFACE.mods];
+const PLACES_FIXED: readonly string[] = [SURFACE.overview, SURFACE.settings, SURFACE.mods];
 
 /** Default order is the array's own, and every entry is drawn until a layout says otherwise. */
 export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
-  "dashboard.tabs": {
-    label: "Cockpit filters",
-    ordered: true,
-    firstable: true,
-    entries: [
-      { id: "command-central", label: "Your move", icon: CircleDot, hideable: false },
-      { id: "running", label: "Active", icon: LoaderCircle, hideable: true },
-      { id: "done", label: "Done", icon: CircleCheck, hideable: true },
-      { id: "bays", label: "Bays", icon: Rows3, hideable: true },
-    ],
-  },
   "dashboard.panels": {
     label: "Cockpit panels",
     ordered: true,
@@ -88,12 +73,14 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     ],
   },
   rail: {
-    label: "Rail",
+    label: "Places",
     ordered: false,
     firstable: false,
-    entries: RAIL_PANELS.flatMap((panel) => panel.surfaces).flatMap((id) => {
+    // The tabs and the System strip's pages. A destination with no place in either (Manifest, Worktree Slots, the merge line, Checks)
+    // is reached from a link on the deck or by name, and a layout has nothing to say of it.
+    entries: PLACES.flatMap((id) => {
       const surface = SURFACES.find((one) => one.id === id);
-      return surface === undefined ? [] : [{ id, label: surface.label, icon: surface.icon, hideable: !RAIL_FIXED.includes(id) }];
+      return surface === undefined ? [] : [{ id, label: surface.label, icon: surface.icon, hideable: !PLACES_FIXED.includes(id) }];
     }),
   },
 };

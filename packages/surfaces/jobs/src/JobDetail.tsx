@@ -43,9 +43,7 @@ import { baseBranch } from "./draft/branches";
 import { ApprovalCanvas } from "./ApprovalCanvas";
 import { lifeOf } from "./approval-life";
 import { proposalEditsOfWhole } from "./tab-proposal-read";
-import { stepNodeId, workflowRunOf } from "./workflow-canvas";
-import type { DroneView } from "./draft/drone";
-import { taskGroupsOf } from "./draft/group";
+import { stepLinesOf } from "./workflow-canvas";
 import { DronesTab } from "./tab-drones";
 import { heldCommandOf } from "./drone-held";
 import { droneViewsOf } from "./draft/drone";
@@ -944,19 +942,4 @@ function pulseOf(
           },
         }),
   };
-}
-
-/**
- * Each step's line as the Workflow tab's own card draws it — how long, and how
- * many Drones on the one at work — so the canvas's live node says it in the
- * same words. **The same builder**, never a second wording of it.
- */
-function stepLinesOf(whole: JobWhole, drones: readonly DroneView[]): Record<string, string> {
-  const run = workflowRunOf({ whole, groups: taskGroupsOf(whole), drones });
-  const lines: Record<string, string> = {};
-  for (const step of whole.steps) {
-    const line = run.nodes.find((node) => node.id === stepNodeId(step.step_id))?.card.line;
-    if (line !== undefined) lines[step.step_id] = line;
-  }
-  return lines;
 }

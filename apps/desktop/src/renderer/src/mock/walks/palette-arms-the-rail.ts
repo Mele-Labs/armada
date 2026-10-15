@@ -2,12 +2,12 @@
 // puts focus in the rail's Run menu — the owner, 2 Oct 2026. `studio-palette.test.tsx` holds the
 // claims, `R` and the read-only reasons with them.
 
-import { button, inside, role, walk } from "../walk";
+import { button, inside, role, toSystemPage, walk } from "../walk";
 
 const rail = role("group", "What you can put on this Studio");
 
 export const paletteArmsTheRail = walk("studios", [
-  { press: button("Studios", { exact: true }), say: "This repository's Studios" },
+  ...toSystemPage("Studios", "This repository's Studios"),
   { press: role("cell", "The Board's legend", { exact: true }), say: "Opened from the list, it is read-only" },
   { press: button("Continue"), say: "Continue makes the Studio editable" },
   { press: button("Search, or describe work"), say: "The palette, as ⌘K opens it" },

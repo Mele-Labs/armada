@@ -4,13 +4,13 @@
 // or the workflow's settings in the app's one overlay panel. A mock, no Fleet
 // behind it.
 
-import { button, card, inside, role, text, walk } from "../walk";
+import { button, card, inside, role, text, toSystemPage, walk } from "../walk";
 
 const FRAME = role("region", "Workflow definition");
 const PANEL = role("dialog", "gather");
 
 export const aWorkflowCreator = walk("workflows", [
-  { press: button("Workflows", { exact: true }), say: "Workflows, from the rail" },
+  ...toSystemPage("Workflows", "Workflows, from the rail"),
   { hover: role("img", "A workflow file cannot run"), say: "The rail row is marked while a file cannot run" },
   { look: role("list", "Workflow files"), say: "Every file, a row each" },
   { hover: role("img", /review returns to fix/), say: "The workflow as dots, an arc for a step sending work back" },

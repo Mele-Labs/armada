@@ -113,7 +113,7 @@ export type PaletteSetting = { id: string; label: string; value?: string; aliase
  *
  * **They appear as rows and the registry's single `state_filter` does not.**
  * That row spells its binding `1–5` over five tabs, for the reason
- * `bridge_surfaces` spells `⌘1–⌘4` over four destinations — the rule is tab
+ * `deck_tabs` spells `⌘1–⌘6` over its destinations — the rule is tab
  * order rather than the digits. A palette drawing that one row would name no
  * filter and set none, which would leave `1`–`5` the one part of the app
  * learnable only by finding the tabs.
@@ -293,8 +293,8 @@ export function Palette({
       action.unbuilt === null && absent.includes(action.id)
         ? []
         : action.id === STATE_FILTER && filters.length > 0
-        ? // Expanded into its five, for the reason the rail expands
-          // `bridge_surfaces` into its four. The one registry row spells a
+        ? // Expanded into its five, for the reason the roster expands
+          // `deck_tabs` into its places. The one registry row spells a
           // range over a set whose order is the rule; only the Board knows
           // what `3` currently narrows to.
           filters.map((filter) => ({
@@ -306,12 +306,12 @@ export function Palette({
           }))
         : [entryOf(action, CONTEXT, dormant)],
     ),
-    // The rail as it actually is, one row per destination. The registry keeps
-    // `bridge_surfaces` as a single row on purpose — its rule is rail order
-    // rather than the digits — so the rail is what expands it, and a palette
-    // built from that row alone would name no destination at all.
+    // The roster as it actually is, one row per destination. The registry keeps
+    // `deck_tabs` as a single row on purpose — its rule is the tab's place in
+    // the bar rather than the digits — so the roster is what expands it, and a
+    // palette built from that row alone would name no destination at all.
     //
-    // **Places that are not in the rail come through here too**, which is what
+    // **Places with no tab come through here too**, which is what
     // the optional digit above is for. They are destinations by every other
     // measure — a title, a glyph in the registry's Navigation group, a screen
     // that replaces the panel — and leaving them out is the exact failure this

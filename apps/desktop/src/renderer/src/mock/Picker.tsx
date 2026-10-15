@@ -13,18 +13,15 @@ import { SCENARIOS } from "./scenario";
 import { EVERY_WALK } from "./walks";
 
 /**
- * The app's own left column — where the owner asked for the picker on
- * 30 Sep 2026: *"I still would like to find a better way to overlay the mock
- * scenarios. What if we put it in the left side panel?"*
+ * The title row's leading end, beside the wordmark. The owner asked for the picker in the left side panel on
+ * 30 Sep 2026, so that it covered nothing; the window has no left panel since the flight deck became the Cockpit
+ * (#2301), and the title row is the one strip every page keeps and nothing draws under.
  *
- * **In the column, not over it.** #1618 answered the same complaint by making
- * the card draggable, which moved the problem rather than ending it: wherever
- * it was dropped it was still on top of something, and every screenshot taken
- * all night had to hide it first. A child of the column is in the flow with
- * Navigation and Fleet, so it covers nothing at any width and scrolls
- * with them when the window is too short to hold all three.
+ * **In the row, not over it.** #1618 answered the same complaint by making the card draggable, which moved the problem
+ * rather than ending it: wherever it was dropped it was still on top of something, and every screenshot taken all night
+ * had to hide it first. A child of the title row is in the flow, so it covers nothing at any width.
  */
-const COLUMN = ".armada-shell__left";
+const COLUMN = ".armada-title-bar__wordmark";
 
 /**
  * The column, once the app has drawn it. `main.tsx` mounts the app first, but
@@ -145,7 +142,7 @@ function to(hit: Pick<Hit, "name" | "walk">): string {
 }
 
 /**
- * The picker, in the app's own left column.
+ * The picker, in the title row's leading end.
  *
  * **One control at rest, saying which scenario is on**, and a layer over the
  * content only while it is open — which is the difference the owner asked for:

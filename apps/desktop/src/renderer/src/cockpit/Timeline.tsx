@@ -97,10 +97,10 @@ function Glyph({ subject }: { subject: Subject }) {
 }
 
 /** A subject's name, as a press that opens it where it opens anything. */
-function Who({ subject, open, children }: { subject: Subject; open: Open; children?: ReactNode }) {
+function Who({ subject, open, children, glyph = true }: { subject: Subject; open: Open; children?: ReactNode; /** The kind's glyph beside the name. A stacked row draws it in its own column. */ glyph?: boolean }) {
   const inside = (
     <>
-      <Glyph subject={subject} />
+      {glyph ? <Glyph subject={subject} /> : null}
       <span className="armada-tl__title">{titleOf(subject)}</span>
       {children}
     </>
@@ -150,6 +150,20 @@ function Age({ event, now }: { event: FleetEvent; now: number }) {
   );
 }
 
+/** A mark at the end of a stacked row's line, only where the event is owed to him, failing, or the subject has gone quiet: a normal event has none. */
+function Flag({ event, standing }: { event: FleetEvent; standing: Standing | undefined }) {
+  const mark = event.tone === "ask" ? STANDING_MARK.ask : event.tone === "bad" ? STANDING_MARK.bad : standing === "stuck" ? STANDING_MARK.stuck : undefined;
+  if (mark === undefined) return null;
+  const Icon = mark.icon;
+  return (
+    <Tooltip label={mark.said}>
+      <span className="armada-tl__flag" role="img" aria-label={mark.said}>
+        <Icon size={14} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
 const bucketOf = (event: FleetEvent, now: number): string => {
   const minutes = (now - Date.parse(event.at)) / 60_000;
   return minutes < 3 ? "Just now" : minutes < 15 ? "Last 15 minutes" : minutes < 60 ? "Last hour" : "Earlier";
@@ -186,7 +200,17 @@ function Mark({ event, running }: { event: FleetEvent; running: boolean }) {
 /** What a coalesced row opens to, named for the act: files for a read or an edit, commands for a run. */
 const itemsOf = (event: FleetEvent): string => (event.kind === "session.ran" || event.kind === "job.ran" ? "commands" : "files");
 
-function Row({ event, now, open, current, running, opened, onToggle }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void }) {
+/** An event's whole line as one string, for a tooltip over a column that cuts it short. */
+const wholeLine = (event: FleetEvent): string => [event.says, event.detail].filter((one) => one !== undefined && one !== "").join(" ");
+
+type Picking = {
+  /** A press on a row, where the row is the event and not only its subject. */
+  onPick?: ((event: FleetEvent) => void) | undefined;
+  /** The row held lit. */
+  lit?: string | undefined;
+};
+
+function Row({ event, now, open, current, running, opened, onToggle, tips, onPick, lit }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined; running: boolean; opened: boolean; onToggle: () => void; tips: boolean } & Picking) {
   const says = (
     <>
       {event.says}
@@ -196,14 +220,28 @@ function Row({ event, now, open, current, running, opened, onToggle }: { event: 
   const items = event.items ?? [];
   return (
     <>
-      <li className="armada-tl__event" data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} data-current={current} style={toneOf(event.tone)}>
+      <li
+        className="armada-tl__event"
+        data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined}
+        data-current={current}
+        data-event={event.id}
+        data-lit={lit === event.id || undefined}
+        style={toneOf(event.tone)}
+        {...(onPick === undefined ? {} : { onClick: () => onPick(event) })}
+      >
         <Age event={event} now={now} />
         <span className="armada-tl__spine">
           <Mark event={event} running={running} />
         </span>
         <Who subject={event.subject} open={open} />
         {items.length === 0 ? (
-          <span className="armada-tl__says">{says}</span>
+          tips ? (
+            <Tooltip label={wholeLine(event)} asChild>
+              <span className="armada-tl__says">{says}</span>
+            </Tooltip>
+          ) : (
+            <span className="armada-tl__says">{says}</span>
+          )
         ) : (
           <Tooltip label={`${opened ? "Hide" : "Show"} ${itemsOf(event)}`} asChild>
             <button type="button" className="armada-tl__opens" aria-expanded={opened} onClick={onToggle}>
@@ -227,6 +265,24 @@ function Row({ event, now, open, current, running, opened, onToggle }: { event: 
   );
 }
 
+/** The deck's row: the name and its age over the event, the kind as a glyph, and a mark only where the event is owed or failing. It opens no list of files or commands. */
+function StackedRow({ event, now, open, current, onPick, lit }: { event: FleetEvent; now: number; open: Open; current: Standing | undefined } & Picking) {
+  return (
+    <li className="armada-tl__event" data-stacked data-event={event.id} data-lit={lit === event.id || undefined} style={toneOf(event.tone)} {...(onPick === undefined ? {} : { onClick: () => onPick(event) })}>
+      <Glyph subject={event.subject} />
+      <Who subject={event.subject} open={open} glyph={false} />
+      <Age event={event} now={now} />
+      <Tooltip label={wholeLine(event)} asChild>
+        <span className="armada-tl__says">
+          <span className="armada-tl__what">{event.says}</span>
+          {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
+          <Flag event={event} standing={current} />
+        </span>
+      </Tooltip>
+    </li>
+  );
+}
+
 /** A subagent that started and has not finished, by the id of its newest event: the pair is the Session and the work it was given. */
 function unfinished(events: readonly FleetEvent[]): Set<string> {
   const newest = new Map<string, FleetEvent>();
@@ -240,7 +296,7 @@ function unfinished(events: readonly FleetEvent[]): Set<string> {
 }
 
 /** Every event of `lanes`, newest first, in blocks by how long ago; the newest of each subject carries how it stands. */
-function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open: Open }) {
+function Feed({ lanes, now, open, tips = false, stacked = false, onPick, lit }: { lanes: readonly Lane[]; now: number; open: Open; /** Each event's whole line, in a tooltip: for a column that cuts it short. */ tips?: boolean; /** Two lines to a row. */ stacked?: boolean } & Picking) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) => setOpened((held) => (held.has(id) ? new Set([...held].filter((one) => one !== id)) : new Set([...held, id])));
   const standing = new Map(lanes.map((lane) => [lane.events[0]!.id, lane.standing]));
@@ -258,9 +314,13 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
       {blocks.map((block) => (
         <ol key={block.said} className="armada-tl__block" aria-label={block.said}>
           <li className="armada-tl__part">{block.said}</li>
-          {block.rows.map((event) => (
-            <Row key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} />
-          ))}
+          {block.rows.map((event) =>
+            stacked ? (
+              <StackedRow key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} onPick={onPick} lit={lit} />
+            ) : (
+              <Row key={event.id} event={event} now={now} open={open} current={standing.get(event.id)} running={running.has(event.id)} opened={opened.has(event.id)} onToggle={() => toggle(event.id)} tips={tips} onPick={onPick} lit={lit} />
+            ),
+          )}
         </ol>
       ))}
     </>
@@ -390,34 +450,10 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
   );
 }
 
-const NO_VIEWS: readonly MergeLineView[] = [];
-
-export function Timeline({
-  now,
-  jobs,
-  views = NO_VIEWS,
-  filter,
-  recessed,
-  onOpenJob,
-  onOpenSession,
-  onOpenLink,
-}: {
-  now: number;
-  /** The Board's Jobs, for the name of a Job Fleet gave an entry no title for. */
-  jobs: readonly JobSummary[];
-  /** The merge lines, which say who a pull request belongs to. Without them a pull request's events have no owner. */
-  views?: readonly MergeLineView[];
-  /** The Cockpit's filter: what needs him, what is not over, what is. */
-  filter: DashboardTab;
-  /** A call is in front, and the glass is dimmed behind it. */
-  recessed: boolean;
-  onOpenJob: (id: string) => void;
-  onOpenSession: (id: string) => void;
-  onOpenLink: (address: string) => void;
-}) {
+/** The lanes the Timeline and the feed draw: Fleet's events named from what the window holds, narrowed by the filter and by `keep`. */
+function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined): Lane[] {
   const wire = useFleetEvents();
   const sessions = useSessions();
-  const [take, setTake] = useTake();
   const events = useMemo(() => {
     // Only a pull request's opening and its merge carry its branch, so the other entries read it from those.
     const branches = new Map(wire.flatMap((one) => (one.subject.kind === "pull_request" && one.detail !== undefined && (one.kind === "pr.opened" || one.kind === "pr.merged") ? [[one.subject.number, one.detail] as const] : [])));
@@ -433,7 +469,7 @@ export function Timeline({
       return drawn === undefined ? [] : [drawn];
     });
   }, [wire, jobs, views, sessions]);
-  const lanes = useMemo(
+  return useMemo(
     () =>
       lanesFor(
         lanesOf(events, now, (id) => {
@@ -441,9 +477,41 @@ export function Timeline({
           return held === undefined ? undefined : stateOf(held).state;
         }),
         filter,
-      ),
-    [events, now, filter, sessions],
+      ).filter((lane) => keep === undefined || keep(lane.subject)),
+    [events, now, filter, sessions, keep],
   );
+}
+
+const NO_VIEWS: readonly MergeLineView[] = [];
+
+export function Timeline({
+  now,
+  jobs,
+  views = NO_VIEWS,
+  filter,
+  recessed,
+  keep,
+  onOpenJob,
+  onOpenSession,
+  onOpenLink,
+}: {
+  now: number;
+  /** The Board's Jobs, for the name of a Job Fleet gave an entry no title for. */
+  jobs: readonly JobSummary[];
+  /** The merge lines, which say who a pull request belongs to. Without them a pull request's events have no owner. */
+  views?: readonly MergeLineView[];
+  /** The Cockpit's filter: what needs him, what is not over, what is. */
+  filter: DashboardTab;
+  /** A call is in front, and the glass is dimmed behind it. */
+  recessed: boolean;
+  /** Narrows the lanes to the subjects it keeps: the flight deck's own filters. Absent keeps every one. */
+  keep?: (subject: Subject) => boolean;
+  onOpenJob: (id: string) => void;
+  onOpenSession: (id: string) => void;
+  onOpenLink: (address: string) => void;
+}) {
+  const [take, setTake] = useTake();
+  const lanes = useLanes(now, jobs, views, filter, keep);
   // Lanes open at now, the right-hand end; the older hour is a scroll back.
   const body = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -474,5 +542,47 @@ export function Timeline({
         </div>
       </section>
     </div>
+  );
+}
+
+/** The Feed take on its own, for a narrow column: one row for each event, newest first. A press names the Job or Session it is about. */
+export function ActivityFeed({
+  now,
+  jobs,
+  views = NO_VIEWS,
+  filter,
+  keep,
+  onOpenJob,
+  onOpenSession,
+  onPick,
+  lit,
+  stacked,
+}: {
+  now: number;
+  jobs: readonly JobSummary[];
+  views?: readonly MergeLineView[];
+  filter: DashboardTab;
+  keep?: (subject: Subject) => boolean;
+  onOpenJob: (id: string) => void;
+  onOpenSession: (id: string) => void;
+  /** The flight deck's: a press on a row picks the event, and the name opens nothing. */
+  onPick?: (event: FleetEvent) => void;
+  /** The row held lit, by event id. */
+  lit?: string;
+  /** The deck's two-line rows. */
+  stacked?: boolean;
+}) {
+  const lanes = useLanes(now, jobs, views, filter, keep);
+  const open: Open = (subject) => {
+    if (onPick !== undefined) return;
+    if (subject.kind === "job") onOpenJob(subject.id);
+    else if (subject.kind === "session") onOpenSession(subject.id);
+  };
+  return (
+    <section className="armada-tl" aria-label="Activity feed" data-take="feed">
+      <div className="armada-tl__body">
+        <Feed lanes={lanes} now={now} open={open} tips stacked={stacked === true} onPick={onPick} lit={lit} />
+      </div>
+    </section>
   );
 }

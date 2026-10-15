@@ -3,7 +3,7 @@
 // to one glyph a todo with the one being done first, beside Needs you where the Session waits on the
 // person. The Cockpit tile reads the todo being done, or the line where there is no list. Nothing is drawn for a Session that is done. Over `session-working-on`.
 
-import { button, inside, region, role, tab, text, walk } from "../walk";
+import { button, inside, place, region, role, tab, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const sessions = region("Sessions");
@@ -33,7 +33,7 @@ const sessionWorkingOn = walk("session-working-on", [
   { press: open(/Order the store migrations/), say: "A Session that is done" },
   { look: role("article", "Nothing left to do"), say: "The callout, and no Working on band" },
 
-  { press: button("Cockpit", { exact: true }), say: "Back to the Cockpit" },
+  { press: place("Cockpit"), say: "Back to the Cockpit" },
   { press: tab("Active"), say: "Active" },
   { press: button("Grid"), say: "Grid" },
   { look: inside(glass, text("Run the policy on every Job")), say: "A tile reads the todo being done" },

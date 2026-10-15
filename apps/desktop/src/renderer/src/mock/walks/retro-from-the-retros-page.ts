@@ -5,7 +5,7 @@
 // opens Job 3's retro, then creates a Job from an Armada item, updates Kit
 // from a Kit item, rejects a Manifest item and reads the accepted ones. `retro.test.tsx` holds the claims.
 
-import { button, dialog, inside, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, role, tab, text, toSystemPage, walk } from "../walk";
 
 const RETROS = role("list", "Retros");
 const RETRO = dialog("Retro");
@@ -15,7 +15,7 @@ const GREP = item("A Drone had to wait for grep to be allowed");
 const DOCS = item("A docs edit ran every Rust test");
 
 export const retroFromTheRetrosPage = walk("retro/lessons", [
-  { press: button("Retros", { exact: true }), say: "Retros, under Work" },
+  ...toSystemPage("Retros", "Retros, under Work"),
   { look: RETROS, say: "Newest first, across Jobs" },
   { look: inside(STALE_MAIN, text(/^Fleet$/)), say: "Whose way it got in, in a word and a hue" },
   { look: inside(STALE_MAIN, text(/^Armada$/)), say: "Where the fix lands, in a word and a hue" },

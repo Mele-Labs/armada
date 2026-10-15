@@ -2,7 +2,7 @@
 // the reason it was kept, and the same rescue, read through to its Finding in
 // its panel and a Stash.
 
-import { dialog, inside, role, walk } from "../walk";
+import { dialog, inside, role, viaPalette, walk } from "../walk";
 
 const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 const TILE = (n: number) => inside(BAY(n), role("button", `slot-${n}`, { exact: true }));
@@ -10,7 +10,7 @@ const PANEL = dialog("slot-8");
 const IN_PANEL = (kind: string, name: string) => inside(PANEL, role(kind, name, { exact: true }));
 
 export const rescuingAKeptJobsSlot = walk("cleanup/slots", [
-  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
+  ...viaPalette("Worktree Slots", "Cleanup, from the rail"),
   { look: BAY(8), say: "A killed Job's slot: a solid card in the warning hue, with the reason it was kept" },
   { hover: inside(BAY(8), role("img", /^Kept/)), say: "Kept, and why" },
   { press: TILE(8), say: "Its panel opens" },

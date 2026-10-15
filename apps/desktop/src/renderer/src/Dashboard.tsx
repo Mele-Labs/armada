@@ -45,6 +45,7 @@ import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
 import { boardPressOf } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
+import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { stateOf } from "./session-state";
@@ -194,8 +195,16 @@ export type Hosts = {
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
-  /** Picks a repository, as the title row's picker does. */
-  onPickRepository?: ((root: string) => void) | undefined;
+  /** Goes to a page by its surface id: the deck's links to the pages no tab carries (Worktree Slots, the merge line, the Manifest). */
+  onGoTo?: ((surface: string) => void) | undefined;
+  /** Picks a repository, as the title row's picker does; null is All repositories. */
+  onPickRepository?: ((root: string | null) => void) | undefined;
+  /** Opens the Add a repository dialog, the act the title row's picker carries as its last row. */
+  onAddRepository?: (() => void) | undefined;
+  /** Rescues a stranded slot: a Scout started or stopped, and the work picked up, stashed or scrapped. Absent, the deck draws no rescue acts. */
+  onRescueSlot?: BridgeApi["rescueSlot"] | undefined;
+  /** Merges a Job's pull request, the command the review gate sends. Absent, a Job's Merge is not offered. */
+  onMergeJob?: ((jobId: string) => void | Promise<void>) | undefined;
 };
 
 /**

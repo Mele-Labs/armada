@@ -10,7 +10,7 @@ import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessi
 
 import type { Scenario } from "./scenario";
 import { s200Sessions } from "./scenarios/sessions";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -46,7 +46,7 @@ function holding(attachments: SessionAttachment[]): Scenario {
 async function open(scenario: Scenario) {
   mount(scenario);
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Callout subject/ }));
   const callout = page.getByRole("article", { name: "Nothing left to do" });
   await expect.element(callout).toBeVisible();

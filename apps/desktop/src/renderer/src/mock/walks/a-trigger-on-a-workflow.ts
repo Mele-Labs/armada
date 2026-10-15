@@ -5,14 +5,14 @@
 // replaces the repository's, a repository's save waits for main, and a machine Trigger on a
 // Command the repository lacks is skipped.
 
-import { button, card, dialog, inside, role, text, walk } from "../walk";
+import { button, card, dialog, inside, role, text, toSystemPage, walk } from "../walk";
 
 const DELIVER = dialog("handoff");
 const TRIGGER = dialog("gate");
 const NEW = dialog("New trigger");
 
 export const aTriggerOnAWorkflow = walk("workflows", [
-  { press: button("Workflows", { exact: true }), say: "Workflows, from the rail" },
+  ...toSystemPage("Workflows", "Workflows, from the rail"),
   { press: button("feature, carried"), say: "The Feature workflow" },
   { hover: role("img", "Every workflow"), say: "A Trigger set for every workflow is a leaf off the step it fires at" },
   { hover: role("img", "This machine"), say: "This machine: only the owner's" },

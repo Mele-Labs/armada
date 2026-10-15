@@ -40,6 +40,7 @@ import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { WriteClashesRead } from "../shared/api/clashes";
+import type { RepositoryAreasRead, SlotTouchesRead } from "../shared/api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import type { HelmCarry } from "../shared/api/helm";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
@@ -699,6 +700,8 @@ const api: BridgeApi = {
     };
   },
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
+  getRepositoryAreas: (): Promise<RepositoryAreasRead> => ipcRenderer.invoke(CHANNELS.getRepositoryAreas),
+  getSlotTouches: (): Promise<SlotTouchesRead> => ipcRenderer.invoke(CHANNELS.getSlotTouches),
   getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),
   startSignIn: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.startSignIn),
   signOut: (accountId: number): Promise<AccountsActed<SignedOut>> => ipcRenderer.invoke(CHANNELS.signOut, accountId),

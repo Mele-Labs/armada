@@ -10,7 +10,7 @@ import { HANDOFF_ASK } from "../session-handoff";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted, terminal } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -48,7 +48,7 @@ function served(fleet: FakeSessionsFleet): Scenario {
 }
 
 async function open(title: string, view = "Active") {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   const list = page.getByRole("region", { name: "Sessions" });
   await userEvent.click(list.getByRole("tab", { name: view }));
   await userEvent.click(list.getByRole("button", { name: title }));
@@ -63,13 +63,13 @@ test("The composer's Model select reads the version the process resolved, and th
 
   await open("Big one");
   await expect.element(model()).toHaveDisplayValue("Opus 5.5 · default");
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Old one");
   await expect.element(model()).toHaveDisplayValue("Sonnet 5.5");
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Small one");
   await expect.element(model()).toHaveDisplayValue("sonnet");
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Blank one");
   await expect.element(model()).toHaveDisplayValue("opus · default");
   // The head names no model: the composer does.
@@ -82,13 +82,13 @@ test("A Session past 300k of context, or a day, offers a fresh start, and a smal
 
   await open("Big one");
   await expect.element(mark()).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Old one");
   await expect.element(mark()).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Small one");
   await expect.element(mark()).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await open("Ended one", "Ended");
   await expect.element(mark()).not.toBeInTheDocument();
 });

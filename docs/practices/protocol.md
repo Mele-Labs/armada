@@ -4034,7 +4034,7 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*;
 | --- | --- | --- |
 | `BridgeState.helm` (`HelmAim`: `{state: "none"}` or `{state: "pointed", manifestId}`) | Bridge | Was `HelmThread`, the dock's whole conversation. It is only which repository Helm answers for. The thread, the turn, the model and the commands are the Helm Session's, in `BridgeState.sessions` |
 | `HelmCarry.model`, `HelmCarry.effort` | Bridge | Optional. What the box held before the Session existed, sent as `AskHelm.model` and `AskHelm.effort` on the first message. Once the Session is live the box tunes it with `tune_session` |
-| `SessionsDraft.helmOf(manifestId)` | Bridge | The Helm Session of the repository Helm is pointed at, which the Sessions list does not hold when the rail picks another repository |
+| `SessionsDraft.helmOf(manifestId)` | Bridge | The Helm Session of the repository Helm is pointed at, which the Sessions list does not hold when the picker picks another repository |
 | `Session.helm` (`sessions-wire.ts`) | Bridge | Read from `SessionRecord.helm`. The Sessions list draws Helm's mark, and opening that row opens the dock |
 | `rowsOfThread`, kind `sent` | Bridge | Draws `SessionRow::Sent` as the person's words with a "Sent to" chip. `Beside.repository` names the target's repository |
 | `HelmConnection` (`apps/desktop/src/main/helm.ts`) | Bridge | No socket and no thread. `ask_helm` and `record_thought_sent` answer a `SessionRecord`, which main folds into the Sessions host at once. `HelmSocket` is gone |

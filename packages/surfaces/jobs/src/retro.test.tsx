@@ -7,7 +7,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { entered, mount, onScreen, unmountAfterEach } from "@armada/desktop/mock";
+import { entered, mount, onScreen, toSystemPage, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
@@ -24,18 +24,21 @@ const card = (title: RegExp) => page.getByRole("listitem").filter({ hasText: tit
 
 /** The Retros surface, and the headlines its cards draw. */
 async function lessons(): Promise<() => string[]> {
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Retros", exact: true }).click();
+  await toSystemPage("Retros");
   await expect.element(page.getByRole("list", { name: "Retros" })).toBeVisible();
   return () => [...document.querySelectorAll(".armada-lesson")].map((one) => one.getAttribute("aria-label") ?? "");
 }
 
-test("Retros is a rail row in Work, and lists every Job's items newest first", async () => {
+/** The tabs that narrow the list, not the title bar's places or the System strip. */
+const lessonTabs = () => page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Manifest", exact: true }) });
+
+test("Retros is a page under System, and lists every Job's items newest first", async () => {
   mount("retro/lessons", SLICES);
   await onScreen();
 
   const titles = await lessons();
-  // The rail marks where the window is.
-  expect(document.querySelector('[aria-current="page"]')?.textContent).toMatch(/Retros/);
+  // The places bar marks where the window is.
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Retros" })).toHaveAttribute("aria-selected", "true");
   const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent);
   // Job 3's four items, then Job 2's one: Fleet's order, newest retro first.
   expect(from).toEqual([...Array<string>(4).fill("Job 3"), "Job 2"]);
@@ -101,16 +104,16 @@ test("the retro lessons tabs narrow the list to where each fix lands, with All f
   await onScreen();
   const titles = await lessons();
 
-  const tabs = page.getByRole("tablist").first().getByRole("tab").elements();
+  const tabs = lessonTabs().getByRole("tab").elements();
   expect(tabs.map((one) => one.textContent)).toEqual(["All", "Armada", "Kit", "Manifest"]);
   expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
   expect(titles()).toHaveLength(5);
 
-  await page.getByRole("tab", { name: "Kit", exact: true }).click();
+  await lessonTabs().getByRole("tab", { name: "Kit", exact: true }).click();
   await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
-  await page.getByRole("tab", { name: "Manifest", exact: true }).click();
+  await lessonTabs().getByRole("tab", { name: "Manifest", exact: true }).click();
   await expect.poll(() => titles()).toEqual(["A docs edit ran every Rust test"]);
-  await page.getByRole("tab", { name: "Armada", exact: true }).click();
+  await lessonTabs().getByRole("tab", { name: "Armada", exact: true }).click();
   // Job 2's item predates where a fix lands, so it is under All alone.
   await expect.poll(() => titles()).toHaveLength(2);
 });
@@ -121,9 +124,9 @@ test("the retro lessons tab is remembered for the viewer", async () => {
   await onScreen();
   const titles = await lessons();
 
-  await expect.element(page.getByRole("tab", { name: "Kit", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect.element(lessonTabs().getByRole("tab", { name: "Kit", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect.poll(() => titles()).toHaveLength(1);
-  await page.getByRole("tab", { name: "Manifest", exact: true }).click();
+  await lessonTabs().getByRole("tab", { name: "Manifest", exact: true }).click();
   expect(localStorage.getItem("armada.bridge.lessons-tab")).toBe("manifest");
 });
 
@@ -161,7 +164,7 @@ test("Update Kit puts the command on the Kit page's allowlist as a retro item's,
   await card(GREP).getByRole("button", { name: "Update Kit", exact: true }).click();
   await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Kit", exact: true }).click();
+  await toSystemPage("Kit");
   const allowlist = page.getByRole("region", { name: "Allowlist" });
   const row = allowlist.getByRole("listitem").filter({ hasText: "grep" });
   await expect.element(row).toBeVisible();

@@ -1,0 +1,7 @@
+[icons.pencil-line]
+  means = "A pencil lying over a rule: writing a file"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "A drone's doing on the flight deck only: write, beside `scan-search` for read and `radar` for run. Never an edit control on a form, which is `pencil`, and never a Job's footprint, which is `file-pen-line`."
+  notes = "Added 14 Oct 2026 for the doing glyphs. Named Writing on hover."

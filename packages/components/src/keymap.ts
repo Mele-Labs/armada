@@ -145,7 +145,6 @@ export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>>
   history: ["Back", "Forward"],
   move_focus: ["Down", "Up", "Down", "Up"],
   move_in_plan: ["Up", "Down"],
-  dashboard_filters: ["Previous", "Next"],
 };
 
 // ---- What this person has changed ------------------------------------------------------------
@@ -370,14 +369,21 @@ export function digitKeyFor(id: string, digit: number): string | undefined {
  * the list and the output on a Job, and those are never the same screen.
  */
 const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
-  anywhere: ["board", "detail", "studio", "dashboard", "call"],
-  list: ["board", "dashboard"],
+  anywhere: ["board", "detail", "studio", "dashboard", "deck", "call"],
+  // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
+  // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
+  list: ["board", "dashboard", "deck"],
   "list and detail": ["board", "detail", "dashboard"],
   detail: ["detail"],
   "dispatch card": ["detail"],
   "piloted job": ["detail"],
   "open studio": ["studio"],
-  dashboard: ["dashboard"],
+  // `w` and `?` are the Dashboard's and the deck reads them too.
+  dashboard: ["dashboard", "deck"],
+  // The deck's own panel, tile and page keys. A call pane in front takes the bare digits and letters it
+  // names while it is up, and the deck's handlers stand down for it: that is a state of the deck, which
+  // the keymap's places do not hold, so `call` and `deck` do not overlap here.
+  deck: ["deck"],
   call: ["call"],
 };
 
@@ -395,15 +401,21 @@ function chordsIn(slot: Slot): Chord[] {
 const sameChord = (a: Chord, b: Chord): boolean =>
   a.key === b.key && a.alt === b.alt && a.shift === b.shift && a.meta === b.meta && a.ctrl === b.ctrl;
 
-/** The other acts that answer the same key as this slot, somewhere both are listening. */
+/**
+ * The other acts that answer the same key as this slot, somewhere both are listening.
+ *
+ * **An act that is `unbuilt` listens to nothing**, so it neither conflicts nor is conflicted with: the
+ * registry is ahead of the code on purpose, and a key nothing answers cannot fight for one.
+ */
 export function conflictsOf(id: string, slot: Slot): Action[] {
   const act = ACTION[id];
-  if (act === undefined) return [];
+  if (act === undefined || act.unbuilt !== null) return [];
   const mine = chordsIn(slot);
   if (mine.length === 0) return [];
   return ACTIONS.filter(
     (other) =>
       other.id !== id &&
+      other.unbuilt === null &&
       overlaps(act.scope, other.scope) &&
       slotsOf(other.id).some((theirs) => chordsIn(theirs).some((chord) => mine.some((one) => sameChord(one, chord)))),
   );
@@ -419,7 +431,7 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
   { title: "Anywhere", scopes: ["anywhere"] },
   { title: "Lists", scopes: ["list", "list and detail"] },
   { title: "A Job", scopes: ["detail", "dispatch card", "piloted job"] },
-  { title: "Dashboard", scopes: ["dashboard"] },
+  { title: "Dashboard", scopes: ["dashboard", "deck"] },
   { title: "Calls", scopes: ["call"] },
   { title: "Studios", scopes: ["open studio"] },
 ];

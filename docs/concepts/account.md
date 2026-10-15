@@ -90,7 +90,7 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 | Signed out profile | Who left, struck through in a dashed tile; the store's row named only where it stays |
 | Home not made yet | The set-up row for the shared home is not set up, and What syncs is greyed, tooltip No shared home yet |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
-| Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
+| Repository picker | The top of the Cockpit's left column; at the title row's narrow width its entries are in the title menu |
 
 The sign-in button carries the forge's own mark, never recoloured: white on a dark ground and black on a light one, as the forge's logo policy asks. No token holds pure white or black, so `ForgeMark.css` is the one stylesheet that opts out of the colour-literal rule.
 

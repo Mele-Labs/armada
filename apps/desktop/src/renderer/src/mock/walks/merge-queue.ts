@@ -4,7 +4,7 @@
 // and one is not in the queue at all. Told twice: wide, and below the breakpoint.
 
 import { NARROW } from "../sessions/walk-kit";
-import { button, inside, region, role, walk } from "../walk";
+import { button, inside, region, role, viaPalette, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(): Step[] {
@@ -12,7 +12,7 @@ function steps(): Step[] {
   const row = (branch: string) => inside(line, role("listitem", new RegExp(`^${branch}`)));
   const mark = (branch: string, said: string) => inside(row(branch), role("img", said));
   return [
-    { press: button("Merge line", { exact: true }), say: "The merge line: no armada land queue, only open pull requests" },
+    ...viaPalette("Merge line", "The merge line: no armada land queue, only open pull requests"),
     { look: row("docs/typo-in-the-readme"), say: "Auto-merge is on and ci is running: it has not joined the queue" },
     { hover: mark("docs/typo-in-the-readme", "Waiting for ci to join the merge queue"), say: "The mark names it" },
     { look: row("fix/61-order-store-migrations"), say: "First in the queue, running its checks, a Job's pull request" },

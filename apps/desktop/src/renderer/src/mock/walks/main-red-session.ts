@@ -2,7 +2,7 @@
 // merged, and Send back lists Sessions and Jobs with the Session already chosen, the brief there to
 // edit as the message it is sent as.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, text, viaPalette, walk } from "../walk";
 
 const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
@@ -13,7 +13,7 @@ const LANDED = inside(MERGE, role("list", "Recently landed"));
 const SESSION = "Show who merged on the head";
 
 export const mainRedSession = walk("main-red-session", [
-  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
+  ...viaPalette("Merge line", "The merge line"),
   { look: inside(MERGE, role("img", "Main is green")), say: "Main is green" },
   { later: inside(MERGE, role("img", "Main is green")), say: "A Session's pull request merges" },
   { look: RED, say: "Main is red" },

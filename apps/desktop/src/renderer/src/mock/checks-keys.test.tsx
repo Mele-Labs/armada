@@ -14,7 +14,8 @@ const tile = (name: string) => checks().getByRole("button", { name, exact: true 
 async function opened(): Promise<void> {
   mount("job-checks");
   await onScreen();
-  await userEvent.click(page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Checks", exact: true }));
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  await userEvent.keyboard("Checks{Enter}");
   await expect.element(tile("desktop_test")).toBeVisible();
 }
 

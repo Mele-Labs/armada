@@ -18,7 +18,7 @@ Covers one surface and one filter, since a genuine "what's waiting" check touche
 
 | Where | Purpose | Structure |
 | --- | --- | --- |
-| Job Board, filtered to `awaiting_review` | Calm, evaluative — Job Review flow, human-gated advance per workflow settings | Simple oldest-first list. **The filter has to be one gesture**, because this is the half of a triage pass a person is most often here for |
+| The Cockpit's list, with Calls pressed | Calm, evaluative — Job Review flow, human-gated advance per workflow settings | The list narrows to what waits on a person, and the same calls stand in Incoming calls on the deck's right. **The filter has to be one gesture**, because this is the half of a triage pass a person is most often here for: the Calls tile, or `4` |
 | Alerts | Interventional — escalations needing a decision, browsed proactively rather than pushed | Alert Level (Blocked on top, Waiting below) → sub-grouped by trigger type → oldest-first. State (in-progress/waiting/resolved) is a filter toggle, not primary structure. Noted items never appear here — they are recorded on the Job. |
 
 **Two surfaces this journey used to name are gone.** The Activity Feed and Reviews were both lists of Jobs standing beside the [Job Board](../concepts/job-board.md), which now holds every Job with state as a filter. Nothing in the triage pass depended on the feed — a chronological stream with no actions is the one surface a triage pass never acts on. Reviews is the reversal below.

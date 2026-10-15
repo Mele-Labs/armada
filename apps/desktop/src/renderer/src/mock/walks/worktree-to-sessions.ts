@@ -3,7 +3,7 @@
 // pull request number. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW } from "../sessions/walk-kit";
-import { button, inside, role, region, walk } from "../walk";
+import { button, inside, role, region, viaPalette, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
@@ -11,7 +11,7 @@ function steps(narrow: boolean): Step[] {
   const owner = role("group", "Owned by Release notes script");
   const sessions = region("Sessions");
   return [
-    { press: rail("Worktree Slots"), say: "Cleanup holds the worktree slots" },
+    ...viaPalette("Worktree Slots", "Cleanup holds the worktree slots"),
     { look: role("button", "slot-5", { exact: true }), say: "Slot 5 is held by a Session, and says so" },
     { hover: button("Branch rel/notes-script"), say: "Its branch chip names its owner" },
     { press: button("Branch rel/notes-script"), say: "A press keeps the card up" },

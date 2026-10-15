@@ -1,0 +1,612 @@
+/* The flight deck's body. Gray is the baseline: amber is what he is owed, red is a Check failing now, green is a
+   state on a bay or main and nothing else. Where he is, the raised tab and the selected thing, is the blue accent and
+   says nothing else. Each panel is dark glass with a small-caps heading over rows that are pills. Tokens only. The
+   window's own chrome (the places, the System strip) is `deck-chrome.css`. Ported from proto/cockpit-flight-deck. #2301. */
+
+/* ---- The page ------------------------------------------------------------------------------------------- */
+
+.deck {
+  --hue: var(--status-awaiting-review);
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  margin: 0 var(--space-3) var(--space-3);
+  gap: var(--space-3);
+}
+/* The shell keeps a gutter round every screen (the work's leading margin, the panel's trailing one, the mount's top, the
+   overview's left and foot) that the rail it was drawn for needed. The deck has no rail: its panels run to the one gap the
+   title bar's own side padding is, the same on the left, the right and under the bars. */
+.armada-shell__body:has(.deck) > .armada-shell__work { margin-left: 0; }
+.armada-shell__work:has(.deck) > .armada-shell__panel { margin-right: 0; }
+.armada-screen__mounted:has(.deck) { padding-top: var(--space-3); }
+.armada-screen__overview:has(> .deck) { padding: 0; }
+.deck [data-hue="ask"],
+.deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }
+.deck [data-hue="bad"] { --hue: var(--status-completed-failed); }
+.deck [data-hue="ok"],
+.deck [data-hue="running"],
+.deck [data-hue="queued"] { --hue: var(--fg-subtle); }
+
+.deck-grid {
+  display: grid;
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-columns: calc(var(--space-12) * 6) minmax(0, 1fr) calc(var(--space-12) * 5.75);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.deck-left,
+.deck-centre,
+.deck-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); }
+
+.deck-panel,
+.deck-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: var(--bg-glass);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
+  overflow: hidden;
+}
+.deck-centre { gap: var(--space-3); }
+.deck-stage { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; gap: var(--space-3); }
+.deck-stage > .deck-pane { flex: 1 1 0; }
+.deck-list { flex: 1 1 0; }
+
+/* A heading: small caps, quiet, one line, with its arrow or key at the right. No band, no rule. */
+.deck-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--h-row-header);
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.deck-band .armada-kbd { margin-left: auto; }
+
+/* ---- The list ------------------------------------------------------------------------------------------- */
+
+.deck-list__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+.deck-list__item { display: flex; align-items: center; gap: var(--space-2); }
+.deck-list__item > .deck-row { flex: 1 1 0; width: auto; min-width: 0; }
+.deck-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto var(--space-4);
+  align-items: center;
+  column-gap: var(--space-3);
+  width: 100%;
+  min-height: var(--h-control-sm);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-row:hover,
+.deck-row[data-cursor] { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.deck-row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.deck-row[data-tone="calm"] .deck-row__title { font-weight: var(--weight-body); }
+.deck-row__kind { display: inline-flex; color: var(--fg-subtle); }
+.deck-row__said { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+/* What is open is lit: the accent's ground and a hairline of the accent round the whole row, never a stripe. */
+.deck-row[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+.deck-row[data-selected] .deck-row__title { font-weight: var(--weight-heading); }
+.deck-row[data-selected] .deck-row__kind { color: var(--fg-default); }
+
+/* ---- Activity: the Feed take, in the narrow column under the list ---------------------------------------- */
+
+.deck-activity { flex: none; height: calc(var(--space-12) * 6); }
+.deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+.deck-activity .armada-tl__body { flex: 1 1 0; min-height: 0; }
+.deck-activity .armada-tl__block { padding: 0 var(--space-2) var(--space-1); }
+.deck-activity .armada-tl__part { padding: 0 var(--space-3); }
+/*
+ * Two lines to a row, in the sans: the Job or Session in the body size and semibold over the event a step smaller and muted,
+ * with its age at the right of the first line. The kind is a glyph in its own column; a mark closes the second line only where
+ * the event is owed, failing or gone quiet. Rows are told apart by a hairline, the small radius, and no coloured edge.
+ */
+.deck-activity .armada-tl__event {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 0;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: none;
+  box-shadow: none;
+  font-family: var(--font-sans);
+}
+.deck-activity .armada-tl__event:last-child { border-bottom-color: transparent; }
+.deck-activity .armada-tl__event[data-current] { background: none; box-shadow: none; }
+.deck-activity .armada-tl__event:hover { background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.deck-activity .armada-tl__glyph { grid-column: 1; grid-row: 1; color: var(--fg-subtle); }
+.deck-activity .armada-tl__who { grid-column: 2; grid-row: 1; overflow: hidden; font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
+.deck-activity .armada-tl__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-activity .armada-tl__age { grid-column: 3; grid-row: 1; width: auto; font-family: var(--font-sans); font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+/* One line to an event, a step smaller, cut with an ellipsis: the whole of it is in the tooltip. */
+.deck-activity .armada-tl__says { grid-column: 2 / span 2; grid-row: 2; gap: var(--space-2); min-width: 0; font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); color: var(--fg-muted); }
+.deck-activity .armada-tl__what { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A path or a branch is shown as it is, so it keeps the mono. */
+.deck-activity .armada-tl__says .armada-tl__detail { flex: 0 100 auto; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.deck-activity .armada-tl__flag { display: inline-flex; flex: none; margin-left: auto; color: var(--tone); }
+
+/* ---- A pane: one head, then its body -------------------------------------------------------------------- */
+
+.deck-pane__head { min-width: 0; }
+.deck-pane__kind { display: inline-flex; color: var(--fg-subtle); }
+.deck-pane__title { min-width: 0; margin: 0; overflow: hidden; color: var(--fg-default); font: inherit; font-weight: var(--weight-heading); text-overflow: ellipsis; white-space: nowrap; }
+.deck-pane__where { flex: none; color: var(--fg-subtle); text-transform: none; letter-spacing: 0; }
+.deck-pane__acts { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: auto; text-transform: none; letter-spacing: 0; }
+.deck-pane__body { flex: 1 1 0; min-height: 0; padding: var(--space-3) var(--space-4); overflow-y: auto; }
+.deck-pane__state { color: var(--fg-muted); }
+
+.deck-facts { display: flex; flex-direction: column; margin: 0; font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-facts__row { display: grid; grid-template-columns: calc(var(--space-12) * 2) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-2) 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+.deck-facts dt { color: var(--fg-subtle); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-caps); font-size: var(--text-2xs); }
+.deck-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--fg-default); }
+.deck-facts dd[data-mono] { font-family: var(--font-mono); white-space: pre-line; }
+.deck-pane__body[data-tone="bad"] .deck-facts__row:first-child dd { color: var(--status-completed-failed); }
+
+.deck-link { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
+.deck-link:hover { text-decoration: underline; }
+.deck-link:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* A Job: its canvas, and what it is doing now beside it. */
+.deck-job { display: grid; flex: 1 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.deck-job__canvas { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: var(--space-3); padding: var(--space-3); border-right: var(--border-width) solid var(--border-default); overflow-y: auto; }
+.deck-job__steps { flex: none; }
+/* The run is the Job page's own canvas, read-only, taking what the pane has left under the step marks. */
+.deck-job__canvas { overflow: hidden; }
+.deck-job__run { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
+.deck-job__run > .armada-approval-canvas { flex: 1 1 0; min-width: 0; block-size: 100%; }
+.deck-job__reading { flex: 1 1 auto; }
+/* The mission: the battlefield's own plane, cut down to the one Job, in the canvas's place. */
+.deck-job__mission { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; border-right: var(--border-width) solid var(--border-default); }
+.deck-job__now { min-width: 0; min-height: 0; padding: var(--space-3); overflow-y: auto; }
+
+/* A Session: its own thread, and the box to answer it. */
+/* A Session's pane is the Sessions window's own panel, which is the glass: the pane draws none round it. */
+.deck-pane[data-frame] { gap: var(--space-2); border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.deck-pane[data-frame] > .deck-callstrip { margin: 0; }
+.deck-pane[data-frame] > .armada-session-panels { flex: 1 1 0; }
+.deck-stage > .deck-pane[data-frame]:focus-within { border-color: transparent; box-shadow: none; }
+
+/* A call: the real card, in this area and not over the window. */
+.deck-call.armada-cockpit__scrim { position: static; flex: 1 1 0; min-height: 0; background: none; pointer-events: auto; padding: var(--space-3); }
+
+/* ---- The timeline -------------------------------------------------------------------------------------------- */
+
+.deck-map,
+.deck-timeline { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; padding: var(--space-2); overflow: auto; }
+/* The battlefield runs edge to edge in its pane. */
+.deck-map { padding: 0; overflow: hidden; }
+.deck-timeline > * { flex: 1 1 auto; min-width: 0; }
+
+/* ---- The merge queue: one row in a glass panel under the stage, as dots or as chips -------------------- */
+
+.deck-queue { flex: none; min-height: var(--h-control); justify-content: center; }
+/* ViewSheet draws a diff row with the same class name and is loaded after the Cockpit's: the belt's row is put back. */
+.deck-queue .armada-view__line { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding-inline: 0; white-space: normal; color: var(--fg-muted); }
+.deck-queue .armada-view__dot[data-state][data-tone="ask"] { --dot: var(--status-awaiting-review); }
+.deck-queue .armada-view__dot[data-state][data-tone="bad"] { --dot: var(--status-completed-failed); }
+.deck-queue .armada-view__dot[data-selected]::before { box-shadow: 0 0 0 var(--space-1) var(--accent); }
+.deck-queue__gap { flex: none; width: var(--space-4); }
+
+.deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
+.deck-chips { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; }
+.deck-chips > .deck-queue__gap { width: var(--space-2); }
+.deck-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-badge);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--h-badge) / 2);
+  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
+  color: var(--fg-muted);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1;
+  cursor: pointer;
+}
+span.deck-chip { cursor: default; }
+button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, transparent); color: var(--fg-default); }
+.deck-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+/* Selected is lit with the accent's ground. */
+.deck-chip[data-selected] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); }
+.deck-chip__dot { --dot: var(--fg-subtle); flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
+.deck-chip__dot[data-queued],
+.deck-chip__dot:not([data-state]) { background: var(--dot); }
+.deck-chip__dot[data-state="blocked"] { --dot: var(--status-escalated); }
+.deck-chip__dot[data-state="running"] { --dot: var(--status-running); }
+.deck-chip__dot[data-state="ready"] { --dot: var(--status-completed-success); }
+.deck-chip__dot[data-state="failing"] { --dot: var(--status-completed-failed); }
+.deck-chip__dot[data-tone="ask"] { --dot: var(--status-awaiting-review); }
+.deck-chip__dot[data-tone="bad"] { --dot: var(--status-completed-failed); }
+/* Main's chip: the Cockpit's own green with its glow, red when it is red. */
+.deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
+.deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
+
+/* ---- Bays ----------------------------------------------------------------------------------------------- */
+
+.deck-bays__rows { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0 var(--space-2) var(--space-2); list-style: none; overflow-y: auto; }
+/* A bay is two lines in the list's own row system: the bay, its state and its holder's kind; then the facts behind the state. */
+.deck-bay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-bay:hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.deck-bay:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-bay[data-selected] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+.deck-bay__head,
+.deck-bay__facts { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); }
+.deck-bay__facts { padding-left: calc(var(--space-4) + var(--space-3)); color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.deck-bay__state { display: inline-flex; flex: none; width: var(--space-4); color: var(--fg-subtle); }
+.deck-bay[data-bay="leased"] .deck-bay__state { color: var(--accent); }
+.deck-bay[data-bay="stranded"] .deck-bay__state { color: var(--status-awaiting-review); animation: deck-bay-pulse calc(var(--duration-pulse) * 3) ease-in-out infinite; }
+.deck-bay[data-bay="closed"] .deck-bay__state { color: var(--fg-subtle); }
+.deck-bay[data-bay="leased"][data-live] .deck-bay__state { animation: deck-bay-pulse calc(var(--duration-pulse) * 2.4) ease-in-out infinite; }
+@keyframes deck-bay-pulse { 50% { opacity: 0.4; } }
+.deck-bay__name { flex: none; font-weight: var(--weight-medium); }
+.deck-bay__mark { display: inline-flex; flex: none; color: var(--fg-muted); }
+.deck-bay__repo { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--fg-subtle); font-size: var(--text-2xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+/* Each cut-short text hangs from its tooltip's wrapper, which is what takes the room. */
+.deck-bay__facts > .armada-tooltip { flex: 0 2 auto; min-width: 0; }
+.deck-bay__facts > .armada-tooltip:has(> .deck-bay__who) { flex: 1 1 auto; }
+.deck-bay__facts > .armada-tooltip:has(> .deck-bay__branch) { max-width: 50%; }
+.deck-bay__who,
+.deck-bay__branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-bay__who { color: var(--fg-default); }
+.deck-bay__who[data-gone] { color: var(--fg-subtle); }
+.deck-bay__time { color: var(--fg-muted); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+.deck-bay__head > .armada-tooltip:has(> .deck-bay__time) { flex: none; }
+.deck-bay__marks { display: inline-flex; flex: none; align-items: center; gap: var(--space-2); margin-left: auto; }
+
+/* ---- The foot: flight controls, and the calls incoming ------------------------------------------------- */
+
+/* The foot: the controls and Autopilot, side by side across the centre column. */
+.deck-foot { --tile: calc(var(--space-12) + var(--space-2)); display: flex; flex: none; gap: var(--space-3); }
+
+/* One row of six equal tiles. A tile is a glyph over its word, rounded and a little raised. */
+.deck-controls { flex: 6 1 0; }
+.deck-controls__block { display: grid; flex: 1 1 auto; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: var(--tile); align-content: center; gap: var(--space-2); padding: var(--space-1) var(--space-3) var(--space-3); }
+.deck-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight);
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.deck-tile:hover { background: color-mix(in srgb, var(--fg-default) 11%, transparent); color: var(--fg-default); }
+.deck-tile:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-tile__text { font-size: var(--text-2xs); line-height: var(--leading-xs); }
+/* Pressed is lit. */
+.deck-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-muted); color: var(--fg-default); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 var(--space-3) color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* Autopilot: compact, the height of the controls beside it: the switch is its title, then the repository and how it stands over a thin bar. */
+.deck-autopilot { flex: 4 1 0; }
+.deck-autopilot > .deck-band { justify-content: space-between; }
+.deck-autopilot > .deck-band .armada-switch { min-height: 0; gap: var(--space-3); color: var(--fg-muted); font: inherit; letter-spacing: inherit; text-transform: inherit; }
+.deck-autopilot__body { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: var(--space-3); padding: var(--space-1) var(--space-3) var(--space-3); }
+.deck-autopilot__repo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: calc(var(--tile) - var(--space-3) - var(--space-1)); padding: var(--space-2) var(--space-3); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
+.deck-autopilot__name { min-width: 0; overflow: hidden; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.deck-autopilot__bar { height: var(--space-1); border-radius: var(--space-1); background: color-mix(in srgb, var(--fg-default) 10%, transparent); overflow: hidden; }
+.deck-autopilot__fill { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--fg-subtle); }
+.deck-autopilot__bar[data-state="paused"] .deck-autopilot__fill { width: 40%; }
+.deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 35%; background: var(--status-completed-success); animation: deck-autopilot-run calc(var(--duration-pulse) * 3) var(--ease) infinite; }
+@keyframes deck-autopilot-run {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 60%; animation: none; }
+}
+
+.deck-incoming { flex: 2 1 0; }
+.deck-bays,
+.deck-ledger { flex: 3 1 0; }
+/* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */
+.deck-ledger__body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-2); }
+.deck-ledger__body > .armada-session-ledger { flex: 1 1 0; width: auto; }
+.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; }
+.deck-incoming__cards > li { display: flex; flex: none; min-width: 0; }
+
+/* A call that has come in: a card, edged in its hue. The front one rings, slowly, until he opens it. A card that
+   turns up after the first frame slides in. Answered or opened, it is gone. */
+.deck-hail {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: var(--h-control);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--hue);
+  border-left-width: calc(var(--border-width) * 3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised));
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-hail:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-hail__kind { display: inline-flex; flex: none; color: var(--hue); }
+.deck-hail__title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.deck-hail__age { flex: none; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.deck-hail[data-arrived] { animation: deck-hail-in var(--duration-travel) var(--ease); }
+.deck-hail[data-first] { animation: deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out infinite; }
+.deck-hail[data-first][data-arrived] {
+  animation:
+    deck-hail-in var(--duration-travel) var(--ease),
+    deck-hail-ring calc(var(--duration-pulse) * 1.6) ease-out var(--duration-travel) infinite;
+}
+.deck-hail[data-first] .deck-hail__kind { animation: deck-hail-icon calc(var(--duration-pulse) * 1.6) ease-in-out infinite; }
+
+@keyframes deck-hail-in {
+  from { opacity: 0; transform: translateY(var(--space-8)); }
+}
+@keyframes deck-hail-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue) 70%, transparent), 0 0 var(--space-3) color-mix(in srgb, var(--hue) 30%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 var(--space-4) transparent, 0 0 var(--space-3) transparent; }
+}
+@keyframes deck-hail-icon {
+  50% { transform: scale(1.35); }
+}
+
+/* No motion: the front call reads as waiting by a heavier edge and a filled ground. */
+@media (prefers-reduced-motion: reduce) {
+  .deck-hail[data-arrived],
+  .deck-hail[data-first],
+  .deck-hail[data-first][data-arrived],
+  .deck-hail[data-first] .deck-hail__kind { animation: none; }
+  .deck-hail[data-first] {
+    border-width: calc(var(--border-width) * 3);
+    background: color-mix(in srgb, var(--hue) 22%, var(--bg-raised));
+  }
+}
+
+
+/* ---- A call's strip: its own answers, over the Job or Session it is about ----------------------------- */
+
+.deck-callstrip { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0 var(--space-3) var(--space-2); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--hue); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-callstrip__ask { min-width: 0; flex: 1 1 auto; color: var(--fg-default); font-weight: var(--weight-medium); }
+.deck-callstrip__target { min-width: 0; max-width: 100%; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.deck-callstrip__acts { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* ---- A call's strip: its own answers, over the Job or Session it is about ----------------------------- */
+
+.deck-callstrip { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0 var(--space-3) var(--space-2); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--hue); border-radius: calc(var(--radius-lg) * 1.5); background: color-mix(in srgb, var(--hue) 8%, var(--bg-raised)); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-callstrip__ask { min-width: 0; flex: 1 1 auto; color: var(--fg-default); font-weight: var(--weight-medium); }
+.deck-callstrip__target { min-width: 0; max-width: 100%; overflow: hidden; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.deck-callstrip__acts { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* ---- Keys: where focus is, the panel is lit ------------------------------------------------------------- */
+
+/* One focus state: the heading lit and a hairline frame in the accent. The thing focused inside keeps its own ring. */
+.deck-panel:focus,
+.deck-pane:focus { outline: none; }
+.deck-panel:focus-within,
+.deck-stage > .deck-pane:focus-within { border-color: var(--accent); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), 0 0 0 var(--border-width) var(--accent), var(--shadow-card); }
+.deck-panel:focus-within > .deck-band,
+.deck-stage > .deck-pane:focus-within > .deck-band { background: var(--accent-muted); color: var(--fg-default); }
+/* A key is a quiet cap at the end of a heading, and in the corner of a tile. */
+.deck-band .armada-kbd { opacity: 0.7; }
+.deck-band .armada-kbd + .armada-kbd { margin-left: 0; }
+.deck-tile { position: relative; }
+.deck-tile__key { position: absolute; top: var(--space-1); right: var(--space-1); opacity: 0.6; }
+.deck-tile[aria-pressed="true"] .deck-tile__key { opacity: 0.9; }
+
+/* The key sheet: six groups in two columns, so it is read in one look. */
+.deck-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-6) var(--space-6); }
+.deck-keys .armada-keys__row { grid-template-columns: calc(var(--space-12) * 1.75) minmax(0, 1fr); }
+.deck-keys .armada-keys__row dt { flex-wrap: wrap; }
+
+/* The Activity row picked, or the one the playhead last passed, stays lit. */
+.deck-activity .armada-tl__event { cursor: pointer; }
+.deck-activity .armada-tl__event[data-lit] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); border-bottom-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .deck-bay[data-bay="stranded"] .deck-bay__state,
+  .deck-bay[data-live] .deck-bay__state { animation: none; }
+}
+
+/* A stranded bay's pane: what it means, the Scout's finding, and the acts the Bays page offers for it. */
+.deck-slot__rescue { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
+.deck-slot__means { margin: 0; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-slot__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.deck-slot__asked { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); }
+.deck-link__plain { color: var(--fg-default); }
+
+/* A bay's history: a strip of the last day, and the holders on a rail, newest first. */
+.deck-history { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-4); font-family: var(--font-sans); }
+.deck-history__head { margin: 0; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.deck-history__strip { position: relative; height: var(--space-4); border-radius: var(--radius-md); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.deck-history__strip .deck-history__block { position: absolute; top: var(--space-1); bottom: var(--space-1); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-muted) 55%, transparent); }
+.deck-history__block[data-kind="job"] { background: color-mix(in srgb, var(--accent) 60%, transparent); }
+.deck-history__block[data-ended="held"] { background: var(--accent); }
+.deck-history__block[data-ended="stranded"] { background: var(--status-awaiting-review); }
+.deck-history__rows { position: relative; display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-6); list-style: none; }
+.deck-history__rows::before { content: ""; position: absolute; left: var(--space-2); top: var(--space-3); bottom: var(--space-3); width: var(--border-width); background: var(--border-default); }
+.deck-history__item { position: relative; }
+.deck-history__item::before { content: ""; position: absolute; left: calc(var(--space-2) - var(--space-6) - var(--space-1)); top: var(--space-4); width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bg-base); box-shadow: inset 0 0 0 var(--border-width) var(--fg-subtle); }
+.deck-history__item[data-ended="held"]::before { background: var(--accent); box-shadow: none; }
+.deck-history__item[data-ended="stranded"]::before { background: var(--status-awaiting-review); box-shadow: none; }
+.deck-history__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-md); background: none; color: var(--fg-default); font: inherit; font-size: var(--text-xs); line-height: var(--leading-xs); text-align: left; cursor: pointer; }
+.deck-history__row[data-gone] { cursor: default; }
+.deck-history__row:not([data-gone]):hover { background: color-mix(in srgb, var(--fg-default) 10%, transparent); }
+.deck-history__row:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-history__who,
+.deck-history__facts { display: flex; align-items: center; min-width: 0; column-gap: var(--space-3); }
+.deck-history__kind { display: inline-flex; flex: none; color: var(--fg-subtle); }
+.deck-history__title { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.deck-history__row[data-gone] .deck-history__title { color: var(--fg-muted); font-family: var(--font-mono); font-weight: var(--weight-body); }
+.deck-history__end { display: inline-flex; flex: none; color: var(--fg-muted); }
+.deck-history__item[data-ended="held"] .deck-history__end { color: var(--accent); }
+.deck-history__item[data-ended="stranded"] .deck-history__end { color: var(--status-awaiting-review); }
+.deck-history__facts { color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.deck-history__facts > .armada-tooltip { flex: 1 1 0; min-width: 0; }
+.deck-history__branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-history__span,
+.deck-history__length { flex: none; font-variant-numeric: tabular-nums; }
+.deck-history__length { color: var(--fg-subtle); }
+.deck-history__who > .armada-tooltip:has(> .deck-history__title) { flex: 1 1 0; min-width: 0; }
+/* The activity row picked stays lit, and a stacked feed's rows are pressable. */
+.deck-activity .armada-tl__event[data-stacked] { cursor: pointer; }
+
+/* A mark: a state as its glyph, named by its tooltip. Gray except what he is owed and what is failing. */
+.deck-mark { display: inline-flex; flex: none; align-items: center; color: var(--fg-subtle); }
+.deck-mark[data-tone="ask"] { color: var(--status-awaiting-review); }
+.deck-mark[data-tone="bad"] { color: var(--status-completed-failed); }
+
+/* A pull request chip: number and stage. Gray except red. */
+.deck-pr {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--h-badge);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1;
+}
+button.deck-pr { cursor: pointer; }
+button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-default); }
+.deck-pr[data-stage="red"] { border-color: var(--status-completed-failed); color: var(--status-completed-failed); }
+.deck-pr[data-stage="landed"] { color: var(--fg-subtle); }
+
+/* The repository, at the head of the left column: it narrows the list, the feed, the bays and the queue. */
+.deck-scope { --scope-h: calc(var(--h-control) + var(--space-1) / 2); flex: none; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.deck-scope .armada-dropdown-menu { flex: 1 1 0; min-width: 0; }
+/* A text node cannot be ellipsised inside a flex box, so the trigger is a block and the chevron is laid over its padding. */
+.deck-scope .armada-dropdown-menu__trigger,
+.deck-scope .armada-button {
+  box-sizing: border-box;
+  height: var(--scope-h);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: var(--bg-glass);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
+  color: var(--fg-default);
+  transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+.deck-scope .armada-dropdown-menu__trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0 calc(var(--space-4) + var(--space-3)) 0 var(--space-4);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: calc(var(--scope-h) - var(--border-width) * 2);
+  font-weight: var(--weight-heading);
+}
+.deck-scope .armada-dropdown-menu__chevron { position: absolute; top: 50%; right: var(--space-3); translate: 0 -50%; color: var(--fg-muted); }
+.deck-scope .armada-button[data-icon-only][data-size] { flex: none; width: var(--scope-h); color: var(--fg-muted); }
+.deck-scope .armada-dropdown-menu__trigger:hover,
+.deck-scope .armada-dropdown-menu__trigger[aria-expanded="true"],
+.deck-scope .armada-button:hover:not(:disabled) { background: color-mix(in srgb, var(--fg-default) 10%, var(--bg-glass)); color: var(--fg-default); }
+.deck-scope .armada-dropdown-menu__trigger:focus-visible,
+.deck-scope .armada-button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-scope .armada-button:disabled { color: var(--fg-subtle); cursor: default; }
+
+/* ---- A picked event, and a replay ----------------------------------------------------------------------- */
+
+.bf:focus { outline: none; }
+.deck-focus,
+.deck-replay,
+.deck-replay-mark {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: var(--border-width) solid var(--border-glass);
+  border-radius: calc(var(--radius-lg) * 2);
+  background: color-mix(in srgb, var(--bg-base) 86%, transparent);
+  box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card);
+  backdrop-filter: blur(var(--space-2));
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+/* The caption: the picked event's sentence and its age, with the way into a replay. Top middle of the map. */
+.deck-focus { top: var(--space-3); left: 50%; translate: -50% 0; max-width: calc(100% - var(--space-12) * 3); padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4); }
+.deck-focus__who { color: var(--fg-default); font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-focus__says { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-focus__ago { flex: none; color: var(--fg-subtle); }
+/* The marker, so a replayed field is never taken for the live one. */
+.deck-replay-mark { top: var(--space-3); left: var(--space-3); padding: var(--space-1) var(--space-4) var(--space-1) var(--space-3); color: var(--accent); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+/* The bar, along the bottom of the map. */
+.deck-replay { bottom: var(--space-3); left: var(--space-4); right: var(--space-4); padding: var(--space-1) var(--space-3); }
+.deck-replay__speeds { display: flex; flex: none; padding: calc(var(--border-width) * 2); border: var(--border-width) solid var(--border-glass); border-radius: calc(var(--radius-lg) * 2); }
+.deck-replay__speed { min-width: var(--space-8); height: var(--space-6); padding: 0 var(--space-2); border: 0; border-radius: calc(var(--radius-lg) * 2); background: transparent; color: var(--fg-muted); font: inherit; cursor: pointer; }
+.deck-replay__speed[aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); }
+.deck-replay__speed:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-replay__track { position: relative; flex: 1 1 0; min-width: 0; height: var(--space-6); cursor: pointer; touch-action: none; }
+.deck-replay__track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: calc(var(--border-width) * 2); translate: 0 -50%; border-radius: var(--border-width); background: color-mix(in srgb, var(--fg-default) 14%, transparent); }
+.deck-replay__fill { position: absolute; left: 0; top: 50%; height: calc(var(--border-width) * 2); translate: 0 -50%; border-radius: var(--border-width); background: var(--accent); transition: width calc(var(--duration-sheet) / 2) linear; }
+.deck-replay__tick { position: absolute; top: 50%; width: calc(var(--border-width) * 2); height: var(--space-3); translate: calc(var(--border-width) * -1) -50%; border-radius: var(--border-width); background: var(--fg-subtle); }
+.deck-replay__tick[data-passed] { background: var(--accent); }
+.deck-replay__head { position: absolute; top: 50%; width: var(--space-3); height: var(--space-3); translate: -50% -50%; border-radius: 50%; background: var(--accent); box-shadow: 0 0 var(--space-3) var(--accent); transition: left calc(var(--duration-sheet) / 2) linear; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .deck-replay__fill,
+  .deck-replay__head { transition: none; }
+}

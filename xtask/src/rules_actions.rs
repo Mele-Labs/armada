@@ -62,6 +62,7 @@ const SCOPES: &[&str] = &[
     "dispatch card",
     "open studio",
     "dashboard",
+    "deck",
     "call",
 ];
 

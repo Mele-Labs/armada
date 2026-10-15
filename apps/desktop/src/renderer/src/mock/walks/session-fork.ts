@@ -4,7 +4,7 @@
 // and the old one now links forward. Told twice, wide and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
-import { button, inside, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
@@ -14,7 +14,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(sessions, button("Fix the flaky store test")), say: "A live Session is in the list" },
     { press: inside(sessions, button("Fix the flaky store test")), say: "It opens" },
     { look: message, say: "It takes a message" },
-    { press: button("Sessions"), say: "Back to the list" },
+    { press: place("Sessions"), say: "Back to the list" },
     { press: inside(sessions, role("tab", "Quiet")), say: "Quiet is a view of its own" },
     { look: inside(sessions, role("heading", "Quiet")), say: "A terminal Session whose mod is not asking is under Quiet" },
     { press: inside(sessions, role("tab", "Ended")), say: "So is Ended" },

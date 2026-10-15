@@ -125,7 +125,7 @@ approximations.
 ## Concepts
 
 - [`concepts/`](concepts/) — what each thing in Armada is: Job, Drone, Fleet,
-  Bridge, Kit, Machine, Manifest, Workflow, Judge, Doctor and the rest, indexed
+  Bridge, Cockpit, Kit, Machine, Manifest, Workflow, Judge, Doctor and the rest, indexed
   in its own `INDEX.md`. The state machine and the schemas they describe are
   data in `crates/core-model/domain/`.
 

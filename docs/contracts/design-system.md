@@ -40,7 +40,7 @@ second monitor across a working day.
 
 **Surfaces:** Bridge is the operational surface group — Job Board,
 Alerts, Doctor, Manifest. The count is not a contract: a surface earns a
-place in the rail where a journey needs one, and the roster lives on
+place in the window's tabs or System strip where a journey needs one, and the roster lives on
 Bridge. Active Jobs, Reviews and the Activity Feed were retired into the
 Board, which holds every Job with state as a filter. Alerts stays because
 an alert is a condition on a Job rather than a status a Job holds. Helm
@@ -202,12 +202,6 @@ Worktree Slots and Settings — each at `--radius-lg`. A `Card` inside a sheet, 
 dialog, a well or another card is not on the canvas: it stays flat, at
 `--radius-md`. A row, a well or an input inside a card stays flat on its
 Ground token.
-
-**The left column is flat.** Navigation and Fleet are `--bg-raised`
-under `--border-subtle`, at `--radius-lg`: no highlight line, no shadow, no
-gradient and no blur, and they do not take `armada-glass`. The owner ruled on
-7 Oct 2026, "Remove the bevels and make this a bit more flat", for the left
-column only. Every other panel on the canvas keeps the card.
 
 **The canvas** is `--bg-base` under two radial pools of light. `--accent-faint`
 sits in a 760 × 480px ellipse centred on the top leading corner.
@@ -932,140 +926,83 @@ breakpoint.
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
 the **title row** — the bar across the window's top carrying the one bar,
 the plan's limits, Helm's reopen control, Fleet's status dot and one menu
-holding the account, Sleep and Settings. The repository picker is the left
-column's first panel, above Work. The menu button carries a moon while Sleep is on and an
+holding the account, Sleep, Settings and Doctor. A wordmark starts the row, and the
+window's tabs are drawn in its centre (Navigation, below). The menu button carries a moon while Sleep is on and an
 amber dot while signed out. **The one bar searches and
-dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
+dispatches** (the owner, 10 Oct 2026): it opens the palette, centred across the window and not on the bar, and
 the palette offers what was typed as the work too, so the row draws no
 Dispatch button. Dispatching grows a panel, down from the bar's field (`docs/journeys/dispatch-a-job.md`);
 the Cockpit has no dispatch bar of its own. The row sits flush on
 `--bg-base` with no rule under it, so the panels below carry the frames. **The dot is
 permanent chrome**, corrected on 18 Sep 2026 from the conditional one #1438
-shipped — see Left column, below. Costs a custom drag region: the whole row is
+shipped — see Navigation, below. Costs a custom drag region: the whole row is
 a drag region, and every control inside it opts out by hand — the dot included,
 since a drag region swallows the pointer and a tooltip inside one never
 opens.
 
-### Left column
+### Navigation
 
-Bridge/1088 replaced the rail and the status bar with one column of rounded
-panels — collapsible and resizable, and both states are designed rather than
-one being an afterthought. They are **Work**, **Machine** and **Fleet**.
-
-**Navigation is two panels, not one.** The owner split it on 28 Sep 2026 —
-*"We should split this into two panels ... its about jobs and studios"*. Work
-holds where the work is read; Machine holds what this machine has and is.
-
-> **Rule.** The rail's panels and their membership are declared, not derived
-> from the surface roster. A surface is in a panel because it was put there,
-> and a surface in no panel has no rail row while staying reachable by every
-> other route.
-> Why: the roster is every destination Bridge can reach and the palette lists
-> all of them. Manifest is reached from the rail's picker rather than from
-> a row (#1595), and a rail derived from the roster could not express that
-> without deleting the destination.
-
-**Machine, because Kit and Settings are both `scope = "Machine"`** in
-`crates/config/settings.toml` — Kit is what this machine has and Settings is
-what it is. *Setup* was the runner-up and was rejected: it already names a view
-on the Manifest surface, and one word meaning two things in one window is what
-the lexicon exists to prevent.
-
-**Workflows is a Machine row.** The definitions a Job runs come from this machine's Kit and from each repository, so the surface that edits them sits with Kit. Its glyph is `workflow`, and the row carries `ban` while Fleet has left a workflow file out. The mark takes no count, and `triangle-alert` stays Doctor's. It joins after Guides and takes no digit.
-
-**Checks is a Work row.** Every Check the Manifest has had requested or run is read there, beside the Jobs and the merge line that asked for them. Its glyph is `shield-check`, the Check family's, drawn at 16px in the rail; the 12px result marks keep their meaning in a table. It joins after Workflows and takes no digit.
+**There is no left column.** Bridge/1088 replaced the rail and the status bar with a
+column of Work, Machine and Fleet panels, and #2301 replaced that column with the
+Cockpit window's own chrome: a tab bar in the title row and, under System, a strip of
+pages. The deck's own left column holds the repository picker above the Jobs and
+Sessions list, and it is the Cockpit's, not the shell's. `⌘\` (`toggle_sidebar`), the
+48px rail and the rail's collapse rules went with the column; the decision that
+governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
 
 ```
-default     200px
-drag range  160-320px
-collapsed   48px icon rail — the two nav panels keep their glyphs; Fleet
-            collapses to one centred status dot at the same width
-control     a toggle in Work's head, and ⌘\, at any width above
-            --layout-breakpoint; drawn in both states, saying which it is in
-persistence width and collapsed state survive app restart
+title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · menu
+tabs        Cockpit · Jobs · Sessions · Studios · Retros · System        ⌘1 to ⌘6
+strip       under the tabs while System is the place
+            Kit · Mods · Settings · Guides · Workflows
+menu        account · Sleep · Settings (⌘,) · Doctor
 ```
 
-**One panel style, shared by every one of them.** `--radius-lg` and the flat
-treatment under Depth, held apart by the column's own 16px gap (`--space-4`)
-rather than by margin on each panel. A panel's head is 40px
-(`--space-8` + `--space-2`), 12px horizontal padding (`--space-3`), and
-collapses to its head only — never to nothing, so a glance still answers
-the one question the panel is for. Token treatment for Fleet's
-own content is under Component → token mapping.
+> **Rule.** The window's places are declared, not derived from the surface roster.
+> A page is a tab or a strip page because it was put there, and a page that is
+> neither has no tab and stays reachable from the palette by name.
+> Why: the roster is every destination Bridge can reach and the palette lists all
+> of them. Worktree Slots, Merge line, Manifest and Checks are reached by name,
+> and a navigation derived from the roster could not express that without
+> deleting the destination. The declaration is `DECK_TABS`, `SYSTEM_PAGES` and
+> `PLACES` in `packages/shell/src/surfaces.ts`.
 
-**One width, shared by every panel.** Work, Machine and Fleet resize and
-collapse together, on one drag handle at the column's trailing edge — never one
-handle per panel, and never three panels each resolving their own width. **One
-collapse control too**, in Work's head: two toggles for one column would be two
-controls on one act.
+> **Rule.** No page is reachable only by a place the window does not draw.
+> Why: a page with no tab and no strip place was a row in the rail, and the rail
+> is gone. The palette lists every surface the roster holds, and a layout that
+> hides a tab or a strip page leaves it there.
 
-**Each nav panel is one level, Bridge's own.** They list Bridge's surfaces and
-nothing else — Helm left the rail for the dock (#948), so there is no tier
-beneath a row.
+**System opens the page last used, Kit where none has been.** Its tab is never
+hidden, so the strip is always one press away. A tab carries no count: the Cockpit's
+tab carries a pip while a call waits and the window is somewhere else, and nothing
+else on the bar carries a mark. Navigation tabs do not carry escalation or approval
+counts, because the Cockpit's list carries both and two places to check are two
+chances to disagree.
 
-**The column never disappears. It reaches the rail, and stops there.** 48px is
-cheap, and losing the panels entirely is worse than losing
-48px at any width.
+**Workflows is a strip page.** The definitions a Job runs come from this machine's
+Kit and from each repository, so the surface that edits them sits beside Kit. Its
+glyph is `workflow`, and its strip tab carries a pip while Fleet has left a workflow
+file out. The pip takes no count, and `triangle-alert` stays Doctor's. It takes no
+digit.
 
-> **Rule.** The left column collapses to its 48px rail below
-> `--layout-breakpoint`, and above it when a person asks — the toggle in
-> Navigation's own head, or `⌘\`. **There is one collapsed state and two ways
-> in**, never a second narrow width. It is drawn at every width, never absent,
-> and **Helm's dock is not one of the terms**.
-> Why: the automatic collapse pays for the two columns job detail draws, which
-> is a fact about the window alone; a collapse that also read the dock's state
-> made opening Helm *widen* the content, which is the defect #1583 names. What
-> the person's press answers is the other half — a wide table or a diagram
-> wants the 200px back, and the window cannot know that.
+**Checks is reached by name.** Every Check the Manifest has had requested or run is
+read there, beside the Jobs and the merge line that asked for them. Its glyph is
+`shield-check`, the Check family's, drawn at 16px; the 12px result marks keep their
+meaning in a table. It takes no digit.
 
-> **Rule.** The person's choice is remembered per viewer and survives a
-> restart, and below `--layout-breakpoint` the column is a rail whatever was
-> chosen, returning to the choice above it. The control and `⌘\` are both
-> inert there.
-> Why: a collapsed column that forgets itself on every reload is worse than no
-> control, and below the breakpoint there is no room and so no choice to
-> offer. The choice is stored, never the drawn state — otherwise a window
-> narrowed once comes back wide with the column shut and nothing to say why.
-
-**There was a second band, and it is gone with the reason for it.** #1428 gave
-job detail's two columns their floors, and with the dock taking 380px out of
-the content between `--layout-breakpoint` and 1280px the step panel sat at
-202px on a laptop. The owner ruled on 17 Sep 2026 that **the left column gives
-way before Helm's dock does**; `--window-fold-left` was the arithmetic for it,
-and the rail's 80px against the full column's 232 still left 1101–1127 short.
-#1583 took the dock out of the layout instead, so the whole band is solvent and
-neither the token nor the 27px shortfall survives it.
-
-**The 17 Sep wording here said "folds away entirely", and that was wrong.**
-#1435 built it, and the owner corrected it on 18 Sep 2026: *"when I said
-collapse the left panel I didn't mean completely hide it. Thats where we got
-disconnected. yes Helm hides. But the left panels collapse into a single icon
-size column, not hidden away."* Giving way means reaching the rail. That
-correction still stands and is what the rule above says; only the second band
-it applied to has gone.
-
-**At 48px Fleet keeps its one status dot**, so a glance still
-says whether anything needs attention, and the nav panels keep their glyphs.
-Three panels at the rail read as three stacks held apart by the column's gap;
-photographed under `--layout-breakpoint` on 28 Sep 2026, when the split
-landed.
-
-**Fleet's liveness is also one dot in the title row, at every width.** #1438
-drew that dot only while the left column was absent, which was the right shape
-for a column that disappeared and the wrong one for a column that collapses.
-The owner settled it on 18 Sep 2026: keep it, drawn always.
+**Fleet's liveness is one dot in the title row, at every width.** #1438 drew that dot
+only while a left column was absent, which was the right shape for a column that
+disappeared and the wrong one for a column that collapsed. The owner settled it on 18
+Sep 2026: keep it, drawn always. A press opens Fleet's panel in a popover, so the
+panel is one press from every tab.
 
 > **Rule.** A status dot sits at the title row's trailing edge at every width,
 > carrying Fleet's own state, its own colour, and its state in words as both an
 > accessible name and a tooltip. It says liveness and nothing else.
 > Why: chrome that appears and disappears on a resize is the cost, and the
 > owner weighed it against the two alternatives and rejected both — removing
-> the dot, and leaving it conditional. **The 17 Sep reasoning that "the same
-> dot at every width would draw the Fleet panel's own dot twice" no longer
-> holds as an objection**: two readings of one mapped fact is what he chose,
-> against a title row whose contents move with the window. A mark that appeared
-> only when something was wrong stays rejected, because silence would mean
-> healthy and broken alike.
+> the dot, and leaving it conditional. A mark that appeared only when something
+> was wrong stays rejected, because silence would mean healthy and broken alike.
 
 The colour is the Fleet panel's, from the one map — the dot and the panel
 cannot disagree, because neither holds a table of its own. Status colour is
@@ -1073,20 +1010,8 @@ mapped, never chosen; see [Iconography](iconography.md).
 
 **The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan meters' levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
 
-**pid, port, protocol and uptime do not follow it.** They stay in the panel,
-and at the rail they are behind the column's own expansion. A dot cannot carry
-a figure; Fleet's own figures are read in the panel.
-
-**The cost, taken knowingly.** A surface that resizes on its own is
-disorienting the first time, and at the rail Fleet is a dot
-rather than its rows. `⌘\` (`toggle_sidebar`) is what answers the first
-half — #1591 built it, so the rail is a person's to ask for as well as the
-window's to impose. Nothing hides the column by hand, and nothing hides it at
-all.
-
-**Nav items do not carry escalation or approval counts.** Overview's tiles
-carry both. Duplicating them in Navigation creates two places to check and two
-chances to disagree.
+**pid, port, protocol and uptime do not follow it.** They stay in the panel.
+A dot cannot carry a figure; Fleet's own figures are read in the panel.
 
 ### Content area
 
@@ -1197,7 +1122,8 @@ touch client floors at 390px, which leaves 358px between its gutters.
 
 | | ≥ 1100px | < 1100px | Touch client |
 | --- | --- | --- | --- |
-| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Fleet keeps one status dot | A bottom tab bar |
+| Tabs | In the title row's centre, the one bar an icon and its key beside them; the System strip under the row while System is the place | The same. At the title row's narrow width its other controls are listed in its menu and the tabs stay | A bottom tab bar |
+| The deck's left column | The repository picker over the Jobs and Sessions list, the feed under them | The same; the deck draws its panels at every width and has no narrow layout of its own | Not built |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
 | Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | Closed draws nothing; the title row's Helm button opens it as a sheet over the content | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
@@ -1205,7 +1131,7 @@ touch client floors at 390px, which leaves 358px between its gutters.
 
 **There were three columns here until #1583**, the middle one being 1100–1280
 with the dock open — the band where the dock's 380px and job detail's two
-floors could not both be paid for and the left column went to its rail. The
+floors could not both be paid for. The
 dock costs the layout nothing now, so that band reads as the first and the
 table is shorter by a column.
 
@@ -1267,13 +1193,6 @@ and it was accepted deliberately: the Job Board and Alerts disagreeing
 about what a job looks like is what retired the two-shape version, and
 the row is the most repeated element in the app.
 
-Below 1100 the left column is its rail and there is nothing to expand — this
-paragraph read the other way round until #1591, promising a manual expansion
-that overlaid the content, which Left column above has refused since the
-owner's 18 Sep 2026 correction. The 720px table it was protecting is still the
-reason: there is no width to give back, so the choice is not offered rather
-than being offered and taken out of the table.
-
 **Validation:** the field set needs revisiting rather than the row where its
 leading facts cannot carry themselves at 720px on one line, or at 358px
 wrapped. A trailing fact giving way above those widths is the row working; a
@@ -1331,7 +1250,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | Guide card | Centred in the window on both axes |
 | Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
-| Command palette | Over the title row's one bar, its field on the bar's own. Horizontally centred and top-anchored where the bar is not drawn |
+| Command palette | Horizontally centred across the window, its field top-anchored at 20% of the viewport's height. It does not open on the title row's one bar, which is not centred (the owner, 15 Oct 2026) |
 
 **A guide card is framed even though a `?` raised it.** It is the one layer
 that can also open with no trigger at all — the first time a person meets a
@@ -1455,14 +1374,13 @@ is the back-fill by hand that this section existed to prevent.
 
 ```
 ⌘K       command palette
-⌘1–⌘9    Bridge surfaces, in rail order
 ⌘J       Helm, toggles the dock on every surface
 ⌥⌘C      capture a note onto the open Studio
-⌘\       toggle sidebar
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
 ⌘N       dispatch from a field, where n would type
-⌥1–3     filter by number  (dashboard only)
+⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
+⌘,       open Settings
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)
@@ -1521,10 +1439,14 @@ V              add a link           (open studio only)
 S              add a sketch         (open studio only)
 Z              add a zone           (open studio only)
 R              run                  (open studio only)
-[ ]            previous and next filter   (dashboard only)
-m              switch between grid and timeline   (dashboard only)
+m              show the map   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
+l b c q f a    go to a panel: list, bays, calls, queue, flight controls, Autopilot   (deck only)
+1–6            press a flight control   (deck only)
+v              switch a Job between mission and canvas   (deck only)
+t              show the timeline   (deck only)
+g              go to a page, then c, j, s or y   (deck only)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
@@ -1535,15 +1457,26 @@ g              just get it done   (call only)
 t              reply in words   (call only)
 ```
 
-**The Dashboard's panel and a call in front have scopes of their own**, `dashboard`
+**The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
 and `call`, because their keys act on neither a list nor a Job. A call in front
 takes the digits, `Enter`, `l`, `d`, `e`, `b` and `g` while it is up and gives them
 back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
 never on a call Fleet raises about a state. On a Job's question they answer with
-`mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told. The panel's `[ ]` and `⌥1–3`
-move between its filters, `m` flips grid and timeline, `w` brings a waiting call
-back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
+`mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told.
+`m` shows the map, `w` brings a waiting call back and `?` lists the keys. None is
+a palette row yet: each is read from the Cockpit's own sheet.
+
+**The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
+The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
+hand (`t` attest, `c` copy debug info, `x` kill) are on its page and not on the deck, so
+the keymap does not count them against `t` and `c`. `l b c q f a` go to a panel, `m` shows
+the map, `1–6` press a flight control, `t` shows the timeline, `v` swaps a Job's mission
+and its canvas, and `g` then `c`, `j`, `s` or `y` goes to the Cockpit, Jobs, Sessions or
+System. A call pane in front takes the bare digits and letters the `call` scope names
+while it is up, and the deck's handlers stand down for it. A replay takes Space, `←`, `→`,
+Home and Esc while it is up. The rail, its `⌘1–⌘9` and `⌘\` went with it, and so did
+the Dashboard panel's `[ ]` and `⌥1–3`: the deck has no filter to step.
 
 **This is the map, not a pattern.** It was settled by drawing the Job
 Board and the command palette together, which is what forced the two
@@ -1607,59 +1540,26 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘9` follow the rail** — the Cockpit (Overview until 9 Oct 2026), Studios, Alerts,
-Doctor, Manifest, Worktree Slots, Kit, Settings, Guides, and no digit for Workflows or Checks — since Active Jobs, Reviews and the
-Activity Feed folded into the Board and Worktree Slots joined at the end of it.
-The digits shift if the rail does; the rule is rail order, not the
-numbers.
+**`⌘1`–`⌘6` are the title bar's tabs and Settings is `⌘,`.** The tabs are Cockpit, Jobs,
+Sessions, Studios, Retros and System, in the order the bar draws them, and System opens
+the page last used there. The rule is the tab's place in the bar, not the number, so a tab
+added later moves what follows it. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026
+(the owner: *"Studios and retros should live in the main bar at the top of the app"*), which
+moved System to `⌘6` and took Settings off `⌘5`; it has `⌘,`, the platform's own key for
+preferences. Doctor left the System strip the same day for the title bar's menu (*"Doctor
+should live in the menu in the top right"*). Every other page is reached from the System
+strip, a link on the deck or the palette by name, and takes no key.
 
-**The Job Board's deletion on 28 Sep 2026 is the first removal to shift
-them.** Every digit behind it moved up one, and Guides took `⌘9` — the
-first it has ever carried, since it had been the tenth row and the
-contract publishes nine. A rail row is not what a digit follows: Manifest
-keeps `⌘5` with no row at all, because it is reached from the rail's
-picker (#1595) and the order it sits in is unchanged.
+**The rail's digits are gone with the rail (#2301).** Until then `⌘1`–`⌘9` followed the
+rail's rows, and each arrival of a row moved the digits behind it: Held worktrees (now
+Worktree Slots) took `⌘5` on 2026-09-03, Overview took `⌘1` on 2026-09-13, Settings took
+`⌘7` on 2026-09-14, Studios took `⌘3` on 2026-09-17, and Kit took `⌘8` on 2026-09-18. A
+learned key does not move quietly, and this paragraph is the noise: a person who
+pressed `⌘3` for Studios now presses it for Sessions, and the palette, which displays
+the binding beside every entry, is where they find out. **Helm moved from `⌘6` to `⌘J`
+on 2026-09-13** (#948) and keeps it.
 
-**Helm moved from `⌘6` to `⌘J` on 2026-09-13**, when it left the rail
-for a dock on every Bridge surface (#948). A digit is a place in the rail,
-and Helm no longer has one; `⌘J` toggles the dock instead. It had moved
-once before, from `⌘5` on 2026-09-03, when Held worktrees, now Worktree Slots, took that
-digit. The palette displays the binding beside every entry — which is
-where a person finds out. A learned key does not move quietly, and this
-paragraph is the noise.
-
-**Overview joined the rail first rather than last, on the same day** —
-it is where Bridge opens (#921), so it took `⌘1` and pushed every other
-surface's digit down by one rather than taking the next free one. The
-rule stays rail order; only the arrival was the exception, and it is the
-one recorded against `bridge_surfaces` in `actions.toml` rather than
-against a surface's own row, because no single surface's binding moved —
-the rail's shape did.
-
-**Settings joined the rail last, on 2026-09-14 (#1089), taking `⌘7`** —
-the ordinary case, not Overview's exception: it is Fleet's four limits and
-this machine's own settings, on the screen a sheet reached from the status
-bar used to hold before #1088 removed the bar.
-
-**Studios joined third, on 2026-09-17 (#1287), taking `⌘3`** — the second
-arrival to move digits other than its own, after Overview's. The owner placed
-it straight after the Job Board, because where a stretch of work is read
-belongs beside the work it becomes rather than after the settings; Alerts,
-Doctor, Manifest, Worktree Slots and Settings each moved down one, Settings from `⌘7`
-to `⌘8`. The rule is still rail order — only the arrival was the exception.
-
-**Kit joined before Settings, on 2026-09-18 (#1275), taking `⌘8`** — the third
-arrival to move a digit other than its own, and the first to join anywhere but
-the end: Settings moved to `⌘9`. The owner's decision, and his reason is that
-Kit is what he brings and Settings is what this machine is, so the machine reads
-last. It is a rail row rather than a view on one repository's Manifest because
-Kit is his and not a repository's. Its glyph is `briefcase` — the tool set you
-bring, and the only Navigation glyph whose handle stands above its body.
-`icons.settings` had said `means = "Kit"` since it was written, with two other
-rows citing it, while the Settings surface wore the cog; the owner settled it
-the other way, so Settings keeps the cog and those three rows were corrected.
-
-**`1`–`5` and `⌘1`–`⌘9` are different acts on one row of keys.** One is
+**`1`–`6` and `⌘1`–`⌘6` are different acts on one row of keys.** One is
 modified and one is not, which is the whole separation. It was drawn
 that way deliberately rather than by omission.
 
@@ -1727,8 +1627,8 @@ A floating layer, so `--bg-overlay` and a shadow.
 ```
 surface    --bg-overlay · --border-default · --radius-lg · shadow
 width      560px · max-height 400px · scroll-area beyond
-anchor     over the title row's one bar; top-aligned at 20% of viewport
-           height where the bar is not drawn; never centered
+anchor     horizontally centred across the window; field top-aligned at
+           20% of viewport height; never vertically centered
 input      --text-base · no border · --fg-default · placeholder --fg-subtle
            bottom rule --border-subtle
 row        32px · 12px padding · --text-sm · --fg-default
@@ -1745,7 +1645,7 @@ you type is a target you misclick.
 query, a row offers it as a Job, as a Session where Sessions are served, or as
 an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches, when the words are a link, or when
 `n` or `⌘N` opened the bar; otherwise it waits at the foot, so ↵ still opens
-the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the bar's field. The panel reads the repository from them and asks in its own frame when there is none
+the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the title row's one bar. The panel reads the repository from them and asks in its own frame when there is none
 (`docs/journeys/dispatch-a-job.md`). `⇧↵` opens the full
 composer holding the words, for a file, a sketch or a long request.
 
@@ -1835,10 +1735,8 @@ makes the box read as a key rather than as a small chip.
   `Enter` fires — Cancel on a plain confirmation, the confirm on a
   dialog carrying a field. One per dialog, because two would be the
   ambiguity the safety rule above was rewritten to remove.
-- **The 48px sidebar rail is more usable than it looks**, because the
-  ⌘-digit bindings reach every surface without labels.
 - **A control may draw its own Global binding while `⌘` is held**, and
-  never at rest. The sidebar's rows, Helm's reopen button and the Send
+  never at rest. Helm's reopen button and the Send
   button in a message box each do; the badge mounts on the hold and goes
   on release. This is not the rule under the debug payload — that one
   refuses a kbd standing permanently on a button, which is reference
@@ -2271,7 +2169,7 @@ reading replaces the drawing rather than moving it.
 
 ### Fleet panel
 
-The left column's second panel — what the status bar used to read.
+Fleet's panel, a popover on the title row's dot — what the status bar used to read.
 
 ```
 state    --dot (6px) in the panel's head, beside the "Fleet" label — the
@@ -2393,7 +2291,7 @@ carries no icons" is unaffected; see [Iconography](iconography.md).
 
 **The dot has a second home and the mapping does not.** The title row draws
 this dot at every width, from the same four-state map and the same word — see
-Left column, above. It read "while the left column is folded" until 18 Sep
+Navigation, above. It read "while the left column is folded" until 18 Sep
 2026, when the owner made the title row's dot permanent; the two are on screen
 together, which is a duplicated reading and never a second mapping. Two tables
 would be two things that can disagree, which is the whole reason the hue is
@@ -2439,8 +2337,8 @@ running, so the edge is the degraded one and the headline is not red. See
   stands. The enum→verb test asserts an icon entry in the same pass.
 - **~~Window and layout model~~** **Closed.** Specified in full under
   Window and layout model above — frameless `hiddenInset` chrome insetting
-  the traffic lights over the title row, a collapsible/resizable left column
-  carrying Work, Machine and Fleet as one unit, full-width routes with no
+  the traffic lights over the title row, the window's tabs in the title row and
+  a System strip under it (#2301 replaced the left column), full-width routes with no
   inspector but for Helm's dock, no page head and no status bar, and the
   floors and breakpoint under Responsive behaviour. Delivered as one
   responsive prototype rather than per-width comps.
@@ -2534,8 +2432,7 @@ one exception, because it reports something already over.
 
 **A toast used to clear the status bar rather than cover it**, because the
 bar spanned the window's bottom edge and a bottom-right toast could
-otherwise sit over it. Fleet's liveness statement is now the left column's
-own Fleet panel, nowhere near a bottom-right toast. `Toast.css`, the app
+otherwise sit over it. Fleet's liveness statement is now the Fleet panel, a popover on the title row's dot, nowhere near a bottom-right toast. `Toast.css`, the app
 shell's own toast region and `ErrorNotice.css` all carried the stale inset
 against the deleted bar; all three now sit at the plain inset this document
 names, and `--h-status-bar` is gone.
@@ -3052,8 +2949,8 @@ default — which one renders depends on the machine, and both are
 first-class.
 
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
-removed both from the shell chrome along with the status bar — the left
-column's Fleet panel carries neither, and nothing in the shell
+removed both from the shell chrome along with the status bar — Fleet's
+panel carries neither, and nothing in the shell
 states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is two fill meters (`5h`, `wk`) in the title bar, each opening a hover card.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
@@ -3148,7 +3045,7 @@ rest on. It is a product rule about what these events mean, not a
 config-tier rule: notification routing is a Machine setting with one
 value and no merge, so no Manifest is party to it.
 
-**Fleet**, present in the left column on every surface, reads "Fleet running"
+**Fleet**, one dot in the title row on every surface and its panel under the dot, reads "Fleet running"
 when idle, and pid, port, protocol and up as rows under it; it carries neither
 spend nor quota, which left the shell chrome entirely with the status bar
 Bridge/1088 replaced. The title bar draws the plan's limits as two fill meters in the title row and not in Fleet.

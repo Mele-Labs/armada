@@ -9,14 +9,14 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, toPageByName, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
 const open = async (title: string) => {
-  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await toPlace("Sessions");
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));
 };
 
@@ -34,7 +34,7 @@ test("Sessions keep: text, a file and an inline tag survive another surface and 
   await userEvent.upload(page.getByLabelText("Files to attach"), new File(["hello"], "notes.txt", { type: "text/plain" }));
   await userEvent.type(message(), " and then");
 
-  await userEvent.click(page.getByRole("button", { name: "Worktree Slots", exact: true }));
+  await toPageByName("Worktree Slots");
   await open("Second one");
   await expect.element(message()).toHaveTextContent("");
   await userEvent.fill(message(), "Only for the second");

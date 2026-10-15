@@ -68,7 +68,6 @@ export * from "./compositions/ReviewDecision/ReviewDecision";
 export * from "./compositions/VerdictSheet/VerdictSheet";
 export * from "./compositions/ConfidenceSheet/ConfidenceSheet";
 export * from "./compositions/ViewSheet/ViewSheet";
-export * from "./compositions/Sidebar/Sidebar";
 export * from "./compositions/StepActivityMark/StepActivityMark";
 export * from "./compositions/StepPhaseTrack/StepPhaseTrack";
 export * from "./compositions/StepBar/StepBar";

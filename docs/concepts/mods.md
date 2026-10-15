@@ -30,7 +30,7 @@ You ask a session for a warmer dark theme. It makes a mod called `warm`, edits i
 |---|---|
 | `mod.toml` | `name`, `kind`, `version`, `description` |
 | `theme.css` | Token values Bridge injects, in a theme mod |
-| `layout.json` | Which tabs, panels and rail rows Bridge draws and in what order, in a layout mod. [Layout mods](layout-mods.md) |
+| `layout.json` | Which tabs, panels and places Bridge draws and in what order, in a layout mod. [Layout mods](layout-mods.md) |
 | `.git/` | The mod's own history, one commit at scaffold |
 
 `name` is a slug of 1 to 40 lowercase letters, digits and `-`, starting with a letter or digit. `dark`, `light`, `system` and `default` are refused, because Bridge's own themes answer to them.

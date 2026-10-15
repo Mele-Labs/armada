@@ -42,7 +42,6 @@
 @import "./compositions/JobRowStacked/JobRowStacked.css";
 @import "./compositions/JobRowStacked/JobRowStacked.narrow.css";
 @import "./compositions/ActiveJobsList/ActiveJobsList.css";
-@import "./compositions/Sidebar/Sidebar.css";
 @import "./compositions/Panel/Panel.css";
 @import "./compositions/FleetPanel/FleetPanel.css";
 @import "./compositions/FleetBuild/FleetBuild.css";
@@ -455,4 +454,3 @@
 @import "./compositions/Account/Account.css";
 @import "./compositions/Account/ForgeMark.css";
 @import "./compositions/TitleBar/TitleMenu.css";
-@import "./compositions/TheShell/RepositoryPanel.css";

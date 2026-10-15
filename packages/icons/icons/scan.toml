@@ -1,0 +1,7 @@
+[icons.scan]
+  means = "Four corner brackets with nothing inside: the frame alone, with no rule across it"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "The battlefield's Whole route button only, which fits the camera to the whole mission. Never `scan-line`, which is `job_status.proposing`'s, never a search and never a capture."
+  notes = "Added 14 Oct 2026 for the mission view. `maximize-2` was the alternative and was not kept: it reads as a window control beside the pane's own. Named Whole route on hover."

@@ -5,6 +5,7 @@ import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../Fl
 import { Button } from "../../primitives/Button/Button";
 import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
+import { Popover } from "../../primitives/Popover/Popover";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdBinding, KbdCmd } from "../../primitives/Kbd/Kbd";
@@ -140,7 +141,21 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   );
 }
 
+/** What the search trigger is called when it draws as an icon and its key, with its label hidden. */
+const SEARCH_ONLY = "Search, or describe work to dispatch (⌘K)";
+
 export type TitleBarProps = {
+  /**
+   * The places the window has, drawn in the centre before the search trigger (`TabBar` is the Cockpit's).
+   * **Absent draws the centre as it was.** Present, the trigger shrinks to an icon and its key, named by
+   * its tooltip, and the centre stays on the row below the narrow breakpoint, where the picker's does not.
+   */
+  places?: ReactNode;
+  /**
+   * A word at the row's start, after the traffic lights. **It stands for the brand lockup and mark**, so
+   * the row draws neither beside it. Absent draws the lockup and the mark as they were.
+   */
+  wordmark?: ReactNode;
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
   repositoryPicker?: ReactNode;
   /**
@@ -186,7 +201,9 @@ export type TitleBarProps = {
   menu?: {
     /** Opens the account, a page or a panel, from its row. Absent draws no account row. */
     account?: { onOpen: () => void };
-    settings?: { onOpen: () => void; /** `⌘3` or whichever digit the person has it on. */ shortcut?: string };
+    settings?: { onOpen: () => void; /** `⌘,` or whichever key the person has it on. */ shortcut?: string };
+    /** Opens the Doctor page, from its row. Absent draws no Doctor row. */
+    doctor?: { onOpen: () => void };
   };
   /**
    * The plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
@@ -210,6 +227,12 @@ export type TitleBarProps = {
     state: FleetState;
     /** The panel's own word — "Running", "Not running". Read for the name and the tooltip. */
     label: string;
+    /**
+     * What the dot opens, in a popover on the bar: Fleet's panel, for a window that draws no rail to
+     * hold it. **Present makes the dot a button**; absent leaves it the graphic it was, because the panel
+     * is already on screen in the left column.
+     */
+    panel?: ReactNode;
   };
 };
 
@@ -224,22 +247,31 @@ export function TitleBar({
   menu,
   planUsage,
   fleet,
+  places,
+  wordmark,
 }: TitleBarProps) {
   const revealing = useShortcutReveal();
   // The palette's key as this person bound it in Settings → Keyboard, redrawn when they rebind it.
   useKeyBindings();
   const searchKey = keyFor("command_palette");
   return (
-    <div className="armada-title-bar">
+    <div className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
       <div className="armada-title-bar__start">
+        {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
         {repositoryPicker === undefined ? null : (
           <div className="armada-title-bar__picker">{repositoryPicker}</div>
         )}
       </div>
 
       <div className="armada-title-bar__center">
+        {places === undefined ? null : <div className="armada-title-bar__places">{places}</div>}
         {onSearch === undefined ? null : (
-          <button type="button" className="armada-title-bar__search" onClick={onSearch}>
+          <button
+            type="button"
+            className="armada-title-bar__search"
+            onClick={onSearch}
+            {...(places === undefined ? {} : { title: SEARCH_ONLY, "aria-label": SEARCH_ONLY })}
+          >
             <Search size={16} strokeWidth={2} aria-hidden />
             <span className="armada-title-bar__search-label">Search, or describe work to dispatch</span>
             {searchKey === "" ? null : <KbdBinding binding={searchKey} />}
@@ -273,45 +305,62 @@ export function TitleBar({
           </button>
         )}
 
-        {/* Both drawn; the stylesheet shows one by the bar's width. */}
-        <span className="armada-title-bar__lockup">
-          <ArmadaLockupHorizontal height={20} title="Armada" />
-        </span>
-        <span className="armada-title-bar__mark">
-          <ArmadaMark size={20} title="Armada" />
-        </span>
+        {/* Both drawn; the stylesheet shows one by the bar's width. A wordmark stands for them. */}
+        {wordmark !== undefined ? null : (
+          <>
+            <span className="armada-title-bar__lockup">
+              <ArmadaLockupHorizontal height={20} title="Armada" />
+            </span>
+            <span className="armada-title-bar__mark">
+              <ArmadaMark size={20} title="Armada" />
+            </span>
+          </>
+        )}
 
         {/* Last, on the bar's own trailing edge — where the owner put it on
             17 Sep 2026. The dot is `--dot`, the same 6px the panel and the
             48px rail draw, so the three readings of one fact are one size as
             well as one colour. */}
-        <span
-          className="armada-title-bar__fleet"
-          // A graphic with a name, `StepBar`'s own pattern, rather than a live
-          // region: it would announce a state nobody asked about, and now that
-          // it never mounts on a resize there is nothing new to announce
-          // anyway — the label simply changes with Fleet.
-          role="img"
-          aria-label={fleetSaid(fleet.label)}
-          // `title`, not the `Tooltip` primitive: it is what this row already
-          // gives its Helm button, and a tooltip's own surface at `--z-tooltip`
-          // has nothing to anchor to on a 6px dot. The no-drag rule in
-          // `TitleBar.css` is what lets either open at all — the whole row is
-          // a drag region and a drag region swallows the pointer.
-          title={fleetSaid(fleet.label)}
-        >
-          {fleet.state === "starting" ? (
-            <FleetStarting className="armada-fleet-starting" />
-          ) : (
-            <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[fleet.state]} aria-hidden />
-          )}
-        </span>
+        {fleet.panel === undefined ? (
+          <span
+            className="armada-title-bar__fleet"
+            // A graphic with a name, `StepBar`'s own pattern, rather than a live
+            // region: it would announce a state nobody asked about, and now that
+            // it never mounts on a resize there is nothing new to announce
+            // anyway — the label simply changes with Fleet.
+            role="img"
+            aria-label={fleetSaid(fleet.label)}
+            // `title`, not the `Tooltip` primitive: it is what this row already
+            // gives its Helm button, and a tooltip's own surface at `--z-tooltip`
+            // has nothing to anchor to on a 6px dot. The no-drag rule in
+            // `TitleBar.css` is what lets either open at all — the whole row is
+            // a drag region and a drag region swallows the pointer.
+            title={fleetSaid(fleet.label)}
+          >
+            <FleetDot state={fleet.state} />
+          </span>
+        ) : (
+          <span className="armada-title-bar__fleet">
+            <Popover
+              align="end"
+              label="Fleet"
+              trigger={
+                <button type="button" className="armada-title-bar__fleet-button" aria-label={fleetSaid(fleet.label)} title={fleetSaid(fleet.label)}>
+                  <FleetDot state={fleet.state} />
+                </button>
+              }
+            >
+              {fleet.panel}
+            </Popover>
+          </span>
+        )}
 
-        {/* The row's one menu, at every width: the account, Sleep and Settings, and under them, where the
+        {/* The row's one menu, at every width: the account, Sleep, Settings and Doctor, and under them, where the
             row is narrow, everything the row above carries. */}
         <TitleMenu
           {...(sleep === undefined ? {} : { sleep })}
           {...(menu?.settings === undefined ? {} : { settings: menu.settings })}
+          {...(menu?.doctor === undefined ? {} : { doctor: menu.doctor })}
           {...(menu?.account === undefined ? {} : { onAccount: menu.account.onOpen })}
           narrow={
             <>
@@ -343,6 +392,14 @@ export function TitleBar({
         />
       </div>
     </div>
+  );
+}
+
+function FleetDot({ state }: { state: FleetState }) {
+  return state === "starting" ? (
+    <FleetStarting className="armada-fleet-starting" />
+  ) : (
+    <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[state]} aria-hidden />
   );
 }
 
