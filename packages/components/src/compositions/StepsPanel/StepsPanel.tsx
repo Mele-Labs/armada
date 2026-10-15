@@ -80,7 +80,10 @@ export function partsOf(line: string): { words: ReactNode[]; commands: string[] 
   return { words, commands };
 }
 
-/** The command, wrapped rather than cut, and the key that copies it. */
+/**
+ * The command, wrapped rather than cut, with the key that copies it over the block's corner as a fenced
+ * block's is. The key is its own until `CopyAct` (Prose's fenced blocks, session 5a5e08bf) lands.
+ */
 function CommandToCopy({ command, label }: { command: string; label: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -92,15 +95,19 @@ function CommandToCopy({ command, label }: { command: string; label: string }) {
     timer.current = window.setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="armada-step-list__command">
-      <pre className="armada-prose__block">
-        <code>{command}</code>
-      </pre>
-      <Tooltip label={copied ? "Copied" : "Copy"}>
-        <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={copy}>
-          {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
-        </Button>
-      </Tooltip>
+    <div className="armada-prose__run">
+      <div className="armada-prose__run-block">
+        <pre className="armada-prose__block" data-acts="1">
+          <code>{command}</code>
+        </pre>
+        <span className="armada-prose__run-acts">
+          <Tooltip label={copied ? "Copied" : "Copy"}>
+            <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={copy}>
+              {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+            </Button>
+          </Tooltip>
+        </span>
+      </div>
     </div>
   );
 }

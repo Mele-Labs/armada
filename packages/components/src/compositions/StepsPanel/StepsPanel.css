@@ -14,18 +14,11 @@
   min-width: 0;
 }
 
-/* The command is read whole, so it wraps; the copy key keeps to its first line. */
-.armada-step-list__command {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.armada-step-list__command > .armada-prose__block {
-  flex: 1 1 auto;
-  min-width: 0;
+/* The copy key sits over the block's corner, so the command's text stops short of it. Prose's fenced
+   blocks take the same rule once `CopyAct` lands; this one goes then. */
+.armada-step-list .armada-prose__block[data-acts="1"] {
   margin: 0;
+  padding-inline-end: calc(var(--h-control-sm) + var(--space-2));
 }
 
 /* A step's words, then each command it names, under them. */
@@ -36,9 +29,10 @@
   min-width: 0;
 }
 
-/* Under a step the command is the line's companion, so it is drawn tighter than the one at the top. */
+/* Under a step the command is the line's companion, drawn tighter than the one at the top, and as tall as its key. */
 .armada-step-list__body .armada-prose__block {
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  min-height: calc(var(--h-control-sm) + var(--space-2));
 }
 
 .armada-step-list__code {
