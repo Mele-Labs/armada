@@ -786,6 +786,10 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command),
   stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
+  writeSessionRun: (runId: string, data: string): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.writeSessionRun, runId, data),
+  resizeSessionRun: (runId: string, cols: number, rows: number): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.resizeSessionRun, runId, cols, rows),
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void): (() => void) => {
     const handler = (_: unknown, runId: string, message: SessionRunMessage): void => on(runId, message);
     ipcRenderer.on(CHANNELS.sessionRunMessage, handler);
