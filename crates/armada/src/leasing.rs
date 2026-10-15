@@ -84,7 +84,7 @@ pub fn release(within: &Path, path: Option<PathBuf>) -> u8 {
     match pool.release(&path) {
         Ok(released) => {
             eprintln!(
-                "slot-{} is free. {} stays as a branch with its commits, unpushed, and the slot's build stays warm",
+                "slot-{} is free. {} stays as a branch with its commits, and the slot's build stays warm. Nothing was pushed",
                 released.slot, released.branch
             );
             0
