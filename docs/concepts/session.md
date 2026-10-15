@@ -467,7 +467,7 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 | `standing` | Read from | Item in `waiting_for` |
 |---|---|---|
-| `working` | a turn is running and something was heard from it within the bound | none |
+| `working` | a turn is running and something was heard from it within the bound, or, between turns, a `subagent` row of it stands: a parent that ended its turn to wait on its subagents read as idle while they ran (14 Oct 2026) | none |
 | `stuck` | a turn is running, nothing has been heard from it for **ten minutes**, and it is not held on a question or a permission | none |
 | `done` | `done_since` stands (the agent said nothing is left) | `done:<done_since>`, text `Done` |
 | `replied` | the last turn ended on a message to the person, and he has not written since | none: a reply asks nothing of him |
