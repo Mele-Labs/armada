@@ -3,5 +3,5 @@
   group = "Flight control"
   size = "16px"
   status = "Proposed"
-  reserved = "The Session flight control Report issue, which would file a report about a Session. Never an error state, a failed Job or a Check that failed."
-  notes = "Proposed 15 Oct 2026 with the Session flight controls. Drawn off while a report can only be filed on a Job: `file_report` is keyed by a Job's id and renders that Job's record. `flag` is reserved to a stopped step and `triangle-alert` to Doctor. Tooltip `Reports are filed on a Job`."
+  reserved = "The Session flight control Report issue, which hands a report about a Session to a new Session. Never an error state, a failed Job or a Check that failed."
+  notes = "Proposed 15 Oct 2026 with the Session flight controls. `file_report` is keyed by a Job's id, so a report about a Session starts a new Session instead (`docs/concepts/cockpit.md`). `flag` is reserved to a stopped step and `triangle-alert` to Doctor. Drawn off only where the repository is not known, tooltip `The repository is not known`."

@@ -249,6 +249,8 @@ export type Session = {
   title?: string;
   /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
   manifestId?: string;
+  /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
+  cwd?: string;
   attachments: readonly SessionAttachment[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
