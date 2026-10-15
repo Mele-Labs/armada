@@ -13,6 +13,7 @@ import { Crosshair, Megaphone, Minus, Plus, Scan, ShieldCheck } from "lucide-rea
 import { Button, Tooltip, WorkflowStepCard } from "@armada/components";
 
 import { Builds, aimedAt, placeBuilds } from "./Builds";
+import { AskUpdate } from "./AskUpdate";
 import { Callout, type Anchor } from "./Callout";
 import { Doings } from "./Doings";
 import { Drone, type OnTip } from "./Drone";
@@ -102,6 +103,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   };
   const stand = standAt === undefined ? undefined : built?.route.pins.find((one) => one.id === standAt)?.at;
   const placed = useMemo(() => placeBuilds(builds, layout, stand), [builds, layout, stand?.x, stand?.y]);
+  // A Job's ring in its mission is asked for an update from the stack beside the zoom, since the ring itself takes no press.
+  const mine = scene === undefined ? undefined : placed.find((one) => one.build.key.startsWith("job:"))?.build.key;
   const base = useMemo(() => frameOf({ layout, drones, plays, big, missionJob: scene?.job }), [layout, drones, plays, big, scene?.job]);
   const frame = useMemo(() => aimedAt(base, placed), [base, placed]);
   const { heights, floorAt, altOf, flying, aimOf, doers } = frame;
@@ -524,6 +527,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
       {tip !== undefined || pinned !== undefined || lockedTip === undefined || lockedAnchor === undefined || host.current === null ? null : <Callout key={`locked:${selected}`} tip={lockedTip} anchor={lockedAnchor} host={host.current} pinned />}
       {pinned === undefined || card === undefined || host.current === null ? null : <Callout key={pinned.id} tip={card} anchor={{ target: pinned.target }} host={host.current} pinned />}
       <div className="bf-zoom">
+        {mine === undefined ? null : <AskUpdate subject={mine} />}
         <Tooltip label="Zoom in" shortcut="+" asChild>
           <Button variant="ghost" iconOnly aria-label="Zoom in" disabled={eff.eye >= limits.most - 0.001} onClick={() => zoomMid(ZOOM_STEP)}>
             <Plus size={16} aria-hidden="true" />

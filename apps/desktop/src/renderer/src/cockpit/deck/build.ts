@@ -9,6 +9,7 @@ import { BadgeCheck, Footprints, GitCommitHorizontal, GitMerge, GitPullRequest, 
 import type { BuildPhase, BuildPieceKind, BuildStopId, JobDetail, SessionBuild, TaskCounts, TimelineEvent } from "@armada/protocol";
 import { taskViewsOf, type TaskState } from "@armada/jobs/draft/task";
 
+import { FRESH_MS, doingOfEvent } from "./doing";
 import type { DroneIn } from "./layout";
 
 export type Piece = BuildPieceKind;
@@ -37,6 +38,8 @@ export type BuildIn = {
   quiet: number;
   /** How far the unfinished part has dimmed, 0 to 1. */
   dim: number;
+  /** The drone is writing now: its latest tool burst is an edit and recent. Moves the band that stands for a ring with no task list. */
+  writing: boolean;
   stops: readonly Stop[];
   landedAt: number | undefined;
   now: number;
@@ -74,10 +77,21 @@ export function markersOf(events: readonly TimelineEvent[], id: string): ("walk"
     .map((one) => (one.kind === "session.walked" ? "walk" : "asked"));
 }
 
+/** Whether a Session is writing: its latest tool burst is an edit, and it is still the present. */
+export function writingOf(events: readonly TimelineEvent[], id: string, now: number): boolean {
+  let latest: TimelineEvent | undefined;
+  for (const one of events) {
+    if (one.subject.kind !== "session" || one.subject.id !== id || doingOfEvent(one) === undefined || Date.parse(one.at) > now) continue;
+    if (latest === undefined || Date.parse(one.at) >= Date.parse(latest.at)) latest = one;
+  }
+  return latest !== undefined && doingOfEvent(latest) === "write" && Date.parse(latest.at) + FRESH_MS > now;
+}
+
 /** A Session's ring, from the `build` on its record. `events` are the timeline's, which carry its survey markers while it is scoping. */
 export function buildInOf(id: string, build: SessionBuild, now: number, events: readonly TimelineEvent[] = []): BuildIn {
   const stops = build.stops.map((stop): Stop => ({ id: stop.id, at: at(stop.at) }));
   const reached = stops.filter((stop) => stop.at !== undefined).sort((a, b) => b.at! - a.at!)[0]?.id;
+  const stall = stallOf(build, now);
   return {
     key: `session:${id}`,
     phase: build.phase,
@@ -85,7 +99,8 @@ export function buildInOf(id: string, build: SessionBuild, now: number, events: 
     tasks: build.pieces.map((one) => ({ text: one.text, piece: one.piece })),
     markers: build.phase === "scope" ? markersOf(events, id) : [],
     workers: build.workers,
-    ...stallOf(build, now),
+    ...stall,
+    writing: !stall.stalled && writingOf(events, id, now),
     stops,
     landedAt: at(build.landed_at),
     now,
@@ -111,7 +126,7 @@ export function jobBuildOf(whole: JobDetail, key: string, now: number): BuildIn 
     return read === undefined ? [] : [{ text: task.title, ...read }];
   });
   if (tasks.length === 0) return undefined;
-  return { key, phase: "implement", reached: undefined, tasks, markers: [], workers: [], stalled: false, quiet: 0, dim: 0, stops: [], landedAt: undefined, now };
+  return { key, phase: "implement", reached: undefined, tasks, markers: [], workers: [], stalled: false, quiet: 0, dim: 0, writing: false, stops: [], landedAt: undefined, now };
 }
 
 /** The phase a Job's row shows: Implement while it has a plan with tasks in it, else none. */
@@ -121,6 +136,8 @@ export const jobPhaseOf = (tasks: TaskCounts | undefined): Phase | undefined =>
 /** One arc of the ring's road: a stop, or the landing that closes the circle. */
 export type Arc = { id: StopId | "landed"; at: number | undefined };
 export const arcsOf = (build: BuildIn): readonly Arc[] => [...build.stops.map((stop) => ({ id: stop.id, at: stop.at })), { id: "landed", at: build.landedAt }];
+/** The road is drawn in any phase once it has a stop, or the landing; a ring with neither has none, as a Job's has none. */
+export const roadOf = (build: BuildIn): readonly Arc[] | undefined => (build.stops.length === 0 && build.landedAt === undefined ? undefined : arcsOf(build));
 export const arcWord = (id: Arc["id"]): string => (id === "landed" ? PHASE_WORD.landed : STOP_WORD[id]);
 export const arcSaid = (arc: Arc, now: number): string => (arc.at === undefined ? "Usually next on this repo" : agoOf(now - arc.at));
 
@@ -129,6 +146,20 @@ export const agoOf = (ms: number): string => {
   const minutes = Math.max(0, Math.round(ms / MIN));
   return minutes < 60 ? `${minutes} min ago` : minutes < 60 * 24 ? `${Math.round(minutes / 60)} h ago` : `${Math.round(minutes / 60 / 24)} d ago`;
 };
+
+/**
+ * What stands for the task ring where the agent wrote no list: one unsegmented band, since without a list nothing says how much is
+ * left and a partial fill would claim a fraction nobody measured. A faint outline while scoping or planning, an even scaffold once
+ * edits are seen and a solid band when landed. `moving` only while the drone is writing. None where there are tasks.
+ */
+export type Band = { state: "outline" | "scaffold" | "solid"; moving: boolean; word: string };
+export function bandOf(build: BuildIn): Band | undefined {
+  if (build.tasks.length > 0) return undefined;
+  const word = PHASE_WORD[build.phase];
+  if (build.phase === "landed" || build.landedAt !== undefined) return { state: "solid", moving: false, word };
+  if (build.phase === "implement" || build.phase === "road") return { state: "scaffold", moving: build.writing, word };
+  return { state: "outline", moving: false, word };
+}
 
 /** The word and glyph a phase is drawn with: the stop last reached once the road is laid, else the phase. */
 export const wordOf = (build: Pick<BuildIn, "phase" | "reached">): string => (build.phase === "road" && build.reached !== undefined ? STOP_WORD[build.reached] : PHASE_WORD[build.phase]);
@@ -142,9 +173,9 @@ export type BuildTip = {
   stops: readonly { Glyph: LucideIcon; word: string; ago?: string }[];
 };
 
-/** The card's reading of a build. The road's stops are listed once the road is laid, each with when it happened or none where it has not. */
+/** The card's reading of a build. The road's stops are listed as the ring draws them, once it has any, each with when it happened or none where it has not. */
 export function buildTipOf(build: BuildIn): BuildTip {
-  const roaded = build.phase === "road" || build.phase === "landed";
+  const roaded = roadOf(build) !== undefined;
   const stop = (Glyph: LucideIcon, word: string, when: number | undefined) => ({ Glyph, word, ...(when === undefined ? {} : { ago: agoOf(build.now - when) }) });
   return {
     phase: { Glyph: glyphOf(build), word: wordOf(build) },

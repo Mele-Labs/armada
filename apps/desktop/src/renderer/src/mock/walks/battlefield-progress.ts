@@ -13,14 +13,14 @@ const opened = [
 ] as const;
 
 const battlefieldProgress = walk("battlefield-progress", [
-  { look: map, say: "Scope. One repository, three drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question" },
+  { look: map, say: "Scope. One repository, three drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies under its drone with a stake at each corner, and a small marker for the walk and for each question. Inside it a faint outline of a ring, whole and unsegmented: there is no task list yet, so nothing says how much is left. Outside it a thinner ring of faint arcs, the road this repository's Sessions usually take, with nothing lit" },
   { later: places, say: "It writes a list of seven tasks" },
   { look: map, say: "Plan. A ring lies on the ground under the drone, one dashed ghost segment for each task. The survey is gone" },
   { later: places, say: "Edits land, four subagents start, and four tasks are done" },
   { look: map, say: "Implement. A task done with edits seen is a solid segment. One done with none seen is outlined and hollow. The next task has scaffold round it because edits came with no tick. Four small drones circle the ring while their subagents run" },
   { hover: dock, say: "Its card. The phase as a glyph and a word, and each task as a swatch drawn as its segment is: solid, outlined or dashed" },
   ...opened,
-  { look: build, say: "The Session open. The ring is drawn tall above its ledger, in the place the bays had. A segment for each task: solid, outlined, the next in scaffold, the rest dashed. Incoming calls stay where they were" },
+  { look: build, say: "The Session open. The ring is drawn tall above its ledger, in the place the bays had. A segment for each task: solid, outlined, the next in scaffold, the rest dashed. Incoming calls stay where they were. A button with a speech bubble in the header asks the Session for an update" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { look: region("Bays"), say: "The bays are back" },
   { later: places, say: "Ten minutes with no tool call in a running turn. Three subagents end" },
@@ -31,7 +31,7 @@ const battlefieldProgress = walk("battlefield-progress", [
   { look: build, say: "The same at forty minutes. The unfinished segments are dim and an amber ring lies round the ring" },
   { key: "Escape", on: stage, say: "Esc is back to the map" },
   { later: places, say: "It works again and finishes, shows a walk of the built thing, pushes and opens a pull request. Its turn ends" },
-  { look: map, say: "The road. A thinner ring of arcs lies outside the task ring. The walk, the push and the pull request are lit, each with when it happened. Checks and auto-merge are faint: this repository's Sessions usually do them next" },
+  { look: map, say: "The road. The walk, the push and the pull request light, each with when it happened. Checks and auto-merge are faint: this repository's Sessions usually do them next" },
   { hover: inside(map, role("option", /^Checks/)), say: "A faint arc says so, and a lit one says when" },
   { later: places, say: "Checks run and auto-merge is set" },
   { look: map, say: "Every stop is lit" },

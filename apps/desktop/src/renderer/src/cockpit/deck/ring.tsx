@@ -1,9 +1,9 @@
-// The ring: a segment for each task, and the road to main as a thinner ring of arcs outside it. A piece is ghost (dashed, planned),
+// The ring: a segment for each task, or one unsegmented band where there is no list, and the road to main as a thinner ring of arcs outside it. A piece is ghost (dashed, planned),
 // scaffold (the first task not done, edits seen since), hollow (done, no edit seen) or solid. A piece is static once placed. #2301.
 
 import type { ReactNode } from "react";
 
-import type { Arc, Piece } from "./build";
+import type { Arc, Band, Piece } from "./build";
 
 export type RingProps = {
   pieces: readonly { piece: Piece }[];
@@ -16,8 +16,13 @@ export type RingProps = {
   wrap?: (k: number, piece: ReactNode) => ReactNode;
   /** Speaks for an arc, as `wrap` does for a piece. */
   wrapArc?: (k: number, arc: ReactNode) => ReactNode;
+  /** The one band that stands for the ring where there are no pieces. Ignored where there are some. */
+  band?: Band | undefined;
+  /** Speaks for the band. */
+  wrapBand?: (band: ReactNode) => ReactNode;
 };
 const plain = (_k: number, part: ReactNode) => part;
+const whole = (part: ReactNode) => part;
 const open = (piece: Piece) => piece === "ghost" || piece === "scaffold";
 
 /** One segment of a ring: an annular sector from angle `from` to `to`, in degrees, between radii r0 and r1. */
@@ -26,8 +31,11 @@ const sector = (r0: number, r1: number, from: number, to: number) => {
   return `M${p(r1, from)} A${r1},${r1} 0 0 1 ${p(r1, to)} L${p(r0, to)} A${r0},${r0} 0 0 0 ${p(r0, from)} Z`;
 };
 
+/** A full annulus between radii r0 and r1, as two circles filled even-odd. */
+const annulus = (r0: number, r1: number) => `M${r1},0 A${r1},${r1} 0 1 1 ${-r1},0 A${r1},${r1} 0 1 1 ${r1},0 Z M${r0},0 A${r0},${r0} 0 1 0 ${-r0},0 A${r0},${r0} 0 1 0 ${r0},0 Z`;
+
 /** The task ring in the plane's own units, with the road as a ring of its own outside it: 4.5 thick, a gap of 4. */
-export function RingArt({ pieces, big, dim, arcs = [], wrap = plain, wrapArc = plain }: RingProps) {
+export function RingArt({ pieces, big, dim, arcs = [], wrap = plain, wrapArc = plain, band, wrapBand = whole }: RingProps) {
   const n = Math.max(pieces.length, 1);
   const r1 = 34 * big;
   const r0 = r1 - 7 * big;
@@ -35,6 +43,14 @@ export function RingArt({ pieces, big, dim, arcs = [], wrap = plain, wrapArc = p
   const m = Math.max(arcs.length, 1);
   return (
     <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="ring">
+      {pieces.length > 0 || band === undefined
+        ? null
+        : wrapBand(
+            <g className="bf-band" data-state={band.state} data-open={band.state !== "solid" || undefined} data-moving={band.moving || undefined}>
+              <path className="bf-band__seg" d={annulus(r0, r1)} fillRule="evenodd" />
+              {band.state === "scaffold" ? <circle className="bf-band__tex" cx={0} cy={0} r={(r0 + r1) / 2} strokeWidth={r1 - r0} /> : null}
+            </g>,
+          )}
       {pieces.map((one, k) => {
         const from = -90 + (k * 360) / n + 2.5;
         const to = -90 + ((k + 1) * 360) / n - 2.5;

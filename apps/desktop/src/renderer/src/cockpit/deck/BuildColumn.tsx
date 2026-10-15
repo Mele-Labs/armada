@@ -7,7 +7,8 @@ import { Tooltip } from "@armada/components";
 
 import { SAID } from "./BuildCard";
 import { RingArt } from "./ring";
-import { arcSaid, arcWord, arcsOf, glyphOf, wordOf, type BuildIn } from "./build";
+import { arcSaid, arcWord, arcsOf, bandOf, glyphOf, roadOf, wordOf, type BuildIn } from "./build";
+import { AskUpdate } from "./AskUpdate";
 import "./build.css";
 
 /** A part of the ring that says what it is when it is hovered or focused. */
@@ -21,6 +22,7 @@ const spoken = (said: string, part: ReactNode): ReactNode => (
 
 function Structure({ build }: { build: BuildIn }) {
   const arcs = arcsOf(build);
+  const road = roadOf(build);
   return (
     <svg className="bf-col__art" viewBox="-44 -44 88 88" preserveAspectRatio="xMidYMid meet">
       {build.stalled ? <ellipse className="bf-col__stall" cx={0} cy={0} rx={42} ry={42} /> : null}
@@ -28,7 +30,9 @@ function Structure({ build }: { build: BuildIn }) {
         pieces={build.tasks}
         big={1}
         dim={build.dim}
-        arcs={arcs}
+        band={bandOf(build)}
+        wrapBand={(band) => spoken(wordOf(build), band)}
+        {...(road === undefined ? {} : { arcs: road })}
         wrap={(k, piece) => {
           const task = build.tasks[k]!;
           return spoken(`${task.text}, ${(task.said ?? SAID[task.piece]).toLowerCase()}`, piece);
@@ -52,6 +56,7 @@ export function BuildColumn({ build }: { build: BuildIn }) {
             <PhaseGlyph size={16} strokeWidth={2} aria-hidden="true" />
           </span>
         </Tooltip>
+        <AskUpdate subject={build.key} />
       </header>
       <div className="bf-col__body">
         <Structure build={build} />

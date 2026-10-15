@@ -31,6 +31,18 @@
 .bf-pc[data-state="solid"], .bf-pc[data-state="hollow"] { animation: bf-place calc(var(--duration-pulse) * 0.5) var(--ease) backwards; }
 @keyframes bf-place { from { opacity: 0; transform: translateY(-5px); } }
 
+/* The band: the ring where the agent wrote no task list. One unsegmented annulus, never partly filled, since a fraction here would be one
+   nobody measured. A faint outline while scoping or planning, an even scaffold texture once edits are seen, solid when landed. The texture
+   turns only while the drone is writing, and the unfinished band dims with a stall as the pieces do. */
+.bf-band__seg { fill: transparent; stroke: var(--fg-subtle); stroke-width: 1; stroke-linejoin: round; }
+.bf-band[data-state="outline"] .bf-band__seg { stroke-opacity: 0.4; }
+.bf-band[data-state="scaffold"] .bf-band__seg { stroke-opacity: 0.8; }
+.bf-band[data-state="solid"] .bf-band__seg { fill: color-mix(in srgb, var(--fg-default) 24%, var(--bg-base)); stroke-opacity: 0.8; }
+.bf-band__tex { fill: none; stroke: var(--fg-subtle); stroke-opacity: 0.5; stroke-dasharray: 1.4 2.6; transform-box: fill-box; transform-origin: center; pointer-events: none; }
+.bf-band[data-moving] .bf-band__tex { animation: bf-band-turn calc(var(--duration-pulse) * 40) linear infinite; }
+@keyframes bf-band-turn { to { transform: rotate(360deg); } }
+.bf-band[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
+
 /* Landed: the last arc closes the circle, then the ring goes. */
 .bf-built[data-landed] .bf-ring { opacity: 0; transition: opacity calc(var(--duration-pulse) * 1.2) var(--ease) calc(var(--duration-pulse) * 1.5); }
 
@@ -41,7 +53,7 @@
 
 /* A piece or an arc that speaks when it is hovered, where the ring itself takes no pointer. */
 .bf-pick { outline: none; }
-.bf-pick :is(.bf-pc__seg, .bf-arc__seg) { pointer-events: all; cursor: default; }
+.bf-pick :is(.bf-pc__seg, .bf-arc__seg, .bf-band__seg) { pointer-events: all; cursor: default; }
 .bf-pick:focus-visible .bf-pc .bf-pc__seg { stroke: var(--accent); }
 
 /* ---- The subagents --------------------------------------------------------------------------------------- */
@@ -87,16 +99,21 @@
 .bf-col .bf-pc:is([data-state="ghost"], [data-state="scaffold"], [data-state="hollow"]) .bf-pc__seg { fill: transparent; }
 .bf-col .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: bf-col-breathe calc(var(--duration-pulse) * 1.2) ease-in-out infinite; }
 .bf-col__piece { cursor: default; }
+/* Ask for an update: it sits at the end of whatever row it is in, and reads sent in the accent until the reply. */
+.bf-ask { display: inline-flex; margin-left: auto; }
+.bf-ask[data-sent] { color: var(--accent); }
+.bf-col .bf-band { cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
   .bf-pc[data-state="solid"],
   .bf-pc[data-state="hollow"],
   .bf-wk[data-loop] :is(.bf-wk__lap, .bf-wk__face),
+  .bf-band[data-moving] .bf-band__tex,
   .bf-wk__body .bf-sprite,
   .bf-col,
   .bf-col__stall,
   .bf-col .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: none; }
   .bf-wk[data-loop] .bf-wk__lap { transform: rotateZ(calc(var(--phase, 0) * 360deg)); }
   .bf-wk[data-loop] .bf-wk__face { transform: rotateZ(calc(var(--phase, 0) * -360deg)); }
-  .bf-ring, .bf-pc[data-open] { transition: none; }
+  .bf-ring, .bf-pc[data-open], .bf-band[data-open] { transition: none; }
 }

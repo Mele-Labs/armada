@@ -10,7 +10,7 @@ import { MOST_LOOPS } from "./doing";
 import { Ring } from "./ring";
 import type { Frame } from "./frame";
 import type { Layout, Point } from "./layout";
-import { arcSaid, arcWord, arcsOf, type BuildIn } from "./build";
+import { arcSaid, arcWord, arcsOf, bandOf, roadOf, type BuildIn } from "./build";
 import { SAID } from "./BuildCard";
 import { SessionGlyph } from "./Drone";
 import type { OnTip } from "./Drone";
@@ -70,6 +70,18 @@ const speakArc = (build: BuildIn, onTip: OnTip) => (k: number, arc: ReactNode): 
   return (
     <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={`${arcWord(one.id)}, ${said}`} {...pick(onTip, tip)}>
       {arc}
+    </g>
+  );
+};
+
+/** What the band says when it is hovered: the phase, and nothing of how much is done, since there is no list to say it by. */
+const speakBand = (build: BuildIn, onTip: OnTip) => (band: ReactNode): ReactNode => {
+  const word = bandOf(build)?.word;
+  if (word === undefined) return band;
+  const tip: Tip = { label: "Phase", title: word, hue: "quiet" };
+  return (
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={word} {...pick(onTip, tip)}>
+      {band}
     </g>
   );
 };
@@ -142,7 +154,8 @@ export function Builds({ placed, frame, big, loops, onTip }: BuildsProps) {
         if (sinceLand !== undefined && sinceLand > FRESH_LAND_MS) return null;
         const flat = onPlane(anchor);
         const z = (tile === undefined ? 0 : (heights.get(tile) ?? 0)) + 1.5;
-        const laid = build.phase === "road" || build.phase === "landed";
+        const road = roadOf(build);
+        const band = bandOf(build);
         return (
           <Fragment key={build.key}>
             <div className="bf-at" style={{ transform: `translate3d(${px(flat.x)}, ${px(flat.y)}, ${px(z)})` }}>
@@ -150,11 +163,9 @@ export function Builds({ placed, frame, big, loops, onTip }: BuildsProps) {
               {build.markers.map((kind, i) => (
                 <Marker key={i} kind={kind} i={i} big={big} />
               ))}
-              {build.tasks.length === 0 ? null : (
-                <div className="bf-built" data-landed={build.landedAt !== undefined || undefined}>
-                  <Ring pieces={build.tasks} big={big} dim={build.dim} wrap={speak(build, onTip)} {...(laid ? { arcs: arcsOf(build), wrapArc: speakArc(build, onTip) } : {})} />
-                </div>
-              )}
+              <div className="bf-built" data-landed={build.landedAt !== undefined || undefined}>
+                <Ring pieces={build.tasks} big={big} dim={build.dim} band={band} wrap={speak(build, onTip)} wrapBand={speakBand(build, onTip)} {...(road === undefined ? {} : { arcs: road, wrapArc: speakArc(build, onTip) })} />
+              </div>
             </div>
             {build.workers.map((detail, i) => {
               const loop = spare > 0;

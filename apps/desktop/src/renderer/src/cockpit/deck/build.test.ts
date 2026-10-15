@@ -4,7 +4,7 @@ import type { JobDetail, SessionBuild, TimelineEvent } from "@armada/protocol";
 import { workingAPlan } from "@armada/jobs/fixtures/build/index";
 import { expect, test } from "vitest";
 
-import { PHASE_GLYPH, STALL_MIN, STOP_GLYPH, arcsOf, buildInOf, buildTipOf, dimOf, glyphOf, jobBuildOf, jobPhaseOf, markersOf, stallOf, wordOf } from "./build";
+import { PHASE_GLYPH, STALL_MIN, STOP_GLYPH, arcsOf, bandOf, buildInOf, buildTipOf, dimOf, glyphOf, jobBuildOf, jobPhaseOf, markersOf, roadOf, stallOf, wordOf, writingOf } from "./build";
 
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -38,11 +38,45 @@ test("the road's arcs are the stops in order with the landing closing them", () 
   expect(arcsOf(read).map((one) => [one.id, one.at === undefined])).toEqual([["walk", false], ["checks", true], ["landed", true]]);
 });
 
-test("before the road is laid the phase is its own word and glyph, and the card lists no stops", () => {
-  const read = buildInOf("s1", build({ phase: "plan", stops: [{ id: "walk" }] }), NOW);
+test("before the road is laid the phase is its own word and glyph, and with no stop the card lists none", () => {
+  const read = buildInOf("s1", build({ phase: "plan" }), NOW);
   expect(wordOf(read)).toBe("Plan");
   expect(glyphOf(read)).toBe(PHASE_GLYPH.plan);
   expect(buildTipOf(read).stops).toEqual([]);
+});
+
+test("the road is drawn in any phase once it has a stop, lit where reached and faint where it is a forecast, the landing closing it", () => {
+  const record = build({ phase: "scope", stops: [{ id: "pr", at: ago(8) }, { id: "checks", at: ago(4) }, { id: "auto_merge" }] });
+  const read = buildInOf("s1", record, NOW);
+  expect(roadOf(read)?.map((one) => [one.id, one.at !== undefined])).toEqual([["pr", true], ["checks", true], ["auto_merge", false], ["landed", false]]);
+  expect(buildTipOf(read).stops.map((one) => one.word)).toEqual(["Pull request opened", "Checks", "Auto-merge", "Landed"]);
+  for (const phase of ["scope", "plan", "implement", "road", "landed"] as const) expect(roadOf(buildInOf("s1", { ...record, phase }, NOW))).toHaveLength(4);
+});
+
+test("a ring with no stop and no landing has no road, as a Job's has none", () => {
+  expect(roadOf(buildInOf("s1", build({ phase: "implement" }), NOW))).toBeUndefined();
+  expect(roadOf(jobBuildOf(jobWith(["working"]), "job:j1", NOW)!)).toBeUndefined();
+  expect(roadOf(buildInOf("s1", build({ phase: "landed", landed_at: ago(1) }), NOW))).toHaveLength(1);
+});
+
+test("with no task list the ring is one band: outline while scoping, scaffold once edits are seen, solid when landed, never part filled", () => {
+  const band = (change: Partial<SessionBuild>, events: TimelineEvent[] = []) => bandOf(buildInOf("s1", build(change), NOW, events));
+  expect(band({ phase: "scope" })).toEqual({ state: "outline", moving: false, word: "Scope" });
+  expect(band({ phase: "plan" })?.state).toBe("outline");
+  expect(band({ phase: "implement" })).toEqual({ state: "scaffold", moving: false, word: "Implement" });
+  expect(band({ phase: "road" })?.state).toBe("scaffold");
+  expect(band({ phase: "landed", landed_at: ago(1) })).toEqual({ state: "solid", moving: false, word: "Landed" });
+  expect(band({ phase: "implement", pieces: [{ id: "a", text: "Dock", piece: "ghost" }] })).toBeUndefined();
+});
+
+test("the band turns only while the drone is writing: a fresh edit, and not stalled", () => {
+  const moving = (change: Partial<SessionBuild>, events: TimelineEvent[]) => bandOf(buildInOf("s1", build({ phase: "implement", ...change }), NOW, events))?.moving;
+  expect(moving({}, [event("session.edited", "s1", 1)])).toBe(true);
+  expect(moving({}, [event("session.edited", "s1", 1), event("session.ran", "s1", 0.5)])).toBe(false);
+  expect(moving({}, [event("session.edited", "s1", 5)])).toBe(false);
+  expect(moving({}, [event("session.edited", "other", 1)])).toBe(false);
+  expect(moving({ stalled: true, quiet_since: ago(20) }, [event("session.edited", "s1", 1)])).toBe(false);
+  expect(writingOf([], "s1", NOW)).toBe(false);
 });
 
 test("once the road is laid the card lists each stop, with when it happened or none, and the landing last", () => {

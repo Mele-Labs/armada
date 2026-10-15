@@ -5,6 +5,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 
+import { AskUpdate } from "./AskUpdate";
 import { BuildCard } from "./BuildCard";
 import { placeCallout, type Anchored } from "./placement";
 import type { Tip } from "./tip";
@@ -72,6 +73,7 @@ export function Callout({ tip, anchor, host, pinned }: { tip: Tip; anchor: Ancho
       <div ref={card} className="bf-callout__card">
         <i className="bf-callout__glow" aria-hidden="true" />
         <div className="bf-callout__kind">{tip.label}</div>
+        {pinned && tip.ask !== undefined && tip.build !== undefined ? <AskUpdate subject={tip.ask} /> : null}
         {tip.node !== undefined ? <div className="bf-callout__node">{tip.node}</div> : <div className="bf-callout__title">{tip.title}</div>}
         {tip.node !== undefined || tip.state === undefined ? null : (
           <div className="bf-callout__state" data-tone={tip.state.tone}>

@@ -37,6 +37,8 @@ export type Tip = {
   ticks?: readonly number[];
   lines?: readonly string[];
   build?: BuildTip;
+  /** The drone's key, where it has a ring to ask for an update about. The pinned card draws the button. */
+  ask?: string;
   /** A card of its own, drawn under the kind in place of the title and the state: a step's real node card. */
   node?: ReactNode;
 };
@@ -59,7 +61,7 @@ export const droneTip = (drone: DroneIn, facts: DroneFacts | undefined, fallback
   ...(facts?.last === undefined ? {} : { last: facts.last }),
   ...(facts?.call === undefined ? {} : { call: facts.call }),
   ...(facts === undefined ? {} : { ticks: facts.ticks }),
-  ...(facts?.build === undefined ? {} : { build: facts.build }),
+  ...(facts?.build === undefined ? {} : { build: facts.build, ask: drone.key }),
 });
 
 export const padTip = (pad: PadIn): Tip => ({
