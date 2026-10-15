@@ -40,6 +40,20 @@ Signing in sets these up and asks for nothing more. The store holds nothing abou
 
 A work machine starts on its own work profile with nothing from the personal side. Adding the personal login there is a deliberate act, and every kind it syncs is off until the person turns it on.
 
+## Repositories
+
+**Rule.** No profile is active. Each repository on the machine is bound to one profile, and the repository claims and syncs as that profile.
+
+**Rule.** A repository is matched through GitHub. At sign-in Fleet keeps the account's login and the organisations it belongs to, and a repository whose owner is one of them is matched to that profile. The token is still not kept.
+
+| Case | What happens |
+| --- | --- |
+| One profile matches | The repository is bound to it, marked matched |
+| No profile matches, such as another person's repository you collaborate on | It waits unbound until chosen once |
+| Two profiles match, such as an owner both belong to | It waits unbound until chosen once |
+| The person chooses a profile, or moves a bound repository to another | It is bound to that profile, marked chosen |
+| The person chooses None | It claims and syncs nothing |
+
 ## What syncs
 
 **Rule.** What syncs is chosen per kind and per machine, and every kind is off until it is turned on.
@@ -58,17 +72,32 @@ The kinds are Kit's: Skills, Plugins, Agent file, Global instructions, Sub agent
 
 | Where | What |
 | --- | --- |
-| Title bar menu | Account or Sign in with GitHub, Sleep, Settings with its key |
-| Menu button | The moon while Sleep is on, an amber dot while signed out |
-| Account entry | Device code, set-up rows, profiles |
-| Profiles | A chip each from two profiles, active one marked; Add profile always shown |
+| Title bar menu | One account row (the login, or Sign in), Sleep, Settings with its key |
+| Menu button | The moon while Sleep is on, an amber dot while signed out; the turn while a sign-in waits, the end's glyph once one failed |
+| Account | One page in the work area like Settings, reached from the menu row and from Settings, that holds everything below and keeps a sign-in in flight when it is left |
+| Account contents | A page header with the title and this machine's name, then glass under a mono band: one tile for each profile, and under them what signing in turns on |
+| Sign-in that ended | Denied, expired, not reached or refused: Fleet's sentence beside a mark, and Try again, inside its own tile in the amber frame |
+| Sign-in not set up | Fleet's sentence naming the blank setting, and a button to each in Settings, in its own tile |
+| Profiles | A tile each, always listed, even while another signs in: the login, a mark for this machine's own or added on purpose, the three set-up rows, the repositories bound to it (mono, scrolling inside the tile, each marked matched or chosen, with a Move menu), What syncs on an added one, Sign out; Add profile is a dashed tile |
+| Sign-in in flight | Its own dashed tile beside the profiles, labelled Adding: the address as a link button, the code large with a copy act, a waiting mark, the time left, Cancel. It becomes that profile's tile when it finishes |
+| Not matched | A frame of its own, drawn only when something is in it: each repository no profile owns, with a Choose menu listing the profiles and None; one given None keeps its row, marked |
+| Turns on | Three tiles, Red main claims, Pull request owners and Shared home, dashed with a broken ring while off and framed with a check once the store (the first two) or the home (the third) exists |
+| Signed out | The one act, Sign in with GitHub, in a dashed strip across the Profiles frame, with the Turns on tiles off beneath it, a Sets up tile of the three rows none yet, and a Never frame at the foot of the page, signed in or out: nothing is written to your repositories or pull requests, your token is not kept, a work machine syncs nothing until you turn a kind on |
+| Signed out profile | Who left, struck through in a dashed tile; the store's row named only where it stays |
+| Home not made yet | The set-up row for the shared home is not set up, and What syncs is greyed, tooltip No shared home yet |
 | What syncs | A sheet over a profile added on purpose, one switch per kind |
 | Repository picker | The rail's first panel, above Work, collapsed to a glyph with the rail |
 
-The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml` and `packages/icons/icons/laptop.toml`.
+The sign-in button carries the forge's own mark, never recoloured: white on a dark ground and black on a light one, as the forge's logo policy asks. No token holds pure white or black, so `ForgeMark.css` is the one stylesheet that opts out of the colour-literal rule.
+
+The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/circle-dashed.toml`, `packages/icons/icons/ban.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
 
 ## Built
 
 **Built, on mock data.** The title bar menu, the device code, the set-up rows, the profiles and What syncs all draw from `draft.account` in the mock Fleet, and the walks `onboarding-home`, `onboarding-work` and `title-bar-menu` play them.
+
+**Drawn in the mock, awaiting the owner's walk.** The account page (`account-page`), the repositories bound to each profile and the ones that wait (`account-repositories`), the sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`.
+
+**The wire still carries one active profile and a set-active act**, which the page does not draw. Binding is drawn from `draft.account.repositories` and `orgs` in the mock; Fleet serves neither.
 
 **Not built, everything behind it.** Nothing signs in, no store exists and Fleet serves none of it.

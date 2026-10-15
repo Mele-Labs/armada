@@ -241,9 +241,18 @@ where
         row: &WriteBackOwed,
         owed: Owed,
     ) -> Result<WrittenBack, (WrittenBack, NotTracked)> {
-        let tracker = self.tracking().tracker();
-        let issue = IssueAddress::at(&row.source.reference, &row.source.url);
         let before = row.kept.clone();
+        let Ok(served) = self.served_by_id(&row.job_id) else {
+            return Err((
+                before,
+                NotTracked::of(
+                    "writing back on the issue",
+                    "the repository this job ran in is not served",
+                ),
+            ));
+        };
+        let tracker = self.tracker_of(&served);
+        let issue = IssueAddress::at(&row.source.reference, &row.source.url);
         tokio::task::spawn_blocking(move || {
             let mut so_far = WrittenBack {
                 failed: None,
@@ -275,21 +284,32 @@ where
     }
 
     /// `review` with the line that closes the Job's issue when it merges, in
-    /// the tracker's own words. **Unchanged** where the Job came from no issue,
-    /// or the store or tracker cannot say: a pull request never waits on this.
+    /// the tracker's own words, and the mark in the title for a tracker that
+    /// links by title. **Unchanged** where the Job came from no issue, or the
+    /// store or tracker cannot say: a pull request never waits on this.
     pub(crate) async fn closing_its_issue(&self, job: &Job, review: Review) -> Review {
         let source = self.store().lock().await.issue_source(job.id());
         let Ok(Some(source)) = source else {
             return review;
         };
         let issue = IssueAddress::at(&source.reference, &source.url);
-        match self.tracking().tracker().closing_line(&issue) {
-            Some(line) => Review::assembled(
-                review.title(),
-                format!("{}\n\n{line}\n", review.body().trim_end()),
-            ),
-            None => review,
+        let Ok(served) = self.served_by(job) else {
+            return review;
+        };
+        let tracker = self.tracker_of(&served);
+        let title = match tracker.title_mark(&issue) {
+            Some(mark) if !review.title().contains(&mark) => format!("{mark} {}", review.title()),
+            _ => review.title().to_string(),
+        };
+        let line = tracker.closing_line(&issue);
+        if line.is_none() && title == review.title() {
+            return review;
         }
+        let body = match line {
+            Some(line) => format!("{}\n\n{line}\n", review.body().trim_end()),
+            None => review.body().to_string(),
+        };
+        Review::assembled(title, body)
     }
 
     /// The line on the Job's own log, once per refused pass.

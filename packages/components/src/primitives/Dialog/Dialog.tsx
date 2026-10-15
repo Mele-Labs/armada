@@ -61,6 +61,8 @@ export type DialogProps = {
   open: boolean;
   /** Sentence case, and it names what happens. */
   title: string;
+  /** What the heading draws where the words alone would not do, a glyph among them. `title` stays its name. */
+  titleNode?: ReactNode;
   /** What happens and what survives, in briefing register. The scrolling part. */
   children: ReactNode;
   /**
@@ -87,6 +89,7 @@ export type DialogProps = {
 export function Dialog({
   open,
   title,
+  titleNode,
   children,
   field,
   tone = "destructive",
@@ -194,7 +197,7 @@ export function Dialog({
               aria-hidden="true"
             />
           )}
-          <h2 className="armada-dialog__title">{title}</h2>
+          <h2 className="armada-dialog__title">{titleNode ?? title}</h2>
         </div>
         {/* The one region that gives. `ScrollArea` rather than a local
             `overflow: auto`, because macOS hides its own scrollbar until you

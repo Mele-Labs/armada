@@ -13,3 +13,10 @@
     status = "Specified"
     reserved = "TaskMark's (packages/components) failed state only, docs/concepts/plan.md. Never a dropped task, which is minus, and never a Check outcome, which is shield-x."
     notes = "Added 2026-09-22 for #1535, once a Drone per task made a task able to fail on its own. Reuses the table above's claim one level below a Job: the system failed, nobody decided. It is the counterpart of check, which TaskMark already takes for done, so the pair reads at task level exactly as it does at Job level — and the pairing is what refused circle-x, which is reserved to Judge verdicts, and shield-x, which is reserved to Checks. A task's agent stopping is neither. Renders --step-failed, the declared alias of --status-completed-failed one level below a step, so no token was minted."
+
+  [[icons.x.usage]]
+    means = "A sign-in the forge or the store answered no to"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `sign-in-ended`. The system said no and nobody decided, which is this glyph's claim as a badge. Tooltip `Refused`. `ban` stays a person's decision and is used for denied."

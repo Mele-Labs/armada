@@ -358,6 +358,9 @@ where
         let seen = super::standing::Seen {
             helm,
             running,
+            subagents: attachments
+                .iter()
+                .any(|one| one.kind == "subagent" && one.state == ipc::AttachmentState::Standing),
             held: asked.is_some(),
             turn_end: turn_end.as_ref().map(|(at, said)| (at.as_str(), said.as_str())),
             spoke: spoke_at.as_deref(),

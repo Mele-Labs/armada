@@ -8,7 +8,10 @@ use api::{Issues, Refusal};
 use core_model::{IssueSource, JobId, JobStatus, Timestamp, Ulid};
 use ipc::ManifestId;
 use store::{WriteBackOwed, WrittenBack};
-use testkit::{FakeHarness, FakeJudge, FakeLinkLookup, FakeTracker, FakeVcs, FakeWorkProduct, TrackerWrite};
+use testkit::{
+    FakeHarness, FakeJudge, FakeLinkLookup, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct,
+    TrackerWrite,
+};
 
 use crate::daemon::Fleet;
 use crate::tests::admitted::dispatched;
@@ -31,11 +34,14 @@ fn a_fleet(home: &TempDir, tracker: Arc<FakeTracker>) -> Fixture {
     fittings.judge = Arc::new(FakeJudge::saying(
         "workflow: bug\ntitle: The reader drops the last row\ndone_when: the last row is read",
     ));
-    fittings.links = Arc::new(
-        FakeLinkLookup::resolving("example.test/issues/9", "the reader drops the last row")
-            .linking("y#9", ISSUE),
+    fittings.trackers = Arc::new(
+        FakeTrackers::empty()
+            .links(Arc::new(
+                FakeLinkLookup::resolving("example.test/issues/9", "the reader drops the last row")
+                    .linking("y#9", ISSUE),
+            ))
+            .tracker(tracker),
     );
-    fittings.tracker = tracker;
     Fleet::assembled(fittings)
 }
 
@@ -173,6 +179,24 @@ async fn the_pull_request_closes_the_issue_the_job_came_from() {
     let made = fleet.propose_from("the reader drops the last row", None).await.expect("a proposal");
     let none = fleet.load(made[0].id()).await.expect("loads");
     assert_eq!(fleet.closing_its_issue(&none, review.clone()).await, review);
+}
+
+/// A tracker that reads the title and not the body is told by the title: the reference leads it,
+/// the body is as composed, and a title that already carries the reference is not marked twice.
+#[tokio::test]
+async fn a_tracker_that_links_by_title_has_its_mark_put_there_and_nothing_in_the_body() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, Arc::new(FakeTracker::linking_by_title()));
+    let job = proposed_from_the_issue(&fleet).await;
+    let loaded = fleet.load(&job).await.expect("loads");
+    let review = Review::assembled("A title", "## Why\n\nBecause.\n");
+    let marked = fleet.closing_its_issue(&loaded, review.clone()).await;
+    assert_eq!(marked.title(), "y#9 A title");
+    assert_eq!(marked.body(), review.body());
+    let again = fleet
+        .closing_its_issue(&loaded, Review::assembled("y#9 Already marked", "Body.\n"))
+        .await;
+    assert_eq!(again.title(), "y#9 Already marked");
 }
 
 fn row(status: JobStatus, pull_request: Option<&str>, kept: WrittenBack) -> WriteBackOwed {

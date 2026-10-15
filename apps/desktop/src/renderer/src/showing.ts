@@ -23,6 +23,8 @@ export type Open = {
   jobbing?: boolean;
   /** Doctor, reached from the Fleet panel's Doctor row. Optional so a caller that never opens it need not say so. */
   doctoring?: boolean;
+  /** The account's page, reached from the title row's menu and from Settings. */
+  accounting?: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
@@ -30,6 +32,7 @@ export function showingOf(open: Open): string {
   if (open.clearing) return SURFACE.worktrees;
   if (open.manifesting) return SURFACE.manifest;
   if (open.settingsShowing) return SURFACE.settings;
+  if (open.accounting === true) return SURFACE.account;
   if (open.modding) return SURFACE.mods;
   if (open.kitting) return SURFACE.kit;
   if (open.guiding) return SURFACE.guides;

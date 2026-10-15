@@ -226,11 +226,9 @@ const OPEN_PULLS: &str = "\
     (.mergeable // \"\"), (.reviewDecision // \"\"), (.additions // \"\" | tostring), \
     (.deletions // \"\" | tostring)] | @tsv";
 
-/// The check whose result is a pull request's `ci`, where it has one.
-const GATE: &str = "ci";
-
-/// Every open pull request, `None` where the forge would not answer.
-pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
+/// Every open pull request, `None` where the forge would not answer. `gate` is the check whose
+/// result is a pull request's `ci`, where it has one.
+pub(crate) fn open_pulls(in_repo: &str, gate: &str) -> Option<OpenPulls> {
     let said = asked(
         in_repo,
         &[
@@ -247,7 +245,7 @@ pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
             OPEN_PULLS,
         ],
     )?;
-    Some(said.lines().filter_map(open_pull_of_line).collect())
+    Some(said.lines().filter_map(|line| open_pull_of_line(line, gate)).collect())
 }
 
 /// Put one commit status on `commit`: `gh api` fills `{owner}/{repo}` from the
@@ -346,7 +344,7 @@ fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
     })
 }
 
-fn open_pull_of_line(line: &str) -> Option<OpenPull> {
+fn open_pull_of_line(line: &str, gate: &str) -> Option<OpenPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();
@@ -368,8 +366,8 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
             (as_written(name), check_state_of(&status, &conclusion))
         })
         .collect();
-    let deciding: Vec<&(String, CiState)> = match checks.iter().any(|(name, _)| name == GATE) {
-        true => checks.iter().filter(|(name, _)| name == GATE).collect(),
+    let deciding: Vec<&(String, CiState)> = match checks.iter().any(|(name, _)| name == gate) {
+        true => checks.iter().filter(|(name, _)| name == gate).collect(),
         false => checks.iter().collect(),
     };
     let ci = [CiState::Failed, CiState::Pending, CiState::Passed]
@@ -458,16 +456,16 @@ mod tests {
     #[test]
     fn auto_merge_is_the_last_field_and_absent_means_off() {
         assert!(
-            open_pull_of_line("12\tt\tb\tu\tnick\t\t\t1")
+            open_pull_of_line("12\tt\tb\tu\tnick\t\t\t1", "ci")
                 .unwrap()
                 .auto_merge
         );
         assert!(
-            !open_pull_of_line("12\tt\tb\tu\tnick\t\t\t0")
+            !open_pull_of_line("12\tt\tb\tu\tnick\t\t\t0", "ci")
                 .unwrap()
                 .auto_merge
         );
-        assert!(!open_pull_of_line("12\tt\tb\tu\tnick\t").unwrap().auto_merge);
+        assert!(!open_pull_of_line("12\tt\tb\tu\tnick\t", "ci").unwrap().auto_merge);
     }
 
     #[test]
@@ -575,12 +573,12 @@ mod tests {
     fn a_pull_requests_head_is_kept_only_where_it_is_a_commit() {
         let sha = "b".repeat(40);
         let line = format!("12\tt\tb\tu\tnick\t\t{sha}");
-        assert_eq!(open_pull_of_line(&line).unwrap().head, Some(sha));
+        assert_eq!(open_pull_of_line(&line, "ci").unwrap().head, Some(sha));
         assert_eq!(
-            open_pull_of_line("12\tt\tb\tu\tnick\t\tnot").unwrap().head,
+            open_pull_of_line("12\tt\tb\tu\tnick\t\tnot", "ci").unwrap().head,
             None
         );
-        assert_eq!(open_pull_of_line("12\tt\tb\tu\tnick\t").unwrap().head, None);
+        assert_eq!(open_pull_of_line("12\tt\tb\tu\tnick\t", "ci").unwrap().head, None);
     }
 
     #[test]
@@ -604,7 +602,7 @@ mod tests {
     fn a_pull_requests_ci_is_the_check_named_ci_where_there_is_one() {
         let line = "12\tAdd a cache\tarmada/cache\thttps://forge.invalid/pull/12\tnick\t\
                     ci\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}desktop_test\u{1f}COMPLETED\u{1f}FAILURE";
-        let pull = open_pull_of_line(line).unwrap();
+        let pull = open_pull_of_line(line, "ci").unwrap();
         assert_eq!(pull.number, 12);
         assert_eq!(pull.title.as_written(), "Add a cache");
         assert_eq!(pull.branch.as_written(), "armada/cache");
@@ -615,22 +613,30 @@ mod tests {
     }
 
     #[test]
+    fn a_repository_names_the_check_that_decides_and_ci_is_then_only_a_check() {
+        let line = "12\tt\tb\tu\tnick\t\
+                    ci\u{1f}COMPLETED\u{1f}FAILURE\u{1e}build\u{1f}COMPLETED\u{1f}SUCCESS";
+        assert_eq!(open_pull_of_line(line, "ci").unwrap().ci, Some(CiState::Failed));
+        assert_eq!(open_pull_of_line(line, "build").unwrap().ci, Some(CiState::Passed));
+    }
+
+    #[test]
     fn with_no_check_named_ci_every_check_decides() {
         let running =
             "13\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}IN_PROGRESS\u{1f}";
         assert_eq!(
-            open_pull_of_line(running).unwrap().ci,
+            open_pull_of_line(running, "ci").unwrap().ci,
             Some(CiState::Pending)
         );
         let failed = "14\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}COMPLETED\u{1f}TIMED_OUT";
-        assert_eq!(open_pull_of_line(failed).unwrap().ci, Some(CiState::Failed));
+        assert_eq!(open_pull_of_line(failed, "ci").unwrap().ci, Some(CiState::Failed));
     }
 
     #[test]
     fn a_listing_names_when_it_opened_whether_it_merges_and_what_the_review_says() {
         let line = "12\tt\tb\tu\tnick\t\t\t0\t2026-10-13T09:10:00Z\t2026-10-13T11:40:00Z\t1\t\
                     CONFLICTING\tCHANGES_REQUESTED\t120\t4";
-        let facts = open_pull_of_line(line).unwrap().facts;
+        let facts = open_pull_of_line(line, "ci").unwrap().facts;
         assert_eq!(facts.opened_at.unwrap().as_written(), "2026-10-13T09:10:00Z");
         assert_eq!(facts.updated_at.unwrap().as_written(), "2026-10-13T11:40:00Z");
         assert!(facts.draft);
@@ -642,27 +648,27 @@ mod tests {
     #[test]
     fn a_word_with_no_name_is_unknown_and_an_empty_decision_is_none_not_absent() {
         let clean = "12\tt\tb\tu\tn\t\t\t0\ta\tb\t0\tMERGEABLE\tAPPROVED\t0\t0";
-        let facts = open_pull_of_line(clean).unwrap().facts;
+        let facts = open_pull_of_line(clean, "ci").unwrap().facts;
         assert_eq!(facts.mergeable, Some(PullMergeable::Clean));
         assert_eq!(facts.review, Some(PullReview::Approved));
         assert!(!facts.draft);
         assert_eq!((facts.additions, facts.deletions), (Some(0), Some(0)));
         let odd = "12\tt\tb\tu\tn\t\t\t0\t\t\t0\tSOMETHING_NEW\t\t\t";
-        let facts = open_pull_of_line(odd).unwrap().facts;
+        let facts = open_pull_of_line(odd, "ci").unwrap().facts;
         assert_eq!(facts.mergeable, Some(PullMergeable::Unknown));
         assert_eq!(facts.review, Some(PullReview::None));
         assert!(facts.opened_at.is_none() && facts.additions.is_none());
-        let short = open_pull_of_line("12\tt\tb\tu\tn\t\t\t0").unwrap().facts;
+        let short = open_pull_of_line("12\tt\tb\tu\tn\t\t\t0", "ci").unwrap().facts;
         assert_eq!(short, PullFacts::default());
     }
 
     #[test]
     fn a_pull_request_nothing_ran_on_has_no_ci_and_a_status_context_is_read_by_its_state() {
-        let none = open_pull_of_line("15\tt\tb\tu\t\t").unwrap();
+        let none = open_pull_of_line("15\tt\tb\tu\t\t", "ci").unwrap();
         assert_eq!(none.ci, None);
         assert!(none.author.is_none());
         let context = "16\tt\tb\tu\ta\tbuild\u{1f}\u{1f}PENDING\u{1e}ci\u{1f}\u{1f}FAILURE";
-        let pull = open_pull_of_line(context).unwrap();
+        let pull = open_pull_of_line(context, "ci").unwrap();
         assert_eq!(pull.ci, Some(CiState::Failed));
         assert_eq!(pull.failing.len(), 1);
     }

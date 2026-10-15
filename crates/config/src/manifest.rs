@@ -9,7 +9,8 @@
 //! is a dial rather than a registry; and the two policies a
 //! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`;
 //! `merge_by`, [`merge_by`]; `pr_mode`, [`pr_mode`]; and
-//! `freeze`, [`freeze`]; `standing_rules`, [`standing`]. Every other section
+//! `freeze`, [`freeze`]; `standing_rules`, [`standing`]; `ci_gate`, [`ci_gate`];
+//! `tracker`, [`tracker`]. Every other section
 //! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
 //! **A key nothing reads is worse than a key that is not there.** A `budget:
@@ -27,6 +28,7 @@
 //! this file produces live in [`declared`], and a server in [`serving`].
 
 mod auto_release;
+mod ci_gate;
 mod declared;
 mod harness;
 mod merge_by;
@@ -46,7 +48,9 @@ pub use declared::{Check, Command, Port, Preparation};
 pub use harness::Harness;
 pub use merge_by::MergeBy;
 pub use seed::{BadSeedPath, Seed};
+pub use ci_gate::DEFAULT_CI_GATE;
 pub use serving::{Link, Server};
+pub use tracker::TrackerBlock;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU32;
@@ -62,6 +66,7 @@ mod freeze;
 mod policies;
 mod pull_request_owners;
 mod standing;
+mod tracker;
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::live::{Cell, InForce, Reloads};
@@ -95,6 +100,10 @@ const TOP_LEVEL: &[&str] = &[
     "standing_rules",
     // Which other paths gate a workspace: [`workspace`].
     "depends_on",
+    // The check a pull request's `ci` reads: [`ci_gate`].
+    "ci_gate",
+    // Which tracker holds the issues: [`tracker`].
+    "tracker",
 ];
 /// The keys M1 reads inside `checks.<name>`. **`expect_exit_code` is spelled
 /// here as a workflow step spells it**, for the reason `drone:` below gives
@@ -197,6 +206,10 @@ pub struct Manifest {
     exclude_paths: Vec<RepoPath>,
     /// See [`standing`].
     standing_rules: Option<String>,
+    /// See [`ci_gate`]. Not live: read from the Manifest Fleet started with.
+    ci_gate: String,
+    /// See [`tracker`]. Not live, for `ci_gate`'s reason.
+    tracker: Option<TrackerBlock>,
     /// The two `lifetime = "Live"` keys, behind a cell every clone shares.
     /// See [`crate::live`] for why these and not the whole file.
     live: Cell,
@@ -612,6 +625,8 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     let freeze = freeze::read(&mut top, out);
     let pull_request_owners = pull_request_owners::read(&mut top, placed.is_a_workspace(), out);
     let standing_rules = standing::read(&mut top, out);
+    let ci_gate = ci_gate::read(&mut top, out);
+    let tracker = tracker::read(&mut top, out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
@@ -653,6 +668,8 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         proved_after_a_merge,
         exclude_paths: drone.exclude_paths,
         standing_rules,
+        ci_gate,
+        tracker,
         live: Cell::holding(InForce {
             dials: drone.dials,
             auto_merge,

@@ -66,20 +66,37 @@ function BreakdownCard({ fill, percent, breakdown, pinned }: { fill: ContextFill
   );
 }
 
+/** The threshold as a share of the window, where there is one to mark. */
+function thresholdOf(fill: ContextFill): number | undefined {
+  const at = fill.breakdown?.autocompactThreshold;
+  return at === undefined || fill.window <= 0 || at <= 0 || at >= fill.window ? undefined : at / fill.window;
+}
+
+/** The custom properties the tank reads: how full, and where the autocompact threshold is. */
+function tankStyle(fill: ContextFill): CSSProperties {
+  const threshold = thresholdOf(fill);
+  return {
+    "--fill": `${Math.min(Math.max(fill.tokens / fill.window, 0), 1) * 100}%`,
+    ...(threshold === undefined ? {} : { "--threshold": `${threshold * 100}%` }),
+  } as CSSProperties;
+}
+
 /**
- * The live tokens and the percent of the window they fill, in mono and coloured by how full. Where the
- * breakdown is known it is a button: **hover or focus opens the card, a press keeps it open**, and Esc or a
- * press outside closes it. Nothing is drawn without a window to fill.
+ * The context window as a tank: the live tokens and the percent in mono, on a pill filled to `tokens / window` in the
+ * tone of how full it is (normal below 80, warning from 80, danger from 95), with a dotted line at the autocompact
+ * threshold where the breakdown holds one. Where the breakdown is known it is a button: **hover or focus opens the
+ * card, a press keeps it open**, and Esc or a press outside closes it. Nothing is drawn without a window to fill.
  */
 export function ContextFigure({ fill }: { fill: ContextFill }) {
   const card = useCardOpen();
   if (fill.window <= 0) return null;
   const percent = Math.round((fill.tokens / fill.window) * 100);
   const figure = `${tokensSaid(fill.tokens)} · ${percent}%`;
+  const threshold = thresholdOf(fill) !== undefined || undefined;
   if (fill.breakdown === undefined) {
     return (
       <Tooltip label={`Context · ${tokensSaid(fill.tokens)} of ${tokensSaid(fill.window)} tokens`}>
-        <span className="armada-session-frame__context" role="img" aria-label={`Context ${percent}%`} data-level={usageLevel(percent)}>
+        <span className="armada-session-frame__context" role="img" aria-label={`Context ${percent}%`} data-level={usageLevel(percent)} data-threshold={threshold} style={tankStyle(fill)}>
           {figure}
         </span>
       </Tooltip>
@@ -87,7 +104,7 @@ export function ContextFigure({ fill }: { fill: ContextFill }) {
   }
   return (
     <span className="armada-session-frame__context-host" data-level={usageLevel(percent)} {...card.bind}>
-      <button type="button" className="armada-session-frame__context" aria-label={`Context ${percent}%`} aria-expanded={card.open} onClick={card.toggle}>
+      <button type="button" className="armada-session-frame__context" aria-label={`Context ${percent}%`} aria-expanded={card.open} data-threshold={threshold} style={tankStyle(fill)} onClick={card.toggle}>
         {figure}
       </button>
       {card.open ? <BreakdownCard fill={fill} percent={percent} breakdown={fill.breakdown} pinned={card.pinned} /> : null}

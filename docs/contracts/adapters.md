@@ -124,6 +124,18 @@ design where even `armada` did not change would require runtime plugin
 loading, which for a single-user single-binary system buys nothing and
 costs a dynamic-dispatch boundary nobody can typecheck.
 
+### Adding a second `Tracker` implementation
+
+This is the one adapter a Manifest chooses per repository, so the choice is not a Guild row.
+
+| Step | Where |
+| --- | --- |
+| A module implementing `Tracker` (and `LinkLookup`, for dispatch by link), reading its own keys | `adapters` |
+| One new arm in the provider match, `TrackersByProvider` | `adapters` |
+| Nothing else | `config` holds `provider` and carries every other `tracker:` key as written |
+
+The match is in `adapters` and not `armada`, which the `Secrets` steps above put it in: the provider words are vendors', and the composition root may not spell one. `armada` names `TrackersByProvider` and nothing behind it. `Trackers` is total: a provider this build lacks, or a block its implementation refuses, answers every call with the reason, so one repository's Manifest never stops Fleet. `concepts/tracker.md`.
+
 ### Adding a second `AgentHarness` implementation
 
 **This one is not cheap, and this document should say so plainly.**

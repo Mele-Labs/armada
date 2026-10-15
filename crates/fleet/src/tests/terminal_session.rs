@@ -598,6 +598,29 @@ async fn a_resumed_subagent_reads_as_running_while_it_works_and_finished_once_it
     assert_eq!(state("x2").await, Some(ipc::AttachmentState::Standing));
 }
 
+/// The list reads a Session as working while a subagent of it works, and stops once the last one stops.
+#[tokio::test]
+async fn a_session_reads_as_working_while_its_subagent_works() {
+    let rig = rig();
+    rig.started().await;
+    let standing = || {
+        let fleet = Arc::clone(&rig.fleet);
+        async move { fleet.get_session(SessionId::carried(ID)).await.unwrap().session.standing }
+    };
+    assert_ne!(standing().await, Some(ipc::SessionStanding::Working));
+    rig.reports(SessionFact::Attached {
+        attachment: ipc::AttachmentReport { kind: "subagent".into(), target: "x1".into(), detail: Default::default() },
+    })
+    .await;
+    assert_eq!(standing().await, Some(ipc::SessionStanding::Working));
+    rig.reports(SessionFact::Settled {
+        attachment: ipc::AttachmentNamed { kind: "subagent".into(), target: "x1".into() },
+        state: ipc::AttachmentState::Spent,
+    })
+    .await;
+    assert_ne!(standing().await, Some(ipc::SessionStanding::Working));
+}
+
 const QUESTION: &str = r#"{"questions":[{"question":"Which size?","header":"Size","multiSelect":false,
   "options":[{"label":"S","description":"Small"},{"label":"L","description":"Large"}]}]}"#;
 

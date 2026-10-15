@@ -31,6 +31,7 @@ mod link_lookup;
 mod sign_in;
 mod store;
 mod tracker;
+mod trackers;
 mod vcs;
 mod work_product;
 mod workflow;
@@ -42,6 +43,7 @@ pub use link_lookup::FakeLinkLookup;
 pub use sign_in::{FakeSignIn, USER_CODE, VERIFICATION_URI};
 pub use store::FakeStore;
 pub use tracker::{FakeTracker, TrackerWrite};
+pub use trackers::FakeTrackers;
 pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Merging};
 pub use work_product::{FakeDiffRefused, FakeWorkProduct, Holding, Written};
 pub use workflow::{

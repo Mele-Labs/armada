@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "Unambiguous now that hourglass is banned — no other badge is time-shaped. A Job scale glyph, and not lent to a rail row: it is not on [conventions.step_activity_borrowing] and is refused there rather than merely absent. A clock says nobody is acting, which is what grey says beside it; a step waiting on a person is the opposite claim and takes `eye`. #347."
+
+  [[icons.clock.usage]]
+    means = "A sign-in whose code ran out before it was typed"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `sign-in-ended`. Nobody acted in time, which is the clock's claim. Tooltip `Expired`. The row carries no reservation."

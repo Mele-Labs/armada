@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ExternalLink, PanelRightClose, PanelRightOpen, Power } from "lucide-react";
 import {
   Alert,
   Button,
@@ -929,7 +929,6 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
-        {...(session.resolvedModel === undefined && session.model === undefined ? {} : { model: session.resolvedModel ?? session.model })}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         {...{
@@ -944,9 +943,9 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                   )}
                   {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session, true)} />}
                   {draft.close === undefined || session.dead !== undefined ? null : (
-                    <Tooltip label="End this Session and park its slot">
-                      <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
-                        End session
+                    <Tooltip label="End session">
+                      <Button variant="ghost" size="sm" aria-label="End session" onClick={() => draft.close?.(session.id)}>
+                        <Power size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
                   )}
@@ -1058,6 +1057,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
               effort={session.effort ?? null}
               models={draft.models}
               {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
+              {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
               efforts={draft.efforts}
               onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
               commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
@@ -1151,6 +1151,7 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
       effort={session.effort ?? null}
       models={draft.models}
       {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
+      {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
       efforts={draft.efforts}
       onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
       commands={session.terminal === true ? (session.commands ?? []) : draft.commands}

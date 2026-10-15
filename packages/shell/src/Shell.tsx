@@ -71,6 +71,7 @@ import {
   keyFor,
   TheShell,
   Tooltip,
+  useAccount,
   useKeyBindings,
   type DockQuestion,
   type FleetPanelProps,
@@ -189,6 +190,8 @@ export function Shell({
   // The chrome draws keys — Helm's, the rail's digits — so it redraws when Settings → Keyboard moves one.
   useKeyBindings();
   const narrow = useNarrow();
+  const account = useAccount();
+  const openAccount = () => onSurface?.(SURFACE.account);
   const dock = useDock(narrow);
   // One band, the window's own, and one press. It was two bands until #1583,
   // the second being `--window-fold-left` *and* the dock beside the content —
@@ -343,6 +346,7 @@ export function Shell({
         </Tooltip>
       }
       menu={{
+        ...(account === undefined ? {} : { account: { onOpen: openAccount } }),
         settings: {
           onOpen: () => onSurface?.(SURFACE.settings),
           ...(SETTINGS_SURFACE?.shortcut === undefined ? {} : { shortcut: SETTINGS_SURFACE.shortcut }),

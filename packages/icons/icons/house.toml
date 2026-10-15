@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "The shared home, a private repository holding a person's Kit, and a row that is only in it. Never a home screen, an overview or a landing page."
   notes = "Minted 13 Oct 2026 for the walk `shared-home`. The home is called a home, so the mark is a house. On the Kit page's header chip beside the account, and on a row that is only in the home, tooltip `Only in the home`."
+
+  [[icons.house.usage]]
+    means = "The shared home, as a tile of what signing in turns on and as the set-up row"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. The tile stays off while the home is not made, and the set-up row of the same name is not yet."

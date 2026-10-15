@@ -201,8 +201,8 @@ impl Delivery for GitVcs {
         crate::landing::read(in_repo, pull_request)
     }
 
-    fn under_review(&self, in_repo: &str, pull_request: &str) -> UnderReview {
-        crate::under_review::read(in_repo, pull_request)
+    fn under_review(&self, in_repo: &str, pull_request: &str, gate: &str) -> UnderReview {
+        crate::under_review::read(in_repo, pull_request, gate)
     }
 
     fn inline_remarks(
@@ -237,12 +237,12 @@ impl Delivery for GitVcs {
         crate::merge_queue::read(in_repo, base)
     }
 
-    fn open_pull_requests(&self, in_repo: &str) -> Option<adapter_traits::OpenPulls> {
-        crate::main_ci::open_pulls(in_repo)
+    fn open_pull_requests(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::OpenPulls> {
+        crate::main_ci::open_pulls(in_repo, gate)
     }
 
-    fn pull_watch(&self, in_repo: &str) -> Option<adapter_traits::WatchedPulls> {
-        crate::pull_watch::read(in_repo)
+    fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<adapter_traits::WatchedPulls> {
+        crate::pull_watch::read(in_repo, gate)
     }
 
     fn publish_status(
