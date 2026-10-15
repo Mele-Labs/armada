@@ -77,10 +77,16 @@ export type SessionAttachment =
    * **A code edit is never one**; those are Branches and Pull requests.
    */
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
-  /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
-  | { kind: "forked_to"; id: string }
-  /** `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it. */
-  | { kind: "forked_from"; id: string; at?: string }
+  /**
+   * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
+   * `moved` is present where the fork was a move to another repository: the id of the repository on the other side.
+   */
+  | { kind: "forked_to"; id: string; moved?: string }
+  /**
+   * `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it.
+   * `moved` is the repository the Session was moved from and `branch` the branch it left there, comma-separated.
+   */
+  | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
   /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
   | { kind: "started_to"; id: string }
   | { kind: "started_by"; id: string };

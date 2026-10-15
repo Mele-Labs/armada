@@ -84,7 +84,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `subagent` | the agent's id | it stops (`spent`) or its process is cut off (`given_back`); more work after either holds it again, *A terminal session's thread* |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
-| `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back |
+| `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back. A move's pair carries `detail.moved`, *A moved session* |
 | `started_to`, `started_by` | the other session's id | `spent` when written, as a fork's links are. The caller holds `started_to` and the Session its agent started holds `started_by` |
 | `unsent` | the words of the first message another session's agent wrote | `standing` until the person's next send, which spends it; ending the session gives it back |
 | `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file`, `image`, `doc` or `window`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
@@ -688,6 +688,24 @@ The agent side is spike 30. A cut at a message the agent is part way through a t
 **Bridge** keeps every session that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal session that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
 
 **A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open. Fork on a session whose terminal woke between the press and Fleet is refused as live. After a Fleet restart every terminal session reads dead until its mod's next ask, about two seconds.
+
+## A moved session
+
+**A Session started in the wrong repository is moved, not started again.** `move_session { session_id, manifest_id }` (`POST /sessions/move`) ends the Session and starts its whole conversation again in another served repository, under the same title, and answers the new Session's record. It is a fork across repositories, in one call: `start_session`'s `fork` with no `at`, after the old Session is ended.
+
+| | |
+|---|---|
+| Refused | Before anything is ended or written. An unknown Session, 404 `fleet.no_such_session`. A repository Fleet does not serve, 404 `fleet.no_such_manifest`. The Session's own repository, 409 `fleet.session_move_same`. A terminal Session whose mod is still asking, 409 `fleet.session_move_listening`: it runs in the owner's terminal, which Fleet cannot move |
+| The old Session | A live hosted one is closed as Close closes it: its process ends, its slot is parked (what is in it is committed to its own branch, nothing is pushed) and its branch is kept. An ended one, or a terminal one whose mod stopped asking, is left as it is |
+| The new Session | A fork: its own id, ledger and slot, in the target repository's main checkout, leasing a slot at its first write. It keeps the old model, effort and mode |
+| Ledger | The `forked_from` and `forked_to` rows of *A forked session*, `spent`, with `detail.moved` on both: the repository the Session came from on `forked_from`, the one it went to on `forked_to`. `forked_from` also carries `detail.branch`, the old Session's branch or branches, where it had any. A fork has neither, which is how Bridge tells a move from a fork |
+| Told | **Every process of the new Session has a move note in its system prompt** in place of the fork note: moved from repository <root> to repository <root> at <time>, its conversation is a copy of <title> (<id>) which has ended, it now works in the second. Its slot, its branch (<name>) and the files it had changed stayed in the first. What the old Session started is not its own, a task-notification about it is not acted on, relaunched or reported, and it does not write in the first repository. The note is read from the ledger at each start, so it survives a Fleet restart |
+
+**The conversation follows the directory.** The CLI keeps a conversation under the folder of the directory it ran in. The new Session's first process starts in the target repository's checkout and `bring_conversation_to` links the old transcript, found by id wherever it is, into that folder before `--resume <old> --fork-session` runs, so the copy is found across repositories.
+
+**What stays behind is not moved.** The old repository's slot, branch and changed files are the old Session's, and the old Session is ended; the branch is still there for a person or a later Session to pick up. Moving a Session does not carry its pull requests or its Job's worktree.
+
+**An agent may move its own Session** (`agent_access` Yes). Its process is the one that ends, so the answer never reaches it; the new Session is listed and Bridge opens it. The call names the Session, so an agent could name another's; it is held to its own by the instruction, not by Fleet.
 
 ## A Session an agent started
 

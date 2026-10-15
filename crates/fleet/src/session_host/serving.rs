@@ -11,7 +11,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
-    RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
+    MoveSession, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, StopSession, TuneSession,
     WireError,
 };
@@ -307,6 +307,10 @@ where
         self.session_wound_up(&id).await;
         self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.published_hosted(&id).await
+    }
+
+    async fn move_session(&self, moved: MoveSession) -> Result<SessionRecord, Refusal> {
+        self.moved_session(moved).await
     }
 
     /// Ends the turn that is running: the process goes, as it does after a quiet spell, and the

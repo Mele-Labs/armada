@@ -92,6 +92,11 @@ export type SessionsApi = {
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
   /**
+   * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
+   * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
+   */
+  moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
+  /**
    * Hold a session's thread: read once, then followed by `session.row`. Held threads are kept for the
    * window's life, so reopening one draws at once.
    */
@@ -173,6 +178,7 @@ export const SESSIONS_CHANNELS = {
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
+  moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",

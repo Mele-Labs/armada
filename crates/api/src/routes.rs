@@ -332,6 +332,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::close_session::<D>),
         )
         .route(
+            "/sessions/move",
+            post(crate::hosted_sessions::move_session::<D>),
+        )
+        .route(
             "/sessions/stop",
             post(crate::hosted_sessions::stop_session::<D>),
         )

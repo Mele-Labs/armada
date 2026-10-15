@@ -333,6 +333,11 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
   }
 
+  /** The record Fleet answers is the new Session's, which is folded in; the old one's change arrives as `session.changed`. */
+  async move(sessionId: string, manifestId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/move", { session_id: sessionId, manifest_id: manifestId });
+  }
+
   async end(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/close", { session_id: sessionId });
   }

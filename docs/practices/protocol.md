@@ -4071,6 +4071,21 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*;
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. **Kept.** `session_waiting.steps`, a JSON array column (store migration `20261015T1200Z-session_waiting.steps`), additive with a default of `[]`, so an item kept before it reads as no steps. **The event stream.** `session.row` carries the lines with the item, a few short lines at most, so this is neither better nor worse for the unbounded sink.
 
+## A Session moves to another repository
+
+`docs/concepts/session.md`, *A moved session*. **Additive only**: one operation, one DTO, three error codes and a detail on a ledger row that already crosses the wire.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `move_session` (`POST /sessions/move`) | Bridge calls, an agent may | `MoveSession`: `session_id`, `manifest_id`. Answers 200 with the new Session's `SessionRecord`. `agent_access` Yes |
+| `fleet.no_such_session`, `fleet.no_such_manifest` | Fleet refuses | 404 for a Session or repository Fleet does not hold. `fleet.no_such_session` is 422 as `start_session`'s `fork` answers it and 404 here |
+| `fleet.session_move_same`, `fleet.session_move_listening` | Fleet refuses | 409 for a move into the Session's own repository, and for a terminal Session whose mod is still asking |
+| `Attachment.detail.moved` on `forked_to`, `forked_from` | Fleet writes, Bridge reads | The id of the repository on the other side. Present only on a move |
+| `Attachment.detail.branch` on `forked_from` | Fleet writes, Bridge reads | The old Session's branch or branches, comma-separated. Present only on a move that left one |
+| `moveSession` (preload) | Bridge | `moveSession(sessionId, manifestId)`, answering `SessionActed` as `startSession` does |
+
+**Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand. There is no number to take: `armada need` has nothing to order. Attachment kinds and details are open text, so no type changes and a Bridge that has not met `moved` draws the pair as a fork. **The event stream is untouched** beyond the `session.changed` each Session already publishes, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
+
 ## An issue is named by its tracker's reference
 
 `docs/concepts/tracker.md`. An issue crossed the wire as a number, which names nothing once a tracker has more than one project and drew as `#123` for Jira's `ABC-123`. The protocol ID moves with the files below, and there is no number to take.
