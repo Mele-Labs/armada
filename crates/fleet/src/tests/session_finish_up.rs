@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{FinishUp, SessionId};
+use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::session_host::rig_placing;
 
@@ -64,4 +65,30 @@ async fn an_ended_session_and_a_call_that_places_none_are_refused() {
         .await
         .unwrap();
     assert!(rig.fleet.finish_up(None, finish(&id)).await.is_err());
+}
+
+/// A pull request's branch the session cut in its slot and switched off before the merge: no slot
+/// is on it and it is not the one leased, but the ledger's pull request names it (#2343).
+#[tokio::test]
+async fn the_branch_of_a_pull_request_the_session_held_is_deleted_though_no_slot_is_on_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let at = rig.fleet.now().as_str().to_string();
+    let manifest = rig.fleet.repositories().first().unwrap().manifest().id().as_str().to_string();
+    let row = KeptAttachment {
+        holder: Holder::session(id.as_str()),
+        kind: "pr".into(),
+        manifest_id: manifest,
+        target: "2343".into(),
+        state: AttachmentState::Spent,
+        detail: [(String::from("branch"), String::from("bridge/session-id-links"))].into(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    rig.fleet.store().lock().await.attach(&row, false).unwrap();
+
+    let done = rig.fleet.finish_up(None, finish(&id)).await.unwrap();
+
+    assert_eq!(done.deleted_branches, vec![String::from("bridge/session-id-links")]);
+    assert!(rig.fleet.vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
 }

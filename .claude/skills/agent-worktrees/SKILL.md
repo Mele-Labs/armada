@@ -111,6 +111,16 @@ they are; give each back by the rules below.
 **The merge is the moment.** Not "later", not "when disk is low" — a branch that
 is in `main` has a worktree that holds nothing that is not also in `main`.
 
+**A session Fleet hosts calls `finish_up`**, never `git branch -D` and never the
+owner. It releases every slot the session holds and deletes each merged branch
+that is its own: the leased one, any a slot of its is on, and every pull
+request's it holds. Fleet's merge notice says so. Ending the session parks its
+slot and keeps the branch, so leaving it to the end leaves the branch behind.
+Confirmed 15 Oct 2026 on #2343: told only "its slot and branch can be released",
+a session was refused `git branch -D` on a branch it had cut and switched off,
+and asked the owner to delete it. The commands below are for a session in a
+terminal, and for a tree cut by hand.
+
 ```
 git worktree remove --force <path>
 git branch -D <branch>

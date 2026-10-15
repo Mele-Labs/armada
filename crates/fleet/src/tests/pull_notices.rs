@@ -452,6 +452,12 @@ async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
         sent.iter().any(|line| line.contains("#1 merged into")),
         "{sent:?}"
     );
+    // The act that gives the branch back, named where the session reads it: told only that
+    // they "can be released", a session tried `git branch -D` and asked the owner (#2343).
+    assert!(
+        sent.iter().any(|line| line.contains("finish_up releases its slot and deletes its branch")),
+        "{sent:?}"
+    );
     assert!(
         rig.told(&format!("job:{}", finished.id().as_str()), 1, "merged")
             .await
