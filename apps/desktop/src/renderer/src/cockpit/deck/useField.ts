@@ -15,7 +15,7 @@ import type { CockpitProps } from "./props";
 import { useFleetEvents } from "../fleet-events";
 import { useAreas } from "./areas-source";
 import { useSlotTouches } from "./touches-source";
-import { slotKey, useBays } from "./bays";
+import { holdersOf, slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
 import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, quantized, throttled, TICK_MS } from "./field";
 import { droneOf, type PrIn, type RepoIn } from "./layout";
@@ -76,17 +76,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const rootOfManifest = (manifest: string | undefined) => repositories.find((one) => one.manifest?.id === manifest)?.root;
   const repoNameOf = (manifest: string) => repositories.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest;
 
-  const holder = useMemo(
-    () =>
-      new Map(
-        slots.flatMap((slot) => {
-          const held = slot.held;
-          const key = held.state === "job" ? `job:${held.job_id}` : held.state === "hosted_session" ? `session:${held.session_id}` : undefined;
-          return key === undefined ? [] : [[key, slot] as const];
-        }),
-      ),
-    [slots],
-  );
+  const holder = useMemo(() => holdersOf(slots), [slots]);
   const all = useMemo(() => ship.subjects.filter((one) => one.kind !== "pr"), [ship.subjects]);
   const ownerOf = (number: number) => {
     const pr = ship.prs.find((one) => one.number === number);

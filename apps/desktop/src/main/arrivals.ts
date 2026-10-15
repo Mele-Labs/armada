@@ -60,8 +60,8 @@ export interface ArrivalHost {
   readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
-  /** What Fleet holds disk for, read once for nobody so the first surface to open has a list — `holding.ts`. */
-  readonly held: Pick<HeldReader, "warm">;
+  /** What Fleet holds disk for, read once for nobody so the first surface to open has a list, and again on a slot lease or release — `holding.ts`. */
+  readonly held: Pick<HeldReader, "warm" | "again">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
   readonly sleep: Pick<SleepHost, "changed">;
   /** The plan's windows, told when a session reports a newer reading — `plan-usage.ts`. */
@@ -581,6 +581,10 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Above the tail for `sleep.changed`'s reason: no Job to find, and the entry travels whole.
     host.publish({ connection });
     host.timeline.appended(event.event);
+    // A lease or a release moves the pool, and the pool is read only when a surface asks or an act
+    // re-reads it, so a Session taking a slot on its first write left the bays as drawn. Fleet
+    // enters the event after the pool changes, so the read finds the new holder. Nothing open is no read.
+    if (event.event.kind === "slot.leased" || event.event.kind === "slot.released") void host.held.again(fleet.port);
     return;
   }
   if (event.kind === "autopilot.changed") {

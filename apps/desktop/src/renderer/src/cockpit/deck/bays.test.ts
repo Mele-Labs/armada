@@ -4,7 +4,7 @@
 import type { TimelineEvent, WorktreeSlot } from "@armada/protocol";
 import { expect, test } from "vitest";
 
-import { bayViewOf, holderOf, ledgerOf, slotKey } from "./bays";
+import { bayViewOf, holderOf, holdersOf, ledgerOf, slotKey } from "./bays";
 
 const at = (minute: number) => Date.parse("2026-10-14T10:00:00Z") + minute * 60_000;
 const NOW = at(120);
@@ -90,4 +90,18 @@ test("now is the pool's own reading, with the branch the slot is on and no ledge
   expect(view.branch).toBe("feature/now");
   expect(view.heldFor).toBe(NOW - at(30));
   expect(bayViewOf(slot(), "k", ledgerOf(slot(), []), undefined, NOW).state).toBe("free");
+});
+
+test("a slot a Session takes after the deck is drawn gets its drone, and a released slot loses it", () => {
+  const drawn = [slot({ slot: 1, held: { state: "job", job_id: "j1" } }), slot({ slot: 4, held: { state: "free" } })];
+  expect([...holdersOf(drawn).keys()]).toEqual(["job:j1"]);
+
+  // Slot 4 as `list_worktrees` returns it once the Session's first write has leased it.
+  const leased = drawn.map((one) => (one.slot === 4 ? slot({ slot: 4, ...heldBy("d02bc3e3-94ce-4972-896c-9df4056ecf28", "2026-10-15T12:05:12Z") }) : one));
+  const holders = holdersOf(leased);
+  expect(holders.get("session:d02bc3e3-94ce-4972-896c-9df4056ecf28")).toBe(leased[1]);
+  expect(slotKey(holders.get("session:d02bc3e3-94ce-4972-896c-9df4056ecf28")!)).toBe("slot:m1/4");
+
+  const released = leased.map((one) => (one.slot === 4 ? slot({ slot: 4, held: { state: "free" } }) : one));
+  expect(holdersOf(released).has("session:d02bc3e3-94ce-4972-896c-9df4056ecf28")).toBe(false);
 });

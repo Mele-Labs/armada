@@ -71,6 +71,17 @@ export function holderOf(slot: WorktreeSlot): Holder | undefined {
   return undefined;
 }
 
+/** The slot each Job or hosted Session holds now, by the subject key the drones carry. A drone's pad, and so its arc, comes from here. */
+export function holdersOf(slots: readonly WorktreeSlot[]): Map<string, WorktreeSlot> {
+  return new Map(
+    slots.flatMap((slot) => {
+      const held = slot.held;
+      const key = held.state === "job" ? `job:${held.job_id}` : held.state === "hosted_session" ? `session:${held.session_id}` : undefined;
+      return key === undefined ? [] : [[key, slot] as const];
+    }),
+  );
+}
+
 const same = (a: Holder, b: Holder) => a.kind === b.kind && a.id === b.id;
 
 /** The Job or Session a slot event is about. Events about a pull request or main are not a holder. */
