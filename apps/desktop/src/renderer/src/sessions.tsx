@@ -85,7 +85,7 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, JobSummary, MergeLines, SettingsList } from "@armada/protocol";
+import type { HeldWorktrees, JobSummary, MergeLines, RepositorySummary, SettingsList } from "@armada/protocol";
 import { SessionRefs } from "./helm-refs";
 import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
@@ -96,6 +96,8 @@ import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
 import { ARTIFACT_SAID, cardOf, pullRequestCardOf, type Known } from "./session-cards";
 import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
+import { SessionRepositoryOf } from "./session-move";
+import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
@@ -853,7 +855,9 @@ const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-export function SessionView({ session, goes, onOpen, held, board, lines, settings, deck }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession }) {
+const NO_REPOSITORIES: readonly RepositorySummary[] = [];
+
+export function SessionView({ session, goes, onOpen, held, board, lines, settings, deck, repositories = NO_REPOSITORIES }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null; deck?: DeckSession; repositories?: readonly RepositorySummary[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const numbered = useNumbered(session.manifestId);
@@ -907,6 +911,18 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   // **Up to and including the message it was forked at**, and not what was said after it.
   const startedBy = useStartedBy(session, sessions, onOpen);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
+  // **A move carries its whole conversation into the thread**, under a row naming where it came from, and ends the old one's with where it went.
+  const carried = forkedFrom?.moved !== undefined;
+  const carriedFrom = carried ? forkedFrom?.id : undefined;
+  useEffect(() => {
+    if (carriedFrom !== undefined) watch?.(carriedFrom);
+  }, [watch, carriedFrom]);
+  const shown = useMemo(() => {
+    const { head, tail } = movedRowsOf(session, repositories);
+    const before = !carried || origin === undefined ? NO_ROWS : originRows.map((row): SessionThreadRow => ({ ...row, id: `${origin.id}:${row.id}` }));
+    return head.length + before.length + tail.length === 0 ? thread : [...head, ...before, ...thread, ...tail];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- originRows is derived from origin and the fork's `at`.
+  }, [session.attachments, repositories, thread, carried, origin, forkedFrom?.at]);
   // A run drawn as a terminal: the pane is the view's own, docked above its box.
   const runner = draft === undefined ? undefined : runnerOf(draft, session);
   const dock = useTerminalDock(useCodeRun(runner), session.id);
@@ -984,6 +1000,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        repository={<SessionRepositoryOf key={session.id} session={session} repositories={repositories} onOpen={onOpen} />}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         {...{
@@ -1040,7 +1057,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             })}
       >
         <div ref={centre} className="armada-session-frame__centre">
-          {origin === undefined ? null : (
+          {origin === undefined || carried ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
@@ -1048,7 +1065,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           {startedBy}
           <SessionThread
             sessionId={session.id}
-            rows={thread}
+            rows={shown}
             onOpenRetro={openRetro}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
@@ -1292,6 +1309,7 @@ export function SessionsSurface({
   settings = null,
   startIn,
   bandsBy,
+  repositories,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1305,6 +1323,8 @@ export function SessionsSurface({
   startIn?: readonly { root: string; name: string }[];
   /** On All with more than one repository: the list is drawn in a band for each, in this order. */
   bandsBy?: readonly BandBy[];
+  /** Every repository Fleet serves, for the one a Session is in and where it can be moved. */
+  repositories?: readonly RepositorySummary[];
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1327,7 +1347,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} {...(repositories === undefined ? {} : { repositories })} />}
     </div>
   );
 }

@@ -20,6 +20,7 @@ import type { SessionRunMessage } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
+import { moveRefusalWords } from "./session-moved";
 import { sessionsOfPicked } from "@armada/screens/src/board";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
@@ -141,7 +142,7 @@ export class WiredStore {
   /** A refused act on one Session is a toast, as a failed annotation send is. A terminal that is not listening says what to run. */
   private tell(outcome: Parameters<typeof refusalWords>[0]): void {
     const unreachable = !outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.terminal_session_unreachable";
-    askToTell(unreachable ? NOT_REACHABLE : refusalWords(outcome));
+    askToTell(unreachable ? NOT_REACHABLE : (moveRefusalWords(outcome) ?? refusalWords(outcome)));
   }
 
   private tagged(id: string, tags: readonly SessionTag[]): void {
@@ -222,6 +223,15 @@ export class WiredStore {
     this.say(undefined);
     const done = await this.api.forkSession(id);
     if (!done.ok) return void this.say(done.outcome);
+    await this.held(done.value.id);
+    return done.value.id;
+  }
+
+  /** One call: the Session ends and starts again in another repository. Resolves to the new one once the window holds it; a refusal is a toast. */
+  private async moving(id: string, manifestId: string): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await this.api.moveSession(id, manifestId);
+    if (!done.ok) return void this.tell(done.outcome);
     await this.held(done.value.id);
     return done.value.id;
   }
@@ -372,6 +382,7 @@ export class WiredStore {
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     forkAt: (id, at) => this.forkingAt(id, at),
+    move: (id, manifestId) => this.moving(id, manifestId),
     retro: (id) => this.retroing(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),

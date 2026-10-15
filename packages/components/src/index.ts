@@ -460,6 +460,7 @@ export * from "./compositions/OwnerChip/OwnerChip";
 export * from "./compositions/RegisteredOwner/RegisteredOwner";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";
+export * from "./compositions/SessionRepository/SessionRepository";
 export * from "./compositions/CommanderPanel/CommanderPanel";
 export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";

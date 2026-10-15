@@ -24,6 +24,7 @@ import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelect
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
+import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { SketchRow } from "./SketchRow";
 import type { Scene } from "../SketchScene/scene";
@@ -93,6 +94,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "sketch"; sketch: string; title: string; drawing: Scene; against?: string; againstScene?: Scene; replaced?: true }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
+  | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
   | SessionRetroRowData
   | {
@@ -608,6 +611,7 @@ function Row({
   }
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">

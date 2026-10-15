@@ -87,6 +87,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
+    text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.retroSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unsent.outcome,
   );

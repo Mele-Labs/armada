@@ -243,8 +243,14 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
       case "forked_from":
         out.push(
           one.kind === "forked_to"
-            ? { kind: "forked_to", id: one.target }
-            : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
+            ? { kind: "forked_to", id: one.target, ...(detail["moved"] === undefined ? {} : { moved: detail["moved"] }) }
+            : {
+                kind: "forked_from",
+                id: one.target,
+                ...(detail["at"] === undefined ? {} : { at: detail["at"] }),
+                ...(detail["moved"] === undefined ? {} : { moved: detail["moved"] }),
+                ...(detail["branch"] === undefined ? {} : { branch: detail["branch"] }),
+              },
         );
         break;
       case "started_to":

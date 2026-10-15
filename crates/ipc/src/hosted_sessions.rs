@@ -187,6 +187,16 @@ pub struct CloseSession {
     pub session_id: SessionId,
 }
 
+/// `move_session`: end a Session and continue its conversation in another served repository.
+/// `docs/concepts/session.md`, *A moved session*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveSession {
+    pub session_id: SessionId,
+    /// The repository the conversation continues in. Refused 404 where none is served by it, and
+    /// 409 where it is the Session's own.
+    pub manifest_id: ManifestId,
+}
+
 /// `stop_session`: end the turn that is running. Since 23.84.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StopSession {

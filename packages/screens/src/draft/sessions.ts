@@ -77,10 +77,16 @@ export type SessionAttachment =
    * **A code edit is never one**; those are Branches and Pull requests.
    */
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
-  /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
-  | { kind: "forked_to"; id: string }
-  /** `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it. */
-  | { kind: "forked_from"; id: string; at?: string }
+  /**
+   * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
+   * `moved` is present where the fork was a move to another repository: the id of the repository on the other side.
+   */
+  | { kind: "forked_to"; id: string; moved?: string }
+  /**
+   * `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it.
+   * `moved` is the repository the Session was moved from and `branch` the branch it left there, comma-separated.
+   */
+  | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
   /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
   | { kind: "started_to"; id: string }
   | { kind: "started_by"; id: string };
@@ -404,6 +410,13 @@ export type SessionsDraft = {
    * serves it, and selecting words in a message offers no Fork.
    */
   forkAt?: (id: string, at: string) => string | Promise<string | undefined>;
+  /**
+   * Ends a Session, if it is live, and starts a new one in another repository (`manifestId`) with the whole
+   * conversation and the same title, and returns the new Session's id. The old one's slot, branch and
+   * uncommitted files stay in the old repository. A Session in a terminal that is still listening is not
+   * moved. Absent where nothing serves it, and the repository is not drawn as a control.
+   */
+  move?: (id: string, manifestId: string) => Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**

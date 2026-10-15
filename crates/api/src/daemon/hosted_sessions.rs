@@ -10,7 +10,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, MoveSession, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
     SessionRecord, SessionSubagent, SessionThread, StartSession, StopSession, TuneSession,
 };
 
@@ -116,6 +116,12 @@ pub trait HostedSessions: Send + Sync + 'static {
     fn close_session(
         &self,
         closed: CloseSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `move_session`: ends the session and continues its conversation in another repository.
+    fn move_session(
+        &self,
+        moved: MoveSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `stop_session`: ends the turn that is running and leaves the session live.

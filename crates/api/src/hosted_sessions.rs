@@ -221,6 +221,22 @@ pub(crate) async fn close_session<D: HostedSessions>(
     }
 }
 
+/// A Session moved to another repository. 200 with the new Session; 404 for an unknown Session or
+/// repository, 409 for its own repository or a terminal Session still listening.
+pub(crate) async fn move_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let moved: ipc::MoveSession = match ipc::decode("a session to move", &body) {
+        Ok(moved) => moved,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().move_session(moved).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn stop_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

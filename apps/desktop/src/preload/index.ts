@@ -737,6 +737,8 @@ const api: BridgeApi = {
   forkSessionAt: (sessionId: string, at: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSessionAt, sessionId, at),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
+  moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.moveSession, sessionId, manifestId),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
