@@ -3,24 +3,29 @@ import { expect, test } from 'claude-code/testing'
 import {
   promptDetail,
   artifactOf,
+  commitIn,
   effortOf,
   ghAct,
   modeOf,
   modelName,
   isDispatch,
   jobIdsIn,
+  madeTask,
   mayMoveBranch,
   needAct,
   micros,
   planOf,
   pullRequestsIn,
+  pushIn,
   senderOf,
   spentUntil,
   customTitleIn,
   titleOf,
+  todoTasks,
   saidOf,
   touchedOf,
   transcriptPath,
+  updatedTask,
   usedFact,
 } from './facts'
 
@@ -242,6 +247,67 @@ test('a read is told as a path, a command as its first line, and a write as befo
   expect(usedFact('ran', '/repos/armada', { command: 'x'.repeat(500) })).toEqual({ kind: 'ran', command: 'x'.repeat(300) })
   expect(usedFact('ran', '/repos/armada', { command: '  ' })).toBeUndefined()
   expect(usedFact('ran', '/repos/armada', {})).toBeUndefined()
+})
+
+test('a TodoWrite list is told whole, each item with its place as the id, and an empty one clears it', () => {
+  expect(
+    todoTasks({
+      todos: [
+        { content: 'Read the intake', status: 'completed', activeForm: 'Reading' },
+        { content: '  Write the   migration ', status: 'in_progress' },
+        { content: '', status: 'pending' },
+        { content: 'Test it', status: 'later' },
+      ],
+    }),
+  ).toEqual([
+    { id: '1', text: 'Read the intake', status: 'completed' },
+    { id: '2', text: 'Write the migration', status: 'in_progress' },
+    { id: '3', text: 'Test it', status: 'pending' },
+  ])
+  expect(todoTasks({ todos: [] })).toEqual([])
+  expect(todoTasks({ file_path: 'a' })).toBeUndefined()
+  expect(todoTasks({ todos: [{ content: 'x'.repeat(300), status: 'pending' }] })?.[0].text.length).toBe(200)
+})
+
+test('a task made takes the id the tool gave it, from its result or its words, else the next place', () => {
+  const none = madeTask([], { subject: 'Read the intake' }, { task: { id: '7' } }, '')
+  expect(none).toEqual([{ id: '7', text: 'Read the intake', status: 'pending' }])
+  expect(madeTask(none!, { subject: 'Test it' }, {}, 'Task #8 created successfully: Test it')?.map(one => one.id)).toEqual(['7', '8'])
+  expect(madeTask(none!, { subject: 'Ship it' }, undefined, 'created')?.map(one => one.id)).toEqual(['7', '2'])
+  expect(madeTask([], { description: 'no subject' }, {}, '')).toBeUndefined()
+})
+
+test('a task updated changes its status or its words, goes when deleted, and is not invented when never seen', () => {
+  const list = [
+    { id: '1', text: 'Read the intake', status: 'pending' as const },
+    { id: '2', text: 'Test it', status: 'pending' as const },
+  ]
+  expect(updatedTask(list, { taskId: '1', status: 'completed' })?.map(one => one.status)).toEqual(['completed', 'pending'])
+  expect(updatedTask(list, { taskId: 2, subject: 'Test the intake' })?.[1].text).toBe('Test the intake')
+  expect(updatedTask(list, { taskId: '1', status: 'deleted' })?.map(one => one.id)).toEqual(['2'])
+  expect(updatedTask(list, { taskId: '1', status: 'pending' })).toBeUndefined()
+  expect(updatedTask(list, { taskId: '9', status: 'completed' })).toBeUndefined()
+})
+
+test('a commit is read from what git printed, so one with nothing staged is not one', () => {
+  expect(commitIn('git commit -m "Pin the clock"', '[armada/session-build-record 1a2b3c4] Pin the clock\n 2 files changed')).toEqual({
+    branch: 'armada/session-build-record',
+  })
+  expect(commitIn('git add -A && git commit --amend --no-edit', '[main (root-commit) 1a2b3c4d5e] First')).toEqual({ branch: 'main' })
+  expect(commitIn('git commit -m x', '[detached HEAD 1a2b3c4] x')).toEqual({})
+  expect(commitIn('git commit -m x', 'nothing to commit, working tree clean')).toBeUndefined()
+  expect(commitIn('git log -3', '[main 1a2b3c4] looks like one')).toBeUndefined()
+})
+
+test('a push is read from the ref line git printed, and a rejected, empty or dry one tells nothing', () => {
+  const to = 'To https://github.com/Mele-Labs/armada.git\n'
+  expect(pushIn('git push -u origin topic', to + ' * [new branch]      topic -> topic')).toEqual({ branch: 'topic' })
+  expect(pushIn('git push', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toEqual({ branch: 'topic' })
+  expect(pushIn('git push --force-with-lease', to + ' + 1a2b3c4...5d6e7f8 topic -> topic (forced update)')).toEqual({ branch: 'topic' })
+  expect(pushIn('git push', 'Everything up-to-date')).toBeUndefined()
+  expect(pushIn('git push', to + ' ! [rejected]        topic -> topic (fetch first)')).toBeUndefined()
+  expect(pushIn('git push --dry-run', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toBeUndefined()
+  expect(pushIn('git pull', to + '   1a2b3c4..5d6e7f8  topic -> topic')).toBeUndefined()
 })
 
 test('a permission prompt is named by its command line, its path or its address, never content', () => {

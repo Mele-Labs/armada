@@ -53,11 +53,15 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `touched` | `paths`: files written, from the session's directory | Checks them against who else writes them (*Write clashes*); a terminal Session's are counted for the timeline as `session.edited` |
 | `read` | `path`: a file read, from the session's directory | Counted for the timeline as `session.read`, for a terminal Session; nothing on the ledger changes |
 | `ran` | `command`: the first line of a shell command, 300 characters at most | Counted for the timeline as `session.ran`, cut and with what looks like a secret in it hidden; nothing on the ledger changes |
+| `tasks` | `tasks`: the agent's whole list, each with `id`, `text` and `status` (`pending`, `in_progress` or `completed`) | Keeps the list and when each item was first seen completed (*The build record*). An empty list clears it |
+| `plan_left` | nothing | The agent left plan mode (*The build record*) |
+| `committed` | `branch?` | A `git commit` printed a commit made. Entered on the timeline as `session.committed` |
+| `pushed` | `branch?` | A `git push` printed a ref updated. Entered on the timeline as `session.pushed` |
 | `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal session*) |
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
-The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title, the first line of what a turn ended on, as the reply (*What a Session is doing*), and the first line of each shell command, for the timeline (`docs/practices/protocol.md`, *The Fleet's timeline*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
+The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title, the first line of what a turn ended on, as the reply (*What a Session is doing*), and the first line of each shell command, for the timeline (`docs/practices/protocol.md`, *The Fleet's timeline*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. **The mod also sends the text of each item on the task list the agent wrote**, read from the task tools it already calls (*The build record*). A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
 
 ## What is kept
 
@@ -426,7 +430,7 @@ an agent whose hooks name a Fleet port that changed.
 | A walk opens | At `show_window`: the newest `window` row on the thread |
 | A walk ends | The person approves the page (`Approved: <url>`, or of several takes `Approved B, Needs you first: <url>`), Bridge says its window closed (`window_closed`), or a newer `show_window` replaces it. The row gets `ended_at` and is published again |
 | A note in the window | Ends nothing, though it settles the `walk:` waiting item |
-| The window cannot show the page | Ends nothing. Bridge says so (`window_failed`) and Fleet tells the session in its own voice, with the address and what went wrong, once until a page there loads |
+| The window cannot show the page | Ends nothing. Bridge says so (`window_failed`) and Fleet tells the session in its own voice, with the address and what went wrong: a failed load, a status of 400 or more, a crashed page, Vite's error overlay or a page with nothing drawn. Not while the page is still changing, and once until it is seen working |
 | A question meanwhile | Refused with a reason the agent reads: put it under `waiting_for` and end the turn, or, for a question about the page, ask it in the window with `ask_in_window` (*Asking in the window*). A hosted session's is refused at its permission door; a terminal session's at `ask_from_terminal`, which the mod asks before the terminal's own prompt opens |
 
 The mod's first-message note and `show_window`'s description tell the agent the same. Closing the window ends the walk and does not settle its `walk:` item, which still waits. A Bridge that quits with a window open may not reach Fleet to say so. The walk then reads open until it is approved or replaced, and a question meanwhile goes under `waiting_for`, which blocks nothing.
@@ -529,6 +533,33 @@ Capture and Approve keep working while the card is open. The card folds into the
 **Silence is not here.** A running turn nothing has been heard from is the `stuck` state, from the activity of the process Fleet hears, whatever it calls. `activity` says what a Session is doing, and carries no time to read a silence from.
 
 **Only a hosted Session is covered.** A Session run in a terminal makes its tool calls in a process Fleet does not host. Its mod reports a few tools through `report_session` and does not call the gate, so such a row carries no `activity`.
+
+## The build record
+
+**`SessionRecord.build` says how far a Session has got, read from what Fleet observed.** It asks the model for nothing: there is no tool for the agent to call and no line in any prompt. The agent states a plan with the task tools it already uses, the mod hears those calls, and Fleet checks the plan against the edits it saw. Bridge draws the record as a ring under the Session's drone (the decision of 14 Oct 2026, *A Session builds a ring*). The field is absent for a Session that has done nothing Fleet observed.
+
+**What the mod tells.** `TodoWrite`, `TaskCreate` and `TaskUpdate` become one fact, `tasks`, holding the whole list after the call. `ExitPlanMode` becomes `plan_left`. A successful `git commit` and `git push` become `committed` and `pushed`, read from what git printed and not from the command alone, so a commit with nothing staged, a push with nothing to send, a rejected push and a `--dry-run` tell nothing. A subagent's own list is not the Session's and is not told. A hosted Session feeds the same path from its gate (`TodoWrite`, `ExitPlanMode`) and from its process's tool events.
+
+**What Fleet keeps.** Two tables (`session_build`, `session_build_tasks`): the instants of the first edit, the last edit, the last tool activity, plan mode left and the list's first write, and the list with the instant each item was first seen completed and whether an edit was seen while it was worked. Items are matched by id and text, else by text, so a reordered list keeps what was seen of each. An item that goes back to not completed loses its instant. Everything else is derived on read. A walk shown, a commit and a push are timeline entries (`session.walked`, `session.committed`, `session.pushed`), and a pull request's stops are the entries it already has (`pr.opened`, `pr.checks`, `pr.queued`, `pr.merged`); the row is published again when one is written.
+
+**A build ends where its pull request merged.** The first edit, plan or task list heard after the merge starts another build with no list and no road. A read or a command after the merge does not.
+
+| Field | Read from |
+|---|---|
+| `phase` | `landed` when the pull request merged. `road` when a stop was reached at or after the first edit. `plan` when a task list was written or plan mode left and no edit followed. `implement` when edits were seen. Otherwise `scope` |
+| `pieces` | One per task, in list order. `solid`: completed, and an edit was seen between the previous completion (or the list's first write) and this one. `hollow`: completed with no edit seen in that window. `scaffold`: the first task not completed, while an edit has landed since the last completion. `ghost`: every other. With no list there are none: progress is never invented |
+| `stops` | The road as drawn: the stops reached in the order they were, then the forecast ones not yet reached, each with no `at` |
+| `forecast` | The stops the repository's recent landed Sessions usually reached |
+| `landed_at` | When the pull request merged, as the forge dated it |
+| `quiet_since` | The last read, edit, command or task list. It is as of the last time the row went out, which a call after a minute of quiet does |
+| `stalled` | The Session's `standing` is `stuck` |
+| `workers` | The subagents still standing, each as `Type: description` |
+
+**The stops.** `walk` is the first walk shown after the first edit. `pushed` is a push that updated a ref. `pr` is the pull request opened, which is never later than its first check, queue entry or merge. `checks` is its first CI state. `auto_merge` is its first queue state. Merging is not a stop: it closes the road and is `landed_at`. The pull request is the newest one the Session holds that is not closed and did not merge before this build began.
+
+**The forecast rule.** For the Session's repository, read the pull requests that merged most recently and that a Session held, up to ten. For each, take the stops reached between that Session's previous landing and this one, in the order they were reached. The forecast is the most common whole sequence among them, and a tie goes to the more recent. A landing with no stop observed takes no part, and a repository with no history has no forecast. A stop already reached is not drawn faint twice.
+
+**What is not observed, and left absent.** A Session resumed in a terminal after its mod restarted does not know the ids of tasks it made earlier, so a `TaskUpdate` for one tells nothing until the list is written again. Edits made through a shell command (`sed`, a redirect) are not edits, and nor are files outside the Session's directory. A task the agent never marks completed is never solid or hollow. Auto-merge set through the forge's page, and checks Fleet's merge line read only after the merge, may have no stop.
 
 ## What fills the context window
 

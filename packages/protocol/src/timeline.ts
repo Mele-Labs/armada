@@ -16,6 +16,9 @@
  * `waiting_for` list; `session.asked` is what Fleet raised (a question or permission card, a reply to
  * read). `session.subagent` says `Subagent started`, `Subagent resumed` or `Subagent finished` with `Type: description` as its
  * detail; `session.spawned` is the Session whose agent started another (`detail` its title) or forked itself.
+ * `session.walked` is a walk the Session showed (`detail` the page's title), `session.committed` a `git commit` that made a
+ * commit and `session.pushed` a `git push` that updated a ref (`detail` the branch). Those three and the pull request's own
+ * entries are the road a Session's `build` reads its stops from.
  */
 export type TimelineKind =
   | "job.created"
@@ -42,6 +45,9 @@ export type TimelineKind =
   | "session.waiting"
   | "session.resolved"
   | "session.spawned"
+  | "session.walked"
+  | "session.committed"
+  | "session.pushed"
   | "session.ended"
   | "slot.leased"
   | "slot.released"
