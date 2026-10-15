@@ -7,7 +7,7 @@ import { button, dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
-const TITLE = "Register the GitHub OAuth app";
+const TITLE = "Register the OAuth app";
 
 function steps(): Step[] {
   const sessions = region("Sessions");
@@ -15,12 +15,12 @@ function steps(): Step[] {
   const panel = dialog(TITLE);
   return [
     toSessions,
-    { press: inside(sessions, button(/Sign in with GitHub/)), say: "Opened" },
+    { press: inside(sessions, button(/Add single sign-on/)), say: "Opened" },
     { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
     { hover: inside(needs, role("img", "Steps")), say: "A procedure wears the Steps glyph" },
     { hover: inside(needs, role("img", "Reply")), say: "An ordinary item keeps its own" },
     { press: inside(needs, button(`Open ${TITLE}`)), say: "A press opens its steps, not the link" },
-    { look: inside(panel, button(/github\.com\/settings\/applications\/new/)), say: "The link is one key at the top" },
+    { look: inside(panel, button(/auth\.example\.com\/apps\/new/)), say: "The link is one key at the top" },
     { hover: inside(panel, button("Open in browser")), say: "A second key opens it in the browser" },
     { look: inside(panel, role("checkbox", "Name it Armada")), say: "Each step has a tick" },
     { press: inside(panel, role("checkbox", "Name it Armada")), say: "The first step done" },

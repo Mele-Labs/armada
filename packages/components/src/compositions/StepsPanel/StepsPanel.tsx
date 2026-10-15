@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, PencilLine, Plus, Trash2, Undo2 } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Trash2, Undo2, UserPen } from "lucide-react";
 
 import { forgetKept, useKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
@@ -167,7 +167,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
                   {!changed ? null : (
                     <Tooltip label={steps[at]!}>
                       <span className="armada-step-list__changed" role="img" aria-label={`Step ${at + 1} was ${steps[at]!}`}>
-                        <PencilLine size={12} strokeWidth={2} aria-hidden />
+                        <UserPen size={12} strokeWidth={2} aria-hidden />
                       </span>
                     </Tooltip>
                   )}

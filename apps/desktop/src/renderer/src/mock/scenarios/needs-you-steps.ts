@@ -11,25 +11,25 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).
 
 const waiting: Session = {
   id: "s15",
-  title: "Sign in with GitHub",
+  title: "Add single sign-on",
   turn: { state: "idle" },
   lastTurn: "10:12",
   lastTurnAt: minutesAgo(3),
   rows: [
-    { id: "w1", at: "10:08:40", kind: "message", from: { kind: "you" }, text: "Add sign in with GitHub." },
-    { id: "w2", at: "10:12:03", kind: "message", from: { kind: "agent" }, text: "The code is in. It needs an OAuth app registered on GitHub before it can run." },
+    { id: "w1", at: "10:08:40", kind: "message", from: { kind: "you" }, text: "Add single sign-on." },
+    { id: "w2", at: "10:12:03", kind: "message", from: { kind: "agent" }, text: "The code is in. It needs an OAuth app registered with the provider before it can run." },
   ],
   attachments: [
     { kind: "slot", slot: 4 },
-    { kind: "branch", name: "feat/github-sign-in", slot: 4 },
+    { kind: "branch", name: "feat/single-sign-on", slot: 4 },
   ],
   waitingFor: [
     {
       id: "st1",
-      text: "Register the GitHub OAuth app",
+      text: "Register the OAuth app",
       since: minutesAgo(3),
       source: "agent",
-      act: { kind: "walk", target: "https://github.com/settings/applications/new" },
+      act: { kind: "walk", target: "https://auth.example.com/apps/new" },
       steps: [
         "Name it Armada",
         "Any homepage URL and callback URL",

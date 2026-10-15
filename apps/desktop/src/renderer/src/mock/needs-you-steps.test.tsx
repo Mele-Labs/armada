@@ -9,13 +9,13 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const TITLE = "Register the GitHub OAuth app";
+const TITLE = "Register the OAuth app";
 
 async function openSteps() {
   mount("needs-you-steps");
   await onScreen();
   await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
-  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Sign in with GitHub/ }));
+  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Add single sign-on/ }));
   const needs = page.getByRole("region", { name: "Needs you" });
   await userEvent.click(needs.getByRole("button", { name: /^Needs you/ }));
   const row = needs.getByRole("button", { name: `Open ${TITLE}` });
