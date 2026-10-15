@@ -399,7 +399,7 @@ pub use manifest_proposal::{
 pub use merge_hub::{
     ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
-    MainStanding, MergeLineHub,
+    MainStanding, MergeLineHub, PullRequestOwner,
 };
 pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
