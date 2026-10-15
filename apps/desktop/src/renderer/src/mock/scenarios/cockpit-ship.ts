@@ -192,7 +192,7 @@ const red: Session = {
 
 const SESSIONS: Session[] = [asking, WORKING_REPLY, done, working, stuck, queuedOwner, red];
 
-/** Fleet's reading of the Session at the first moment: its turn ended on a message to him. */
+/** Fleet's reading of the Session at the first moment: its turn ended on a message and a question to him. A reply alone raises no call, so the question is what does. */
 const REPLIED: Partial<Session> = {
   turn: { state: "idle" },
   standing: "replied",
@@ -239,7 +239,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3], list: readonly S
       moment += 1;
       if (moment !== 1) return;
       const at = new Date().toISOString();
-      store.edit("r1", (one) => ({ ...one, ...REPLIED, lastTurnAt: at, waitingFor: [{ id: `replied:${at}`, text: "The clock is pinned in all four store tests and the fixture is gone.", since: at, source: "replied" }] }));
+      store.edit("r1", (one) => ({ ...one, ...REPLIED, lastTurnAt: at, waitingFor: [{ id: `q:${at}`, text: "Delete the fixture file, or keep it for the other suites?", since: at, source: "ask_card", options: [{ label: "Delete it" }, { label: "Keep it" }] }] }));
     },
   };
 }

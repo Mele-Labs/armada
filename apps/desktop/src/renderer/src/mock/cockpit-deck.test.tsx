@@ -38,7 +38,9 @@ test("calls open as panes and leave Incoming", async () => {
   expect(stage()?.getAttribute("aria-label")).toContain(first.replace(/^[^:]+: /, ""));
 });
 
-test("a replied session raises an Incoming call", async () => {
+// A reply alone raises none (main's "Move replies out of Needs you", 9701ecf0c), so the Session asks a question. The deck is the only
+// Cockpit, so the call is raised there and nowhere else.
+test("a Session that waits on him raises an Incoming call", async () => {
   await deck();
   const title = "Pin the store clock";
   await expect.poll(() => hails().length).toBeGreaterThan(0);
