@@ -251,7 +251,18 @@
   position: absolute;
   top: var(--space-1);
   right: var(--space-1);
+  display: flex;
+  gap: var(--space-1);
   opacity: 0;
+}
+
+/* The acts sit over the block's corner, so its text stops short of them: one button wide, or two. */
+.armada-prose__block[data-acts="1"] {
+  padding-inline-end: calc(var(--h-control-sm) + var(--space-2));
+}
+
+.armada-prose__block[data-acts="2"] {
+  padding-inline-end: calc(var(--h-control-sm) * 2 + var(--space-2));
 }
 
 .armada-prose__run-block:hover .armada-prose__run-acts,

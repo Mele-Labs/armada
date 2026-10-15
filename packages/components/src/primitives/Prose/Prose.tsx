@@ -6,10 +6,10 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { Tooltip } from "../Tooltip/Tooltip";
-import { commandOf, ProseRunner, RunnableBlock } from "./RunnableBlock";
+import { commandOf, CopyAct, ProseRunner, RunnableBlock } from "./RunnableBlock";
 import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
 export type { CodePhase, CodeRun, CodeRunEvent, CodeRunner } from "./RunnableBlock";
-export { ProseRunner, RunnableBlock, RunOutput, useCodeRun } from "./RunnableBlock";
+export { CopyAct, ProseRunner, RunnableBlock, RunOutput, useCodeRun } from "./RunnableBlock";
 export { isSlashCommand, ProseCommand } from "./SlashCommand";
 export type { SlashCommands } from "./SlashCommand";
 
@@ -249,25 +249,40 @@ function Code({ children }: { children?: ReactNode }) {
   return <SlashCommand text={children} send={commands.send} />;
 }
 
-/** A fenced block; one in a shell language, or with none that reads as shell, gains Run where a runner is provided. */
+/** A fenced block gains Copy; one in a shell language, or with none that reads as shell, gains Run too where a runner is provided. */
 function Block({ children }: { children?: ReactNode }) {
   const runner = useContext(ProseRunner);
+  const code = Children.toArray(children)[0];
+  const language = isValidElement<{ className?: string }>(code) ? /language-(\S+)/.exec(code.props.className ?? "")?.[1] : undefined;
+  const source = isValidElement<{ children?: ReactNode }>(code) && typeof code.props.children === "string" ? code.props.children : null;
+  const command = runner === null || source === null ? null : commandOf(language, source);
+  // The block leaves room for the acts drawn over its corner: one, or two where Run sits beside Copy.
   const pre = (
     <InBlock.Provider value>
-      <pre className="armada-prose__block">{children}</pre>
+      <pre className="armada-prose__block" data-acts={source === null ? undefined : command === null ? 1 : 2}>
+        {children}
+      </pre>
     </InBlock.Provider>
   );
-  if (runner === null) return pre;
-  const code = Children.toArray(children)[0];
-  if (!isValidElement<{ className?: string; children?: ReactNode }>(code)) return pre;
-  const language = /language-(\S+)/.exec(code.props.className ?? "")?.[1];
-  const source = typeof code.props.children === "string" ? code.props.children : null;
-  const command = source === null ? null : commandOf(language, source);
-  if (command === null) return pre;
+  if (source === null) return pre;
+  // The fence's closing newline is not the block's text: pasted into a terminal it would run the command.
+  const copied = source.replace(/\n$/, "");
+  if (command !== null) {
+    return (
+      <RunnableBlock command={command} runner={runner!} copy={copied}>
+        {pre}
+      </RunnableBlock>
+    );
+  }
   return (
-    <RunnableBlock command={command} runner={runner}>
-      {pre}
-    </RunnableBlock>
+    <div className="armada-prose__run">
+      <div className="armada-prose__run-block">
+        {pre}
+        <span className="armada-prose__run-acts">
+          <CopyAct text={copied} />
+        </span>
+      </div>
+    </div>
   );
 }
 
