@@ -5,7 +5,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted, studying } from "@armada/desktop/mock";
+import { mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 import { onDisk } from "./fake";
@@ -36,7 +36,7 @@ async function openEditable(): Promise<void> {
   host.id = "root";
   document.body.append(host);
   mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect.element(node(/^Note: The legend under the step bar/)).toBeVisible();
@@ -182,7 +182,7 @@ test("with the pointer off the board, a paste lands in the middle of the view", 
   await openEditable();
   const before = kept().length;
   const at = await pressBoard(0);
-  await userEvent.hover(page.getByRole("button", { name: "Studios", exact: true }).first());
+  await userEvent.hover(page.getByRole("navigation", { name: "System" }).getByRole("tab", { name: "Studios" }));
   expect(paste({ strings: { "text/plain": "Off the board" } })).toBe(true);
   await landed(before);
   await expect.element(node(/^Note: Off the board/)).toBeVisible();
@@ -218,7 +218,7 @@ test("a Studio reopened read-only takes no paste", async () => {
   host.id = "root";
   document.body.append(host);
   mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await expect.element(page.getByText("Read-only", { exact: true })).toBeVisible();
   const before = kept().length;

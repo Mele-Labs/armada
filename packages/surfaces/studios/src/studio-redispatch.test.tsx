@@ -13,7 +13,7 @@ import { killed } from "@armada/screens/src/fixtures/build/terminal";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
 
-import { studying, mount, unmountAfterEach, type Scenario } from "@armada/desktop/mock";
+import { studying, mount, unmountAfterEach, type Scenario, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -62,7 +62,7 @@ function aRedispatch(): Scenario {
 }
 
 async function openTheStudio(): Promise<void> {
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Settings reducer", exact: true }).click();
 }
 

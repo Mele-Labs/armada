@@ -5,7 +5,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted, studying } from "@armada/desktop/mock";
+import { mountApp, type Mounted, studying, toPlace, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -29,23 +29,26 @@ async function binding(): Promise<void> {
   await userEvent.keyboard("{Alt>}{Meta>}c{/Meta}{/Alt}");
 }
 
+/** The title bar's System tab: what capture points at where the rail's Studios row was. */
+const systemPlace = () => page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "System" });
+
 const bar = () => page.getByRole("status").filter({ hasText: "Capturing" });
 
 test("a Studio open, a press on another surface, and the note lands on it", async () => {
   const fleet = studying([]);
   window_(fleet.scenario);
 
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("button", { name: "New Studio" }).click();
   await expect.element(page.getByRole("heading", { name: "Untitled Studio" })).toBeVisible();
 
   // Away to Overview: what is wrong is on the surface a person is looking at,
   // and the aim is the Studio they left open.
-  await page.getByRole("button", { name: "Cockpit", exact: true }).first().click();
+  await toPlace("Cockpit");
   await binding();
   await expect.element(bar()).toHaveTextContent("Onto Untitled Studio");
 
-  const pointed = page.getByRole("button", { name: "Studios", exact: true }).first();
+  const pointed = systemPlace();
   await pointed.click();
   const card = page.getByRole("dialog", { name: "Capture a note" });
   await expect.element(card).toBeVisible();
@@ -67,25 +70,25 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
   // the markup are what the layer does not record and a Note does.
   const capture = note.capture;
   expect(capture?.selector).toMatch(/button/);
-  expect(capture?.markup).toMatch(/Studios/);
+  expect(capture?.markup).toMatch(/System/);
   expect(capture?.styles?.["font-size"]).toBeDefined();
   expect(capture?.screen).toBe("Cockpit");
   expect(capture?.source).toBeUndefined();
 
   // And on the Studio, reopened from the list.
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "Untitled Studio", exact: true }).click();
   await expect.element(page.getByRole("group", { name: /^Note: The rail's count is stale/ })).toBeVisible();
 });
 
 test("with no Studio open the bar says so, and the card offers no Capture", async () => {
   window_(studying([]).scenario);
-  await expect.element(page.getByRole("button", { name: "Cockpit", exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("navigation", { name: "Places" }).getByRole("tab", { name: "Cockpit" })).toBeVisible();
 
   await binding();
   await expect.element(bar()).toHaveTextContent("No Studio open");
 
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await systemPlace().click();
   const card = page.getByRole("dialog", { name: "Capture a note" });
   await userEvent.fill(card.getByLabelText("Note"), "nowhere to land");
   await expect.element(card.getByRole("button", { name: "Capture" })).toBeDisabled();

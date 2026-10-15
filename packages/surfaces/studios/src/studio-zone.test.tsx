@@ -5,7 +5,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted, zoning, zoneProposing } from "@armada/desktop/mock";
+import { mountApp, type Mounted, zoning, zoneProposing, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 import { READ_IN_NAME, ZONE_PROPOSAL_NAME } from "./fake";
@@ -47,7 +47,7 @@ async function openEditable() {
   host.id = "root";
   document.body.append(host);
   mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: READ_IN_NAME, exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect.element(node("Zone")).toBeVisible();
@@ -153,7 +153,7 @@ test("a proposal whose line runs across a Note moves its dot along the line, off
   host.id = "root";
   document.body.append(host);
   mounted = { app: mountApp(zoneProposing().scenario, host, undefined, SLICES), host };
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: ZONE_PROPOSAL_NAME, exact: true }).click();
 
   // The line from the first Note to the third runs straight across the second, and its middle is on it.

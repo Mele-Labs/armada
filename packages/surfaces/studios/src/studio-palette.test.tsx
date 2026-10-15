@@ -7,7 +7,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted, studying } from "@armada/desktop/mock";
+import { mountApp, type Mounted, studying, toSystemPage } from "@armada/desktop/mock";
 
 const SLICES = { slices: ["core", "studios"] } as const;
 
@@ -32,7 +32,7 @@ function open(scenario: Parameters<typeof mountApp>[0]): Mounted {
 const rail = () => page.getByRole("group", { name: "What you can put on this Studio" });
 
 async function openTheStudio(): Promise<void> {
-  await page.getByRole("button", { name: "Studios", exact: true }).first().click();
+  await toSystemPage("Studios");
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await expect.element(rail()).toBeVisible();
 }
