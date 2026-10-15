@@ -27,8 +27,8 @@
 /* A hand on the camera follows at once; anything else eases. */
 .bf[data-live] .bf-cam { transition: none; }
 .bf-grain { position: absolute; inset: 0; opacity: 0.04; pointer-events: none; }
-/* The camera drifts a degree or two over twenty seconds, about the point it looks at. */
-.bf-sway { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; animation: bf-sway 20s ease-in-out infinite alternate; }
+/* The camera's origin, the middle of the pane. It does not move: a rotation here made every preserve-3d layer under it draw again each frame, for ever. */
+.bf-origin { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
 .bf-cam { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; transition: transform var(--cam-time) var(--cam-ease); }
 .bf-plane { position: absolute; left: 0; top: 0; transform-style: preserve-3d; outline: none; }
 /* Far haze at the top, and a vignette at the edges. */
@@ -233,7 +233,7 @@
 
 /* The altitude: it flies --alt above the plot, bobbing while it hovers, and a launch lifts it from its pad on a rising arc. */
 .bf-alt { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--alt) * var(--border-width))); transition: transform var(--move) var(--ease); }
-.bf-drone[data-hover] .bf-alt { animation: bf-bob calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -310ms); }
+.bf-drone[data-hover][data-alive] .bf-alt { animation: bf-bob calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -310ms); }
 .bf-drone[data-launching] .bf-alt {
   animation:
     bf-ascend calc(var(--duration-pulse) * 1.2) linear backwards,
@@ -268,7 +268,8 @@
 .bf-drone[data-ping] .bf-pool { opacity: 1; }
 /* Its shadow is tight and dark when it stands low, wide and soft when it flies high. */
 .bf-shadow { transform: scale(0.8); background: radial-gradient(circle, color-mix(in srgb, var(--bg-base) 95%, transparent) 0, color-mix(in srgb, var(--bg-base) 70%, transparent) 38%, transparent 66%); transition: transform var(--move) var(--ease), opacity var(--move) var(--ease); }
-.bf-drone[data-hover] .bf-shadow { transform: scale(1.3); opacity: 0.5; animation: bf-shade calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -310ms); }
+.bf-drone[data-hover] .bf-shadow { transform: scale(1.3); opacity: 0.5; }
+.bf-drone[data-hover][data-alive] .bf-shadow { animation: bf-shade calc(var(--duration-pulse) * 2) ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -310ms); }
 .bf-spot { background: color-mix(in srgb, var(--fg-default) 9%, transparent); pointer-events: auto !important; }
 .bf-rim { border: calc(1.4 * var(--bf-u)) solid color-mix(in srgb, var(--hue) 70%, transparent); }
 .bf-drone:hover .bf-rim,
@@ -288,7 +289,7 @@
 .bf-disc { fill: color-mix(in srgb, var(--fg-default) 8%, transparent); stroke: var(--fg-muted); stroke-opacity: 0.5; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .bf-blades line { stroke: var(--fg-default); stroke-opacity: 0.5; stroke-width: 1.6; stroke-linecap: round; }
 .bf-blades { transform-origin: 0 0; }
-.bf-drone[data-spin] .bf-blades { animation: bf-spin calc(var(--duration-pulse) * 0.28) linear infinite; }
+.bf-drone[data-spin][data-alive] .bf-blades { animation: bf-spin calc(var(--duration-pulse) * 0.28) linear infinite; }
 .bf-drone[data-spin] .bf-disc { fill: color-mix(in srgb, var(--fg-default) 15%, transparent); }
 .bf-drone[data-spin] .bf-blades line { stroke-opacity: 0.8; }
 /* A Session is the smaller silhouette, so its disc and arms are lighter. */
@@ -391,10 +392,6 @@
 
 /* ---- Motion --------------------------------------------------------------------------------------------- */
 
-@keyframes bf-sway {
-  from { transform: rotateZ(-1.1deg) rotateX(-0.7deg); }
-  to { transform: rotateZ(1.1deg) rotateX(0.7deg); }
-}
 @keyframes bf-spin { to { transform: rotate(360deg); } }
 @keyframes bf-bob {
   from { transform: translateZ(calc(var(--alt) * var(--border-width))); }
@@ -683,10 +680,9 @@
   .bf-callout[data-placed] .bf-callout__lead,
   .bf-callout__glow,
   .bf-reticle[data-flick] { animation: none; }
-  .bf-sway,
   .bf-sprite,
-  .bf-drone[data-hover] .bf-alt,
-  .bf-drone[data-hover] .bf-shadow,
+  .bf-drone[data-hover][data-alive] .bf-alt,
+  .bf-drone[data-hover][data-alive] .bf-shadow,
   .bf-drone[data-launching] .bf-alt,
   .bf-drone[data-launching] .bf-sprite,
   .bf-drone[data-launching] .bf-gnd,
@@ -696,7 +692,7 @@
   .bf-trail[data-launching],
   .bf-hop[data-fresh],
   .bf-hop[data-arriving],
-  .bf-drone[data-spin] .bf-blades,
+  .bf-drone[data-spin][data-alive] .bf-blades,
   .bf-ping,
   .bf-pin__ping,
   .bf-pad[data-bay="stranded"] .bf-pad__ring,

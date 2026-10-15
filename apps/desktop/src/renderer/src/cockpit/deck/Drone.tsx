@@ -91,6 +91,8 @@ export type DroneProps = {
   facts: DroneFacts | undefined;
   /** Its action runs as a loop, rather than as the still form. */
   loop: boolean;
+  /** Its rotors turn and it bobs, rather than hanging still: a working or stuck drone, up to the most the field animates at once. */
+  alive: boolean;
   /** It holds a call that has not been opened: the marker over it, amber while it is owed and red while its Check is failing. */
   call: CallTone | undefined;
   /** The call was just opened or answered: the marker fades. */
@@ -99,7 +101,7 @@ export type DroneProps = {
   onTip: OnTip;
 };
 
-export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, labelled, muted, away, focused, dim, play, facts, loop, call, leaving, onSelect, onTip }: DroneProps) {
+export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, labelled, muted, away, focused, dim, play, facts, loop, alive, call, leaving, onSelect, onTip }: DroneProps) {
   const wide = drone.kind === "job" ? 26 : 20;
   const said = `${drone.kind === "job" ? "Job" : "Session"}, ${drone.said}`;
   const show = (event: { currentTarget: Element }) => onTip(droneTip(drone, facts, ShieldCheck), event.currentTarget);
@@ -124,6 +126,7 @@ export function Drone({ drone, at, floor, alt, from, index, big, selected, hot, 
       data-doing={drone.doing}
       data-check={drone.doing === "run" ? drone.check : undefined}
       data-loop={(drone.doing !== undefined && loop) || undefined}
+      data-alive={alive || undefined}
       data-ping={drone.ping || undefined}
       data-flare={drone.flare || undefined}
       data-selected={selected || undefined}

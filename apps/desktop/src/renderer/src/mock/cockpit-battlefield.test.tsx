@@ -6,7 +6,8 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { scenarioNamed } from "./scenario";
+import { motion, mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -161,3 +162,44 @@ function label(one: Element): string {
   const owner = one.closest("[aria-label]");
   return owner?.getAttribute("aria-label") ?? one.className.toString();
 }
+
+// The loops that say a drone is working or calling are the only ones on the field, and the camera does not drift: every loop is a layer
+// the browser draws again each frame, and 59 of them kept the deck at a third of the display's rate.
+test("An idle drone runs no animation; a working or calling one does", async () => {
+  await motion();
+  await map();
+  const loops = (el: Element) =>
+    el
+      .getAnimations({ subtree: true })
+      .filter((one): one is CSSAnimation => one instanceof CSSAnimation && one.playState === "running" && one.effect?.getTiming().iterations === Infinity)
+      .map((one) => one.animationName);
+  const all = drones();
+  const idle = all.filter((one) => !one.hasAttribute("data-hover") && !one.hasAttribute("data-ping"));
+  const working = all.filter((one) => one.hasAttribute("data-spin"));
+  const calling = all.filter((one) => one.hasAttribute("data-ping"));
+  expect(idle.length).toBeGreaterThan(0);
+  expect(working.length).toBeGreaterThan(0);
+  expect(calling.length).toBeGreaterThan(0);
+
+  for (const one of idle) expect(loops(one), one.getAttribute("data-label") ?? "").toEqual([]);
+  for (const one of working) expect(loops(one), one.getAttribute("data-label") ?? "").toContain("bf-spin");
+  for (const one of calling) expect(loops(one), one.getAttribute("data-label") ?? "").toContain("bf-ping");
+  expect(document.getAnimations().map((one) => (one as CSSAnimation).animationName)).not.toContain("bf-sway");
+});
+
+test("at most eight drones turn their rotors at once, and the rest hold the pose still", async () => {
+  await motion();
+  const ship = scenarioNamed("cockpit-ship-flightdeck")!;
+  const running = ship.state.jobs.filter((job) => job.status === "running");
+  const extra = Array.from({ length: 20 }, (_, i) => ({ ...running[i % running.length]!, id: `${running[i % running.length]!.id}-x${i}`, title: `${running[i % running.length]!.title} ${i}`, branch: `${running[i % running.length]!.branch}-x${i}` }));
+  const app = mount({ ...ship, state: { ...ship.state, jobs: [...ship.state.jobs, ...extra] } });
+  await onScreen();
+  await controls().getByRole("button", { name: "Map" }).click();
+  await expect.poll(() => drones().filter((one) => one.hasAttribute("data-spin")).length).toBeGreaterThan(8);
+  await new Promise((done) => window.setTimeout(done, 900));
+  void app;
+
+  const turning = drones().filter((one) => one.getAnimations({ subtree: true }).some((a) => a instanceof CSSAnimation && a.animationName === "bf-spin" && a.playState === "running"));
+  expect(turning.length).toBeGreaterThan(0);
+  expect(turning.length).toBeLessThanOrEqual(8);
+});

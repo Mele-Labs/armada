@@ -207,6 +207,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const callOf = (key: string) => calls.get(key) ?? gone.get(key);
 
   const loops = loopsOf(doers, { focus, selected, hot });
+  // Rotors turn and hovering bobs for at most as many drones as the actions loop for, the focused, selected and hot first; the rest hold the same pose still.
+  const alive = loopsOf(drones.filter((one) => one.hover), { focus, selected, hot });
   const writing = new Map<string, "loop" | "still">();
   for (const one of doers) if (one.doing === "write") writing.set(aimOf(one)!.path, loops.has(one.key) || writing.get(aimOf(one)!.path) === "loop" ? "loop" : "still");
   const showTip: OnTip = (next, target, at) => {
@@ -296,7 +298,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         </filter>
         <rect width="100%" height="100%" filter="url(#bf-noise)" />
       </svg>
-      <div className="bf-sway">
+      <div className="bf-origin">
         <div className="bf-cam" style={{ transform }}>
           <div className="bf-plane" role="listbox" aria-label={scene === undefined ? "Map" : "Route"} onClick={(event) => (event.target as Element).closest("[role=option]") === null && setPinned(undefined)} style={{ width: plane.width, height: plane.height }}>
             <div className="bf-floor" style={{ left: -plane.width * 0.6, top: -plane.height * 0.9, width: plane.width * 2.2, height: plane.height * 2.1 }} />
@@ -455,6 +457,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                       play={launch}
                       facts={facts.get(drone.key)}
                       loop={loop}
+                      alive={alive.has(drone.key)}
                       call={callOf(drone.key)}
                       leaving={!calls.has(drone.key)}
                       onSelect={() => onSelect(drone.key)}
