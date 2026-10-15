@@ -8,6 +8,7 @@
 //! on an idle machine (1.2s became 2.2s); `taskpolicy -c utility` cost nothing
 //! idle and gave a normal-priority Check back its idle time under load.
 
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 /// Set to `normal` to run a Check at normal priority: the merge line sets it on
@@ -47,15 +48,28 @@ impl Priority {
     /// that does not is spawned as written, so the operating system still says
     /// *not found* rather than `taskpolicy` exiting 66 — a code a real program
     /// may return, which `run`'s header says why to keep apart.
-    pub(crate) fn command(
+    pub fn command(
         self,
         program: String,
         args: Vec<String>,
         worktree: &Path,
     ) -> (String, Vec<String>) {
+        let path = std::env::var_os("PATH");
+        self.command_searching(program, args, worktree, path.as_deref())
+    }
+
+    /// [`Priority::command`] for a child whose environment is not this
+    /// process's: a bare name is looked up on the `PATH` the child will have.
+    pub fn command_searching(
+        self,
+        program: String,
+        args: Vec<String>,
+        worktree: &Path,
+        path: Option<&OsStr>,
+    ) -> (String, Vec<String>) {
         let found = match self {
             Priority::Low if cfg!(target_os = "macos") && executable(Path::new(TASKPOLICY)) => {
-                resolved(&program, worktree)
+                resolved(&program, worktree, path)
             }
             _ => None,
         };
@@ -75,14 +89,13 @@ impl Priority {
 }
 
 /// `program` as the spawn would find it: against `worktree` where it names a
-/// path, on `PATH` where it is a bare name.
-fn resolved(program: &str, worktree: &Path) -> Option<PathBuf> {
+/// path, on `path` where it is a bare name.
+fn resolved(program: &str, worktree: &Path, path: Option<&OsStr>) -> Option<PathBuf> {
     if program.contains('/') {
         let path = worktree.join(program);
         return executable(&path).then_some(path);
     }
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
+    std::env::split_paths(path?)
         .filter(|dir| !dir.as_os_str().is_empty())
         .map(|dir| dir.join(program))
         .find(|candidate| executable(candidate))

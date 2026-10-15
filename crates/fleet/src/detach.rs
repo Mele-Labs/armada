@@ -30,6 +30,7 @@ use std::path::Path;
 use std::process::Stdio;
 
 use adapter_traits::{Environment, Launch};
+use checks_runner::Priority;
 use tokio::process::{Child, Command};
 
 /// A child that will be spawned into a session of its own.
@@ -89,11 +90,43 @@ impl Detached {
     /// Fleet's own working directory; one that forgot the environment would
     /// hand it Fleet's. Taking a [`Launch`] means neither is a thing to
     /// remember, and a `Launch` can only be built from a spawn config.
+    ///
+    /// **Clamped to utility QoS, as an agent's Check is**, so every build and
+    /// test the agent runs itself yields to the person using the machine.
+    /// `docs/concepts/manifest.md`, *At what priority a Check runs*.
     pub fn launching(launch: &Launch) -> Detached {
-        Detached::program(launch.program())
-            .args(launch.args())
+        let path = launch
+            .environment()
+            .vars()
+            .iter()
+            .find(|(name, _)| name == "PATH")
+            .map(|(_, value)| OsStr::new(value.as_str()));
+        let (program, args) = Priority::from_env().command_searching(
+            launch.program().to_string(),
+            launch.args().to_vec(),
+            Path::new(launch.directory()),
+            path,
+        );
+        Detached::program(program)
+            .args(args)
             .in_directory(launch.directory())
             .in_environment(launch.environment())
+    }
+
+    /// An agent a Session's keeper starts, clamped as [`Detached::launching`]
+    /// clamps a Drone. It inherits the keeper's environment, so a bare name is
+    /// looked up on this process's `PATH`.
+    pub fn agent(program: &str, args: &[String], directory: Option<&Path>) -> Detached {
+        let (program, args) = Priority::from_env().command(
+            program.to_string(),
+            args.to_vec(),
+            directory.unwrap_or(Path::new("/")),
+        );
+        let agent = Detached::program(program).args(args);
+        match directory {
+            Some(directory) => agent.in_directory(directory),
+            None => agent,
+        }
     }
 
     pub fn arg(mut self, arg: impl AsRef<OsStr>) -> Detached {
