@@ -170,6 +170,25 @@ async fn the_same_lines_are_named_to_both_sides_once_and_again_only_when_the_fil
     assert!(said.contains("`f.txt`") && said.contains("`g.txt`"), "{said}");
 }
 
+/// 15 Oct 2026: a holder whose base is behind main was told it clashed with one cut from a newer
+/// main, over files only main had changed. A pair names a file only where both changed it.
+#[tokio::test]
+async fn main_s_own_changes_carried_by_the_newer_holder_are_not_a_clash_between_the_two() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.writes("sess-a", 1, "f.txt", 5, "a").await;
+    std::fs::write(rig.home.path().join("f.txt"), twenty_lines().replace("line 5\n", "main's five\n")).unwrap();
+    git(rig.home.path(), &["commit", "--quiet", "-am", "main changes line five"]);
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.writes("sess-b", 2, "g.txt", 1, "b's g").await;
+
+    rig.checks("sess-a", "sess-b").await;
+
+    assert!(rig.clashes().await.clashes.is_empty(), "{:?}", rig.clashes().await.clashes);
+    assert!(rig.the_mod_asks("sess-a").await.is_empty());
+    assert!(rig.the_mod_asks("sess-b").await.is_empty());
+}
+
 #[tokio::test]
 async fn a_clash_that_no_longer_reproduces_is_cleared_without_a_word() {
     let rig = a_rig();

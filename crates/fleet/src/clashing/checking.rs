@@ -2,7 +2,7 @@
 //! tick, so it costs a lock and an empty table where nothing was written.
 
 use std::collections::BTreeSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -92,16 +92,12 @@ where
             let Some(served) = self.repositories().serving(&standing.manifest) else {
                 continue;
             };
-            let base = served.manifest().base().unwrap_or("main").to_string();
+            let base = base_of(&served);
             let worktrees = standing.worktrees.clone();
             let changed = tokio::task::spawn_blocking(move || {
                 worktrees
                     .iter()
-                    .flat_map(|worktree| {
-                        clash::changed_here(worktree, &format!("origin/{base}"))
-                            .or_else(|_| clash::changed_here(worktree, &base))
-                            .unwrap_or_default()
-                    })
+                    .flat_map(|worktree| changed_since_base(worktree, &base).unwrap_or_default())
                     .collect::<BTreeSet<String>>()
             })
             .await
@@ -127,8 +123,12 @@ where
         if one.manifest != two.manifest {
             return;
         }
+        let Some(served) = self.repositories().serving(&one.manifest) else {
+            return;
+        };
+        let base = base_of(&served);
         let (a, b) = (one.worktrees.clone(), two.worktrees.clone());
-        let found = tokio::task::spawn_blocking(move || between_any(&a, &b))
+        let found = tokio::task::spawn_blocking(move || between_any(&a, &b, &base))
             .await
             .unwrap_or_else(|why| Err(NotChecked(format!("the check did not finish: {why}"))));
         self.verdict_kept(opposed, found, None).await;
@@ -276,19 +276,48 @@ where
     }
 }
 
-/// Every pair of one holder's worktrees and the other's: the files any pair conflicts on.
-fn between_any(one: &[PathBuf], other: &[PathBuf]) -> Result<Option<BTreeSet<String>>, NotChecked> {
+/// Every pair of one holder's worktrees and the other's: the files any pair conflicts on that both
+/// changed themselves. **A worktree cut from a newer main carries main's changes**, and git sets
+/// them against the older one's as if they were that holder's (15 Oct 2026: a Session was named
+/// over files only main had changed). A conflict with main's own changes is main's to tell.
+fn between_any(one: &[PathBuf], other: &[PathBuf], base: &str) -> Result<Option<BTreeSet<String>>, NotChecked> {
     let (mut paths, mut unknown) = (BTreeSet::new(), None);
+    let mut own: std::collections::BTreeMap<&PathBuf, Result<BTreeSet<String>, NotChecked>> = Default::default();
     for a in one {
         for b in other.iter().filter(|b| *b != a) {
-            match clash::between(a, b) {
-                Ok(Verdict::Clean) => {}
-                Ok(Verdict::Conflict(found)) => paths.extend(found),
-                Err(why) => unknown = unknown.or(Some(why)),
+            let found = match clash::between(a, b) {
+                Ok(Verdict::Clean) => continue,
+                Ok(Verdict::Conflict(found)) => found,
+                Err(why) => {
+                    unknown = unknown.or(Some(why));
+                    continue;
+                }
+            };
+            for side in [a, b] {
+                own.entry(side).or_insert_with(|| changed_since_base(side, base));
+            }
+            match (&own[a], &own[b]) {
+                (Ok(mine), Ok(theirs)) => {
+                    paths.extend(found.into_iter().filter(|path| mine.contains(path) && theirs.contains(path)));
+                }
+                (Err(why), _) | (_, Err(why)) => unknown = unknown.or(Some(why.clone())),
             }
         }
     }
     merged(paths, unknown)
+}
+
+/// What the worktree as it stands changed since it left `base`, read against the remote's copy
+/// first since the local branch may be behind it.
+fn changed_since_base(worktree: &Path, base: &str) -> Result<BTreeSet<String>, NotChecked> {
+    clash::changed_here(worktree, &format!("origin/{base}"))
+        .or_else(|_| clash::changed_here(worktree, base))
+        .map(|changed| changed.into_iter().collect())
+}
+
+/// The branch the repository's work merges into: the Manifest's `base:`, else `main`.
+fn base_of(served: &crate::repositories::Served) -> String {
+    served.manifest().base().unwrap_or("main").to_string()
 }
 
 /// What several worktrees' checks come to: **not checked** only where none conflicts and one
