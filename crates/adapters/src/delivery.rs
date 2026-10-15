@@ -391,6 +391,14 @@ impl Delivery for GitVcs {
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding {
         crate::landing::caught_up(in_repo, base)
     }
+
+    fn checkout_has(&self, in_repo: &str, commit: &str) -> bool {
+        crate::landing::checkout_has(in_repo, commit)
+    }
+
+    fn held_back(&self, in_repo: &str, base: &str) -> Option<adapter_traits::HeldBack> {
+        crate::landing::held_back(in_repo, base)
+    }
 }
 
 /// Ask the forge one thing about one pull request, named as the forge names

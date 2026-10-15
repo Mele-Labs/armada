@@ -408,6 +408,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **The repository is fast-forwarded or left alone, and never anything in between.** A checkout on some other branch, a working tree carrying somebody's uncommitted change, a repository with no remote, and a history that will not fast-forward are all refusals — this is the one thing Fleet writes into the repository a person is standing in, and `--autostash` is not on offer because nobody asked for a rebase.
 
+**It is also caught up whenever main moves, whoever merged.** The reading of main (*What Fleet knows about main's CI*) compares main's tip on the forge with the commit the checkout has, in process, and fast-forwards on the same refusals when the checkout lacks it. Sessions and the merge queue land most pull requests, and a catch-up that waited for a Job's merge left the owner's checkout days behind in October 2026. A checkout it would not move is kept in memory with what holds it: the branch it is on where that is not the base, its uncommitted tracked files and which of them main also changed, and how far it is behind and ahead. It is served on the merge line's `hub` as `checkout`, and cleared once the checkout has main's tip.
+
 **What merged can be proved, and only where the repository asks.** A Manifest that names Checks under `after_merge` has them run once against the tree the fast-forward left — see [Manifest](manifest.md), *Proving what merged*. A Manifest that names none runs nothing, which is every Manifest by default: what this costs is a build and test run on the machine somebody is working on, for an event nobody is waiting for, and `../practices/rust.md` section 8 names a hook that rebuilt on merge as the cause of v1's four-minute cold build.
 
 **The run belongs to the commit and its record is keyed by the commit**, in a table with no `job_id` column and no foreign key to `jobs`. Two Jobs merging within a minute are two merges into one commit; the second finds it already proved and starts nothing. What is keyed by a Job is only the line saying it happened, which goes into the log of whichever Job's turn started the run — beside the fast-forward's own line, and for the same reason.
@@ -429,6 +431,7 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | What Fleet asks | When |
 |---|---|
 | Where main stands on the forge | One ref lookup per repository per minute, one repository a reading, rotating. The reading has a loop of its own, so a Job's Checks never hold it up |
+| Whether the checkout has main's tip | Every reading, in process. A `git pull --ff-only` only where it lacks it, and one `git fetch` of the base when that is refused |
 | The jobs that ran on that commit | When the head has moved, and again while any job has not finished. A settled commit is not asked again |
 | A failed job's log, its last 256 KiB | Once per failed job per commit |
 | The pull request that merged the commit | Once per commit while this process lives, and only for a red |
