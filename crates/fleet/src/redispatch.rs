@@ -154,7 +154,8 @@ where
         let (facts, outcome, criteria) = match carrying {
             Some(Carrying { facts, criteria }) => (facts, None, criteria),
             None => {
-                let outcome = enrich(failed.facts().as_str(), self.links().as_ref()).await;
+                let links = self.links_of(&served);
+                let outcome = enrich(failed.facts().as_str(), links.as_ref()).await;
                 (
                     self.re_enriched(failed.facts(), &outcome),
                     Some(outcome),

@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use api::{Commands, Queries, Refusal};
 use core_model::{AutoMerge, CriterionOrigin, IssueSource, JobStatus, Timestamp};
-use testkit::{Delivered, FakeHarness, FakeJudge, FakeLinkLookup, FakeVcs, FakeWorkProduct};
+use testkit::{
+    Delivered, FakeHarness, FakeJudge, FakeLinkLookup, FakeTrackers, FakeVcs, FakeWorkProduct,
+};
 
 use crate::daemon::Fleet;
 use crate::noticing::Noticing;
@@ -300,7 +302,7 @@ async fn a_criterion_from_an_issue_says_so_and_the_rotation_notices_when_it_move
     fittings.judge = Arc::new(FakeJudge::saying(
         "workflow: bug\ntitle: The reader drops the last row\ndone_when: the last row is read",
     ));
-    fittings.links = links.clone();
+    fittings.trackers = Arc::new(FakeTrackers::empty().links(links.clone()));
     fittings.noticing = Noticing::every(Duration::ZERO);
     let fleet = Fleet::assembled(fittings);
 

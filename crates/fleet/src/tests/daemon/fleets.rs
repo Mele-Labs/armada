@@ -16,7 +16,7 @@ use std::time::Duration;
 use adapter_traits::Model;
 use config::Manifest;
 use store::Store;
-use testkit::{FakeHarness, FakeJudge, FakeLinkLookup, FakeVcs, FakeWorkProduct};
+use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct};
 
 use super::workflows::{
     manifest, one, two_steps, two_steps_delivering_nothing, two_steps_gated_on_a_manifest_rule,
@@ -222,13 +222,11 @@ pub fn fitted_over<V>(
         proposer_model: Model::named("the-cheap-model").expect("a model name"),
         retro_model: Model::named("the-retro-model").expect("a model name"),
         commander_model: Model::named("the-commander-model").expect("a model name"),
-        // Resolves nothing, so every fixture but `proposing`'s own behaves
-        // exactly as it did before this seam existed. The cases about it
-        // plant their own.
-        links: Arc::new(FakeLinkLookup::resolving_nothing()),
-        // Lists nothing and takes every write. The cases about writing back
-        // plant their own, to read what was written.
-        tracker: Arc::new(testkit::FakeTracker::empty()),
+        // Resolves no link, lists nothing and takes every write, so every
+        // fixture but `proposing`'s own behaves exactly as it did before this
+        // seam existed. The cases about it, and about writing back, plant their
+        // own to read what was written.
+        trackers: Arc::new(testkit::FakeTrackers::empty()),
         // The shipped reader: it only reads files, so a fixture runs what ships.
         ci_configuration: Arc::new(adapters::ActionsWorkflows),
         // Planted, not read. The composition root resolves these from the

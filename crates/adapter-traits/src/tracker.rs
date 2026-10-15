@@ -7,10 +7,12 @@
 //! branch goes to. LinkLookup renders calls and runs none, which a listing and
 //! a write cannot keep to. `docs/concepts/tracker.md`.
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::{FromOutside, IssueAddress};
+use crate::{FromOutside, IssueAddress, LinkLookup};
 
 /// One open issue, as the tracker listed it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -93,4 +95,60 @@ pub trait Tracker {
     /// The line a pull request body carries so that merging it closes the
     /// issue, in this tracker's own syntax. `None` where it cannot say one.
     fn closing_line(&self, issue: &IssueAddress) -> Option<String>;
+
+    /// What the pull request's **title** carries so that this tracker links the
+    /// two, for a tracker that reads the title and not the body. `None` where
+    /// the body's [`closing_line`](Tracker::closing_line) is the whole of it,
+    /// which is every tracker but the ones that say otherwise.
+    fn title_mark(&self, _issue: &IssueAddress) -> Option<String> {
+        None
+    }
+}
+
+/// Which tracker a repository's Manifest chose: the provider where it named
+/// one, and every other key of the block as written.
+///
+/// **The provider is the only key this crate knows.** What the rest mean is the
+/// implementation's to read and refuse, so a new tracker adds no field here.
+/// `docs/contracts/adapters.md`, *Where adapter config lives*.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct TrackerChoice {
+    provider: Option<String>,
+    settings: BTreeMap<String, String>,
+}
+
+impl TrackerChoice {
+    /// A Manifest that names no tracker: the forge the repository is on.
+    pub fn of_the_forge() -> TrackerChoice {
+        TrackerChoice::default()
+    }
+
+    pub fn named(provider: Option<&str>, settings: &BTreeMap<String, String>) -> TrackerChoice {
+        TrackerChoice {
+            provider: provider.map(String::from),
+            settings: settings.clone(),
+        }
+    }
+
+    pub fn provider(&self) -> Option<&str> {
+        self.provider.as_deref()
+    }
+
+    pub fn settings(&self) -> &BTreeMap<String, String> {
+        &self.settings
+    }
+}
+
+/// The tracker and the link reader for a repository's choice. **Fleet holds one
+/// of these and asks it per repository**, so no code above the composition root
+/// learns which tracker is behind a Manifest.
+///
+/// **Total.** A choice that cannot be honoured, an unknown provider or a block
+/// missing a key it needs, still answers: with a tracker that refuses every
+/// call and says why. A bad block in one repository's file must not stop Fleet
+/// starting or hide the others.
+pub trait Trackers {
+    fn tracker(&self, choice: &TrackerChoice) -> Arc<dyn Tracker + Send + Sync>;
+
+    fn links(&self, choice: &TrackerChoice) -> Arc<dyn LinkLookup + Send + Sync>;
 }

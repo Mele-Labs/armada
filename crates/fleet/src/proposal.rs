@@ -416,14 +416,15 @@ where
         if let Err(cause) = kept {
             return Err(self.proposal_ended(&head, None, cause, actor).await);
         }
-        let outcome = enrich(request, self.links().as_ref()).await;
+        let links = self.links_of(served);
+        let outcome = enrich(request, links.as_ref()).await;
         if let Enriched::Failed(cause) = &outcome {
             self.noted_lookup_failed(head.id(), cause);
         }
         // **Only an issue that was read**: one that would not resolve gave the
         // proposer nothing of its, so no criterion is the issue's (#1642).
         let issue = match &outcome {
-            Enriched::Resolved(_) => self.links().issue(request).map(|address| {
+            Enriched::Resolved(_) => links.issue(request).map(|address| {
                 core_model::IssueSource::read(
                     address.reference().to_string(),
                     address.url().to_string(),
