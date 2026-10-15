@@ -596,8 +596,8 @@ void app.whenReady().then(() => {
     (_event, bytes: ArrayBuffer, filename: string, mimeType: string) =>
       stageAttachment(bytes, filename, mimeType),
   );
-  ipcMain.handle(CHANNELS.searchFiles, (event, query: string) =>
-    connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  ipcMain.handle(CHANNELS.searchFiles, (event, query: string, manifestId: unknown) =>
+    connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event)), typeof manifestId === "string" ? manifestId : undefined),
   );
   ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
     connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),

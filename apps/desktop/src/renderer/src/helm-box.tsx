@@ -18,6 +18,7 @@ import type { DrawnSketch, SessionTag } from "@armada/screens/src/draft/sessions
 
 import type { BridgeState } from "../../shared/bridge";
 import { useHelmSession } from "./helm-session";
+import { searchFiles } from "./commands";
 import { useNumbered } from "./numbered";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SketchSheet } from "./sessions";
@@ -75,12 +76,13 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
         ...sessions.filter((one) => one.dead === undefined && one.helm !== true && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
         ...draft.taggable(),
       ],
+      searchFiles: (query: string) => searchFiles(query, manifestId),
       ...(numbered === undefined ? {} : { numbered }),
       drawn: drawn.map(({ id, title }) => ({ id, title })),
       onDraw: () => setPadOpen(true),
       onRemoveDrawn: (id) => setDrawn((was) => was.filter((one) => one.id !== id)),
     };
-  }, [draft, sessions, numbered, tuning.model, tuning.effort, tune, drawn]);
+  }, [draft, sessions, numbered, tuning.model, tuning.effort, tune, drawn, manifestId]);
 
   const sketchesOf = useCallback((ids: readonly string[]) => ids.flatMap((id) => known.current.get(id) ?? []), []);
 

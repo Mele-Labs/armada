@@ -295,7 +295,7 @@ export const runSheetServers = {
 export const stageAttachment = (bytes: ArrayBuffer, filename: string, mimeType: string) =>
   window.armada.stageAttachment(bytes, filename, mimeType);
 /** Paths under the checkout narrowed against typed text, for the `@` mention popup. */
-export const searchFiles = (query: string) => window.armada.searchFiles(query);
+export const searchFiles = (query: string, manifestId?: string) => window.armada.searchFiles(query, manifestId);
 /** What one command does, for the person deciding whether to allow it. A read: nothing moves. */
 export const explainCommand = (jobId: string, callId: string) =>
   window.armada.explainCommand(jobId, callId);

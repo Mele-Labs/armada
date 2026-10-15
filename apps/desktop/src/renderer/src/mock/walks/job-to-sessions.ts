@@ -22,7 +22,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(message, text("Cap the retry backoff")), say: "The Job is a chip in the message box, in the line" },
     { type: "@", into: message, say: "An at sign lists Jobs too, grouped, each with its glyph" },
     { look: role("group", "Jobs"), say: "Jobs" },
-    { look: role("group", "Pull requests"), say: "Pull requests, and branches and Sessions below them" },
+    { look: role("group", "Sessions"), say: "Sessions, above the Jobs" },
     { type: "why did this fail?", into: message, say: "Asked as one would in a terminal" },
     { press: button("Send"), say: "The agent reads the Job with the tools Fleet gives it" },
     { look: inside(thread, text("examine_job 55")), say: "The Job" },
