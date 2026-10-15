@@ -254,7 +254,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
-pub use main_fix::{MainFix, TakenHow};
+pub use main_fix::{MainFix, TakenBy, TakenHow};
 pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, TurnHolder};
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;

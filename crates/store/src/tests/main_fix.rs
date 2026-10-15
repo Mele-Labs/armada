@@ -4,7 +4,7 @@
 use core_model::Timestamp;
 
 use crate::tests::{job_id, open, TempDir};
-use crate::{MainFix, TakenHow};
+use crate::{MainFix, TakenBy, TakenHow};
 
 fn at(text: &str) -> Timestamp {
     Timestamp::from_rfc3339(text)
@@ -14,7 +14,8 @@ fn take(job: &str, how: TakenHow) -> MainFix {
     MainFix {
         repository: "/repos/armada".to_string(),
         red_at: at("2026-10-06T10:00:00.000Z"),
-        job: job_id(job),
+        by: TakenBy::Job(job_id(job)),
+        forked_from: None,
         how,
         check: "test".to_string(),
         test: Some("tests::one".to_string()),
@@ -43,7 +44,7 @@ fn a_job_takes_a_red_once() {
             .expect("reads"),
         [first.clone()]
     );
-    assert!(store.is_fixing_main(&first.job).expect("reads"));
+    assert!(store.is_fixing_main(first.by.job().expect("a Job")).expect("reads"));
 }
 
 #[test]
@@ -56,10 +57,10 @@ fn a_green_ends_every_take_and_only_the_job_that_fixed_it_says_so() {
     store.keep_main_fix(&other).expect("kept");
     let ended = at("2026-10-06T11:00:00.000Z");
     store
-        .end_main_fixes("/repos/armada", &ended, Some((&fixer.job, 1841)))
+        .end_main_fixes("/repos/armada", &ended, Some((fixer.by.job().expect("a Job"), 1841)))
         .expect("ended");
     let read = store
-        .main_fix_of_job(&fixer.job)
+        .main_fix_of_job(fixer.by.job().expect("a Job"))
         .expect("reads")
         .expect("a row");
     assert_eq!(
@@ -67,9 +68,32 @@ fn a_green_ends_every_take_and_only_the_job_that_fixed_it_says_so() {
         (Some(ended.clone()), Some(1841))
     );
     let read = store
-        .main_fix_of_job(&other.job)
+        .main_fix_of_job(other.by.job().expect("a Job"))
         .expect("reads")
         .expect("a row");
     assert_eq!((read.ended_at, read.fixed_in), (Some(ended), None));
-    assert!(!store.is_fixing_main(&fixer.job).expect("reads"));
+    assert!(!store.is_fixing_main(fixer.by.job().expect("a Job")).expect("reads"));
+}
+
+#[test]
+fn a_session_takes_a_red_once_beside_a_job_and_a_green_ends_it() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let session = MainFix {
+        by: TakenBy::Session("aaaa-1111".to_string()),
+        forked_from: Some("bbbb-2222".to_string()),
+        ..take("01MAINFIX000000000000001", TakenHow::Dispatched)
+    };
+    assert!(store.keep_main_fix(&session).expect("kept"));
+    assert!(!store.keep_main_fix(&session).expect("again"), "once per red per Session");
+    let job = take("01MAINFIX000000000000002", TakenHow::Took);
+    assert!(store.keep_main_fix(&job).expect("kept"));
+    let read = store.main_fixes_of("/repos/armada", &session.red_at).expect("reads");
+    assert!(read.contains(&session) && read.contains(&job), "{read:?}");
+    assert!(store.main_fix_of_job(&job_id("aaaa-1111")).expect("reads").is_none(), "a Session is no Job's take");
+
+    let ended = at("2026-10-06T11:00:00.000Z");
+    store.end_main_fixes("/repos/armada", &ended, None).expect("ended");
+    let read = store.main_fixes_of("/repos/armada", &session.red_at).expect("reads");
+    assert!(read.iter().all(|one| one.ended_at.as_ref() == Some(&ended)));
 }

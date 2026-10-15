@@ -81,6 +81,7 @@ fn a_red_hub() -> MergeLineHub {
             id: JobId::carried("01FIX"),
             title: "Fix test on main".to_string(),
         }),
+        fixing_session: None,
         fixing_elsewhere: Some(FixingElsewhere {
             machine: "mac-a".to_string(),
             holder: ClaimHolder {
@@ -137,6 +138,26 @@ fn a_hub_survives_the_wire_and_the_strict_sets_spell_snake_case() {
 }
 
 #[test]
+fn a_session_holding_the_red_is_spelled_beside_the_job_field_and_survives_the_wire() {
+    let line = a_line(Some(MergeLineHub {
+        fixing: None,
+        fixing_session: Some(HubSession {
+            id: "aaaa-1111".to_string(),
+            title: Some("Fix main after #1815".to_string()),
+        }),
+        ..a_red_hub()
+    }));
+    let spelled = encode(&line).expect("plain data");
+    assert!(
+        spelled.contains(r#""fixing_session":{"id":"aaaa-1111","title":"Fix main after #1815"}"#),
+        "{spelled}"
+    );
+    assert!(!spelled.contains(r#""fixing":"#), "{spelled}");
+    let read: MergeLine = decode("a merge line", spelled.as_bytes()).expect("reads");
+    assert_eq!(read, line);
+}
+
+#[test]
 fn what_is_empty_is_left_out_and_never_sent_as_null() {
     let green = MergeLineHub {
         main: Some(MainStanding {
@@ -152,6 +173,7 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         pull_requests: Vec::new(),
         merged: Vec::new(),
         fixing: None,
+        fixing_session: None,
         fixing_elsewhere: None,
     };
     let spelled = encode(&a_line(Some(green))).expect("plain data");
@@ -163,6 +185,7 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
         "red_since",
         "pull_requests",
         "fixing",
+        "fixing_session",
         "merged",
         "red_commit",
         "checking",

@@ -487,10 +487,9 @@ where
                     &titled,
                     &session_titled,
                 )?;
-                hub.fixing = main
-                    .as_ref()
-                    .and_then(|main| self.fixing_of(&store, main))
-                    .and_then(|job| titled(&job));
+                let fixing = main.as_ref().and_then(|main| self.fixing_of(&store, main));
+                hub.fixing = fixing.as_ref().and_then(|by| by.job()).and_then(titled);
+                hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
                 hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
                 // A switch turned off since the reading shows none, another machine's rows included.
                 if !self.registers_owners(&root) {
@@ -572,6 +571,7 @@ pub(crate) fn hub_of(
             })
             .unwrap_or_default(),
         fixing: None,
+        fixing_session: None,
         fixing_elsewhere: None,
     })
 }

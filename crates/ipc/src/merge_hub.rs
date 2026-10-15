@@ -29,6 +29,11 @@ pub struct MergeLineHub {
     /// green.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing: Option<HubJob>,
+    /// The Session working on main's red, where a Session holds it and no Job does: the newest
+    /// that took it and has not ended. Absent while nobody has it, once main is green, and
+    /// whenever `fixing` is present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixing_session: Option<HubSession>,
     /// Another machine's claim on main's red, read from the central store. Absent
     /// while nobody else holds it, where the repository's *Pull request owners*
     /// switch is off, the machine is signed out, and whenever the store could

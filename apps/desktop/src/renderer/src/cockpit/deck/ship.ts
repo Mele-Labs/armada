@@ -308,7 +308,7 @@ export function shipOf(input: Inputs): Ship {
     const red = main.state === "red";
     const first = main.failed?.[0];
     const merge = main.merge;
-    const fixing = red && line.hub?.fixing !== undefined;
+    const fixing = red && (line.hub?.fixing !== undefined || line.hub?.fixing_session !== undefined);
     return [
       {
         root: line.root,

@@ -101,7 +101,7 @@ async fn the_job_whose_pull_request_turned_main_red_is_sent_back_by_itself_once(
     assert_eq!(take.how, TakenHow::Took);
     assert_eq!(take.check, "test");
     assert_eq!(take.test.as_deref(), Some("tests::one"));
-    let fixing = fleet.load(&take.job).await.unwrap();
+    let fixing = fleet.load(take.by.job().expect("a Job")).await.unwrap();
     assert_eq!(fixing.redispatched_from(), Some(culprit.id()));
     assert!(
         matches!(fixing.status(), JobStatus::Queued | JobStatus::Running),
@@ -124,7 +124,7 @@ async fn the_job_whose_pull_request_turned_main_red_is_sent_back_by_itself_once(
     let hub = the_hub(&fleet).await;
     assert_eq!(
         hub.fixing.map(|job| job.id),
-        Some(ipc::JobId::from(&take.job))
+        Some(ipc::JobId::from(take.by.job().expect("a Job")))
     );
     let summary = fleet.summarised(&fixing).await.unwrap();
     let mark = summary.fixes_main.expect("the Job carries its part");
@@ -172,7 +172,7 @@ async fn a_person_dispatches_a_new_job_that_claims_the_failing_test() {
 
     let main = kept(&fleet).await.unwrap();
     let [take] = takes(&fleet).await.try_into().expect("one take");
-    assert_eq!((take.how, &take.job), (TakenHow::Dispatched, job.id()));
+    assert_eq!((take.how, take.by.job().expect("a Job")), (TakenHow::Dispatched, job.id()));
     let owner = core_model::ManifestId::carried(core_model::Ulid::carried(
         fleet.names().owner_of(job.id()).expect("owned"),
     ));
@@ -236,7 +236,7 @@ async fn work_sent_back_to_a_job_that_ended_continues_it_on_a_fresh_branch() {
     assert_eq!(job.title(), earlier.title());
     assert_eq!(job.status(), JobStatus::Queued);
     let [take] = takes(&fleet).await.try_into().expect("one take");
-    assert_eq!((take.how, &take.job), (TakenHow::SentBack, job.id()));
+    assert_eq!((take.how, take.by.job().expect("a Job")), (TakenHow::SentBack, job.id()));
 }
 
 #[tokio::test]

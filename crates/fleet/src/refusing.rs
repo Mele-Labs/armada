@@ -486,9 +486,12 @@ where
                     Why::NotServed | Why::Blank => Refusal::Unacceptable(raised(NOT_SERVED)),
                     Why::NotRed => Refusal::IllegalMove(raised(MAIN_NOT_RED)),
                     Why::ChecksRunning => Refusal::IllegalMove(raised(MAIN_CHECKS_RUNNING)),
-                    Why::Taken(job) => Refusal::IllegalMove(
+                    Why::Taken(store::TakenBy::Job(job)) => Refusal::IllegalMove(
                         raised(MAIN_ALREADY_TAKEN).about_job(ipc::JobId::from(job)),
                     ),
+                    Why::Taken(store::TakenBy::Session(_)) => {
+                        Refusal::IllegalMove(raised(MAIN_ALREADY_TAKEN))
+                    }
                     Why::TakenElsewhere { .. } => Refusal::IllegalMove(raised(MAIN_TAKEN_ELSEWHERE)),
                     Why::ClaimNotMade(_) => Refusal::Fault(raised(MAIN_CLAIM_NOT_MADE)),
                     Why::NoWorkflow => Refusal::IllegalMove(raised(CANNOT_FIX_MAIN)),

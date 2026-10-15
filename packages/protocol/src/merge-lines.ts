@@ -41,6 +41,8 @@ export type MergeLineHub = {
   merged?: HubMerged[];
   /** The Job working on main's red. Since 23.42. */
   fixing?: HubJob;
+  /** The Session working on main's red, where a Session holds it and no Job does. Absent while `fixing` is present. */
+  fixing_session?: HubSession;
   /**
    * Another machine's claim on main's red, from the central store. Absent while nobody else holds it, where
    * the repository's switch is off, and whenever the store could not be read.

@@ -8,27 +8,24 @@
 //! which wakes it. A Session that cannot be told, because it ended or was refused, is forked,
 //! the claim moves to the fork, and the fork is told in its place.
 //!
-//! **Once per red per Session**: the take is a `main_red` row on the Session's own ledger, kept
-//! even where no central store applies. A red held elsewhere, held by a newer run, or already
-//! taken by a Job here is left to the red band's buttons, as `main_fix::pick_up` leaves it.
+//! **Once per red per Session**: the take is the Session's row among the red's takes
+//! (`main_ci_fixes`), the one a Job's is and the hub's Fixing row reads, kept even where no
+//! central store applies. A fork's row names the Session it was forked from, so that Session is
+//! not handed the red again. A red held elsewhere, held by a newer run, or already taken by a
+//! Job or a Session here is left to the red band's buttons, as `main_fix::pick_up` leaves it.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::HostedSessions;
-use core_model::Timestamp;
 use ipc::{ForkFrom, ManifestId, SessionId, SessionRecord, StartSession};
-use store::{AttachmentState, Holder, KeptAttachment, MainCi};
+use store::{MainCi, TakenHow};
 
 use crate::daemon::Fleet;
 use crate::main_ci::{MainChange, MainChanged};
 use crate::main_fix::brief_of;
 use crate::red_claim::Taker;
 use crate::repositories::Served;
-
-/// On a Session's ledger: it was handed this red. The target is when main first read red.
-pub(crate) const MAIN_RED: &str = "main_red";
 
 fn short(commit: &str) -> &str {
     commit.get(..7).unwrap_or(commit)
@@ -85,9 +82,10 @@ where
         };
         let known = {
             let store = self.store().lock().await;
-            let taken = store.attachments_of(&Holder::session(&id)).is_ok_and(|held| {
-                held.iter()
-                    .any(|one| one.kind == MAIN_RED && one.target == red_at.as_str())
+            let taken = store.main_fixes_of(&main.repository, red_at).is_ok_and(|takes| {
+                takes
+                    .iter()
+                    .any(|take| take.by.session() == Some(id.as_str()) || take.forked_from.as_deref() == Some(id.as_str()))
             });
             !taken && store.session(&id).ok().flatten().is_some()
         };
@@ -116,8 +114,7 @@ where
         let facts = self.with_the_log(&served, main, brief_of(main)).await;
         let said = woken_words(main, merge.number, &facts);
         if matches!(self.told_by_fleet(&id, &said).await, Ok(true)) {
-            self.kept_main_red(&id, &served, red_at, main, "woke", None)
-                .await;
+            self.recorded_session_take(main, &id, TakenHow::Took, None).await;
             return;
         }
         let Some(fork) = self.forked_for_red(&served, &id, merge.number).await else {
@@ -134,10 +131,7 @@ where
         }
         let said = forked_words(main, merge.number, &id, &facts);
         let _ = self.told_by_fleet(&fork, &said).await;
-        self.kept_main_red(&id, &served, red_at, main, "forked", Some(&fork))
-            .await;
-        self.kept_main_red(&fork, &served, red_at, main, "took", None)
-            .await;
+        self.recorded_session_take(main, &fork, TakenHow::Dispatched, Some(&id)).await;
     }
 
     /// A fork of `old`: of its conversation as it ended, or where it is live, of its latest
@@ -166,42 +160,5 @@ where
             },
         };
         made.ok().map(|made| made.id.as_str().to_string())
-    }
-
-    /// Record on `session`'s ledger that it was handed this red.
-    async fn kept_main_red(
-        &self,
-        session: &str,
-        served: &Served,
-        red_at: &Timestamp,
-        main: &MainCi,
-        how: &str,
-        fork: Option<&str>,
-    ) {
-        let now = self.now().as_str().to_string();
-        let mut detail = BTreeMap::from([
-            ("how".to_string(), how.to_string()),
-            ("commit".to_string(), main.red_commit().to_string()),
-        ]);
-        if let Some(merge) = main.merge.as_ref() {
-            detail.insert("merge".to_string(), merge.number.to_string());
-        }
-        if let Some(fork) = fork {
-            detail.insert("fork".to_string(), fork.to_string());
-        }
-        // `spent`: a fact that stays, holding nothing to give back.
-        let _ = self.store().lock().await.attach(
-            &KeptAttachment {
-                holder: Holder::session(session),
-                kind: MAIN_RED.to_string(),
-                manifest_id: served.manifest().id().as_str().to_string(),
-                target: red_at.as_str().to_string(),
-                state: AttachmentState::Spent,
-                detail,
-                since: now.clone(),
-                changed_at: now,
-            },
-            false,
-        );
     }
 }

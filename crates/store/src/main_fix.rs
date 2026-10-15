@@ -1,25 +1,28 @@
-//! Which Job is working on a repository's red main, and which one fixed it.
+//! Which Job or Session is working on a repository's red main, and which Job fixed it.
 //! `docs/concepts/fleet.md`, *When main goes red*.
 //!
-//! **One row a Job per red**, keyed by the red's `red_at`, which a red keeps
+//! **One row a taker per red**, keyed by the red's `red_at`, which a red keeps
 //! until a green. The key is what makes taking a red once-only: a second take
-//! of the same red by the same Job is refused by the insert.
+//! of the same red by the same Job or Session is refused by the insert.
 //!
-//! **The Job is plain text and no foreign key**, as in `main_ci`: a Job
+//! **The taker is plain text and no foreign key**, as in `main_ci`: a Job
 //! `armada clean` forgets leaves its row, and a reader that cannot load it
-//! passes over it.
+//! passes over it. **`job_id` holds a Session's id too**, told apart by
+//! `holder_kind`: the table's key could not change under an additive
+//! migration, and the two id spaces never meet.
 
 use core_model::{JobId, Timestamp, Ulid};
 
 use crate::error::{fault, DatabaseFault, LoadJobError, RowError, WriteError};
 use crate::open::Store;
 
-/// How a Job came to take a red.
+/// How a Job or a Session came to take a red.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TakenHow {
-    /// The Job whose pull request turned main red, sent back by Fleet.
+    /// The Job or Session whose pull request turned main red, sent back by Fleet, or a Session
+    /// that took the red for itself.
     Took,
-    /// A new Job a person dispatched for it.
+    /// A new Job a person dispatched for it, or a Session Fleet forked for it.
     Dispatched,
     /// An earlier Job a person sent the work back to.
     SentBack,
@@ -41,13 +44,53 @@ impl TakenHow {
     }
 }
 
-/// One Job's part in one red.
+/// Who took a red: a Job, or a Session by its id.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TakenBy {
+    Job(JobId),
+    Session(String),
+}
+
+impl TakenBy {
+    fn kind(&self) -> &'static str {
+        match self {
+            TakenBy::Job(_) => "job",
+            TakenBy::Session(_) => "session",
+        }
+    }
+
+    pub fn id(&self) -> &str {
+        match self {
+            TakenBy::Job(job) => job.as_str(),
+            TakenBy::Session(id) => id,
+        }
+    }
+
+    pub fn job(&self) -> Option<&JobId> {
+        match self {
+            TakenBy::Job(job) => Some(job),
+            TakenBy::Session(_) => None,
+        }
+    }
+
+    pub fn session(&self) -> Option<&str> {
+        match self {
+            TakenBy::Job(_) => None,
+            TakenBy::Session(id) => Some(id),
+        }
+    }
+}
+
+/// One Job's or Session's part in one red.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MainFix {
     pub repository: String,
     /// The red it took, by when main first read red.
     pub red_at: Timestamp,
-    pub job: JobId,
+    pub by: TakenBy,
+    /// The Session this one was forked from for the red, where Fleet forked it because that
+    /// Session could not be told. It is what keeps a red once per Session.
+    pub forked_from: Option<String>,
     pub how: TakenHow,
     /// The Check, or the CI job's own name where none maps.
     pub check: String,
@@ -62,14 +105,20 @@ pub struct MainFix {
 }
 
 const COLUMNS: &str = "repository, red_at, job_id, how, check_name, test, merge_number, \
-                       taken_at, ended_at, fixed_in";
+                       taken_at, ended_at, fixed_in, holder_kind, forked_from";
 
 fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<MainFix> {
     let how: String = row.get(3)?;
+    let id: String = row.get(2)?;
+    let by = match row.get::<_, String>(10)?.as_str() {
+        "session" => TakenBy::Session(id),
+        _ => TakenBy::Job(JobId::carried(Ulid::carried(id))),
+    };
     Ok(MainFix {
         repository: row.get(0)?,
         red_at: Timestamp::from_rfc3339(row.get::<_, String>(1)?),
-        job: JobId::carried(Ulid::carried(row.get::<_, String>(2)?)),
+        by,
+        forked_from: row.get(11)?,
         how: TakenHow::from_column(&how).ok_or_else(|| {
             rusqlite::Error::InvalidColumnType(
                 3,
@@ -89,24 +138,27 @@ fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<MainFix> {
 }
 
 impl Store {
-    /// Keep a Job's take of a red. **`false` where this Job already took this
+    /// Keep a Job's or a Session's take of a red. **`false` where it already took this
     /// red**, and nothing is written.
     pub fn keep_main_fix(&mut self, fix: &MainFix) -> Result<bool, WriteError> {
         let kept = self
             .conn
             .execute(
                 "INSERT INTO main_ci_fixes (repository, red_at, job_id, how, check_name, test, \
-                 merge_number, taken_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
+                 merge_number, taken_at, holder_kind, forked_from) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
                  ON CONFLICT (repository, red_at, job_id) DO NOTHING",
                 (
                     &fix.repository,
                     fix.red_at.as_str(),
-                    fix.job.as_str(),
+                    fix.by.id(),
                     fix.how.as_str(),
                     &fix.check,
                     &fix.test,
                     fix.merge.map(|number| number as i64),
                     fix.taken_at.as_str(),
+                    fix.by.kind(),
+                    &fix.forked_from,
                 ),
             )
             .map_err(fault("keeping a take of main's red"))?;
@@ -129,7 +181,7 @@ impl Store {
     pub fn main_fix_of_job(&self, job: &JobId) -> Result<Option<MainFix>, LoadJobError> {
         Ok(self
             .fixes_where(
-                "WHERE job_id = ?1 ORDER BY taken_at DESC LIMIT 1",
+                "WHERE job_id = ?1 AND holder_kind = 'job' ORDER BY taken_at DESC LIMIT 1",
                 &[&job.as_str()],
             )?
             .into_iter()
@@ -140,7 +192,7 @@ impl Store {
     pub fn is_fixing_main(&self, job: &JobId) -> Result<bool, LoadJobError> {
         Ok(!self
             .fixes_where(
-                "WHERE job_id = ?1 AND ended_at IS NULL LIMIT 1",
+                "WHERE job_id = ?1 AND holder_kind = 'job' AND ended_at IS NULL LIMIT 1",
                 &[&job.as_str()],
             )?
             .is_empty())
@@ -162,7 +214,7 @@ impl Store {
         if let Some((job, number)) = fixed {
             tx.execute(
                 "UPDATE main_ci_fixes SET fixed_in = ?3 \
-                 WHERE repository = ?1 AND job_id = ?2 AND ended_at IS NULL",
+                 WHERE repository = ?1 AND job_id = ?2 AND holder_kind = 'job' AND ended_at IS NULL",
                 (repository, job.as_str(), number as i64),
             )
             .map_err(fault("ending takes of main's red"))?;
