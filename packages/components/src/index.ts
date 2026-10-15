@@ -460,6 +460,7 @@ export * from "./compositions/ForkedFrom/ForkedFrom";
 export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
 export * from "./compositions/SessionLedger/SessionLedger";
+export * from "./compositions/StepsPanel/StepsPanel";
 export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";

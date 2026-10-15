@@ -140,6 +140,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             } else {
                 Vec::new()
             },
+            steps: Vec::new(),
             place: None,
         };
     }
@@ -159,6 +160,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
                 description: None,
             })
             .collect(),
+        steps: Vec::new(),
         place: None,
     }
 }
@@ -193,6 +195,7 @@ pub(crate) fn merged(
             target: one.url.clone(),
         }),
         options: Vec::new(),
+        steps: Vec::new(),
         place: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
@@ -225,6 +228,7 @@ pub(crate) fn merged(
                     description: None,
                 })
                 .collect(),
+            steps: one.steps,
             place: None,
         })
         .collect();
@@ -340,6 +344,7 @@ where
                         target: session.id.clone(),
                     }),
                     options: Vec::new(),
+                    steps: Vec::new(),
                     place: None,
                 });
             }
@@ -392,6 +397,7 @@ where
                                 target: session.id.clone(),
                             }),
                             options: Vec::new(),
+                            steps: Vec::new(),
                             place: None,
                         }),
                 );
@@ -417,6 +423,7 @@ where
                             target: window,
                         }),
                         options,
+                        steps: Vec::new(),
                         place: Some(place),
                     })
                 }
@@ -475,6 +482,12 @@ where
                             .act
                             .map(|act| (act_kind_text(act.kind).to_string(), act.target)),
                         options: one.options.into_iter().map(|o| o.label).collect(),
+                        steps: one
+                            .steps
+                            .into_iter()
+                            .map(|line| line.trim().to_string())
+                            .filter(|line| !line.is_empty())
+                            .collect(),
                     }
                 })
                 .collect();

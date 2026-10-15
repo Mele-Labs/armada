@@ -24,6 +24,7 @@ fn owed(id: &SessionId, items: usize) -> SetWaitingFor {
                 text: "Look".into(),
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),
                 options: Vec::new(),
+                steps: Vec::new(),
             })
             .collect(),
     }

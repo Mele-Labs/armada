@@ -1,0 +1,7 @@
+[icons.list-checks]
+  means = "Numbered-style lines with ticks beside them - things to carry out, one by one"
+  group = "Session"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Needs you item that is a procedure the person follows, opening the steps panel. Never a plan, a task's state or a generic list."
+  notes = "Minted 15 Oct 2026, the owner's pick over widening `list-ordered`, whose reservation says never a step list and which stays the Outline's. The ticks are what a procedure has that an Outline does not: each line is done or not. Tooltip `Steps`. Refused: `list-ordered`, for that reservation; `list-todo`, a task list, which a procedure is not; `clipboard-list`, the Job Board."
