@@ -1,0 +1,7 @@
+[icons.history]
+  means = "A clock face with an arrow curling back around it: time wound backward"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "Replay only: the focus chip's Replay from here and the replay bar's mark. Never an audit log, an Activity row or the Lessons page, and never a clock on a Job, which is `clock`."
+  notes = "Added 14 Oct 2026 for the flight deck's replay. Named Replay on hover. `play` and `pause` stay the replay bar's own controls."

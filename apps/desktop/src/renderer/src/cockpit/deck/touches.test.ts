@@ -9,7 +9,7 @@ import { expect, test } from "vitest";
 import { areaOf, relativeTo } from "./areas";
 import { clashesOf, touchesFromEvents, touchesOfFootprint } from "./touches";
 
-const SLOT = "/Users/nick/Development/armada/.armada/slots/slot-3";
+const SLOT = "/Users/user/Development/armada/.armada/slots/slot-3";
 
 let count = 0;
 const burst = (kind: TimelineEvent["kind"], subject: TimelineEvent["subject"], items: string[] | undefined, minutes = 1): TimelineEvent => {
@@ -84,12 +84,12 @@ const holder = (kind: "job" | "session" | "main", id: string) => ({ kind, id, la
 test("a write clash marks the areas of the paths it names, for both holders", () => {
   const found = clashesOf([clash(holder("session", "s1"), holder("job", "j1"), ["crates/fleet/src/a.rs", "crates/fleet/src/b.rs", "docs/x.md"])], {
     keyOf: (kind, id) => (kind === "main" ? undefined : `${kind}:${id}`),
-    rootOf: () => "/Users/nick/armada",
+    rootOf: () => "/Users/user/armada",
   });
 
   expect(found).toEqual([
-    { path: "crates/fleet", root: "/Users/nick/armada", keys: ["session:s1", "job:j1"] },
-    { path: "docs", root: "/Users/nick/armada", keys: ["session:s1", "job:j1"] },
+    { path: "crates/fleet", root: "/Users/user/armada", keys: ["session:s1", "job:j1"] },
+    { path: "docs", root: "/Users/user/armada", keys: ["session:s1", "job:j1"] },
   ]);
 });
 

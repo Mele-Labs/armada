@@ -1,0 +1,7 @@
+[icons.circle-help]
+  means = "A ring with a question mark inside: a thing asking, or a thing not known"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "Two marks on the flight deck only: a bay whose history Bridge cannot read (state Unknown) and a mission pin whose step is asking a person. Never a help control, never a Job status, which is `megaphone` for escalated, and never a tooltip trigger, which is the `?` that opens longer explanations."
+  notes = "Added 14 Oct 2026. `circle-dot` shares its ring at 12px and collides there; both uses are 16px and carry a word beside or a tooltip."

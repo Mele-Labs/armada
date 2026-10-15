@@ -1,0 +1,7 @@
+[icons.radio]
+  means = "A dot with two arcs on each side: a signal sent out and heard"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "The replay bar's Live button only: the pane follows the running Fleet. Never a Drone working, which is `circle-dot`, and never an alert, which is `bell`."
+  notes = "Added 14 Oct 2026 for the flight deck's replay. Named Live on hover."

@@ -28,7 +28,7 @@ export function areaOf(path: string): string | undefined {
   return dirs.length === 0 ? undefined : dirs.join("/");
 }
 
-/** The home directory off an absolute path, so `~/x` and `/Users/nick/x` can be set side by side. */
+/** The home directory off an absolute path, so `~/x` and `/Users/user/x` can be set side by side. */
 const HOME = /^\/(?:Users|home)\/[^/]+\//;
 
 /**
