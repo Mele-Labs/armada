@@ -50,7 +50,7 @@ fn one_path_outside_the_directory_runs_it_whole() {
         "Cargo.lock",
         "apps/desktop/src/a.ts",
         "crates",
-        "crates/CLAUDE.md",
+        "crates/README.md",
     ] {
         assert_eq!(
             narrowed_at_the_gate(

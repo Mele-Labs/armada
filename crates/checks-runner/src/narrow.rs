@@ -175,8 +175,8 @@ fn is_outside(narrowing: &Narrowing, path: &str) -> bool {
 /// `under` names a directory whose child is the value — `crates` turns
 /// `crates/ipc/src/lib.rs` into `ipc` — and a path outside that directory, or
 /// one that is the directory itself with no child, yields nothing rather than a
-/// value nobody meant. So does a file directly in it: `crates/CLAUDE.md` is in
-/// no package, and `-p CLAUDE.md` failed the build on #2370.
+/// value nobody meant. So does a file directly in it: `crates/README.md` is in
+/// no package, and `-p` of such a file failed the build on #2370.
 fn value<'p>(narrowing: &Narrowing, path: &'p str) -> Option<&'p str> {
     let Some(under) = narrowing.under() else {
         return Some(path);
