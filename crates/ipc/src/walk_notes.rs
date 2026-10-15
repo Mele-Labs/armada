@@ -68,3 +68,19 @@ pub struct WalkNotes {
 pub struct RemoveWalkNote {
     pub id: String,
 }
+
+/// `walk_failed`'s body: the window walking a Job's served work could not show it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WalkFailed {
+    /// The address the window was loading.
+    pub url: String,
+    /// What Bridge saw, in one line: `ERR_CONNECTION_REFUSED`, `HTTP 500`, `the page crashed`.
+    pub why: String,
+}
+
+/// What `walk_failed` and `window_failed` answer: whether the owner of the walk was told now.
+/// `false` where it was told already, or nothing is there to hear it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WalkTold {
+    pub told: bool,
+}

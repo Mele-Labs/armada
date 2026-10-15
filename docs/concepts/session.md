@@ -426,6 +426,7 @@ an agent whose hooks name a Fleet port that changed.
 | A walk opens | At `show_window`: the newest `window` row on the thread |
 | A walk ends | The person approves the page (`Approved: <url>`, or of several takes `Approved B, Needs you first: <url>`), Bridge says its window closed (`window_closed`), or a newer `show_window` replaces it. The row gets `ended_at` and is published again |
 | A note in the window | Ends nothing, though it settles the `walk:` waiting item |
+| The window cannot show the page | Ends nothing. Bridge says so (`window_failed`) and Fleet tells the session in its own voice, with the address and what went wrong, once until a page there loads |
 | A question meanwhile | Refused with a reason the agent reads: put it under `waiting_for` and end the turn, or, for a question about the page, ask it in the window with `ask_in_window` (*Asking in the window*). A hosted session's is refused at its permission door; a terminal session's at `ask_from_terminal`, which the mod asks before the terminal's own prompt opens |
 
 The mod's first-message note and `show_window`'s description tell the agent the same. Closing the window ends the walk and does not settle its `walk:` item, which still waits. A Bridge that quits with a window open may not reach Fleet to say so. The walk then reads open until it is approved or replaced, and a question meanwhile goes under `waiting_for`, which blocks nothing.

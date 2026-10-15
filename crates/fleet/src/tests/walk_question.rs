@@ -7,7 +7,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions};
-use ipc::{Event, RunOrNot, SessionFact, SessionId, SessionReport, SessionRow, ShowWindow, WindowClosed, WindowTake};
+use ipc::{
+    Event, RunOrNot, SessionFact, SessionId, SessionReport, SessionRow, SessionVoice, ShowWindow, WindowClosed,
+    WindowFailed, WindowTake,
+};
 
 use super::session_host::{rig_placing, Rig};
 
@@ -216,4 +219,27 @@ async fn a_window_is_working_from_the_sessions_own_write_or_a_note_and_ready_whe
     assert!(working().await, "a note taken in the window: it will change the page");
     rig.send(&id, "Looks fine").await;
     assert!(working().await, "a message that is no note changes nothing");
+}
+
+#[tokio::test]
+async fn a_window_that_could_not_show_its_page_tells_the_session_in_fleets_voice_and_the_walk_stays() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    show(&rig, &id, ONE).await;
+
+    let failed = WindowFailed { session_id: id.clone(), url: ONE.into(), why: "ERR_CONNECTION_REFUSED".into() };
+    let told = Arc::clone(&rig.fleet).window_failed(failed).await.expect("told");
+    assert!(told.told);
+    let rows = rig.rows(&id).await;
+    let said = rows.iter().find_map(|row| match row {
+        SessionRow::Message { from: SessionVoice::Session { title, .. }, text, .. } if title == "Fleet" => Some(text.clone()),
+        _ => None,
+    });
+    let said = said.expect("Fleet said it, not the person");
+    assert!(said.contains(ONE) && said.contains("ERR_CONNECTION_REFUSED"), "{said}");
+    assert!(said.contains("show_window"), "{said}");
+    assert_eq!(walking(&rig, &id).await.as_deref(), Some(ONE), "the window is still on his screen");
+
+    let unknown = WindowFailed { session_id: SessionId::carried("nobody"), url: ONE.into(), why: "HTTP 500".into() };
+    assert!(Arc::clone(&rig.fleet).window_failed(unknown).await.is_err());
 }

@@ -356,6 +356,16 @@ pub struct WindowClosed {
     pub url: String,
 }
 
+/// `window_failed`: the window a session showed could not show its page. Bridge tells it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowFailed {
+    pub session_id: SessionId,
+    /// The address the window was loading.
+    pub url: String,
+    /// What Bridge saw, in one line: `ERR_CONNECTION_REFUSED`, `HTTP 500`, `the page crashed`.
+    pub why: String,
+}
+
 /// What a press on a waiting item does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

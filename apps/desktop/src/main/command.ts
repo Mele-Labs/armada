@@ -28,6 +28,7 @@ import type {
   SavePreference,
   SaveSettings,
   StagedAttachment,
+  WalkFailed,
 } from "@armada/protocol";
 import type { ApproveDispatch, FixMain, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
 import type { AnswerMode, ApproveWave, CapRaise, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
@@ -74,6 +75,7 @@ import {
   queueAfter,
   removeWalkNote,
   takeUp,
+  walkFailed,
   type Decision,
 } from "./review";
 
@@ -1100,6 +1102,12 @@ export class JobCommands {
   async captureWalkNote(jobId: string, body: CaptureWalkNote): Promise<Outcome> {
     if (body.said.trim() === "") return { ok: false, why: "empty_note" };
     return this.act(jobId, this.deciding, "already_deciding", (port) => captureWalkNote(port, jobId, body));
+  }
+
+  /** The walk window could not show the Job's work. Its Commander decides; no lock, since nothing here moves. */
+  async walkFailed(jobId: string, body: WalkFailed): Promise<void> {
+    const port = this.board.port();
+    if (port !== null) await walkFailed(port, jobId, body);
   }
 
   async removeWalkNote(jobId: string, id: string): Promise<Outcome> {
