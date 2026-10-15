@@ -1065,7 +1065,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
                 ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
                 ...draft.taggable(),
               ]}
-              searchFiles={searchFiles}
+              searchFiles={(query) => searchFiles(query, session.manifestId)}
               {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}
               draftKey={session.id}

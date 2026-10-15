@@ -148,8 +148,8 @@ const api: BridgeApi = {
   stageAttachment: (bytes: ArrayBuffer, filename: string, mimeType: string): Promise<{ path: string }> =>
     ipcRenderer.invoke(CHANNELS.stageAttachment, bytes, filename, mimeType),
 
-  searchFiles: (query: string): Promise<string[]> =>
-    ipcRenderer.invoke(CHANNELS.searchFiles, query),
+  searchFiles: (query: string, manifestId?: string): Promise<string[]> =>
+    ipcRenderer.invoke(CHANNELS.searchFiles, query, manifestId),
 
   readRequestRepository: (words: string): Promise<RequestRepositoryRead> =>
     ipcRenderer.invoke(CHANNELS.readRequestRepository, words),
