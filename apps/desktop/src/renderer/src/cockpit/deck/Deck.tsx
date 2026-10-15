@@ -49,25 +49,27 @@ const repoNameOf = (props: Pick<CockpitProps, "state">, manifest: string) => pro
 function RepositoryScope({ props }: { props: CockpitProps }) {
   const [recent] = useRecentRepositories();
   const repositories = props.state.holds.repositories ?? [];
-  if (repositories.length === 0 || props.onPickRepository === undefined) return null;
   const pick = props.onPickRepository;
+  if (props.onGoTo === undefined && (repositories.length === 0 || pick === undefined)) return null;
   return (
     <div className="deck-scope">
-      <DropdownMenu
-        align="start"
-        portal
-        triggerLabel={props.picked === null ? "All repositories" : repositoryLabel(props.picked, repositories)}
-        triggerAriaLabel="Repository"
-        searchLabel={FIND_A_REPOSITORY}
-        entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", recent })}
-        onSelect={(chosen) => {
-          const root = rootOf(chosen);
-          pick(root === ALL ? null : root);
-        }}
-      />
+      {repositories.length === 0 || pick === undefined ? null : (
+        <DropdownMenu
+          align="start"
+          portal
+          triggerLabel={props.picked === null ? "All repositories" : repositoryLabel(props.picked, repositories)}
+          triggerAriaLabel="Repository"
+          searchLabel={FIND_A_REPOSITORY}
+          entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", recent })}
+          onSelect={(chosen) => {
+            const root = rootOf(chosen);
+            pick(root === ALL ? null : root);
+          }}
+        />
+      )}
       {props.onGoTo === undefined ? null : (
-        <Tooltip label="Manifest" asChild>
-          <Button variant="ghost" size="sm" iconOnly aria-label="Manifest" onClick={() => props.onGoTo?.(DECK_LINK.picker)}>
+        <Tooltip label="Open the Manifest" asChild>
+          <Button variant="ghost" size="sm" iconOnly aria-label="Open the Manifest" disabled={repositories.length === 0} onClick={() => props.onGoTo?.(DECK_LINK.picker)}>
             <FileCog size={16} aria-hidden="true" />
           </Button>
         </Tooltip>
@@ -90,7 +92,7 @@ function List({ subjects, cursor, selected, onPick }: { subjects: readonly Subje
           const said = quiet.length > 9 ? "" : quiet;
           return (
             <li key={one.key}>
-              <button type="button" className="deck-row" data-row={one.key} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
+              <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
                 <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
                   <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
                     <Kind size={14} aria-hidden="true" />

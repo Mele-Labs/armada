@@ -57,7 +57,7 @@ test("The Cockpit tab keeps its pip while a call waits elsewhere, and does not d
   expect(mount(<TabBar showing={SURFACE.jobs} onGoTo={() => {}} />).querySelector('[role="img"]')).toBeNull();
 });
 
-test("The Cockpit tab pressed while it is the place goes nowhere, and goes back to it while a page opened from it is over it", () => {
+test("The Cockpit tab pressed while it is the place goes nowhere, and goes back to it while a page opened from it is over it; Jobs and Sessions go up to their list", () => {
   const went: string[] = [];
   const here = mount(<TabBar showing={SURFACE.overview} onGoTo={(id) => went.push(id)} />);
   act(() => tab(here, "Cockpit").click());
@@ -65,6 +65,9 @@ test("The Cockpit tab pressed while it is the place goes nowhere, and goes back 
   const over = mount(<TabBar showing={SURFACE.overview} away onGoTo={(id) => went.push(id)} />);
   act(() => tab(over, "Cockpit").click());
   expect(went).toEqual([SURFACE.overview]);
+  const jobs = mount(<TabBar showing={SURFACE.jobs} onGoTo={(id) => went.push(id)} />);
+  act(() => tab(jobs, "Jobs").click());
+  expect(went).toEqual([SURFACE.overview, SURFACE.jobs]);
 });
 
 function Keys({ onSurface }: { onSurface: (id: string) => void }) {
