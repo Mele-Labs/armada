@@ -230,7 +230,12 @@
 .deck-queue__gap { flex: none; width: var(--space-4); }
 
 .deck-queue__row { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: var(--fg-subtle); }
-.deck-chips { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; }
+.deck-chips { display: flex; flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: var(--space-2); min-width: 0; margin: 0; padding: var(--space-2) 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.deck-chips > li { flex: none; }
+/* The forge's merge queue, in its order: one tinted track, each pull request led by its place. */
+.deck-queue__track { display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-1); list-style: none; border: var(--border-width) solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: calc(var(--h-badge) / 2 + var(--space-1)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.deck-queue__rule { flex: none; width: var(--border-width); height: var(--h-badge); background: var(--border-default); }
+.deck-chip__place { color: var(--accent); font-weight: var(--weight-heading); }
 .deck-chips > .deck-queue__gap { width: var(--space-2); }
 .deck-chip {
   display: inline-flex;
