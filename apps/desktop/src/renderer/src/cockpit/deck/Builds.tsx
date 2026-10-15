@@ -10,7 +10,7 @@ import { MOST_LOOPS } from "./doing";
 import { Ring } from "./ring";
 import type { Frame } from "./frame";
 import type { Layout, Point } from "./layout";
-import { arcSaid, arcWord, arcsOf, bandOf, roadOf, type BuildIn } from "./build";
+import { arcSaid, arcWord, arcsOf, askedOf, bandOf, roadOf, seatOf, type BuildIn } from "./build";
 import { SAID } from "./BuildCard";
 import { SessionGlyph } from "./Drone";
 import type { OnTip } from "./Drone";
@@ -53,9 +53,9 @@ const speak = (build: BuildIn, onTip: OnTip) => (k: number, piece: ReactNode): R
   const task = build.tasks[k];
   if (task === undefined) return piece;
   const said = task.said ?? SAID[task.piece];
-  const tip: Tip = { label: "Task", title: task.text, hue: task.piece === "solid" ? "good" : "quiet", lines: [said] };
+  const tip: Tip = { label: "Task", title: task.text, hue: task.piece === "solid" ? "good" : "quiet", lines: task.by === undefined ? [said] : [said, askedOf(task.by)] };
   return (
-    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={`${task.text}, ${said}`} {...pick(onTip, tip)}>
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={task.by === undefined ? `${task.text}, ${said}` : `${task.text}, ${said}, ${askedOf(task.by)}`} {...pick(onTip, tip)}>
       {piece}
     </g>
   );
@@ -117,11 +117,11 @@ function Marker({ kind, i, big }: { kind: "walk" | "asked"; i: number; big: numb
 }
 
 /** A subagent: a small drone that circles the ring while it runs and leaves when it stops. Still where the loops are spent. */
-function Worker({ i, detail, loop, big, onTip }: { i: number; detail: string; loop: boolean; big: number; onTip: OnTip }) {
+function Worker({ i, detail, loop, big, onTip, seat }: { i: number; detail: string; loop: boolean; big: number; onTip: OnTip; seat?: number }) {
   const radius = (34 + 9 * i) * big;
   const tip: Tip = { label: "Subagent", title: detail, hue: "quiet" };
   return (
-    <div className="bf-at bf-wk" data-loop={loop || undefined} data-rev={i % 2 === 1 || undefined} style={vars({ "--T": `${8 + i * 2}s`, "--phase": (i * 0.27).toFixed(2), "--arrive": `${i * 180}ms` })}>
+    <div className="bf-at bf-wk" data-loop={loop || undefined} data-rev={i % 2 === 1 || undefined} style={vars({ "--T": `${8 + i * 2}s`, "--phase": (seat === undefined ? i * 0.27 : (seat / 360 + 1) % 1).toFixed(2), "--arrive": `${i * 180}ms` })}>
       <div className="bf-at bf-wk__lap">
         <div className="bf-at bf-wk__out" style={{ transform: `translate3d(${px(radius)}, 0, ${px(26 + 6 * i)})` }}>
           <div className="bf-at bf-wk__face">
@@ -168,11 +168,13 @@ export function Builds({ placed, frame, big, loops, onTip }: BuildsProps) {
               </div>
             </div>
             {build.workers.map((detail, i) => {
-              const loop = spare > 0;
+              // One that wrote pieces sits by them and does not lap, so it spends no loop.
+              const seat = seatOf(build.tasks, detail);
+              const loop = seat === undefined && spare > 0;
               if (loop) spare -= 1;
               return (
                 <div key={detail} className="bf-at" style={{ transform: `translate3d(${px(flat.x)}, ${px(flat.y)}, ${px(z)})` }}>
-                  <Worker i={i} detail={detail.replace(/^[^:]*: /, "")} loop={loop} big={big} onTip={onTip} />
+                  <Worker i={i} detail={askedOf(detail)} loop={loop} big={big} onTip={onTip} {...(seat === undefined ? {} : { seat })} />
                 </div>
               );
             })}

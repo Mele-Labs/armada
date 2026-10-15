@@ -61,8 +61,12 @@ fn the_instants_and_the_list_survive_a_reopen_and_a_second_write_replaces_the_fi
         first_seen_at: "2026-10-14T09:01:00.000Z".to_string(),
         completed_at: completed.map(str::to_string),
         edited,
+        made_by: None,
     };
-    let tasks = vec![task("1", Some("2026-10-14T09:10:00.000Z"), true), task("2", None, false)];
+    let tasks = vec![
+        task("1", Some("2026-10-14T09:10:00.000Z"), true),
+        KeptTask { made_by: Some("Explore: Map the claims".to_string()), ..task("2", None, false) },
+    ];
     store.keep_session_build("s1", &build).expect("kept");
     store.keep_session_build_tasks("s1", &tasks).expect("kept");
     drop(store);

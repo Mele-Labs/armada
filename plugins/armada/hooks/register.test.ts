@@ -1014,17 +1014,34 @@ test('the agent\'s task list is told whole by TodoWrite, and by TaskCreate and T
   expect(told[2].at(-1)).toEqual({ id: '1', text: 'Write the migration', status: 'completed' })
 })
 
-test('a subagent\'s task list is its own and is not told as the session\'s', async ($, on) => {
+test('a subagent\'s TodoWrite is its own list and is not told, but its task calls write the session\'s', async ($, on) => {
   const { posts, clock } = world(on)
-  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  let made = 0
+  on('tool.call', (_$, e) => ({ result: e.tool === 'TaskCreate' ? { task: { id: String(++made) } } : {}, text: 'ok' }))
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
   await clock.settle()
   const before = posts.length
 
   await $.tool.call({ tool: 'TodoWrite', agentId: 'a1', todos: [{ content: 'Map the claims', status: 'pending' }] })
   await clock.settle()
-
   expect(tasksTold(posts.slice(before))).toEqual([])
+
+  await $.tool.call({ tool: 'TaskCreate', subject: 'parent-a' })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'child-b', agentId: 'a1' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '2', status: 'completed', agentId: 'a1' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress', agentId: 'a1' })
+  await clock.settle()
+
+  const told = tasksTold(posts.slice(before))
+  expect(told[1]).toEqual([
+    { id: '1', text: 'parent-a', status: 'pending' },
+    { id: '2', text: 'child-b', status: 'pending', by: 'a1' },
+  ])
+  // Whoever updates a task, it stays its maker's.
+  expect(told.at(-1)).toEqual([
+    { id: '1', text: 'parent-a', status: 'in_progress' },
+    { id: '2', text: 'child-b', status: 'completed', by: 'a1' },
+  ])
 })
 
 test('leaving plan mode is told, and a plan turned down is not', async ($, on) => {

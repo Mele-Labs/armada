@@ -4,24 +4,45 @@
 //! `build_keeping`'s; this is the ledger's side of them.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{AttachmentState, SessionFact, TimelineKind, TimelineTone};
-use store::{KeptSession, Store, WriteError};
+use std::collections::BTreeMap;
+
+use ipc::{AttachmentState, ReportedTask, SessionFact, TimelineKind, TimelineTone};
+use store::{Holder, KeptAttachment, KeptSession, Store, WriteError};
 
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
 use crate::daemon::Fleet;
 use crate::timeline::{Fact, Subject};
 
+/// A subagent as `workers` shows it: `Type: what it was asked`.
+fn worker_label(detail: &BTreeMap<String, String>) -> String {
+    let said = |key: &str| detail.get(key).map(String::as_str).unwrap_or_default();
+    [said("type"), said("description")].iter().filter(|part| !part.is_empty()).cloned().collect::<Vec<_>>().join(": ")
+}
+
 /// The subagents a Session has running, each as `Type: what it was asked`.
 pub(crate) fn workers_of(attachments: &[ipc::Attachment]) -> Vec<String> {
     attachments
         .iter()
         .filter(|one| one.kind == "subagent" && one.state == AttachmentState::Standing)
-        .map(|one| {
-            let said = |key: &str| one.detail.get(key).map(String::as_str).unwrap_or_default();
-            [said("type"), said("description")].iter().filter(|part| !part.is_empty()).cloned().collect::<Vec<_>>().join(": ")
-        })
+        .map(|one| worker_label(&one.detail))
         .collect()
+}
+
+/// A task list with each subagent's `agentId` turned into its worker label, which is what the pieces
+/// keep. The attachment outlives the subagent, so a finished one still resolves; an id with no
+/// attachment (heard before it was attached) stays the id and is resolved on the next list.
+fn labelled(mut tasks: Vec<ReportedTask>, held: &[KeptAttachment]) -> Vec<ReportedTask> {
+    for task in &mut tasks {
+        let Some(agent) = task.by.take() else { continue };
+        let label = held
+            .iter()
+            .find(|one| one.kind == "subagent" && one.target == agent)
+            .map(|one| worker_label(&one.detail))
+            .filter(|label| !label.is_empty());
+        task.by = Some(label.unwrap_or(agent));
+    }
+    tasks
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -38,7 +59,9 @@ where
     /// entered on the timeline first, so the road is there when the row is next built.
     pub(crate) fn build_told(&self, store: &mut Store, session: &KeptSession, fact: SessionFact, now: &str) -> Result<bool, WriteError> {
         let heard = match fact {
-            SessionFact::Tasks { tasks } => Observed::Tasks(tasks),
+            SessionFact::Tasks { tasks } => {
+                Observed::Tasks(labelled(tasks, &store.attachments_of(&Holder::session(&session.id))?))
+            }
             SessionFact::PlanLeft => Observed::PlanLeft,
             SessionFact::Committed { branch } => {
                 self.road_noted(session, TimelineKind::SessionCommitted, "Committed", branch, now);
