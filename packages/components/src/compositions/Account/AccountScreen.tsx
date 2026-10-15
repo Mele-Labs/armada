@@ -5,6 +5,7 @@ import { Ban, Check, CircleDashed, Copy, Database, GitPullRequest, Hammer, House
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ForgeMark } from "./ForgeMark";
 import { DEVICE_PAGE, ENDED, SETTING, SIGN_IN_SAID, Turning, accountNeed, useAccount, useAccountPanel } from "./Account";
 import type { Account, AccountFlow, Profile, SetUpId, SetUpState } from "./Account";
 
@@ -404,7 +405,31 @@ function TurnsOnTiles({ on }: { on: Readonly<Record<"claims" | "owners" | "home"
   );
 }
 
-/** Before signing in: the rows set-up will show, none yet, and the lines it never crosses. */
+/** What signing in never does: on the page before and after, since it is true of both. */
+function Never() {
+  return (
+    <Frame label="Never">
+      <div className="armada-account-screen__glass">
+        <div className="armada-account__tile" data-tile="plan">
+          <ul className="armada-account__rows">
+            {NEVER.map((said) => (
+              <li key={said} className="armada-account__row" data-state="waiting">
+                <Tooltip beside label="Never">
+                  <span className="armada-account__glyph" role="img" aria-label="Never">
+                    <Ban size={16} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+                <span className="armada-account__name">{said}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+/** Before signing in: the rows set-up will show, none yet. */
 function BeforeSignIn() {
   return (
     <>
@@ -427,24 +452,6 @@ function BeforeSignIn() {
                       </span>
                     </Tooltip>
                   </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </Frame>
-      <Frame label="Never">
-        <div className="armada-account-screen__glass">
-          <div className="armada-account__tile" data-tile="plan">
-            <ul className="armada-account__rows">
-              {NEVER.map((said) => (
-                <li key={said} className="armada-account__row" data-state="waiting">
-                  <Tooltip beside label="Never">
-                    <span className="armada-account__glyph" role="img" aria-label="Never">
-                      <Ban size={16} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  </Tooltip>
-                  <span className="armada-account__name">{said}</span>
                 </li>
               ))}
             </ul>
@@ -502,7 +509,8 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
           {signedOut ? (
             <li className="armada-account__tile" data-tile="empty" aria-label="Signed out, no profile">
               <div className="armada-account__tile-body" data-centered="">
-                <Button variant="primary" size="sm" onClick={account.signIn}>
+                <Button variant="secondary" size="sm" ground="sunken" onClick={account.signIn}>
+                  <ForgeMark />
                   {SIGN_IN_SAID}
                 </Button>
               </div>
@@ -523,6 +531,7 @@ export function AccountView({ account, onSettings, band = false, machine }: { ac
         <TurnsOnTiles on={turnedOn(account, setup)} />
       </Frame>
       {before ? <BeforeSignIn /> : null}
+      <Never />
     </section>
   );
 }
