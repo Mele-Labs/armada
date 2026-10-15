@@ -453,6 +453,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/finish_up",
     },
     Route {
+        operation: "mark_annotation_done",
+        method: "POST",
+        path: "/sessions/annotation_done",
+    },
+    Route {
         operation: "answer_waiting",
         method: "POST",
         path: "/sessions/waiting/answer",

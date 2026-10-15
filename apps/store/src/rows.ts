@@ -12,6 +12,13 @@ export const MACHINE = /^[^\p{Cc}]{1,64}$/u;
 export const MAX_KEYS = 100;
 export const MAX_BODY_BYTES = 4096;
 
+// What one account may hold and ask for. `docs/contracts/central-store.md`, Limits.
+export const MAX_DEVICES = 16;
+export const MAX_CLAIMS = 10_000;
+export const MAX_OWNERS = 10_000;
+export const REQUESTS_PER_MINUTE = 120;
+export const RATE_WINDOW_SECONDS = 60;
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
