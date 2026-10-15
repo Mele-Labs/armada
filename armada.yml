@@ -18,6 +18,11 @@ id: armada
 # Optional. Absent, Armada infers one and says so in the pull request.
 base: main
 
+# Claims on a red main and pull requests' owners go to the central store, so the
+# owner's other machine sees them. docs/capabilities/merge-line.md.
+policy:
+  pull_request_owners: true
+
 # Checks gate advancement. A step naming one not declared here is refused.
 #
 # **The order below is the order they are reported in**, and no longer the order
