@@ -547,7 +547,7 @@ pub struct FinishedUp {
 pub enum WaitingMode {
     /// Think it through and decide.
     Best,
-    /// Take the reasonable path and keep moving.
+    /// Just get it done: finish the work and land it, skipping the formalities.
     Quick,
 }
 

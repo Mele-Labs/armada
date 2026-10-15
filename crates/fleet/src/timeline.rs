@@ -513,7 +513,7 @@ pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
 pub(crate) fn mode_says(mode: ipc::AnswerMode) -> &'static str {
     match mode {
         ipc::AnswerMode::Best => "think it through",
-        ipc::AnswerMode::Quick => "keep moving",
+        ipc::AnswerMode::Quick => "get it done",
     }
 }
 

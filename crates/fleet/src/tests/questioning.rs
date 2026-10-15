@@ -535,7 +535,7 @@ async fn a_mode_alone_tells_the_next_drone_to_decide_and_clears_the_question() {
         "the question was not restated: {said}"
     );
     assert!(
-        said.contains("Decide this yourself. Take the reasonable path and keep moving."),
+        said.contains("Just get it done. Take the reasonable path, finish the work and land it. Skip the formalities."),
         "{said}"
     );
     assert!(

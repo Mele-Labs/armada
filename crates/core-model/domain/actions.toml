@@ -605,7 +605,7 @@ shortcut = "g"
 scope = "call"
 destructive = false
 confirms = false
-notes = "The other standing answer, on the same calls as `b`: take the quickest reasonable path and keep moving; on a Session's permission, run the command if it is reasonable. Needs a Fleet command: an answer to the ask carrying `mode: "quick"`."
+notes = "The other standing answer, on the same calls as `b`: take the reasonable path, finish the work and land it, skipping the formalities (no asking again whether to land); on a Session's permission, run the command if it is reasonable. Needs a Fleet command: an answer to the ask carrying `mode: "quick"`."
 
 [actions.call_recall]
 kind = "Action"

@@ -228,7 +228,7 @@ export type JobsApi = {
    *
    * **A `mode` leaves the deciding to the Drone** and is an answer on its own,
    * so `chose` is then `undefined`: `best` tells it to think it through,
-   * `quick` to take the reasonable path and keep moving. With a label too, the
+   * `quick` to finish the work and land it. With a label too, the
    * label is the answer and the mode rides with it.
    */
   answerQuestion: (

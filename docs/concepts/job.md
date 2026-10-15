@@ -526,7 +526,7 @@ cleared there. The asking Drone's own context is the cost. `awaiting_answer`
 reads after `paused` and before every other queued reason. The owner's decision
 of 11 Oct 2026, #2094.
 
-**The answer may leave the deciding to the Drone.** `answer_question`, `answer_command` and `answer_judge` take a `mode` of `best` or `quick`, alone or beside a label. Fleet tells the Drone in its own words: *decide for yourself: think it through*, or *take the reasonable path and keep moving*. A mode names no option and carries no prose, and a stale question is refused as it is for a label. The Cockpit's `b` and `g` send them.
+**The answer may leave the deciding to the Drone.** `answer_question`, `answer_command` and `answer_judge` take a `mode` of `best` or `quick`, alone or beside a label. Fleet tells the Drone in its own words: *decide for yourself: think it through*, or *just get it done: finish the work and land it, skipping the formalities*. A mode names no option and carries no prose, and a stale question is refused as it is for a label. The Cockpit's `b` and `g` send them.
 
 ## A Job's Now
 
