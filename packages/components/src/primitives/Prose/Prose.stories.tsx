@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, waitFor, within } from "storybook/test";
 import { Clamped } from "../../compositions/Clamped/Clamped";
 import { Card } from "../Card/Card";
-import { Prose, ProseCommand, ProseLinks, ProseRunner, isSlashCommand } from "./Prose";
+import { CopyAct, Prose, ProseCommand, ProseLinks, ProseRunner, isSlashCommand } from "./Prose";
 import { readsAsShell } from "./RunnableBlock";
 import type { CodeRunner } from "./Prose";
 
@@ -535,7 +535,9 @@ export const ASlashCommandInTheThread: Story = {
     ),
   ],
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getAllByRole("button")).toHaveLength(2);
+    // The two commands in code, and Copy on the fenced block.
+    await expect(canvas.getAllByRole("button")).toHaveLength(3);
+    await expect(canvas.getAllByRole("button", { name: "Copy" })).toHaveLength(1);
     await userEvent.click(canvas.getByRole("button", { name: "/update-armada" }));
     await expect(opened).toHaveBeenCalledWith("/update-armada");
     await expect(canvas.getByRole("img", { name: "Sent" })).toBeVisible();
@@ -546,6 +548,77 @@ export const ASlashCommandInTheThread: Story = {
 export const NoTerminalNoSlashCommand: Story = {
   args: { text: SLASH },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("button")).toBeNull();
+    // Only the fenced block's Copy: nothing to send to.
+    await expect(canvas.getAllByRole("button").map((one) => one.getAttribute("aria-label"))).toEqual(["Copy"]);
+  },
+};
+
+const FENCED = "Run it:\n\n```bash\npnpm -C apps/desktop typecheck\n```\n\nThe readings:\n\n```\nread 1 -> 12:00:00.99\nread 2 -> 12:00:01.01\n```";
+
+/** The page's clipboard, replaced by one that keeps what it was given (or refuses it), and the way back. */
+function stubClipboard(refuse = false) {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => (written.push(text), refuse ? Promise.reject(new Error("refused")) : Promise.resolve()) },
+  });
+  return { written, restore: () => void Reflect.deleteProperty(navigator, "clipboard") };
+}
+
+/** **Every fenced block has Copy**, beside Run on a command; it writes the source less the fence's closing newline, then says Copied. */
+export const CopyOnEveryFencedBlock: Story = {
+  args: { text: FENCED },
+  decorators: [
+    (Story) => (
+      <ProseRunner.Provider value={runnerOf(0)}>
+        <Story />
+      </ProseRunner.Provider>
+    ),
+  ],
+  play: async ({ canvas, userEvent }) => {
+    const { written, restore } = stubClipboard();
+    try {
+      const command = within(canvas.getByRole("group", { name: "pnpm -C apps/desktop typecheck" }));
+      await expect(command.getByRole("button", { name: "Run" })).toBeInTheDocument();
+      await expect(canvas.getAllByRole("button", { name: "Copy" })).toHaveLength(2);
+      await userEvent.click(command.getByRole("button", { name: "Copy" }));
+      await expect(written).toEqual(["pnpm -C apps/desktop typecheck"]);
+      await expect(command.getByRole("button", { name: "Copied" })).toBeVisible();
+      // The plain block has no Run, and Copy is the one button on it.
+      await userEvent.click(canvas.getAllByRole("button", { name: "Copy" })[0]!);
+      await expect(written[1]).toBe("read 1 -> 12:00:00.99\nread 2 -> 12:00:01.01");
+      await waitFor(() => expect(canvas.getAllByRole("button", { name: "Copy" })).toHaveLength(2), { timeout: 3000 });
+    } finally {
+      restore();
+    }
+  },
+};
+
+/** A write the clipboard refuses is not a copy: the button stays Copy. */
+export const CopyRefused: Story = {
+  args: { text: FENCED },
+  play: async ({ canvas, userEvent }) => {
+    const { written, restore } = stubClipboard(true);
+    try {
+      await userEvent.click(canvas.getAllByRole("button", { name: "Copy" })[0]!);
+      await expect(written).toHaveLength(1);
+      await expect(canvas.queryByRole("button", { name: "Copied" })).toBeNull();
+    } finally {
+      restore();
+    }
+  },
+};
+
+/** Another panel names the act: `label` is the accessible name, and Copied is still Copied. */
+export const ACopyActWithALabel: Story = {
+  render: () => <CopyAct text="pnpm install" label="Copy step 2 command" />,
+  play: async ({ canvas, userEvent }) => {
+    const { restore } = stubClipboard();
+    try {
+      await userEvent.click(canvas.getByRole("button", { name: "Copy step 2 command" }));
+      await expect(canvas.getByRole("button", { name: "Copied" })).toBeVisible();
+    } finally {
+      restore();
+    }
   },
 };

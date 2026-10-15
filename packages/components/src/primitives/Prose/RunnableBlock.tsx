@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, CircleCheck, CircleX, Play, RotateCcw, Square, SquareTerminal } from "lucide-react";
+import { Check, ChevronDown, CircleCheck, CircleX, Copy, Play, RotateCcw, Square, SquareTerminal } from "lucide-react";
 
 import { Button } from "../Button/Button";
 import { Tooltip } from "../Tooltip/Tooltip";
@@ -165,8 +165,41 @@ export function RunOutput({ run }: { run: CodeRun }) {
   );
 }
 
-/** `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. */
-export function RunnableBlock({ command, runner, run: held, children }: { command: string; runner?: CodeRunner; run?: CodeRun; children: ReactNode }) {
+/** How long Copy shows it has copied before it returns. */
+const COPIED_FOR = 1500;
+
+/** Writes a fenced block's source to the clipboard. The check is the confirmation, so a refused write leaves Copy as it was. `label` names the act where "Copy" alone is ambiguous. */
+export function CopyAct({ text, label: named = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const label = copied ? "Copied" : named;
+  return (
+    <Tooltip label={label}>
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label={label}
+        onClick={() => {
+          void navigator.clipboard.writeText(text).then(
+            () => {
+              setCopied(true);
+              clearTimeout(timer.current);
+              timer.current = setTimeout(() => setCopied(false), COPIED_FOR);
+            },
+            () => undefined,
+          );
+        }}
+      >
+        {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+      </Button>
+    </Tooltip>
+  );
+}
+
+/** `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. `copy` is the source a fenced block copies, beside Run. */
+export function RunnableBlock({ command, runner, run: held, copy, children }: { command: string; runner?: CodeRunner; run?: CodeRun; copy?: string; children: ReactNode }) {
   const own = useCodeRun(runner);
   const terminal = useContext(ProseTerminal);
   const run = held ?? own;
@@ -184,6 +217,7 @@ export function RunnableBlock({ command, runner, run: held, children }: { comman
         {children}
         {dock !== null && docked !== null ? <DockedMark dock={dock} phase={phase} /> : null}
         <span className="armada-prose__run-acts">
+          {copy === undefined ? null : <CopyAct text={copy} />}
           {running ? (
             <Tooltip label="Stop">
               <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={stop}>
