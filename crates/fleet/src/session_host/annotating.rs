@@ -46,7 +46,7 @@ where
         let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id)))?;
         let root = PathBuf::from(served.root());
         let file = format!("{}.json", mark.note_id);
-        let looked = places(&root);
+        let looked = adapters::annotation_places(&root);
         let Some(path) = looked.iter().map(|dir| dir.join(&file)).find(|path| path.is_file()) else {
             let named: Vec<String> = looked.iter().map(|dir| dir.display().to_string()).collect();
             return Err(self.hosted_refusal(
@@ -67,25 +67,6 @@ where
             .map_err(|why| self.hosted_fault(NOTE_UNWRITTEN, &format!("{}: {why}", path.display())))?;
         Ok(AnnotationMarked { path: path.display().to_string() })
     }
-}
-
-/// Where Bridge writes notes, in the order looked: the root's own checkout, the preview's, each
-/// slot's, then each Claude worktree's.
-fn places(root: &Path) -> Vec<PathBuf> {
-    let notes = |checkout: &Path| checkout.join(".armada").join("annotations");
-    let mut places = vec![notes(root), notes(&root.join(".armada").join("preview"))];
-    for parent in [root.join(".armada").join("slots"), root.join(".claude").join("worktrees")] {
-        let mut checkouts: Vec<PathBuf> = std::fs::read_dir(&parent)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| path.is_dir())
-            .collect();
-        checkouts.sort();
-        places.extend(checkouts.iter().map(|checkout| notes(checkout)));
-    }
-    places
 }
 
 /// `bytes` to `path` through a partial beside it, so Bridge never reads half a note. The partial
