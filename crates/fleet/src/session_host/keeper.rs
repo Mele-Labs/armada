@@ -75,8 +75,14 @@ struct Shared {
 /// Run until the agent is gone and its last word has been taken.
 pub async fn keep(keeper: Keeper) -> io::Result<()> {
     let _ = std::fs::remove_file(&keeper.socket);
-    let listener = UnixListener::bind(&keeper.socket)?;
-    std::fs::set_permissions(&keeper.socket, std::fs::Permissions::from_mode(0o600))?;
+    // Bound beside the path and moved onto it once listening: a Fleet that
+    // connects between the bind and the listen is refused, takes the socket
+    // for a dead keeper's and removes it, and this keeper is never reached.
+    let binding = keeper.socket.with_extension("bind");
+    let _ = std::fs::remove_file(&binding);
+    let listener = UnixListener::bind(&binding)?;
+    std::fs::set_permissions(&binding, std::fs::Permissions::from_mode(0o600))?;
+    std::fs::rename(&binding, &keeper.socket)?;
     // A new file, not the old one truncated: a keeper that is ending may still
     // hold the old one and remove its path.
     let _ = std::fs::remove_file(&keeper.spool);

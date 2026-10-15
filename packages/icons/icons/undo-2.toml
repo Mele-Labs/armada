@@ -3,5 +3,12 @@
   group = "Canvas rail"
   size = "16px"
   status = "Specified"
-  reserved = "Taking back the last thing a person made by hand, on a canvas. Never a refresh or a poll, which is `rotate-cw`, and never a retry."
+  reserved = "Taking back the last thing a person made by hand, on a canvas, and taking back a step the person dropped in a Needs you steps panel. Never a refresh or a poll, which is `rotate-cw`, and never a retry."
   notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). The rule it has to clear is rule 4 against the two circular arrows already in the set — `refresh-cw`, reserved to churning, and `rotate-cw`, every refresh and poll control — and it clears it on outline rather than on hue: both of those are closed loops, and this is an open arrow with a straight tail, which is why `rotate-ccw` was refused outright as a mirror image of `rotate-cw` at 16px. `undo-2` rather than `undo`, whose tail curls and reads as a third loop. What it takes back is one freehand line and nothing else — a box comes off under Remove, which draws its word — so the reservation says *by hand* and does not reach a retry, which is a Job's act and `rotate-cw`'s."
+
+[[icons.undo-2.usage]]
+  means = "Bring back a step that was dropped, in the steps panel of a waiting item"
+  group = "Session"
+  size = "12px"
+  status = "Specified"
+  notes = "Accepted 15 Oct 2026 by the owner's ruling, proposed for the walk `needs-you-steps`, tooltip `Bring back`. It takes back the person's own drop, as the canvas rail's undo takes back a line, and the reservation above now says so."

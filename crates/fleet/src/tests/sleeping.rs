@@ -17,6 +17,7 @@ fn item(id: &str, text: &str, options: &[&str], since: &str) -> KeptWaiting {
         since: since.into(),
         act: None,
         options: options.iter().map(|one| (*one).into()).collect(),
+        steps: Vec::new(),
     }
 }
 
@@ -233,6 +234,7 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
         source: ipc::WaitingSource::Agent,
         act: None,
         options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into(), description: None }).collect(),
+        steps: Vec::new(),
         place: None,
     };
     assert!(crate::sleeping::destructive(&one("Close PR 12?", &[])));
