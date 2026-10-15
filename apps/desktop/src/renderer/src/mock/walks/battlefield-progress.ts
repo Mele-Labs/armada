@@ -8,7 +8,7 @@ const map = role("listbox", "Map");
 const places = role("navigation", "Places");
 const dock = inside(map, role("option", "Rebuild the dock panel"));
 const stage = region(/^(Job|Session): /);
-const build = role("group", "Build");
+const build = region("Build");
 const opened = [
   { press: deckRow("Rebuild the dock panel"), say: "Open the Session" },
 ] as const;
