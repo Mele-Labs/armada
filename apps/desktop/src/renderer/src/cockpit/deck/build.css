@@ -29,7 +29,7 @@
 .bf-pc[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
 /* A piece that is placed rises into its place once. */
 .bf-pc[data-state="solid"], .bf-pc[data-state="hollow"] { animation: bf-place calc(var(--duration-pulse) * 0.5) var(--ease) backwards; }
-@keyframes bf-place { from { opacity: 0; transform: translateY(-5px); } }
+@keyframes bf-place { from { opacity: 0; transform: translateY(calc(-5 * var(--bf-u))); } }
 
 /* The band: the ring where the agent wrote no task list. One unsegmented annulus, never partly filled, since a fraction here would be one
    nobody measured. A faint outline while scoping or planning, an even scaffold texture once edits are seen, solid when landed. The texture
