@@ -42,13 +42,21 @@ test("the cursor steps from the last row of one group to the first of the next",
   expect(rowOf(rows[last + 1]!).getAttribute("aria-label")).toBe(drawn("storefront")[0]);
 });
 
-test("one repository picked draws the list with no heading", async () => {
+test("one repository picked draws the list with no heading and only its Jobs", async () => {
   await onAll();
   await userEvent.click(page.getByRole("button", { name: "Repository" }).first());
   await userEvent.click(page.getByRole("menuitem", { name: "storefront" }));
   await expect.element(list().getByRole("button", { name: "Round the cart totals" })).toBeVisible();
   expect(headings()).toEqual([]);
   await expect.element(list().getByRole("button", { name: "Prune the stale branches" })).not.toBeInTheDocument();
+  // Its Jobs go as its Sessions do: no armada Job is listed, and storefront's still are.
+  for (const title of ["The retry loop", "Trim the feed"]) await expect.element(list().getByRole("button", { name: title })).not.toBeInTheDocument();
+  for (const title of ["Round the tax lines", "Resize the product images"]) await expect.element(list().getByRole("button", { name: title })).toBeVisible();
   // The rows sit straight in the one list, as they did before.
   expect(document.querySelectorAll(".deck-list__rows > .deck-list__item")).toHaveLength(keys().length);
+});
+
+test("All lists both repositories' Jobs", async () => {
+  await onAll();
+  for (const title of ["The retry loop", "Trim the feed", "Round the tax lines", "Resize the product images"]) await expect.element(list().getByRole("button", { name: title })).toBeVisible();
 });
