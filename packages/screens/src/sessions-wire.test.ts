@@ -620,6 +620,16 @@ describe("the plan's limit and the context window", () => {
   });
 });
 
+describe("what a session has built", () => {
+  const build = { phase: "implement" as const, pieces: [{ id: "t1", text: "Dock layout", piece: "solid" as const }], stops: [{ id: "walk" as const }], forecast: ["walk" as const], stalled: false, workers: [] };
+
+  it("carries the build Fleet derived, and none for a session that ended or has none", () => {
+    expect(sessionOfRecord(record("b", { build }), undefined, beside()).build).toEqual(build);
+    expect(sessionOfRecord(record("b", { state: "ended", build }), undefined, beside()).build).toBeUndefined();
+    expect(sessionOfRecord(record("b"), undefined, beside()).build).toBeUndefined();
+  });
+});
+
 describe("a session its agent was started by another to hold", () => {
   const unsent = (state: Attachment["state"]) => held("unsent", "Port the clock", {}, state);
 

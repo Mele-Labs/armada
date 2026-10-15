@@ -22,7 +22,7 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open Bridge → the Cockpit → the Jobs and Sessions list, with the Activity feed under it and the map or the timeline on the stage → lightweight heartbeat per active Drone: status, elapsed time, current step. No turn-level detail (diff, tool calls, full history) at this level — that requires deliberately opening Debug on a specific Drone.
+Open Bridge → the Cockpit → the Jobs and Sessions list, with the Activity feed under it and the map or the timeline on the stage → lightweight heartbeat per active Drone: status, elapsed time, current step. A Session that has built something also has a ring under its drone on the map: a segment for each task, and the road to main as arcs round it, lit as each stop is reached ([Cockpit](../concepts/cockpit.md), *The ring*). No turn-level detail (diff, tool calls, full history) at this level — that requires deliberately opening Debug on a specific Drone.
 
 ## Job detail
 

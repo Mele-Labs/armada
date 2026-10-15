@@ -1,0 +1,102 @@
+/* What a Session has built on the battlefield: the survey, the ring, the subagents and the road, as a ring of arcs outside it. Grey like
+   the slabs; the laser's amber where it is being welded; the accent only on what has happened on the road. Transform and opacity only.
+   A piece is static once placed, so only the workers' laps and a piece's one rise into place move, and a worker laps only while the
+   field has a loop to spare (`data-loop`). Opacity is set on the picture and never on a part that stands in the scene, since it would
+   flatten the billboard. #2301. */
+
+/* ---- The survey: before anything is built ---------------------------------------------------------------- */
+
+.bf-surv { position: absolute; left: calc(var(--w) / -2); top: calc(var(--d) / -2); width: var(--w); height: var(--d); pointer-events: none; border: var(--border-width) dashed color-mix(in srgb, var(--fg-default) 38%, transparent); border-radius: calc(2 * var(--bf-u)); background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--fg-default) 9%, transparent) 0 var(--border-width), transparent var(--border-width) calc(10 * var(--bf-u))), repeating-linear-gradient(90deg, color-mix(in srgb, var(--fg-default) 9%, transparent) 0 var(--border-width), transparent var(--border-width) calc(10 * var(--bf-u))); }
+.bf-surv__stake { position: absolute; width: calc(4 * var(--bf-u)); height: calc(4 * var(--bf-u)); background: var(--accent); border-radius: 0; }
+.bf-mark__pole { fill: none; stroke: var(--fg-muted); stroke-width: 1.3; stroke-linecap: round; }
+.bf-mark__flag { fill: var(--accent); fill-opacity: 0.85; }
+
+/* ---- The ring ----------------------------------------------------------------------------------------------- */
+
+.bf-built { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; pointer-events: none; }
+.bf-ring { position: absolute; overflow: visible; transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
+
+.bf-pc :is(.bf-pc__seg) { stroke-linejoin: round; stroke-linecap: round; }
+/* Solid: done, and an edit seen while it was worked. */
+.bf-pc[data-state="solid"] .bf-pc__seg { fill: color-mix(in srgb, var(--fg-default) 24%, var(--bg-base)); stroke: var(--fg-subtle); stroke-opacity: 0.8; stroke-width: 1; }
+/* Ghost: planned, a dashed outline. Scaffold: the first not done, with edits seen since the last one was. */
+.bf-pc:is([data-state="ghost"], [data-state="scaffold"]) .bf-pc__seg { fill: none; stroke: var(--fg-subtle); stroke-width: 1; stroke-dasharray: 2 3; stroke-opacity: 0.6; }
+.bf-pc[data-state="scaffold"] .bf-pc__seg { stroke-opacity: 0.9; }
+.bf-pc__brace { fill: none; stroke: var(--status-escalated); stroke-opacity: 0.75; stroke-width: 1; stroke-linecap: round; }
+/* Hollow: done and no edit seen, outlined and not filled. */
+.bf-pc[data-state="hollow"] .bf-pc__seg { fill: none; stroke: var(--fg-default); stroke-opacity: 0.8; stroke-width: 1.4; }
+/* The unfinished part dims the longer the turn sits quiet. */
+.bf-pc[data-open] { opacity: calc(1 - var(--dim, 0)); transition: opacity calc(var(--duration-pulse) * 1.5) var(--ease); }
+/* A piece that is placed rises into its place once. */
+.bf-pc[data-state="solid"], .bf-pc[data-state="hollow"] { animation: bf-place calc(var(--duration-pulse) * 0.5) var(--ease) backwards; }
+@keyframes bf-place { from { opacity: 0; transform: translateY(-5px); } }
+
+/* Landed: the last arc closes the circle, then the ring goes. */
+.bf-built[data-landed] .bf-ring { opacity: 0; transition: opacity calc(var(--duration-pulse) * 1.2) var(--ease) calc(var(--duration-pulse) * 1.5); }
+
+/* The road: a thinner ring of arcs, lit up to the last stop reached, faint where it is only what this repository usually does next. */
+.bf-arc__seg { stroke-linejoin: round; }
+.bf-arc:not([data-lit]) .bf-arc__seg { fill: none; stroke: var(--fg-subtle); stroke-width: 1; stroke-dasharray: 2 3; stroke-opacity: 0.55; }
+.bf-arc[data-lit] .bf-arc__seg { fill: color-mix(in srgb, var(--accent) 60%, var(--bg-base)); stroke: var(--accent); stroke-width: 1; }
+
+/* A piece or an arc that speaks when it is hovered, where the ring itself takes no pointer. */
+.bf-pick { outline: none; }
+.bf-pick :is(.bf-pc__seg, .bf-arc__seg) { pointer-events: all; cursor: default; }
+.bf-pick:focus-visible .bf-pc .bf-pc__seg { stroke: var(--accent); }
+
+/* ---- The subagents --------------------------------------------------------------------------------------- */
+
+.bf-wk__lap { transform: rotateZ(calc(var(--phase, 0) * 360deg)); }
+.bf-wk__face { transform: rotateZ(calc(var(--phase, 0) * -360deg)); }
+.bf-wk[data-loop] .bf-wk__lap { transform: none; animation: bf-lap var(--T) linear infinite; animation-delay: calc(var(--T) * var(--phase, 0) * -1); }
+.bf-wk[data-loop] .bf-wk__face { transform: none; animation: bf-unlap var(--T) linear infinite; animation-delay: calc(var(--T) * var(--phase, 0) * -1); }
+.bf-wk[data-rev][data-loop] :is(.bf-wk__lap, .bf-wk__face) { animation-direction: reverse; }
+.bf-wk__body { --hue: var(--fg-muted); pointer-events: auto; outline: none; cursor: default; }
+.bf-wk__body .bf-sprite { animation: bf-arrive calc(var(--duration-pulse) * 0.5) var(--ease) var(--arrive, 0ms) backwards; }
+.bf-wk__body:focus-visible .bf-hit { stroke: var(--accent); }
+
+/* ---- What the card says of it ----------------------------------------------------------------------------- */
+
+.bf-build { display: flex; flex-direction: column; gap: var(--space-2); }
+.bf-build__phase { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.bf-build__glyph { display: inline-flex; color: var(--fg-muted); }
+.bf-build__quiet { margin-left: auto; color: var(--status-awaiting-review); }
+.bf-build__tasks, .bf-build__stops { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.bf-build__task, .bf-build__stop { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.bf-build__task > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bf-build__swatch { flex: none; box-sizing: border-box; width: calc(10 * var(--bf-u)); height: calc(10 * var(--bf-u)); border: calc(1.3 * var(--bf-u)) solid var(--fg-default); border-radius: calc(2 * var(--bf-u)); }
+.bf-build__task[data-piece="solid"] .bf-build__swatch { background: color-mix(in srgb, var(--fg-default) 60%, transparent); }
+.bf-build__task[data-piece="ghost"] .bf-build__swatch { border-style: dashed; border-color: var(--fg-subtle); }
+.bf-build__task[data-piece="scaffold"] .bf-build__swatch { border-style: dashed; border-color: var(--status-escalated); }
+.bf-build__stops { border-top: var(--border-width) solid var(--border-glass); padding-top: var(--space-2); }
+.bf-build__stop { color: var(--fg-default); }
+.bf-build__stop[data-faint] { color: var(--fg-subtle); opacity: 0.7; }
+.bf-build__stop time { margin-left: auto; color: var(--fg-subtle); }
+
+/* ---- The column: the same ring beside a Session's page, in the bays' place --------------------------------------- */
+
+.bf-col { flex: none; min-height: 0; animation: bf-swap calc(var(--duration-pulse) * 0.25) var(--ease) backwards; }
+@keyframes bf-swap { from { opacity: 0; } }
+.bf-col__glyph { display: inline-flex; color: var(--fg-muted); }
+.bf-col__body { display: flex; flex: none; flex-direction: column; align-items: center; gap: var(--space-3); min-height: 0; padding: var(--space-3); overflow-y: auto; }
+.bf-col__art { flex: none; width: 100%; height: calc(168 * var(--border-width)); overflow: visible; }
+.bf-col__stall { fill: none; stroke: var(--status-awaiting-review); stroke-width: 1.6; animation: bf-col-breathe calc(var(--duration-pulse) * 1.5) ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes bf-col-breathe { 50% { opacity: 0.35; } }
+/* Pieces here are static; only the one being built (scaffold) moves, and a stalled one holds still under its ring. */
+.bf-col .bf-pc { animation: none; }
+.bf-col .bf-pc:is([data-state="ghost"], [data-state="scaffold"], [data-state="hollow"]) .bf-pc__seg { fill: transparent; }
+.bf-col .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: bf-col-breathe calc(var(--duration-pulse) * 1.2) ease-in-out infinite; }
+.bf-col__piece { cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-pc[data-state="solid"],
+  .bf-pc[data-state="hollow"],
+  .bf-wk[data-loop] :is(.bf-wk__lap, .bf-wk__face),
+  .bf-wk__body .bf-sprite,
+  .bf-col,
+  .bf-col__stall,
+  .bf-col .bf-pc[data-state="scaffold"] .bf-pc__brace { animation: none; }
+  .bf-wk[data-loop] .bf-wk__lap { transform: rotateZ(calc(var(--phase, 0) * 360deg)); }
+  .bf-wk[data-loop] .bf-wk__face { transform: rotateZ(calc(var(--phase, 0) * -360deg)); }
+  .bf-ring, .bf-pc[data-open] { transition: none; }
+}

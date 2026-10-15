@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "A question Sleep mode answered for the owner overnight, in Morning review. Never a Job state, which is check."
   notes = "Approved 9 Oct 2026 with sleep mode."
+
+  [[icons.badge-check.usage]]
+    means = "The Landed phase of a Session's build: its pull request merged"
+    group = "Session build"
+    size = "16px"
+    status = "Specified"
+    notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Landed`. The last arc of the ring and the last stop of its card."

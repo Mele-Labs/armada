@@ -1,0 +1,76 @@
+// The ring: a segment for each task, and the road to main as a thinner ring of arcs outside it. A piece is ghost (dashed, planned),
+// scaffold (the first task not done, edits seen since), hollow (done, no edit seen) or solid. A piece is static once placed. #2301.
+
+import type { ReactNode } from "react";
+
+import type { Arc, Piece } from "./build";
+
+export type RingProps = {
+  pieces: readonly { piece: Piece }[];
+  big: number;
+  /** How far the unfinished part has dimmed, 0 to 1. */
+  dim: number;
+  /** The road, one arc for each stop and the landing last. Absent where the ring has none: a Job's route is its road. */
+  arcs?: readonly Arc[];
+  /** Draws a piece inside something that speaks for it when it is hovered. */
+  wrap?: (k: number, piece: ReactNode) => ReactNode;
+  /** Speaks for an arc, as `wrap` does for a piece. */
+  wrapArc?: (k: number, arc: ReactNode) => ReactNode;
+};
+const plain = (_k: number, part: ReactNode) => part;
+const open = (piece: Piece) => piece === "ghost" || piece === "scaffold";
+
+/** One segment of a ring: an annular sector from angle `from` to `to`, in degrees, between radii r0 and r1. */
+const sector = (r0: number, r1: number, from: number, to: number) => {
+  const p = (r: number, deg: number) => `${(r * Math.cos((deg * Math.PI) / 180)).toFixed(2)},${(r * Math.sin((deg * Math.PI) / 180)).toFixed(2)}`;
+  return `M${p(r1, from)} A${r1},${r1} 0 0 1 ${p(r1, to)} L${p(r0, to)} A${r0},${r0} 0 0 0 ${p(r0, from)} Z`;
+};
+
+/** The task ring in the plane's own units, with the road as a ring of its own outside it: 4.5 thick, a gap of 4. */
+export function RingArt({ pieces, big, dim, arcs = [], wrap = plain, wrapArc = plain }: RingProps) {
+  const n = Math.max(pieces.length, 1);
+  const r1 = 34 * big;
+  const r0 = r1 - 7 * big;
+  const [a0, a1] = [r1 + 4 * big, r1 + 8.5 * big];
+  const m = Math.max(arcs.length, 1);
+  return (
+    <g className="bf-form" style={{ ["--dim" as string]: dim }} data-form="ring">
+      {pieces.map((one, k) => {
+        const from = -90 + (k * 360) / n + 2.5;
+        const to = -90 + ((k + 1) * 360) / n - 2.5;
+        const mid = ((from + to) / 2) * (Math.PI / 180);
+        return (
+          <g key={k}>
+            {wrap(
+              k,
+              <g className="bf-pc" data-state={one.piece} data-open={open(one.piece) || undefined}>
+                <path className="bf-pc__seg" d={sector(r0, r1, from, to)} />
+                {one.piece === "scaffold" ? <path className="bf-pc__brace" d={`M${((r1 + 2) * Math.cos(mid)).toFixed(1)},${((r1 + 2) * Math.sin(mid)).toFixed(1)} L${((r1 + 9) * Math.cos(mid)).toFixed(1)},${((r1 + 9) * Math.sin(mid)).toFixed(1)}`} /> : null}
+              </g>,
+            )}
+          </g>
+        );
+      })}
+      {arcs.map((arc, k) => (
+        <g key={arc.id}>
+          {wrapArc(
+            k,
+            <g className="bf-arc" data-lit={arc.at !== undefined || undefined}>
+              <path className="bf-arc__seg" d={sector(a0, a1, -90 + (k * 360) / m + 3, -90 + ((k + 1) * 360) / m - 3)} />
+            </g>,
+          )}
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/** A ring lying on the ground round the drone's shadow. It is on the plane, so the tilt makes it an ellipse. */
+export function Ring(props: RingProps) {
+  const edge = 34 * props.big + 12;
+  return (
+    <svg className="bf-ring" style={{ left: -edge, top: -edge }} width={edge * 2} height={edge * 2} viewBox={`${-edge} ${-edge} ${edge * 2} ${edge * 2}`}>
+      <RingArt {...props} />
+    </svg>
+  );
+}
