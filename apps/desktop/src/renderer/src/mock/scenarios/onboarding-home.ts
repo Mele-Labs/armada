@@ -23,6 +23,7 @@ function build(): Scenario {
       account: {
         signIn: { login: "nickmele", code: "WDJB-MJHT", repository: "armada-home" },
         add: { login: "mele-work", code: "KQXP-4N7D", items: WORK_ITEMS },
+        machine: "studio-mac",
       },
     },
   };

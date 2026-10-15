@@ -12,3 +12,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walk `title-bar-menu`. The same Settings surface the rail's Machine group opens, reached from the menu, tooltip the word `Settings` beside it."
+
+  [[icons.settings.usage]]
+    means = "A button into Settings at one blank setting, on the sign-in that was refused"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `sign-in-ended`. The same Settings surface the rail and the menu open, here at the Sign-in app or the Store address. The button carries the setting's name beside the glyph."

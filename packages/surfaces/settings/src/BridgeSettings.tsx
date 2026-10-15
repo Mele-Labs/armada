@@ -8,7 +8,7 @@
 // **`BridgeSettings`, not `Settings`.** `./settings.tsx` is a Job's own — `SettingsSheet`, its caps
 // and its choices — and the two would collide by name and, on a case-insensitive filesystem, by file.
 
-import { Card, CardContent, CardHeader, CardTitle, GuidesSetting, SettingsIndex } from "@armada/components";
+import { Button, Card, CardContent, CardHeader, CardTitle, GuidesSetting, SettingsIndex } from "@armada/components";
 import type { Outcome, SaveSettings, SettingsList } from "@armada/protocol";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -44,11 +44,13 @@ export type BridgeSettingsProps = {
   onOpenSettingsFile: () => Promise<SettingsFileOpened>;
   /** Opens the guide catalogue. Navigation is the window's, so it arrives as a prop. */
   onReadGuides?: () => void;
+  /** Opens the account page or panel: a link from the Account section, which holds the sign-in app. */
+  onOpenAccount?: () => void;
   /** A clipboard write is silent, so the window confirms it. */
   onCopied?: (value: string) => void;
 };
 
-export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsFile, onReadGuides, onCopied }: BridgeSettingsProps) {
+export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsFile, onReadGuides, onOpenAccount, onCopied }: BridgeSettingsProps) {
   const [chosen, setCurrent] = useSettingsSection();
   const asked = useSettingsAsked();
   const [query, setQuery] = useState("");
@@ -98,7 +100,18 @@ export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsF
     if (section.schema !== true && own !== undefined) return own(title);
     const all = settings === null ? null : settingsIn(settings, section.id);
     const hits = all === null || !searching ? all : all.filter((one) => matches(wordsOf(one), query));
-    return <SchemaSection label={title} settings={hits} live={live} onSave={onSaveSettings} />;
+    const schema = <SchemaSection label={title} settings={hits} live={live} onSave={onSaveSettings} />;
+    if (section.id !== "account" || onOpenAccount === undefined) return schema;
+    return (
+      <>
+        <div className="armada-settings__link">
+          <Button variant="secondary" size="sm" ground="card" onClick={onOpenAccount}>
+            Account
+          </Button>
+        </div>
+        {schema}
+      </>
+    );
   };
 
   return (

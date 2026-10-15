@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A Job that took main's red, on its Board row, its header and the merge line's head, pulsing in `--status-running` while it works. Never a Job's own Check failing, which is `shield-x`, and never a repair a person owes, which is `wrench`."
   notes = "Proposed 6 Oct 2026 for the walk `mainGoesRed`, for the owner to rule on. The owner kept `hammer` off `land_state.preparing` on 2 Oct because it reads as fixing, and fixing main is the one place that reading is the point. It sits beside the status badge as `circle-pause` does and never replaces it. Once main is green again the Job's mark is `shield-check`, the Check outcome glyph, so no second glyph is minted for the fix landing."
+
+  [[icons.hammer.usage]]
+    means = "The tile for red main claims, on what signing in turns on"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-page`. Hammer is the Job working to put main right, and a claim on a red main is the same work held by one machine. Tooltip on the tile's mark is `Off` until a profile exists, then `On`."

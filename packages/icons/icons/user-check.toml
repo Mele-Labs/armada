@@ -26,3 +26,10 @@
     size = "12 and 16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Leads the login in mono on the title bar's account chip, a profile chip and the identity row of the set-up list, tooltip `Identity`. The glyph already means you, and an account is who you are. `Active` on a profile is a bare check beside it."
+
+  [[icons.user-check.usage]]
+    means = "A repository matched to a profile: its owner is the account or one of its organisations"
+    group = "Account"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `account-repositories`. On a row in a profile's repositories, tooltip `Matched`. The glyph already says an account vouches for it; `user-pen` is the same row bound by the person's choice."
