@@ -105,9 +105,9 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
   const remove = (at: number) => setFixes((was) => ({ ...was, added: was.added.filter((_, one) => one !== at - steps.length) }));
 
   return (
-    <div className="armada-steps">
+    <div className="armada-step-list">
       {address === undefined ? null : (
-        <div className="armada-steps__link">
+        <div className="armada-step-list__link">
           <Tooltip label="Opens the page" asChild>
             <Button variant="secondary" size="sm" onClick={() => onOpenAddress(address)}>
               <span className="mono">{address}</span>
@@ -120,7 +120,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
           </Tooltip>
         </div>
       )}
-      <ol className="armada-guide-steps armada-steps__list">
+      <ol className="armada-guide-steps armada-step-list__list">
         {Array.from({ length: total }, (_, at) => {
           const line = lineOf(at);
           const dropped = fixes.dropped.includes(at);
@@ -129,11 +129,11 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
           return (
             <li
               key={at}
-              className="armada-guide-steps__step armada-steps__step"
+              className="armada-guide-steps__step armada-step-list__step"
               data-ticked={ticked.includes(at) || undefined}
               data-dropped={dropped || undefined}
             >
-              <span className="armada-guide-steps__ordinal armada-steps__ordinal mono">{at + 1}</span>
+              <span className="armada-guide-steps__ordinal armada-step-list__ordinal mono">{at + 1}</span>
               {editing?.at === at ? (
                 <Input
                   autoFocus
@@ -162,15 +162,15 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
                 </Checkbox>
               )}
               {editing?.at === at ? null : (
-                <span className="armada-steps__acts">
+                <span className="armada-step-list__acts">
                   {!changed ? null : (
                     <Tooltip label={steps[at]!}>
-                      <span className="armada-steps__changed" role="img" aria-label={`Step ${at + 1} was ${steps[at]!}`}>
+                      <span className="armada-step-list__changed" role="img" aria-label={`Step ${at + 1} was ${steps[at]!}`}>
                         <PencilLine size={12} strokeWidth={2} aria-hidden />
                       </span>
                     </Tooltip>
                   )}
-                  <span className="armada-steps__keys">
+                  <span className="armada-step-list__keys">
                     {dropped ? (
                       <Tooltip label="Bring back">
                         <Button
@@ -204,7 +204,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
           );
         })}
       </ol>
-      <div className="armada-steps__add">
+      <div className="armada-step-list__add">
         <Tooltip label="Add step">
           <Button
             variant="ghost"
@@ -220,7 +220,7 @@ export function StepsPanel({ name, address, steps, keep, onOpenAddress, onOpenIn
           </Button>
         </Tooltip>
       </div>
-      <div className="armada-steps__reply">
+      <div className="armada-step-list__reply">
         <Textarea
           rows={2}
           keep={`${keep}:reply`}
