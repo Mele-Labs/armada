@@ -423,6 +423,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window/closed",
     },
     Route {
+        operation: "window_failed",
+        method: "POST",
+        path: "/sessions/window/failed",
+    },
+    Route {
         operation: "claim_pull_request",
         method: "POST",
         path: "/sessions/claim_pull_request",
@@ -574,6 +579,11 @@ const ROUTES: &[Route] = &[
         operation: "remove_walk_note",
         method: "POST",
         path: "/jobs/:job_id/walk_notes/remove",
+    },
+    Route {
+        operation: "walk_failed",
+        method: "POST",
+        path: "/jobs/:job_id/walk/failed",
     },
     // What a For context finding becomes: a Job queued behind this one, or an issue. #906.
     Route {

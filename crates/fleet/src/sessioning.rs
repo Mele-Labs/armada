@@ -10,6 +10,8 @@
 //! nothing**, so a harness may report on every turn without a client redrawing
 //! on every one.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
@@ -705,6 +707,28 @@ where
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?;
         self.ledger_row(&store, &session)
+    }
+
+    async fn window_failed(
+        self: Arc<Self>,
+        failed: ipc::WindowFailed,
+    ) -> Result<ipc::WalkTold, Refusal> {
+        let id = failed.session_id.as_str().trim().to_string();
+        let known = {
+            let store = self.store().lock().await;
+            store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
+        };
+        if !known {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        }
+        let text = format!(
+            "Your walk window could not show {}: {}. The person cannot walk it until it loads. \
+             Fix it, then call show_window again.",
+            failed.url.trim(),
+            failed.why.trim()
+        );
+        let told = self.told_by_fleet(&id, &text).await?;
+        Ok(ipc::WalkTold { told })
     }
 
     async fn waiting_for(
