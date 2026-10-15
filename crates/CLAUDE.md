@@ -8,3 +8,6 @@ the crate boundaries, the type-system-first pattern, and the reasons.
 - `armada check test <name>` or `armada check test --changed` (paths on stdin), never `cargo test` or `nextest` bare.
 
 All of these are enforced by a hook before the write and by the gate after it.
+
+Run an `armada check` with `run_in_background` and end the turn. In the
+foreground it holds the session for minutes, and the owner cannot reach it.
