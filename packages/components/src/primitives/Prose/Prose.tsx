@@ -36,6 +36,22 @@ export type ProseProps = {
 export const ProseLinks = createContext<((address: string) => void) | null>(null);
 
 /**
+ * Where a walk link opens: the walk window of the Session whose words these are. **A walk link is Armada's own
+ * address for a walk**, `http://localhost` or `http://127.0.0.1` on any port with a `walk` query parameter.
+ * Provided by a Session's thread; without one such a link is a web link like any other.
+ */
+export const ProseWalk = createContext<((address: string) => void) | null>(null);
+
+function isWalkLink(address: string): boolean {
+  try {
+    const url = new URL(address);
+    return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1") && url.searchParams.has("walk");
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Something in the words that Bridge itself can open: a pull request or an issue by its number, a Job, a
  * Session. **A thing the host found, never one the text claims**: `scan` is the host's and reads its own state,
  * so a number that names nothing it holds stays plain text.
@@ -152,45 +168,66 @@ const InLink = createContext(false);
 /** A web address in a span of code, drawn as the link it is. */
 const ADDRESS = /https?:\/\/[^\s<>`]*[^\s<>`.,;:!?'")\]]/g;
 
-function Addressed({ text, open }: { text: string; open: (address: string) => void }) {
+function Addressed({ text, open }: { text: string; open: ((address: string) => void) | null }) {
+  const walk = useContext(ProseWalk);
   const parts: ReactNode[] = [];
   let from = 0;
   for (const one of text.matchAll(ADDRESS)) {
     const address = web(one[0]);
-    if (address === null) continue;
+    if (address === null || (open === null && !(walk !== null && isWalkLink(address)))) continue;
     parts.push(text.slice(from, one.index));
     parts.push(
-      <a key={one.index} className="armada-prose__link" href={address} title={address} onClick={(event) => { event.preventDefault(); open(address); }} onAuxClick={(event) => event.preventDefault()}>
+      <WebLink key={one.index} address={address} open={open ?? walk!}>
         {address}
-      </a>,
+      </WebLink>,
     );
     from = one.index + one[0].length;
   }
   return <>{parts.length === 0 ? text : [...parts, text.slice(from)]}</>;
 }
 
-function Link({ href, children }: { href: string | undefined; children: ReactNode }) {
-  const open = useContext(ProseLinks);
-  const reference = referenceOf(href);
-  if (reference !== null) return <InLink.Provider value><ReferenceLink reference={reference}>{children}</ReferenceLink></InLink.Provider>;
-  const address = web(href);
-  if (address === null || open === null) return <>{children}</>;
-  return (
-    <InLink.Provider value>
+/** A web address drawn as a link; a walk link opens in the Session's walk window and says so. */
+function WebLink({ address, open, children }: { address: string; open: (address: string) => void; children: ReactNode }) {
+  const walk = useContext(ProseWalk);
+  const inWindow = walk !== null && isWalkLink(address);
+  const link = (
     <a
       className="armada-prose__link"
       href={address}
-      title={address}
+      {...(inWindow ? {} : { title: address })}
       onClick={(event) => {
         // No surface navigates: design-system.md, hard rule 2.
         event.preventDefault();
-        open(address);
+        (inWindow ? walk : open)(address);
       }}
       // A middle click routes around `onClick`; main denies the window anyway.
       onAuxClick={(event) => event.preventDefault()}
     >
       {children}
     </a>
+  );
+  return inWindow ? (
+    <Tooltip label="Opens in the walk window" asChild>
+      {link}
+    </Tooltip>
+  ) : (
+    link
+  );
+}
+
+function Link({ href, children }: { href: string | undefined; children: ReactNode }) {
+  const open = useContext(ProseLinks);
+  const walk = useContext(ProseWalk);
+  const reference = referenceOf(href);
+  if (reference !== null) return <InLink.Provider value><ReferenceLink reference={reference}>{children}</ReferenceLink></InLink.Provider>;
+  const address = web(href);
+  // A walk link needs the Session's window, not the browser, so it draws where only that is provided.
+  if (address === null || (open === null && !(walk !== null && isWalkLink(address)))) return <>{children}</>;
+  return (
+    <InLink.Provider value>
+      <WebLink address={address} open={open ?? walk!}>
+        {children}
+      </WebLink>
     </InLink.Provider>
   );
 }
@@ -203,10 +240,11 @@ function Code({ children }: { children?: ReactNode }) {
   const inBlock = useContext(InBlock);
   const inLink = useContext(InLink);
   const open = useContext(ProseLinks);
+  const walk = useContext(ProseWalk);
   const commands = useContext(ProseCommand);
   if (inBlock || commands === null || typeof children !== "string" || !isSlashCommand(children, commands.names)) {
     // A web address is a link in code too; a `#12` in a block is a comment, so only an address is.
-    return <code className="armada-prose__code">{open === null || inLink || typeof children !== "string" ? children : <Addressed text={children} open={open} />}</code>;
+    return <code className="armada-prose__code">{inLink || typeof children !== "string" || (open === null && walk === null) ? children : <Addressed text={children} open={open} />}</code>;
   }
   return <SlashCommand text={children} send={commands.send} />;
 }

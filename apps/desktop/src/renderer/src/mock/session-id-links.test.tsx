@@ -91,3 +91,34 @@ test("an address in code is a link, in a span and in a block, and a #N in a bloc
   // The comment in the block names #412 too; only the sentence above it is a link.
   expect(thread().getByRole("link", { name: "#412", exact: true }).elements()).toHaveLength(1);
 });
+
+const WALK = "http://localhost:47331/?walk=session-id-links";
+
+test("a walk link opens in the Session's walk window, in text and in code, and another localhost address opens as a web link", async () => {
+  const app = mount(s208SessionIdLinks);
+  await onScreen();
+  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Walk links/ }));
+  const browser = vi.spyOn(app.api, "openLink").mockResolvedValue({ ok: true });
+  const window = page.getByRole("dialog", { name: "Bridge's window on Walk links" });
+
+  // Plain text, a markdown link to the same walk on 127.0.0.1, inline code, and a fenced block.
+  const links = [
+    [thread().getByRole("link", { name: WALK }).nth(0)],
+    [thread().getByRole("link", { name: "the same" })],
+    [thread().getByRole("link", { name: WALK }).nth(1)],
+    [thread().getByRole("link", { name: WALK }).nth(2)],
+  ] as const;
+  for (const [link] of links) {
+    await userEvent.click(link);
+    await expect.element(window).toBeVisible();
+    await userEvent.click(page.getByRole("button", { name: "Close window" }));
+    await expect.element(window).not.toBeInTheDocument();
+  }
+  expect(browser).not.toHaveBeenCalled();
+
+  await userEvent.click(thread().getByRole("link", { name: "http://localhost:47331/docs" }));
+  await expect.poll(() => browser.mock.calls.length).toBe(1);
+  expect(browser).toHaveBeenLastCalledWith("http://localhost:47331/docs");
+  await expect.element(window).not.toBeInTheDocument();
+});

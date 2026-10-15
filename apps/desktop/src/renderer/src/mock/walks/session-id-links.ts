@@ -32,6 +32,11 @@ const wide = walk("session-id-links", [
   { look: role("dialog", "Pull request #2301"), say: "The panel" },
   { look: inside(thread, role("link", "https://example.com/health")), say: "An address inside inline code is a link" },
   { look: inside(thread, role("link", "https://example.com/ready")), say: "An address inside a code block is a link, and the #412 in its comment is not" },
+  { press: button("Sessions"), say: "Back to the list" },
+  { press: inside(region("Sessions"), button(/Walk links/)), say: "A Session that sent walk links" },
+  { hover: inside(thread, role("link", "http://localhost:47331/?walk=session-id-links")), say: "A walk link says it opens in the walk window" },
+  { press: inside(thread, role("link", "http://localhost:47331/?walk=session-id-links")), say: "It opens there, not in the browser" },
+  { look: role("dialog", "Bridge's window on Walk links"), say: "The Session's walk window" },
 ]);
 
 export { wide as "session-id-links" };

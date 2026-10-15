@@ -56,6 +56,20 @@ const forge: Session = {
   ],
 };
 
+// A walk link, as Armada writes one, in plain text, as a markdown link, in inline code and in a block; and a localhost address that is not one.
+const WALK = "http://localhost:47331/?walk=session-id-links";
+const walker: Session = {
+  ...quiet,
+  id: "d3adbeef0001",
+  title: "Walk links",
+  rows: [
+    { id: "w1", at: "14:40:11", kind: "message", from: { kind: "agent" }, text: `Walk it: ${WALK}, or [the same](http://127.0.0.1:47331/?walk=session-id-links).` },
+    { id: "w2", at: "14:40:12", kind: "message", from: { kind: "agent" }, text: `In code: \`${WALK}\`` },
+    { id: "w3", at: "14:40:13", kind: "message", from: { kind: "agent" }, text: `${"```"}sh\nopen ${WALK}\n${"```"}` },
+    { id: "w4", at: "14:40:14", kind: "message", from: { kind: "agent" }, text: "Not a walk: http://localhost:47331/docs" },
+  ],
+};
+
 // Helm's repository and the one the last Session works in, so an issue named there opens the composer on its own.
 const STOREFRONT: RepositorySummary = {
   root: "/Users/user/code/storefront",
@@ -68,5 +82,5 @@ export const s208SessionIdLinks: Scenario = {
   name: "session-id-links",
   says: "A Session's thread names other Sessions by their address",
   state: { ...s200Sessions.state, holds: { ...s200Sessions.state.holds, repositories: [...(s200Sessions.state.holds.repositories ?? []), STOREFRONT] } },
-  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [reader, ended, holder, forge]) },
+  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, [reader, ended, holder, forge, walker]) },
 };
