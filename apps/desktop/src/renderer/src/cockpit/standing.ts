@@ -12,7 +12,9 @@ import type { Item } from "../Dashboard";
 export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key" | "waiting">): boolean {
   if (item.kind === "Commander asks") return false;
   if (item.waiting !== undefined) {
-    const { source, options } = item.waiting.item;
+    const { source, options, act } = item.waiting.item;
+    // A terminal's own permission prompt is answered at the terminal, so its one act opens the Session.
+    if (source === "permission" && act?.kind === "message") return false;
     return source === "permission" || source === "ask_card" || source === "window_ask" || (options?.length ?? 0) > 0;
   }
   return item.decisions !== undefined || item.kind === "Drone question" || item.kind === "Judge question";

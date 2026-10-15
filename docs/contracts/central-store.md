@@ -129,7 +129,7 @@ Why: a fix nobody else can see is the double fix this exists to stop. Decided by
 
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 
-**Rule.** A repository with the switch off, and a machine signed out, make no call.
+**Rule.** A repository with the switch off, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call. Each repository calls as its own profile, [Account](../concepts/account.md), *Repositories*.
 
 **Rule.** Fleet does not retry a `replayed_nonce`. A retry of any request signs again with a new nonce and a new time.
 

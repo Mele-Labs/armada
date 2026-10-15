@@ -705,7 +705,8 @@ const api: BridgeApi = {
   getAccounts: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.getAccounts),
   startSignIn: (): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.startSignIn),
   signOut: (accountId: number): Promise<AccountsActed<SignedOut>> => ipcRenderer.invoke(CHANNELS.signOut, accountId),
-  setActiveAccount: (accountId: number): Promise<AccountsActed> => ipcRenderer.invoke(CHANNELS.setActiveAccount, accountId),
+  setRepositoryProfile: (root: string, accountId: number | null): Promise<AccountsActed> =>
+    ipcRenderer.invoke(CHANNELS.setRepositoryProfile, root, accountId),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),

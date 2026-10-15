@@ -450,9 +450,9 @@ where
         ask: ipc::TerminalAsk,
     ) -> Result<ipc::TerminalAsked, Refusal> {
         match ask {
-            ipc::TerminalAsk::Asks { session_id, input } => {
+            ipc::TerminalAsk::Asks { session_id, input, tool } => {
                 let asking = ipc::AskingToRun {
-                    tool_name: String::from(ipc::ASKS_A_QUESTION),
+                    tool_name: tool.unwrap_or_else(|| String::from(ipc::ASKS_A_QUESTION)),
                     input,
                     tool_use_id: None,
                 };

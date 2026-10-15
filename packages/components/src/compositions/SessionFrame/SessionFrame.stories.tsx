@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Power } from "lucide-react";
+import { PowerOff } from "lucide-react";
 import { expect, fn, within } from "storybook/test";
 
 import { Button } from "../../primitives/Button/Button";
@@ -156,7 +156,7 @@ export const HeadOneRow: Story = {
     context: { tokens: 48_400, window: 1_000_000, breakdown },
     actions: (
       <Button variant="ghost" size="sm" aria-label="End session">
-        <Power size={16} strokeWidth={2} aria-hidden />
+        <PowerOff size={16} strokeWidth={2} aria-hidden />
       </Button>
     ),
   },

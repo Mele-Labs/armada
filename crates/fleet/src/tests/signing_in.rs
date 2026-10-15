@@ -91,7 +91,7 @@ fn rig(forge: FakeSignIn) -> Rig {
     Rig { home, forge, store, signing }
 }
 
-fn begin() -> Begin {
+pub(crate) fn begin() -> Begin {
     Begin { client_id: "Iv1.abc".into(), store_url: "https://store.test".into(), machine: "mac-a".into() }
 }
 
@@ -104,10 +104,10 @@ fn hubot() -> SignedInAs {
 }
 
 /// The sign-in once its thread has finished: the flow is idle again.
-fn settled(signing: &SigningIn) -> Accounts {
+pub(crate) fn settled(signing: &SigningIn) -> Accounts {
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
-        let read = signing.accounts().expect("reads");
+        let read = signing.accounts(&[]).expect("reads");
         if matches!(read.flow, AccountFlow::Idle { .. }) {
             return read;
         }
@@ -123,7 +123,7 @@ fn ended(read: &Accounts) -> SignInOutcome {
     }
 }
 
-fn files_under(dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn files_under(dir: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else { return found };
     for entry in entries.flatten() {
@@ -137,7 +137,7 @@ fn files_under(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
-fn holds(dir: &Path, needle: &str) -> bool {
+pub(crate) fn holds(dir: &Path, needle: &str) -> bool {
     files_under(dir)
         .iter()
         .any(|file| std::fs::read(file).is_ok_and(|bytes| bytes.windows(needle.len()).any(|window| window == needle.as_bytes())))
@@ -156,7 +156,7 @@ fn the_device_of(rig: &Rig, account: u64) -> String {
 #[test]
 fn a_full_sign_in_leaves_one_profile_with_a_key_and_a_device_and_no_token_on_disk() {
     let rig = rig(FakeSignIn::new().pending(2).grants("tok-secret-1", octocat()));
-    let started = rig.signing.start(begin()).expect("begun");
+    let started = rig.signing.start(begin(), &[]).expect("begun");
     match started.flow {
         AccountFlow::Code { code, address, expires_in_seconds } => {
             assert_eq!(code, testkit::USER_CODE);
@@ -170,7 +170,7 @@ fn a_full_sign_in_leaves_one_profile_with_a_key_and_a_device_and_no_token_on_dis
     assert_eq!(ended(&read), SignInOutcome::SignedIn);
     assert_eq!(read.profiles.len(), 1);
     let profile = &read.profiles[0];
-    assert_eq!((profile.account_id, profile.login.as_str(), profile.active, profile.chosen), (583_231, "octocat", true, false));
+    assert_eq!((profile.account_id, profile.login.as_str(), profile.chosen), (583_231, "octocat", false));
 
     assert_eq!(rig.forge.begun(), ["Iv1.abc"]);
     assert_eq!((rig.forge.polls(), rig.forge.who_asked()), (3, 1), "pending twice, then granted, then who");
@@ -189,7 +189,7 @@ fn a_full_sign_in_leaves_one_profile_with_a_key_and_a_device_and_no_token_on_dis
 fn the_profile_directory_and_its_key_are_owner_only() {
     use std::os::unix::fs::PermissionsExt;
     let rig = rig(FakeSignIn::new().grants("t", octocat()));
-    rig.signing.start(begin()).expect("begun");
+    rig.signing.start(begin(), &[]).expect("begun");
     settled(&rig.signing);
     let directory = rig.home.path().join(profiles::DIRECTORY).join("583231");
     let mode = |path: &Path| std::fs::metadata(path).expect("there").permissions().mode() & 0o777;
@@ -207,18 +207,17 @@ fn a_second_account_adds_a_second_profile_and_the_first_keeps_its_own_key_and_de
     };
 
     let first = sign_in(FakeSignIn::new().grants("tok-a", octocat()));
-    first.start(begin()).expect("begun");
+    first.start(begin(), &[]).expect("begun");
     settled(&first);
     let first_dir = home.path().join(profiles::DIRECTORY).join("583231");
     let first_key = std::fs::read_to_string(first_dir.join(adapters::KEY_FILE)).unwrap();
     let first_device = std::fs::read_to_string(first_dir.join(adapters::ID_FILE)).unwrap();
 
     let second = sign_in(FakeSignIn::new().grants("tok-b", hubot()));
-    second.start(begin()).expect("begun");
+    second.start(begin(), &[]).expect("begun");
     let read = settled(&second);
 
     assert_eq!(read.profiles.iter().map(|p| p.login.as_str()).collect::<Vec<_>>(), ["octocat", "hubot"]);
-    assert_eq!(read.profiles.iter().map(|p| p.active).collect::<Vec<_>>(), [true, false], "the first stays the one that acts");
     assert_eq!(read.profiles.iter().map(|p| p.chosen).collect::<Vec<_>>(), [false, true]);
     let second_dir = home.path().join(profiles::DIRECTORY).join("9919");
     assert_ne!(std::fs::read_to_string(second_dir.join(adapters::KEY_FILE)).unwrap(), first_key, "profiles never share a key");
@@ -239,14 +238,14 @@ fn signing_in_again_as_the_same_account_is_one_profile_with_a_fresh_device_and_t
         SigningIn::new(home.path(), forge, store.clone(), Arc::new(Ticking::from_nine())).paced(quickly())
     };
     let first = sign_in("octocat");
-    first.start(begin()).expect("begun");
+    first.start(begin(), &[]).expect("begun");
     settled(&first);
     let directory = home.path().join(profiles::DIRECTORY).join("583231");
     let key = std::fs::read_to_string(directory.join(adapters::KEY_FILE)).unwrap();
     let old = std::fs::read_to_string(directory.join(adapters::ID_FILE)).unwrap();
 
     let again = sign_in("octocat-renamed");
-    again.start(begin()).expect("begun");
+    again.start(begin(), &[]).expect("begun");
     let read = settled(&again);
 
     assert_eq!(read.profiles.len(), 1, "the same account is the same profile");
@@ -262,10 +261,10 @@ fn joined_both(home: &TempDir, store: &Arc<Enrolled>) -> SigningIn {
         SigningIn::new(home.path(), Arc::new(forge), store.clone(), Arc::new(Ticking::from_nine())).paced(quickly())
     };
     let first = sign_in(FakeSignIn::new().grants("tok-a", octocat()));
-    first.start(begin()).expect("begun");
+    first.start(begin(), &[]).expect("begun");
     settled(&first);
     let second = sign_in(FakeSignIn::new().grants("tok-b", hubot()));
-    second.start(begin()).expect("begun");
+    second.start(begin(), &[]).expect("begun");
     settled(&second);
     second
 }
@@ -278,12 +277,11 @@ fn signing_out_removes_only_that_profile_and_signs_only_its_device_out_of_the_st
     let kept_device = std::fs::read_to_string(home.path().join(profiles::DIRECTORY).join("9919").join(adapters::ID_FILE)).unwrap();
     let kept_key = std::fs::read_to_string(home.path().join(profiles::DIRECTORY).join("9919").join(adapters::KEY_FILE)).unwrap();
 
-    let out = signing.sign_out(583_231, "https://store.test").expect("signed out");
+    let out = signing.sign_out(583_231, "https://store.test", &[]).expect("signed out");
 
     assert!(!out.store_row_remains && out.said.is_none());
     assert_eq!(out.accounts.profiles.len(), 1);
     assert_eq!(out.accounts.profiles[0].login, "hubot");
-    assert!(out.accounts.profiles[0].active, "the profile left is the one that acts");
     assert!(!home.path().join(profiles::DIRECTORY).join("583231").exists(), "its directory is gone");
     assert_eq!(std::fs::read_to_string(home.path().join(profiles::DIRECTORY).join("9919").join(adapters::KEY_FILE)).unwrap(), kept_key);
     assert_eq!(store.store.devices(), [kept_device]);
@@ -296,7 +294,7 @@ fn signing_out_with_the_store_down_still_removes_the_profile_and_says_its_row_re
     let signing = joined_both(&home, &store);
     store.store.set_unreachable(true);
 
-    let out = signing.sign_out(9_919, "https://store.test").expect("signed out");
+    let out = signing.sign_out(9_919, "https://store.test", &[]).expect("signed out");
 
     assert!(out.store_row_remains);
     assert!(out.said.as_deref().is_some_and(|said| said.contains("could not be reached")), "{:?}", out.said);
@@ -311,7 +309,7 @@ fn signing_out_with_no_store_address_removes_the_profile_and_says_the_store_was_
     let home = TempDir::new();
     let store = Arc::new(Enrolled::new());
     let signing = joined_both(&home, &store);
-    let out = signing.sign_out(9_919, "  ").expect("signed out");
+    let out = signing.sign_out(9_919, "  ", &[]).expect("signed out");
     assert!(out.store_row_remains);
     assert!(out.said.as_deref().is_some_and(|said| said.contains("store address")), "{:?}", out.said);
 }
@@ -321,8 +319,8 @@ fn signing_out_of_an_account_the_machine_never_joined_is_refused_and_changes_not
     let home = TempDir::new();
     let store = Arc::new(Enrolled::new());
     let signing = joined_both(&home, &store);
-    assert_eq!(signing.sign_out(1, "https://store.test"), Err(Refused::NoSuchAccount(1)));
-    assert_eq!(signing.accounts().unwrap().profiles.len(), 2);
+    assert_eq!(signing.sign_out(1, "https://store.test", &[]), Err(Refused::NoSuchAccount(1)));
+    assert_eq!(signing.accounts(&[]).unwrap().profiles.len(), 2);
 }
 
 #[test]
@@ -332,7 +330,7 @@ fn a_denied_or_expired_flow_leaves_no_profile_no_directory_and_no_list() {
         (FakeSignIn::new().pending(1).expires(), SignInOutcome::Expired),
     ] {
         let rig = rig(forge);
-        rig.signing.start(begin()).expect("begun");
+        rig.signing.start(begin(), &[]).expect("begun");
         let read = settled(&rig.signing);
         assert_eq!(ended(&read), outcome);
         assert!(read.profiles.is_empty());
@@ -346,7 +344,7 @@ fn a_denied_or_expired_flow_leaves_no_profile_no_directory_and_no_list() {
 fn a_store_that_refuses_the_enrolment_leaves_no_profile_and_no_key_behind() {
     let rig = rig(FakeSignIn::new().grants("tok", octocat()));
     rig.store.refusing.store(true, Ordering::SeqCst);
-    rig.signing.start(begin()).expect("begun");
+    rig.signing.start(begin(), &[]).expect("begun");
     let read = settled(&rig.signing);
     assert_eq!(ended(&read), SignInOutcome::Refused);
     assert!(read.profiles.is_empty());
@@ -357,7 +355,7 @@ fn a_store_that_refuses_the_enrolment_leaves_no_profile_and_no_key_behind() {
 #[test]
 fn a_forge_that_will_not_say_who_holds_the_token_leaves_no_profile_and_the_store_is_never_asked() {
     let rig = rig(FakeSignIn::new().granting_a_token_nobody_vouches_for("tok-stray"));
-    rig.signing.start(begin()).expect("begun");
+    rig.signing.start(begin(), &[]).expect("begun");
     let read = settled(&rig.signing);
     assert_eq!(ended(&read), SignInOutcome::Refused);
     assert!(read.profiles.is_empty());
@@ -369,7 +367,7 @@ fn a_forge_that_will_not_say_who_holds_the_token_leaves_no_profile_and_the_store
 fn a_blank_sign_in_app_or_store_address_refuses_in_words_that_name_which_and_asks_the_forge_nothing() {
     let rig = rig(FakeSignIn::new());
     let blank = |client: &str, url: &str| {
-        rig.signing.start(Begin { client_id: client.into(), store_url: url.into(), machine: "mac-a".into() }).unwrap_err()
+        rig.signing.start(Begin { client_id: client.into(), store_url: url.into(), machine: "mac-a".into() }, &[]).unwrap_err()
     };
     let Refused::Unavailable(app) = blank("", "https://store.test") else { panic!("not refused as unavailable") };
     assert_eq!(app, "Sign-in is unavailable: the sign-in app is blank in Settings.");
@@ -378,52 +376,37 @@ fn a_blank_sign_in_app_or_store_address_refuses_in_words_that_name_which_and_ask
     let Refused::Unavailable(both) = blank("", "") else { panic!("not refused as unavailable") };
     assert_eq!(both, "Sign-in is unavailable: the sign-in app and the store address are blank in Settings.");
     assert!(rig.forge.begun().is_empty(), "no call was made");
-    assert!(matches!(rig.signing.accounts().unwrap().flow, AccountFlow::Idle { ended: None }));
+    assert!(matches!(rig.signing.accounts(&[]).unwrap().flow, AccountFlow::Idle { ended: None }));
 }
 
 #[test]
 fn a_forge_that_will_not_begin_is_refused_with_its_words_and_leaves_the_flow_idle() {
     let rig = rig(FakeSignIn::new().refusing_to_begin("Device Flow must be explicitly enabled for this App"));
-    let Refused::NotBegun(said) = rig.signing.start(begin()).unwrap_err() else { panic!("not refused as unbegun") };
+    let Refused::NotBegun(said) = rig.signing.start(begin(), &[]).unwrap_err() else { panic!("not refused as unbegun") };
     assert!(said.contains("Device Flow must be explicitly enabled"), "{said}");
-    assert!(matches!(rig.signing.accounts().unwrap().flow, AccountFlow::Idle { ended: None }));
+    assert!(matches!(rig.signing.accounts(&[]).unwrap().flow, AccountFlow::Idle { ended: None }));
 
     rig.forge.set_unreachable(true);
-    let Refused::NotBegun(said) = rig.signing.start(begin()).unwrap_err() else { panic!("not refused as unbegun") };
+    let Refused::NotBegun(said) = rig.signing.start(begin(), &[]).unwrap_err() else { panic!("not refused as unbegun") };
     assert!(said.contains("could not be reached"), "{said}");
 }
 
 #[test]
 fn a_forge_that_says_slow_down_is_waited_on_longer_and_the_sign_in_still_finishes() {
     let rig = rig(FakeSignIn::new().pending(1).slow_down().grants("tok", octocat()));
-    rig.signing.start(begin()).expect("begun");
+    rig.signing.start(begin(), &[]).expect("begun");
     let read = settled(&rig.signing);
     assert_eq!(ended(&read), SignInOutcome::SignedIn);
     assert_eq!(rig.forge.polls(), 3);
 }
 
 #[test]
-fn choosing_the_active_profile_is_kept_across_a_restart_and_an_unknown_one_is_refused() {
-    let home = TempDir::new();
-    let store = Arc::new(Enrolled::new());
-    let signing = joined_both(&home, &store);
-    assert_eq!(signing.accounts().unwrap().profiles.iter().map(|p| p.active).collect::<Vec<_>>(), [true, false]);
-
-    let chosen = signing.set_active(9_919).expect("chosen");
-    assert_eq!(chosen.profiles.iter().map(|p| p.active).collect::<Vec<_>>(), [false, true]);
-    assert_eq!(signing.set_active(7), Err(Refused::NoSuchAccount(7)));
-
-    let restarted = SigningIn::new(home.path(), Arc::new(FakeSignIn::new()), store.clone(), Arc::new(Ticking::from_nine()));
-    assert_eq!(restarted.accounts().unwrap().profiles.iter().map(|p| p.active).collect::<Vec<_>>(), [false, true]);
-}
-
-#[test]
 fn the_list_holds_the_numeric_id_the_login_and_when_it_was_added_and_no_key_or_token() {
     let rig = rig(FakeSignIn::new().grants("tok-secret-1", octocat()));
-    rig.signing.start(begin()).expect("begun");
+    rig.signing.start(begin(), &[]).expect("begun");
     settled(&rig.signing);
     let text = std::fs::read_to_string(rig.home.path().join(profiles::FILE)).expect("the list");
-    for held in ["\"account_id\":583231", "\"login\":\"octocat\"", "\"added_at\":\"2026-", "\"active\":583231"] {
+    for held in ["\"account_id\":583231", "\"login\":\"octocat\"", "\"added_at\":\"2026-"] {
         assert!(text.contains(held), "{held} is not in {text}");
     }
     for never in ["tok-secret-1", "key", "device"] {

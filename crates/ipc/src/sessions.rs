@@ -200,6 +200,16 @@ pub enum SessionFact {
     },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
+    /// The harness opened its own permission prompt for `tool`, and the turn waits on a person at the
+    /// terminal. `detail` is the command or the path, one line and cut, empty where the tool has
+    /// none. **The harness's fact, told by the mod**, never the agent's. Since mod 0.3.22.
+    PermissionAsked {
+        tool: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        detail: String,
+    },
+    /// The prompt `permission_asked` told of is closed: the call ran, was refused, or was abandoned.
+    PermissionSettled,
     Ended {
         reason: String,
     },

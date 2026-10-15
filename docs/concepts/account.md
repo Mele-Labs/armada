@@ -18,17 +18,17 @@ Defines the account. The shared home it sets up is [Kit](kit.md); the registry i
 | 2 | The person types it at `github.com/login/device` |
 | 3 | Fleet polls GitHub and finishes |
 
-The GitHub app needs the device flow enabled, and Armada holds no client secret.
+The GitHub app needs the device flow enabled, and Armada holds no client secret. **The flow asks for one scope, `read:org`**, which lets the token list the account's organisations and nothing else; the token is used once, at sign-in, and dropped.
 
 **Rule.** The identity is the GitHub account's numeric id.
 
 ## What signing in sets up
 
-Signing in sets these up and asks for nothing more. The store holds nothing about any repository.
+Signing in sets these up and asks for nothing more than that read-only organisation scope. The store holds nothing about any repository.
 
 | Set up | Holds |
 | --- | --- |
-| Identity | The account's numeric id and its login |
+| Identity | The account's numeric id, its login and the organisations it belongs to, read once. An account GitHub will not list them for keeps none, marked unread, and still signs in |
 | Central store | Pull request owner registry and red main claims, as opaque rows |
 | Shared home | The repository Kit's rows are compared against |
 
@@ -53,6 +53,10 @@ A work machine starts on its own work profile with nothing from the personal sid
 | Two profiles match, such as an owner both belong to | It waits unbound until chosen once |
 | The person chooses a profile, or moves a bound repository to another | It is bound to that profile, marked chosen |
 | The person chooses None | It claims and syncs nothing |
+
+**Rule.** A choice wins over a match, is kept per repository on this machine and names a profile by its account id. It outlives the profile: after signing out of that profile the repository has no store, and is not handed to another profile that happens to match.
+
+**Rule.** Organisations are read at sign-in only, so one joined later is matched after the next sign-in. An organisation that restricts third-party apps is not listed, and its repositories wait unbound until chosen.
 
 ## What syncs
 
@@ -98,6 +102,6 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 
 **Drawn in the mock, awaiting the owner's walk.** The account page (`account-page`), the repositories bound to each profile and the ones that wait (`account-repositories`), the sign-in that ended or was refused, signing out, and the shared home not made yet: the walks `sign-in-ended`, `sign-out` and `sign-in-no-home`.
 
-**The wire still carries one active profile and a set-active act**, which the page does not draw. Binding is drawn from `draft.account.repositories` and `orgs` in the mock; Fleet serves neither.
+**Fleet serves binding.** `get_accounts` carries each profile's repositories and the ones bound to none, and `set_repository_profile` chooses a profile or None for a repository; Bridge draws them. There is no active profile and no set-active act.
 
-**Not built, everything behind it.** Nothing signs in, no store exists and Fleet serves none of it.
+**Not built.** What syncs and the shared home. The central store is deployed outside this repository, [Central store](../contracts/central-store.md).

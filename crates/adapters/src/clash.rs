@@ -54,6 +54,18 @@ pub fn changed_on(worktree: &Path, tip: &str) -> Result<Vec<String>, NotChecked>
         .collect())
 }
 
+/// The paths the worktree as it stands changed since it and `base` last met: its commits and what
+/// it has not committed yet.
+pub fn changed_here(worktree: &Path, base: &str) -> Result<Vec<String>, NotChecked> {
+    let met = merge_base(worktree, &head_of(worktree)?, base)?;
+    let listed = git(worktree, &["diff", "--name-only", "-z", &met, &tree_of(worktree)?])?;
+    Ok(listed
+        .split('\0')
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
 /// The commit on `tip`'s first-parent line that brought `path` in since the worktree's `HEAD` and
 /// `tip` last met, as `abc1234 subject`. A merge's subject names its pull request.
 pub fn landed_in(worktree: &Path, tip: &str, path: &str) -> Option<String> {

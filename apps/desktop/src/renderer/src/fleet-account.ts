@@ -3,7 +3,7 @@
 // `POLL_MS` until it is. Nothing is held for a Fleet that has no such route or is not connected, and
 // nothing is drawn for it: the title menu offers no account where none is provided.
 
-import type { Account, AccountFlow, BlankSetting, SignedOutNote } from "@armada/components";
+import type { Account, AccountFlow, BlankSetting, Profile, SignedOutNote, UnboundRepository } from "@armada/components";
 import { openSettingsAt } from "@armada/settings";
 import type { AccountFlow as WireFlow, Accounts, SignedOut, SignInEnded } from "@armada/protocol";
 
@@ -36,7 +36,8 @@ export type FleetAccounts = {
   getAccounts: () => Promise<AccountsActed>;
   startSignIn: () => Promise<AccountsActed>;
   signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
-  setActiveAccount: (accountId: number) => Promise<AccountsActed>;
+  /** Binds the repository at `root` to the profile, or to none (`null`). */
+  setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
   openLink: (address: string) => Promise<unknown>;
 };
 
@@ -100,12 +101,9 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
       if (profile !== undefined) void leave(profile.account_id, login);
     },
     openSetting: (setting: BlankSetting) => openSettingsAt(setting, () => undefined),
-    switchTo: (login: string) => {
-      const profile = wire?.profiles.find((one) => one.login === login);
-      if (profile === undefined || profile.active) return;
-      const at = ++issued;
-      void fleet.setActiveAccount(profile.account_id).then((answer) => took(answer, at));
-    },
+    // A repository is bound to a profile and the machine has none that is active, so there is nothing to switch.
+    switchTo: () => {},
+    bind: (root: string, login: string | null) => void bind(root, login),
     // What syncs is not served yet.
     choose: () => {},
     closeSyncs: () => {},
@@ -114,6 +112,15 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
   };
 
   const heldOf = (from: Accounts, said: string | undefined): AccountHeld => {
+    // The composition still carries `active`; Fleet has no active profile, so none is marked.
+    const profiles: Profile[] = from.profiles.map((one) => ({
+      account_id: one.account_id,
+      login: one.login,
+      chosen: one.chosen,
+      active: false,
+      repositories: one.repositories.map((bound) => ({ root: bound.root, name: bound.name, by: bound.how })),
+    }));
+    const unbound: UnboundRepository[] = from.unmatched.map((loose) => ({ root: loose.root, name: loose.name, ...(loose.none_chosen ? { none: true } : {}) }));
     const ended = from.flow.phase === "idle" ? from.flow.ended : undefined;
     const blank = said === undefined ? [] : blankIn(said);
     // A refusal that names no blank setting is the forge declining to begin: it ends the sign-in, refused.
@@ -122,9 +129,10 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
         ? undefined
         : { outcome: ended.outcome, said: ended.said ?? "" };
     const account: Account = {
-      profiles: from.profiles,
+      profiles,
       flow: flowOf(from.flow),
       syncs: null,
+      ...(unbound.length === 0 ? {} : { unbound }),
       ...(end === undefined ? {} : { ended: end }),
       ...(said === undefined ? {} : blank.length > 0 ? { unavailable: { said, blank } } : { ended: { outcome: "refused" as const, said } }),
       ...(left === undefined ? {} : { left }),
@@ -200,6 +208,18 @@ export function createFleetAccount(fleet: FleetAccounts, later: Later = timer): 
       took({ ok: true, value: answer.value.accounts }, at);
     }
     return answer;
+  };
+
+  // The composition names a repository by its root and a profile by its login; Fleet names a profile by
+  // its account id. A login Fleet no longer lists asks nothing.
+  const bind = async (root: string, login: string | null): Promise<void> => {
+    const account = login === null ? null : wire?.profiles.find((one) => one.login === login)?.account_id;
+    if (account === undefined) return;
+    const at = ++issued;
+    const answer = await fleet.setRepositoryProfile(root, account);
+    // Fleet's refusal is shown as the page shows the others.
+    if (!answer.ok && answer.outcome.ok === false && answer.outcome.why === "refused" && wire !== undefined) publish(wire, answer.outcome.error.message);
+    else took(answer, at);
   };
 
   const changed = (facts: Pick<BridgeState, "connection">): void => {

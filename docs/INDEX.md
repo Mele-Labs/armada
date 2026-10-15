@@ -254,6 +254,9 @@ approximations.
 - [`spikes/030-can-a-session-be-forked-at-one-of-its-messages.md`](spikes/030-can-a-session-be-forked-at-one-of-its-messages.md)
   — `--resume-session-at <line uuid>` cuts a fork at a message, with `--fork-session`,
   in stream-json mode; an unknown uuid exits 1.
+- [`spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`](spikes/031-can-bridge-answer-a-terminal-permission-prompt.md)
+  — a mod allows a terminal's tool call from outside while its dialog is open, by a
+  second `next(e)` that `tool.check` allows; no second dialog.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

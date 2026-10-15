@@ -326,6 +326,8 @@ mod side_run;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
+/// Which profile a repository claims and syncs as: matched by its owner, or chosen.
+pub mod repository_profiles;
 mod rerun_settles;
 mod rerunning;
 mod rescuing;

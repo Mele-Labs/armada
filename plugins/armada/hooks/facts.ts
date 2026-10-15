@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.21'
+export const MOD_VERSION = '0.3.22'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -344,6 +344,19 @@ export function usedFact(act: 'touched' | 'read' | 'ran', cwd: string, input: Re
   const path = touchedOf(cwd, input)
   if (path === undefined) return undefined
   return act === 'read' ? { kind: 'read', path } : { kind: 'touched', paths: [path] }
+}
+
+/**
+ * What a permission prompt asks about, as the call names it: a shell command's first line, a file's
+ * path, an address, or nothing for a tool with none of these. One line and cut, never content. The
+ * same reading of the prompt's input and of the tool call's, so the call settles the prompt it raised.
+ */
+export function promptDetail(input: Record<string, unknown>): string {
+  const named = [input.command, input.file_path, input.notebook_path, input.path, input.url].find(
+    one => typeof one === 'string' && one.trim() !== '',
+  )
+  if (typeof named !== 'string') return ''
+  return (named.trim().split('\n')[0] ?? '').slice(0, COMMAND_MOST)
 }
 
 const MODELS = ['haiku', 'sonnet', 'opus']

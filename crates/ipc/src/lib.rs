@@ -514,8 +514,8 @@ pub use session_activity::{SessionActivity, SessionTodo, SessionTodoState};
 pub use model_downshift::{ModelDownshift, ModelDownshiftState};
 pub use plan_usage::{PlanUsage, PlanWindow};
 pub use accounts::{
-    AccountFlow, Accounts, Profile, SetActiveAccount, SetUpState, SetUpSteps, SignInEnded, SignInOutcome,
-    SignOut, SignedOut,
+    AccountFlow, Accounts, BoundHow, BoundRepository, Profile, SetRepositoryProfile, SetUpState, SetUpSteps,
+    SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{

@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, PanelRightClose, PanelRightOpen, Power } from "lucide-react";
+import { ExternalLink, PanelRightClose, PanelRightOpen, PowerOff } from "lucide-react";
 import {
   Alert,
   Button,
@@ -927,7 +927,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
   const doneShown = !(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined);
   // Until the done callout shows, what waits on the person sits at the foot of the thread and not in the ledger, less a question or permission its own card already shows.
-  const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || one.source === "permission").map((one) => `waiting${one.id}`));
+  // A terminal's own permission prompt has no card in the thread, so it stays at the foot.
+  const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || (one.source === "permission" && one.act?.kind !== "message")).map((one) => `waiting${one.id}`));
   const todos = todosOf(session);
   const needs = doneShown ? [] : entries.filter((one) => one.kind === "waiting" && !carded.has(one.key));
   const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
@@ -957,7 +958,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                   {draft.close === undefined || session.dead !== undefined ? null : (
                     <Tooltip label="End session">
                       <Button variant="ghost" size="sm" aria-label="End session" onClick={() => draft.close?.(session.id)}>
-                        <Power size={16} strokeWidth={2} aria-hidden />
+                        <PowerOff size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
                   )}

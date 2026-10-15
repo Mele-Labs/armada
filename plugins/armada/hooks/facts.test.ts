@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  promptDetail,
   artifactOf,
   effortOf,
   ghAct,
@@ -241,4 +242,12 @@ test('a read is told as a path, a command as its first line, and a write as befo
   expect(usedFact('ran', '/repos/armada', { command: 'x'.repeat(500) })).toEqual({ kind: 'ran', command: 'x'.repeat(300) })
   expect(usedFact('ran', '/repos/armada', { command: '  ' })).toBeUndefined()
   expect(usedFact('ran', '/repos/armada', {})).toBeUndefined()
+})
+
+test('a permission prompt is named by its command line, its path or its address, never content', () => {
+  expect(promptDetail({ command: 'cargo build\n--release' })).toBe('cargo build')
+  expect(promptDetail({ file_path: '/etc/hosts', content: 'secret' })).toBe('/etc/hosts')
+  expect(promptDetail({ url: 'https://example.com/a' })).toBe('https://example.com/a')
+  expect(promptDetail({ command: 'x'.repeat(500) })).toBe('x'.repeat(300))
+  expect(promptDetail({ prompt: 'what to fetch' })).toBe('')
 })

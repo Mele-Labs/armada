@@ -6,6 +6,13 @@
   notes = "The universal deliberate-stop glyph. Pairs against unplug to encode deliberate against accidental."
 
   [[icons.power.usage]]
+    means = "A Session whose agent said nothing is left: its Done state mark"
+    group = "Session"
+    size = "12 and 16px"
+    status = "Proposed"
+    notes = "Borrowed by `session_standing_marks`. The act on that state, End session, wears `power-off` and not this glyph (15 Oct 2026, walk `session-end-icon`), so a finished Session's head does not draw two identical marks side by side."
+
+  [[icons.power.usage]]
     means = "Stop the server a Studio's Run node is holding"
     group = "Canvas rail"
     size = "16px"

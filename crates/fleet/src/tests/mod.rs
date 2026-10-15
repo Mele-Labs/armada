@@ -29,6 +29,7 @@ mod asked_run;
 mod asking;
 mod asking_in_window;
 mod red_claim;
+mod repository_profiles;
 mod pull_registry;
 mod sketching;
 mod at_once;

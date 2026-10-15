@@ -13,13 +13,13 @@ export type AccountsApi = {
   startSignIn: () => Promise<AccountsActed>;
   /** Signs a profile out of this machine and the store. The profile is gone either way. */
   signOut: (accountId: number) => Promise<AccountsActed<SignedOut>>;
-  /** Chooses the profile the machine acts as. */
-  setActiveAccount: (accountId: number) => Promise<AccountsActed>;
+  /** Binds the repository at `root` to a profile, or to none (`null`): what it claims and syncs goes to that profile's store. */
+  setRepositoryProfile: (root: string, accountId: number | null) => Promise<AccountsActed>;
 };
 
 export const ACCOUNTS_CHANNELS = {
   getAccounts: "bridge:get-accounts",
   startSignIn: "bridge:start-sign-in",
   signOut: "bridge:sign-out",
-  setActiveAccount: "bridge:set-active-account",
+  setRepositoryProfile: "bridge:set-repository-profile",
 } as const;
