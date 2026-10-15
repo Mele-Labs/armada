@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, waitFor } from "storybook/test";
 import { FleetBuildSection } from "./FleetBuild";
 import type { FleetBuild } from "./FleetBuild";
 
@@ -142,7 +142,8 @@ export const DronesWorking: Story = {
   play: async ({ args, canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Update to main" }));
     await expect(args.build.onRestart).not.toHaveBeenCalled();
-    await expect(canvas.getByRole("dialog", { name: "Drones are working" })).toBeVisible();
+    // The dialog fades in, so it is not visible on the click's own frame.
+    await waitFor(() => expect(canvas.getByRole("dialog", { name: "Drones are working" })).toBeVisible());
     await expect(canvas.getByText("Reword the empty states")).toBeVisible();
     await expect(canvas.getByText("Count drones from the roster")).toBeVisible();
     await expect(canvas.getByText("Cannot be redirected until it finishes")).toBeVisible();
