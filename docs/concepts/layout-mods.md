@@ -32,7 +32,7 @@ Every entry is drawn until a layout hides it.
 |---|---|---|---|---|
 | `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes, within a slot | |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | `first` |
-| `rail` | The places: `overview`, `jobs`, `sessions`, `studios`, `lessons`, `kit`, `mods`, `settings`, `guides`, `workflows` | `overview`, `mods`, `settings` | no | |
+| `rail` | The places: `overview`, `jobs`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `lessons` | `overview`, `mods`, `settings` | no | |
 
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places. An entry is a tab or a System strip page: Cockpit, Jobs, Sessions, Studios and Retros (`lessons`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages. Hiding one takes that tab or strip page off the bar. The bar's order is the shell's own, and `⌘1` to `⌘6` follow it. System is never hidden. Doctor is a row of the title menu with no entry, and so is every place with no tab and no strip page (Worktree Slots, Merge line, Manifest, Checks), so a layout cannot name them.
 

@@ -281,13 +281,13 @@ export const PLACES: readonly string[] = [
   SURFACE.overview,
   SURFACE.jobs,
   SURFACE.sessions,
-  SURFACE.studios,
-  SURFACE.lessons,
   SURFACE.kit,
   SURFACE.mods,
   SURFACE.settings,
   SURFACE.guides,
   SURFACE.workflows,
+  SURFACE.studios,
+  SURFACE.lessons,
 ];
 
 /** The tab a surface is under, or `undefined` where the Cockpit window places none (Manifest, the merge line). */
