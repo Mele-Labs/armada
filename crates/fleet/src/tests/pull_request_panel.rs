@@ -18,7 +18,7 @@ use super::pull_requesting::{
     a_fleet, a_session_holding_pull_request_12, code, facts, forge_ran, manifest, passed, the_row,
 };
 
-fn a_page() -> PullRequestPageFacts {
+pub(super) fn a_page() -> PullRequestPageFacts {
     PullRequestPageFacts {
         base: "main".into(),
         author: Some("NickMele".into()),

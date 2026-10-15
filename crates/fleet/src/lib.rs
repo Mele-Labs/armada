@@ -274,6 +274,8 @@ mod claiming;
 mod pull_attaching;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
+/// Which Session or Job claimed a pull request, kept in the central store for the other machines.
+mod pull_registry;
 /// What a pull request's panel reads when it opens, and its comment box writes.
 /// Since 23.83.
 mod pull_request_panel;

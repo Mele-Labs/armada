@@ -455,7 +455,7 @@ export type SessionsDraft = {
   writePullRequest?: (id: string, number: number, write: Pick<WritePullRequest, "kind" | "body">) => Promise<PullRequestPageRead>;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */
   said?: () => string | undefined;
-  /** What `@` offers beyond other Sessions: Jobs, pull requests and branches. */
+  /** What `@` offers beyond other Sessions: the Jobs. */
   taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;

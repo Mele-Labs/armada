@@ -428,15 +428,6 @@ export function sessionsStore(
       return id;
     },
     taggable() {
-      const fromSessions = now.flatMap((one) => [
-        ...one.attachments.flatMap((a): SessionTag[] =>
-          a.kind === "pull_request"
-            ? [{ kind: "pull_request", id: String(a.number), title: `#${a.number} ${a.title}` }]
-            : a.kind === "branch"
-              ? [{ kind: "branch", id: a.name, title: a.name }]
-              : [],
-        ),
-      ]);
       const jobsOnBoard = taggableJobs.map((j): SessionTag => ({
         kind: "job",
         id: j.id,
@@ -450,7 +441,7 @@ export function sessionsStore(
             : [],
         ),
       );
-      return [...jobsOnBoard, ...dispatched, ...fromSessions];
+      return [...jobsOnBoard, ...dispatched];
     },
     pilot(jobId, outcome) {
       void outcome;

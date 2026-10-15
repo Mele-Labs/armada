@@ -121,7 +121,7 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 | Field | Holds |
 |---|---|
-| key | An opaque hash of the repository and the pull request number |
+| key | The sha256, in hex, of `owner/name#number`, the name lowercased so every machine makes the same one |
 | kind | `session` or `job` |
 | id | The holder's short id |
 | machine | The machine's name |
@@ -129,7 +129,16 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **A row never holds a title, a repository name or code.** The machine that owns the pull request draws its title from its own ledger, and any other machine draws only the stored facts. A repository registers nothing until its Manifest turns it on, and the switch is off by default. With it off, the repository registers none and shows no owners at all, those another machine registered included.
 
-**Bridge draws a row as a chip.** The kind's glyph (`square-terminal` for a Session, `box` for a Job) and the short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name. A pull request with no row draws no chip, in the merge line's open pull requests and in the Pull request panel. The switch is *Pull request owners* in the Policy section of the Manifest form.
+| When | Fleet |
+|---|---|
+| A Session claims a pull request (`claim_pull_request`) | Writes the row |
+| A Job opens its pull request, or finds its own already open | Writes the row |
+| The reading of a repository's open pull requests | Asks for the rows of all of them in one call, and puts each owner on the merge line's pull request and on the panel's page as `owner` (kind, id, machine, `this_machine`) |
+| A pull request is in the last reading and not in this one | Deletes its row |
+
+**None of it can fail the claim or the delivery.** A store that cannot be reached, a machine signed out and a switch that is off leave the row unwritten and the field absent, and a claim is made all the same. The panel's page carries what the last reading found and makes no call of its own.
+
+**Bridge draws a row as a chip.** The kind's glyph (`square-terminal` for a Session, `box` for a Job) and the short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name. A pull request with no row draws no chip, in the merge line's open pull requests and in the Pull request panel. The chip is drawn from the wire's `owner`. The switch is *Pull request owners* in the Policy section of the Manifest form.
 
 ## What Fleet answers
 
@@ -704,6 +713,8 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 | `issue` | The number | `issue #214 "title"` and its address. A tag's title begins with `#` and the number, and the line drops that so the number is said once |
 | `branch` | The name | The branch |
 
+**`@` offers the other Sessions, then the Jobs, and once letters follow it the repository's files that match them.** A file is written into the words as `@path` and is not a tag: the agent reads the path itself. Pull requests are `#`'s, and no trigger offers a branch, though the kind is still accepted.
+
 **`#` at the start of a word offers the repository's open issues and open pull requests**, matched on the number, and reads one number that is neither (a merged pull request, a closed issue) when it is typed whole. The repository is the Session's own. Helm's box offers the same, for the repository its conversation answers for (`helm.md`, *The message box*). `url` on a tag is optional and only the two forge kinds carry it.
 
 ## A Session's Checks
@@ -792,7 +803,7 @@ by the table above.
 
 ## Not built
 
-**No store holds a pull request's registered owner.** The chip and the Manifest switch run on mock data through `draft.prOwners`, nothing reads or writes a store, and Fleet does not serve the setting, so it is not a Manifest key yet.
+**The Manifest switch is drawn on mock data only.** The chip is read off the wire, but the form's *Pull request owners* switch still runs on `draft.prOwners`, so a real Bridge draws none and the key is set in `armada.yml`. A row is deleted by a Fleet that saw the pull request open and then gone: one that merged while no Fleet was reading keeps its row, and so does a claim that was given back.
 
 **The `/` list is empty until an agent has started.** `hosted.commands` is the names in the stream's `init` line, slash commands then skills, and a session whose own process has not started is given the last one any session read. It is held in memory, so after a Fleet restart it is empty until a process starts, and the harness says nothing of what each command does, so the list draws names only.
 

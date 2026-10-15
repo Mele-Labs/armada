@@ -10,14 +10,20 @@
 //!
 //! **The store sees two hashes.** The repository's `owner/name` and the commit
 //! main went red at, each as a sha256 in hex, so a name never leaves the
-//! machine.
+//! machine. A pull request's owner row is under one: `owner/name#number`
+//! ([`owner_key_of`]).
+//!
+//! **The holder is shared with the owner registry**, `crate::pull_registry`:
+//! one gate (the switch, a signed-in profile, a store address), one blocking
+//! thread, one place a name becomes a hash.
 
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Claimed, Delivery, Holder, HolderKind, RedKey, RepositoryKey, Store, StoreError, Vcs, WorkProduct,
+    AgentHarness, Claimed, Delivery, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError, Vcs,
+    WorkProduct,
 };
 use config::settings as keys;
 use core_model::JobId;
@@ -74,6 +80,13 @@ pub(crate) fn keys_of(slug: &str, red_commit: &str) -> Option<(RepositoryKey, Re
     Some((RepositoryKey::from_hash(&sha256_hex(slug))?, RedKey::from_hash(&sha256_hex(red_commit))?))
 }
 
+/// The key a pull request's owner row is under: the sha256 in hex of
+/// `owner/name#number`, with the name as [`Reaching::slug`] gives it (lowercase,
+/// the same on every machine). 64 hex characters, and the store sees nothing else.
+pub(crate) fn owner_key_of(slug: &str, number: u64) -> Option<OwnerKey> {
+    OwnerKey::from_hash(&sha256_hex(&format!("{slug}#{number}")))
+}
+
 /// Who takes a red: a Job Fleet released, or a Session that said so.
 #[derive(Clone, Debug)]
 pub(crate) enum Taker {
@@ -82,7 +95,7 @@ pub(crate) enum Taker {
 }
 
 impl Taker {
-    fn parts(&self) -> (HolderKind, &str) {
+    pub(crate) fn parts(&self) -> (HolderKind, &str) {
         match self {
             Taker::Job(job) => (HolderKind::Job, job.as_str()),
             Taker::Session(id) => (HolderKind::Session, id),
@@ -96,6 +109,14 @@ pub(crate) struct Reach {
     pub store: Box<dyn Store + Send>,
     pub repository: RepositoryKey,
     pub red: RedKey,
+    pub machine: String,
+}
+
+/// What a call that is not about a red has to hand: the store, the repository's
+/// name as the forge spells it, and this machine's name.
+pub(crate) struct Opened {
+    pub store: Box<dyn Store + Send>,
+    pub slug: String,
     pub machine: String,
 }
 
@@ -118,12 +139,25 @@ where
         red_commit: &str,
         work: impl FnOnce(&Reach) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
-        let switched_on = self
-            .repositories()
-            .served()
-            .into_iter()
-            .find(|served| served.root() == root)
-            .is_some_and(|served| served.manifest().pull_request_owners());
+        let red_commit = red_commit.to_string();
+        self.at_the_store_of(root, move |opened| {
+            let Opened { store, slug, machine } = opened;
+            let Some((repository, red)) = keys_of(&slug, &red_commit) else { return Ok(None) };
+            work(&Reach { store, repository, red, machine }).map(Some)
+        })
+        .await
+        .map(Option::flatten)
+    }
+
+    /// Run `work` against the store for `root`. **The gate every call passes**:
+    /// the repository's switch is on, this machine is signed in and a store
+    /// address is set; otherwise `Ok(None)` and nothing was asked.
+    pub(crate) async fn at_the_store_of<T: Send + 'static>(
+        &self,
+        root: &str,
+        work: impl FnOnce(Opened) -> Result<T, StoreError> + Send + 'static,
+    ) -> Result<Option<T>, StoreError> {
+        let switched_on = self.registers_owners(root);
         let settings = self.machine_settings().now();
         let url: String = settings.get(keys::STORE_URL);
         let directory = self.signing_in().active_directory();
@@ -132,21 +166,28 @@ where
         };
         let configured: String = settings.get(keys::MACHINE_NAME);
         let reaching = Arc::clone(self.reaching());
-        let (root, red_commit) = (root.to_string(), red_commit.to_string());
+        let root = root.to_string();
         tokio::task::spawn_blocking(move || {
             let Some(slug) = reaching.slug(&root) else { return Ok(None) };
-            let Some((repository, red)) = keys_of(&slug, &red_commit) else { return Ok(None) };
             let Some(store) = reaching.open(url.trim(), &directory).map_err(StoreError::Refused)? else {
                 return Ok(None);
             };
-            let reach = Reach { store, repository, red, machine: this_machine(&configured) };
-            work(&reach).map(Some)
+            work(Opened { store, slug, machine: this_machine(&configured) }).map(Some)
         })
         .await
         .unwrap_or_else(|why| Err(StoreError::Refused(format!("the call to the store was abandoned: {why}"))))
     }
 
-    fn unix_seconds(&self) -> i64 {
+    /// Whether the Manifest of the repository at `root` turns the registry on.
+    pub(crate) fn registers_owners(&self, root: &str) -> bool {
+        self.repositories()
+            .served()
+            .into_iter()
+            .find(|served| served.root() == root)
+            .is_some_and(|served| served.manifest().pull_request_owners())
+    }
+
+    pub(crate) fn unix_seconds(&self) -> i64 {
         self.now().epoch_millis().map_or(0, |millis| millis / 1000)
     }
 
@@ -285,5 +326,13 @@ mod tests {
         assert_eq!(red.as_str(), "d22ec3d900a8a525d81d390fe519c894a3890b5578ab2f2a975239f247cad0bf");
         assert_ne!(red.as_str(), repository.as_str());
         assert_eq!(sha256_hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    }
+
+    #[test]
+    fn a_pull_requests_key_is_the_sha256_of_its_name_and_number() {
+        let key = owner_key_of("mele-labs/armada", 2300).expect("a key");
+        assert_eq!(key.as_str(), "1fcae723f112b7f7cb256b89d3fe0843466cf2a39e94025653d9be65929afcdb");
+        assert_eq!(key.as_str().len(), 64);
+        assert_ne!(owner_key_of("mele-labs/armada", 2301).expect("a key"), key);
     }
 }

@@ -440,8 +440,8 @@ function searchedSentence(jobs: number, sessions: number, settings: number, runn
     "every place in Bridge",
     runnables === 0 ? null : "every Check and Command this Manifest declares",
     repositories === 0 ? null : "every repository",
-    jobs === 0 ? null : "every job on this Manifest, at every status",
-    sessions === 0 ? null : "every session",
+    jobs === 0 ? null : "every active job",
+    sessions === 0 ? null : "every live session",
     settings === 0 ? null : "every setting",
   ].filter((part): part is string => part !== null);
   return `${held.slice(0, -1).join(", ")} and ${held[held.length - 1]}`;

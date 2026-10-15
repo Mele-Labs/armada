@@ -372,24 +372,7 @@ export class WiredStore {
     },
     run: (id, command, on) => this.running(id, command, on),
     said: () => this.refusal,
-    taggable: () => {
-      const sessions = this.mapped;
-      const jobs = this.inputs?.jobs ?? NONE;
-      const prs = new Map<number, SessionTag>();
-      const branches = new Set<string>();
-      for (const one of sessions) {
-        for (const held of one.attachments) {
-          if (held.kind === "pull_request") prs.set(held.number, { kind: "pull_request", id: String(held.number), title: `#${held.number} ${held.title}`.trim() });
-          if (held.kind === "branch") branches.add(held.name);
-        }
-      }
-      for (const job of jobs) if (job.branch !== undefined) branches.add(job.branch);
-      return [
-        ...jobs.map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
-        ...prs.values(),
-        ...[...branches].map((name): SessionTag => ({ kind: "branch", id: name, title: name })),
-      ];
-    },
+    taggable: () => (this.inputs?.jobs ?? NONE).map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
     setTags: (id, tags) => this.tagged(id, tags),
     send: (id, sent) => this.sending(id, sent),
     tune: (id, tuning) =>

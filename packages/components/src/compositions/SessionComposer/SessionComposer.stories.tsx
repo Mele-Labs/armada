@@ -7,7 +7,7 @@ import { SessionComposer } from "./SessionComposer";
  * A Session's message box, one box over one slim row: the permission mode,
  * Dispatch's model and effort pair, attach and draw as glyphs with tooltips,
  * and what is waiting to go in a strip that scrolls sideways. `/` opens the
- * skills and commands, `@` the other Sessions.
+ * skills and commands, `@` the other Sessions, the Jobs and the files.
  */
 const meta: Meta<typeof SessionComposer> = {
   title: "Compositions/Session composer",
@@ -29,9 +29,8 @@ const meta: Meta<typeof SessionComposer> = {
       { kind: "session", id: "s2", title: "Release notes script" },
       { kind: "session", id: "s3", title: "Store migration spike" },
       { kind: "job", id: "j55", title: "55 Cap the retry backoff" },
-      { kind: "pull_request", id: "1843", title: "#1843 Pin the store clock" },
-      { kind: "branch", id: "fix/flaky-store", title: "fix/flaky-store" },
     ],
+    searchFiles: async (query) => ["packages/components/src/compositions/SessionComposer/SessionComposer.tsx", "docs/practices/bridge.md", "README.md"].filter((path) => path.toLowerCase().includes(query.toLowerCase())),
     tags: [],
     onTags: fn(),
     drawn: [],
@@ -95,7 +94,7 @@ export const EnterSends: Story = {
 };
 
 /**
- * `@` opens Jobs, pull requests, branches and the other Sessions, grouped. Choosing one writes it into the line
+ * `@` opens the other Sessions, then the Jobs, grouped. Choosing one writes it into the line
  * at the caret, as a unit: it is not in the row of what waits, Backspace takes it whole, and a send
  * carries it as `@title` in the text and in `tags`.
  */
@@ -111,6 +110,22 @@ export const At: Story = {
     await userEvent.keyboard("stall");
     await userEvent.keyboard("{Enter}");
     await expect(args.onSend).toHaveBeenCalledWith({ text: "why did @55 Cap the retry backoff stall", files: [], tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] });
+  },
+};
+
+/**
+ * A letter after `@` also asks for files, which show under the Sessions and the Jobs. Choosing one writes
+ * `@path` into the line as plain text, with no chip.
+ */
+export const AtFiles: Story = {
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "read @bridge");
+    await userEvent.click(await canvas.findByRole("option", { name: /bridge\.md/ }));
+    await expect(field.querySelector("[data-tag-kind]")).toBeNull();
+    await expect(field).toHaveTextContent("read @docs/practices/bridge.md");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "read @docs/practices/bridge.md", files: [], tags: [] });
   },
 };
 
