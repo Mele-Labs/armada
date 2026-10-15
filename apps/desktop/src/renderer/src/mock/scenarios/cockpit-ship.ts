@@ -17,6 +17,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { queued, review, running } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
+import { mockAreas } from "../cockpit-areas";
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore, type SessionsStore } from "../sessions/script";
@@ -519,7 +520,7 @@ function build(): Scenario {
     held: pool(),
     // The Session replies, main goes red as 1890 lands, the fix lands. The Job dispatched at the second moment lifts from its bay.
     later: [{}, { mergeLines: lines("red"), jobs: [...jobs, dispatched.job] }, { mergeLines: lines("fixed"), jobs: [...jobs, dispatched.job] }],
-    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, SESSIONS), events: EVENTS, clashes: CLASHES },
+    draft: { calls: CALLS, now: NOWS, sessions: (control) => sessions(control, SESSIONS), events: EVENTS, clashes: CLASHES, areas: mockAreas },
     behaves: () => ({ getPlanUsage: async () => ({ ok: true as const, value: PLAN() }), onPlanUsageChanged: () => () => undefined }),
   };
 }

@@ -3,7 +3,7 @@
 // both; `GET /clashes` lists what stands (`@armada/protocol`, `WriteClash`). `fleet-clashes.ts` reads
 // it in the app and a mock scenario carries its own list; both hand the list to `ClashesFrom`.
 
-import { useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { ClashesProvider } from "@armada/components";
 import type { Clashing } from "@armada/components";
@@ -24,10 +24,16 @@ export function clashingOf(clashes: readonly WriteClash[]): Clashing["of"] {
     );
 }
 
+const NONE: readonly WriteClash[] = [];
+const Written = createContext<readonly WriteClash[]>(NONE);
+
+/** The list as Fleet gave it, for a reader that draws the clashes themselves and not what each holder is in: the flight deck's map. */
+export const useWriteClashes = (): readonly WriteClash[] => useContext(Written);
+
 /** Hands the window what Fleet said clashes. Nothing handed, nothing is marked. */
 export function ClashesFrom({ clashes, children }: { clashes: readonly WriteClash[] | undefined; children: ReactNode }) {
   const value = useMemo<Clashing>(() => ({ of: clashingOf(clashes ?? []), open: askToOpenHolder }), [clashes]);
-  return clashes === undefined ? <>{children}</> : <ClashesProvider value={value}>{children}</ClashesProvider>;
+  return clashes === undefined ? <>{children}</> : <Written.Provider value={clashes}><ClashesProvider value={value}>{children}</ClashesProvider></Written.Provider>;
 }
 
 /** The clashes Fleet reports, kept current by `source`. The provider is always there, so a read landing does not remount the app. */
