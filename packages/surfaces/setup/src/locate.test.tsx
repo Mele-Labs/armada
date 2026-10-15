@@ -23,18 +23,22 @@ const dialog = () => page.getByRole("dialog", { name: "Add a repository" });
 const repositoryPicker = (within: ReturnType<typeof page.elementLocator> | typeof page = page, options: { includeHidden?: boolean } = {}) =>
   within.getByRole("button", { name: "Repository", exact: true, ...options });
 
-/**
- * The dialog, already open. **Add a repository has no row on the flight deck's picker**, and the title menu draws the
- * picker's rows only where its container is narrow, which its portalled panel does not see; the one way in left is a
- * Fleet that serves no repository, where the dialog opens by itself.
- */
-async function opened() {
+/** Add a repository is the last row of the deck's repository picker: opening the dialog is opening the picker first. */
+async function opened(within: ReturnType<typeof page.elementLocator> | typeof page = page) {
+  await within.getByRole("button", { name: "Repository", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add a repository" }).click();
   await entered(dialog());
   return dialog();
 }
 
-async function cloneFrom(_within: ReturnType<typeof page.elementLocator> | typeof page = page) {
-  const add = await opened();
+/** Where nothing is served the dialog opens by itself, and there is no picker to press. */
+async function openedByItself() {
+  await entered(dialog());
+  return dialog();
+}
+
+async function cloneFrom(within: ReturnType<typeof page.elementLocator> | typeof page = page, open: typeof opened = opened) {
+  const add = await open(within);
   await add.getByRole("button", { name: "Clone from a URL" }).click();
   await userEvent.type(add.getByLabelText("Repository URL"), URL);
   await userEvent.type(add.getByLabelText("Clone into"), "/Users/user/code");
@@ -46,8 +50,7 @@ async function cloneFrom(_within: ReturnType<typeof page.elementLocator> | typeo
 
 const locating = (options: SettingUp = {}) => mount(settingUp(options), SLICES);
 
-// Skipped (#2301): the picker's Add a repository row, which the deck's picker does not carry, which the flight deck replaced. To be ported or dropped before landing.
-test.skip("a folder added: the dialog closes, the picker holds it, and Setup is open for it", async () => {
+test("a folder added: the dialog closes, the picker holds it, and Setup is open for it", async () => {
   const onAdded = vi.fn();
   locating({ onAdded });
   const add = await opened();
@@ -57,7 +60,8 @@ test.skip("a folder added: the dialog closes, the picker holds it, and Setup is 
   expect(onAdded).toHaveBeenCalledWith(CHOSEN);
   await expect.poll(() => dialog().query()).toBeNull();
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
-  // Nobody's Manifest yet, so it reads by its own name.
+  // Nobody's Manifest yet, so it reads by its own name. The picker is on the Cockpit, not on Setup's page.
+  await toPlace("Cockpit");
   await repositoryPicker().click();
   const menu = page.getByRole("menu");
   await expect.element(menu.getByText("Not set up")).toBeVisible();
@@ -70,7 +74,6 @@ test("nothing served: the dialog opens by itself, nothing reads as a fault, and 
   locating({ repositories: [], onAdded });
   const add = dialog();
   await entered(add);
-  // Skipped (#2301): the picker's "Nothing set up yet" reading, which the flight deck replaced: it draws no picker where nothing is served.
   expect(page.getByText(/could not be read/).query()).toBeNull();
   await userEvent.type(add.getByLabelText("Project location"), CHOSEN);
   await add.getByRole("button", { name: /^Add repository/ }).click();
@@ -81,8 +84,7 @@ test("nothing served: the dialog opens by itself, nothing reads as a fault, and 
   await expect.element(repositoryPicker()).toHaveTextContent("scratch");
 });
 
-// Skipped (#2301): the picker's Add a repository row, which the deck's picker does not carry, which the flight deck replaced. To be ported or dropped before landing.
-test.skip("a clone that finished after its dialog closed says so, and moves nothing until its Setup is asked for", async () => {
+test("a clone that finished after its dialog closed says so, and moves nothing until its Setup is asked for", async () => {
   locating({ clone: "late" });
   const add = await cloneFrom();
   await add.getByRole("button", { name: /^Cancel/ }).click();
@@ -92,12 +94,12 @@ test.skip("a clone that finished after its dialog closed says so, and moves noth
   expect(page.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   await page.getByRole("button", { name: "Open Setup" }).click();
   await expect.element(page.getByRole("region", { name: "Workspaces" })).toBeVisible();
+  await toPlace("Cockpit");
   await expect.element(repositoryPicker()).toHaveTextContent("storefront");
   await expect.poll(() => page.getByText("storefront is ready to set up").query()).toBeNull();
 });
 
-// Skipped (#2301): the picker's Add a repository row, which the deck's picker does not carry, which the flight deck replaced. To be ported or dropped before landing.
-test.skip("a late clone is heard in another window on the same main, and neither window's pick moves", async () => {
+test("a late clone is heard in another window on the same main, and neither window's pick moves", async () => {
   const [asked, other] = mountTwo(settingUp({ clone: "late" }), ["The window that asked", "Another window"], SLICES);
   const inAsked = page.elementLocator(asked);
   const inOther = page.elementLocator(other);
@@ -119,7 +121,7 @@ test.skip("a late clone is heard in another window on the same main, and neither
 
 test("a parent under a symlink previews the folder Fleet clones into, as main resolves it", async () => {
   locating({ repositories: [] });
-  const add = await opened();
+  const add = await openedByItself();
   await add.getByRole("button", { name: "Clone from a URL" }).click();
   await userEvent.type(add.getByLabelText("Repository URL"), URL);
   await userEvent.type(add.getByLabelText("Clone into"), "/tmp");
@@ -130,7 +132,7 @@ test("a parent under a symlink previews the folder Fleet clones into, as main re
 test("a clone underway says so, and a second press — the button or Enter — sends nothing", async () => {
   const onCloned = vi.fn();
   locating({ repositories: [], clone: "underway", onCloned });
-  const add = await cloneFrom();
+  const add = await cloneFrom(page, openedByItself);
   await expect.element(add.getByText(/Git is cloning into/)).toBeVisible();
   await expect.element(add.getByRole("button", { name: /^Clone repository/ })).toBeDisabled();
   await userEvent.keyboard("{Enter}");
@@ -140,7 +142,7 @@ test("a clone underway says so, and a second press — the button or Enter — s
 
 test("git's refusal reads in the dialog in full, and nothing moves behind it", async () => {
   locating({ repositories: [], clone: "refused" });
-  const add = await cloneFrom();
+  const add = await cloneFrom(page, openedByItself);
   await expect.element(add.getByText("Not cloned")).toBeVisible();
   await expect.element(add.getByText(`git refused the clone: fatal: repository '${URL}' not found.`)).toBeVisible();
   expect(add.getByText("fleet.clone_refused").query()).toBeNull();
@@ -150,7 +152,7 @@ test("git's refusal reads in the dialog in full, and nothing moves behind it", a
 
 test("a destination already full: Fleet's words, and where to go from them", async () => {
   locating({ repositories: [], clone: "occupied" });
-  const add = await cloneFrom();
+  const add = await cloneFrom(page, openedByItself);
   await expect.element(add.getByText("Not cloned")).toBeVisible();
   await expect.element(add.getByText("/Users/user/code/storefront already exists and is not empty.")).toBeVisible();
   await expect.element(add.getByText("Choose another folder to clone into.")).toBeVisible();
@@ -158,8 +160,7 @@ test("a destination already full: Fleet's words, and where to go from them", asy
   expect(add.getByText("fleet.destination_occupied").query()).toBeNull();
 });
 
-// Skipped (#2301): the picker's Add a repository row to open the dialog a second time, which the deck's picker does not carry, which the flight deck replaced. To be ported or dropped before landing.
-test.skip("Escape closes it with nothing sent, and it opens again empty", async () => {
+test("Escape closes it with nothing sent, and it opens again empty", async () => {
   const onAdded = vi.fn();
   locating({ onAdded });
   const add = await opened();

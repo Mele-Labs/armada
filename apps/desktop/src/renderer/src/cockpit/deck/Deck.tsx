@@ -9,7 +9,7 @@ import { useEffect, useMemo } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
 import { Badge, Button, DropdownMenu, Kbd, Switch, Tooltip } from "@armada/components";
 import type { WorktreeSlot } from "@armada/protocol";
-import { ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
+import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
 import { age, useCursor, type Item } from "../../Dashboard";
 import { useDispatching } from "../../dispatch-panel/dispatching";
@@ -50,6 +50,7 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
   const [recent] = useRecentRepositories();
   const repositories = props.state.holds.repositories ?? [];
   const pick = props.onPickRepository;
+  const add = props.onAddRepository;
   if (props.onGoTo === undefined && (repositories.length === 0 || pick === undefined)) return null;
   return (
     <div className="deck-scope">
@@ -60,8 +61,9 @@ function RepositoryScope({ props }: { props: CockpitProps }) {
           triggerLabel={props.picked === null ? "All repositories" : repositoryLabel(props.picked, repositories)}
           triggerAriaLabel="Repository"
           searchLabel={FIND_A_REPOSITORY}
-          entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", recent })}
+          entries={repositoryEntries(repositories, { scope: props.picked?.root ?? null, all: "All repositories", add: add !== undefined, recent })}
           onSelect={(chosen) => {
+            if (chosen === ADD) return add?.();
             const root = rootOf(chosen);
             pick(root === ALL ? null : root);
           }}

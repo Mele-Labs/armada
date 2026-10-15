@@ -199,6 +199,8 @@ export type Hosts = {
   onGoTo?: ((surface: string) => void) | undefined;
   /** Picks a repository, as the title row's picker does; null is All repositories. */
   onPickRepository?: ((root: string | null) => void) | undefined;
+  /** Opens the Add a repository dialog, the act the title row's picker carries as its last row. */
+  onAddRepository?: (() => void) | undefined;
   /** Rescues a stranded slot: a Scout started or stopped, and the work picked up, stashed or scrapped. Absent, the deck draws no rescue acts. */
   onRescueSlot?: BridgeApi["rescueSlot"] | undefined;
   /** Merges a Job's pull request, the command the review gate sends. Absent, a Job's Merge is not offered. */

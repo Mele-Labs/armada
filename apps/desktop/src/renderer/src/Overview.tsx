@@ -56,6 +56,7 @@ export function Overview({
   onRescueSlot,
   onMergeJob,
   onPickRepository,
+  onAddRepository,
   onGoTo,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
@@ -114,6 +115,7 @@ export function Overview({
   onMergeJob?: Hosts["onMergeJob"];
   /** Picks a repository, as the title row's picker does: Autopilot's control asks for one on All. */
   onPickRepository?: Hosts["onPickRepository"];
+  onAddRepository?: Hosts["onAddRepository"];
   onGoTo?: Hosts["onGoTo"];
 }) {
   const guarded = { bridge: state.bridge, onCopied };
@@ -231,6 +233,7 @@ export function Overview({
             onRescueSlot={onRescueSlot}
             onMergeJob={onMergeJob}
             onPickRepository={onPickRepository}
+            onAddRepository={onAddRepository}
             onGoTo={onGoTo}
           />
         )}

@@ -1149,6 +1149,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
                   onPickRepository={pick}
+                  onAddRepository={locate.onOpen}
                   onGoTo={goTo}
                   onReleaseSlot={(manifestId, slot, holder) => slotActs.onChangeSlotPool(manifestId, { act: "release", slot, holder })}
                   onRescueSlot={slotActs.onRescueSlot}
