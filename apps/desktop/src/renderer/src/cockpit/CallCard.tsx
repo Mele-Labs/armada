@@ -7,7 +7,7 @@
 // control pressed carries the loop and the rest of the card is held. Mock only, as the Dashboard is.
 
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
-import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
+import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, TriangleAlert, Waypoints, Workflow, type LucideIcon } from "lucide-react";
 import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RemoveAct, RemoveBox, RunnableBlock, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
@@ -233,6 +233,8 @@ export function CallCard({
   const risk = useJudgesRisk(item.job, item.hue === "ask" && item.decisions === undefined);
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
+  // A call that only states facts has nothing to send or open: its Send would be a key that does nothing.
+  const bare = lone && answer.open === undefined && answer.reply === undefined;
   // An act is a button that does it; an option is a radio, picked and then sent, because a reply can go with it.
   const acts = answer.answers.filter((one) => one.once === true);
   const numbered = answer.answers.filter((one) => one.key === undefined && one.once !== true);
@@ -286,7 +288,7 @@ export function CallCard({
           <Kbd>{keyFor("call_reply")}</Kbd>
         </Button>
       )}
-      {actsOnly && !words ? null : (
+      {(actsOnly && !words) || bare ? null : (
         <Button variant="primary" disabled={!canSend} onClick={send}>
           {lone && !words ? OPENS(item) : "Send"}
           <Kbd>↵</Kbd>
@@ -336,7 +338,7 @@ export function CallCard({
             );
           })}
       {sleep === undefined && !jobBoxed ? null : <Keycap label={changeLabel} keys={keyFor("call_reply")} disabled={held} onPress={openChange} />}
-      {actsOnly && !words ? null : <Keycap primary label={lone && !words ? openLabel : "Send"} keys="↵" disabled={!canSend} onPress={send} />}
+      {(actsOnly && !words) || bare ? null : <Keycap primary label={lone && !words ? openLabel : "Send"} keys="↵" disabled={!canSend} onPress={send} />}
     </>
   );
   const navKeys = (
@@ -439,6 +441,29 @@ export function CallCard({
             </span>
           )}
         </AskQuestion>
+        )}
+        {item.facts === undefined || item.facts.length === 0 ? null : (
+          <dl className="armada-callcard__facts" aria-label={item.kind}>
+            {item.facts.map((one) => (
+              <div key={one.label} className="armada-callcard__fact">
+                <dt>{one.label}</dt>
+                <dd>
+                  {one.lines.map((line) => (
+                    <span key={line.text} className="armada-callcard__fact-line">
+                      {line.text}
+                      {line.note === undefined ? null : (
+                        <Tooltip label={line.note}>
+                          <span role="img" aria-label={line.note} className="armada-callcard__fact-note">
+                            <TriangleAlert size={12} aria-hidden="true" />
+                          </span>
+                        </Tooltip>
+                      )}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            ))}
+          </dl>
         )}
         {answer.target === undefined ? null : (
           (() => {

@@ -187,6 +187,8 @@ const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
   ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
   ["lsof", ["Stopping the server on 5788", "pid 41822 ended", "Port 5788 is free"]],
   ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
+  ["--autostash", ["Created autostash: 4be1f3a", "Updating 6c0d2e1..a91f7b3", "Fast-forward", " armada.yml | 6 +-", " crates/fleet/src/checkouts.rs | 212 +++++++++", "Applied autostash"]],
+  [" switch ", ["Switched to branch 'main'", "Your branch is behind 'origin/main' by 40 commits, and can be fast-forwarded"]],
 ];
 const RUN_DEFAULT = ["done"];
 
@@ -737,6 +739,8 @@ export function sessionsStore(
         },
       };
     },
+    // A repository's call has no Session: the same fake plays in its place.
+    runInRepository: (_root, command, on) => store.run!("", command, on),
     answer: (id, answer, answers) => {
       const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;
       edit(id, (one) => {

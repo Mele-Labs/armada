@@ -501,6 +501,11 @@ export type SessionsDraft = {
    */
   run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
   /**
+   * As `run`, for a call about a repository's served checkout, which has no Session: the command runs in
+   * the repository at `root`. Absent where nothing serves it, and the card offers Copy alone.
+   */
+  runInRepository?: (root: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  /**
    * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
    * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,
    * and in a Bridge-hosted Session, where there is no terminal. Fleet answers it as `tune_terminal`

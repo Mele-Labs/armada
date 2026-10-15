@@ -15,6 +15,7 @@ import {
   Clock,
   Cpu,
   Eye,
+  FolderGit2,
   GitMerge,
   GitPullRequest,
   Compass,
@@ -56,6 +57,7 @@ import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { useOpenWalks } from "./cockpit/open-walks";
 import { failedAt, isOnIt, ownerOfCall, type Owner } from "./cockpit/owner";
 import type { JobAnswered } from "./cockpit/answer-job";
+import { checkoutCall, type Fact } from "./cockpit/checkout";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
@@ -122,6 +124,10 @@ export type Item = {
   served?: true;
   /** Who holds the pull request or red main the call is about, where somebody does: the card draws what they are doing. */
   ownedBy?: Owner;
+  /** A repository's call laid out as rows under its question. */
+  facts?: readonly Fact[];
+  /** The one command the call offers to run or copy, where a single press is safe. */
+  command?: string;
 };
 
 /** What the Dashboard knows of each Job's Now, by Job id: the draft's, else what Fleet serves for the active Jobs. */
@@ -531,6 +537,23 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
               Hand to a Job
             </Button>
           ),
+        });
+      }
+      if (view.hub?.checkout !== undefined) {
+        const held = checkoutCall(view.root, view.hub.checkout);
+        items.push({
+          key: `checkout:${view.root}`,
+          owner: "line",
+          icon: FolderGit2,
+          kind: "Checkout",
+          title: held.title,
+          fact: held.fact,
+          hue: "ask",
+          where,
+          body: held.facts.map((one) => [one.label, one.lines.map((line) => line.text).join("\n")] as const),
+          facts: held.facts,
+          ...(held.command === undefined ? {} : { command: held.command }),
+          acts: () => null,
         });
       }
       for (const pull of view.hub?.pulls ?? []) {

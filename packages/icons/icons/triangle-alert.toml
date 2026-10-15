@@ -12,3 +12,10 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Version control would not say`."
+
+[[icons.triangle-alert.usage]]
+  means = "An uncommitted file in the served checkout that main also changed, so an autostash could stop on a conflict"
+  group = "Cockpit call"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Beside a path in the Checkout call's Uncommitted row, tooltip `Also changed on main`, in the awaiting review hue. The registry has no other warning glyph, and the Worktree slot's Unreadable row already takes this one at 12px for a fact about a checkout."

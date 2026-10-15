@@ -277,6 +277,16 @@ span.armada-view__dot { cursor: default; }
 
 /* What an errand's act names, one line in its own case: selectable, and whole on hover where it is cut. */
 .armada-callcard__target { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+/* A repository call's facts on the sunken glass: a label band, then its lines in mono. The label track is sized once for the
+   list, and a line main also changed carries the warning hue on its edge and its glyph. Tokens only. */
+.armada-callcard__facts { display: grid; grid-template-columns: auto minmax(0, 1fr); margin: 0; border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-sunken); overflow: hidden; }
+.armada-callcard__fact { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; }
+.armada-callcard__fact + .armada-callcard__fact { border-top: var(--border-width) solid var(--border-default); }
+.armada-callcard__fact > dt { margin: 0; padding: var(--space-2) var(--space-3); border-right: var(--border-width) solid var(--border-default); background: var(--bg-raised); color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.armada-callcard__fact > dd { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: 0; padding: var(--space-2) var(--space-3); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+.armada-callcard__fact-line { display: flex; align-items: center; gap: var(--space-2); padding-left: var(--space-2); border-left: calc(var(--border-width) * 2) solid transparent; overflow-wrap: anywhere; user-select: text; }
+.armada-callcard__fact-line:has(.armada-callcard__fact-note) { border-left-color: var(--status-awaiting-review); }
+.armada-callcard__fact-note { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
 /* The run on the card: the mark and the fold stand beside the output, so the output is what takes the height, and the thread above gives some up to it. */
 .armada-callcard__run .armada-prose__run-panel { display: flex; align-items: flex-start; }
 .armada-callcard__run .armada-prose__run-head { flex-direction: column; align-items: flex-start; padding: var(--space-1); }

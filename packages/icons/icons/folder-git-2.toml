@@ -39,3 +39,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walk `title-bar-menu`. The panel at the top of the left column draws the repository's name with a chevron, and at the 48px rail this glyph stands for it, the name in the tooltip. The same meaning it has everywhere else: the repository."
+
+  [[icons.folder-git-2.usage]]
+    means = "A call about the repository's served checkout: it is behind main and Fleet would not catch it up"
+    group = "Cockpit call"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. The kind mark on the Checkout call, in the card's band and on its row in Incoming calls, tooltip `Checkout`. The same meaning it has everywhere else: the repository."
