@@ -37,6 +37,7 @@ mod keeping_current;
 mod landing;
 mod leasing;
 mod leasing_existing_branch;
+mod leasing_history;
 mod leasing_jobs;
 mod leasing_last_session;
 mod leasing_parking;

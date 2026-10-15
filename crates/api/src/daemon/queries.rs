@@ -865,6 +865,13 @@ pub trait Queries: Send + Sync + 'static {
         ask: ipc::TimelineAsk,
     ) -> impl Future<Output = Result<ipc::FleetTimeline, Refusal>> + Send;
 
+    /// `get_slot_history` — who held one slot and what was checked out in it, newest
+    /// first. Refuses a repository Fleet does not serve.
+    fn get_slot_history(
+        &self,
+        ask: ipc::BayHistoryAsk,
+    ) -> impl Future<Output = Result<ipc::BayHistory, Refusal>> + Send;
+
     /// `get_merge_lines` — each served repository's merge line: the hub
     /// Fleet read off the forge, with the queue lists empty. It never refuses.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;
