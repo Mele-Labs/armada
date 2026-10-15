@@ -82,7 +82,7 @@ describe("an infinite animation", () => {
   });
 
   test("is read from a keyframe's own steps", () => {
-    const read = readLoops("@keyframes a { 50% { transform: scale(2); box-shadow: 0 0 0 1px red; } } .x { animation: a 1s linear infinite; } @keyframes b { to { opacity: 0 } } .y { animation: b 1s; }");
+    const read = readLoops("@keyframes a { 50% { transform: scale(2); box-shadow: none; } } .x { animation: a 1s linear infinite; } @keyframes b { to { opacity: 0 } } .y { animation: b 1s; }");
     expect([...read.infinite].filter((one) => read.keyframes.has(one))).toEqual(["a"]);
     expect([...read.keyframes.get("a")!]).toEqual(["transform", "box-shadow"]);
   });
