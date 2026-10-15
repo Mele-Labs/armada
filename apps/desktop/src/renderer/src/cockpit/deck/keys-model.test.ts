@@ -41,7 +41,9 @@ test("the page chord lists its four second keys after the registry's first", () 
   expect(pages.map((row) => row.keys[1])).toEqual(["c", "j", "s", "y"]);
 });
 
-test("the sheet lists Settings with its own key", () => {
+test("the sheet lists Open with Enter and with o, and Settings with its own key", () => {
   const rows = keySheetOf().flatMap((group) => group.rows);
+  expect(rows.find((row) => row.does === "Open")?.keys).toEqual([...slotsOf("open_focused").map(formatSlot), ...slotsOf("open").map(formatSlot)]);
+  expect(slotsOf("open").map(formatSlot)).toEqual(["o"]);
   expect(rows.find((row) => row.does === "Open Settings")?.keys).toEqual(["⌘,"]);
 });

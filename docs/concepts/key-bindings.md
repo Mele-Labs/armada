@@ -28,7 +28,7 @@ Esc lets go of a key without changing it and Delete unbinds it. Reset puts one a
 > **Rule.** A key two acts answer where both are listening is drawn as a warning on both rows, and kept.
 > Why: moving two keys at once passes through a moment where both hold one, and refusing it would make the swap impossible.
 
-Where an act listens is its scope. `o` opens a row on a list and the output on a Job, which are never the same screen, so the shipped map has no conflict; a test holds it to that. The Cockpit's keys are in the `deck` scope: `l b c q f a` go to a panel, `1–6` press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘6` are the tabs. `⌘,` is Settings, anywhere. `l` is also Later on a call, which answers only while a call is in front, and the deck stands down for it. See [Cockpit](cockpit.md).
+Where an act listens is its scope. `o` opens a row on a list and the output on a Job, which are never the same screen, so the shipped map has no conflict; a test holds it to that. The Cockpit's keys are in the `deck` scope: `l b c q f a` go to a panel, `1–6` press a flight control, `v` and `t` swap the stage, `g` then a letter goes to a tab, and `⌘1–⌘6` are the tabs. `⌘,` is Settings, anywhere. `o` is also Open on the deck's lists, which are in the `list` scope, so the deck reads that row and has none of its own. `l` is also Later on a call, which answers only while a call is in front, and the deck stands down for it. See [Cockpit](cockpit.md).
 
 An act whose row is `unbuilt` listens to nothing yet, so it counts against no key; it counts again the day its issue closes.
 

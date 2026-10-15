@@ -183,7 +183,7 @@ shortcut = "o"
 scope = "list"
 destructive = false
 confirms = false
-notes = "The same act as Enter, named so the palette can display it — which is the whole reason it has a row of its own. `external-link` is not it: that hands a path to something outside Bridge."
+notes = "The same act as Enter, named so the palette can display it — which is the whole reason it has a row of its own. The deck's lists answer it too (Jobs and Sessions, Activity, Bays, Incoming calls, the merge queue), since the deck's list is in this scope; the stage's page, the flight controls and Autopilot do not. `external-link` is not it: that hands a path to something outside Bridge."
 
 [actions.review]
 kind = "Action"

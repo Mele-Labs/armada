@@ -16,7 +16,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
-import { PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
+import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
 import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
@@ -246,7 +246,8 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
       if (next !== undefined) rowFocus(next.key);
       return;
     }
-    if (isPressed("open_focused", event)) {
+    // `o` is Enter's twin where there is a list to open from: the stage's own page keeps its `o`, and a tile or the Autopilot switch is a control, not an item.
+    if (isPressed("open_focused", event) || (isPressed("open", event) && panel !== undefined && OPENS.includes(panel.id))) {
       // Pressed on a button of the deck: the press, taken here so a walk playing does not also step on it.
       if (target.tagName === "BUTTON" || target.tagName === "A") {
         if (target.closest(".deck") === null) return;

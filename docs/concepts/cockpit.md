@@ -60,7 +60,7 @@ While the window is on another tab a toast says a call has come and a press brin
 | A page with no tab or strip place | A link on the deck, or the palette, `⌘K`, by name: Worktree Slots, Merge line, Manifest, Checks |
 | A panel | `l b c q f a` |
 | A flight control | `1` to `6` |
-| Walk the list | `j`, `k`, `Enter` in the list; `w` brings a waiting call back; `?` lists the keys |
+| Walk the list | `j`, `k` and `Enter` or `o` to open, in a list: Jobs and Sessions, Activity, Bays, Incoming calls and the merge queue; `w` brings a waiting call back; `?` lists the keys |
 | Fleet's panel | The status dot on the title row |
 
 The keys are rows in `crates/core-model/domain/actions.toml`, rebound as [Key bindings](key-bindings.md) says. The tab bar's order and the places a layout may hide are in [Layout mods](layout-mods.md). No page is reachable only by a place the window does not draw.
