@@ -320,6 +320,10 @@ pub struct Fittings<H, V, W> {
     /// Signing in to an account, through the forge and the store, in the machine
     /// directory. **A seam so a test can plant both** — see [`crate::signing_in`].
     pub signing_in: crate::signing_in::SigningIn,
+    /// A repository's forge address and the store a profile is enrolled with,
+    /// for a claim on a red main. **A seam so a test can plant both** — see
+    /// [`crate::red_claim`].
+    pub reaching: Arc<dyn crate::red_claim::Reaching>,
     /// How long a hosted session's process may sit with no turn before Fleet
     /// ends it. `timeouts.sessionQuietSeconds`, read at start.
     pub session_quiet: std::time::Duration,
@@ -402,6 +406,7 @@ where
             shipped_tuning,
             settings: fittings.settings,
             signing_in: fittings.signing_in,
+            reaching: fittings.reaching,
             judge: fittings.judge,
             permission_hold: fittings.permission_hold,
             aloft: Aloft::default(),

@@ -397,7 +397,7 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    ClaimHolder, FixMain, FixesMain, FixingElsewhere, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub,
 };
@@ -493,7 +493,7 @@ pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnother
 pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
-    ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
+    ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership, PullRequestClaimed, RenameSession, TakeMainRed,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionStanding, SessionState,
     SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, FinishUp, FinishedUp, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,

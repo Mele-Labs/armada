@@ -256,6 +256,9 @@ pub fn fitted_over<V>(
             Arc::new(crate::tests::signing_in::Enrolled::new()),
             Arc::new(Ticking::from_nine()),
         ),
+        // Reaches nothing: a switch that is off never asks. `crate::tests::red_claim`
+        // plants a store where the subject is a claim.
+        reaching: Arc::new(crate::tests::red_claim::Planted::signed_out()),
         session_quiet: crate::session_host::SHIPPED_QUIET_TIMEOUT,
     }
 }

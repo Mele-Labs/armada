@@ -25,7 +25,7 @@
 mod enrolling;
 mod serving;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -35,6 +35,7 @@ use ipc::{AccountFlow, Accounts, Profile, SetUpState, SetUpSteps, SignInEnded, S
 pub use enrolling::{Enrolling, OverHttp};
 #[cfg(test)]
 pub(crate) use serving::machine_name;
+pub(crate) use serving::this_machine;
 
 use crate::clock::Clock;
 use crate::profiles::{Joined, Profiles};
@@ -226,6 +227,14 @@ impl SigningIn {
         };
         profiles.leave(account_id).map_err(Refused::Fault)?;
         Ok(SignedOut { accounts: self.accounts()?, store_row_remains: left.is_some(), said: left })
+    }
+
+    /// The directory of the profile the machine acts as, which holds its device key and id.
+    /// `None` while signed out, or where the list cannot be read.
+    pub fn active_directory(&self) -> Option<PathBuf> {
+        let profiles = &self.inner.profiles;
+        let active = profiles.list().ok()?.into_iter().find(|one| one.active)?;
+        Some(profiles.directory_of(active.account_id))
     }
 
     /// Choose the profile the machine acts as.

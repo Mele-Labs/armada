@@ -71,10 +71,18 @@ where
         let Some((served, base)) = self.main_due().await else {
             return Ok(Vec::new());
         };
+        let changed = self.main_read(&served, base).await;
+        // Whether or not the head moved: another machine's claim can change under a red that has not.
+        self.noticed_elsewhere(served.root()).await;
+        changed
+    }
+
+    /// The reading of one repository's main, and what changed in it.
+    async fn main_read(&self, served: &Served, base: String) -> Result<Vec<MainChanged>, Adrift> {
         let root = served.root().to_string();
-        self.notice_pulls(&served).await;
-        self.notice_queue(&served).await;
-        self.notice_merged(&served).await;
+        self.notice_pulls(served).await;
+        self.notice_queue(served).await;
+        self.notice_merged(served).await;
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
@@ -87,7 +95,7 @@ where
         // Whoever has written files in this repository is set against main's new tip on the next
         // pass of `clashes_checked`.
         self.writes().main_seen(served.manifest().id().as_str(), &head);
-        let candidates = self.notice_merged_runs(&served, &head).await;
+        let candidates = self.notice_merged_runs(served, &head).await;
         let before = self
             .store()
             .lock()
@@ -155,7 +163,7 @@ where
                     .filter(|run| run.state == CiState::Failed)
                     .collect();
                 let failed = self
-                    .failed_jobs(&served, &decided, &failing, before.as_ref())
+                    .failed_jobs(served, &decided, &failing, before.as_ref())
                     .await;
                 // The streak's first commit: the oldest red before a green in first-parent
                 // order, **counting only the reds that failed what this one fails**.
@@ -206,8 +214,8 @@ where
                 let named = |it: &MainMerge| it.job.is_some() || it.session.is_some();
                 let merge = match continues || (same_commit && kept.is_some()) {
                     true if kept.as_ref().is_some_and(named) => kept,
-                    true => self.the_merge(&served, &culprit).await.or(kept),
-                    false => self.the_merge(&served, &culprit).await,
+                    true => self.the_merge(served, &culprit).await.or(kept),
+                    false => self.the_merge(served, &culprit).await,
                 };
                 let newer = newer_running(at);
                 let held_before = before.as_ref().is_some_and(MainCi::held);

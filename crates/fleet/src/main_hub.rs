@@ -437,13 +437,14 @@ where
             .iter()
             .map(|served| served.root().to_string())
             .collect();
-        let (pulls, merged, runs, queues) = {
+        let (pulls, merged, runs, queues, elsewhere) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
                 sweep.merged.clone(),
                 sweep.main_runs.clone(),
                 sweep.queues.clone(),
+                sweep.elsewhere.clone(),
             )
         };
         let store = self.store().lock().await;
@@ -478,9 +479,25 @@ where
                     .as_ref()
                     .and_then(|main| self.fixing_of(&store, main))
                     .and_then(|job| titled(&job));
+                hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
                 Some((root, hub))
             })
             .collect()
+    }
+}
+
+/// Another machine's claim as the hub draws it.
+fn fixing_elsewhere(holder: &adapter_traits::Holder) -> ipc::FixingElsewhere {
+    ipc::FixingElsewhere {
+        machine: holder.machine.clone(),
+        holder: ipc::ClaimHolder {
+            kind: match holder.kind {
+                adapter_traits::HolderKind::Session => ipc::HolderKind::Session,
+                adapter_traits::HolderKind::Job => ipc::HolderKind::Job,
+            },
+            id: holder.id.clone(),
+        },
+        since: ipc::Instant::carried(crate::clock::rfc3339_utc(holder.since * 1000)),
     }
 }
 
@@ -539,6 +556,7 @@ pub(crate) fn hub_of(
             })
             .unwrap_or_default(),
         fixing: None,
+        fixing_elsewhere: None,
     })
 }
 

@@ -583,6 +583,14 @@ where
         self.pull_request_claimed(caller, claim).await
     }
 
+    async fn take_main_red(
+        &self,
+        caller: Option<api::Caller>,
+        take: ipc::TakeMainRed,
+    ) -> Result<ipc::MainRedTaken, Refusal> {
+        self.main_red_taken(caller, take).await
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,
