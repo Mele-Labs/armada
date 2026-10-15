@@ -185,6 +185,8 @@ export const StepsOnArrowsPlayByHand: Story = {
   },
 };
 
+const running = (root: HTMLElement) => root.getAnimations({ subtree: true }).filter((one): one is CSSAnimation => one instanceof CSSAnimation && one.playState === "running").map((one) => one.animationName);
+
 /** A preview is the same drawing in a card's box: still until it is told to play, and nothing in it is operable. */
 export const PreviewStill: Story = {
   args: { scene: SEQUENCE, preview: true, playing: false },
@@ -332,5 +334,26 @@ export const LabelsClearAndBoxesFit: Story = {
     await expect(canvas.getByText(/lifeboat stays up/)).toBeVisible();
     const fleet = canvas.getByRole("group", { name: "Fleet" }).querySelector(".armada-scene-node")!;
     await expect(fleet.getBoundingClientRect().height / scale(canvasElement)).toBeGreaterThan(100);
+  },
+};
+
+/** A card the thread is not playing is still: its arrows do not crawl, and no dot travels. */
+export const PreviewStillDoesNotMove: Story = {
+  args: { scene: HUB, preview: true, playing: false },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(8));
+    await waitFor(() => expect(canvasElement.querySelectorAll(".armada-scene-edge__line")).toHaveLength(7));
+    await expect(running(canvasElement)).toEqual([]);
+  },
+};
+
+/** Played, a card moves the step's dot and nothing else: the other arrows do not crawl under it. */
+export const PreviewPlayingMovesOnlyTheDot: Story = {
+  args: { scene: HUB, preview: true, playing: true },
+  parameters: { motion: "on" },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-active]")).not.toBeNull());
+    await expect(new Set(running(canvasElement))).toEqual(new Set(["armada-scene-travel"]));
   },
 };

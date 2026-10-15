@@ -167,7 +167,7 @@ function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePos
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   const at = place;
   return (
-    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-flow={edge.flow !== false || undefined}>
+    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-active={active || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-still={still || undefined} data-flow={edge.flow !== false || undefined}>
       <defs>
         <marker id={`head-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
