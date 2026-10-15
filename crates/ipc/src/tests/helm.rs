@@ -152,6 +152,7 @@ fn a_helm_record() -> SessionRecord {
         context_breakdown: None,
         helm: true,
         activity: None,
+        build: None,
     }
 }
 

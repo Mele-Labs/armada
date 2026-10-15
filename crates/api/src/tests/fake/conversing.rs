@@ -324,5 +324,6 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
         context_breakdown: None,
         helm: true,
         activity: None,
+        build: None,
     }
 }
