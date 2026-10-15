@@ -5,5 +5,8 @@
   "durable_objects": {
     "bindings": [{ "name": "ACCOUNT", "class_name": "Account" }]
   },
+  // Enrol calls the forge, so an address gets 10 a minute. The binding counts per Cloudflare location,
+  // and `namespace_id` is any integer no other limiter on the account uses.
+  "ratelimits": [{ "name": "ENROL_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Account"] }]
 }

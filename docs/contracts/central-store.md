@@ -100,6 +100,8 @@ Why: an unsigned flood cannot fill the table.
 | 401 | `replayed_nonce` | The nonce was used already |
 | 400 | `invalid_body`, `invalid_key` | A body or a key breaks Rows |
 | 413 | `too_large` | The body is over the limit |
+| 413 | `devices_full`, `claims_full`, `owners_full` | The account holds its most of that row, [Limits](#limits) |
+| 429 | `rate_limited` | The device used its requests for the minute, [Limits](#limits) |
 | 404 | `no_route` | No such path |
 | 405 | `bad_method` | The path does not take that method |
 
@@ -118,9 +120,37 @@ Why: the identity is the numeric id, and a token the store never keeps cannot le
 | 502 | `forge_unreachable` | The forge did not answer |
 | 502 | `forge_unreadable` | The forge answered with no usable numeric id |
 | 400 | `invalid_public_key` | The key is not a P-256 public key |
+| 429 | `enrol_rate_limited` | The address used its enrolments for the minute, [Limits](#limits) |
+| 413 | `devices_full` | The account already has 16 devices |
 
 **Rule.** Any device of an account may sign out another device of that account.
 Why: a machine that is lost cannot sign itself out.
+
+## Limits
+
+The store is the default for every Armada user, so no one account may run up the owner's bill or fill his storage.
+
+| Limit | Number | Refused with |
+|---|---|---|
+| Enrolments per address per minute | 10 | `429 enrol_rate_limited` |
+| Devices per account | 16 | `413 devices_full` |
+| Claims per account | 10,000 | `413 claims_full` |
+| Owners per account | 10,000 | `413 owners_full` |
+| Verified requests per device per minute | 120 | `429 rate_limited`, `Retry-After: 60` |
+
+**Rule.** `enrol` counts the client address, from `CF-Connecting-IP`, before it asks the forge, using the Workers Rate Limiting binding `ENROL_LIMIT` in `wrangler.jsonc`.
+Why: every enrolment that gets past the body checks costs a call to the forge, and the binding keeps its count in Cloudflare, so no object is made for an address.
+
+**Rule.** A request counts toward a device's minute only once its signature verifies, and the nonces of the last minute are the count.
+Why: a stranger who knows a device id must not be able to use up that device's requests, and no second table is needed.
+
+**Rule.** A table that is full refuses a new row with `413` and a name, never drops one silently, and still answers for a row it has. A claim that exists answers `409` with its holder, and a pull request owner that exists is updated.
+Why: `409` already means a claim is held, so a full table needs a status Fleet does not read as that answer. Fleet reads `413` and `429` as a refusal and refuses the take.
+
+**Rule.** A full table makes room again when a row is deleted or a device signs out.
+
+**Rule.** An account's Durable Object makes its tables on the first enrolment and never for a request. A request for an account or a device that never enrolled is refused `401 unknown_device` and writes no table, no row and no nonce.
+Why: the Worker finds the object from the header alone, so anyone can name an account number, and a name must not cost the owner storage.
 
 ## Failure
 
@@ -135,4 +165,4 @@ Why: a fix nobody else can see is the double fix this exists to stop. Decided by
 
 ## Not deployed by this repository
 
-The owner deploys the Worker with his own Cloudflare account and registers the forge's OAuth app. `FORGE_USER_URL` overrides the user endpoint, which is how the tests answer for the forge.
+The owner deploys the Worker with his own Cloudflare account and registers the forge's OAuth app. A self-hosted store keeps the limits above and may change the numbers in `apps/store/src/rows.ts` and the `ratelimits` entry of `wrangler.jsonc`. `FORGE_USER_URL` overrides the user endpoint, which is how the tests answer for the forge.
