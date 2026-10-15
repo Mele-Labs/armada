@@ -7,7 +7,8 @@
 // a tick with none is hollow, claimed and not seen. #2301.
 
 import { BadgeCheck, Eye, Footprints, GitMerge, GitPullRequest, Layers, ListTodo, Scale, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
-import type { TimelineEvent } from "@armada/protocol";
+import type { JobDetail, TimelineEvent } from "@armada/protocol";
+import { taskViewsOf, type TaskState } from "@armada/jobs/draft/task";
 
 import { FRESH_MS, doingOfEvent, type Doing } from "./doing";
 import type { DroneIn, Point, Rect } from "./layout";
@@ -52,7 +53,7 @@ export type Built = {
   phase: Phase;
   /** The stop most recently reached, once the road is laid. */
   reached: StopId | undefined;
-  tasks: readonly { text: string; piece: Piece }[];
+  tasks: readonly { text: string; piece: Piece; /** What a hover says of it where "ticked, edits seen" is not the word: a Job's task is done or handed in. */ said?: string }[];
   /** The walks shown and questions asked before the build was done, in order. */
   markers: readonly ("walk" | "asked")[];
   /** The subagents running now, by what each was asked. */
@@ -163,6 +164,29 @@ export function builtOf(view: ProgressView): Built {
     now,
     slot: view.slot,
   };
+}
+
+const PLAN_PIECE: Record<TaskState, { piece: Piece; said: string } | undefined> = {
+  done: { piece: "solid", said: "Done" },
+  handed_in: { piece: "hollow", said: "Handed in" },
+  working: { piece: "scaffold", said: "Working" },
+  open: { piece: "ghost", said: "Open" },
+  failed: { piece: "ghost", said: "Failed" },
+  dropped: undefined,
+};
+
+/**
+ * A Job's structure on its route: one piece for each task of the plan Fleet holds, as the plan says it stands (done is solid, handed in
+ * is hollow, working is scaffold, open or failed is a ghost; a dropped task is no part of it). Nothing is invented: the Session's two
+ * unrecorded facts are not needed, since the plan carries each task's state. `key` is the Job's drone, so its laser finds the structure.
+ */
+export function jobBuiltOf(whole: JobDetail, key: string, root: string, doing: Doing | undefined, now: number): Built | undefined {
+  const tasks = taskViewsOf(whole).flatMap((task) => {
+    const read = PLAN_PIECE[task.state];
+    return read === undefined ? [] : [{ text: task.title, ...read }];
+  });
+  if (tasks.length === 0) return undefined;
+  return { key, root, tile: "", phase: "implement", reached: undefined, tasks, markers: [], workers: [], quiet: 0, stalled: false, dim: 0, doing, via: undefined, stops: [], landedAt: undefined, now, slot: undefined };
 }
 
 /** A Session's construction as its card tells it: the phase, how long it has been quiet, each task as its piece stands, and the road's stops (`ago` absent is one not yet reached). */

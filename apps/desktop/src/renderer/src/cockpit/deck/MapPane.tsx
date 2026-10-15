@@ -4,6 +4,7 @@
 
 import { useMemo } from "react";
 import { Orbit } from "lucide-react";
+import { stepThatWorksTheGroups } from "@armada/jobs";
 import { taskGroupsOf } from "@armada/jobs/draft/group";
 
 import type { CockpitProps } from "./props";
@@ -13,6 +14,7 @@ import type { DroneIn } from "./layout";
 import type { Run } from "./panes";
 import { FocusChip, ReplayBar, ReplayMark } from "./ReplayBar";
 import { select, selOfPr, selOfSubject, startReplay, stopReplay } from "./store";
+import { jobBuiltOf } from "./progress";
 import { touchesOfFootprint } from "./touches";
 import { useField } from "./useField";
 import type { Ship, Subject } from "./ship";
@@ -84,7 +86,7 @@ export function MapView({ props, ship, listed, cursor }: { props: CockpitProps; 
  */
 export function JobMission({ props, ship, listed, subject, run }: { props: CockpitProps; ship: Ship; listed: readonly Subject[]; subject: Subject; run: Run }) {
   const field = useField(props, ship, listed);
-  const { replay, calls, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey } = field;
+  const { replay, calls, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, feed } = field;
   const job = subject.key;
   const begun = drones.some((one) => one.key === job);
   const mission = useMemo(() => (run.whole === null ? undefined : missionOf(run.whole, run.drones, begun)), [run.whole, run.drones, begun]);
@@ -131,6 +133,11 @@ export function JobMission({ props, ship, listed, subject, run }: { props: Cockp
     () => (mission === undefined ? undefined : { mission, repo: { root: subject.root, name: subject.repo }, drones: cluster, job, serves, pad: cluster.find((one) => one.key === job)?.slot }),
     [mission, cluster, job, serves, subject.root, subject.repo],
   );
+  // The structure of the Job's plan stands at the waypoint of the step that works it, or where the Job is at when no step is named for it.
+  const doing = cluster.find((one) => one.key === job)?.doing;
+  const standing = useMemo(() => (run.whole === null ? undefined : jobBuiltOf(run.whole, job, subject.root, doing, props.now)), [run.whole, job, subject.root, doing, props.now]);
+  const worksAt = run.whole === null ? undefined : stepThatWorksTheGroups(run.whole);
+  const standAt = worksAt === undefined ? mission?.live : `step:${worksAt}`;
   const keys = useMemo(() => new Set(cluster.map((one) => one.key)), [cluster]);
   const mine = useMemo(() => crates.filter((pr) => pr.owner === job), [crates, job]);
   const numbers = new Set(mine.map((pr) => pr.number));
@@ -156,6 +163,10 @@ export function JobMission({ props, ship, listed, subject, run }: { props: Cockp
         focus={replay === undefined && focusKey !== undefined && keys.has(focusKey) ? focusKey : undefined}
         selected={undefined}
         scene={scene}
+        builds={standing === undefined ? undefined : [standing]}
+        take={feed?.take}
+        after={feed?.after}
+        standAt={standAt}
         onSelect={(key) => {
           const other = key === job ? undefined : ship.subjects.find((one) => one.key === key);
           if (other !== undefined) select(selOfSubject(other));

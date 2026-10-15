@@ -55,6 +55,8 @@ export type BattlefieldProps = {
   builds?: readonly Built[] | undefined;
   take?: Take | undefined;
   after?: After | undefined;
+  /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
+  standAt?: string | undefined;
   /** A Job's mission, in place of the whole field: the same plane, cut down to the plots one Job touches and laid with its route. */
   scene?: Omit<SceneIn, "big" | "wide" | "clashes"> | undefined;
   onSelect: (key: string) => void;
@@ -65,7 +67,7 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly Built[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, take = "tower", after = "stand", onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, take = "tower", after = "stand", standAt, onSelect, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
@@ -100,7 +102,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     const at = onPlane(t === undefined ? { x: world.width / 2, y: world.height } : { x: t.base.x - t.base.w / 2 + 36, y: t.base.y + 8 });
     return { ...at, z: 20 };
   };
-  const placed = useMemo(() => placeBuilds(builds, take, layout, new Map(layout.territories.map((one) => [one.root, one] as const)), big), [builds, take, layout, big]);
+  const stand = standAt === undefined ? undefined : built?.route.pins.find((one) => one.id === standAt)?.at;
+  const placed = useMemo(() => placeBuilds(builds, take, layout, new Map(layout.territories.map((one) => [one.root, one] as const)), big, stand), [builds, take, layout, big, stand?.x, stand?.y]);
   const base = useMemo(() => frameOf({ layout, drones, plays, big, missionJob: scene?.job }), [layout, drones, plays, big, scene?.job]);
   const frame = useMemo(() => aimedAt(base, placed), [base, placed]);
   const { heights, floorAt, altOf, flying, aimOf, doers } = frame;

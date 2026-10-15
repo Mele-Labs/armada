@@ -7,6 +7,11 @@ import { deckRow, inside, region, role, walk } from "../walk";
 const map = role("listbox", "Map");
 const places = role("navigation", "Places");
 const dock = inside(map, role("option", "Rebuild the dock panel"));
+const stage = region(/^(Job|Session): /);
+const build = role("group", "Build");
+const opened = [
+  { press: deckRow("Rebuild the dock panel"), say: "Open the Session" },
+] as const;
 
 const battlefieldProgress = walk("battlefield-progress", [
   { look: map, say: "Scope. One repository, three drones. The Session rebuilding the dock panel has read, been shown a walk and asked two questions, and edited nothing. A faint survey grid lies on the apps/desktop plot, with a stake at each corner, and a small marker for the walk and for each question" },
@@ -15,10 +20,17 @@ const battlefieldProgress = walk("battlefield-progress", [
   { later: places, say: "Edits land, four subagents are started, and four tasks are ticked" },
   { look: map, say: "Implement. A task ticked with edits seen since the last tick is a solid piece. One ticked with none seen is outlined and hollow. The next ghost piece has scaffold round it because edits came with no tick. Four small drones circle it while their subagents run, and the Session's laser welds it" },
   { hover: dock, say: "Its card. The phase as a glyph and a word, each task as a swatch drawn as its piece is, solid, outlined or dashed, and nothing on it is counted" },
+  ...opened,
+  { look: build, say: "The Session open. The bays give way to its build drawn tall: the structure for the current take at the top, the road to main as a column of stops beneath it, the phase as one glyph at the head. A floor for each task: solid, outlined, the next in scaffold, the rest dashed. Incoming calls stay where they were" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { look: region("Bays"), say: "The bays are back" },
   { later: places, say: "Ten minutes with no tool call in a running turn. Three subagents end" },
   { look: map, say: "Stalled. The drone stops welding and hangs still under the amber ring. The unfinished part has dimmed. One worker is still flying: its subagent has not ended" },
   { later: places, say: "Thirty more minutes of quiet" },
   { look: map, say: "Forty minutes quiet. The unfinished part is dimmer again" },
+  ...opened,
+  { look: build, say: "The same at forty minutes. The unfinished floors are dim and an amber ring lies round the foot" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
   { later: places, say: "It works again and finishes, shows a walk of the built thing and opens a pull request. Its turn ends" },
   { look: map, say: "The road. It runs from the structure to the flag. The walk and the pull request are lit with when they happened. Checks and auto-merge are faint: this repository's Sessions usually do them next" },
   { hover: inside(map, role("option", /^Checks running/)), say: "A faint stop says so, and a lit one says when" },
@@ -29,10 +41,12 @@ const battlefieldProgress = walk("battlefield-progress", [
   { later: places, say: "A day later, and Sessions from earlier have landed too" },
   { look: map, say: "A day on. By default the plot is bare: a structure goes when it lands. `after=stand` keeps finished ones small and weathered, fading over a day, the nearest to landing clearest. `after=monument` keeps every one, a small city on the plot" },
   { press: deckRow("Rebuild the dock panel"), say: "Session page. Its row in the list now carries one glyph for its phase, with a tooltip naming it" },
-  { look: inside(region(/^Session: Rebuild the dock panel/), role("group", "Build")), say: "Session page. A band across the top of its thread draws the same structure for the current take, side on, with the road to main as a line of stops to its right. All stops are lit: it has landed. Hover a piece for its task and state" },
-  { hover: inside(region(/^Session: Rebuild the dock panel/), role("img", /^Pull request opened/)), say: "A stop says its name and when it happened. A faint one says it is only what this repository usually does next" },
-  { press: deckRow("Cache the manifest read"), say: "Job page" },
-  { look: inside(region(/^Job: Cache the manifest read/), role("group", "Build")), say: "Job page. The same band above its Now area, from its plan: two tasks done and solid, one handed in and hollow, one being worked in scaffold, one open and ghost. The road is its own workflow after Implement, none of it reached yet" },
+  { look: build, say: "Session page. The right column is its build, in the place of the bays: the structure for the current take with the road beneath it. All stops are lit: it has landed. Hover a piece for its task and state" },
+  { hover: inside(build, role("img", /^Pull request opened/)), say: "A stop says its name and when it happened. A faint one says it is only what this repository usually does next" },
+  { key: "Escape", on: stage, say: "Esc is back to the map" },
+  { press: deckRow("Cache the manifest read"), say: "Job page. The bays stay" },
+  { look: role("listbox", "Route"), say: "Job page. The structure of its plan stands in the map beside the waypoint of the step that works it, and its drone hovers over that waypoint: two tasks done and solid, one handed in and hollow, one being worked in scaffold, one open and dashed. The later waypoints are the road to main" },
+  { hover: inside(role("listbox", "Route"), role("option", /^Warm it at start/)), say: "A piece says its task and where it stands" },
 ]);
 
 export { battlefieldProgress };

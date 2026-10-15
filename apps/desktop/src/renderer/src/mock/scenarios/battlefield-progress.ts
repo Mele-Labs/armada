@@ -6,7 +6,7 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { HubMerged, HubPullRequest, MainStanding, MergeLines, TimelineEvent, TimelineSubject, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
-import { running } from "@armada/jobs/fixtures/build/index";
+import { workingAPlan } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { mockAreas } from "../cockpit-areas";
@@ -22,9 +22,19 @@ const BRANCH = "armada/dock-panel";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const PR = 2310;
 
+/** The Job's plan: two tasks done, one handed in, one being worked, one open. Its page draws them as the structure on its route. */
+const PLAN = (() => {
+  const task = (id: string, title: string, state: "done" | "handed_in" | "working" | "open") => ({ id, title, state });
+  return [task("T1", "Read the manifest once", "done"), task("T2", "Key the cache by digest", "done"), task("T3", "Drop the cache on edit", "handed_in"), task("T4", "Warm it at start", "working"), task("T5", "Test the cold read", "open")];
+})();
+
 const cache: JobFixture = (() => {
-  const base = asRow(running(), 91, "cache", "Cache the manifest read");
-  return { ...base, job: { ...base.job, owner_manifest_id: ARMADA, started_at: ago(17), current_step_id: "fix", branch: "armada/91-cache" } };
+  const base = asRow(workingAPlan(), 91, "cache", "Cache the manifest read");
+  const count = (state: (typeof PLAN)[number]["state"]) => PLAN.filter((one) => one.state === state).length;
+  const job = { ...base.job, owner_manifest_id: ARMADA, started_at: ago(17), current_step_id: "fix", branch: "armada/91-cache", tasks: { done: count("done"), handed_in: count("handed_in"), working: count("working"), open: count("open"), dropped: 0 } };
+  if (base.watched.state !== "read" || base.watched.detail.work_plan === undefined) return { ...base, job };
+  const detail = { ...base.watched.detail, job: { ...base.watched.detail.job, ...job }, work_plan: { ...base.watched.detail.work_plan, tasks: PLAN } };
+  return { ...base, job, watched: { ...base.watched, detail } };
 })();
 
 const tool = (id: string, at: string, text: string) => ({ id, at, kind: "tool", text }) as const;

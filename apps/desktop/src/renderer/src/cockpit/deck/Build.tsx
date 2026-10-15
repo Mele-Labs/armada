@@ -3,7 +3,7 @@
 // draws only what `progress.ts` read off the record, and a piece is static once placed. At most `MOST_LOOPS` things loop on the whole
 // field, and the workers take what the drones leave. #2301.
 
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { Sprite, keyed, onPlane, px, vars } from "./bf-parts";
 import { MOST_LOOPS } from "./doing";
@@ -11,6 +11,7 @@ import { Gantry, Ring, Tower } from "./forms";
 import type { Frame } from "./frame";
 import { FLAT, type Layout, type Point, type Territory } from "./layout";
 import { STOP_GLYPH, STOP_WORD, agoOf, anchorOf, type After, type Built, type Stop, type Take } from "./progress";
+import { SAID } from "./BuildCard";
 import { SessionGlyph } from "./Drone";
 import type { OnTip } from "./Drone";
 import type { Tip } from "./tip";
@@ -20,13 +21,19 @@ const DAY = 24 * 60 * 60_000;
 /** A landed structure stands at full size for this long, then is small. */
 const FRESH_LAND_MS = 15 * 60_000;
 
-type Placed = { built: Built; tile: Territory["tiles"][number]; anchor: Point; shadow: Point | undefined };
+type Placed = { built: Built; tile: Territory["tiles"][number] | undefined; anchor: Point; shadow: Point | undefined };
 
-/** Where each structure stands, in layout units. A drone's own shadow is the ring's centre; the other forms stand beside it. */
-export function placeBuilds(builds: readonly Built[], take: Take, layout: Layout, territory: ReadonlyMap<string, Territory>, big: number): Placed[] {
-  return builds.flatMap((built) => {
-    // A Job's structure is drawn on its own page only.
-    if (built.key.startsWith("job:")) return [];
+/**
+ * Where each structure stands, in layout units. A drone's own shadow is the ring's centre; the other forms stand beside it. A Job's
+ * stands at the waypoint of the step that works its plan (`stand`), and a Job with no such waypoint on the field draws none.
+ */
+export function placeBuilds(builds: readonly Built[], take: Take, layout: Layout, territory: ReadonlyMap<string, Territory>, big: number, stand?: Point): Placed[] {
+  return builds.flatMap<Placed>((built) => {
+    if (built.key.startsWith("job:")) {
+      if (stand === undefined) return [];
+      const anchor = take === "ring" ? stand : { x: stand.x + 58 * big, y: stand.y - 14 * big };
+      return [{ built, tile: undefined, shadow: layout.at.get(built.key), anchor }];
+    }
     const over = layout.over.get(built.key)?.[0]?.tile.path ?? built.tile;
     const tile = territory.get(built.root)?.tiles.find((one) => one.path === over);
     if (tile === undefined) return [];
@@ -43,6 +50,18 @@ export const aimedAt = (frame: Frame, placed: readonly Placed[]): Frame => {
 };
 
 const FORM = { tower: Tower, pad: Gantry, ring: Ring } as const;
+
+/** What a piece says when it is hovered: the task it stands for, and where that task is. The card is the callout's, since a tooltip cannot open here. */
+const speak = (built: Built, onTip: OnTip) => (k: number, piece: ReactNode): ReactNode => {
+  const task = built.tasks[k];
+  if (task === undefined) return piece;
+  const tip: Tip = { label: "Task", title: task.text, hue: task.piece === "solid" ? "good" : "quiet", lines: [task.said ?? SAID[task.piece]] };
+  return (
+    <g className="bf-pick" role="option" tabIndex={0} aria-selected={false} aria-label={`${task.text}, ${task.said ?? SAID[task.piece]}`} onMouseEnter={(event) => onTip(tip, event.currentTarget)} onMouseLeave={() => onTip(undefined)} onFocus={(event) => onTip(tip, event.currentTarget)} onBlur={() => onTip(undefined)}>
+      {piece}
+    </g>
+  );
+};
 
 function Survey({ big }: { big: number }) {
   const w = 96 * big;
@@ -178,7 +197,7 @@ export function Builds({ placed, take, after, frame, territory, big, loops, onTi
         if (sinceLand !== undefined && (after === "clear" ? sinceLand > FRESH_LAND_MS : after === "stand" && sinceLand >= DAY)) return null;
         const small = sinceLand !== undefined && sinceLand > FRESH_LAND_MS;
         const flat = onPlane(anchor);
-        const z = (heights.get(tile.path) ?? 0) + 1.5;
+        const z = (tile === undefined ? 0 : (heights.get(tile.path) ?? 0)) + 1.5;
         const goal = territory.get(built.root)?.goal;
         const to = goal === undefined ? { x: 0, y: 0 } : { x: goal.x - anchor.x, y: (goal.y - anchor.y) * 0.94 };
         const surveying = built.phase === "scope" || built.phase === "plan";
@@ -194,7 +213,7 @@ export function Builds({ placed, take, after, frame, territory, big, loops, onTi
               ))}
               {built.tasks.length === 0 ? null : (
                 <div className="bf-built" data-take={take} data-after={after} data-landed={built.landedAt !== undefined || undefined} data-small={small || undefined} data-aged={(small && after === "stand") || undefined} style={vars({ "--age": Math.min(1, (sinceLand ?? 0) / DAY).toFixed(3) })}>
-                  <Form pieces={built.tasks} big={big} dim={built.dim} landed={built.landedAt !== undefined && !small} working={writing} fly={{ x: to.x, y: to.y }} />
+                  <Form pieces={built.tasks} big={big} dim={built.dim} landed={built.landedAt !== undefined && !small} working={writing} fly={{ x: to.x, y: to.y }} wrap={speak(built, onTip)} />
                 </div>
               )}
             </div>

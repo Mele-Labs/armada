@@ -23,6 +23,7 @@ import { ActivityFeed, Timeline } from "../Timeline";
 import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
+import { BuildColumn } from "./BuildColumn";
 import { DECK_LINK } from "./links";
 import { useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
@@ -506,6 +507,9 @@ export function DeckBody(props: CockpitProps) {
   useCursor(cursorJob, onCursor);
   const incoming = incomingOf(ship.calls, deck.held, deck.visited);
   const selected = deck.sel?.key;
+  // While a Session that is building something is open, its build stands in the bays' place. A Job's is in the map under its head.
+  const { by: builds } = useBuilds();
+  const building = deck.sel?.kind === "session" && builds.has(deck.sel.key) ? deck.sel.key : undefined;
   // A replay plays on while the deck is drawn, from the events Bridge holds, and takes its own keys while it is up.
   const events = useFleetEvents();
   const clock = quantized(props.now);
@@ -540,7 +544,7 @@ export function DeckBody(props: CockpitProps) {
           </div>
         </div>
         <div className="deck-right">
-          <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} />
+          {building === undefined ? <BaysPanel props={props} ship={ship} selected={deck.sel?.kind === "slot" ? selected : undefined} /> : <BuildColumn key={building} subjectKey={building} />}
           <Incoming calls={incoming} now={props.now} ship={ship} />
         </div>
       </div>
