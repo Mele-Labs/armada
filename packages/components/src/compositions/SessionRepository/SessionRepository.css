@@ -1,0 +1,108 @@
+/* The repository a Session works in, in its head: the repository glyph and the name in mono, a chevron where it opens. */
+.armada-session-repository {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 16ch;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+button.armada-session-repository {
+  cursor: pointer;
+}
+
+button.armada-session-repository:hover {
+  color: var(--fg-default);
+}
+
+button.armada-session-repository:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-repository > svg,
+.armada-session-repository__item > svg {
+  flex: none;
+}
+
+.armada-session-repository__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-repository__menu {
+  display: flex;
+  flex-direction: column;
+  margin: calc(var(--space-2) * -1);
+}
+
+.armada-session-repository__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-session-repository__item > svg {
+  color: var(--fg-muted);
+}
+
+.armada-session-repository__item:hover,
+.armada-session-repository__item:focus-visible {
+  background: var(--bg-hover);
+}
+
+.armada-session-repository__item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+/* Held off: the same row in the subtle ink, still in the arrow order so the tooltip can be read. */
+.armada-session-repository__item[aria-disabled="true"] {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+.armada-session-repository__item[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
+.armada-session-repository__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.armada-session-repository__fact {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-repository__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

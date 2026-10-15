@@ -264,12 +264,15 @@ function Stage({ props, ship, listed, autopilot, ledger }: { props: CockpitProps
     if (gone) select(undefined);
   }, [gone]);
   const onPr = (one: Pr) => select(selOfPr(one));
+  // A move makes its Session a moment before it opens it, so the ship is read as it stands then and not as it stood when pressed.
+  const latest = useRef(ship);
+  latest.current = ship;
   const owed = subject === undefined ? undefined : callOfSubject(subject, held);
   const asked = owed === undefined ? undefined : ship.calls.find((one) => one.key === owed);
   if (sel?.kind === "job" && subject !== undefined) return <JobPane subject={subject} props={props} acts={acts} onPr={onPr} call={asked} mission={(run) => <JobMission props={props} ship={ship} listed={listed} subject={subject} run={run} />} />;
   // A Session this ship does not hold opens on its own page, as a link to one does.
   const openSession = (id: string) => {
-    const held = ship.subjects.find((one) => one.kind === "session" && one.id === id);
+    const held = latest.current.subjects.find((one) => one.kind === "session" && one.id === id);
     if (held === undefined) props.onOpenSession(id);
     else select(selOfSubject(held));
   };

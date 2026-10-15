@@ -198,6 +198,11 @@ export type SessionRow =
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
   | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
+  /**
+   * The Session was moved to another repository: the old thread ends with where it went (`to`) and the new
+   * one starts with where it came from (`from`). `session` is the other Session's id, `repository` its name.
+   */
+  | { id: string; at: string; kind: "moved"; way: "to" | "from"; session: string; repository: string }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 
@@ -402,6 +407,13 @@ export type SessionsDraft = {
    * serves it, and selecting words in a message offers no Fork.
    */
   forkAt?: (id: string, at: string) => string | Promise<string | undefined>;
+  /**
+   * Ends a Session, if it is live, and starts a new one in another repository (`manifestId`) with the whole
+   * conversation and the same title, and returns the new Session's id. The old one's slot, branch and
+   * uncommitted files stay in the old repository. A Session in a terminal that is still listening is not
+   * moved. Absent where nothing serves it, and the repository is not drawn as a control.
+   */
+  move?: (id: string, manifestId: string) => Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**

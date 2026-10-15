@@ -228,6 +228,7 @@ export function SessionPane({ subject, props, acts, onPr, ledger, openSession }:
         board={state.jobs}
         lines={state.mergeLines}
         settings={state.settings}
+        repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
           acts: (
