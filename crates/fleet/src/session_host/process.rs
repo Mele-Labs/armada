@@ -115,6 +115,8 @@ pub struct ProcessHost {
     path: String,
     home: String,
     user: String,
+    /// What the agent's own builds may take: `crate::drone::HostPaths::width`.
+    width: checks_runner::CheckWidth,
     port: u16,
 }
 
@@ -144,7 +146,10 @@ impl ProcessHost {
         }
     }
 
-    pub(crate) fn on_this_machine(host: &crate::daemon::Host) -> ProcessHost {
+    pub(crate) fn on_this_machine(
+        host: &crate::daemon::Host,
+        width: checks_runner::CheckWidth,
+    ) -> ProcessHost {
         ProcessHost {
             agent: HeadlessAgent::at(host.agent_binary.clone()),
             exe: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("armada")),
@@ -153,6 +158,7 @@ impl ProcessHost {
             path: host.path.clone(),
             home: host.home.clone(),
             user: host.user.clone(),
+            width,
             port: host.port,
         }
     }
@@ -168,6 +174,7 @@ impl Processes for ProcessHost {
                 path: &self.path,
                 home: &self.home,
                 user: &self.user,
+                width: self.width,
             },
             &[],
         )

@@ -61,6 +61,7 @@ pub fn config_with_ports(at: &TempDir, ports: &[(String, String)]) -> DroneSpawn
                 path: "/usr/bin:/bin",
                 home: "/Users/user",
                 user: "someone",
+                width: checks_runner::CheckWidth::of(2),
             },
             ports,
         )
@@ -92,6 +93,7 @@ fn fleet_names_every_variable_a_drone_gets() {
             path: "/usr/bin:/bin",
             home: "/Users/user",
             user: "someone",
+            width: checks_runner::CheckWidth::of(2),
         },
         &[],
     )
@@ -100,8 +102,16 @@ fn fleet_names_every_variable_a_drone_gets() {
     // **Five, and `USER` is the fifth.** Without it the agent CLI answers its
     // first turn with `Not logged in`, measured against a live Drone: same
     // binary, same `HOME`, credentials readable from the Keychain either way,
-    // `USER` the only difference. `LOGNAME` does not substitute.
-    assert_eq!(built.names(), vec!["PATH", "HOME", "LANG", "TERM", "USER"]);
+    // `USER` the only difference. `LOGNAME` does not substitute. The sixth
+    // holds the agent's own builds to a Check's width.
+    assert_eq!(
+        built.names(),
+        vec!["PATH", "HOME", "LANG", "TERM", "USER", "CARGO_BUILD_JOBS"]
+    );
+    assert_eq!(
+        built.vars().last(),
+        Some(&("CARGO_BUILD_JOBS".to_string(), "2".to_string()))
+    );
     assert!(
         !built.names().contains(&"SSH_AUTH_SOCK"),
         "no credential, and no agent to ask one of — the second half of a \
@@ -119,6 +129,7 @@ fn a_claimed_port_is_set_beside_the_guaranteed_five() {
             path: "/usr/bin:/bin",
             home: "/Users/user",
             user: "someone",
+            width: checks_runner::CheckWidth::of(2),
         },
         &[("ARMADA_PORT_STORYBOOK".to_string(), "41000".to_string())],
     )
@@ -174,7 +185,15 @@ async fn the_drone_gets_the_environment_fleet_built_and_not_the_one_fleet_had() 
         .collect();
     assert_eq!(
         inherited,
-        BTreeSet::from(["TERM", "USER", "PATH", "LANG", "HOME", crate::orphans::MARK]),
+        BTreeSet::from([
+            "TERM",
+            "USER",
+            "PATH",
+            "LANG",
+            "HOME",
+            "CARGO_BUILD_JOBS",
+            crate::orphans::MARK
+        ]),
         "something reached the Drone that Fleet did not name:\n{said}"
     );
 }
@@ -347,7 +366,7 @@ async fn fleet_starts_exactly_what_the_harness_rendered() {
     assert_eq!(rendered[0].directory(), at.path().to_string_lossy());
     assert_eq!(
         rendered[0].environment().names(),
-        vec!["PATH", "HOME", "LANG", "TERM", "USER"]
+        vec!["PATH", "HOME", "LANG", "TERM", "USER", "CARGO_BUILD_JOBS"]
     );
 }
 
