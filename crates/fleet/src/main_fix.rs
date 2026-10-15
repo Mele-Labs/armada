@@ -28,7 +28,7 @@ use core_model::{
     AcceptanceCriterion, Actor, Breakage, BreakageClaim, CriterionId, CriterionOrigin,
     CriterionSource, Facts, Job, JobId, JobStatus,
 };
-use store::{MainCi, MainFix, TakenHow};
+use store::{MainCi, MainFix, TakenBy, TakenHow};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -55,8 +55,8 @@ pub enum MainNotFixable {
     /// A newer commit's CI is still running on main, and may already have
     /// fixed it.
     ChecksRunning,
-    /// A Job is already working on this red.
-    Taken(JobId),
+    /// A Job or a Session is already working on this red.
+    Taken(TakenBy),
     /// The repository holds no workflow to dispatch a fix under.
     NoWorkflow,
     /// A Job that is neither at its review nor over.
@@ -79,8 +79,11 @@ impl std::fmt::Display for MainNotFixable {
             MainNotFixable::ChecksRunning => {
                 write!(out, "new checks are running on main, and may have fixed it")
             }
-            MainNotFixable::Taken(job) => {
+            MainNotFixable::Taken(TakenBy::Job(job)) => {
                 write!(out, "{} is already working on this red", job.as_str())
+            }
+            MainNotFixable::Taken(TakenBy::Session(id)) => {
+                write!(out, "Session {id} is already working on this red")
             }
             MainNotFixable::NoWorkflow => write!(
                 out,
@@ -255,21 +258,11 @@ where
         Ok((served, main))
     }
 
-    /// The Job working on this red, if one is: the newest take whose Job has
-    /// not been stopped.
-    pub(crate) async fn taking(&self, main: &MainCi) -> Option<JobId> {
-        let red_at = main.red_at.as_ref()?;
+    /// The Job or Session working on this red, if one is: the newest take whose
+    /// Job has not been stopped or whose Session has not ended.
+    pub(crate) async fn taking(&self, main: &MainCi) -> Option<TakenBy> {
         let store = self.store().lock().await;
-        let takes = store.main_fixes_of(&main.repository, red_at).ok()?;
-        takes
-            .into_iter()
-            .filter(|take| take.ended_at.is_none())
-            .map(|take| take.job)
-            .find(|job| {
-                store
-                    .load_job(job)
-                    .is_ok_and(|found| !stopped(found.status()))
-            })
+        self.fixing_of(&store, main)
     }
 
     /// The brief, and under it the address of the failing job's log and its
@@ -416,25 +409,41 @@ where
         Ok(())
     }
 
-    /// Record that `job` has this red, and claim its failing tests.
-    async fn recorded_take(&self, main: &MainCi, job: &JobId, how: TakenHow) {
-        let (Some(red_at), Some(first)) = (main.red_at.clone(), main.failed.first()) else {
-            return;
-        };
-        let now = self.now();
-        let mut store = self.store().lock().await;
-        let _ = store.keep_main_fix(&MainFix {
+    /// `by`'s take of this red as a row, where main is red and says what failed.
+    fn take_of(&self, main: &MainCi, by: TakenBy, how: TakenHow, forked_from: Option<&str>) -> Option<MainFix> {
+        let (red_at, first) = (main.red_at.clone()?, main.failed.first()?);
+        Some(MainFix {
             repository: main.repository.clone(),
             red_at,
-            job: job.clone(),
+            by,
+            forked_from: forked_from.map(str::to_string),
             how,
             check: first.check.clone().unwrap_or_else(|| first.name.clone()),
             test: first.tests.first().cloned(),
             merge: main.merge.as_ref().map(|merge| merge.number),
-            taken_at: now.clone(),
+            taken_at: self.now(),
             ended_at: None,
             fixed_in: None,
-        });
+        })
+    }
+
+    /// Record that a Session has this red, as a Job's take is. **`forked_from` is the Session
+    /// Fleet forked this one from**, which cannot be handed the red twice.
+    pub(crate) async fn recorded_session_take(&self, main: &MainCi, session: &str, how: TakenHow, forked_from: Option<&str>) {
+        let Some(take) = self.take_of(main, TakenBy::Session(session.to_string()), how, forked_from) else {
+            return;
+        };
+        let _ = self.store().lock().await.keep_main_fix(&take);
+    }
+
+    /// Record that `job` has this red, and claim its failing tests.
+    async fn recorded_take(&self, main: &MainCi, job: &JobId, how: TakenHow) {
+        let Some(take) = self.take_of(main, TakenBy::Job(job.clone()), how, None) else {
+            return;
+        };
+        let now = take.taken_at.clone();
+        let mut store = self.store().lock().await;
+        let _ = store.keep_main_fix(&take);
         let (Some((check, tests)), Some(owner)) = (claimable(main), self.names().owner_of(job))
         else {
             return;
@@ -486,11 +495,15 @@ where
             let taken = main.red_at.as_ref().is_some_and(|red_at| {
                 store
                     .main_fixes_of(&main.repository, red_at)
-                    .is_ok_and(|takes| takes.iter().any(|take| take.job == job))
+                    .is_ok_and(|takes| takes.iter().any(|take| take.by.job() == Some(&job)))
             });
             if taken || store.is_fixing_main(&job).unwrap_or(true) {
                 return;
             }
+        }
+        // A Job or a Session already has it: a second fixer is the double fix the take stops.
+        if self.taking(main).await.is_some() {
+            return;
         }
         let Some(served) = self
             .repositories()
@@ -540,20 +553,26 @@ where
         );
     }
 
-    /// The Job working on main's red for the hub: the newest take that has not
-    /// been stopped, titled.
-    pub(crate) fn fixing_of(&self, store: &store::Store, main: &MainCi) -> Option<JobId> {
+    /// The Job or Session working on main's red, for the hub and the guards: the
+    /// newest take that has not ended, whose Job has not been stopped and whose
+    /// Session is still running.
+    pub(crate) fn fixing_of(&self, store: &store::Store, main: &MainCi) -> Option<TakenBy> {
         let red_at = main.red_at.as_ref()?;
         store
             .main_fixes_of(&main.repository, red_at)
             .ok()?
             .into_iter()
             .filter(|take| take.ended_at.is_none())
-            .map(|take| take.job)
-            .find(|job| {
-                store
+            .map(|take| take.by)
+            .find(|by| match by {
+                TakenBy::Job(job) => store
                     .load_job(job)
-                    .is_ok_and(|found| !stopped(found.status()))
+                    .is_ok_and(|found| !stopped(found.status())),
+                TakenBy::Session(id) => store
+                    .session(id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|found| found.ended_at.is_none()),
             })
     }
 

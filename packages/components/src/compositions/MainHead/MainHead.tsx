@@ -84,11 +84,12 @@ export type MainState =
   /** `checking` non-empty is only checks running on main: the mark says so, and no band is drawn. */
   | { state: "green"; checking?: readonly MainChecking[] }
   /**
-   * `taken` is the Job working on it: absent until one is. **`checking` non-empty is a held red**: a
-   * newer run may already have fixed it, so the band is caution, says so, and offers no way to hand
-   * it to a Job. Absent or empty is a red to act on.
+   * `taken` is the Job working on it, `takenBySession` the Session where a Session holds it instead:
+   * absent until one is. **`checking` non-empty is a held red**: a newer run may already have fixed
+   * it, so the band is caution, says so, and offers no way to hand it to a Job. Absent or empty is a
+   * red to act on.
    */
-  | { state: "red"; red: MainRed; taken?: HubJob; elsewhere?: HeldElsewhere; checking?: readonly MainChecking[] };
+  | { state: "red"; red: MainRed; taken?: HubJob; takenBySession?: HubSession; elsewhere?: HeldElsewhere; checking?: readonly MainChecking[] };
 
 /**
  * What the owner chose: a new Job with this brief, an earlier Job to send the work back to, a
@@ -189,11 +190,13 @@ export type MainRedBandProps = {
 };
 
 export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onOpenCheck, onOpenJob, onOpenSession, onFix, now }: MainRedBandProps) {
-  const { red, taken, elsewhere } = main;
+  const { red, taken, takenBySession, elsewhere } = main;
+  // A Job or a Session holds it here: the acts are moot, and the Fixing row names it.
+  const heldHere = taken !== undefined || takenBySession !== undefined;
   const checking = main.checking ?? [];
   const held = checking.length > 0;
   // The acts draw only where something listens, and not where a held red or a Job on it makes them moot.
-  const free = !held && taken === undefined && onFix !== undefined;
+  const free = !held && !heldHere && onFix !== undefined;
   // Another machine holds the red: its Job is not ours to start, and the one act left is to take it over.
   const asks = free && elsewhere === undefined;
   const takesOver = free && elsewhere !== undefined;
@@ -206,7 +209,7 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
     if (why === "claim_not_made" || why === "taken_elsewhere") setRefused({ choice, why });
   };
   const claim =
-    elsewhere === undefined || taken !== undefined ? null : (
+    elsewhere === undefined || heldHere ? null : (
       <HeldBy held={elsewhere} {...(now === undefined ? {} : { now })}>
         {!takesOver ? null : (
           <Button variant="ghost" size="sm" ground="sunken" onClick={() => setAsking("takeOver")}>
@@ -318,7 +321,7 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
               </dd>
             </>
           )}
-          {refused === null || taken !== undefined || elsewhere !== undefined ? null : (
+          {refused === null || heldHere || elsewhere !== undefined ? null : (
             <>
               <dt>Claim</dt>
               <dd className="armada-main-red__taken">
@@ -351,6 +354,19 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
                     {taken.title}
                   </button>
                 )}
+              </dd>
+            </>
+          )}
+          {takenBySession === undefined ? null : (
+            <>
+              <dt>Fixing</dt>
+              <dd className="armada-main-red__taken">
+                <Tooltip label="Working on it" asChild>
+                  <span className="armada-fixing-mark" data-state="fixing" role="img" aria-label="Working on it">
+                    <Hammer size={SMALL} strokeWidth={STROKE} aria-hidden />
+                  </span>
+                </Tooltip>
+                <OwnerLink kind="Session" Icon={SquareTerminal} one={takenBySession} open={onOpenSession} />
               </dd>
             </>
           )}
@@ -446,8 +462,11 @@ function MergeOwner({
   onOpenSession?: (sessionId: string) => void;
 }) {
   const owner = merge.session !== undefined ? { kind: "Session", Icon: SquareTerminal, one: merge.session, open: onOpenSession } : merge.job !== undefined ? { kind: "Job", Icon: Box, one: merge.job, open: onOpenJob } : undefined;
-  if (owner === undefined) return null;
-  const { kind, Icon, one, open } = owner;
+  return owner === undefined ? null : <OwnerLink {...owner} />;
+}
+
+/** A Session or a Job by its registry icon and its title, which opens it where something listens. */
+function OwnerLink({ kind, Icon, one, open }: { kind: string; Icon: typeof Box; one: HubJob | HubSession; open: ((id: string) => void) | undefined }) {
   return (
     <span className="armada-main-red__owner">
       <Tooltip label={kind} asChild>

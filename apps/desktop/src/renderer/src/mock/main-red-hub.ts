@@ -280,6 +280,7 @@ function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, 
     main: standing(main),
     pull_requests: pulls.map(requestOf),
     ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
+    ...(main.state === "red" && main.takenBySession !== undefined ? { fixing_session: main.takenBySession } : {}),
     ...(main.state === "red" && main.elsewhere !== undefined ? { fixing_elsewhere: main.elsewhere } : {}),
     merged: mergedAt(landings, at),
   };
@@ -351,6 +352,19 @@ const SESSION_MOMENTS: Moment[] = [
   },
 ];
 
+// The same red, with the Session that merged it holding the red: Fleet woke it and recorded its take, so
+// the band names it in the Fixing row and offers nothing. `main-red-session-fixing` walks it.
+//
+//   0  The Session's pull request is open and green.
+//   1  It merged and main is red. Fleet woke the Session: it is in the Fixing row.
+//   2  The Session's fix landed.
+
+const SESSION_FIXING_MOMENTS: Moment[] = [
+  SESSION_MOMENTS[0]!,
+  { ...SESSION_MOMENTS[1]!, main: { state: "red", red: SESSION_RED, takenBySession: SESSION } },
+  SESSION_MOMENTS[2]!,
+];
+
 /** The Sessions the window holds, the one that merged among them: the registry owns the chips and fills the picker. */
 const pull_request = (number: number, branch: string, title: string) =>
   ({ kind: "pull_request", number, title, branch, address: `${PULL}${number}`, checks: { state: "passed" }, state: "merged", auto: false }) as const;
@@ -393,6 +407,12 @@ const SESSION_LANDINGS: Landing[] = [
 export function sessionRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
   const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, SESSION_LANDINGS), jobs: SESSION_MOMENTS[n]!.jobs });
   return { first: at(0), later: SESSION_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
+}
+
+/** The red a Session holds, as a wake leaves it. */
+export function sessionFixing(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_FIXING_MOMENTS, SESSION_LANDINGS), jobs: SESSION_FIXING_MOMENTS[n]!.jobs });
+  return { first: at(0), later: SESSION_FIXING_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 
 // Main red, and the claim on it held on another machine. A person's pull request turned it red, so no

@@ -1,23 +1,28 @@
 //! A red main whose pull request a Session merged is handed to that Session by Fleet itself:
-//! claimed for it, recorded on its ledger and told to it. A Session that cannot be told is
+//! claimed for it, recorded as its take and told to it. A Session that cannot be told is
 //! forked, and the fork holds the claim and is told. A red held elsewhere is left alone, and a
 //! Job's red still goes to the Job.
+//!
+//! **A Session's take is a take**: the hub's Fixing row shows it with no store configured, and
+//! every guard that a Job's take raises, `fix_main` and `take_main_red` included, a Session's
+//! raises too. Green ends it.
 //!
 //! **Beside `red_claim`**, whose two-machine rig this borrows: the claim is read back from the
 //! shared store, as there.
 
 use std::sync::Arc;
 
-use adapter_traits::{Holder, HolderKind, Store};
+use adapter_traits::{CiState, Holder, HolderKind, Store};
 use api::{HostedSessions, Sessions};
 use ipc::{
     ManifestId, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow, SessionVoice,
     StartSession,
 };
-use store::{AttachmentState, KeptAttachment};
+use store::{AttachmentState, KeptAttachment, TakenBy, TakenHow};
 use testkit::FakeStore;
 
-use super::main_ci::{Fixture, ONE};
+use super::main_ci::{kept, run, the_hub, Fixture, ONE, TWO};
+use crate::main_ci::{MainChange, MainChanged};
 use super::main_fix::{a_finished_job, goes_red, root, takes};
 use super::red_claim::{machine_hosting, Machine, SLUG};
 use super::session_host::StandIn;
@@ -33,9 +38,19 @@ struct Rig {
 }
 
 async fn rig(shared: &FakeStore) -> Rig {
+    rig_with(shared, true).await
+}
+
+/// No central store applies: the repository's *Pull request owners* switch is off, as on every
+/// machine today.
+async fn local_rig() -> Rig {
+    rig_with(&FakeStore::new(), false).await
+}
+
+async fn rig_with(shared: &FakeStore, switch: bool) -> Rig {
     let stand_in = Arc::new(StandIn::default());
     let Machine { fleet, _home, .. } =
-        machine_hosting("mac-a", shared, true, Some(Arc::clone(&stand_in))).await;
+        machine_hosting("mac-a", shared, switch, Some(Arc::clone(&stand_in))).await;
     let served = fleet.repositories().first().expect("a served repository");
     let manifest = ManifestId::carried(served.manifest().id().as_str());
     let root = root(&fleet).await;
@@ -134,16 +149,34 @@ impl Rig {
             .collect()
     }
 
-    async fn handed(&self, id: &str) -> Vec<store::KeptAttachment> {
+    /// The takes of this red that a Session made.
+    async fn session_takes(&self) -> Vec<store::MainFix> {
+        takes(&self.fleet).await.into_iter().filter(|take| take.by.session().is_some()).collect()
+    }
+
+    async fn jobs_made(&self) -> usize {
+        self.fleet.every_job().await.unwrap().0.jobs.len()
+    }
+
+    /// A terminal Session in this repository, which then asks for the red itself.
+    async fn a_terminal_session(&self, id: &str) {
         self.fleet
-            .store()
-            .lock()
+            .report_session(SessionReport {
+                harness: adapters::HOSTED_HARNESS.into(),
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Started {
+                    cwd: self.root.clone(),
+                    title: Some("Why the reader drops lines".into()),
+                    origin: SessionOrigin::Terminal,
+                    mod_version: None,
+                },
+            })
             .await
-            .attachments_of(&store::Holder::session(id))
-            .unwrap()
-            .into_iter()
-            .filter(|one| one.kind == crate::session_red::MAIN_RED)
-            .collect()
+            .unwrap();
+    }
+
+    async fn takes_the_red(&self, id: &str) -> Result<ipc::MainRedTaken, api::Refusal> {
+        self.fleet.take_main_red(None, ipc::TakeMainRed { session_id: Some(SessionId::carried(id)), take_over: false }).await
     }
 
     async fn other_than(&self, id: &str) -> Vec<String> {
@@ -177,9 +210,9 @@ async fn the_session_that_merged_the_pull_request_is_woken_with_the_red_claimed_
             && told.contains("FAIL ["),
         "{told}"
     );
-    let [take] = rig.handed(&id).await.try_into().expect("recorded once");
-    assert_eq!(take.detail.get("how").map(String::as_str), Some("woke"));
-    assert!(takes(&rig.fleet).await.is_empty(), "no Job was made for it");
+    let [take] = takes(&rig.fleet).await.try_into().expect("recorded once");
+    assert_eq!((&take.by, take.how, &take.forked_from), (&TakenBy::Session(id.clone()), TakenHow::Took, &None));
+    assert_eq!(rig.jobs_made().await, 0, "no Job was made for it");
     assert_eq!(rig.other_than(&id).await.len(), 0, "and nothing was forked");
 
     rig.fleet.red_given_to_sessions(&changed).await;
@@ -204,10 +237,9 @@ async fn a_session_that_has_ended_is_forked_and_the_fork_holds_the_claim_and_is_
         told.contains("Main went red at 1111111 after pull request #1815, which session aaaa-1111 merged"),
         "{told}"
     );
-    let [old] = rig.handed("aaaa-1111").await.try_into().expect("recorded on the old one");
-    assert_eq!(old.detail.get("how").map(String::as_str), Some("forked"));
-    assert_eq!(old.detail.get("fork"), Some(&fork));
-    assert_eq!(rig.handed(&fork).await.len(), 1);
+    let [take] = takes(&rig.fleet).await.try_into().expect("the fork's take, and none for the old one");
+    assert_eq!((&take.by, take.how), (&TakenBy::Session(fork.clone()), TakenHow::Dispatched));
+    assert_eq!(take.forked_from.as_deref(), Some("aaaa-1111"));
 
     rig.fleet.red_given_to_sessions(&changed).await;
     assert_eq!(rig.other_than("aaaa-1111").await.len(), 1, "not forked twice");
@@ -227,7 +259,7 @@ async fn a_red_held_elsewhere_is_left_alone() {
     rig.turned().await;
     assert_eq!(claim_in(&shared).expect("still held").machine, "mac-b");
     assert!(rig.thread(&id).await.is_empty(), "the Session was not told");
-    assert!(rig.handed(&id).await.is_empty());
+    assert!(takes(&rig.fleet).await.is_empty());
     assert!(rig.other_than(&id).await.is_empty(), "and nothing was forked");
 }
 
@@ -242,9 +274,129 @@ async fn a_jobs_red_still_goes_to_the_job() {
 
     rig.turned().await;
     let [take] = takes(&rig.fleet).await.try_into().expect("the Job's send-back");
-    assert_ne!(take.job, *culprit.id());
+    let job = take.by.job().expect("a Job's take");
+    assert_ne!(job, culprit.id());
     let held = claim_in(&shared).expect("claimed");
-    assert_eq!((held.kind, held.id.as_str()), (HolderKind::Job, take.job.as_str()));
+    assert_eq!((held.kind, held.id.as_str()), (HolderKind::Job, job.as_str()));
     assert!(rig.thread(&id).await.is_empty(), "the Session was not told");
-    assert!(rig.handed(&id).await.is_empty());
+    assert!(rig.session_takes().await.is_empty());
+}
+
+#[tokio::test]
+async fn a_sessions_take_shows_in_the_hubs_fixing_row_with_no_store_configured() {
+    let rig = local_rig().await;
+    let id = rig.a_hosted_session().await;
+    rig.held_pull(&id, 1815).await;
+    goes_red(&rig.fleet, 1815);
+
+    rig.turned().await;
+    let hub = the_hub(&rig.fleet).await;
+    let fixing = hub.fixing_session.expect("the Session is in the Fixing row");
+    assert_eq!(fixing.id, id);
+    assert!(hub.fixing.is_none(), "and no Job is");
+    assert!(hub.fixing_elsewhere.is_none());
+}
+
+#[tokio::test]
+async fn the_fork_is_the_one_the_hub_names() {
+    let rig = local_rig().await;
+    rig.an_ended_session("aaaa-1111").await;
+    rig.held_pull("aaaa-1111", 1815).await;
+    goes_red(&rig.fleet, 1815);
+
+    let changed = rig.turned().await;
+    let [fork] = rig.other_than("aaaa-1111").await.try_into().expect("one fork");
+    let fixing = the_hub(&rig.fleet).await.fixing_session.expect("the fork holds it");
+    assert_eq!((fixing.id.as_str(), fixing.title.as_deref()), (fork.as_str(), Some("Fix main after #1815")));
+
+    // The fork ends: it holds nothing now, and the old Session is not forked again for this red.
+    rig.fleet.close_session(ipc::CloseSession { session_id: SessionId::carried(&fork) }).await.unwrap();
+    assert!(the_hub(&rig.fleet).await.fixing_session.is_none());
+    rig.fleet.red_given_to_sessions(&changed).await;
+    assert_eq!(rig.other_than("aaaa-1111").await.len(), 1, "once per red per Session, fork or not");
+}
+
+#[tokio::test]
+async fn a_session_that_took_the_red_itself_shows_in_the_hub_and_its_end_frees_it() {
+    let rig = local_rig().await;
+    goes_red(&rig.fleet, 1815);
+    rig.fleet.turn().await.unwrap();
+    rig.a_terminal_session("s-a").await;
+
+    let taken = rig.takes_the_red("s-a").await.expect("taken");
+    assert!(!taken.claimed, "no store applies");
+    let [take] = rig.session_takes().await.try_into().expect("recorded");
+    assert_eq!((&take.by, take.how), (&TakenBy::Session("s-a".to_string()), TakenHow::Took));
+    assert_eq!(the_hub(&rig.fleet).await.fixing_session.map(|one| one.id), Some("s-a".to_string()));
+
+    rig.an_ended_session("s-a").await;
+    assert!(the_hub(&rig.fleet).await.fixing_session.is_none(), "an ended Session holds nothing");
+    rig.a_terminal_session("s-b").await;
+    rig.takes_the_red("s-b").await.expect("free again");
+}
+
+#[tokio::test]
+async fn nobody_fixes_a_red_a_session_holds() {
+    let rig = local_rig().await;
+    let id = rig.a_hosted_session().await;
+    rig.held_pull(&id, 1815).await;
+    goes_red(&rig.fleet, 1815);
+    rig.turned().await;
+    let culprit = a_finished_job(&rig.fleet, &rig.home, "fix the off-by-one in the log reader").await;
+    let jobs = rig.jobs_made().await;
+    let root = rig.root.clone();
+
+    for send_to in [None, Some(culprit.id())] {
+        for take_over in [false, true] {
+            let refused = rig.fleet.fix_main(&root, send_to, None, take_over).await.unwrap_err();
+            let wire = rig.fleet.refusal(refused);
+            assert_eq!(wire.error().code, "fleet.main_already_taken");
+            assert!(wire.error().message.contains(&id), "{}", wire.error().message);
+        }
+    }
+    assert_eq!(rig.jobs_made().await, jobs, "no Job was proposed");
+
+    rig.a_terminal_session("s-b").await;
+    let refused = rig.takes_the_red("s-b").await.unwrap_err();
+    assert_eq!(refused.error().code, "fleet.main_already_taken");
+    assert!(refused.error().message.contains(&id), "{}", refused.error().message);
+    assert_eq!(rig.session_takes().await.len(), 1, "and no second take was kept");
+}
+
+#[tokio::test]
+async fn the_jobs_pickup_leaves_a_red_a_session_holds() {
+    let rig = local_rig().await;
+    let culprit = a_finished_job(&rig.fleet, &rig.home, "fix the off-by-one in the log reader").await;
+    goes_red(&rig.fleet, 1815);
+    rig.fleet.turn().await.unwrap();
+    rig.a_terminal_session("s-a").await;
+    rig.takes_the_red("s-a").await.expect("taken");
+
+    // The red comes back with a Job's pull request named as its cause, as a later reading may find.
+    let mut main = kept(&rig.fleet).await.unwrap();
+    main.merge.as_mut().expect("a merge").job = Some(culprit.id().clone());
+    rig.fleet.main_acted_on(&[MainChanged { change: MainChange::BackToRed, now: main }]).await;
+    assert_eq!(takes(&rig.fleet).await.len(), 1, "no Job was sent the work");
+    assert_eq!(rig.session_takes().await.len(), 1);
+    assert_eq!(rig.jobs_made().await, 1, "only the culprit exists");
+}
+
+#[tokio::test]
+async fn green_ends_a_sessions_take_as_it_ends_a_jobs() {
+    let rig = local_rig().await;
+    let id = rig.a_hosted_session().await;
+    rig.held_pull(&id, 1815).await;
+    goes_red(&rig.fleet, 1815);
+    rig.turned().await;
+    assert!(the_hub(&rig.fleet).await.fixing_session.is_some());
+    let [take] = takes(&rig.fleet).await.try_into().expect("one take");
+    assert!(take.ended_at.is_none());
+
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.head_is(Some(TWO));
+    forge.runs_on(TWO, vec![run("ci", "21", CiState::Passed)]);
+    rig.fleet.turn().await.unwrap();
+    assert!(the_hub(&rig.fleet).await.fixing_session.is_none());
+    let ended = rig.fleet.store().lock().await.main_fixes_of(&take.repository, &take.red_at).unwrap();
+    assert!(matches!(ended.as_slice(), [one] if one.ended_at.is_some() && one.fixed_in.is_none()), "{ended:?}");
 }

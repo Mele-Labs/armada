@@ -332,7 +332,7 @@ export function MergeLine(props: MergeLineProps) {
                     <h3 className="armada-merge-line__subheading">Open pull requests</h3>
                     <ul className="armada-merge-line__list" aria-label="Open pull requests">
                       {hub.pulls.map((pull) => (
-                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? (hub.main.taken ?? hub.main.takenBySession) : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
                       ))}
                     </ul>
                   </>
@@ -525,7 +525,7 @@ function MainLight({ main }: { main: MainState | undefined }) {
         )}
         {said}
       </span>
-      {failed.length === 0 && red?.red.merge === undefined && red?.taken === undefined && (main?.checking?.length ?? 0) === 0 ? null : (
+      {failed.length === 0 && red?.red.merge === undefined && red?.taken === undefined && red?.takenBySession === undefined && (main?.checking?.length ?? 0) === 0 ? null : (
         <span className="armada-merge-line__card-rows">
           {failed.map((one, at) => (
             <Fragment key={`${one.check}:${at}`}>
@@ -545,10 +545,10 @@ function MainLight({ main }: { main: MainState | undefined }) {
               <span className="mono">{[`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" ")}</span>
             </>
           )}
-          {red?.taken === undefined ? null : (
+          {red?.taken === undefined && red?.takenBySession === undefined ? null : (
             <>
               <span>Fixing</span>
-              <span>{red.taken.title}</span>
+              <span>{(red.taken ?? red.takenBySession)!.title}</span>
             </>
           )}
           {(main?.checking?.length ?? 0) === 0 ? null : (

@@ -3,11 +3,14 @@
 //! across machines*.
 //!
 //! **It writes the same claim a Job's take does**, with the Session's id as
-//! holder. A Session is told who holds the red only when it is refused.
+//! holder, and the same local take, which the hub's Fixing row reads. A Session
+//! is told who holds the red only when it is refused. Asking again for the red
+//! it already holds is not a refusal.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, Refusal};
 use ipc::{MainRedTaken, ManifestId, TakeMainRed};
+use store::{TakenBy, TakenHow};
 
 use crate::daemon::Fleet;
 use crate::main_fix::{refused, MainNotFixable};
@@ -50,13 +53,16 @@ where
             .ok_or_else(|| refuse(&format!("session {id} is in no repository Fleet serves")))?;
         let root = self.served_named(Some(&ManifestId::carried(&manifest)))?.root().to_string();
         let (_, main) = self.red_of(&root).await.map_err(|why| self.refusal(why))?;
-        if let Some(job) = self.taking(&main).await {
-            return Err(self.refusal(refused(&root, MainNotFixable::Taken(job))));
+        match self.taking(&main).await {
+            Some(TakenBy::Session(held)) if held == id => {}
+            Some(by) => return Err(self.refusal(refused(&root, MainNotFixable::Taken(by)))),
+            None => {}
         }
         let claimed = self
-            .claim_red(&main, &Taker::Session(id), take.take_over)
+            .claim_red(&main, &Taker::Session(id.clone()), take.take_over)
             .await
             .map_err(|why| self.refusal(refused(&root, why)))?;
+        self.recorded_session_take(&main, &id, TakenHow::Took, None).await;
         Ok(MainRedTaken { root, claimed })
     }
 }

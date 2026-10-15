@@ -228,7 +228,7 @@ async fn a_session_takes_a_free_red_and_a_job_here_is_then_refused_naming_it() {
     assert!(taken.claimed);
 
     let refused = a.fleet.fix_main(&root(&a.fleet).await, None, None, false).await.unwrap_err();
-    assert!(refused.to_string().contains("Session s-a on mac-a"), "{refused}");
+    assert!(refused.to_string().contains("Session s-a is already working on this red"), "{refused}");
 }
 
 #[tokio::test]
@@ -396,12 +396,49 @@ async fn the_automatic_pickup_claims_first_and_skips_a_red_held_elsewhere() {
     a.fleet.turn().await.unwrap();
     let [take] = takes(&a.fleet).await.try_into().expect("A sent the work back once");
     let held = row_of(&shared).expect("claimed before the send-back");
-    assert_eq!((held.id.as_str(), held.machine.as_str()), (take.job.as_str(), "mac-a"));
-    assert_ne!(take.job, *culprit_a.id());
+    assert_eq!((held.id.as_str(), held.machine.as_str()), (take.by.id(), "mac-a"));
+    assert_ne!(take.by.job().expect("a Job"), culprit_a.id());
 
     b.fleet.turn().await.unwrap();
     assert!(takes(&b.fleet).await.is_empty(), "B skipped it silently");
     let (loaded, _) = b.fleet.every_job().await.unwrap();
     assert_eq!(loaded.jobs.len(), 1, "only B's own culprit {:?}", culprit_b.id());
     assert_eq!(row_of(&shared).unwrap().machine, "mac-a");
+}
+
+#[tokio::test]
+async fn a_session_that_holds_the_red_is_named_on_the_other_machine_and_taken_over_from() {
+    let shared = FakeStore::new();
+    let (a, b) = (machine("mac-a", &shared, true).await, machine("mac-b", &shared, true).await);
+    red_on(&a).await;
+    red_on(&b).await;
+    for (each, id) in [(&a, "s-a"), (&b, "s-b")] {
+        each.fleet
+            .report_session(SessionReport {
+                harness: adapters::HOSTED_HARNESS.into(),
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Started { cwd: root(&each.fleet).await, title: None, origin: SessionOrigin::Terminal, mod_version: None },
+            })
+            .await
+            .unwrap();
+    }
+    let ask = |id: &str, take_over| ipc::TakeMainRed { session_id: Some(SessionId::carried(id)), take_over };
+    assert!(a.fleet.take_main_red(None, ask("s-a", false)).await.expect("A's Session takes it").claimed);
+    assert_eq!(the_hub(&a.fleet).await.fixing_session.map(|one| one.id), Some("s-a".to_string()), "A's own take is `fixing_session`");
+    assert!(the_hub(&a.fleet).await.fixing_elsewhere.is_none());
+
+    b.fleet.turn().await.unwrap();
+    let named = the_hub(&b.fleet).await.fixing_elsewhere.expect("B's hub names A's Session");
+    assert_eq!((named.machine.as_str(), named.holder.id.as_str(), named.holder.kind), ("mac-a", "s-a", ipc::HolderKind::Session));
+
+    let refused = b.fleet.fix_main(&root(&b.fleet).await, None, None, false).await.unwrap_err();
+    assert_eq!(b.fleet.refusal(refused).error().code, "fleet.main_taken_elsewhere");
+    let refused = b.fleet.take_main_red(None, ask("s-b", false)).await.unwrap_err();
+    assert_eq!(refused.error().code, "fleet.main_taken_elsewhere");
+    assert_eq!(row_of(&shared).unwrap().id, "s-a", "refusing changed nothing");
+
+    let over = b.fleet.fix_main(&root(&b.fleet).await, None, None, true).await.expect("taken over");
+    let held = row_of(&shared).expect("a row");
+    assert_eq!((held.kind, held.id.as_str(), held.machine.as_str()), (HolderKind::Job, over.id().as_str(), "mac-b"), "B's row replaced A's Session");
+    assert!(takes(&b.fleet).await.iter().all(|take| take.by.session().is_none()), "B holds no Session take");
 }
