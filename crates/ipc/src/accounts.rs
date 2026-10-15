@@ -1,9 +1,12 @@
 //! The account a machine is signed in to, on the wire: the profiles it has
-//! joined, the sign-in in flight, and the acts on both. `docs/concepts/account.md`.
+//! joined, which repositories each is bound to, the sign-in in flight, and the
+//! acts on them. `docs/concepts/account.md`.
 //!
 //! **Shaped for what Bridge's Account draws**: a profile, a flow that is idle,
 //! showing a code, or setting up row by row. A profile is keyed by the forge's
 //! numeric account id and also carries its login, which is what a chip draws.
+//! **A repository is bound to one profile, not the machine to one**: there is no
+//! active profile.
 
 use serde::{Deserialize, Serialize};
 
@@ -13,10 +16,42 @@ pub struct Profile {
     /// The forge's numeric id for the account, which names the profile in every act.
     pub account_id: u64,
     pub login: String,
-    /// The profile the machine acts as. At most one is, and one is whenever any exists.
-    pub active: bool,
     /// Added beside the machine's own on purpose, so what it syncs is a choice.
     pub chosen: bool,
+    /// The repositories whose claims and syncing go to this profile's store view.
+    pub repositories: Vec<BoundRepository>,
+}
+
+/// How a repository came to be bound to its profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BoundHow {
+    /// Its owner is the profile's login or one of its organisations, and no other profile's.
+    Matched,
+    /// A person chose it, which wins over a match.
+    Chosen,
+}
+
+/// A repository bound to a profile.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BoundRepository {
+    /// The repository's root, which names it in `set_repository_profile`.
+    pub root: String,
+    /// The folder's own name.
+    pub name: String,
+    pub how: BoundHow,
+}
+
+/// A repository bound to no profile, so it claims and syncs nothing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnmatchedRepository {
+    pub root: String,
+    pub name: String,
+    /// The profiles its owner matched. Empty where none did; two or more where
+    /// the owner is an organisation they share.
+    pub candidates: Vec<u64>,
+    /// A person chose "None" for it, so it stays unbound and is not waiting on a choice.
+    pub none_chosen: bool,
 }
 
 /// How far one row of what signing in sets up has got.
@@ -93,6 +128,8 @@ pub enum AccountFlow {
 pub struct Accounts {
     /// In the order they were joined. Empty is signed out.
     pub profiles: Vec<Profile>,
+    /// Every served repository that is bound to no profile.
+    pub unmatched: Vec<UnmatchedRepository>,
     pub flow: AccountFlow,
 }
 
@@ -115,8 +152,11 @@ pub struct SignedOut {
     pub said: Option<String>,
 }
 
-/// `set_active_account`: which profile the machine acts as.
+/// `set_repository_profile`: which profile a repository is bound to.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SetActiveAccount {
-    pub account_id: u64,
+pub struct SetRepositoryProfile {
+    /// A served repository's root.
+    pub root: String,
+    /// `None` is "None": the repository claims and syncs nothing.
+    pub account_id: Option<u64>,
 }

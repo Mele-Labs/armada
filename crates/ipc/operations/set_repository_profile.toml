@@ -1,0 +1,12 @@
+[operations.set_repository_profile]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Choose which profile a repository claims and syncs as, or none"
+notes = """
+`POST /accounts/set_repository_profile`, body `SetRepositoryProfile`: the `root` of a served repository and an `account_id`, which is a profile this machine has joined or `null` for "None". Answered with `Accounts`.
+
+**A choice wins over a match** and is kept per repository in `repository-profiles.json` in the machine directory, so it survives a restart. `null` binds the repository to no profile: it claims and syncs nothing. A choice names a profile by id and outlives it: signed out of that profile, the repository has no store until another is chosen or the profile signs in again.
+
+Refused with 422 `fleet.no_such_account` for an id this machine has not joined and 422 `fleet.no_such_repository` for a root Fleet does not serve. `agent_access` is `No`.
+"""
