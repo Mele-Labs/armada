@@ -8,7 +8,7 @@ notes = """
 
 **A Job waiting on a person holds no place**: one whose Drone asked and is waiting on the answer, a paused one, and one escalated, at review, awaiting repair or attestation, or piloted. `at_work` counts the rest of its running and queued Jobs, and Autopilot picks while it is under `at_once`.
 
-`picks`, oldest first, are `AutopilotPick`: `pick_id`, the issue's `issue_number`, `issue_title` and `issue_url`, the `workflow_id` the picker chose where it chose one, the `job_id` it started, `state` (`started`, `set_aside`, `withdrawn`, `dismissed`), the picker's `reason`, and `at`.
+`picks`, oldest first, are `AutopilotPick`: `pick_id`, the issue's `issue_reference` (`#123`, `ABC-123`), `issue_title` and `issue_url`, the `workflow_id` the picker chose where it chose one, the `job_id` it started, `state` (`started`, `set_aside`, `withdrawn`, `dismissed`), the picker's `reason`, and `at`.
 
 `fault`, where present, is why the last pass picked nothing, in Fleet's words: the tracker would not answer, or the picker's answer was refused. It goes once a pass goes through, and is the only place a pass's failure is told.
 

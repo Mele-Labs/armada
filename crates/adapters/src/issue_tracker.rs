@@ -63,8 +63,12 @@ impl Tracker for IssueTracker {
         Ok(issues)
     }
 
-    fn read_issue(&self, in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked> {
+    fn read_issue(&self, in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked> {
         let doing = "reading the issue";
+        // `#12` or `12`; text that is not a number names no issue here, and never reaches the CLI.
+        let Ok(number) = reference.trim_start_matches('#').parse::<u64>() else {
+            return Ok(None);
+        };
         let number = number.to_string();
         let run = Command::new(FORGE)
             .args(["issue", "view", number.as_str(), "--json", "number,title,url,state"])
@@ -193,7 +197,7 @@ fn done(run: Result<Output, std::io::Error>, doing: &'static str) -> Result<(), 
 /// One `@tsv` line of [`OPEN_ISSUES`]. A line with no number is not an issue.
 pub(crate) fn issue_of_line(line: &str) -> Option<OpenIssue> {
     let mut field = line.split('\t');
-    let number = field.next()?.parse().ok()?;
+    let number: u64 = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();
     let url = field.next().unwrap_or_default();
     let labels = field.next().unwrap_or_default();
@@ -209,7 +213,7 @@ pub(crate) fn issue_of_line(line: &str) -> Option<OpenIssue> {
             .collect()
     };
     Some(OpenIssue {
-        number,
+        reference: format!("#{number}"),
         title: FromOutside::verbatim(as_written(title)),
         url: FromOutside::verbatim(as_written(url)),
         labels: listed(labels),
@@ -224,7 +228,7 @@ pub(crate) fn issue_of_line(line: &str) -> Option<OpenIssue> {
 /// forge's issue view answers for a pull request's number, and is not an issue here.
 pub(crate) fn read_issue_of_line(line: &str) -> Option<ReadIssue> {
     let mut field = line.split('\t');
-    let number = field.next()?.parse().ok()?;
+    let number: u64 = field.next()?.parse().ok()?;
     let title = field.next().unwrap_or_default();
     let url = field.next().unwrap_or_default();
     let state = field.next().unwrap_or_default();
@@ -232,7 +236,7 @@ pub(crate) fn read_issue_of_line(line: &str) -> Option<ReadIssue> {
         return None;
     }
     Some(ReadIssue {
-        number,
+        reference: format!("#{number}"),
         title: FromOutside::verbatim(as_written(title)),
         url: FromOutside::verbatim(as_written(url)),
         closed: !state.eq_ignore_ascii_case("open"),
@@ -255,6 +259,13 @@ mod tests {
     }
 
     #[test]
+    fn text_that_is_not_a_number_names_no_issue_and_never_reaches_the_cli() {
+        for text in ["ABC-12", "--repo=evil", "", "#"] {
+            assert_eq!(IssueTracker.read_issue("/nowhere", text), Ok(None), "{text}");
+        }
+    }
+
+    #[test]
     fn a_pull_requests_address_is_not_an_issue() {
         assert_eq!(
             read_issue_of_line("14\tA change\thttps://forge.example/o/r/pull/14\tMERGED"),
@@ -268,7 +279,7 @@ mod tests {
         let line = "91\tTicket system link\thttps://github.com/o/r/issues/91\t\
                     idea\u{1f}armada: in progress\tnick\t2026-10-11T19:15:42Z\tThe idea\\tis\t1";
         let issue = issue_of_line(line).expect("an issue");
-        assert_eq!(issue.number, 91);
+        assert_eq!(issue.reference, "#91");
         assert_eq!(issue.title.as_written(), "Ticket system link");
         assert_eq!(
             issue.labels,

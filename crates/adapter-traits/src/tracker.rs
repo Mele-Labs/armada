@@ -17,7 +17,9 @@ use crate::{FromOutside, IssueAddress, LinkLookup};
 /// One open issue, as the tracker listed it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpenIssue {
-    pub number: u64,
+    /// How the tracker names it, as a person writes it: the forge's `#123`, Jira's `ABC-123`.
+    /// **The identity of the issue in this crate**: nothing looks one up by a bare number.
+    pub reference: String,
     pub title: FromOutside,
     /// The tracker's own address for it: what a dispatch names, and what
     /// [`IssueAddress::url`] holds once a Job came from it.
@@ -34,10 +36,11 @@ pub struct OpenIssue {
     pub linked_pull_request: bool,
 }
 
-/// One issue read by its number, open or closed.
+/// One issue read by its reference, open or closed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReadIssue {
-    pub number: u64,
+    /// As [`OpenIssue::reference`].
+    pub reference: String,
     pub title: FromOutside,
     pub url: FromOutside,
     /// The tracker no longer holds it open.
@@ -74,10 +77,12 @@ pub trait Tracker {
     /// edit first. Pull requests are not issues here.
     fn open_issues(&self, in_repo: &str) -> Result<Vec<OpenIssue>, NotTracked>;
 
-    /// The issue numbered `number` in the repository checked out at `in_repo`, closed ones
-    /// included. `None` where there is none, **and where the number is a pull request's**: a
-    /// pull request is not an issue here, as it is not in [`open_issues`](Tracker::open_issues).
-    fn read_issue(&self, in_repo: &str, number: u64) -> Result<Option<ReadIssue>, NotTracked>;
+    /// The issue `reference` names, as [`OpenIssue::reference`] writes it, closed ones included.
+    /// **A forge also takes the bare number**, since that is what a person types after `#`.
+    /// `None` where there is none or the text names none, **and where it is a pull request's
+    /// number**: a pull request is not an issue here, as it is not in
+    /// [`open_issues`](Tracker::open_issues).
+    fn read_issue(&self, in_repo: &str, reference: &str) -> Result<Option<ReadIssue>, NotTracked>;
 
     /// Post `text` on the issue as a comment.
     fn comment(&self, issue: &IssueAddress, text: &str) -> Result<(), NotTracked>;

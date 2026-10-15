@@ -45,9 +45,11 @@ fn a_site_name_is_a_cloud_site_and_a_host_with_a_dot_is_taken_as_written() {
 fn a_block_that_cannot_be_read_says_which_key_and_why() {
     let refused = |pairs: &[(&str, &str)]| JiraSettings::read(&block(pairs)).expect_err("refused");
     assert!(refused(&[("project", "ABC")]).contains("`site`"));
-    assert!(refused(&[("site", "acme")]).contains("`project`"));
+    let neither = refused(&[("site", "acme")]);
+    assert!(neither.contains("`project` or `jql`"), "{neither}");
     assert!(refused(&[("site", "acme"), ("project", "abc")]).contains("not a Jira project key"));
     assert!(refused(&[("site", "acme"), ("project", "A\" OR 1=1")]).contains("not a Jira project key"));
+    assert!(refused(&[("site", "acme"), ("project", "ABC, ops")]).contains("`project: ops`"));
     assert!(refused(&[("site", "ac me"), ("project", "ABC")]).contains("`site: ac me`"));
     let unknown = refused(&[("site", "acme"), ("project", "ABC"), ("board", "7")]);
     assert!(unknown.contains("`board`") && unknown.contains("site, project, jql"), "{unknown}");
@@ -74,13 +76,18 @@ fn the_search_is_always_bound_to_the_project_and_an_extra_filter_is_anded_in() {
 }
 
 #[test]
-fn a_number_names_an_issue_of_the_project_and_nothing_else() {
-    let it = settings();
-    assert_eq!(it.key_of(12), "ABC-12");
-    assert_eq!(it.number_of("ABC-12"), Some(12));
-    assert_eq!(it.number_of("ABCD-12"), None);
-    assert_eq!(it.number_of("OTHER-12"), None);
-    assert_eq!(it.number_of("ABC-x"), None);
+fn several_projects_are_listed_together_and_a_filter_alone_is_enough() {
+    let many = JiraSettings::read(&block(&[("site", "acme"), ("project", "ABC, OPS  WEB")])).expect("a block");
+    assert_eq!(
+        many.search(),
+        "project in (\"ABC\", \"OPS\", \"WEB\") AND statusCategory != Done ORDER BY updated DESC"
+    );
+    let only_jql = JiraSettings::read(&block(&[("site", "acme"), ("jql", "labels = web OR assignee = currentUser()")]))
+        .expect("a filter is enough");
+    assert_eq!(
+        only_jql.search(),
+        "statusCategory != Done AND (labels = web OR assignee = currentUser()) ORDER BY updated DESC"
+    );
 }
 
 #[test]
@@ -174,7 +181,7 @@ fn the_listing_searches_the_project_through_acli_and_reduces_it_with_jq() {
 }
 
 #[test]
-fn issues_are_read_off_the_lines_newest_edit_first_and_another_projects_are_dropped() {
+fn issues_are_read_off_the_lines_newest_edit_first_whatever_project_the_search_let_through() {
     let lines = "ABC-3\tOlder\t\t\t2026-10-13T10:00:00+02:00\t\n\
                  ABC-12\tReader drops a row\tweb\u{1f}armada-in-progress\tNick\t2026-10-14T10:11:12.123+02:00\tFirst line\\tmore\n\
                  OTHER-9\tNot ours\t\t\t2026-10-14T11:00:00+02:00\t";
@@ -182,9 +189,9 @@ fn issues_are_read_off_the_lines_newest_edit_first_and_another_projects_are_drop
     let issues = JiraTracker::with_runner(settings(), &run)
         .open_issues("/repo")
         .expect("listed");
-    let numbers: Vec<u64> = issues.iter().map(|one| one.number).collect();
-    assert_eq!(numbers, [12, 3]);
-    let first = &issues[0];
+    let references: Vec<&str> = issues.iter().map(|one| one.reference.as_str()).collect();
+    assert_eq!(references, ["OTHER-9", "ABC-12", "ABC-3"]);
+    let first = &issues[1];
     assert_eq!(first.title.as_written(), "Reader drops a row");
     assert_eq!(first.url.as_written(), "https://acme.atlassian.net/browse/ABC-12");
     let labels: Vec<&str> = first.labels.iter().map(|one| one.as_written()).collect();
@@ -192,7 +199,13 @@ fn issues_are_read_off_the_lines_newest_edit_first_and_another_projects_are_drop
     assert_eq!(first.assignees[0].as_written(), "Nick");
     assert_eq!(first.excerpt.as_written(), "First line\tmore");
     assert!(!first.linked_pull_request);
-    assert!(issues[1].assignees.is_empty());
+    assert!(issues[2].assignees.is_empty());
+}
+
+#[test]
+fn a_line_whose_first_field_is_not_a_key_is_not_an_issue() {
+    assert_eq!(issue_of_line(&settings(), "not-a-key\tTitle\t\t\t2026-10-14T10:00:00Z\t"), None);
+    assert_eq!(issue_of_line(&settings(), ""), None);
 }
 
 #[test]
@@ -220,14 +233,14 @@ fn a_tool_that_is_not_installed_is_named_rather_than_left_to_a_raw_error() {
 // ------------------------------------------------------------------ one issue
 
 #[test]
-fn an_issue_is_read_by_its_number_in_the_project() {
+fn an_issue_is_read_by_its_key_in_whatever_project_it_is_in() {
     let run = Scripted::saying(&[(0, "{}", ""), (0, "ABC-7\tThe title\tdone\tresolved\n", "")]);
     let read = JiraTracker::with_runner(settings(), &run)
-        .read_issue("/repo", 7)
+        .read_issue("/repo", "ABC-7")
         .expect("read")
         .expect("an issue");
     assert_eq!(run.calls()[0].1[..4], ["jira", "workitem", "view", "ABC-7"]);
-    assert_eq!(read.number, 7);
+    assert_eq!(read.reference, "ABC-7");
     assert!(read.closed);
     assert_eq!(read.url.as_written(), "https://acme.atlassian.net/browse/ABC-7");
 }
@@ -238,16 +251,30 @@ fn an_issue_that_is_open_reads_as_open_and_a_missing_one_as_none() {
     assert!(!read_issue_of_line(&it, "ABC-8\tOpen one\tnew\t").expect("an issue").closed);
     assert!(!read_issue_of_line(&it, "ABC-8\tOpen one\tindeterminate\t").expect("an issue").closed);
     assert!(read_issue_of_line(&it, "ABC-8\tClosed\tdone\t").expect("an issue").closed);
-    assert_eq!(read_issue_of_line(&it, "OTHER-8\tElsewhere\tdone\t"), None);
+    assert_eq!(read_issue_of_line(&it, "7\tNot a key\tdone\t"), None);
+    assert_eq!(
+        read_issue_of_line(&it, "OTHER-8\tElsewhere\tdone\t").map(|one| one.reference),
+        Some("OTHER-8".to_string())
+    );
     let run = Scripted::saying(&[(1, "", "Issue does not exist or you do not have permission")]);
     assert_eq!(
-        JiraTracker::with_runner(settings(), &run).read_issue("/repo", 99),
+        JiraTracker::with_runner(settings(), &run).read_issue("/repo", "ABC-99"),
         Ok(None)
     );
     let broken = Scripted::saying(&[(1, "", "the server is down")]);
     assert!(JiraTracker::with_runner(settings(), &broken)
-        .read_issue("/repo", 99)
+        .read_issue("/repo", "ABC-99")
         .is_err());
+}
+
+#[test]
+fn text_that_is_not_a_key_names_no_issue_and_never_reaches_the_cli() {
+    let run = Scripted::saying(&[]);
+    let jira = JiraTracker::with_runner(settings(), &run);
+    for text in ["214", "#214", "--key=ABC-1", "abc-1", ""] {
+        assert_eq!(jira.read_issue("/repo", text), Ok(None), "{text}");
+    }
+    assert!(run.calls().is_empty());
 }
 
 // ------------------------------------------------------------------ the writes
@@ -284,7 +311,7 @@ fn nothing_that_is_not_an_issue_of_this_site_reaches_the_cli() {
 }
 
 #[test]
-fn a_label_moves_as_the_whole_set_so_a_replacing_edit_keeps_what_was_there() {
+fn a_label_added_is_written_as_the_whole_set_and_a_removal_as_a_removal() {
     let run = Scripted::saying(&[(0, "{}", ""), (0, "web\narmada-set-aside\n", ""), (0, "", "")]);
     JiraTracker::with_runner(settings(), &run)
         .relabel(&address("ABC-5"), &["armada: in progress"], &["armada: set aside"])
@@ -303,13 +330,15 @@ fn a_label_moves_as_the_whole_set_so_a_replacing_edit_keeps_what_was_there() {
 }
 
 #[test]
-fn taking_a_label_off_asks_for_no_labels_to_be_set() {
-    let run = Scripted::saying(&[(0, "{}", ""), (0, "web\narmada-in-progress\n", ""), (0, "", "")]);
+fn taking_a_label_off_reads_nothing_and_sets_no_labels() {
+    let run = Scripted::saying(&[(0, "", "")]);
     JiraTracker::with_runner(settings(), &run)
         .relabel(&address("ABC-5"), &[], &["armada: in progress"])
         .expect("relabelled");
+    let calls = run.calls();
+    assert_eq!(calls.len(), 1, "no view of the issue's labels to race with");
     assert_eq!(
-        run.calls()[2].1,
+        calls[0].1,
         ["jira", "workitem", "edit", "--key", "ABC-5", "--remove-labels", "armada-in-progress", "--yes"]
     );
 }
@@ -435,7 +464,7 @@ fn the_listing_filter_reads_the_nested_shape() {
     let it = settings();
     let issues: Vec<_> = printed.lines().filter_map(|line| issue_of_line(&it, line)).collect();
     assert_eq!(issues.len(), 2);
-    assert_eq!(issues[0].number, 12);
+    assert_eq!(issues[0].reference, "ABC-12");
     assert_eq!(issues[0].assignees[0].as_written(), "Pat Doe");
     assert_eq!(issues[0].labels.len(), 2);
     assert_eq!(
@@ -451,7 +480,7 @@ fn the_listing_filter_reads_the_nested_shape() {
 fn the_listing_filter_reads_the_flat_shape_too() {
     let printed = through_jq(&jira::listing_filter(240), FLAT);
     let issue = issue_of_line(&settings(), printed.lines().next().expect("a line")).expect("an issue");
-    assert_eq!(issue.number, 14);
+    assert_eq!(issue.reference, "ABC-14");
     assert_eq!(issue.labels[0].as_written(), "api");
     assert_eq!(issue.assignees[0].as_written(), "Sam");
     assert_eq!(issue.excerpt.as_written(), "Plain text");
@@ -525,7 +554,7 @@ fn a_choice_that_cannot_be_honoured_answers_with_a_tracker_that_says_why() {
     let unknown = refusal_of(&chose(Some("trello"), &[]));
     assert!(unknown.contains("`trello`") && unknown.contains("jira"), "{unknown}");
     let incomplete = refusal_of(&chose(Some("jira"), &[("site", "acme")]));
-    assert!(incomplete.contains("`project`"), "{incomplete}");
+    assert!(incomplete.contains("`project` or `jql`"), "{incomplete}");
     let orphan = refusal_of(&chose(None, &[("project", "ABC")]));
     assert!(orphan.contains("no `provider`"), "{orphan}");
     let stray = refusal_of(&chose(Some("github"), &[("project", "ABC")]));
@@ -539,6 +568,6 @@ fn a_refused_choice_resolves_no_link_and_refuses_every_write() {
     let tracker = TrackersByProvider.tracker(&choice);
     assert!(tracker.comment(&address("ABC-1"), "x").is_err());
     assert!(tracker.relabel(&address("ABC-1"), &["a"], &[]).is_err());
-    assert!(tracker.read_issue("/repo", 1).is_err());
+    assert!(tracker.read_issue("/repo", "ABC-1").is_err());
     assert_eq!(tracker.closing_line(&address("ABC-1")), None);
 }

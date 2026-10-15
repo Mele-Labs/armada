@@ -51,12 +51,12 @@ async fn call(app: &Router, method: &str, uri: &str, body: &str) -> (StatusCode,
 }
 
 #[tokio::test]
-async fn one_issue_is_read_by_number_open_or_closed_and_a_missing_one_is_a_404() {
+async fn one_issue_is_read_by_reference_open_or_closed_and_a_missing_one_is_a_404() {
     let (_daemon, app) = wired();
     let (status, _, body) = call(&app, "GET", "/issues/armada/214", "").await;
     assert_eq!(status, StatusCode::OK);
     let read: IssueRead = ipc::decode("an issue", &body).expect("an issue");
-    assert_eq!((read.number, read.state), (214, IssueState::Open));
+    assert_eq!((read.reference.as_str(), read.state), ("#214", IssueState::Open));
 
     let (_, _, body) = call(&app, "GET", "/issues/armada/215", "").await;
     let read: IssueRead = ipc::decode("an issue", &body).expect("an issue");
