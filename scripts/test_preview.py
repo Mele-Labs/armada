@@ -520,7 +520,9 @@ class RestartAdopt(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("drone-j1 (j1)", said)
         self.assertIn("drone-j2 (j2)", said)
-        self.assertNotIn("j3", said)
+        # The Job's own words, not a bare "j3": the temp directory's random name can hold it.
+        self.assertNotIn("drone-j3", said)
+        self.assertNotIn("(j3)", said)
         self.assertIn("the working Drones above would be adopted and the refusal skipped", said)
         for cost in ("cannot be redirected, poked or handed a verdict", "undercount", "`unheard`",
                      "servers stop when Fleet stops", "gate re-runs from scratch",
