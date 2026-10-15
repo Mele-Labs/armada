@@ -10,7 +10,6 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { ClashMark, ClashNotice } from "../ClashMark/ClashMark";
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
-import { ModelChip } from "./ModelChip";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -92,7 +91,7 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
 
 export type { ContextFill } from "./ContextFigure";
 export type { FreshStart } from "./FreshNudge";
-export { modelSaid } from "./ModelChip";
+export { modelSaid } from "./model-said";
 export type { ContextBreakdown } from "../../context-breakdown";
 
 export type SessionFrameProps = {
@@ -100,7 +99,7 @@ export type SessionFrameProps = {
   /** What the state's mark says on hover. */
   said: string;
   id: string;
-  /** What other sessions call it, drawn in place of `id`. */
+  /** What other sessions call it, in the terminal glyph's tooltip in place of `id`. */
   address?: string;
   /** Absent until the first turn has named it. */
   title?: string;
@@ -111,23 +110,30 @@ export type SessionFrameProps = {
   onRename?: (title: string) => void;
   /** The Session's mod is older than the repository's: marked beside the state. */
   modOutOfDate?: boolean;
-  /** The context window's fill, drawn beside `actions`. Absent draws nothing. */
+  /** The context window's fill, drawn as a tank after `actions`. Absent draws nothing. */
   context?: ContextFill;
-  /** The model the Session runs on: the full id its process resolved, or the alias picked. Absent draws nothing. */
-  model?: string;
-  /** Big or old: a quiet mark beside the context figure, offering a fresh Session or a fork. Absent draws nothing. */
+  /** Big or old: a quiet mark after the context tank, offering a fresh Session or a fork. Absent draws nothing. */
   fresh?: FreshStart;
-  /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
+  /** Icon-only acts after the title: Retro, End session, and the ledger's button where it has folded. */
   actions?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
   aside?: ReactNode;
   children: ReactNode;
 };
 
-/** The title, in place; a field while it is being changed. */
+/** The title, in place, on one line with the whole of it in a tooltip; a field while it is being changed. */
 function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: string) => void }) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
-  if (onRename === undefined) return <span className="armada-session-frame__title">{title}</span>;
+  if (onRename === undefined) {
+    if (title === undefined) return <span className="armada-session-frame__title" />;
+    return (
+      <span className="armada-session-frame__title">
+        <Tooltip label={title}>
+          <span className="armada-session-frame__title-text">{title}</span>
+        </Tooltip>
+      </span>
+    );
+  }
   if (draft === undefined && title === undefined) {
     return (
       <span className="armada-session-frame__title">
@@ -141,11 +147,13 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   }
   if (draft === undefined) {
     return (
-      <Tooltip label="Rename">
-        <button type="button" className="armada-session-frame__title" aria-label={title === undefined ? "Rename" : `${title}, rename`} onClick={() => setDraft(title ?? "")}>
-          {title}
-        </button>
-      </Tooltip>
+      <span className="armada-session-frame__title">
+        <Tooltip label={title}>
+          <button type="button" className="armada-session-frame__title-text" aria-label={`${title}, rename`} onClick={() => setDraft(title ?? "")}>
+            {title}
+          </button>
+        </Tooltip>
+      </span>
     );
   }
   const save = () => {
@@ -173,21 +181,26 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, model, fresh, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, actions, aside, children }: SessionFrameProps) {
+  const named = address ?? id;
   return (
     <div className="armada-session-panels">
-    <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
+    <Card className="armada-session-frame" role="region" aria-label={`Session ${named}`}>
       <header className="armada-session-frame__head">
-        <SquareTerminal size={16} strokeWidth={2} aria-hidden />
-        <span className="armada-session-frame__id">{address ?? id}</span>
+        <Tooltip label={named}>
+          <span className="armada-session-frame__glyph" role="img" aria-label={named}>
+            <SquareTerminal size={16} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
-        {model === undefined ? null : <ModelChip model={model} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
-        {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
-        {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
-        <ClashMark kind="session" id={id} size={16} />
-        {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
+        <span className="armada-session-frame__marks">
+          {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
+          {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+          <ClashMark kind="session" id={id} size={16} />
+        </span>
+        <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}</span>
       </header>
       <ClashNotice kind="session" id={id} />
       <div className="armada-session-frame__body">{children}</div>
