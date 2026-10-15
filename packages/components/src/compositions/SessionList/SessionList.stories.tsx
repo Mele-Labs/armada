@@ -59,6 +59,45 @@ export const AtRest: Story = {
   },
 };
 
+/** Hovering a pull request's chip opens the ledger's card; the Session is not opened by it. */
+export const PullRequestCard: Story = {
+  args: {
+    groups: [
+      {
+        label: "Needs you",
+        rows: [
+          {
+            ...NOTES,
+            pullRequests: [
+              {
+                number: 1847,
+                checks: "passed",
+                said: "Checks passed",
+                state: "open",
+                card: {
+                  title: "#1847 Release notes script",
+                  facts: [
+                    { label: "Checks", value: "Passed", tone: "passed" },
+                    { label: "State", value: "Open" },
+                    { label: "Branch", value: "armada/release-notes", mono: true },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.hover(canvas.getByRole("img", { name: /^Pull request #1847/ }));
+    const title = await canvas.findByText("#1847 Release notes script");
+    await waitFor(() => expect(title).toBeVisible());
+    await expect(canvas.getByText("armada/release-notes")).toBeVisible();
+    await expect(args.onOpen).not.toHaveBeenCalled();
+  },
+};
+
 /** On All, a band for each repository with the state columns inside it; a repository with no Session is not drawn by the host. */
 export const ByRepository: Story = {
   args: {

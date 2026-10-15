@@ -13,12 +13,17 @@
 //! from main, `redispatched_from` naming the first, since the registry never
 //! reopens a Job under its own id. A Job still working is refused.
 //!
+//! **A take is claimed in the central store first** (`crate::red_claim`), so a
+//! Fleet on another machine refuses a second fix. The claim comes before
+//! `approve`, the send-back and the minting, and a Job proposed or minted for a
+//! red that turns out to be held is stopped.
+//!
 //! **A claim only where a Check and a test are both known**, as `draft_fix`
 //! claims one, so a Drone that hits the same test is pointed at this Job. It
 //! names no files: a log gives a test's name and not its path, so nothing is
 //! held off a file.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Holder, Vcs, WorkProduct};
 use core_model::{
     AcceptanceCriterion, Actor, Breakage, BreakageClaim, CriterionId, CriterionOrigin,
     CriterionSource, Facts, Job, JobId, JobStatus,
@@ -29,6 +34,7 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::drafting::StatedBy;
 use crate::main_ci::{MainChange, MainChanged};
+use crate::red_claim::Taker;
 use crate::redispatch::Carrying;
 use crate::repositories::Served;
 use crate::resume::Redirection;
@@ -57,6 +63,12 @@ pub enum MainNotFixable {
     CannotSendBack { job: JobId, status: JobStatus },
     /// A brief with nothing in it.
     Blank,
+    /// Another machine's Job or a Session holds this red in the central store.
+    /// `held_for` is whole seconds.
+    TakenElsewhere { holder: Holder, held_for: i64 },
+    /// The central store could not be asked or said no, so the red was not
+    /// claimed. A fix nobody else can see is the double fix the claim stops.
+    ClaimNotMade(String),
 }
 
 impl std::fmt::Display for MainNotFixable {
@@ -81,12 +93,34 @@ impl std::fmt::Display for MainNotFixable {
                 status.as_wire()
             ),
             MainNotFixable::Blank => write!(out, "the brief is blank"),
+            MainNotFixable::TakenElsewhere { holder, held_for } => write!(
+                out,
+                "{} {} on {} has held this red for {}. Take it over to replace that claim",
+                match holder.kind {
+                    adapter_traits::HolderKind::Session => "Session",
+                    adapter_traits::HolderKind::Job => "Job",
+                },
+                holder.id,
+                holder.machine,
+                aged(*held_for)
+            ),
+            MainNotFixable::ClaimNotMade(said) => write!(out, "the red was not taken. {said}"),
         }
     }
 }
 
+/// A claim's age, to its largest whole unit.
+fn aged(seconds: i64) -> String {
+    match seconds {
+        0..=59 => format!("{seconds} s"),
+        60..=3599 => format!("{} min", seconds / 60),
+        3600..=86_399 => format!("{} h", seconds / 3600),
+        _ => format!("{} d", seconds / 86_400),
+    }
+}
+
 /// Whether a take of a red still counts: the Job has not been stopped.
-fn stopped(status: JobStatus) -> bool {
+pub(crate) fn stopped(status: JobStatus) -> bool {
     matches!(
         status,
         JobStatus::Killed | JobStatus::CompletedFailed | JobStatus::Rejected
@@ -154,16 +188,21 @@ where
 {
     /// A person's press: a new Job for the red, or `send_to`'s work back to it.
     /// **The brief is on screen before the press, so the press is the approval.**
+    /// `take_over` replaces another machine's claim on the red.
     pub async fn fix_main(
         &self,
         root: &str,
         send_to: Option<&JobId>,
         brief: Option<&str>,
+        take_over: bool,
     ) -> Result<Job, Adrift> {
         let (served, main) = self.red_of(root).await?;
         if let Some(taken) = self.taking(&main).await {
             return Err(refused(root, MainNotFixable::Taken(taken)));
         }
+        self.red_is_free(&main, take_over)
+            .await
+            .map_err(|why| refused(root, why))?;
         let brief = match brief {
             Some(text) if text.trim().is_empty() => {
                 return Err(refused(root, MainNotFixable::Blank))
@@ -173,9 +212,9 @@ where
         };
         let facts = self.with_the_log(&served, &main, brief).await;
         match send_to {
-            None => self.dispatched_for(&served, &main, facts).await,
+            None => self.dispatched_for(&served, &main, facts, take_over).await,
             Some(job) => {
-                self.sent_back_for(&main, job, facts, TakenHow::SentBack, Actor::Human)
+                self.sent_back_for(&main, job, facts, TakenHow::SentBack, Actor::Human, take_over)
                     .await
             }
         }
@@ -188,14 +227,14 @@ where
     ) -> Result<ipc::JobSummary, api::Refusal> {
         let sent_to = fix.job.as_ref().map(ipc::JobId::to_domain);
         let job = self
-            .fix_main(&fix.root, sent_to.as_ref(), fix.brief.as_deref())
+            .fix_main(&fix.root, sent_to.as_ref(), fix.brief.as_deref(), fix.take_over)
             .await
             .map_err(|why| self.refusal(why))?;
         self.summarised(&job).await
     }
 
     /// The reading, if main is red there and Fleet serves the repository.
-    async fn red_of(&self, root: &str) -> Result<(Served, MainCi), Adrift> {
+    pub(crate) async fn red_of(&self, root: &str) -> Result<(Served, MainCi), Adrift> {
         let served = self
             .repositories()
             .served()
@@ -274,6 +313,7 @@ where
         served: &Served,
         main: &MainCi,
         facts: String,
+        take_over: bool,
     ) -> Result<Job, Adrift> {
         let workflow = ipc::WorkflowId::carried(FIX_WORKFLOW);
         if !served.workflows().contains_key(&workflow.to_domain()) {
@@ -309,6 +349,7 @@ where
         let job = self
             .proposed_job(proposal, StatedBy::APerson, None, Actor::Human)
             .await?;
+        self.claimed_minted(main, &job, take_over).await?;
         let job = self.approve(job.id()).await?;
         self.recorded_take(main, job.id(), TakenHow::Dispatched)
             .await;
@@ -323,12 +364,16 @@ where
         facts: String,
         how: TakenHow,
         by: Actor,
+        take_over: bool,
     ) -> Result<Job, Adrift> {
         let found = self.load(job).await?;
         let sent = match found.status() {
             JobStatus::AwaitingReview => {
                 let note = Redirection::saying(&facts)
                     .ok_or_else(|| refused(&main.repository, MainNotFixable::Blank))?;
+                self.claim_red(main, &Taker::Job(job.clone()), take_over)
+                    .await
+                    .map_err(|why| refused(&main.repository, why))?;
                 self.request_changes(job, &note).await?
             }
             JobStatus::CompletedSuccess | JobStatus::CompletedFailed | JobStatus::Killed => {
@@ -337,6 +382,7 @@ where
                     criteria: vec![criterion_of(main)],
                 };
                 let minted = self.mint_replacement(&found, Some(carrying), by).await?;
+                self.claimed_minted(main, &minted, take_over).await?;
                 if minted.status() == JobStatus::AwaitingApproval {
                     self.approve(minted.id()).await?
                 } else {
@@ -355,6 +401,19 @@ where
         };
         self.recorded_take(main, sent.id(), how).await;
         Ok(sent)
+    }
+
+    /// Claim the red for a Job just made and not yet released. **A red that
+    /// turns out held stops the Job**, so no unreleased proposal is left behind.
+    async fn claimed_minted(&self, main: &MainCi, job: &Job, take_over: bool) -> Result<(), Adrift> {
+        if let Err(why) = self
+            .claim_red(main, &Taker::Job(job.id().clone()), take_over)
+            .await
+        {
+            let _ = Fleet::kill_job(self, job.id()).await;
+            return Err(refused(&main.repository, why));
+        }
+        Ok(())
     }
 
     /// Record that `job` has this red, and claim its failing tests.
@@ -441,15 +500,20 @@ where
         else {
             return;
         };
+        // Held elsewhere, or the store silent: left to the band's buttons, which say why.
+        if self.red_is_free(main, false).await.is_err() {
+            return;
+        }
         let facts = self.with_the_log(&served, main, brief_of(main)).await;
         let _ = self
-            .sent_back_for(main, &job, facts, TakenHow::Took, Actor::Fleet)
+            .sent_back_for(main, &job, facts, TakenHow::Took, Actor::Fleet, false)
             .await;
     }
 
     /// Main is green: every take ends, and the Job whose pull request put it
     /// there says it fixed main.
     async fn fixed(&self, main: &MainCi) {
+        self.cleared_elsewhere(main).await;
         let commit = main.decided().to_string();
         let merged = self
             .forge_asked(&main.repository, move |vcs: &V, root: &str| {
@@ -514,7 +578,7 @@ where
     }
 }
 
-fn refused(root: &str, why: MainNotFixable) -> Adrift {
+pub(crate) fn refused(root: &str, why: MainNotFixable) -> Adrift {
     Adrift::MainNotFixable {
         root: root.to_string(),
         why,
