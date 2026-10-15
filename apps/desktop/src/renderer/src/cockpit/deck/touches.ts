@@ -1,11 +1,13 @@
 // What each Session and Job is changing, read from what Fleet observed and never from a table.
 //
-// **Three feeds, each real and each partial.** A Session's `session.edited` bursts carry the paths it wrote, newest first
+// **Four feeds, each real and each partial.** A Session's `session.edited` bursts carry the paths it wrote, newest first
 // and at most 25 of them. A Job's `job.files` event names its first file only, and its `JobFootprint` names every file but
-// only once the Job has stopped, so a running Job has one path at most. Write clashes come from Fleet's own git read of
-// the held slots. A drone with none of these touches nothing, and the battlefield leaves it at its pad. #2301.
+// only once the Job has stopped, so a running Job has one path at most. Fleet's `list_slot_touches` is its own git read of
+// what each held slot changed since it met the base, and is the last resort for a drone no burst places. Write clashes come
+// from Fleet's read of the held slots too. A drone with none of these touches nothing, and the battlefield leaves it at its
+// pad. #2301.
 
-import type { TimelineEvent, WriteClash } from "@armada/protocol";
+import type { SlotTouches, TimelineEvent, WriteClash } from "@armada/protocol";
 
 import { areaOf, relativeTo } from "./areas";
 
@@ -63,6 +65,24 @@ export function touchesFromEvents(
 
 /** The areas a stopped Job's footprint names. Its paths are repository-relative already. */
 export const touchesOfFootprint = (files: readonly { path: string }[]): Touch[] => rolled(files.map((file) => file.path));
+
+/**
+ * The areas each holder of a slot has changed in it, by its key, from Fleet's read of the slots against the base. The
+ * paths are repository-relative already, and a holder whose changes are all at the top of a repository is not in the map.
+ */
+export function touchesOfSlots(read: SlotTouches): Map<string, Touch[]> {
+  const touched = new Map<string, Touch[]>();
+  for (const repository of read.repositories) {
+    for (const holder of repository.holders) {
+      const areas = rolled(holder.paths);
+      if (areas.length > 0) touched.set(`${holder.kind}:${holder.id}`, areas);
+    }
+  }
+  return touched;
+}
+
+/** What a drone touches: what its tool bursts placed, else what Fleet read of its slot, else nothing, so it rests at its pad. */
+export const touchesOf = (key: string, observed: ReadonlyMap<string, readonly Touch[]>, slotted: ReadonlyMap<string, readonly Touch[]>): readonly Touch[] => observed.get(key) ?? slotted.get(key) ?? [];
 
 /**
  * The areas two holders are both writing, from the write-clash read: one mark per area, naming the drones that hold it.

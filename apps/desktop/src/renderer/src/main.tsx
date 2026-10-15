@@ -23,9 +23,11 @@ import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
 import { createFleetClashes } from "./fleet-clashes";
+import { createFleetTerritory } from "./fleet-territory";
 import { createFleetAccount } from "./fleet-account";
 import { AccountFromFleet } from "./account-fleet";
 import { ClashesFromFleet } from "./clashes";
+import { TerritoryFromFleet } from "./territory";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
@@ -62,6 +64,8 @@ const DOWNSHIFT = createFleetDownshift(window.armada);
 const TIMELINE = createFleetTimeline(window.armada);
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(window.armada);
+/** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */
+const TERRITORY = createFleetTerritory(window.armada);
 /** The title menu's account entry: the profiles and the sign-in, over Fleet. */
 const ACCOUNT = createFleetAccount(window.armada);
 
@@ -93,11 +97,13 @@ function Root() {
                     <DownshiftSourceProvider value={DOWNSHIFT}>
                       <WiredSessions>
                         <ClashesFromFleet source={CLASHES}>
-                          <AccountFromFleet source={ACCOUNT}>
-                            <FleetEventsOver source={TIMELINE}>
-                              <App />
-                            </FleetEventsOver>
-                          </AccountFromFleet>
+                          <TerritoryFromFleet source={TERRITORY}>
+                            <AccountFromFleet source={ACCOUNT}>
+                              <FleetEventsOver source={TIMELINE}>
+                                <App />
+                              </FleetEventsOver>
+                            </AccountFromFleet>
+                          </TerritoryFromFleet>
                         </ClashesFromFleet>
                       </WiredSessions>
                     </DownshiftSourceProvider>

@@ -14,6 +14,7 @@ import { useSessions } from "../../sessions-draft";
 import type { CockpitProps } from "./props";
 import { useFleetEvents } from "../fleet-events";
 import { useAreas } from "./areas-source";
+import { useSlotTouches } from "./touches-source";
 import { slotKey, useBays } from "./bays";
 import { withDoing, doingOfEvent } from "./doing";
 import { CLOCK_MS, arrivalsOf, callMarkersOf, eventFactsOf, quantized, throttled, TICK_MS } from "./field";
@@ -23,7 +24,7 @@ import { MOST_PLAYING, droneOfEvent, playOfEvent, playsOf, trailsOf, type Play }
 import { toneOf } from "./order";
 import { callOfSubject, scene, useDeck } from "./store";
 import { slotsOf, type Ship, type Subject } from "./ship";
-import { clashesOf, touchesFromEvents } from "./touches";
+import { clashesOf, touchesFromEvents, touchesOf } from "./touches";
 import type { DroneFacts, GoalIn, PadIn } from "./tip";
 
 type FieldProps = Pick<CockpitProps, "state" | "now" | "picked">;
@@ -66,6 +67,7 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
   const sessions = useSessions();
   const events = useCalmEvents();
   const areasOf = useAreas();
+  const slotTouched = useSlotTouches();
   const written = useWriteClashes();
   const clock = quantized(props.now, CLOCK_MS);
   const shown = useMemo(() => new Set(listed.map((one) => one.key)), [listed]);
@@ -115,10 +117,11 @@ export function useField(props: FieldProps, ship: Ship, listed: readonly Subject
         parent: parent !== undefined && has.has(parent) ? parent : undefined,
         slot: slot === undefined ? undefined : slotKey(slot),
         shown: shown.has(one.key),
-        touches: touched.get(one.key) ?? [],
+        // What a tool burst placed, else what Fleet read of the holder's slot against the base; else nothing.
+        touches: touchesOf(one.key, touched, slotTouched),
       });
     });
-  }, [all, sessions, holder, props.state.jobs, deck.held, shown, touched]);
+  }, [all, sessions, holder, props.state.jobs, deck.held, shown, touched, slotTouched]);
 
   const repos = useMemo<RepoIn[]>(() => {
     const roots = [...new Set([...all.map((one) => one.root), ...ship.mains.map((one) => one.root), ...slots.map((one) => rootOfManifest(one.manifest_id) ?? one.manifest_id)])].sort();

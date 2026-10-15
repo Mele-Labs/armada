@@ -191,6 +191,7 @@ import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
 import type { FleetTimelineRead } from "./api/timeline";
 import type { WriteClashesRead } from "./api/clashes";
+import type { RepositoryAreasRead, SlotTouchesRead } from "./api/territory";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmAim, HelmCarry } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
@@ -494,6 +495,8 @@ type OldBridgeApi = {
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
+    getRepositoryAreas: () => Promise<RepositoryAreasRead>;
+    getSlotTouches: () => Promise<SlotTouchesRead>;
     getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
     onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
@@ -828,6 +831,8 @@ const OLD_CHANNELS = {
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
+    getRepositoryAreas: "bridge:get-repository-areas",
+    getSlotTouches: "bridge:get-slot-touches",
     getFleetTimeline: "bridge:get-fleet-timeline",
     timelineAppended: "bridge:timeline-appended",
     planUsageChanged: "bridge:plan-usage-changed",

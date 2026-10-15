@@ -3,11 +3,11 @@
 // rolled up to the two-level areas a repository is drawn in; a clash comes from the write-clash read and marks the
 // areas of the paths it names.
 
-import type { TimelineEvent, WriteClash } from "@armada/protocol";
+import type { SlotTouches, TimelineEvent, WriteClash } from "@armada/protocol";
 import { expect, test } from "vitest";
 
 import { areaOf, relativeTo } from "./areas";
-import { clashesOf, touchesFromEvents, touchesOfFootprint } from "./touches";
+import { clashesOf, touchesFromEvents, touchesOf, touchesOfFootprint, touchesOfSlots } from "./touches";
 
 const SLOT = "/Users/user/Development/armada/.armada/slots/slot-3";
 
@@ -99,4 +99,35 @@ test("a clash against main marks the agent's areas alone, and a holder the ship 
 
   expect(clashesOf([clash(holder("session", "s1"), holder("main", "main"), ["apps/desktop/a.ts"])], sources)).toEqual([{ path: "apps/desktop", root: "/r", keys: ["session:s1"] }]);
   expect(clashesOf([clash(holder("job", "gone"), holder("session", "gone2"), ["apps/desktop/a.ts"])], sources)).toEqual([]);
+});
+
+const held = (kind: "job" | "session", id: string, paths: string[], slot = 1) => ({ kind, id, slot, paths, omitted: 0 });
+
+test("a holder's changed paths in its slot are touches by its key, rolled up to areas", () => {
+  const read: SlotTouches = {
+    repositories: [
+      { manifest_id: "armada", holders: [held("job", "j1", ["crates/fleet/src/a.rs", "crates/fleet/src/b.rs", "docs/x.md", "README.md"]), held("session", "s1", ["apps/desktop/a.ts"], 2)] },
+      { manifest_id: "pocket", holders: [held("job", "j9", ["src/ui/a.ts"], 1)] },
+    ],
+  };
+
+  const touched = touchesOfSlots(read);
+
+  expect(touched.get("job:j1")).toEqual([{ path: "crates/fleet", w: 2 }, { path: "docs", w: 1 }]);
+  expect(touched.get("session:s1")).toEqual([{ path: "apps/desktop", w: 1 }]);
+  expect(touched.get("job:j9")).toEqual([{ path: "src/ui", w: 1 }]);
+});
+
+test("a holder whose changes are all at the top of the repository, and an empty answer, touch nothing", () => {
+  expect(touchesOfSlots({ repositories: [{ manifest_id: "armada", holders: [held("job", "j1", ["Cargo.toml"])] }] }).size).toBe(0);
+  expect(touchesOfSlots({ repositories: [] }).size).toBe(0);
+});
+
+test("what a tool burst placed wins, Fleet's read of the slot is the last resort, and a drone in neither rests", () => {
+  const observed = new Map([["session:s1", [{ path: "docs", w: 1 }]]]);
+  const slotted = new Map([["session:s1", [{ path: "crates/fleet", w: 9 }]], ["job:j1", [{ path: "crates/ipc", w: 2 }]]]);
+
+  expect(touchesOf("session:s1", observed, slotted)).toEqual([{ path: "docs", w: 1 }]);
+  expect(touchesOf("job:j1", observed, slotted)).toEqual([{ path: "crates/ipc", w: 2 }]);
+  expect(touchesOf("job:j2", observed, slotted)).toEqual([]);
 });

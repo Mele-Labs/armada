@@ -4,9 +4,11 @@
 // plots at and the grain a touch or a write clash is rolled up to. A file at the top of a repository, or a path under no
 // checkout, is in none.
 //
-// **Nothing here knows what a repository holds.** Fleet reports no directory tree and no file counts yet, so the areas a
-// repository is drawn in are empty and its territory shows pads and the main flag with no plots. A walk may stand a
-// source in; the real one is F1 of the flight deck port. #2301.
+// **Nothing here knows what a repository holds.** The areas come from Fleet's `list_repository_areas`, the base head's
+// directories counted by git. Where Fleet has not answered, has no such route or names none for a repository, its
+// territory shows pads and the main flag with no plots. A walk may stand a source in. #2301.
+
+import type { RepositoryAreas } from "@armada/protocol";
 
 /** One top directory with the directories inside it, each with a file count. A top directory with no children has none listed. */
 export type Area = { dir: string; kids: readonly (readonly [string, number])[] };
@@ -16,8 +18,17 @@ export type Areas = readonly Area[];
 /** Where a repository's areas come from: its root, to the directories drawn for it. */
 export type AreaSource = (root: string) => Areas;
 
-/** What Fleet reports today: no areas for any repository. #2301. */
+/** No areas for any repository: before Fleet has answered, and from a Fleet with no such route. */
 export const noAreas: AreaSource = () => [];
+
+/** The areas Fleet read, for the root each was read in. A root Fleet named none for has none. */
+export function areasFromFleet(read: RepositoryAreas): AreaSource {
+  const bare = (root: string) => root.replace(/\/+$/, "");
+  const byRoot = new Map(
+    read.repositories.map((one) => [bare(one.root), one.areas.map((area): Area => ({ dir: area.dir, kids: (area.kids ?? []).map((kid) => [kid.name, kid.files] as const) }))] as const),
+  );
+  return (root) => byRoot.get(bare(root)) ?? [];
+}
 
 /** The area a repository-relative path is in, or none for a file at the top of the repository and for a path that is not relative. */
 export function areaOf(path: string): string | undefined {
