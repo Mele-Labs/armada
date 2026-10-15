@@ -268,6 +268,9 @@ async fn a_running_turn_that_went_quiet_is_published_stuck_and_again_when_heard_
     assert_eq!(standing_published(&mut live).await, Some(SessionStanding::Stuck));
     assert_eq!(Arc::clone(&fleet).get_session(session("t1")).await.unwrap().session.standing, Some(SessionStanding::Stuck));
 
+    // Long from here, so a runner stalled past 80ms between the write and the tick cannot read the turn
+    // stuck again and publish nothing.
+    fleet.hosts().plant_stuck_after(Duration::from_secs(3600));
     fleet.report_session(report(SessionFact::Wrote)).await.unwrap();
     fleet.standing_checked().await;
     assert_eq!(standing_published(&mut live).await, Some(SessionStanding::Working));
