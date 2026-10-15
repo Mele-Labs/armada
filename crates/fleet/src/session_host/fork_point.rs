@@ -138,7 +138,7 @@ where
     /// The row of session `old`'s thread a fork with no `at` ends at: its latest message of its own
     /// that the transcript holds. **The agent's, not the person's**, so the fork's first message
     /// follows an agent turn as it would in the old conversation.
-    pub(super) async fn latest_fork_point(&self, old: &str) -> Result<String, Refusal> {
+    pub(crate) async fn latest_fork_point(&self, old: &str) -> Result<String, Refusal> {
         let (hosted, thread, transcript) = self.fork_reads(old).await?;
         thread
             .iter()
