@@ -23,7 +23,7 @@ import { claimsReplay } from "./replay";
 import { opensFor, placesOff, rememberSystemPage } from "./system-page";
 import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
-import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
+import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
 import { useShip } from "./ship";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
@@ -111,7 +111,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
     return () => window.clearTimeout(timer);
   }, [held, ship.calls]);
 
-  const incoming = incomingOf(ship.calls, held, visited);
+  const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const listed = useMemo(() => listOf(ship, { only, needs, checks, held }), [ship, only, needs, checks, held]);
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {

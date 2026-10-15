@@ -40,7 +40,7 @@ import { SessionTiles } from "./SessionTiles";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
+import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import "../cockpit.css";
 import "./deck.css";
@@ -621,7 +621,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     // `at` alone: the same call pressed twice is two landings.
   }, [bring?.at]);
   const listed = useMemo(() => listOf(ship, { only, needs, checks, held }), [ship, only, needs, checks, held]);
-  const incoming = incomingOf(ship.calls, held, visited);
+  const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const [ledgerHost, setLedgerHost] = useState<HTMLElement | null>(null);
   const reading = sel?.kind === "session" && ship.subjects.some((one) => one.key === sel.key && one.kind === "session");
   const selected = sel?.key;

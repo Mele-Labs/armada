@@ -215,12 +215,35 @@ export function release(keys: readonly string[]): void {
 export const arrivedOf = (item: Pick<Item, "at">): number => (item.at === undefined ? 0 : Date.parse(item.at) || 0);
 
 /** The calls still to be opened, the one that arrived last in front: not answered, not visited. */
-export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, number>, visited: ReadonlySet<string>): Item[] {
+export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, number>, visited: ReadonlySet<string>, needing: ReadonlySet<string> = new Set()): Item[] {
+  const owners = new Set<string>();
   return calls
-    .filter((one) => !held.has(one.key) && !visited.has(one.key))
+    // Seen is not enough for a Job or Session that still needs the person: its call stays until it does not.
+    .filter((one) => !held.has(one.key) && (!visited.has(one.key) || needing.has(callOwnerOf(one))))
     .map((one, at) => ({ one, at, when: arrivedOf(one) }))
     .sort((a, b) => b.when - a.when || a.at - b.at)
-    .map(({ one }) => one);
+    .map(({ one }) => one)
+    .filter((one) => {
+      const owner = callOwnerOf(one);
+      if (owners.has(owner)) return false;
+      owners.add(owner);
+      return true;
+    });
+}
+
+/** The Jobs and Sessions that need the person now, by the key `callOwnerOf` gives their calls. */
+export const needingOf = (ship: Pick<Ship, "subjects">): ReadonlySet<string> => new Set(ship.subjects.filter((one) => one.kind !== "pr" && one.phase === "needs").map((one) => one.key));
+
+/**
+ * Whom a call is from: its Session, its Job, the owner a pull request's or main's call names, else the call alone. **One call each**:
+ * a Session with three questions and four items waiting is one call, the newest, since opening it opens the Session that holds them all.
+ */
+export function callOwnerOf(item: Item): string {
+  const session = sessionIdOf(item.key);
+  if (session !== undefined) return `session:${session}`;
+  if (item.job?.id !== undefined) return `job:${item.job.id}`;
+  if (item.ownedBy !== undefined) return `${item.ownedBy.kind}:${item.ownedBy.id}`;
+  return item.key;
 }
 
 /**
@@ -233,6 +256,9 @@ export function incomingOf(calls: readonly Item[], held: ReadonlyMap<string, num
  * Session, a Job that has just ended) is opened by `hosts`, the way a link to it is, and never by the card.
  */
 export function openCall(ship: Ship, item: Item, hosts?: Pick<Hosts, "onOpen" | "onOpenSession">): boolean {
+  // The one call stands for every call its owner raised, so opening it is the visit to them all.
+  const from = callOwnerOf(item);
+  for (const one of ship.calls) if (callOwnerOf(one) === from) visit(one.key);
   visit(item.key);
   const owner = item.ownedBy;
   const sessionId = sessionIdOf(item.key);
