@@ -21,6 +21,9 @@ use ipc::{
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch, Store};
 
 use crate::adrift::Adrift;
+use crate::build_facts::workers_of;
+use crate::build_keeping::{build_heard, build_read, BuildReads};
+use crate::build_record::Observed;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
 use crate::slot_holders::{pool_backs, stand_in_slot};
@@ -35,6 +38,8 @@ pub(crate) struct LedgerReads {
     limited: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
     context: Option<String>,
+    /// What the build record is derived from.
+    build: BuildReads,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -174,8 +179,11 @@ where
         session: &KeptSession,
     ) -> Result<LedgerReads, Refusal> {
         let fault = |why| self.ledger_fault(why);
+        let held = store.attachments_of(&Holder::session(&session.id)).map_err(fault)?;
+        let build = build_read(store, session, &held).map_err(fault)?;
         Ok(LedgerReads {
-            held: store.attachments_of(&Holder::session(&session.id)).map_err(fault)?,
+            held,
+            build,
             hosting: if session.origin == "bridge" {
                 store.hosting(&session.id).map_err(fault)?
             } else {
@@ -247,6 +255,7 @@ where
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
+        record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
         record
     }
 
@@ -560,14 +569,27 @@ where
                 if terminal {
                     self.timeline().used(Doer::of_session(&session), Act::Edit, paths.len(), paths.last().cloned());
                 }
+                if !paths.is_empty() {
+                    changed |= build_heard(&mut store, &id, &Observed::Edited, &now).map_err(fault)?;
+                }
             }
-            SessionFact::Read { path } if terminal => {
-                self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+            // The build record hears a hosted Session's reads and commands too: its process says the
+            // same, and a repeat changes nothing.
+            SessionFact::Read { path } => {
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Read, 1, Some(path));
+                }
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Ran { command } if terminal => {
-                self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+            SessionFact::Ran { command } => {
+                if terminal {
+                    self.timeline().used(Doer::of_session(&session), Act::Ran, 1, Some(command));
+                }
+                changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
             }
-            SessionFact::Read { .. } | SessionFact::Ran { .. } => {}
+            fact @ (SessionFact::Tasks { .. } | SessionFact::PlanLeft | SessionFact::Committed { .. } | SessionFact::Pushed { .. }) => {
+                changed |= self.build_told(&mut store, &session, fact, &now).map_err(fault)?;
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -710,6 +732,7 @@ where
                 },
             })
             .await?;
+        self.walk_noted(&id, &record, &title);
         self.row_put(
             &id,
             ipc::SessionRow::Window {
@@ -1048,5 +1071,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         context_breakdown: None,
         helm: false,
         activity: None,
+        build: None,
     }
 }

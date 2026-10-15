@@ -3901,6 +3901,8 @@ so it enters nothing.
 
 **The agent's own list is `session.waiting` and `session.resolved`**: an item put on the `waiting_for` list is a wait, dated by its `since`, and one gone from it while the Session lives is resolved, dated by the row that dropped it. What Fleet raised (a question or permission card, a question in a walk window, a reply to read) stays `session.asked`, and a person's answer stays `session.answered`. A Session ending clears its list, which resolves nothing. `session.subagent` is a subagent attached to the row (`Subagent started`), standing again after it settled (`Subagent resumed`, dated by its new `since`) or spent (`Subagent finished`), with `Type: description` as the detail; a Session already holding one when Fleet first saw it enters nothing for it. `session.spawned` is entered under the Session whose agent started another, or forked itself (`start_another_session`, `fork_this_session`), with the new Session's title as the detail.
 
+**A Session's walk, commit and push are entered as `session.walked`, `session.committed` and `session.pushed`.** The walk is written when the page is shown (`show_window`), with its title as the detail, and apart from the `walk` item on the Session's list, which is not entered. A commit and a push come from the mod's `committed` and `pushed` facts, which it tells only where git printed a commit made or a ref updated; the detail is the branch. They are the road a Session's `build` reads its stops from (`docs/concepts/session.md`, *The build record*), so the Session's row is published again once one is written. The store holds an index on `timeline_events (subject_kind, subject_id, kind)` for that read.
+
 **A pull request is entered whether or not anyone is shown it**, but Bridge draws it only on the track of the Job or Session that owns it, and leaves out one it cannot attribute (`fromWire` in `cockpit/fleet-events.tsx`).
 
 **Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
@@ -3970,6 +3972,23 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*. **Additive only**: 
 **Publishing is coalesced.** A change to `now` or `todos` publishes `session.changed` at once when none went out for the Session's activity within two seconds, and otherwise once, when the two seconds are up. A call that changes neither publishes nothing. A turn starting clears `now` on the row that announces it and keeps `todos`. No call time is carried: a silent turn is the `stuck` state. A Fleet restart starts the field empty.
 
 **Skew.** A Bridge that predates this ignores an `activity` it does not read. A Fleet that predates it sends none, and Bridge treats that as no activity. The same change moves `HostedSessions::gate_session_call` to `self: Arc<Self>` in `crates/api`, which is Rust only and not on the wire.
+
+## A Session's build record
+
+Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/decisions/2026-10-14-a-session-builds-a-ring.md`. **Additive only**: one optional field on `SessionRecord`, new fact kinds, new timeline kinds and the types they carry. No operation, event kind or error is new. Bridge's half is `packages/protocol/src/session-build.ts`, `sessions.ts` and `timeline.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order. The migration `20261014T2100Z-session_build.record` has a name and not a number, and is additive.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `SessionRecord.build` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `SessionBuild`: `phase`, `pieces[]`, `stops[]`, `forecast[]`, `landed_at?`, `quiet_since?`, `stalled`, `workers[]`. Left out for a Session that has done nothing Fleet observed |
+| `SessionBuild.phase` | Fleet writes, Bridge matches | `scope`, `plan`, `implement`, `road`, `landed` |
+| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) |
+| `SessionBuild.stops[]`, `forecast[]` | Fleet writes, Bridge matches `id` | `BuildStop`: `id` (`walk`, `pushed`, `pr`, `checks` or `auto_merge`) and `at?`, left out for a stop not yet reached |
+| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`). `committed` and `pushed` carry `branch?` |
+| `TimelineKind` `session.walked`, `session.committed`, `session.pushed` | Fleet writes, Bridge draws | Strict. A walk's detail is the page's title, the others' the branch |
+
+**Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them. **The arrays are always sent**, empty when they hold nothing, so a reader never tests for them. An unreached stop has no `at`, and none is sent as `null`.
+
+**Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod before `0.3.23` tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
 
 ## A terminal's permission prompt is a call
 

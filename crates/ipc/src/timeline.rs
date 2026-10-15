@@ -98,6 +98,16 @@ pub enum TimelineKind {
     /// A Session's agent started another Session, or forked its own.
     #[serde(rename = "session.spawned")]
     SessionSpawned,
+    /// A Session showed the person a walk. `detail` is the page's title. Written when the page is shown,
+    /// and apart from the `walk` item on its `waiting_for` list, which this timeline does not enter.
+    #[serde(rename = "session.walked")]
+    SessionWalked,
+    /// A Session ran a `git commit` that made a commit. `detail` is the branch.
+    #[serde(rename = "session.committed")]
+    SessionCommitted,
+    /// A Session ran a `git push` that updated a ref. `detail` is the branch.
+    #[serde(rename = "session.pushed")]
+    SessionPushed,
     /// A Session went from live to ended.
     #[serde(rename = "session.ended")]
     SessionEnded,

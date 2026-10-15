@@ -200,6 +200,24 @@ pub enum SessionFact {
     },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
+    /// The agent's task list, whole, as its last `TodoWrite`, `TaskCreate` or `TaskUpdate` left it.
+    /// An empty list clears it. Fleet keeps it and records when each item was first seen completed
+    /// (`docs/concepts/session.md`, *The build record*).
+    Tasks {
+        tasks: Vec<crate::session_build::ReportedTask>,
+    },
+    /// The agent left plan mode (`ExitPlanMode`).
+    PlanLeft,
+    /// A `git commit` ran and its output showed a commit made. `branch` is the one that output named.
+    Committed {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        branch: Option<String>,
+    },
+    /// A `git push` ran and its output showed a ref updated. `branch` is the one that output named.
+    Pushed {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        branch: Option<String>,
+    },
     /// The harness opened its own permission prompt for `tool`, and the turn waits on a person at the
     /// terminal. `detail` is the command or the path, one line and cut, empty where the tool has
     /// none. **The harness's fact, told by the mod**, never the agent's. Since mod 0.3.22.
@@ -658,6 +676,10 @@ pub struct SessionRecord {
     /// call, on a session a terminal runs and once the session ends. Since 14 Oct 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub activity: Option<crate::session_activity::SessionActivity>,
+    /// What the Session has built, derived by Fleet on every read. Absent for a Session that has done
+    /// nothing Fleet observed. `docs/concepts/session.md`, *The build record*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<crate::session_build::SessionBuild>,
 }
 
 /// `list_sessions`: the most recently seen first.

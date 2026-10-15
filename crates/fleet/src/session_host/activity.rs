@@ -14,7 +14,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{SessionActivity, SessionGate, SessionTodo, SessionTodoState};
+use ipc::{ReportedTask, ReportedTaskStatus, SessionActivity, SessionGate, SessionTodo, SessionTodoState};
+
+use crate::build_keeping::build_heard;
+use crate::build_record::Observed;
 
 use crate::daemon::Fleet;
 
@@ -143,6 +146,29 @@ fn todos_of(gate: &SessionGate) -> Option<Vec<SessionTodo>> {
             })
             .collect(),
     )
+}
+
+/// What a call says of the plan: the agent's `TodoWrite` list, whole, or its leaving plan mode.
+fn plan_of(gate: &SessionGate) -> Option<Observed> {
+    match gate.tool_name.as_str() {
+        "TodoWrite" => Some(Observed::Tasks(
+            todos_of(gate)?
+                .into_iter()
+                .enumerate()
+                .map(|(place, todo)| ReportedTask {
+                    id: (place + 1).to_string(),
+                    text: todo.text,
+                    status: match todo.state {
+                        SessionTodoState::Done => ReportedTaskStatus::Completed,
+                        SessionTodoState::Doing => ReportedTaskStatus::InProgress,
+                        SessionTodoState::Todo => ReportedTaskStatus::Pending,
+                    },
+                })
+                .collect(),
+        )),
+        "ExitPlanMode" => Some(Observed::PlanLeft),
+        _ => None,
+    }
 }
 
 /// The one short fact a call makes of `now`. `None` for a tool Fleet does not name, which leaves it as it was.
@@ -288,6 +314,17 @@ where
         let runtime = self.hosts().of(id);
         let step = runtime.state().activity.saw(gate, self.hosts().activity_every());
         let (fleet, id) = (Arc::clone(self), id.to_string());
+        // The build record hears the agent's plan the way a terminal's mod does: its list, and leaving plan mode.
+        if let Some(heard) = plan_of(gate) {
+            let (fleet, id) = (Arc::clone(&fleet), id.clone());
+            tokio::spawn(async move {
+                let now = fleet.now().as_str().to_string();
+                let shown = build_heard(&mut *fleet.store().lock().await, &id, &heard, &now).unwrap_or(false);
+                if shown {
+                    let _ = fleet.published_hosted(&id).await;
+                }
+            });
+        }
         match step {
             Publish::Not => {}
             Publish::Now => {

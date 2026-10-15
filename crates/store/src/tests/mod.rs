@@ -62,6 +62,7 @@ mod proving;
 mod questioning;
 mod rebuilding;
 mod rechecking;
+mod session_build;
 mod reconstruct;
 mod report;
 mod repositories;
