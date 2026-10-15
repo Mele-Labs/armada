@@ -1,6 +1,6 @@
 // A Session that waits on the person for a command run once, with the steps that follow it: the store
-// Worker's first deploy, as session 2ea2e0dd sent it on 15 Oct. Beside it a command with no steps, so the
-// two read the same. Over the `sessions` scenario. The walk `needs-you-steps-run` plays it.
+// Worker's first deploy, as session 2ea2e0dd sent it on 15 Oct, then again with a command in each step.
+// Beside them a command with no steps, so they read the same. Over the `sessions` scenario. The walk `needs-you-steps-run` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -34,6 +34,20 @@ const waiting: Session = {
         "Run the command; approve Cloudflare in the browser",
         "Copy the workers.dev address it prints",
         "On each machine, Settings: Account › sign-in app = Client ID, Store › address = that address",
+      ],
+    },
+    {
+      id: "deploy-store-by-step",
+      text: "Deploy the store Worker, a command a step",
+      since: minutesAgo(3),
+      source: "agent",
+      act: { kind: "run", target: "cd ~/Development/armada/apps/store && pnpm exec wrangler login" },
+      steps: [
+        "Sign in to Cloudflare and approve it in the browser: `cd ~/Development/armada/apps/store && pnpm exec wrangler login`",
+        "Deploy the Worker: `pnpm exec wrangler deploy`",
+        "Copy the workers.dev address it prints",
+        "Check it answers: `curl -sf https://armada-store.workers.dev/health`",
+        "On each machine, Settings: Store › address = that address",
       ],
     },
     { id: "store-tests", text: "Run the store tests", since: minutesAgo(3), source: "agent", act: { kind: "run", target: "pnpm -C apps/store test" } },

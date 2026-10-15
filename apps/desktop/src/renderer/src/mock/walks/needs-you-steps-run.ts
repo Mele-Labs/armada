@@ -1,12 +1,13 @@
 // A procedure that starts from a command: its row reads the item's words, and a press opens the steps with
 // the command whole at the top and a key that copies it, as a command with no steps copies on its press.
-// The title wraps. Over the `needs-you-steps-run` scenario.
+// The title wraps. A command in a step is set as code and drawn under it with its own key. Over the `needs-you-steps-run` scenario.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const TITLE = "Deploy the store Worker once, from this machine";
+const BY_STEP = "Deploy the store Worker, a command a step";
 
 function steps(): Step[] {
   const sessions = region("Sessions");
@@ -23,6 +24,12 @@ function steps(): Step[] {
     { look: inside(panel, text(/wrangler deploy$/)), say: "The command is at the top, whole" },
     { press: inside(panel, button("Copy command")), say: "One press copies it" },
     { look: inside(panel, role("checkbox", "Copy the workers.dev address it prints")), say: "The steps follow" },
+    { press: inside(panel, role("button", /^Close( panel)?( Esc)?$/)), say: "Closed" },
+    { press: inside(needs, button(`Open ${BY_STEP}`)), say: "The same item, with a command in each step" },
+    { look: inside(dialog(BY_STEP), button("Copy step 1 command")), say: "Each command is under its step, whole, with its own copy key" },
+    { press: inside(dialog(BY_STEP), button("Copy step 2 command")), say: "One press copies that step's command" },
+    { look: inside(dialog(BY_STEP), role("checkbox", "Copy the workers.dev address it prints")), say: "A step with no command has no key" },
+    { look: inside(dialog(BY_STEP), button("Copy step 4 command")), say: "The command at the top is left out, since step 1 names it" },
   ];
 }
 

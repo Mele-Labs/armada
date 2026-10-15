@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Copy, ExternalLink, Plus, SquarePen, Trash2, Undo2, UserPen } from "lucide-react";
 
 import { forgetKept, useKept } from "../../keep";
@@ -10,7 +10,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * What a waiting item opens when it is a procedure: the link or the command at the top, the steps numbered
- * as a guide's are with a tick box each, and under them the box the answer is typed in.
+ * as a guide's are with a tick box each, and under them the box the answer is typed in. A step's `backticked`
+ * command is set as code and drawn again under it, whole, with its own copy key.
  *
  * **The agent may be wrong about the steps, and the person says so here.** A step is edited in place,
  * dropped (it stays in the list, struck through, so the agent sees what was wrong) or added at the end.
@@ -24,7 +25,7 @@ export type StepsPanelProps = {
   name: string;
   /** The page the steps are about, drawn on the key at the top that opens it. */
   address?: string;
-  /** The command the steps start from, drawn whole at the top with a key that copies it. */
+  /** The command the steps start from, drawn whole at the top with a key that copies it, unless a step names it. */
   command?: string;
   steps: readonly string[];
   /** What the ticks, the corrections and the draft are about: the Session and the item. */
@@ -60,8 +61,27 @@ export function messageOf(reply: string, steps: readonly string[], fixes: StepFi
   return [reply.trim(), lines.join("\n")].filter((one) => one !== "").join("\n\n");
 }
 
+/** A step's words with each `backticked` span set as code, and the spans themselves: each is a command to copy. */
+export function partsOf(line: string): { words: ReactNode[]; commands: string[] } {
+  const words: ReactNode[] = [];
+  const commands: string[] = [];
+  line.split(/`([^`]+)`/).forEach((part, at) => {
+    if (at % 2 === 0) {
+      if (part !== "") words.push(part);
+      return;
+    }
+    commands.push(part);
+    words.push(
+      <code key={at} className="armada-step-list__code mono">
+        {part}
+      </code>,
+    );
+  });
+  return { words, commands };
+}
+
 /** The command, wrapped rather than cut, and the key that copies it. */
-function CommandToCopy({ command }: { command: string }) {
+function CommandToCopy({ command, label }: { command: string; label: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -77,7 +97,7 @@ function CommandToCopy({ command }: { command: string }) {
         <code>{command}</code>
       </pre>
       <Tooltip label={copied ? "Copied" : "Copy"}>
-        <Button variant="ghost" size="sm" iconOnly aria-label="Copy command" onClick={copy}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={label} onClick={copy}>
           {copied ? <Check size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
         </Button>
       </Tooltip>
@@ -93,6 +113,8 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
   const [editing, setEditing] = useState<{ at: number; draft: string } | undefined>();
   const total = steps.length + fixes.added.length;
   const lineOf = (at: number) => (at < steps.length ? (fixes.edited[at] ?? steps[at]!) : fixes.added[at - steps.length]!);
+  // A command a step already names is copied there, so the top does not say it twice.
+  const named = command !== undefined && steps.some((step) => partsOf(step).commands.includes(command));
 
   const send = () => {
     const message = messageOf(text.trim() === "" ? DONE : text, steps, fixes);
@@ -148,13 +170,14 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
           </Tooltip>
         </div>
       )}
-      {command === undefined ? null : <CommandToCopy command={command} />}
+      {command === undefined || named ? null : <CommandToCopy command={command} label="Copy command" />}
       <ol className="armada-guide-steps armada-step-list__list">
         {Array.from({ length: total }, (_, at) => {
           const line = lineOf(at);
           const dropped = fixes.dropped.includes(at);
           const changed = at < steps.length && fixes.edited[at] !== undefined;
           const own = at >= steps.length;
+          const parts = partsOf(line);
           return (
             <li
               key={at}
@@ -182,13 +205,16 @@ export function StepsPanel({ name, address, command, steps, keep, onOpenAddress,
                   }}
                 />
               ) : (
-                <Checkbox
-                  checked={ticked.includes(at)}
-                  disabled={dropped}
-                  onChange={() => setTicked((was) => (was.includes(at) ? was.filter((one) => one !== at) : [...was, at]))}
-                >
-                  {line}
-                </Checkbox>
+                <div className="armada-step-list__body">
+                  <Checkbox
+                    checked={ticked.includes(at)}
+                    disabled={dropped}
+                    onChange={() => setTicked((was) => (was.includes(at) ? was.filter((one) => one !== at) : [...was, at]))}
+                  >
+                    {parts.words}
+                  </Checkbox>
+                  {dropped ? null : parts.commands.map((command, which) => <CommandToCopy key={which} command={command} label={`Copy step ${at + 1} command`} />)}
+                </div>
               )}
               {editing?.at === at ? null : (
                 <span className="armada-step-list__acts">
