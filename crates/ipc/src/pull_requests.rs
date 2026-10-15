@@ -225,6 +225,10 @@ pub struct PullRequestPage {
     pub checks: Vec<PullRequestCheckRow>,
     pub files: Vec<PullRequestFile>,
     pub commits: Vec<PullRequestCommit>,
+    /// Who registered it in the central store, as the merge line's open pull requests carry
+    /// it. Absent as `HubPullRequest::owner` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<crate::merge_hub::PullRequestOwner>,
 }
 
 /// What the panel's comment box writes. `POST /pull_request_writes/:repository`.

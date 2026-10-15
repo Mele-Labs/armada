@@ -95,6 +95,7 @@ fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
         checks: Vec::new(),
         files: Vec::new(),
         commits: Vec::new(),
+        owner: None,
     }
 }
 

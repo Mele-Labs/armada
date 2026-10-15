@@ -7,6 +7,7 @@ import { PullRequestPanel } from "@armada/components";
 import type { PullRequestActsProps } from "@armada/components";
 import { placeOf } from "@armada/screens";
 import { usePullRequestPage } from "./session-pull-request-page";
+import { PrOwnersOnTheWire } from "./pr-owners-wire";
 import type { MergeLines } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -92,32 +93,34 @@ function SessionPullRequestPanel({
   const description = promptsOut(one.body);
   const { page, pageSaid, composer } = usePullRequestPage(sessionId, one.number, draft);
   return (
-    <PullRequestPanel
-      number={one.number}
-      title={one.title}
-      branch={one.branch}
-      address={one.address}
-      {...(repository === undefined ? {} : { repository })}
-      {...(description === "" ? {} : { body: description })}
-      {...(page === undefined ? {} : { page })}
-      {...(pageSaid === undefined ? {} : { pageSaid })}
-      {...(composer === undefined ? {} : { composer })}
-      state={one.state}
-      // A check red after the gate passed still reads as failed here: Fleet refuses the merge on it.
-      checks={one.checks.state === "failed" || (one.checks.state === "passed" && one.checks.red !== undefined) ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
-      auto={one.auto}
-      queued={one.queued === true}
-      {...(place === undefined ? {} : { place })}
-      floor={floor}
-      {...(pending === undefined ? {} : { pending })}
-      reviewed={reviewed}
-      onAct={onAct}
-      onSendBack={onSendBack}
-      sentBack={sentBack}
-      onOpenLink={onOpenLink}
-      onClose={onClose}
-    >
-      {children}
-    </PullRequestPanel>
+    <PrOwnersOnTheWire lines={lines} panel={{ repository, number: one.number, owner: page?.owner }}>
+      <PullRequestPanel
+        number={one.number}
+        title={one.title}
+        branch={one.branch}
+        address={one.address}
+        {...(repository === undefined ? {} : { repository })}
+        {...(description === "" ? {} : { body: description })}
+        {...(page === undefined ? {} : { page })}
+        {...(pageSaid === undefined ? {} : { pageSaid })}
+        {...(composer === undefined ? {} : { composer })}
+        state={one.state}
+        // A check red after the gate passed still reads as failed here: Fleet refuses the merge on it.
+        checks={one.checks.state === "failed" || (one.checks.state === "passed" && one.checks.red !== undefined) ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
+        auto={one.auto}
+        queued={one.queued === true}
+        {...(place === undefined ? {} : { place })}
+        floor={floor}
+        {...(pending === undefined ? {} : { pending })}
+        reviewed={reviewed}
+        onAct={onAct}
+        onSendBack={onSendBack}
+        sentBack={sentBack}
+        onOpenLink={onOpenLink}
+        onClose={onClose}
+      >
+        {children}
+      </PullRequestPanel>
+    </PrOwnersOnTheWire>
   );
 }

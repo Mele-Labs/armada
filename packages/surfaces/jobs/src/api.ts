@@ -125,7 +125,8 @@ export type JobsApi = {
    * may not even have open would be Bridge announcing a failure nobody asked
    * to hear about.
    */
-  searchFiles: (query: string) => Promise<string[]>;
+  /** `manifestId` searches that repository rather than the one the window has picked: a Session's own. */
+  searchFiles: (query: string, manifestId?: string) => Promise<string[]>;
   /**
    * Which repository the words typed so far are about, with no model call: a ticket link, a name, a
    * path, or the only repository there is. **Never a fault**, for `searchFiles`' reason — it runs on a

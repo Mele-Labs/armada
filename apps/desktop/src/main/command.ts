@@ -378,11 +378,13 @@ export class JobCommands {
    * having nowhere to ask at all.
    *
    * `picked` is this window's own — `main/index.ts` names it; `this.board.picked` only where a
-   * caller (`picked.test.ts`) supplies none.
+   * caller (`picked.test.ts`) supplies none. `manifestId` names the repository outright: a Session's message box
+   * searches the Session's own, whatever the window has picked.
    */
-  async searchFiles(query: string, picked: Picked = this.board.picked): Promise<string[]> {
+  async searchFiles(query: string, picked: Picked = this.board.picked, manifestId?: string): Promise<string[]> {
     const port = this.board.port();
-    const path = picked.manifest(`/manifest/files?q=${encodeURIComponent(query)}`);
+    const q = encodeURIComponent(query);
+    const path = manifestId === undefined ? picked.manifest(`/manifest/files?q=${q}`) : picked.manifestNamed(`/manifest/files?q=${q}`, manifestId);
     if (port === null || path === null) return [];
     const answer = await ask(port, "GET", path);
     return answer.ok === true ? (answer.body as FilesFound).paths : [];

@@ -274,6 +274,8 @@ mod claiming;
 mod pull_attaching;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
+/// Which Session or Job claimed a pull request, kept in the central store for the other machines.
+mod pull_registry;
 /// What a pull request's panel reads when it opens, and its comment box writes.
 /// Since 23.83.
 mod pull_request_panel;
@@ -395,6 +397,7 @@ mod studio_sketches;
 /// A repository's Studios, through the store and onto the stream. `#1285`.
 mod studios;
 pub mod sub_dispatch;
+mod subagents_resumed;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;

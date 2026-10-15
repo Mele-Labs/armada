@@ -9,13 +9,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
-import { MergeLine, useTileGrid } from "@armada/components";
+import { MergeLine, useTileGrid, type FixRefusal } from "@armada/components";
 import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { followLandCheck } from "./commands";
+import { PrOwnersOnTheWire } from "./pr-owners-wire";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { usePanelOpen } from "./panel-open";
 import { useSessions } from "./sessions-draft";
@@ -53,7 +54,7 @@ export function MergeLinePanel({
   /** A Session the head names. Absent, it is not a press. */
   onOpenSession?: (sessionId: string) => void;
   /** Hands main's red to a Job. Absent, the band offers no way to. */
-  onFix?: (fix: FixMain) => void;
+  onFix?: (fix: FixMain) => void | Promise<FixRefusal | undefined | void>;
   /** Sends main's red to a Session as a message. */
   onSendToSession?: (sessionId: string, message: string) => void;
   focus?: string;
@@ -67,7 +68,7 @@ export function MergeLinePanel({
   // holding at the top while its own tiles pass, so no panel is squeezed into a slot of its own.
   const pinned = !surface ? undefined : views.length === 1 ? "glass" : "page";
   return (
-    <>
+    <PrOwnersOnTheWire lines={state.mergeLines}>
       {views.map((view) => (
         <OneLine
           key={view.root}
@@ -91,7 +92,7 @@ export function MergeLinePanel({
           onClose={() => setReading(null)}
         />
       )}
-    </>
+    </PrOwnersOnTheWire>
   );
 }
 
@@ -114,7 +115,7 @@ function OneLine({
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
   onOpenSession?: (sessionId: string) => void;
-  onFix?: (fix: FixMain) => void;
+  onFix?: (fix: FixMain) => void | Promise<FixRefusal | undefined | void>;
   onSendToSession?: (sessionId: string, message: string) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
@@ -151,7 +152,9 @@ function OneLine({
                 ? onSendToSession?.(choice.session, choice.message)
                 : choice.kind === "newSession"
                   ? (dispatching?.choose("session"), dispatching?.openTitled(choice.request, view.root))
-                  : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
+                  : choice.kind === "takeOver"
+                    ? onFix({ root: view.root, take_over: true })
+                    : onFix({ root: view.root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) }),
           })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
@@ -178,7 +181,7 @@ export function MergeLineSurface({
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
   onOpenSession?: (sessionId: string) => void;
-  onFix?: (fix: FixMain) => void;
+  onFix?: (fix: FixMain) => void | Promise<FixRefusal | undefined | void>;
   onSendToSession?: (sessionId: string, message: string) => void;
   focus?: string;
 }) {

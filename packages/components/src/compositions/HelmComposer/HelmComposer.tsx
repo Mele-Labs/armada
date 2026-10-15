@@ -53,8 +53,10 @@ export type HelmBox = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** What `/` offers. */
   commands: readonly { name: string; says: string }[];
-  /** What `@` offers: other Sessions, Jobs, pull requests and branches. */
+  /** What `@` offers: other Sessions, then Jobs. */
   taggable: readonly ComposerTag[];
+  /** The files `@` offers under them once something follows it. Absent, it offers none. */
+  searchFiles?: (query: string) => Promise<readonly string[]>;
   /** What `#` offers for the repository Helm answers for. */
   numbered: ComposerNumbered;
   /** Sketches drawn for this message and waiting to go. */
@@ -245,6 +247,7 @@ export function HelmComposer({
         onTune={box.onTune ?? NOTHING_TO_DO}
         commands={box.commands ?? NO_COMMANDS}
         taggable={box.taggable ?? NO_TAGS}
+        {...(box.searchFiles === undefined ? {} : { searchFiles: box.searchFiles })}
         {...(box.numbered === undefined ? {} : { numbered: box.numbered })}
         tags={NO_TAGS}
         onTags={NOTHING_TO_DO}

@@ -356,7 +356,7 @@ async fn nothing_ran_is_not_green() {
     assert_eq!(kept(&fleet).await.unwrap().state, MainState::NothingRan);
 }
 
-fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
+pub(super) fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
     OpenPull {
         number,
         title: FromOutside::verbatim(format!("Change {number}")),

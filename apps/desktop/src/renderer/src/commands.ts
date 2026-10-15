@@ -295,7 +295,7 @@ export const runSheetServers = {
 export const stageAttachment = (bytes: ArrayBuffer, filename: string, mimeType: string) =>
   window.armada.stageAttachment(bytes, filename, mimeType);
 /** Paths under the checkout narrowed against typed text, for the `@` mention popup. */
-export const searchFiles = (query: string) => window.armada.searchFiles(query);
+export const searchFiles = (query: string, manifestId?: string) => window.armada.searchFiles(query, manifestId);
 /** What one command does, for the person deciding whether to allow it. A read: nothing moves. */
 export const explainCommand = (jobId: string, callId: string) =>
   window.armada.explainCommand(jobId, callId);
@@ -410,12 +410,18 @@ export function useCommands(sending: Sending) {
   }
 
   /**
-   * Hand main's red to a Job. **A refusal goes to the pipeline every command failure uses**; an
-   * accepted one says nothing, since the band names the Job a beat later.
+   * Hand main's red to a Job. **A refusal goes to the pipeline every command failure uses**, but the two
+   * the band draws itself: a claim the store could not make, and a red another machine already holds.
+   * An accepted one says nothing, since the band names the Job a beat later.
    */
-  async function fixMain(fix: FixMain): Promise<void> {
+  async function fixMain(fix: FixMain): Promise<"claim_not_made" | "taken_elsewhere" | undefined> {
     const answer = await window.armada.fixMain(fix);
+    if (!answer.ok && answer.why === "refused") {
+      if (answer.error.code === "fleet.main_claim_not_made") return "claim_not_made";
+      if (answer.error.code === "fleet.main_taken_elsewhere") return "taken_elsewhere";
+    }
     if (!answer.ok) setOutcome(answer);
+    return undefined;
   }
 
   /**

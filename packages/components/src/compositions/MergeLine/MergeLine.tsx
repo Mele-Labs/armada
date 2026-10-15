@@ -16,6 +16,7 @@ import {
   MainMark,
   MainRedBand,
   type FixChoice,
+  type FixRefusal,
   type HubJob,
   type MainState,
   type RecentJob,
@@ -171,7 +172,7 @@ export type MergeLineProps = {
   /** A Session the head names as having merged. Absent, its title is not a press. */
   onOpenSession?: (sessionId: string) => void;
   /** Told the owner's choice of a Job for red main. */
-  onFix?: (choice: FixChoice) => void;
+  onFix?: (choice: FixChoice) => void | Promise<FixRefusal | undefined | void>;
   /** The repository, where more than one line draws. Beside the heading. */
   name?: string;
   /** In place order. */

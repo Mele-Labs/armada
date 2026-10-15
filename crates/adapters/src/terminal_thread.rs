@@ -181,6 +181,8 @@ struct Turn {
     #[serde(rename = "type", default)]
     kind: String,
     #[serde(default)]
+    timestamp: Option<String>,
+    #[serde(default)]
     message: Option<TurnMessage>,
 }
 
@@ -220,41 +222,60 @@ fn worked(line: &str) -> bool {
     ipc::decode::<Turn>("a transcript line", line.as_bytes()).is_ok_and(|turn| turn.kind == "assistant")
 }
 
+/// When the CLI wrote this line, as it spelled it.
+fn stamp(line: &str) -> Option<String> {
+    ipc::decode::<Turn>("a transcript line", line.as_bytes()).ok()?.timestamp
+}
+
 /// Whether subagent `agent` of session `id` has ended its turn, by the file the CLI keeps for it.
 pub fn subagent_ended(home: &str, id: &str, agent: &str) -> bool {
-    find_subagent(home, id, agent).is_some_and(|file| finished_cached(&file))
+    find_subagent(home, id, agent).is_some_and(|file| last_cached(&file).finished)
+}
+
+/// When subagent `agent` of session `id` last worked, where its transcript ends on work: that
+/// line's own stamp. `None` where it ends finished, has no stamp, or no file is found.
+pub fn subagent_working_at(home: &str, id: &str, agent: &str) -> Option<String> {
+    let last = last_cached(&find_subagent(home, id, agent)?);
+    last.at.filter(|_| !last.finished)
+}
+
+/// The line a subagent's transcript is decided by: whether it finished, and when it was written.
+#[derive(Clone, Default)]
+pub(crate) struct Last {
+    pub(crate) finished: bool,
+    pub(crate) at: Option<String>,
 }
 
 /// What a file said last time, keyed by its length and modified time: an unchanged file costs a
 /// `stat`. A transcript is only ever appended to, so a file that grew has a new length.
-static FINISHED: Mutex<BTreeMap<PathBuf, (u64, SystemTime, bool)>> = Mutex::new(BTreeMap::new());
+static FINISHED: Mutex<BTreeMap<PathBuf, (u64, SystemTime, Last)>> = Mutex::new(BTreeMap::new());
 
-pub(crate) fn finished_cached(file: &Path) -> bool {
+fn last_cached(file: &Path) -> Last {
     let Ok(meta) = std::fs::metadata(file) else {
-        return false;
+        return Last::default();
     };
     let Ok(modified) = meta.modified() else {
-        return finished_at_the_end(file).unwrap_or(false);
+        return last_at_the_end(file).unwrap_or_default();
     };
     let key = (meta.len(), modified);
-    let kept = FINISHED.lock().ok().and_then(|seen| seen.get(file).copied());
-    if let Some((len, at, finished)) = kept {
+    let kept = FINISHED.lock().ok().and_then(|seen| seen.get(file).cloned());
+    if let Some((len, at, last)) = kept {
         if (len, at) == key {
-            return finished;
+            return last;
         }
     }
-    let Ok(finished) = finished_at_the_end(file) else {
-        return false;
+    let Ok(last) = last_at_the_end(file) else {
+        return Last::default();
     };
     if let Ok(mut seen) = FINISHED.lock() {
-        seen.insert(file.to_path_buf(), (key.0, key.1, finished));
+        seen.insert(file.to_path_buf(), (key.0, key.1, last.clone()));
     }
-    finished
+    last
 }
 
 /// What [`read_subagent`] decides `finished` by, found from the end: the last line that is a
 /// hand-back, an ended turn or more work decides, and a read stops at it. Rows are not drawn.
-pub(crate) fn finished_at_the_end(file: &Path) -> std::io::Result<bool> {
+pub(crate) fn last_at_the_end(file: &Path) -> std::io::Result<Last> {
     let mut file = File::open(file)?;
     let end = file.metadata()?.len();
     let mut width = 64 * 1024_u64;
@@ -269,14 +290,14 @@ pub(crate) fn finished_at_the_end(file: &Path) -> std::io::Result<bool> {
         let text = String::from_utf8_lossy(&bytes[first.min(whole)..whole]);
         for line in text.lines().rev() {
             if handed_back(line).is_some() || ended(line) {
-                return Ok(true);
+                return Ok(Last { finished: true, at: stamp(line) });
             }
             if worked(line) {
-                return Ok(false);
+                return Ok(Last { finished: false, at: stamp(line) });
             }
         }
         if from == 0 {
-            return Ok(false);
+            return Ok(Last::default());
         }
         width *= 4;
     }

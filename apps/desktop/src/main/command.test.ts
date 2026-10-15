@@ -430,6 +430,16 @@ it("asks search_files with the typed query, encoded, and answers its paths", asy
   expect(asked[0]?.path).toBe(`/manifest/files?q=${encodeURIComponent("a query/with slashes")}`);
 });
 
+/** A Session's message box names its own repository, whatever the window has picked. */
+it("asks search_files of the repository it is named, not the window's pick", async () => {
+  const asked: Asked[] = [];
+  const commands = new JobCommands(boardOn(await fleetListing(["src/cart.rs"], asked)));
+
+  await commands.searchFiles("cart", undefined, "01STORE");
+
+  expect(asked[0]?.path).toBe("/manifest/files?q=cart&manifest_id=01STORE");
+});
+
 /** A listener that answers `read_request_repository` with `reading`, and records the path asked. */
 async function fleetReading(reading: object, into: Asked[]): Promise<number> {
   const server = createServer((request: IncomingMessage, response) => {
