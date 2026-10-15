@@ -75,6 +75,8 @@ test("Checks filters list, Activity and Stage to subjects running a Check", asyn
   const rows = () => [...document.querySelectorAll(".deck-list .deck-row")].map((one) => one.getAttribute("aria-label"));
   await expect.poll(() => rows().includes(dropped)).toBe(true);
   const whole = rows().length;
+  // The stage rests on the map or the timeline, whichever a test before left remembered: this asks for the timeline.
+  await controls().getByRole("button", { name: "Timeline" }).click();
 
   // The feed and the stage's timeline keep the same subjects and no others: both name it before the filter, neither after.
   const feed = () => document.querySelector(".deck-activity")?.textContent ?? "";

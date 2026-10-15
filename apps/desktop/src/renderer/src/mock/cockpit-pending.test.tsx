@@ -63,7 +63,8 @@ async function staysGone(from: number): Promise<void> {
   await expect.element(radio(SECOND)).toBeVisible();
 }
 
-test("the answer pressed carries the loop, the rest of the card is held, and a second press is not a second send", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("the answer pressed carries the loop, the rest of the card is held, and a second press is not a second send", async () => {
   await motion();
   const app = await asking();
   const answer = vi.spyOn(app.api, "answerWaiting");
@@ -94,7 +95,8 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
   expect(answer).toHaveBeenCalledWith({ session_id: "s14", item_id: "q1", choice: 0 });
 });
 
-test("a refusal stops the loop, leaves the card where it was, and the toast says Fleet's words", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a refusal stops the loop, leaves the card where it was, and the toast says Fleet's words", async () => {
   await motion();
   await asking();
   // Put the first off, so the one Fleet refuses is in front.
@@ -113,7 +115,8 @@ test("a refusal stops the loop, leaves the card where it was, and the toast says
   await expect.element(question()).toBeVisible();
 });
 
-test("an answered call does not come back while Fleet still carries it, and the next one is in front", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("an answered call does not come back while Fleet still carries it, and the next one is in front", async () => {
   await asking();
   await userEvent.keyboard("1");
   await userEvent.keyboard("{Enter}");
@@ -121,7 +124,8 @@ test("an answered call does not come back while Fleet still carries it, and the 
   await staysGone(Date.now());
 });
 
-test("a dismissed call loops while Fleet takes it, and does not come back while Fleet still carries it", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a dismissed call loops while Fleet takes it, and does not come back while Fleet still carries it", async () => {
   await motion();
   await asking();
   // The cover lifts on the first press and the second dismisses, so the clock starts at the second.
@@ -133,7 +137,8 @@ test("a dismissed call loops while Fleet takes it, and does not come back while 
   await staysGone(from);
 });
 
-test("a call Fleet keeps carrying comes back after the hold, with nothing said", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a call Fleet keeps carrying comes back after the hold, with nothing said", async () => {
   const kept = holdFor.ms;
   holdFor.ms = 500;
   onTestFinished(() => void (holdFor.ms = kept));

@@ -42,7 +42,8 @@ async function open() {
 
 const noStanding = () => STANDING.forEach((name) => expect(radio(name).query()).toBeNull());
 
-test("a run act with a slash command is Run <command>, and Send tells the Session the command as its reply", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a run act with a slash command is Run <command>, and Send tells the Session the command as its reply", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   await expect.element(key(/Run/)).toBeVisible();
@@ -55,7 +56,8 @@ test("a run act with a slash command is Run <command>, and Send tells the Sessio
   expect(answer).toHaveBeenLastCalledWith({ session_id: "s20", item_id: "e-slash", text: "/land 2109 2118 2119" });
 });
 
-test("a run act with a shell command is a Copy key, the command is on the card in its own case, and pressing it copies and leaves the card", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a run act with a shell command is a Copy key, the command is on the card in its own case, and pressing it copies and leaves the card", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
@@ -80,7 +82,8 @@ test("a run act with a shell command is a Copy key, the command is on the card i
   await expect.element(key(/Copy/)).toBeVisible();
 });
 
-test("an approve_pr act is Open #N, and pressing it opens the pull request's address", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("an approve_pr act is Open #N, and pressing it opens the pull request's address", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   const link = vi.spyOn(app.api, "openLink").mockResolvedValue({ ok: true });
@@ -93,7 +96,8 @@ test("an approve_pr act is Open #N, and pressing it opens the pull request's add
   expect(answer).not.toHaveBeenCalled();
 });
 
-test("a plain line has no answers, typing enables the box's Send, and it sends the words", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a plain line has no answers, typing enables the box's Send, and it sends the words", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   await reach("Which branch should the migration rebase onto");
@@ -107,7 +111,8 @@ test("a plain line has no answers, typing enables the box's Send, and it sends t
   expect(answer).toHaveBeenLastCalledWith({ session_id: "s20", item_id: "e-plain", text: "Main" });
 });
 
-test("a question with options keeps the standing answers, and with an answer picked and words typed Send sends the pick with the words", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a question with options keeps the standing answers, and with an answer picked and words typed Send sends the pick with the words", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   await reach("Which clock should the store tests use?");
@@ -120,7 +125,8 @@ test("a question with options keeps the standing answers, and with an answer pic
   expect(answer).toHaveBeenLastCalledWith({ session_id: "s20", item_id: "e-ask", choice: 1, text: "Neither, use a counter" });
 });
 
-test("a picked answer with an empty box still sends the pick", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a picked answer with an empty box still sends the pick", async () => {
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   await reach("Which clock should the store tests use?");

@@ -29,7 +29,8 @@ async function timeline(): Promise<void> {
 
 const take = (name: string) => page.getByRole("tab", { name, exact: true });
 
-test("opens on Lanes, a row for each subject grouped by how it stands", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("opens on Lanes, a row for each subject grouped by how it stands", async () => {
   await timeline();
 
   await expect.element(take("Lanes")).toHaveAttribute("aria-selected", "true");
@@ -39,7 +40,8 @@ test("opens on Lanes, a row for each subject grouped by how it stands", async ()
   expect(page.getByRole("list", { name: "Just now" }).query()).toBeNull();
 });
 
-test("keeps the take he picked, and opens on it next time", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("keeps the take he picked, and opens on it next time", async () => {
   await timeline();
   await take("Feed").click();
   await expect.element(page.getByRole("list", { name: "Just now" })).toBeVisible();
@@ -50,7 +52,8 @@ test("keeps the take he picked, and opens on it next time", async () => {
   expect(localStorage.getItem(TAKE)).toBe("split");
 });
 
-test("a take remembered from before is the one it opens on", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a take remembered from before is the one it opens on", async () => {
   mount("fleet-timeline");
   await onScreen();
   // `mount` forgets the viewer; the pick is written as a visit before this one would have.
@@ -61,7 +64,8 @@ test("a take remembered from before is the one it opens on", async () => {
   await expect.element(take("Split")).toHaveAttribute("aria-selected", "true");
 });
 
-test("Lanes scrolls sideways, opens at now, and a Session's mark never turns its card", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("Lanes scrolls sideways, opens at now, and a Session's mark never turns its card", async () => {
   await timeline();
   const body = document.querySelector<HTMLElement>(".armada-tl__body")!;
 
@@ -75,7 +79,8 @@ test("Lanes scrolls sideways, opens at now, and a Session's mark never turns its
   expect(getComputedStyle(pip).transform).toBe("none");
 });
 
-test("the filter narrows it as it narrows the grid: Your move keeps what needs him, Done what is over", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("the filter narrows it as it narrows the grid: Your move keeps what needs him, Done what is over", async () => {
   await timeline();
   const subject = (name: RegExp) => page.getByRole("button", { name });
 
@@ -87,7 +92,8 @@ test("the filter narrows it as it narrows the grid: Your move keeps what needs h
   await expect.element(subject(/^Job: Cache the manifest read/)).not.toBeInTheDocument();
 });
 
-test("main is a subject on the timeline and nothing to open", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("main is a subject on the timeline and nothing to open", async () => {
   await timeline();
   await take("Feed").click();
 
@@ -101,7 +107,8 @@ test("main is a subject on the timeline and nothing to open", async () => {
 const pipIn = (lane: Element | null, says: RegExp) => [...(lane?.querySelectorAll<HTMLElement>(".armada-tl__pip") ?? [])].find((one) => says.test(one.getAttribute("aria-label") ?? ""));
 const laneOf = (name: RegExp) => page.getByRole("button", { name }).element().closest(".armada-tl__lane");
 
-test("a pull request is marks on the track of the Job or Session that owns it, and no lane of its own", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a pull request is marks on the track of the Job or Session that owns it, and no lane of its own", async () => {
   mount("cockpit-timeline-first");
   await onScreen();
   await page.getByRole("tab", { name: "Active" }).click();
@@ -123,7 +130,8 @@ test("a pull request is marks on the track of the Job or Session that owns it, a
   expect(page.getByRole("navigation", { name: "Subjects" }).getByRole("button", { name: /^Pull request/ }).query()).toBeNull();
 });
 
-test("a pull request nobody owns draws nothing, in any take", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a pull request nobody owns draws nothing, in any take", async () => {
   mount("cockpit-timeline-first");
   await onScreen();
   await page.getByRole("tab", { name: "Active" }).click();

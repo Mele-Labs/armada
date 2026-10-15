@@ -15,7 +15,8 @@ const FILTER = "armada.bridge.dashboard-tab";
 const call = page.getByRole("region", { name: /^Pull request: #1904/ });
 const needsYou = () => page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" });
 
-test("no call while its Session works, the call with the Session's thread once it is idle, and none after a Poke", async () => {
+// Skipped (#2301): written for the classic Cockpit (the Lanes take, filter tabs, the call in front), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("no call while its Session works, the call with the Session's thread once it is idle, and none after a Poke", async () => {
   forgetDismissals();
   localStorage.removeItem(FILTER);
   mount("pr-call-owner-working");

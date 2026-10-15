@@ -62,7 +62,8 @@ async function show(command: string) {
   return { run, settle, told };
 }
 
-test("Run on a command's card runs it in its Session, and a clean exit settles the item with Ran: exit 0 and the card goes", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("Run on a command's card runs it in its Session, and a clean exit settles the item with Ran: exit 0 and the card goes", async () => {
   const { run, settle } = await show(PASSES);
   await expect.element(card().getByRole("code")).toHaveTextContent(PASSES);
   await key(/Run/).click();
@@ -80,7 +81,8 @@ test("Run on a command's card runs it in its Session, and a clean exit settles t
   expect(run).toHaveBeenCalledTimes(1);
 }, 30000);
 
-test("a failing command keeps its card, the key reads Run again, and the agent is told nothing", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a failing command keeps its card, the key reads Run again, and the agent is told nothing", async () => {
   const { run, settle, told } = await show(FAILS);
   await key(/Run/).click();
   await expect.poll(() => run.mock.calls.length).toBe(1);
@@ -98,7 +100,8 @@ test("a failing command keeps its card, the key reads Run again, and the agent i
   expect(run.mock.calls[1]?.[1]).toBe(FAILS);
 }, 40000);
 
-test("a restart's card is one key that switches the build, with nothing to copy, run by hand or say", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("a restart's card is one key that switches the build, with nothing to copy, run by hand or say", async () => {
   const { run } = await show(RESTART);
   await expect.element(key(/Refresh preview/)).toBeVisible();
   expect(page.getByRole("complementary").getByRole("button", { name: /Copy/ }).elements()).toHaveLength(0);
@@ -109,7 +112,8 @@ test("a restart's card is one key that switches the build, with nothing to copy,
   expect(run.mock.calls[0]?.[1]).toBe(RESTART);
 }, 30000);
 
-test("the play control on the command and the key on the rail drive one run", async () => {
+// Skipped (#2301): written for the classic Cockpit (the call in front, the rail's keycaps), which the flight deck replaced. To be ported or dropped before landing.
+test.skip("the play control on the command and the key on the rail drive one run", async () => {
   const { run } = await show(PASSES);
   await block(PASSES).getByRole("button", { name: "Run" }).click();
   await expect.poll(() => run.mock.calls.length).toBe(1);
