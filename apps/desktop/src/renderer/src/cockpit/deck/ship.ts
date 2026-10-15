@@ -16,6 +16,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { useItems, type Hosts, type Item } from "../../Dashboard";
 import { stateOf } from "../../session-state";
 import { useSessions } from "../../sessions-draft";
+import { useViewedVersion } from "../viewed";
 import type { CockpitProps } from "./props";
 import { sessionIdOf } from "../waiting";
 
@@ -410,6 +411,8 @@ export function useShip(props: ShipProps, hold = true): Ship {
     return () => onWantHeld?.(false);
   }, [onWantHeld, hold]);
   const calls = useItems("command-central", state, picked, nowViews, hosts, NONE);
+  // A Session read is one that no longer needs him: build again when any Session's time does.
+  const viewed = useViewedVersion();
   return useMemo(
     () =>
       shipOf({
@@ -424,6 +427,6 @@ export function useShip(props: ShipProps, hold = true): Ship {
         calls,
         now,
       }),
-    [state, sessions, picked, nows, calls, now],
+    [state, sessions, picked, nows, calls, now, viewed],
   );
 }
