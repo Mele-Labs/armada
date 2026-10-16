@@ -1,8 +1,7 @@
 // The served checkout is behind main and Fleet would not catch it up, so main's light on the merge queue carries an amber mark
 // and its card a section, "Your checkout": what holds it back, and the one command that is safe to press, where there is one.
 // Four holds in turn on one repository. The safe one runs from the card and the checkout is level. The last is a long list of
-// uncommitted files, held two ways: `checkoutHeldBack` on `?take=scroll` (the default), the list in a box that scrolls inside the
-// card, and `checkoutHeldBackReveal` on `?take=reveal`, the first few lines and Show all. Over `checkout-held-back`.
+// uncommitted files, in a box that scrolls inside the card. Over `checkout-held-back`.
 
 import { button, dialog, inside, region, role, text, walk, type Step } from "../walk";
 
@@ -37,24 +36,11 @@ const steps: readonly Step[] = [
   { look: inside(section(diverged), text("2 commits not on main")), say: "The history diverged, so there is no command" },
 ];
 
-const looseHold: readonly Step[] = [
-  { later: places, say: "An agent left a long list of files uncommitted" },
-];
-
-/** The same walk with the last hold's list held by scrolling. */
+/** The four holds in turn, the last a long list held by scrolling. */
 export const checkoutHeldBack = walk("checkout-held-back", [
   ...steps,
-  ...looseHold,
+  { later: places, say: "An agent left a long list of files uncommitted" },
   { look: inside(section(loose), role("group", "Uncommitted files")), say: "The list stays inside the card and scrolls there" },
   { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first" },
   { look: inside(section(loose), text("7 commits behind main")), say: "There is no command, because the pull could stop on a conflict" },
-]);
-
-/** And held by folding: the first few lines, Show all, and Show fewer. */
-export const checkoutHeldBackReveal = walk("checkout-held-back-reveal", [
-  ...steps,
-  ...looseHold,
-  { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first, and the list stops after a few lines" },
-  { press: inside(section(loose), button("Show all")), say: "Show all opens the row in place" },
-  { press: inside(section(loose), button("Show fewer")), say: "Show fewer folds it again" },
 ]);

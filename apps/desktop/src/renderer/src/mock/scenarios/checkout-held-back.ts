@@ -4,14 +4,13 @@
 // `checkoutHeldBack` plays it.
 
 import type { FleetHandle, Scenario } from "../moment";
-import { chooseCheckoutTake, type CheckoutTake } from "../../cockpit/checkout-take";
 import { checkoutHeld } from "../checkout-held-hub";
 import { s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
 
 /** How long a command that passed stays on the card before Fleet has caught the checkout up. */
 const LEVEL_AFTER = 1400;
 
-function held(take: CheckoutTake): Scenario {
+export const s257CheckoutHeldBack: Scenario = (() => {
   const lines = ship.state.mergeLines!;
   const { first, later, level, safe } = checkoutHeld(lines, lines.lines[0]!.root);
   let fleet: FleetHandle | undefined;
@@ -20,7 +19,7 @@ function held(take: CheckoutTake): Scenario {
   };
   return {
     ...ship,
-    name: take === "reveal" ? "checkout-held-back-reveal" : "checkout-held-back",
+    name: "checkout-held-back",
     says: "The flight deck with the served checkout behind main, held by uncommitted files, a long list of them or a diverged history",
     state: { ...ship.state, ...first },
     later,
@@ -43,12 +42,7 @@ function held(take: CheckoutTake): Scenario {
     },
     behaves: (handle) => {
       fleet = handle;
-      chooseCheckoutTake(take);
       return ship.behaves?.(handle) ?? {};
     },
   };
-}
-
-export const s257CheckoutHeldBack: Scenario = held("scroll");
-/** The same, with a long Uncommitted list folded behind Show all. */
-export const s261CheckoutHeldBackReveal: Scenario = held("reveal");
+})();

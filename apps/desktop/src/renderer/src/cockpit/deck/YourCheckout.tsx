@@ -2,13 +2,12 @@
 // up: what holds it back and, where one press is safe, the command that brings it level. Run is the Session band's own runnable
 // block, played where something runs a command in the repository, and Copy where nothing does.
 
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { FolderGit2, TriangleAlert } from "lucide-react";
-import { Button, CopyAct, RunnableBlock, Tooltip, type CodeRunner } from "@armada/components";
+import { CopyAct, RunnableBlock, Tooltip, type CodeRunner } from "@armada/components";
 import type { MergeLineView } from "@armada/screens";
 
 import { checkoutCall, type CheckoutCall, type Fact } from "../checkout";
-import { checkoutTake } from "../checkout-take";
 import { useSessionsDraft } from "../../sessions-draft";
 
 export type Held = { root: string; name: string; call: CheckoutCall };
@@ -46,7 +45,7 @@ function Command({ root, command }: { root: string; command: string }) {
   );
 }
 
-/** Lines a row shows before it scrolls or folds. */
+/** Lines a row shows before it scrolls. */
 const SHOWN = 6;
 
 function Line({ line }: { line: Fact["lines"][number] }) {
@@ -64,33 +63,15 @@ function Line({ line }: { line: Fact["lines"][number] }) {
   );
 }
 
-/** A row's lines: all of them, or past `SHOWN` in a box that scrolls inside the card, or the first few with Show all. Clashing lines come first. */
+/** A row's lines: all of them, or past `SHOWN` in a box that scrolls inside the card. Clashing lines come first. */
 function Lines({ fact }: { fact: Fact }) {
-  const [all, setAll] = useState(false);
-  const take = checkoutTake();
   if (fact.lines.length <= SHOWN) return <>{fact.lines.map((line) => <Line key={line.text} line={line} />)}</>;
-  if (take === "scroll") {
-    return (
-      <div className="deck-checkout__files" role="group" aria-label={`${fact.label} files`} tabIndex={0}>
-        {fact.lines.map((line) => (
-          <Line key={line.text} line={line} />
-        ))}
-      </div>
-    );
-  }
-  // A clashing line is never folded away.
-  const shown = Math.max(SHOWN, fact.lines.filter((line) => line.note !== undefined).length);
   return (
-    <>
-      {(all ? fact.lines : fact.lines.slice(0, shown)).map((line) => (
+    <div className="deck-checkout__files" role="group" aria-label={`${fact.label} files`} tabIndex={0}>
+      {fact.lines.map((line) => (
         <Line key={line.text} line={line} />
       ))}
-      <span className="deck-checkout__more">
-        <Button variant="ghost" size="sm" aria-expanded={all} onClick={() => setAll(!all)}>
-          {all ? "Show fewer" : "Show all"}
-        </Button>
-      </span>
-    </>
+    </div>
   );
 }
 
