@@ -36,7 +36,7 @@ function Overlays({ props, field }: { props: CockpitProps; field: ReturnType<typ
 
 export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Ship; listed: readonly Subject[] }) {
   const cursor = useDeck((deck) => deck.cursor);
-  const field = useField(props, ship, listed);
+  const field = useField(props, ship, listed, props.picked?.root);
   const { replay, calls, repos, drones, pads, goals, crates, flightTrails, drawn, facts, clashes, focusKey, builds } = field;
   return (
     <section className="deck-pane" aria-label="Flight map">
@@ -60,6 +60,7 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
           focus={replay === undefined ? focusKey : undefined}
           builds={builds}
           selected={cursor}
+          scope={props.picked?.root}
           onSelect={(key) => {
             const subject = ship.subjects.find((one) => one.key === key);
             if (subject !== undefined) select(selOfSubject(subject));

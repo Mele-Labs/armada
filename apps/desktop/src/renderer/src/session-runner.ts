@@ -25,3 +25,14 @@ export function runnerOf(draft: SessionsDraft, session: Session, settle: (now: (
     return run(session.id, command, on, size);
   };
 }
+
+/**
+ * The shell command a message asks for with a leading `!`, as in Claude Code's own box. One line and
+ * something after the `!`: a bare `!` or a pasted block is a message like any other.
+ */
+export function bangOf(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("!") || /[\r\n]/.test(trimmed)) return undefined;
+  const command = trimmed.slice(1).trim();
+  return command === "" ? undefined : command;
+}

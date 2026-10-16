@@ -1,0 +1,14 @@
+[operations.get_review_lists]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The pull requests waiting on a person, as four lists read from the forge: asked of them by name, asked of a team they are on, assigned to them, and opened by them"
+notes = """
+`GET /review_lists`. `PullReviewLists`. **Read when the Reviews tab opens and on Refresh, and never polled**: Armada does not watch other people's pull requests, so Fleet holds no copy and the reply is as old as the forge's answer.
+
+Open pull requests of every repository Fleet serves, **one forge call a list** (`gh api graphql` over a search that names all the served repositories), newest-updated first and **capped at 50 a list**; a list at 50 has more behind it. `me` is the "mine" login of `fleet::my_pulls`, the account Armada is signed in as for the repository, else the forge command line's, and every list is asked for that login by name. `team` is review requested of a team the person is on and not of them by name; its rows carry the team's name. A pull request on several lists is on each, as a row.
+
+A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others. All four silent is a 500 `fleet.review_lists_unreadable`. No login known is a 500 with the same code.
+
+`agent_access` is `Bridge only`: an agent that wants one pull request asks for it by number.
+"""

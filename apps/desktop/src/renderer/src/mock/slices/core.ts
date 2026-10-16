@@ -17,7 +17,9 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
     let summoned = false;
     return {
       state: async () => fleet.state(),
-      subscribe: fleet.listen,
+      // The mock has no main to diff: every change is the whole state.
+      subscribeChanges: (onChange) => fleet.listen((state) => onChange({ full: state, seq: 0 })),
+      syncState: async () => ({ full: fleet.state(), seq: 0 }),
       // The stand-in walk window sets the dim itself — `walk-window.tsx`.
       onWalkFocus: () => () => {},
       // The rail's pick is this window's own, so it moves here as it does in main.

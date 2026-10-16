@@ -19,6 +19,7 @@ import { openJobIn } from "@armada/jobs";
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
 import { useDebugBridgeAsked } from "../debug-bridge";
+import { withState, type StateSource } from "../state-feed";
 import { askToOpenSessionInCockpit } from "../open-session";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
@@ -92,8 +93,9 @@ function targetOf(target: EventTarget | null): Element | null {
 /** What the layer asks of Fleet's seam: the Job send, the Session send, and the Sessions that are live. */
 export type LayerFleet = Pick<
   BridgeApi,
-  "stageAttachment" | "proposeFromRequest" | "startSession" | "sendSessionMessage" | "state" | "subscribe"
->;
+  "stageAttachment" | "proposeFromRequest" | "startSession" | "sendSessionMessage"
+> &
+  StateSource;
 
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
@@ -108,7 +110,7 @@ const NO_SHOT = "No screenshot: on another screen";
 const noShot = (away: number, of: number): string => (away === of ? NO_SHOT : `No screenshot for ${away} of ${of}: on another screen`);
 
 export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCockpit, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
-  const fleet: LayerFleet | undefined = given ?? window.armada;
+  const fleet: LayerFleet | undefined = given ?? (window.armada === undefined ? undefined : withState(window.armada));
   const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
   const [notes, setNotes] = useState<Annotation[]>([]);

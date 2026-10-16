@@ -95,6 +95,9 @@ fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
         checks: Vec::new(),
         files: Vec::new(),
         commits: Vec::new(),
+        head: None,
+        body: None,
+        threads: Vec::new(),
         owner: None,
     }
 }
@@ -129,5 +132,28 @@ impl PullRequestPanel for FakeDaemon {
         write: WritePullRequest,
     ) -> Result<PullRequestPage, Refusal> {
         Ok(page(manifest_id, write.pull_request))
+    }
+
+    async fn get_review_lists(&self) -> Result<ipc::PullReviewLists, Refusal> {
+        Ok(ipc::PullReviewLists {
+            me: "octocat".into(),
+            fetched_at: "2026-10-16T09:00:00Z".into(),
+            requested: Vec::new(),
+            team: Vec::new(),
+            assigned: Vec::new(),
+            mine: Vec::new(),
+            silent: Vec::new(),
+        })
+    }
+
+    async fn resolve_review_thread(
+        &self,
+        _manifest_id: ManifestId,
+        resolve: ipc::ResolvePullThread,
+    ) -> Result<ipc::PullThreadResolved, Refusal> {
+        Ok(ipc::PullThreadResolved {
+            thread: resolve.thread,
+            resolved: resolve.resolved,
+        })
     }
 }

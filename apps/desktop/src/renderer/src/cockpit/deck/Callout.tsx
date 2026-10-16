@@ -22,29 +22,46 @@ function boxOf({ target, at }: Anchor): Anchored | undefined {
   return r.width === 0 && r.height === 0 ? undefined : { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
 }
 
-/** `pinned` is one a press opened: it stays, and what is in it can be pressed. */
-export function Callout({ tip, anchor, host, pinned }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean }) {
+/**
+ * How long the callout looks for its anchor to move every frame after it last did, and then how often it looks. Reading where the host and the
+ * anchor are forces a layout, and a card standing still on a map that is not moving was doing it sixty times a second. Anything that moves the
+ * anchor on purpose (`view`, the camera; the host resizing) wakes it at once.
+ */
+const SETTLED_FRAMES = 30;
+const HEARTBEAT_MS = 250;
+
+/** `pinned` is one a press opened: it stays, and what is in it can be pressed. `view` is whatever changes when the camera does. */
+export function Callout({ tip, anchor, host, pinned, view }: { tip: Tip; anchor: Anchor; host: HTMLElement; pinned?: boolean; view?: unknown }) {
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
+  const slot = useRef<HTMLDivElement>(null);
   const line = useRef<SVGLineElement>(null);
   const dot = useRef<SVGCircleElement>(null);
 
+  const wake = useRef<() => void>(() => undefined);
+
   useLayoutEffect(() => {
     let frame = 0;
+    let beat = 0;
+    let still = 0;
     let seen = "";
-    const place = () => {
+    const place = (): boolean => {
+      let moved = false;
       const base = host.getBoundingClientRect();
       const from = boxOf(anchor);
       const el = card.current;
-      if (from !== undefined && el !== null && line.current !== null && dot.current !== null && root.current !== null) {
+      const moves = slot.current;
+      if (from !== undefined && el !== null && moves !== null && line.current !== null && dot.current !== null && root.current !== null) {
         const a = { x: from.x - base.left, y: from.y - base.top, w: from.w, h: from.h };
         const put = placeCallout(a, { w: el.offsetWidth, h: el.offsetHeight }, { width: base.width, height: base.height });
         const key = [put.left, put.top, put.end.x, put.end.y, a.x, a.y].map((n) => Math.round(n)).join();
         if (key !== seen) {
           seen = key;
-          el.style.transform = `translate(${put.left.toFixed(1)}px, ${put.top.toFixed(1)}px)`;
-          el.style.setProperty("--ox", `${(a.x - put.left).toFixed(1)}px`);
-          el.style.setProperty("--oy", `${(a.y - put.top).toFixed(1)}px`);
+          moved = true;
+          // On the wrapper, so the card's own entry animation is the only one on the card.
+          moves.style.transform = `translate(${put.left.toFixed(1)}px, ${put.top.toFixed(1)}px)`;
+          moves.style.setProperty("--ox", `${(a.x - put.left).toFixed(1)}px`);
+          moves.style.setProperty("--oy", `${(a.y - put.top).toFixed(1)}px`);
           line.current.setAttribute("x1", put.start.x.toFixed(1));
           line.current.setAttribute("y1", put.start.y.toFixed(1));
           line.current.setAttribute("x2", put.end.x.toFixed(1));
@@ -53,13 +70,35 @@ export function Callout({ tip, anchor, host, pinned }: { tip: Tip; anchor: Ancho
           dot.current.setAttribute("cy", put.end.y.toFixed(1));
           root.current.dataset.side = `${put.right ? "right" : "left"} ${put.up ? "up" : "down"}`;
         }
-        root.current.dataset.placed = "";
+        if (root.current.dataset.placed === undefined) root.current.dataset.placed = "";
       }
-      frame = window.requestAnimationFrame(place);
+      return moved;
     };
+    const step = () => {
+      still = place() ? 0 : still + 1;
+      if (still < SETTLED_FRAMES) frame = window.requestAnimationFrame(step);
+      else beat = window.setTimeout(step, HEARTBEAT_MS);
+    };
+    const wakes = () => {
+      still = 0;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(beat);
+      frame = window.requestAnimationFrame(step);
+    };
+    wake.current = wakes;
     place();
-    return () => window.cancelAnimationFrame(frame);
+    frame = window.requestAnimationFrame(step);
+    const watch = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(wakes);
+    watch?.observe(host);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(beat);
+      watch?.disconnect();
+    };
   }, [tip, anchor, host]);
+
+  // The camera moved: the anchor is somewhere else now, and the next frames find where.
+  useLayoutEffect(() => wake.current(), [view]);
 
   const most = Math.max(1, ...(tip.ticks ?? [0]));
   return (
@@ -70,6 +109,7 @@ export function Callout({ tip, anchor, host, pinned }: { tip: Tip; anchor: Ancho
           <circle ref={dot} r={2.5} />
         </g>
       </svg>
+      <div ref={slot} className="bf-callout__place">
       <div ref={card} className="bf-callout__card">
         <i className="bf-callout__glow" aria-hidden="true" />
         <div className="bf-callout__kind">{tip.label}</div>
@@ -124,6 +164,7 @@ export function Callout({ tip, anchor, host, pinned }: { tip: Tip; anchor: Ancho
             ))}
           </svg>
         )}
+      </div>
       </div>
     </div>
   );

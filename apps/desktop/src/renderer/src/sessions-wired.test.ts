@@ -6,6 +6,7 @@ import type { SessionRecord } from "@armada/protocol";
 import type { BridgeApi } from "../../shared/api";
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
+import type { StateChange } from "../../shared/state-change";
 import { QUEUED_KEY } from "./queued-ideas";
 import { WiredStore } from "./sessions-wired";
 
@@ -27,11 +28,11 @@ const record = (id: string): SessionRecord => ({
 
 /** A store fed by hand: what `publish` is told is what the window is sent, as a new copy each time. */
 function fed() {
-  let send: (state: BridgeState) => void = () => undefined;
-  const api = { state: () => Promise.resolve(NOTHING_YET), subscribe: (on: (state: BridgeState) => void) => ((send = on), () => undefined) } as unknown as BridgeApi;
+  let send: (change: StateChange<BridgeState>) => void = () => undefined;
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof send) => ((send = on), () => undefined) } as unknown as BridgeApi;
   const store = new WiredStore(api);
   store.attach();
-  return { store, publish: (change: Partial<BridgeState>) => send(structuredClone({ ...NOTHING_YET, ...change })) };
+  return { store, publish: (change: Partial<BridgeState>) => send({ full: structuredClone({ ...NOTHING_YET, ...change }), seq: 0 }) };
 }
 
 it("hands back the same Sessions when a publish carries nothing new, and the same one for each that did not change", () => {
@@ -77,8 +78,9 @@ const IDEA = { text: "Make the Cleanup grid sortable by size", root: "/code/arma
 async function starting(answer: "ok" | "refused") {
   const startSession = vi.fn(async () => (answer === "ok" ? { ok: true as const, value: record("new") } : { ok: false as const, outcome: { ok: false as const, why: "not_connected" as const } }));
   const sendSessionMessage = vi.fn(async () => ({ ok: true as const }));
-  let send: (state: BridgeState) => void = () => undefined;
-  const api = { state: () => Promise.resolve(NOTHING_YET), subscribe: (on: (state: BridgeState) => void) => ((send = on), () => undefined), startSession, sendSessionMessage } as unknown as BridgeApi;
+  let wire: (change: StateChange<BridgeState>) => void = () => undefined;
+  const send = (state: BridgeState) => wire({ full: state, seq: 0 });
+  const api = { syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: (on: typeof wire) => ((wire = on), () => undefined), startSession, sendSessionMessage } as unknown as BridgeApi;
   const store = new WiredStore(api);
   store.attach();
   // Its first read of the state settles first, and what is published after it is what the window holds.
@@ -179,7 +181,7 @@ it("passes the model and effort of a dispatcher start to Fleet, and none where n
 });
 
 it("shows in this window what another window queued, and what it started", () => {
-  const store = new WiredStore({ state: () => Promise.resolve(NOTHING_YET), subscribe: () => () => undefined } as unknown as BridgeApi);
+  const store = new WiredStore({ syncState: () => Promise.resolve({ full: NOTHING_YET, seq: 0 }), subscribeChanges: () => () => undefined } as unknown as BridgeApi);
   store.attach();
   const told = vi.fn();
   store.draft.subscribe(told);

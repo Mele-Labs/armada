@@ -219,6 +219,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/pull_request_writes/:repository",
             post(crate::pull_request_panel::write_pull_request::<D>),
         )
+        .route("/review_lists", get(crate::pull_request_panel::get_review_lists::<D>))
+        .route(
+            "/review_threads/:repository",
+            post(crate::pull_request_panel::resolve_review_thread::<D>),
+        )
         .route("/mods", get(crate::mods::list_mods::<D>))
         .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
         .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))

@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -799,6 +799,14 @@ function ReplayHost({ props, ship }: { props: CockpitProps; ship: Ship }) {
 }
 
 /** **Drawn when what it is handed changes and not each second**: `CommandCentral` hands it the minute and callbacks that do not change. */
+/** The containers `deck.css` takes the deck's margins and padding off. `:has(.deck)` on each restyled it whenever anything beneath it was inserted. */
+const DECK_MARKS: readonly Mark[] = [
+  { of: ".armada-shell__body", as: "data-deck" },
+  { of: ".armada-shell__work", as: "data-deck" },
+  { of: ".armada-screen__mounted", as: "data-deck" },
+  { of: ".armada-screen__overview", as: "data-deck", parent: true },
+];
+
 export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const ship = useShip(props);
   const only = useDeck((deck) => deck.only);
@@ -831,6 +839,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost } : undefined), [unified, sideHost, footHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
+  const deckMarks = useMarking(DECK_MARKS);
   const layout = unified ? "session" : reading ? "reading" : "idle";
   const { columns, resize, reset } = useColumns(grid, layout);
   const splits = useSplits(grid, layout);
@@ -844,7 +853,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <ReplayHost props={props} ship={ship} />
     <CursorJob listed={listed} jobs={props.state.jobs} onCursor={props.onCursor} />
     <AutopilotAsked control={autopilot.control} />
-    <div className="armada-cockpit deck">
+    <div ref={deckMarks} className="armada-cockpit deck">
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />

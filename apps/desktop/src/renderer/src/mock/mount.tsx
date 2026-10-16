@@ -8,7 +8,7 @@ import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary, LayoutSourceProvider } from "@armada/shell";
-import { HapticsProvider } from "@armada/components";
+import { HapticsProvider, forgetAllKept } from "@armada/components";
 
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
@@ -43,7 +43,11 @@ import { mockThemes } from "./themes";
 import { AccountFrom } from "./account";
 import { SharedHomeFrom } from "./shared-home";
 import { PrOwnersFrom } from "./pr-owners";
+import { ReviewsFrom, createReviewStore } from "../pr-review/store";
+import { reviewSourceOf } from "../pr-review/source";
+import { agentOf } from "./review-forge";
 import type { Scenario } from "./scenario";
+import { withState } from "../state-feed";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
 export type Mounted = {
@@ -120,9 +124,13 @@ export function mountApp(
   if (shared === undefined) forgetDeck();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
-  const planUsage = createFleetPlanUsage(api);
+  const planUsage = createFleetPlanUsage(withState(api));
   // Only the scenario that plays the offer has one; every other window draws the limits as they were.
   const downshift = chosen.name === "plan-downshift" ? createMockDownshift(planUsage, api) : null;
+  // The review surface starts as a window does: nothing fetched, nothing open, the Cockpit on its work.
+  const reviews = chosen.draft?.prReview === undefined ? undefined : createReviewStore(reviewSourceOf(api), agentOf(chosen.draft.prReview));
+  // And with nothing kept from an earlier pass: no saved Ask text, so a replay meets the same page the walk was written against.
+  if (reviews !== undefined) forgetAllKept();
   const root = createRoot(host);
   let say = (): void => undefined;
   const onScreen = new Promise<void>((resolve) => {
@@ -153,7 +161,9 @@ export function mountApp(
                                     <AccountFrom account={chosen.draft?.account}>
                                       <SharedHomeFrom home={chosen.draft?.sharedHome}>
                                         <PrOwnersFrom owners={chosen.draft?.prOwners}>
-                                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                          <ReviewsFrom store={reviews}>
+                                            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                                          </ReviewsFrom>
                                         </PrOwnersFrom>
                                       </SharedHomeFrom>
                                     </AccountFrom>

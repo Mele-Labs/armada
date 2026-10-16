@@ -733,9 +733,11 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 | `merge_pull_request_by_number` | Merges it | While the checks are running or failed, a draft, a closed one, and the forge's own refusals |
 | `enable_auto_merge` | Asks the forge to merge when the checks pass | Once they have passed or failed, a draft, a closed one |
 | `review_pull_request` | Drafts a Code Review Job against it, by number or address | A name that is neither, a Session the ledger never heard of |
-| `get_pull_request_detail` | Reads the page the panel draws: base, author, mergeability, review state, the conversation, the forge's checks with their run time, files and commits | Where the forge would not answer |
+| `get_pull_request_detail` | Reads the page the panel draws: base, author, mergeability, review state, the conversation, the forge's checks with their run time, files and commits, and the head, the description and the diff's review threads | Where the forge would not answer, and where it would not give the threads |
 | `get_pull_request_file` | One file's patch, read when a person presses a row of the Files tab. Bridge draws it in a panel to the left of the pull request's | Where the forge would not answer, and for a file the pull request does not list. A file the forge sent no patch for answers with Fleet's sentence |
-| `write_pull_request` | Comments, approves or requests changes, then reads the page again | A comment or a request with no body, a Session the ledger never heard of, and the forge's own refusals |
+| `write_pull_request` | Comments, approves or requests changes, then reads the page again. With line, file and reply comments it is one review | A comment or a request with no body, any comment with a blank body, a Session the ledger never heard of, and the forge's own refusals |
+| `resolve_review_thread` | Resolves a conversation on the diff, or opens it again. Bridge only, see `docs/concepts/pull-review.md` | The forge's own refusals |
+| `get_review_lists` | Reads the pull requests waiting on a person, as four lists. Bridge only, see `docs/concepts/pull-review.md` | A forge that would not answer any list |
 
 ```
  a person presses       Fleet                                  the forge
@@ -931,7 +933,7 @@ A message to a hosted Session can name things with `@` and `#`, sent as `mention
 
 ## A Session's Checks
 
-**An `armada check` run in a slot a Session holds is the Session's run.** The CLI keeps no record of its own, so it tells Fleet when the run begins and when it ends with the log (`report_session_check`, `POST /sessions/checks`, 23.75). Fleet places the Session by the slot the directory is in, never by what the call says. A directory no Session holds is a person's own run and is not recorded, and neither is a Fleet that is not running.
+**An `armada check` run in a slot a Session holds is the Session's run.** The CLI keeps no record of its own, so it tells Fleet when the run begins and when it ends with the log (`report_session_check`, `POST /sessions/checks`, 23.75). Fleet places the Session by the slot the directory is in, never by what the call says, and **the pool's lease answers first**: the live Session the slot's lease names (a Session or its subagent leases more slots than the one its ledger `slot` row names), else the Session whose standing `slot` row the pool does not deny (`slot_holders::session_in_slot`). A directory no Session holds is a person's own run and is not recorded, and neither is a Fleet that is not running.
 
 | Where it shows | What |
 |---|---|
@@ -955,7 +957,7 @@ A terminal Session's thread is its transcript and carries no `check` row; its ru
 
 ## Running a block
 
-A fenced shell block in a Session's thread shows Run when the block is hovered or focused. Pressing it opens a terminal docked in the Session's view, between the thread and the message box, and runs the command in the Session's working directory, its slot if it has one. A Run key on a Needs-you item opens the same pane. There is one pane and one run at a time: Run again stops the old run first and starts afresh. The pane's header carries the command and Stop while it runs; after, a mark with the exit code on its tooltip (*Exit N*, or *Stopped*), Run again and Close. Close puts the pane away, and the block's mark brings the same run back. Keys typed go to the program while it runs, and its size follows the pane's.
+A fenced shell block in a Session's thread shows Run when the block is hovered or focused. Pressing it opens a terminal docked in the Session's view, between the thread and the message box, and runs the command in the Session's working directory, its slot if it has one. A Run key on a Needs-you item opens the same pane, and so does a message that is one line starting with `!` (`! rbenv install 4.0.6`) sent from the Session's box: it is run, not sent to the agent, and when it ends Fleet tells the Session as for any run. A bare `!` or a message of several lines is sent as written. There is one pane and one run at a time: Run again stops the old run first and starts afresh. The pane's header carries the command and Stop while it runs; after, a mark with the exit code on its tooltip (*Exit N*, or *Stopped*), Run again and Close. Close puts the pane away, and the block's mark brings the same run back. Keys typed go to the program while it runs, and its size follows the pane's.
 
 **It is the person's own act, and the command runs on a terminal.** It is the session leader of a pseudo-terminal with `TERM=xterm-256color`, so a program sees a tty, keys written with `write_session_run` reach it (Ctrl-C as an interrupt) and `resize_session_run` changes the size it sees. Output is the terminal's bytes with the escapes intact, held as the last 256 KiB. The pane is xterm.js (`@xterm/xterm`), drawing those bytes as they arrive; its keys go out as `write_session_run`, its fitted size as `resize_session_run`, and the run starts at the size the pane first fits (`cols` and `rows` on `start_session_run`, `POST /sessions/run/start`). Bridge reads what it prints on `observe_session_run`, a socket of its own, until `exited`. A Session that has ended, or a run Fleet does not know, is refused in the same words as any other act on a Session.
 

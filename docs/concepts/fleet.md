@@ -489,6 +489,16 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **The queue is where a team shares a line, so it stays whole.** Someone else's pull request in the queue is a fact about when yours lands. Outside it, it is theirs to watch. The pull watch reads every open pull request with its author on one call, so the rule costs no second ask.
 
+### The pull requests waiting on a person
+
+**`get_review_lists` (`GET /review_lists`) reads four lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh. The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them. Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Session holds it**. A row of a repository Fleet does not serve is dropped. A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
+
+**A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list. All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+
+**`resolve_review_thread` (`POST /review_threads/:repository`) resolves a conversation on a diff, or opens it again.** It is the forge's own act, taken at once and seen by everyone watching, so it is a person's press and never part of the pending review. A 409 `fleet.review_thread_refused` carries the forge's sentence, and a repository Fleet does not serve is a 422.
+
+**A page carries its `head`, its `body` and its `threads`, and a write with `comments` is one review.** `get_pull_request_detail` reads the threads in a second forge call, the first 100 with their comments; a page whose threads the forge would not give is a 500 and not a page without them. `write_pull_request` with `comments` opens a pending review at the commit the person read, adds each line, file and reply comment, and submits it with the verdict, so the forge sends one notification. A comment the forge refuses deletes the pending review and posts nothing: a 409 with the forge's sentence.
+
 ### Telling sessions the build they now run
 
 **One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.

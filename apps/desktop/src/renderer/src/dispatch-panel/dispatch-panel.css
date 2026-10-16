@@ -324,7 +324,7 @@
 }
 
 /* The menu past nine is drawn in a layer of its own, since the frame clips what hangs out of it; it has to clear the scrim. */
-body:has(.armada-dispatch-panel) > .armada-dropdown-menu__panel[data-portal] { z-index: var(--z-palette); }
+body[data-dispatching] > .armada-dropdown-menu__panel[data-portal] { z-index: var(--z-palette); }
 
 /* ---- Settings: the existing block, set in the panel's mono ----------------------------------- */
 
