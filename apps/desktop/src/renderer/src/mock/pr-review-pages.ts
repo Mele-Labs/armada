@@ -1264,7 +1264,7 @@ export function reviewSeed(): ReviewSeed {
       armada: ARMADA_DEFS,
       kit: kitTools,
       repository: repositoryTools,
-      leftOut: { armada: [{ file: "/Users/nick/Development/armada/.armada/review-tools/notes.md", source: "repository", said: "No kind in its front matter" }] },
+      leftOut: { armada: [{ file: "/Users/user/Development/armada/.armada/review-tools/notes.md", source: "repository", said: "No kind in its front matter" }] },
     },
     results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
     pushes: {

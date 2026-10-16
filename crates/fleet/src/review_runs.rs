@@ -46,7 +46,7 @@ const UNKNOWN_TOOL: &str = "fleet.review_unknown_tool";
 /// A question with nothing in it, or too long to be one. A 422.
 const BLANK: &str = "fleet.review_blank";
 /// The forge would not give the pull request. A 500.
-const UNREADABLE: &str = "fleet.pull_request_unreadable";
+const UNREADABLE: &str = "fleet.review_pull_request_unreadable";
 
 /// Turns a run may take, its reads and its answer together. A change worth explaining is read
 /// across several files, which the Judge's sixteen would cut short.
@@ -360,12 +360,10 @@ where
         Ok(run)
     }
 
-    /// Keep a run and tell everybody who is listening. A store that will not take it is logged:
-    /// the run goes on, and a reader that asks again finds what was kept.
+    /// Keep a run and tell everybody who is listening. **A store that will not take it does not
+    /// stop the run**: the event still goes, and a reader that asks again finds what was kept.
     async fn review_run_moved(&self, run: &ReviewRun, label: &str, bay: Option<&(u32, String)>) {
-        if let Err(why) = self.store().lock().await.keep_review_run(&row_of(run, label, bay)) {
-            eprintln!("a review run of pull request {} was not kept: {why}", run.number);
-        }
+        let _ = self.store().lock().await.keep_review_run(&row_of(run, label, bay));
         self.publish(ipc::Event::ReviewRunChanged { run: run.clone() });
     }
 
@@ -475,10 +473,9 @@ where
         .await;
 
         let (vcs, pool, given) = (Arc::clone(self.vcs()), plan.pool.clone(), bay);
-        let released = tokio::task::spawn_blocking(move || vcs.release_review_bay(&pool, given.0, &given.1)).await;
-        if let Ok(Err(why)) = released {
-            eprintln!("the bay a review of pull request {number} read in was not given back: {why}");
-        }
+        // A bay that will not go back is the pool's to report as stranded, and the run's answer
+        // does not depend on it.
+        let _ = tokio::task::spawn_blocking(move || vcs.release_review_bay(&pool, given.0, &given.1)).await;
         worked
     }
 

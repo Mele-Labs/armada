@@ -233,7 +233,7 @@ async fn a_forge_that_will_not_give_the_head_starts_nothing() {
     let (id, _) = manifest(&fleet);
     fleet.vcs().now_pull_request_page(None);
     let refused = Arc::clone(&fleet).start_review_run(id, start(ReviewRunKind::Tool, "risks", false)).await.unwrap_err();
-    assert_eq!(code(&refused), "fleet.pull_request_unreadable");
+    assert_eq!(code(&refused), "fleet.review_pull_request_unreadable");
     assert!(fleet.vcs().review_bays_leased().is_empty());
 }
 

@@ -8,7 +8,7 @@ notes = """
 
 **Only a press starts one, and a kept result is answered as it stands.** Without `again`, a result kept for this pull request, this kind and name is answered with no run, at the commit it ran on: a newer head leaves it served, and Bridge marks it out of date. Nothing kept starts a run at the head the forge says now. With `again` a run starts whatever is kept and replaces the result for that head. A run already going for the same key is answered, not started twice.
 
-**The run reads and cannot write.** Fleet leases a bay, checks out the pull request's head there detached, and asks one model call with the read tools only (Read, Grep, Glob; no shell, no edit, no network) confined to that checkout, then gives the bay back. It is handed the definition's prompt, the pull request's title, description, head and diff. The model is `models.review`. The answer is JSON in the shape the kind has, validated; one that is not valid is a failed run with its reason and is never a result.
+**The run reads and cannot write.** Fleet leases a bay, checks out the pull request's head there on a branch of the lease's own, and asks one model call with the read tools only (Read, Grep, Glob; no shell, no edit, no network) confined to that checkout, then gives the bay back. It is handed the definition's prompt, the pull request's title, description, head and diff. The model is `models.review`. The answer is JSON in the shape the kind has, validated; one that is not valid is a failed run with its reason and is never a result.
 
-A 422 `fleet.review_unknown_tool` for a name no definition has, `fleet.review_blank` for a blank question, and a 500 `fleet.pull_request_unreadable` where the forge would not give the pull request.
+A 422 `fleet.review_unknown_tool` for a name no definition has, `fleet.review_blank` for a blank question, and a 500 `fleet.review_pull_request_unreadable` where the forge would not give the pull request.
 """

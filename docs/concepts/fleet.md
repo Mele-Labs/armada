@@ -501,6 +501,18 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **A page carries its `head`, its `body` and its `threads`, and a write with `comments` is one review.** `get_pull_request_detail` reads the threads in a second forge call, the first 100 with their comments; a page whose threads the forge would not give is a 500 and not a page without them. `write_pull_request` with `comments` opens a pending review at the commit the person read, adds each line, file and reply comment, and submits it with the verdict, so the forge sends one notification. A comment the forge refuses deletes the pending review and posts nothing: a 409 with the forge's sentence.
 
+### Agent runs about a pull request
+
+`docs/concepts/pull-review.md`. **`start_review_run` (`POST /review_runs/:repository`) asks an agent, read-only, about one pull request, and answers at once.** The reply is a kept result as it stands, the run already going for the same key, or a new run still `queued` whose work goes on a task of its own, so a caller that stops waiting does not stop the run. `get_review_runs` reads every run kept or going for a pull request, and `review_run.changed` carries a run whole each time its state moves. A name no definition has, of the wrong kind, is a 422 `fleet.review_unknown_tool`, and a blank question a 422 `fleet.review_blank`.
+
+**One engine serves every kind.** It reads the definition (repository over Kit over Armada) or takes the question, reads the pull request's title, description, head and diff from the forge, leases a bay of the repository's pool with the head fetched from the forge's ref and checked out on a branch of the lease's own, makes one model call with the read tools only (`Reading::checkout` on the bay: no shell, no edit, no network), and gives the bay back, forced clean, whatever happened. The call is the Judge's client on `models.review` and the proposer's wait, since a run reads a repository and writes a long answer. **A bay at a different commit than the one the forge named at the press ends the run unread**, since a result is kept for the commit it read.
+
+**A result is kept per commit in Fleet's store** (`review_runs`), keyed by manifest, pull request, head, kind and name, with the cost the vendor billed. The cost is the run's own and counts against no Job. A failed run is kept with its reason and is never answered as a result. Rows the store says are going that no task of this process holds are ended failed, and their bay given back, the first time anyone asks about that pull request.
+
+**Definitions are read from the folders every time** (`list_review_tools`), so what a person saved is what the next press asks. `save_review_tool` writes one file into Kit's folder or the repository's `.armada/review-tools/`, refusing a blank name or prompt, a name with no words, and an id the scope already defines unless asked to overwrite. It is `Helm only` for agents: what is written decides what every review asks an agent.
+
+**Each listed row names the Session that holds the pull request**, from *Who owns a pull request*, so Bridge can send a note there. A Job that holds it is not a Session to write to and is not named.
+
 ### Telling sessions the build they now run
 
 **One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.
