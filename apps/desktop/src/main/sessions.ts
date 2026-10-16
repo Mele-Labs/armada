@@ -18,6 +18,7 @@ import type {
   AnswerWaiting,
   CatchUpCheckout,
   CheckoutCaughtUp,
+  CheckoutDiff,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -153,6 +154,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/merge_lines/catch_up", catchUp);
     return answer.ok === true ? { ok: true, value: answer.body as CheckoutCaughtUp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** One uncommitted file of a held checkout, read by Fleet from the served checkout. */
+  async checkoutDiff(manifestId: string, path: string): Promise<SessionActed<CheckoutDiff>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/merge_lines/checkout_diff?manifest_id=${encodeURIComponent(manifestId)}&path=${encodeURIComponent(path)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutDiff } : { ok: false, outcome: answer.outcome };
   }
 
   async stopRun(stop: StopSessionRun): Promise<SessionActed<SessionRunUnderway>> {

@@ -25,6 +25,46 @@ const LOOSE: string[] = (() => {
   return [...others.slice(0, 17), a, ...others.slice(17, 48), b, ...others.slice(48, 83), c, ...others.slice(83)];
 })();
 
+/** The unified diff against HEAD of a file the walk's holds list as uncommitted, as `git diff HEAD -- <path>` prints it. */
+const DIFFS: Record<string, string> = {
+  "armada.yml": [
+    "diff --git a/armada.yml b/armada.yml",
+    "index 3f2a9c1..b84e0d7 100644",
+    "--- a/armada.yml",
+    "+++ b/armada.yml",
+    "@@ -4,6 +4,7 @@ checks:",
+    "   - name: test",
+    "     run: cargo xtask test",
+    " merge:",
+    "+  auto_merge: checks-pass",
+    "   method: squash",
+    "   delete_branch: true",
+    "",
+  ].join("\n"),
+  "crates/fleet/src/noticing.rs": [
+    "diff --git a/crates/fleet/src/noticing.rs b/crates/fleet/src/noticing.rs",
+    "index 91c4be2..0a7d6f3 100644",
+    "--- a/crates/fleet/src/noticing.rs",
+    "+++ b/crates/fleet/src/noticing.rs",
+    "@@ -118,7 +118,9 @@ impl Noticing {",
+    "     fn note(&mut self, seen: Seen) {",
+    "-        self.seen.push(seen);",
+    "+        if self.seen.last() != Some(&seen) {",
+    "+            self.seen.push(seen);",
+    "+        }",
+    "         self.changed = true;",
+    "     }",
+    "",
+  ].join("\n"),
+};
+
+/** A file the walk lists with no diff of its own: one changed line, so every path in a long list opens on something. */
+const plainDiff = (path: string): string =>
+  [`diff --git a/${path} b/${path}`, "index 5d1e8a4..c27b0f9 100644", `--- a/${path}`, `+++ b/${path}`, "@@ -1,3 +1,3 @@", " // loose", "-// before", "+// after", " // end", ""].join("\n");
+
+/** What the walk answers for one uncommitted file: its fixture diff, or the plain one. */
+export const checkoutDiffOfWalk = (path: string): string => DIFFS[path] ?? plainDiff(path);
+
 const HELD: readonly HeldCheckout[] = [
   { base: "main", uncommitted: ["armada.yml"], behind: 880, ahead: 0 },
   { base: "main", uncommitted: ["armada.yml", "crates/fleet/src/noticing.rs"], clashing: ["crates/fleet/src/noticing.rs"], behind: 12, ahead: 0 },

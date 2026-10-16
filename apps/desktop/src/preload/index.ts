@@ -32,7 +32,7 @@ import type {
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, CheckoutCaughtUp, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, CheckoutCaughtUp, CheckoutDiff, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -791,6 +791,9 @@ const api: BridgeApi = {
   // The one pull a held checkout is offered: the repository's Manifest and no command.
   catchUpCheckout: (manifestId: string): Promise<SessionActed<CheckoutCaughtUp>> =>
     ipcRenderer.invoke(CHANNELS.catchUpCheckout, manifestId),
+  // One uncommitted file of a held checkout as a diff: the Manifest and the path.
+  readCheckoutDiff: (manifestId: string, path: string): Promise<SessionActed<CheckoutDiff>> =>
+    ipcRenderer.invoke(CHANNELS.readCheckoutDiff, manifestId, path),
   stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
     ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
   writeSessionRun: (runId: string, data: string): Promise<SessionActed<SessionRunUnderway>> =>

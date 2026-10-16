@@ -25,6 +25,7 @@ import { sessionsOfPicked } from "@armada/screens/src/board";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
+  CheckoutDiffRead,
   PullRequestFileRead,
   PullRequestPageRead,
   Session,
@@ -51,6 +52,9 @@ const pageRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestPage"]>>)
 /** A file Fleet answered, or the words of its refusal. */
 const fileRead = (answer: Awaited<ReturnType<BridgeApi["readPullRequestFile"]>>): PullRequestFileRead =>
   answer.ok ? { ok: true, file: answer.value } : { ok: false, said: refusalWords(answer.outcome) };
+/** A checkout's diff Fleet answered, or the words of its refusal. */
+const checkoutDiffRead = (answer: Awaited<ReturnType<BridgeApi["readCheckoutDiff"]>>): CheckoutDiffRead =>
+  answer.ok ? { ok: true, diff: answer.value.diff } : { ok: false, said: refusalWords(answer.outcome) };
 const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
@@ -414,6 +418,12 @@ export class WiredStore {
     // The card's command is Fleet's to run: the repository is named by its Manifest and the string is not sent.
     runInRepository: (root, _command, on) =>
       catchingUp((manifestId) => this.api.catchUpCheckout(manifestId), this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id, on),
+    // The file is read by its Manifest and path; Fleet refuses one the hold does not list.
+    diffInRepository: async (root, path) => {
+      const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
+      if (manifestId === undefined) return { ok: false, said: "Fleet serves no Manifest for that repository." };
+      return checkoutDiffRead(await this.api.readCheckoutDiff(manifestId, path));
+    },
     said: () => this.refusal,
     taggable: () => (this.inputs?.jobs ?? NONE).map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
     setTags: (id, tags) => this.tagged(id, tags),
@@ -464,5 +474,11 @@ export function WiredSessions({ children }: { children: ReactNode }) {
   const store = useMemo(() => new WiredStore(window.armada), []);
   useEffect(() => store.attach(), [store]);
   const served = useSyncExternalStore(store.subscribe, store.served);
-  return <SessionsFrom held={served ? store.draft : undefined}>{children}</SessionsFrom>;
+  const { runInRepository, diffInRepository } = store.draft;
+  const acts = useMemo(() => ({ runInRepository, diffInRepository }), [runInRepository, diffInRepository]);
+  return (
+    <SessionsFrom held={served ? store.draft : undefined} acts={acts}>
+      {children}
+    </SessionsFrom>
+  );
 }

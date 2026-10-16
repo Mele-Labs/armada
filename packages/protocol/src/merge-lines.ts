@@ -115,6 +115,18 @@ export type CatchUpCheckout = {
   manifest_id: string;
 };
 
+/** `checkout_diff`'s query: which uncommitted file of a held checkout to read. */
+export type CheckoutDiffAsk = {
+  manifest_id: string;
+  /** A path from the hold's `uncommitted` list. Fleet refuses any other. */
+  path: string;
+};
+
+/** `checkout_diff`'s answer: the file's unified diff against HEAD in the served checkout. Empty where the file no longer differs. */
+export type CheckoutDiff = {
+  diff: string;
+};
+
 /** `catch_up_checkout`'s answer. A pull git refused or left conflicted is still an answer, with a non-zero `code`. */
 export type CheckoutCaughtUp = {
   /** git's exit code. `1` where git exited clean and the stashed work would not go back on; the work is in git's stash. */

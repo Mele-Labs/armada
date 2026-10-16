@@ -5,6 +5,7 @@ import type {
   AnswerSessionAsk,
   AnswerWaiting,
   CheckoutCaughtUp,
+  CheckoutDiff,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -150,6 +151,11 @@ export type SessionsApi = {
    * code and words, a refused or conflicted pull among them. A refusal in words is Fleet's own.
    */
   catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
+  /**
+   * One uncommitted file of a held checkout, as a unified diff against HEAD. Names the repository by its Manifest
+   * and the path; Fleet refuses a path the hold does not list.
+   */
+  readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
   /** What every run this window started prints, by run id, ending with `exited`. Returns its remover. */
   onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 };
@@ -213,4 +219,5 @@ export const SESSIONS_CHANNELS = {
   resizeSessionRun: "bridge:resize-session-run",
   sessionRunMessage: "bridge:session-run-message",
   catchUpCheckout: "bridge:catch-up-checkout",
+  readCheckoutDiff: "bridge:read-checkout-diff",
 } as const;

@@ -4,7 +4,7 @@
 // `checkoutHeldBack` plays it.
 
 import type { FleetHandle, Scenario } from "../moment";
-import { checkoutHeld } from "../checkout-held-hub";
+import { checkoutDiffOfWalk, checkoutHeld } from "../checkout-held-hub";
 import { s252CockpitShipFlightdeck as ship } from "./cockpit-ship";
 
 /** How long a command that passed stays on the card before Fleet has caught the checkout up. */
@@ -31,6 +31,8 @@ export const s257CheckoutHeldBack: Scenario = (() => {
           ...store,
           // The ship's own Session reply is not this story's.
           later: () => undefined,
+          // Fleet reads a listed file's change from the checkout; the walk has these fixtures.
+          diffInRepository: async (_at, path) => ({ ok: true, diff: checkoutDiffOfWalk(path) }),
           // A command that passes is what brings the checkout level: Fleet reads it a beat later, if the walk has not moved on to another hold.
           runInRepository: (at, command, on) =>
             store.runInRepository!(at, command, (event) => {

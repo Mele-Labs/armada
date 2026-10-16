@@ -1,7 +1,8 @@
 // The served checkout is behind main and Fleet would not catch it up, so main's light on the merge queue carries an amber mark
 // and its card a section, "Your checkout": what holds it back, and the one command that is safe to press, where there is one.
 // Four holds in turn on one repository. The safe one runs from the card and the checkout is level. The last is a long list of
-// uncommitted files, in a box that scrolls inside the card. Over `checkout-held-back`.
+// uncommitted files, in a box that scrolls inside the card. An uncommitted file opens its change when pressed and folds it
+// when pressed again. Over `checkout-held-back`.
 
 import { button, dialog, inside, region, role, text, walk, type Step } from "../walk";
 
@@ -17,12 +18,16 @@ const clashing = "12 commits behind main";
 const diverged = "5 commits behind main";
 const loose = "7 commits behind main";
 const firstClashing = "apps/desktop/src/renderer/src/Dashboard.tsx";
+const noticing = "crates/fleet/src/noticing.rs";
 
 const steps: readonly Step[] = [
   { look: inside(queue, role("img", `Checkout ${safe}`)), say: "An amber mark on main: the checkout is 880 commits behind main" },
   { press: light(safe), say: "A press pins main's card" },
   { look: section(safe), say: "Under main's state, your checkout" },
   { look: inside(section(safe), text("armada.yml")), say: "One file is uncommitted, and main never changed it" },
+  { press: inside(section(safe), button("armada.yml")), say: "A press on the file opens its change under it" },
+  { look: inside(section(safe), text("+  auto_merge: checks-pass")), say: "One line was added" },
+  { press: inside(section(safe), button("armada.yml")), say: "A second press folds it" },
   { look: inside(section(safe), text("pull --ff-only --autostash")), say: "A pull that keeps the file is safe" },
   { look: inside(section(safe), button("Copy")), say: "Copy puts it on the clipboard" },
   { press: inside(section(safe), button("Run")), say: "Run plays it and exits 0" },
@@ -42,5 +47,8 @@ export const checkoutHeldBack = walk("checkout-held-back", [
   { later: places, say: "An agent left a long list of files uncommitted" },
   { look: inside(section(loose), role("group", "Uncommitted files")), say: "The list stays inside the card and scrolls there" },
   { look: inside(section(loose), text(firstClashing)), say: "The files main also changed come first" },
+  { press: inside(section(loose), button(noticing)), say: "A press on a file in the list opens its change inside the list" },
+  { look: inside(section(loose), text("+        if self.seen.last() != Some(&seen) {")), say: "The change scrolls in the list and the card keeps its size" },
+  { press: inside(section(loose), button(noticing)), say: "A second press folds it" },
   { look: inside(section(loose), text("7 commits behind main")), say: "There is no command, because the pull could stop on a conflict" },
 ]);

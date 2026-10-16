@@ -323,6 +323,19 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 .deck-checkout__files .deck-checkout__line { flex: none; }
 .deck-checkout__note { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
 .deck-checkout__command { padding: var(--space-1) var(--space-4) var(--space-3); }
+/* The command is there to be run, as the ledger's is: Copy and Run are always shown, not only under the pointer. */
+.deck-checkout__command .armada-prose__run-acts { opacity: 1; }
+/* An uncommitted path that opens its change: a plain button in the line's own type, and the change under it inside the row's box. */
+.deck-checkout__change { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.deck-checkout__files .deck-checkout__change { flex: none; }
+.deck-checkout__path { appearance: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.deck-checkout__path:hover { color: var(--accent); }
+.deck-checkout__path:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-checkout__diff { min-width: 0; max-height: calc(14 * var(--leading-xs)); overflow: auto; overscroll-behavior: contain; }
+/* The path is the line above, so the diff's own file header is left off. */
+.deck-checkout__diff .armada-diff__head { display: none; }
+/* A box that holds an open change grows to show it and still scrolls inside the card. */
+.deck-checkout__files:has(.deck-checkout__diff) { max-height: calc(18 * var(--leading-xs)); }
 
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 
