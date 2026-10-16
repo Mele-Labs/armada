@@ -166,6 +166,41 @@ async fn approving_clears_the_call_and_tells_the_agent_once() {
 }
 
 #[tokio::test]
+async fn an_approval_tells_the_agent_its_task_list_is_the_plans_tasks_word_for_word() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, first(&id)).await;
+    let marked = told(&rig, "marked changes");
+    let note = PlanMark::Note { id: "n1".into(), group: "g1".into(), task: None, text: "keep it small".into() };
+
+    // Marks without an approval are proposals: the plan is not yet what is built.
+    let marks = SendPlanChanges { session_id: id.clone(), version: 1, marks: vec![note.clone()], approve: false };
+    Arc::clone(&rig.fleet).send_plan_changes(marks).await.unwrap();
+    eventually(|| async { told(&rig, "marked changes on plan v1") == marked + 1 }).await;
+    assert_eq!(told(&rig, "TaskCreate"), 0);
+
+    let approved = SendPlanChanges { session_id: id.clone(), version: 1, marks: vec![note], approve: true };
+    Arc::clone(&rig.fleet).send_plan_changes(approved).await.unwrap();
+    eventually(|| async { told(&rig, "approved plan v1 with changes") == 1 }).await;
+    let once = |line: &&String| line.contains("approved plan v1 with changes");
+    let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(once).cloned().unwrap();
+    assert!(said.contains("Your task list is this plan: TaskCreate each task word for word, and TaskUpdate it as you work."), "{said}");
+    for task in ["- Add the tables", "- Add the migration", "- Record it"] {
+        assert!(said.contains(task), "{task} in {said}");
+    }
+
+    // The plain approval says it too: here, on a plan the agent recorded again.
+    let again = plan(&id, vec![group(Some("g1"), "Store", "rust-engineer", &["crates/store"], &[(Some("t1"), "Add the tables, revised")])]);
+    recorded(&rig, again).await;
+    Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 2 }).await.unwrap();
+    eventually(|| async { told(&rig, "approved plan v2") == 1 }).await;
+    let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("approved plan v2")).cloned().unwrap();
+    assert!(said.contains("TaskCreate each task word for word"), "{said}");
+    assert!(said.contains("- Add the tables, revised"), "{said}");
+    assert!(!said.contains("- Record it"), "only the plan being built: {said}");
+}
+
+#[tokio::test]
 async fn a_plan_recorded_again_is_pending_again_and_nothing_blocked_while_it_was() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
@@ -289,6 +324,81 @@ async fn the_agents_task_list_moves_the_plans_tasks_by_text_and_a_claim_alone_is
     // Completed with no edit seen under the group's paths is the agent's word: handed in, not done.
     let record = tasks(&rig, &id, vec![task("Add the tables", Completed)]).await;
     assert_eq!(states(&record)[0], ("Add the tables".into(), HandedIn, false));
+}
+
+#[tokio::test]
+async fn a_reworded_item_ticks_the_task_it_says_and_an_unrelated_one_ticks_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    recorded(&rig, first(&id)).await;
+
+    // The plan's words inside a longer line, and the same words in another order with one added.
+    let record = tasks(
+        &rig,
+        &id,
+        vec![
+            task("Add the tables to the store crate", InProgress),
+            task("Write migration, add", Completed),
+            task("Mock walk: queue button and model picker", Completed),
+            task("Run the tests", InProgress),
+        ],
+    )
+    .await;
+    assert_eq!(
+        states(&record),
+        [("Add the tables".into(), Working, false), ("Add the migration".into(), HandedIn, false), ("Record it".into(), Open, false)],
+        "the two reworded items tick their tasks; the two that say something else tick nothing"
+    );
+}
+
+#[tokio::test]
+async fn an_item_that_shares_only_a_verb_with_a_task_is_not_that_task() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    recorded(&rig, first(&id)).await;
+
+    // "Add" and "the" are in every task of the first group; one word of two is not enough.
+    let record = tasks(&rig, &id, vec![task("Add the docs", Completed), task("Add the dispatcher", Completed)]).await;
+    assert!(states(&record).iter().all(|(_, state, _)| *state == Open), "{:?}", states(&record));
+}
+
+#[tokio::test]
+async fn two_items_cannot_claim_one_task_and_the_closer_one_does() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    recorded(&rig, first(&id)).await;
+
+    // Both carry "Add the tables". The closer says it exactly once reduced to its words; the other is
+    // ignored, whichever the agent listed first, and does not go on to claim a second task.
+    for list in [
+        vec![task("Add the tables to the store crate", Completed), task("Add tables", InProgress)],
+        vec![task("Add tables", InProgress), task("Add the tables to the store crate", Completed)],
+    ] {
+        let record = tasks(&rig, &id, list).await;
+        assert_eq!(
+            states(&record),
+            [("Add the tables".into(), Working, false), ("Add the migration".into(), Open, false), ("Record it".into(), Open, false)]
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_exact_item_keeps_its_task_when_a_longer_one_also_carries_the_words() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    recorded(&rig, first(&id)).await;
+
+    let record = tasks(
+        &rig,
+        &id,
+        vec![task("Add the tables and the migration", Completed), task("Add the migration", InProgress), task("Add the tables", Pending)],
+    )
+    .await;
+    assert_eq!(
+        states(&record),
+        [("Add the tables".into(), Open, false), ("Add the migration".into(), Working, false), ("Record it".into(), Open, false)],
+        "each exact item has its own task; the long one that holds both is left over"
+    );
 }
 
 #[tokio::test]
