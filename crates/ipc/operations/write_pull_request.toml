@@ -12,5 +12,5 @@ notes = """
 
 Every Session's `pr` row for this pull request takes the fresh read, as `get_pull_request` does.
 
-A 422 `fleet.pull_request_write_blank` for a comment or a request for changes with no body, a 422 `fleet.session_unknown` for a `session_id` the ledger has not heard of, a 409 `fleet.pull_request_write_refused` carrying the forge's own sentence where it would not take the write, and a 500 `fleet.pull_request_unreadable` where the forge took it and would not answer after.
+A 422 `fleet.pull_request_write_blank` for a comment or a request for changes with no body, or for any of `comments` with a blank body, a 422 `fleet.session_unknown` for a `session_id` the ledger has not heard of, a 409 `fleet.pull_request_write_refused` carrying the forge's own sentence where it would not take the write, and a 500 `fleet.pull_request_unreadable` where the forge took it and would not answer after.
 """

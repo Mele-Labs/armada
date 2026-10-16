@@ -442,3 +442,24 @@ async fn a_thread_of_a_repository_fleet_does_not_serve_is_refused_before_the_for
     assert_eq!(refused.status(), 422);
     assert!(fleet.vcs().review_thread_resolutions().is_empty());
 }
+
+#[tokio::test]
+async fn a_blank_line_file_or_reply_comment_is_refused_before_the_forge() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let blanks = [
+        PullReviewComment::Line { path: "a.rs".into(), line: 4, side: DiffSide::Left, body: " ".into() },
+        PullReviewComment::File { path: "a.rs".into(), body: String::new() },
+        PullReviewComment::Reply { thread: "PRRT_1".into(), body: "\n".into() },
+    ];
+    for blank in blanks {
+        let mut write = writing(PullRequestWriteKind::Approve, None);
+        // One good comment beside it: a review with a blank one in it is not posted at all.
+        write.comments = vec![a_line_comment(), blank];
+        let refused = fleet.write_pull_request(id.clone(), write).await.unwrap_err();
+        assert_eq!(code(&refused), "fleet.pull_request_write_blank");
+    }
+    assert!(fleet.vcs().pull_request_writes().is_empty());
+}

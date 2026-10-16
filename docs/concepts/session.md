@@ -671,9 +671,11 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 | `merge_pull_request_by_number` | Merges it | While the checks are running or failed, a draft, a closed one, and the forge's own refusals |
 | `enable_auto_merge` | Asks the forge to merge when the checks pass | Once they have passed or failed, a draft, a closed one |
 | `review_pull_request` | Drafts a Code Review Job against it, by number or address | A name that is neither, a Session the ledger never heard of |
-| `get_pull_request_detail` | Reads the page the panel draws: base, author, mergeability, review state, the conversation, the forge's checks with their run time, files and commits | Where the forge would not answer |
+| `get_pull_request_detail` | Reads the page the panel draws: base, author, mergeability, review state, the conversation, the forge's checks with their run time, files and commits, and the head, the description and the diff's review threads | Where the forge would not answer, and where it would not give the threads |
 | `get_pull_request_file` | One file's patch, read when a person presses a row of the Files tab. Bridge draws it in a panel to the left of the pull request's | Where the forge would not answer, and for a file the pull request does not list. A file the forge sent no patch for answers with Fleet's sentence |
-| `write_pull_request` | Comments, approves or requests changes, then reads the page again | A comment or a request with no body, a Session the ledger never heard of, and the forge's own refusals |
+| `write_pull_request` | Comments, approves or requests changes, then reads the page again. With line, file and reply comments it is one review | A comment or a request with no body, any comment with a blank body, a Session the ledger never heard of, and the forge's own refusals |
+| `resolve_review_thread` | Resolves a conversation on the diff, or opens it again. Bridge only, see `docs/concepts/pull-review.md` | The forge's own refusals |
+| `get_review_lists` | Reads the pull requests waiting on a person, as four lists. Bridge only, see `docs/concepts/pull-review.md` | A forge that would not answer any list |
 
 ```
  a person presses       Fleet                                  the forge

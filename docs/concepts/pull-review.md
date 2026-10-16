@@ -37,6 +37,8 @@ Reviews reads the forge through Fleet. Everything an agent would do on a pull re
 
 **Submit posts the verdict, its summary and every draft as one review at the commit he read.** Comment, Approve and Request changes are the three verdicts. Helm still asks before it writes.
 
+**A comment with a blank body is refused before the forge**, as a plain comment is.
+
 **A refused review changes nothing.** His drafts stay, and the forge's words are shown beside Submit.
 
 **Resolve and unresolve act on a thread at the forge.** A refusal leaves the thread as it was.

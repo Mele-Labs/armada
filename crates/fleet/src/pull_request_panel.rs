@@ -24,7 +24,7 @@ use ipc::{
 use crate::daemon::Fleet;
 use crate::pull_requesting::{SESSION_UNKNOWN, UNREADABLE};
 
-/// A comment or a request for changes with nothing in it. A 422.
+/// A comment, a request for changes, or a line, file or reply comment with nothing in it. A 422.
 const WRITE_BLANK: &str = "fleet.pull_request_write_blank";
 /// The forge would not take the write, in its own sentence. A 409.
 const WRITE_REFUSED: &str = "fleet.pull_request_write_refused";
@@ -37,6 +37,9 @@ const NO_PATCH: &str = "The forge sent no patch for this file. It is binary, or 
 /// body may be empty for all three kinds**: the comments are what it says.
 fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> {
     let body = write.body.clone().filter(|body| !body.trim().is_empty());
+    if write.comments.iter().any(|comment| comment_body(comment).trim().is_empty()) {
+        return Err("a comment on a line, a file or a thread needs something to say");
+    }
     if !write.comments.is_empty() {
         return Ok(PullRequestWrite::Review {
             verdict: match write.kind {
@@ -57,6 +60,12 @@ fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> 
         PullRequestWriteKind::RequestChanges => body
             .map(|body| PullRequestWrite::RequestChanges { body })
             .ok_or("a request for changes needs a reason"),
+    }
+}
+
+fn comment_body(comment: &PullReviewComment) -> &str {
+    match comment {
+        PullReviewComment::Line { body, .. } | PullReviewComment::File { body, .. } | PullReviewComment::Reply { body, .. } => body,
     }
 }
 
