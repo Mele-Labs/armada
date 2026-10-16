@@ -18,7 +18,7 @@ export const aSessionReachingPastItsSlots = walk("session-reach-outside", [
   { look: inside(CARD, text("Always applies to")), say: "The path in the panel is what Always covers" },
   { look: inside(PICKER, button("HANDOFF.md")), say: "It starts on the file itself" },
   { press: inside(PICKER, button("Documents")), say: "Press a folder to widen it" },
-  { look: inside(CARD, text("/Users/user/Documents and everything in it")), say: "Documents and all it holds, lit up to the end" },
+  { look: inside(CARD, text("/Users/user/Documents/*")), say: "Documents and all it holds, lit up to the end" },
   { press: inside(ANSWERS, button("Always allow")), say: "Always allow everything under Documents" },
   ...toSystemPage("Settings", "Settings"),
   { press: role("tab", "Features"), say: "Features" },

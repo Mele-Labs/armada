@@ -782,7 +782,7 @@ function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: 
   const once = shown.filter((offer) => !FOLDER_ANSWERS.has(offer.id));
   const always = shown.filter((offer) => FOLDER_ANSWERS.has(offer.id));
   const name = folder.split("/").filter((part) => part.length > 0).pop() ?? folder;
-  const covers = folder === reaches ? `${reaches} only` : `${folder} and everything in it`;
+  const covers = folder === reaches ? reaches : `${folder}/*`;
   return (
     <div className="armada-session-thread__reach" role="group" aria-label="Answers">
       <div className="armada-session-thread__answers">
