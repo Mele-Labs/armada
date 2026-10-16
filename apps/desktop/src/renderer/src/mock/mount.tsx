@@ -28,6 +28,7 @@ import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
 import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions, LiveDraft } from "./fake";
+import { holdChart } from "../cockpit/activity-take";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockNumbered } from "./numbered";
@@ -118,6 +119,8 @@ export function mountApp(
   if (shared === undefined) mockLayout.reset();
   // Every window starts with the deck as it begins.
   if (shared === undefined) forgetDeck();
+  // The Activity chart takes the take its scenario is named for.
+  holdChart(chosen.name.startsWith("activity-") ? chosen.name.slice("activity-".length) : undefined);
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const planUsage = createFleetPlanUsage(api);

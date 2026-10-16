@@ -1,6 +1,6 @@
 // The flight deck's Activity as a chart with no words, in three takes the owner swaps between: a stream (a smooth stacked area
 // over the hour), a beeswarm (a dot for each event) and a radial (a dial, a spoke for each minute). The take is `?take=` on the page,
-// or the name the walk carries (`?walk=activity-radial`), and the stream is the default. Hovering or focusing shows the events near
+// or the scenario the window is mounted on (`activity-radial`), and the stream is the default. Hovering or focusing shows the events near
 // that point in a card, and pressing picks the newest of them. Takes what the feed takes, so the Job or Session open narrows it.
 
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
@@ -11,6 +11,7 @@ import type { MergeLineView } from "@armada/screens";
 
 import { QUIET_KINDS, ageOf, titleOf, type EventTone, type FleetEvent, type Subject } from "./fleet-events";
 import { GLYPH, STANDING_MARK, toneOf, useLanes, type Of } from "./Timeline";
+import { heldChart } from "./activity-take";
 import "./activity-chart.css";
 
 const MINUTE = 60_000;
@@ -28,10 +29,9 @@ const NO_VIEWS: readonly MergeLineView[] = [];
 
 type Take = "stream" | "beeswarm" | "radial";
 
-/** The take this page asks for: `?take=`, else the walk's own name, else the stream. */
+/** The take this window asks for: `?take=`, else the one the scenario mounted names, else the stream. */
 function takeOf(): Take {
-  const query = new URLSearchParams(window.location.search);
-  const asked = query.get("take") ?? query.get("walk")?.replace(/^activity-/, "");
+  const asked = new URLSearchParams(window.location.search).get("take") ?? heldChart();
   return asked === "beeswarm" || asked === "radial" ? asked : "stream";
 }
 
