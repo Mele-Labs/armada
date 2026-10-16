@@ -88,19 +88,16 @@ test.skip("every filter draws its own: what needs you comes forward, what is liv
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
 });
 
-test("no jobs: n opens the one bar, and the work typed there grows the dispatch panel, which asks the repository on All", async () => {
+test("no jobs: n opens the Dispatch sheet, and a Job whose words name no repository asks on the row of chips", async () => {
   mount(onOverview([]));
   await onScreen();
   await userEvent.keyboard("n");
-  await expect.element(page.getByRole("combobox")).toHaveFocus();
+  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveFocus();
   await userEvent.keyboard("Cap the retry backoff");
-  await expect.element(page.getByRole("option", { name: /^Dispatch “Cap the retry backoff” as a Job/ })).toHaveAttribute("aria-selected", "true");
-  await userEvent.keyboard("{Enter}");
-  // The panel grows down from the bar holding the words, and nothing is built until a repository is named.
-  const panel = page.getByRole("dialog", { name: "Dispatch" });
-  await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveValue("Cap the retry backoff");
+  // Nothing is built until a repository is named.
   await panel.getByRole("button", { name: "Dispatch", exact: true }).click();
-  await expect.element(panel.getByRole("listbox", { name: "Repository" })).toBeInTheDocument();
+  await expect.element(panel.getByRole("radiogroup", { name: "Repository" })).toBeInTheDocument();
 });
 
 // Skipped (#2301): written for the classic grid Cockpit (filter tabs, tiles), which the flight deck replaced. To be ported or dropped before landing.

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
-import type { RepositoryOption } from "./DispatchPanel";
+import type { RepositoryChip, RepositoryOption } from "./DispatchPanel";
 
 /** How long the words stay still before they are read. */
 export const READ_MS = 250;
@@ -28,6 +28,20 @@ export function optionsFor(repositories: readonly RepositorySummary[], likely: r
     .map((one) => ({ root: one.root, name: repositoryLabel(one, repositories), at: place(one) }))
     .sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
     .map(({ at, ...one }) => ({ ...one, likely: at === 0 && likely.length > 0 }));
+}
+
+/**
+ * The row of chips, in order: the repository the rail is on, the one the words name, the ones picked last,
+ * then the rest as `options` ranks them. The order does not follow a pick, so a key keeps meaning the chip it was read from.
+ */
+export function chipsFor(
+  options: readonly RepositoryOption[],
+  { scoped, read, chosen, recent }: { scoped?: string | undefined; read?: string | undefined; chosen?: string | undefined; recent: readonly string[] },
+): RepositoryChip[] {
+  const lead = [scoped, read, ...recent].filter((root): root is string => root !== undefined);
+  const ahead = [...new Set(lead)].flatMap((root) => options.filter((one) => one.root === root));
+  const rest = options.filter((one) => !ahead.includes(one));
+  return [...ahead, ...rest].map(({ root, name }) => ({ root, name, ...(root === chosen ? { mark: "chosen" as const } : root === read ? { mark: "read" as const } : {}) }));
 }
 
 export type Reading = { state: "idle" } | { state: "detecting" } | { state: "unresolved" } | { state: "detected"; manifestId: string };

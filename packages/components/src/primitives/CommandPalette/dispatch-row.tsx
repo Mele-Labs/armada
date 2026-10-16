@@ -15,10 +15,6 @@ export type PaletteDispatch = {
   /** The kinds Tab steps through, in order: a Job and a Session where absent. Autopilot is one when the host serves it (#2092). */
   kinds?: readonly DispatchKind[];
   onDispatch: (words: string, kind: DispatchKind) => void;
-  /** ⇧↵: the full composer, holding the words, for a file, a sketch or a long request. */
-  onCompose?: (words: string) => void;
-  /** Opened by `n`: the dispatch row leads whatever else matches. */
-  leads?: boolean;
 };
 
 const KIND: Record<DispatchKind, string> = { job: "Job", session: "Session", autopilot: "Autopilot" };
@@ -106,7 +102,6 @@ export function DispatchKeys({ dispatch, sends }: { dispatch: PaletteDispatch; s
       <span><KbdChord keys={["↵"]} /> {sends ? "dispatch" : "open"}</span>
       <span><KbdChord keys={["⌘", "↵"]} /> dispatch</span>
       {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> {(dispatch.kinds ?? ["job", "session"]).map((kind) => KIND[kind]).join(" / ")}</span>}
-      {dispatch.onCompose === undefined ? null : <span><KbdChord keys={["⇧", "↵"]} /> full composer</span>}
     </div>
   );
 }

@@ -184,11 +184,11 @@ export function fleetOf(scenario: Scenario, initial: BridgeState): Fleet {
  * The row a press on Dispatch mints: the request as the title, no workflow, no
  * step and nothing that has run.
  *
- * **The manifest is the first Job's**, so the new row belongs to a repository
- * the Board is already listing rather than to one nothing serves. A scenario
+ * **The manifest is the one the dispatch named, else the first Job's**, so the new row
+ * belongs to a repository the Board is already listing rather than to one nothing serves. A scenario
  * with no Job at all mints none of its own either — there is nowhere to put it.
  */
-export function proposingRow(request: string, at: string, jobs: readonly JobSummary[]): JobSummary {
+export function proposingRow(request: string, at: string, jobs: readonly JobSummary[], manifestId?: string): JobSummary {
   const ordinal = jobs.length + 1;
   return {
     id: `01M2E0DISPATCHED${String(ordinal).padStart(2, "0")}MOCK`,
@@ -196,7 +196,7 @@ export function proposingRow(request: string, at: string, jobs: readonly JobSumm
     title: request,
     status: "proposing",
     workflow_id: "",
-    owner_manifest_id: jobs[0]?.owner_manifest_id ?? "",
+    owner_manifest_id: manifestId ?? jobs[0]?.owner_manifest_id ?? "",
     origin: "manual",
     urgency: "normal",
     atomic: false,

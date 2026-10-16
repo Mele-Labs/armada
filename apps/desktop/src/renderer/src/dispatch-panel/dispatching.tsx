@@ -1,17 +1,18 @@
-// Dispatch, as the window holds it: one draft, one entry. The title bar's one bar, once something is
-// chosen to dispatch, grows the panel down from its field. The entry reads this and owns no word of it,
-// so leaving it (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
+// Dispatch, as the window holds it: one draft, one entry. `n`, the Cockpit's Dispatch tile, every New job and
+// a dispatch row chosen in the palette open the one sheet over the window. The entry reads this and owns no
+// word of it, so leaving it (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
 //
-//   Job        needs a repository: read from the words by Fleet, else asked inline. Sends `proposeFrom`.
+//   Job        needs a repository: read from the words by Fleet, else the row of chips takes the keys. Sends `proposeFrom`.
 //   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
-// A Job or an Autopilot sent leaves a strip over the one bar's field (`DispatchedStrip`), holding the latest
+// A Job or an Autopilot sent leaves a strip over the title bar's field (`DispatchedStrip`), holding the latest
 // send until the next dispatch or a dismiss; ↵ or a press opens it. A Session opens itself and leaves none.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import { DispatchSettings, REQUEST_PLACEHOLDER, useKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
+import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 
 import type { BridgeState } from "../../../shared/bridge";
@@ -21,7 +22,7 @@ import { useSessionsDraft } from "../sessions-draft";
 import { AutopilotBody, type AutopilotRead } from "./AutopilotBody";
 import type { SentView } from "./DispatchedStrip";
 import type { PanelProps, PanelReading } from "./DispatchPanel";
-import { optionsFor, useReading } from "./reading";
+import { chipsFor, optionsFor, useReading } from "./reading";
 
 type Host = {
   state: BridgeState;
@@ -52,20 +53,20 @@ type Sent = {
 };
 
 /** What the panel is handed by an entry, short of where the entry puts it. */
-export type EntryProps = Omit<PanelProps, "anchor" | "onDismiss" | "fieldRef" | "autoFocus">;
+export type EntryProps = Omit<PanelProps, "onDismiss" | "fieldRef" | "autoFocus">;
 
 export type Dispatching = {
   kind: DispatchKind;
   /** The kinds Tab steps through, in order. */
   kinds: readonly DispatchKind[];
   choose: (kind: DispatchKind) => void;
-  /** The title bar's panel is up. */
-  titled: boolean;
-  /** The one bar chose to dispatch: the panel grows down from its field holding these words, for the repository `root` where one is named. */
-  openTitled: (words: string, root?: string) => void;
-  closeTitled: () => void;
-  /** Words left in the draft by a panel put away: bring the panel back holding them. False where there are none. */
-  reopenDraft: () => boolean;
+  /** The sheet is up. */
+  sheet: boolean;
+  /** A dispatch row chosen in the palette, a thought routed, a pull request's fix: the sheet holding these words, for the repository `root` where one is named. */
+  openSheet: (words: string, root?: string) => void;
+  /** Every New job and compose entry: the panel on the draft as it stands, or an empty one for the repository `root` where one is named. */
+  openNew: (root?: string) => void;
+  closeSheet: () => void;
   panel: () => EntryProps;
   /** The latest send, as the strip draws it. */
   sent: SentView | undefined;
@@ -92,6 +93,7 @@ const firstLine = (words: string) => words.trim().split("\n")[0] ?? "";
 
 export function useDispatch({ state, repositories, proposeFrom, openSession, openJob, openAutopilot, said: tell }: Host): Dispatching {
   const draft = useSessionsDraft();
+  const [recent, recall] = useRecentRepositories();
   const [chosen, remember] = useDispatchKind();
   // Autopilot is chosen for this opening only and never remembered: the next dispatch is for a Job again.
   const [autopilot, setAutopilot] = useState(false);
@@ -102,9 +104,9 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   const [words, setWords, clearWords] = useKept("dispatch:request", "");
   const [picked, pick, clearPicked] = useKept<string | null>("dispatch:repository", null);
   const [settings, setSettings, clearSettings] = useKept<DispatchSettingsValue>("dispatch:job-settings", {});
-  const [titled, setTitled] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const [autopilotAsked, setAutopilotAsked] = useState(false);
-  const [titleGrown, setTitleGrown] = useState(false);
+  const [sheetGrown, setSheetGrown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [asking, setAsking] = useState<"send" | "chip" | false>(false);
   // The act is waiting on the repository being read, and then on Fleet's answer to it.
@@ -134,12 +136,12 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
             ? { state: "unresolved" }
             : found;
 
-  // The title bar's panel is the line first and grows a frame later, so it comes in the way the bar grows.
+  // The sheet is the line first and grows a frame later, so its drawer opens under the request.
   useEffect(() => {
-    if (!titled) return setTitleGrown(false);
-    const frame = requestAnimationFrame(() => setTitleGrown(true));
+    if (!sheet) return setSheetGrown(false);
+    const frame = requestAnimationFrame(() => setSheetGrown(true));
     return () => cancelAnimationFrame(frame);
-  }, [titled]);
+  }, [sheet]);
 
   // A reading belongs to the repository it was made for.
   useEffect(() => setRead(undefined), [root]);
@@ -153,7 +155,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     setAsking(false);
     setWaiting(false);
     setSending(false);
-    setTitled(false);
+    setSheet(false);
     setSettingsOpen(false);
     setRead(undefined);
     setRefused(undefined);
@@ -201,6 +203,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   function sendJob(at: string) {
     const title = firstLine(words);
     const request = words.trim();
+    recall(at);
     clearAll();
     const mine = leave({ kind: "job", title });
     // A refusal is said on the strip while it is still the latest send, and as a notice once it is not.
@@ -214,6 +217,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   function startSession(at: string) {
     if (draft === undefined) return;
     const text = words.trim();
+    recall(at);
     setSending(true);
     void Promise.resolve(draft.start(undefined, at)).then((id) => {
       if (id === undefined) return setSending(false);
@@ -248,6 +252,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     void window.armada.startAutopilot(manifest, settingsRead.settings).then((answer) => {
       if (mine !== stamp.current) return;
       if (!answer.ok) return (setSending(false), setRefused(said(answer.outcome)));
+      recall(at);
       clearAll();
       leave({ kind: "autopilot", title: by(at)?.name ?? at, root: at });
     });
@@ -312,11 +317,11 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
 
   const collapse = () => {
     setAsking(false);
-    setTitled(false);
+    setSheet(false);
   };
 
   const panel = (): EntryProps => ({
-    open: titleGrown,
+    open: sheetGrown,
     words,
     onWords: typed,
     placeholder: REQUEST_PLACEHOLDER,
@@ -324,7 +329,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     kinds,
     onKind: choose,
     reading,
-    options,
+    chips: chipsFor(options, { scoped: by(state.repository)?.root, read: detected?.root, chosen: root, recent }),
+    entries: repositoryEntries(repositories, { scope: root, onlySetUp: true, recent }),
     asking: asking !== false,
     onAsking: (next) => setAsking(next ? "chip" : false),
     onPick: (at) => {
@@ -343,7 +349,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
         event.preventDefault();
         cycle();
       } else if (event.key === "Escape") {
-        if (!titleGrown) collapse();
+        if (!sheetGrown) collapse();
       } else if (event.key === "Enter" && kind === "session" && !event.shiftKey && words.trim() !== "") {
         event.preventDefault();
         act();
@@ -357,8 +363,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     kind,
     kinds,
     choose,
-    titled,
-    openTitled: (next, at) => {
+    sheet,
+    openSheet: (next, at) => {
       stamp.current += 1;
       setWords(next);
       if (at !== undefined) pick(at);
@@ -366,14 +372,20 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       setAsking(false);
       setRead(undefined);
       setRefused(undefined);
-      setTitled(true);
+      setSheet(true);
     },
-    closeTitled: collapse,
-    reopenDraft: () => {
-      if (words.trim() === "") return false;
-      setTitled(true);
-      return true;
+    openNew: (at) => {
+      if (at === undefined && words.trim() !== "") return setSheet(true);
+      stamp.current += 1;
+      setWords("");
+      if (at !== undefined) pick(at);
+      setLatest(undefined);
+      setAsking(false);
+      setRead(undefined);
+      setRefused(undefined);
+      setSheet(true);
     },
+    closeSheet: collapse,
     panel,
     sent: sentView,
     openSent,

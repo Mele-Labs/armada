@@ -54,7 +54,7 @@ import type { Host as RefsHostProps } from "./helm-refs";
 import { useHelmHosted } from "./helm-session";
 import { useSessions } from "./sessions-draft";
 import { useThoughtRouting } from "./thought-routing";
-import { TitleDispatchedStrip, TitleDispatchPanel } from "./dispatch-panel/entries";
+import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -218,8 +218,7 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  const [seed, setSeed] = useState<string>(); // Words typed into the title bar's one bar.
-  useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
+  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -443,6 +442,7 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
+  const newJob = () => (dispatching.choose("job"), dispatching.openNew()); // A New job entry opens the same panel, on a Job.
   const sessions = useSessions();
   const helmBox = useHelmBox(state.helm);
   const refsHost: RefsHostProps = { state, repositories, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)), openIssues: (root) => (goTo(SURFACE.overview), root !== undefined && state.repository !== root && pickRepository(root), setComposing(true)), openLink: openProseLink };
@@ -460,7 +460,7 @@ export function App({ draft }: AppProps = {}) {
     openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)),
   });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
-  const oneBar = useOneBar({ palette, live, compose: (words) => (setSeed(words), setComposing(true)), dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
+  const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   const nowing = useNowActs({ live, active: state.active, jobs: state.jobs, draft, commands, onConfirm: setConfirming, onOpen: setOpenJob }); // Every active Job's Now, for the Cockpit and the Dashboard.
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
@@ -668,7 +668,7 @@ export function App({ draft }: AppProps = {}) {
           onScope={pick}
           onAddRepository={locate.onOpen}
           onOpenManifest={() => goTo(SURFACE.manifest)}
-          onCompose={() => setComposing(true)}
+          onCompose={() => newJob()}
           onSearch={palette.onOpen}
           {...titleRow}
           wordmark="Armada"
@@ -915,7 +915,7 @@ export function App({ draft }: AppProps = {}) {
                   planView={planView}
                   onPlanView={pressPlanView}
                   // `n` — the same composer every contextual surface opens.
-                  onCompose={() => setComposing(true)}
+                  onCompose={() => newJob()}
                   // The run sheet — Journey 9 — and the servers it starts.
                   rehearsal={{
                     runSheet: state.runSheet,
@@ -953,7 +953,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : jobbing ? (<JobsSurface state={state} now={now} repositories={repositories} disconnected={live ? null : statement.headline} nows={draft?.now} onOpen={setOpenJob} onKill={(jobId) => setConfirming({ act: "kill_job", jobId })} onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })} onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })} onPausing={(act, jobId) => setConfirming({ act, jobId })} onCompose={() => setComposing(true)} onCopied={setCopied} onCursor={setCursor} />) : sessioning ? (<><RefsHost.Provider value={refsHost}><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} repositories={repositories} /></RefsHost.Provider>{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
+            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : jobbing ? (<JobsSurface state={state} now={now} repositories={repositories} disconnected={live ? null : statement.headline} nows={draft?.now} onOpen={setOpenJob} onKill={(jobId) => setConfirming({ act: "kill_job", jobId })} onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })} onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })} onPausing={(act, jobId) => setConfirming({ act, jobId })} onCompose={() => newJob()} onCopied={setCopied} onCursor={setCursor} />) : sessioning ? (<><RefsHost.Provider value={refsHost}><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} repositories={repositories} /></RefsHost.Provider>{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -1055,7 +1055,6 @@ export function App({ draft }: AppProps = {}) {
                 onSaid={setTelling}
                 onCopied={setCopied}
                 sketch={composedFrom}
-                seed={seed}
               />
             ) : studying ? (
               <StudiosSurface
@@ -1150,7 +1149,7 @@ export function App({ draft }: AppProps = {}) {
                   onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
                   onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
                   onPausing={(act, jobId) => setConfirming({ act, jobId })}
-                  onCompose={() => setComposing(true)}
+                  onCompose={() => newJob()}
                   onCopied={setCopied}
                   onCursor={setCursor}
                   land={lands.landing}
@@ -1217,8 +1216,7 @@ export function App({ draft }: AppProps = {}) {
 
         <Locate locating={locate} />
 
-        {/* Centred at 20vh, as the palette is: the owner, 15 Oct 2026. */}
-        <TitleDispatchPanel />
+        <DispatchSheet />
         <TitleDispatchedStrip />
 
         <PaletteMount
@@ -1239,7 +1237,7 @@ export function App({ draft }: AppProps = {}) {
             pickRepository: pick,
             openJob: setOpenJob,
             closeJob: close,
-            compose: () => setComposing(true),
+            compose: () => newJob(),
             surface: goTo,
             run: (entryId) => {
               goTo(SURFACE.manifest);

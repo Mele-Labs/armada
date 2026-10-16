@@ -112,7 +112,7 @@ export function useFixChoice(
     choice.kind === "session"
       ? onSendToSession?.(choice.session, choice.message)
       : choice.kind === "newSession"
-        ? (dispatching?.choose("session"), dispatching?.openTitled(choice.request, root))
+        ? (dispatching?.choose("session"), dispatching?.openSheet(choice.request, root))
         : choice.kind === "takeOver"
           ? onFix({ root, take_over: true })
           : onFix({ root, ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }) });

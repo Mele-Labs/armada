@@ -6,8 +6,8 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, ShieldCheck, SquareTerminal } from "lucide-react";
-import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, type Clashing } from "@armada/components";
+import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
 
@@ -468,6 +468,31 @@ function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
   );
 }
 
+/** Dispatch, between the controls and Autopilot: one tile that opens the dispatch sheet, where a person can see it and the key that does. */
+function DispatchDeck() {
+  const dispatching = useDispatching();
+  if (dispatching === undefined) return null;
+  return (
+    <section className="deck-panel deck-dispatch" aria-label="Dispatch controls" tabIndex={-1}>
+      <header className="deck-band">
+        Dispatch
+        <PanelKey id="dispatch" />
+      </header>
+      <div className="deck-dispatch__block">
+        <Tooltip label="Dispatch" shortcut={keyFor("new_job")} asChild>
+          <button type="button" className="deck-tile deck-dispatch__tile" aria-label="Dispatch" onClick={() => dispatching.openNew()}>
+            <Send size={20} aria-hidden="true" />
+            <span className="deck-tile__text">Dispatch</span>
+            <Kbd className="deck-tile__key" aria-hidden="true">
+              {keyFor("new_job")}
+            </Kbd>
+          </button>
+        </Tooltip>
+      </div>
+    </section>
+  );
+}
+
 const STATE_BADGE = {
   off: { status: "not-started", icon: Power, said: "Off" },
   running: { status: "running", icon: Plane, said: "Running" },
@@ -694,6 +719,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           </div>
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
+            <DispatchDeck />
             <AutopilotPanel props={props} autopilot={autopilot} />
           </div>
         </div>
