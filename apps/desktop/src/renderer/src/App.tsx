@@ -16,7 +16,7 @@
 // `commands.ts` for what the host is asked to do, `failing.ts` for which
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArmadaMark } from "@armada/brand";
 import { heldOfPicked, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext, LandCheckAt } from "@armada/protocol";
@@ -335,9 +335,8 @@ export function App({ draft }: AppProps = {}) {
     // carries nothing new draws nothing, and one that moves a Job leaves every other part of the window alone.
     // `readAt` moves on every Jobs poll and is read only to say how stale an unreachable Fleet's picture is, so while Fleet
     // answers the window keeps the one it has: a poll that changed nothing else must not draw the whole window.
-    // A transition: a key or a click is input and preempts the draw a publish asks for, instead of waiting behind it.
     const take = (next: BridgeState) =>
-      startTransition(() => setState((was) => share(was, next.connection.state === "connected" && was.readAt !== null && next.readAt !== null ? { ...next, readAt: was.readAt } : next)));
+      setState((was) => share(was, next.connection.state === "connected" && was.readAt !== null && next.readAt !== null ? { ...next, readAt: was.readAt } : next));
     void window.armada.state().then(take);
     return window.armada.subscribe(take);
   }, []);
