@@ -48,7 +48,6 @@ import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
 import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, withoutOpenSession, type DeckState } from "./store";
-import { sessionTake } from "./session-take";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import type { Hosts } from "../../session-view/SessionWorkspace";
 import "../cockpit.css";
@@ -490,10 +489,10 @@ export const TILES: readonly Tile[] = [
 
 /**
  * The four filters and the view switch: one row of six equal tiles. **While a Session is open on the stage they are that
- * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes. `row` draws a
- * Session's tiles as one row of icon keys, for the takes that put the panel in a column. `foldedAtFirst` has it folded to its band until it has been folded or opened once.
+ * Session's** (`SessionTiles`), in the same block and under the same keys, and the six return when it closes.
  */
-function FlightControl({ ship, props, row = false, foldedAtFirst = false }: { ship: Ship; props: CockpitProps; row?: boolean; foldedAtFirst?: boolean }) {
+function FlightControl({ ship, props }: { ship: Ship; props: CockpitProps }) {
+  const folded = useCollapse("controls");
   const only = useDeck((deck) => deck.only);
   const checks = useDeck((deck) => deck.checks);
   const needs = useDeck((deck) => deck.needs);
@@ -508,9 +507,8 @@ function FlightControl({ ship, props, row = false, foldedAtFirst = false }: { sh
   const found = session?.manifestId === undefined ? undefined : served.find((one) => one.manifest?.id === session.manifestId);
   const repository = found === undefined ? undefined : { root: found.root, ...(found.manifest === undefined ? {} : { name: found.manifest.repository }) };
   const startIn = reportRoot(served, repository?.root);
-  const folded = useCollapse("controls", foldedAtFirst);
   return (
-    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined} data-row={row || undefined} data-pinned={row || undefined}>
+    <section className="deck-panel deck-controls" aria-label="Flight controls" tabIndex={-1} data-collapsed={folded.collapsed || undefined}>
       <header className="deck-band" {...folded.band}>
         Flight control
         <PanelKey id="controls" />
@@ -767,11 +765,10 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   const [footHost, setFootHost] = useState<HTMLElement | null>(null);
-  const take = unified ? sessionTake() : undefined;
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost, foldField: take === "fold" } : undefined), [unified, sideHost, footHost, take]);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost } : undefined), [unified, sideHost, footHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
-  const layout = unified ? (take === undefined ? "session" : `session-${take}`) : reading ? "reading" : "idle";
+  const layout = unified ? "session" : reading ? "reading" : "idle";
   const { columns, resize, reset } = useColumns(grid, layout);
   const splits = useSplits(grid, layout);
   useActivityBeside(grid, layout);
@@ -785,7 +782,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
     <CursorJob listed={listed} jobs={props.state.jobs} onCursor={props.onCursor} />
     <AutopilotAsked control={autopilot.control} />
     <div className="armada-cockpit deck">
-      <div ref={grid} className="deck-grid" data-take={take} style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
+      <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
@@ -795,25 +792,18 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-centre">
           <div className="deck-stage">
             <Stage props={props} ship={ship} listed={listed} autopilot={autopilot} ledger={reading && !unified ? ledgerHost : null} hosts={hosts} />
-            {take === "keys" ? <FlightControl ship={ship} props={props} row /> : null}
             <MergeQueue props={props} ship={ship} selected={sel?.kind === "pr" ? selected : undefined} />
           </div>
-          {take === "right" || take === "keys" ? null : (
-            <div className="deck-foot">
-              <FlightControl ship={ship} props={props} foldedAtFirst={take === "fold"} />
-              {unified ? null : <DispatchDeck />}
-              {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
-            </div>
-          )}
+          <div className="deck-foot">
+            <FlightControl ship={ship} props={props} />
+            {unified ? null : <DispatchDeck />}
+            {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
+          </div>
         </div>
         <div className="deck-right">
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="left" label="the right column" width={columns.right} {...columns.range.right} onResize={(width) => resize("right", width)} onReset={() => reset("right")} />}
           {unified ? (
-            <>
-              <div className="sv-side" ref={setSideHost} />
-              {take === "right" ? <FlightControl ship={ship} props={props} row /> : null}
-              {take === "right" || take === "keys" ? <div className="sv-slot" data-place="rail" ref={setFootHost} /> : null}
-            </>
+            <div className="sv-side" ref={setSideHost} />
           ) : reading ? (
             <>
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}

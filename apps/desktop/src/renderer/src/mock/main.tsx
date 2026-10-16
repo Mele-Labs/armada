@@ -7,7 +7,6 @@ import { forgetAllKept } from "@armada/components";
 
 import { forgetDismissals } from "../cockpit/dismissed";
 import { forgetViewed } from "../cockpit/viewed";
-import { setSessionTake } from "../cockpit/deck/session-take";
 import { annotatesWith } from "./annotating";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
@@ -40,9 +39,6 @@ if (script !== undefined) {
 
 // `?step=<n>` starts a walk on step n, the steps before it run straight through: what Back does.
 const startStep = (of: number) => Math.min(Math.max(Number(query.get("step") ?? 1) || 1, 1), of) - 1;
-
-// `?take=right|fold|keys` picks one of the takes on where a selected Session keeps Flight control and the Field.
-setSessionTake(query.get("take"));
 
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");
