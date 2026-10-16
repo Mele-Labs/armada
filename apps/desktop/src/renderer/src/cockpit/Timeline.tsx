@@ -52,7 +52,7 @@ const TAKES = [
   { id: "split", label: "Split", hint: "Each subject, and its events beside it" },
 ];
 
-const TONE: Record<EventTone, string> = {
+export const TONE: Record<EventTone, string> = {
   run: "var(--status-running)",
   ask: "var(--status-awaiting-review)",
   bad: "var(--status-completed-failed)",
@@ -74,12 +74,12 @@ const SHOWN = 60;
 const WINDOW = MINUTES * 60_000;
 
 const KIND: Record<Subject["kind"], string> = { job: "Job", session: "Session", main: "Main" };
-const GLYPH = { job: Box, session: SquareTerminal, main: GitMerge };
+export const GLYPH = { job: Box, session: SquareTerminal, main: GitMerge };
 
 /** What an event's mark is shaped as: a pull request's keeps its own shape on its owner's track. */
 const shapeOf = (event: FleetEvent): string => (event.pull === undefined ? event.subject.kind : "pull_request");
 
-const toneOf = (tone: EventTone) => ({ ["--tone" as string]: TONE[tone] }) as CSSProperties;
+export const toneOf = (tone: EventTone) => ({ ["--tone" as string]: TONE[tone] }) as CSSProperties;
 const clock = (at: string) => new Date(at).toLocaleTimeString([], { hour12: false });
 
 /** Where a subject opens: the Job or the Session. Main opens nothing. */
@@ -114,7 +114,7 @@ function Who({ subject, open, children, glyph = true }: { subject: Subject; open
   );
 }
 
-const STANDING_MARK: Record<Standing, { icon: typeof Clock; said: string }> = {
+export const STANDING_MARK: Record<Standing, { icon: typeof Clock; said: string }> = {
   ask: { icon: BellRing, said: "Needs you" },
   bad: { icon: CircleX, said: "Failing" },
   stuck: { icon: Clock, said: "Quiet" },
@@ -461,7 +461,7 @@ function Split({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open
  * `most` keeps the newest that many events **of the subjects `keep` and `of` leave**, before the lanes are read, so a narrowed feed is
  * never emptied by newer events of subjects it does not show.
  */
-function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of, most?: number): Lane[] {
+export function useLanes(now: number, jobs: readonly JobSummary[], views: readonly MergeLineView[], filter: DashboardTab, keep: ((subject: Subject) => boolean) | undefined, of?: Of, most?: number): Lane[] {
   const wire = useFleetEvents();
   const sessions = useSessions();
   const events = useMemo(() => {
@@ -605,153 +605,5 @@ export function ActivityFeed({
         <Feed lanes={lanes} now={now} open={open} tips stacked={stacked === true} onPick={onPick} lit={lit} />
       </div>
     </section>
-  );
-}
-
-/** How wide a column of the graph is, how many there are, and so how far back it reaches: twenty of three minutes, the last hour. */
-const SPAN = 3 * 60_000;
-const COLUMNS = 20;
-/** The newest events the graph counts. A cell needs no row of its own, so this reaches further than the feed's. */
-const MOST_GRAPH = 500;
-/** The newest events a cell's card lists. A card cannot scroll, so a busier cell is cut here. */
-const MOST_CARD = 8;
-/** How much a coalesced read, edit or command weighs beside a turn, a step or an ask. */
-const QUIET_WEIGHT = 0.4;
-/** The steps of the blue ramp, an empty cell being none of them. */
-const LEVELS = 5;
-
-/** `events` in the last hour, in the span each falls in: the oldest span first, `now` at the right edge of the last. Each is newest first. */
-function spansOf(events: readonly FleetEvent[], now: number): FleetEvent[][] {
-  const spans = Array.from({ length: COLUMNS }, () => [] as FleetEvent[]);
-  for (const event of events) {
-    const back = Math.floor((now - Date.parse(event.at)) / SPAN);
-    if (back < COLUMNS) spans[COLUMNS - 1 - Math.max(0, back)]!.push(event);
-  }
-  for (const span of spans) span.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  return spans;
-}
-
-/** What a cell weighs: its events, the coalesced ones less. */
-const weighOf = (events: readonly FleetEvent[]): number => events.reduce((sum, event) => sum + (QUIET_KINDS.has(event.kind) ? QUIET_WEIGHT : 1), 0);
-
-/** The tone a cell takes over the blue ramp, where it holds what is owed him or failing. Failing first. */
-const owedOf = (events: readonly FleetEvent[]): EventTone | undefined => (events.some((event) => event.tone === "bad") ? "bad" : events.some((event) => event.tone === "ask") ? "ask" : undefined);
-
-/** What a cell's card says: its newest events, each as the stacked row draws one, the glyph in the event's colour. Nothing in it can be pressed. */
-function Hour({ events, now, lit }: { events: readonly FleetEvent[]; now: number; lit: string | undefined }) {
-  return (
-    <span className="armada-tl__tip armada-tl__hour">
-      {events.slice(0, MOST_CARD).map((event) => {
-        const Kind = GLYPH[event.subject.kind];
-        const Owed = event.tone === "ask" ? STANDING_MARK.ask.icon : event.tone === "bad" ? STANDING_MARK.bad.icon : undefined;
-        return (
-          <span key={event.id} className="armada-tl__moment" data-lit={lit === event.id || undefined} data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} style={toneOf(event.tone)}>
-            <Kind size={14} aria-hidden="true" className="armada-tl__kindmark" />
-            <span className="armada-tl__title">{titleOf(event.subject)}</span>
-            <time className="armada-tl__age" dateTime={event.at}>
-              {ageOf(event.at, now)}
-            </time>
-            <span className="armada-tl__says">
-              <span className="armada-tl__what">{event.says}</span>
-              {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
-              {Owed === undefined ? null : <Owed size={14} aria-hidden="true" className="armada-tl__flag" />}
-            </span>
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
-/**
- * The deck's Activity as a heatmap and no text: a row for each Job or Session, the most recently active on top, and a cell for each
- * three minutes of the last hour, the newest at the right. A cell is bluer the more happened in it, the quiet kinds counting less, and
- * takes its tone where it holds an ask or a failure. A faint tick under the right edge is now. **Hovering or focusing a cell shows
- * that subject's events in it, and pressing it picks the newest**: the card is a tooltip and holds nothing to press. Rows are cut at
- * the panel's height. Takes what the feed takes, so the Job or Session open narrows it to one row.
- */
-export function ActivityGraph({
-  now,
-  jobs,
-  views = NO_VIEWS,
-  filter,
-  keep,
-  onPick,
-  lit,
-  of,
-}: {
-  now: number;
-  jobs: readonly JobSummary[];
-  views?: readonly MergeLineView[];
-  filter: DashboardTab;
-  keep?: (subject: Subject) => boolean;
-  /** Narrows the graph to this Job or Session alone: the one open on the flight deck's stage. */
-  of?: Of;
-  /** A press on a cell picks the newest event in it. */
-  onPick: (event: FleetEvent) => void;
-  /** The event held lit, by id: its cell is ringed. */
-  lit?: string;
-}) {
-  const lanes = useLanes(now, jobs, views, filter, keep, of, MOST_GRAPH);
-  const rows = useMemo(
-    () =>
-      lanes
-        .filter((lane) => lane.subject.kind !== "main")
-        .map((lane) => ({ lane, spans: spansOf(lane.events, now) }))
-        .filter((row) => row.spans.some((span) => span.length > 0))
-        .sort((a, b) => b.lane.last - a.lane.last),
-    [lanes, now],
-  );
-  const busiest = Math.max(1, ...rows.flatMap((row) => row.spans.map(weighOf)));
-  // The rows that fit: no row is shorter than a cell is wide.
-  const plot = useRef<HTMLDivElement>(null);
-  const grid = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState<number>();
-  useLayoutEffect(() => {
-    const held = plot.current;
-    if (held === null || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      const gap = Number.parseFloat(getComputedStyle(grid.current ?? held).columnGap) || 0;
-      const cell = (held.clientWidth - gap * (COLUMNS - 1)) / COLUMNS;
-      if (cell > 0) setFit(Math.max(1, Math.floor((held.clientHeight + gap) / (cell + gap))));
-    };
-    measure();
-    const watch = new ResizeObserver(measure);
-    watch.observe(held);
-    return () => watch.disconnect();
-  }, []);
-  const shown = rows.slice(0, fit);
-  return (
-    <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour" data-take="graph">
-      <div className="armada-tl__plot" ref={plot}>
-        <div className="armada-tl__cells" ref={grid} style={{ ["--rows" as string]: shown.length } as CSSProperties}>
-          {shown.map(({ lane, spans }) => (
-            <div key={lane.key} className="armada-tl__row" role="group" aria-label={titleOf(lane.subject)}>
-              {spans.map((events, index) => {
-                const newest = events[0];
-                if (newest === undefined) return <i key={index} className="armada-tl__cell" data-level="0" aria-hidden="true" />;
-                const owed = owedOf(events);
-                const level = Math.min(LEVELS, Math.max(1, Math.ceil((weighOf(events) / busiest) * LEVELS)));
-                return (
-                  <Tooltip key={index} label={<Hour events={events} now={now} lit={lit} />} card beside asChild>
-                    <button
-                      type="button"
-                      className="armada-tl__cell"
-                      data-level={level}
-                      data-owed={owed}
-                      data-lit={events.some((event) => event.id === lit) || undefined}
-                      style={owed === undefined ? undefined : toneOf(owed)}
-                      aria-label={`${titleOf(newest.subject)}: ${newest.says}`}
-                      onClick={() => onPick(newest)}
-                    />
-                  </Tooltip>
-                );
-              })}
-            </div>
-          ))}
-          <i className="armada-tl__now" aria-hidden="true" />
-        </div>
-      </div>
-    </div>
   );
 }

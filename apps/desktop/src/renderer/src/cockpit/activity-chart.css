@@ -1,0 +1,67 @@
+/* The deck's Activity chart: a stream, a beeswarm or a radial, and no words in the plot. Tokens only. */
+
+.armada-tl__graph { position: relative; display: flex; flex-direction: column; padding: var(--space-2) var(--space-4) var(--space-4); }
+/* The plot is the anchor every card hangs off, so a card stands beside the panel and never over what it is read against. */
+.armada-tl__plot { position: relative; flex: 1 1 0; min-height: 0; }
+.armada-tl__stream, .armada-tl__sized, .armada-tl__field, .armada-tl__scrubber { position: absolute; inset: 0; }
+
+/* Now: a faint tick under the right edge. */
+.armada-tl__now { position: absolute; right: var(--space-4); bottom: var(--space-2); height: var(--space-2); border-right: var(--border-width) solid var(--fg-subtle); opacity: 0.6; pointer-events: none; }
+
+/* ---- Stream: layered by tone, a line to scrub along it ------------------------------------------------- */
+
+.armada-tl__stream { border-bottom: var(--border-width) solid var(--border-subtle); cursor: crosshair; }
+.armada-tl__scrubber { outline: none; }
+.armada-tl__scrubber:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-tl__area { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.armada-tl__layer { fill: var(--tone); fill-opacity: 0.9; }
+.armada-tl__layer[data-weight="quiet"] { fill-opacity: 0.35; }
+.armada-tl__scrub { position: absolute; top: 0; bottom: 0; width: 0; border-left: var(--border-width) solid var(--fg-default); opacity: 0.55; pointer-events: none; }
+.armada-tl__lit { position: absolute; width: var(--space-2); height: var(--space-2); margin: calc(var(--space-1) * -1) 0 0 calc(var(--space-1) * -1); border-radius: 50%; background: var(--bg-sunken); box-shadow: 0 0 0 calc(var(--border-width) * 2) var(--accent); pointer-events: none; }
+
+/* ---- Beeswarm: a dot for each event along a centre line ---------------------------------------------- */
+
+.armada-tl__axis-line { position: absolute; top: 50%; right: 0; left: 0; border-top: var(--border-width) solid var(--border-subtle); pointer-events: none; }
+.armada-tl__dot { position: absolute; padding: 0; border: 0; border-radius: 50%; background: var(--tone); transform: translate(-50%, -50%); cursor: pointer; }
+.armada-tl__dot::after { content: ""; position: absolute; inset: calc(var(--space-1) * -0.75); }
+.armada-tl__dot[data-weight="quiet"] { opacity: 0.4; }
+.armada-tl__dot:hover { outline: calc(var(--border-width) * 2) solid var(--fg-default); outline-offset: var(--border-width); z-index: 2; }
+.armada-tl__dot:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); z-index: 2; }
+.armada-tl__dot[data-lit] { z-index: 3; outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: calc(var(--border-width) * 2); }
+
+/* ---- Radial: now at twelve, the hour running back against the clock --------------------------------- */
+
+.armada-tl__ring { position: absolute; top: 50%; left: 50%; border: var(--border-width) solid var(--border-subtle); border-radius: 50%; pointer-events: none; }
+.armada-tl__twelve { position: absolute; left: 50%; height: var(--space-2); border-left: var(--border-width) solid var(--fg-subtle); opacity: 0.6; pointer-events: none; }
+/* A spoke grows from the middle outward: it is drawn pointing down and turned, and its first piece is the innermost. */
+.armada-tl__spoke { position: absolute; top: 50%; left: 50%; display: flex; flex-direction: column; box-sizing: border-box; padding: 0; border: 0; background: none; transform-origin: 50% 0; }
+.armada-tl__spoke[data-empty] { background: linear-gradient(to bottom, transparent calc(100% - var(--border-width) * 2), var(--border-subtle) 0); opacity: 0.7; }
+button.armada-tl__spoke { cursor: pointer; }
+button.armada-tl__spoke::before { content: ""; position: absolute; inset: 0 calc(var(--space-1) * -0.75); }
+.armada-tl__piece { display: block; flex: none; background: var(--tone); }
+.armada-tl__piece[data-weight="quiet"] { opacity: 0.35; }
+button.armada-tl__spoke:hover { filter: brightness(1.4); }
+button.armada-tl__spoke:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-tl__tipring { position: absolute; top: 100%; left: 50%; width: var(--space-3); height: var(--space-3); margin: calc(var(--space-3) / -2) 0 0 calc(var(--space-3) / -2); border: calc(var(--border-width) * 2) solid var(--accent); border-radius: 50%; pointer-events: none; }
+
+/* ---- A card: the stacked row's look, each event's glyph in its own colour -------------------------- */
+/* It is a tooltip and nothing in it is pressed. Where nothing is near the point there is no card. */
+
+.armada-tl__hour:empty { display: none; }
+.armada-tl__hour { gap: 0; width: calc(var(--space-12) * 6); max-width: none; padding: var(--space-1); font-family: var(--font-sans); }
+.armada-tl__moment { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-tl__moment:last-child { border-bottom-color: transparent; }
+.armada-tl__moment[data-lit] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); border-bottom-color: transparent; }
+.armada-tl__moment[data-weight="quiet"] { color: var(--fg-muted); }
+.armada-tl__kindmark { grid-column: 1; grid-row: 1; color: var(--tone); }
+.armada-tl__moment > .armada-tl__title { grid-column: 2; grid-row: 1; font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
+.armada-tl__moment > .armada-tl__age { grid-column: 3; grid-row: 1; width: auto; font-family: var(--font-sans); line-height: var(--leading-2xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.armada-tl__moment > .armada-tl__says { grid-column: 2 / span 2; grid-row: 2; gap: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.armada-tl__what { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.armada-tl__moment .armada-tl__detail { flex: 0 100 auto; font-family: var(--font-mono); font-size: var(--text-2xs); overflow-wrap: normal; white-space: nowrap; }
+.armada-tl__flag { display: inline-flex; flex: none; margin-left: auto; color: var(--tone); }
+
+@supports (anchor-name: --a) {
+  .armada-tl__plot { anchor-name: --armada-tl-plot; }
+  .armada-tl__plot .armada-tooltip__bubble { position-anchor: --armada-tl-plot; }
+}

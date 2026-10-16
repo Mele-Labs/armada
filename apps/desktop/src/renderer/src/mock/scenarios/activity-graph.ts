@@ -1,7 +1,8 @@
-// The flight deck's Activity as a heatmap: the whole ship at rest, with the last hour filled in so the ramp has something to show.
-// Nine Jobs and Sessions work through it in stretches, some loud (turns and steps) and some quiet (reads, edits and commands), and
-// the ship's own events add the cells that need him and the one that failed. Ages are fixed when the page loads and the columns slide
-// on from there, so the walk points at the newest cell and not at a named one. The walk `activity-graph` plays it.
+// The flight deck's Activity chart: the whole ship at rest, with the last hour filled in. Nine Jobs and Sessions work through it in
+// stretches, some loud (turns and steps) and some quiet (reads, edits and commands), a single event lands in every minute so any
+// point of the hour has something near it, and the ship's own events add what needs him and what failed. Ages are fixed when the page
+// loads and the chart slides on from there, so the walks point at the newest event and not at a named one. The walks
+// `activity-stream`, `activity-beeswarm` and `activity-radial` play it.
 
 import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
 
@@ -86,9 +87,13 @@ const MORE: TimelineEvent[] = [
   entry(21.2, reconnect, "job.step", "bad", "store failed", "store::reconnect::waits_five_seconds"),
 ];
 
+const EVERY = [clock, notes, gate, fix, cacheKey, audit, cache, reconnect, pause];
+// One event in each minute of the hour, so a point of the chart is never empty.
+for (let minute = 0; minute < 60; minute += 1) MORE.push(...stretch(EVERY[minute % EVERY.length]!, minute, minute + 1, 1, minute % 3 === 0 ? 1 : 0));
+
 export const s252ActivityGraph: Scenario = {
   ...base,
   name: "activity-graph",
-  says: "The flight deck with the last hour of events across nine Jobs and Sessions, for the Activity heatmap",
+  says: "The flight deck with the last hour of events across nine Jobs and Sessions, for the Activity chart",
   draft: { ...base.draft, events: [...held, ...MORE] },
 };
