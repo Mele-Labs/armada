@@ -41,6 +41,7 @@
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 with the walk's signing-in hold, for the walk row of the capture window's bar, beside where `search` marks a target not found. The page is on a sign-in the person does, which is `actor=human` and what this glyph already means; `lock`, `lock-keyhole` and `key` are reserved against an auth state and `log-in` is not in the registry. The owner has not seen it. Tooltip `Signing in`; no sentence. --fg-muted, a wait and not a fault. The row carries no reservation."
 
+  [[icons.user-check.usage]]
     means = "A form edit's pull request the forge would not auto-merge: a person merges it"
     group = "Pull request state"
     size = "12px"
