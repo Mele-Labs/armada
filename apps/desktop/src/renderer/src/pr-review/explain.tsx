@@ -17,13 +17,11 @@ import { bySession, onlyExplanations, toolsOf } from "./tools";
 type Send = ReturnType<typeof useSendFindings>;
 
 const ASK = "ask";
-const SHORT = 28;
-const shortOf = (words: string): string => (words.length > SHORT ? `${words.slice(0, SHORT).trimEnd()}…` : words);
 
 /**
  * The choice and what was chosen, under the description. **The strip is the explanations, then Ask**, which is not an
- * explanation but a box for his own question, as Natural Search is on the left. A question he sent is kept as one more
- * choice after Ask, under his words.
+ * explanation but a box for his own question, as Natural Search is on the left. **A question he sent is kept in a small
+ * panel above the strip**, an index of what he asked of this pull request, and is not drawn where he asked none.
  */
 export function Explainer({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; onOpenLink: (address: string) => void }) {
   const store = useReviewStore()!;
@@ -34,12 +32,12 @@ export function Explainer({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; 
   const asked = work.asks.find((one) => one.id === work.kind);
   return (
     <section className="pr-explainer" aria-label="Explanation">
+      {work.asks.length === 0 ? null : <Asks pr={pr} />}
       <div className="pr-explainer__pick">
         <Tabs
           items={[
             ...kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks })),
             { id: ASK, label: "Ask", hint: "Ask about this pull request in your own words" },
-            ...work.asks.map((one) => ({ id: one.id, label: shortOf(one.words), hint: one.words })),
           ]}
           value={work.kind ?? ""}
           onChange={(id) => {
@@ -53,6 +51,48 @@ export function Explainer({ pr, send, onOpenLink }: { pr: ReviewPr; send: Send; 
       {chosen === undefined ? null : <Chosen pr={pr} def={chosen} send={send} onOpenLink={onOpenLink} />}
       {asked === undefined ? null : <Answer pr={pr} asked={asked} />}
     </section>
+  );
+}
+
+/** What he asked of this pull request: one row each, his words in full, and what was kept under them. */
+function Asks({ pr }: { pr: ReviewPr }) {
+  const store = useReviewStore()!;
+  const work = useReviews().work[pr.key] ?? NO_WORK;
+  return (
+    <ul className="pr-asked" aria-label="Asked">
+      {work.asks.map((one) => {
+        const running = one.run.state === "running";
+        const kept = one.run.state === "done" ? one.run : undefined;
+        const stale = kept !== undefined && kept.head !== pr.head;
+        return (
+          <li key={one.id} className="pr-asked__row" aria-label={one.words} data-selected={work.kind === one.id || undefined}>
+            <button type="button" className="pr-asked__words" aria-pressed={work.kind === one.id} onClick={() => store.show(pr.key, one.id)}>
+              {one.words}
+            </button>
+            {running ? (
+              <span className="pr-review__mark" data-checks="running">
+                <PrMark Glyph={LoaderCircle} said="Answering" tone="running" />
+              </span>
+            ) : kept === undefined ? null : (
+              <PrMark
+                Glyph={stale ? RefreshCw : History}
+                said={stale ? `Out of date. Answered on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}` : `Kept. Answered ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
+              />
+            )}
+            <Tooltip label="Ask again, for this pull request">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.askAgain(pr.key, one.id)}>
+                <RotateCw size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+            <Tooltip label="Remove this question">
+              <Button variant="ghost" size="sm" iconOnly aria-label="Remove this question" onClick={() => store.removeAsk(pr.key, one.id)}>
+                <X size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -99,12 +139,10 @@ function AskBox({ pr }: { pr: ReviewPr }) {
   );
 }
 
-/** What he asked, and what came back, kept for the commit it read. */
+/** What he asked, and what came back. Its keeping, Run again and Remove are on its row in the panel above. */
 function Answer({ pr, asked }: { pr: ReviewPr; asked: Asked }) {
-  const store = useReviewStore()!;
   const running = asked.run.state === "running";
-  const kept = asked.run.state === "done" ? asked.run : undefined;
-  const stale = kept !== undefined && kept.head !== pr.head;
+  const kept = asked.run.state === "done";
   const body = pr.answers.find((one) => new RegExp(one.when, "i").test(asked.words))?.body;
   return (
     <div className="pr-what" role="region" aria-label="Answer">
@@ -113,24 +151,6 @@ function Answer({ pr, asked }: { pr: ReviewPr; asked: Asked }) {
         <span className="pr-what__source" data-by="agent">
           <PrMark Glyph={Bot} said="Answered by an agent when you asked" />
         </span>
-        <span className="pr-what__acts">
-          {kept === undefined ? null : (
-            <PrMark
-              Glyph={stale ? RefreshCw : History}
-              said={stale ? `Out of date. Answered on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}` : `Kept. Answered ${agoOf(new Date(kept.at).toISOString())} on ${kept.head.slice(0, 7)}`}
-            />
-          )}
-          <Tooltip label="Ask again, for this pull request">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Run again" disabled={running} onClick={() => store.askAgain(pr.key, asked.id)}>
-              <RotateCw size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-          <Tooltip label="Remove this question">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Remove this question" onClick={() => store.removeAsk(pr.key, asked.id)}>
-              <X size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-        </span>
       </header>
       {running ? (
         <p className="pr-results__running">
@@ -138,7 +158,7 @@ function Answer({ pr, asked }: { pr: ReviewPr; asked: Asked }) {
             <PrMark Glyph={LoaderCircle} said="Answering" tone="running" />
           </span>
         </p>
-      ) : kept === undefined ? null : body === undefined ? (
+      ) : !kept ? null : body === undefined ? (
         <p className="pr-results__clean">
           <PrMark Glyph={Check} said="Nothing to add" tone="success" />
         </p>

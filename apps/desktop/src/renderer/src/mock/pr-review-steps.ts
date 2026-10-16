@@ -15,6 +15,7 @@ const thread = (title: string, by: string) => role("article", `Thread on ${title
 const finding = (title: string) => role("article", `Finding: ${title}`);
 const tool = (name: string) => inside(flight, button(name));
 const results = (name: string) => region(`${name} results`);
+const asked = (words: RegExp) => inside(inside(region("Explanation"), role("list", "Asked")), role("listitem", words));
 const explanation = (name: string) => inside(region("Explanation"), tab(name));
 
 const pick = (name: string | RegExp) => role("menuitem", name);
@@ -63,15 +64,15 @@ export const theExplanation: Step[] = [
   { look: inside(reader(1899), button(/#1871/)), say: "The problem, what it cost, and the issue the pull request names" },
   { hover: inside(inside(reader(1899), region("Why it was needed")), role("img", "Armada's tool")), say: "Explanations are defined where tools are: Armada's four, the Kit, and the repository" },
   { look: inside(region("Explanation"), tab("Ask", { exact: true })), say: "The four are for any pull request. The last choice, Ask, is his own question" },
-  { look: inside(region("Explanation"), tab(/What happens to the cached/)), say: "A question asked before is kept after it, under his words" },
+  { look: inside(reader(1899), role("list", "Asked")), say: "A question asked before is kept in a small panel above the choice, under his words" },
   { press: inside(region("Explanation"), tab("Ask", { exact: true })), say: "Choosing Ask puts a box under the description" },
   { type: "Does this change what happens when gh is signed out?", into: inside(reader(1899), role("textbox", "Ask about this pull request")), say: "Whatever he wants to know about this one" },
   { press: inside(inside(reader(1899), role("form", "Ask")), button("Ask")), say: "An agent answers only when he sends, because it costs" },
   { look: inside(reader(1899), role("img", "Answering")), say: "Running, in place" },
-  { look: inside(region("Answer"), role("img", /^Kept/)), say: "The answer is kept for the commit it read, as the others are" },
-  { look: inside(region("Explanation"), tab(/Does this change what happen/)), say: "And the question is one more choice in the strip" },
-  { hover: inside(region("Answer"), button("Remove this question")), say: "Run again asks it once more. Remove drops it" },
-  { press: inside(region("Explanation"), tab(/What happens to the cached/)), say: "Choosing an earlier question shows its answer at once" },
+  { look: inside(asked(/Does this change what happens/), role("img", /^Kept/)), say: "The question joins the panel, and its answer is kept for the commit it read" },
+  { hover: inside(asked(/Does this change what happens/), button("Remove this question")), say: "Run again asks it once more. Remove drops it" },
+  { press: inside(asked(/What happens to the cached read/), button(/What happens to the cached read/)), say: "Pressing an earlier question shows its answer at once" },
+  { look: region("Answer"), say: "The answer, in the body, with nothing run" },
   { look: tool("Risks"), say: "The review tools are tiles in the Flight control, and they work on any pull request" },
   { hover: inside(tool("Risks"), role("img", "Armada's tool")), say: "A tool shows where it is defined. This one is Armada's" },
   { press: tool("Risks"), say: "Risks runs for this pull request only when pressed" },
