@@ -110,6 +110,7 @@ import type { PlanEditing } from "./session-view/PlanEdit";
 import { changeLines } from "./session-view/plan-marks";
 import { PlanReview } from "./session-view/PlanReview";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
+import { useLedgerRelease, type LedgerRelease } from "./session-ledger-release";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -692,6 +693,7 @@ export function entriesOf(
   known: Known,
   runner: Runner | undefined,
   removeWaiting?: (itemId: string, reason: string) => void,
+  release?: LedgerRelease["rowOf"],
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
   // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
@@ -751,7 +753,13 @@ export function entriesOf(
   // A slot a branch row already carries as its chip has no row of its own.
   const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
   const drawn = session.attachments.filter((one) => one.kind !== "slot" || !carried.has(one.slot));
-  return [...waiting, ...drawn.map((one): LedgerEntry => ({ ...entryOf(one), card: cardOf(one, session, sessions, known) }))];
+  return [
+    ...waiting,
+    ...drawn.map((one): LedgerEntry => {
+      const entry = entryOf(one);
+      return { ...entry, ...release?.(one, entry), card: cardOf(one, session, sessions, known) };
+    }),
+  ];
 
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
@@ -907,6 +915,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
   const { onWant } = held;
   const { id } = session;
   const thread = useBackfilled(threadRows, id);
+  const released = useLedgerRelease(session, draft);
   const watch = draft?.watch;
   const refresh = draft?.refresh;
   // A real Fleet reads a thread when it is opened and follows it from there.
@@ -1005,7 +1014,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     else setReading(one);
   };
   const entries = entriesOf(
-    session,
+    released.shown,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
@@ -1022,6 +1031,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
     runner,
     (itemId, reason) => void dismissWaiting(id, itemId, reason),
+    released.rowOf,
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
   const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
@@ -1221,6 +1231,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
         <PlanReview open={reviewing} plan={session.work.plan} ed={planEditing!} onApprove={approvePlan} onClose={() => setReviewing(false)} />
       )}
       {deck?.ledger == null || session.work !== undefined ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
+      {released.dialog}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
           <SessionLedger entries={ledger} folded />

@@ -10,7 +10,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button, Checkbox, Dialog, Select, Tooltip } from "@armada/components";
 import type { HeldRow, HoldsReleased, Session } from "@armada/screens/src/draft/sessions";
 
-import { releaseKeyOf, type Held } from "./session-tiles";
+import { heldKey, releaseKeyOf, type Held } from "./session-tiles";
 
 const GLYPH: Record<Held["kind"], LucideIcon> = { slot: KeyRound, branch: GitBranch, pr: GitPullRequest, job: Box, need: Link };
 const SAID: Record<Held["kind"], string> = { slot: "Slot", branch: "Branch", pr: "Pull request", job: "Job", need: "Need" };
@@ -37,7 +37,7 @@ function Row({ kind, said, children }: { kind: Held["kind"]; said: string; child
   );
 }
 
-const keyOf = (one: { kind: string; target: string }) => `${one.kind}:${one.target}`;
+const keyOf = heldKey;
 
 /**
  * What the press sends: the rows ticked, given back or handed to the Session picked. Every row is ticked when it opens, the owner's
@@ -112,6 +112,35 @@ export function ReleaseHoldsDialog({
           ? "Each slot ticked has its uncommitted files committed to its branch, then is freed. No branch or file is deleted."
           : `Each slot ticked moves to ${target.title ?? target.address ?? target.id} as it stands, uncommitted files included.`}{" "}
         A slot takes the branch it has checked out with it, and a running turn is stopped where a slot is ticked.
+      </p>
+    </Dialog>
+  );
+}
+
+/**
+ * Release on one ledger row: the one thing named, given back with no target. The owner, 16 Oct 2026: "I should also be able to
+ * release items from the ledger panel one by one." `send` resolves to whether Fleet took it.
+ */
+export function ReleaseRowDialog({ held, send, onCancel }: { held: Held; send: (row: Held) => Promise<boolean>; onCancel: () => void }) {
+  const [sending, setSending] = useState(false);
+  const confirm = async () => {
+    if (sending) return;
+    setSending(true);
+    const done = await send(held);
+    setSending(false);
+    if (!done) onCancel();
+  };
+  return (
+    <Dialog open tone="destructive" title={`Release ${held.name}`} confirmLabel="Release" confirmDisabled={sending} onConfirm={() => void confirm()} onCancel={onCancel}>
+      <ul className="deck-holds" aria-label="What is released">
+        <Row kind={held.kind} said={held.said}>
+          {held.name}
+        </Row>
+      </ul>
+      <p className="deck-holds__note">
+        {held.kind === "slot"
+          ? "Its uncommitted files are committed to its branch, then the slot is freed. It takes the branch it has checked out with it, and a running turn is stopped."
+          : "No branch or file is deleted."}
       </p>
     </Dialog>
   );

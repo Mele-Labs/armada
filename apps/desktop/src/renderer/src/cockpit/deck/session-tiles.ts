@@ -8,7 +8,7 @@
 // Session of its repository, behind a confirmation that names each thing (`ReleaseHolds.tsx`); the owner's ask of 16 Oct 2026.
 
 import type { RepositorySummary } from "@armada/protocol";
-import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release";
 
@@ -61,19 +61,25 @@ export type Offered = {
 /** One thing a Session holds on the ledger, as the release confirmation names it. `kind` is the ledger's. */
 export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; target: string; name: string; said: string };
 
-/**
- * Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, Jobs, needs. A merged pull request
- * is spent and a release leaves it, so it is not named.
- */
+/** The ledger row an attachment is, as a release names it, or nothing where a release leaves it: a merged pull request is spent, and artifacts and links are not held. */
+export function heldOfAttachment(one: SessionAttachment): Held | undefined {
+  if (one.kind === "slot") return { kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` };
+  if (one.kind === "branch") return { kind: "branch", target: one.name, name: one.name, said: "Branch" };
+  if (one.kind === "pull_request" && one.state !== "merged") return { kind: "pr", target: String(one.number), name: `#${one.number} ${one.title}`.trim(), said: "Pull request" };
+  if (one.kind === "job") return { kind: "job", target: one.id, name: `#${one.number} ${one.title}`, said: "Job" };
+  return undefined;
+}
+
+/** A row's key across what Bridge sends and what Fleet answers. */
+export const heldKey = (one: { kind: string; target: string }) => `${one.kind}:${one.target}`;
+
+/** Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, Jobs, needs. */
 export function heldOf(session: Session): Held[] {
   const held: Held[] = [];
   for (const kind of ["slot", "branch", "pull_request", "job"] as const) {
     for (const one of session.attachments) {
-      if (one.kind !== kind) continue;
-      if (one.kind === "slot") held.push({ kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` });
-      else if (one.kind === "branch") held.push({ kind: "branch", target: one.name, name: one.name, said: "Branch" });
-      else if (one.kind === "pull_request" && one.state !== "merged") held.push({ kind: "pr", target: String(one.number), name: `#${one.number} ${one.title}`.trim(), said: "Pull request" });
-      else if (one.kind === "job") held.push({ kind: "job", target: one.id, name: `#${one.number} ${one.title}`, said: "Job" });
+      const row = one.kind === kind ? heldOfAttachment(one) : undefined;
+      if (row !== undefined) held.push(row);
     }
   }
   for (const need of session.needs ?? []) held.push({ kind: "need", target: need.path, name: need.path, said: need.what === "" ? "Need" : `Need: ${need.what}` });
