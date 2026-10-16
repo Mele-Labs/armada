@@ -149,6 +149,18 @@ fn the_rules_name_the_tools_that_surface_a_need() {
     }
 }
 
+/// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
+/// here. The rules' opening paragraph addresses a hosted session and the style has its own.
+#[test]
+fn the_output_style_carries_the_rules_verbatim() {
+    let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
+    let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
+    assert_eq!(blocks.len(), 3, "needs, progress, finishing");
+    for block in blocks {
+        assert!(style.contains(block), "the style has drifted from: {block}");
+    }
+}
+
 /// Helm's note is appended to every process of its Session after the rules, and a blank one is
 /// none at all.
 #[test]
