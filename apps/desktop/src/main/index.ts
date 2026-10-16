@@ -1018,6 +1018,7 @@ void app.whenReady().then(() => {
     connection?.readCheckOutput(jobId, kept),
   );
   ipcMain.handle(CHANNELS.readSessionCheckOutput, (_event, run: number) => connection?.readSessionCheckOutput(run));
+  ipcMain.handle(CHANNELS.stopSessionCheck, (_event, run: number, force: boolean) => connection?.stopSessionCheck(run, force));
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
   // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
   ipcMain.handle(CHANNELS.readRetro, (_event, subject: RetroSubject) => connection?.readRetro(subject));

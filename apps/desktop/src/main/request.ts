@@ -456,6 +456,15 @@ export async function sessionCheckOutputOf(port: number, run: number): Promise<C
 }
 
 /**
+ * Ask a running Session Check to stop: `POST /sessions/checks/:run/stop`, or `/force_stop` for `SIGKILL`.
+ * Fleet holds the ask for the run's own `armada check`, which carries it out; the run then ends as any does.
+ */
+export async function stopSessionCheck(port: number, run: number, force: boolean): Promise<Outcome> {
+  const answer = await ask(port, "POST", `/sessions/checks/${encodeURIComponent(String(run))}/${force ? "force_stop" : "stop"}`);
+  return answer.ok === true ? { ok: true } : answer.outcome;
+}
+
+/**
  * One kept brief, read into the app: `checkOutputOf`'s shape, on
  * `GET /jobs/:job_id/briefs/:name` (protocol 21.11). `name` is the last part of
  * a `brief_path`; Fleet refuses one that would leave the Job's briefs.

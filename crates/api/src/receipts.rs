@@ -53,6 +53,8 @@ enum Set<'a> {
 #[derive(Serialize)]
 struct PlanReceipt<'a> {
     version: u32,
+    /// What the agent does with the tasks below: they are its task list, word for word.
+    task_list: &'static str,
     groups: Vec<GroupReceipt<'a>>,
 }
 
@@ -112,6 +114,7 @@ impl<'a> Receipt<'a> {
     pub(crate) fn plan(record: &'a SessionRecord) -> Self {
         let plan = record.plan.as_ref().map(|plan| PlanReceipt {
             version: plan.version,
+            task_list: ipc::TASK_LIST_IS_THE_PLAN,
             groups: plan
                 .groups
                 .iter()

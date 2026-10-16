@@ -21,7 +21,7 @@ use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served, DOOR_PATH};
 
 /// A receipt for a normal call is well under this, whatever the row weighs.
-const MOST_A_RECEIPT_MAY_WEIGH: usize = 500;
+const MOST_A_RECEIPT_MAY_WEIGH: usize = 600;
 
 fn at() -> Instant {
     Instant::carried("2026-10-13T09:00:00.000Z")
@@ -231,7 +231,7 @@ async fn record_plan_answers_the_version_and_each_id_fleet_gave() {
     assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
     assert_eq!(
         said,
-        r#"{"session_id":"session-1","plan":{"version":2,"groups":[{"id":"g1","title":"Rotate","tasks":[{"id":"t1","title":"Rotate at midnight"}]}]}}"#
+        r#"{"session_id":"session-1","plan":{"version":2,"task_list":"Your task list is this plan: TaskCreate each task word for word, and TaskUpdate it as you work.","groups":[{"id":"g1","title":"Rotate","tasks":[{"id":"t1","title":"Rotate at midnight"}]}]}}"#
     );
 }
 

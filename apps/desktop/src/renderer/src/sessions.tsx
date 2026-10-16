@@ -1124,6 +1124,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             rows={shown}
             {...(session.work?.concerns === undefined || session.work.concerns.length === 0 || draft.work === undefined ? {} : { concerns: session.work.concerns, onSendConcern: (one: string) => draft.work?.sendConcern(session.id, one), onDismissConcern: (one: string) => draft.work?.dismissConcern(session.id, one) })}
             onOpenRetro={openRetro}
+            {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
             {...(session.work?.plan === undefined
@@ -1219,6 +1220,8 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                 const sketches = drawn;
                 const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
                 setDrawn(NO_SKETCHES);
+                // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
+                if (draft.retry !== undefined) return Promise.resolve(true);
                 return done?.then((went) => {
                   if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
                   return went;
@@ -1312,7 +1315,12 @@ export function SessionBox({ session, onOpen, onSend }: { session: Session; onOp
       drawn={[]}
       onDraw={() => onOpen(session.id)}
       onRemoveDrawn={() => undefined}
-      onSend={(sent) => (onSend === undefined ? draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] }) : onSend(sent.text))}
+      onSend={(sent) => {
+        if (onSend !== undefined) return onSend(sent.text);
+        const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
+        // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
+        return draft.retry === undefined ? done : Promise.resolve(true);
+      }}
     />
   );
 }
@@ -1337,6 +1345,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
         <SessionThread
           sessionId={session.id}
           rows={thread}
+          {...(draft.retry === undefined ? {} : { onRetry: (rowId: string) => draft.retry!(session.id, rowId) })}
           {...(runner === undefined ? {} : { runner })}
           {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
           {...(session.asked === undefined

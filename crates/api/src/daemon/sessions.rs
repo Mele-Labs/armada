@@ -148,6 +148,22 @@ pub trait Sessions: Send + Sync + 'static {
         &self,
         run: u64,
     ) -> impl Future<Output = Result<ipc::CheckOutput, Refusal>> + Send;
+    /// `observe_session_check` — one Session run's log as it is written. Resolved before the socket
+    /// opens: [`Refusal::Unacceptable`] for a run no Session kept.
+    fn observe_session_check(
+        &self,
+        run: u64,
+    ) -> impl Future<Output = Result<crate::SessionCheckLive, Refusal>> + Send;
+
+    /// `stop_session_check` and `force_stop_session_check` — a person asks a running Session Check
+    /// to stop: `SIGTERM` to its group, or `SIGKILL` where `force`. Answers the stop now standing.
+    /// [`Refusal::Unacceptable`] for a run that is not running.
+    fn stop_session_check(
+        &self,
+        run: u64,
+        force: bool,
+    ) -> impl Future<Output = Result<ipc::SessionCheckAnswer, Refusal>> + Send;
+
     /// `ask_in_window` — a session asks the person about a place on the page its walk window shows.
     /// `caller` places a hosted session as `show_window`'s does. Answers with the row at once.
     /// [`Refusal::Unacceptable`] for an address on no window the session showed, a blank question

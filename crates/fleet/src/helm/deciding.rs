@@ -27,9 +27,10 @@ pub enum Because {
     PushesToShared,
     /// It writes to something that is not this machine.
     WritesOffMachine,
-    /// A session reaches past its slot into the owner's own files or the
-    /// whole disk. **macOS asks him about those folders on Fleet's behalf**,
-    /// so the card comes first (the owner, 8 Oct 2026, after a `find /`).
+    /// A session writes past its slot into the owner's own files, or reads a
+    /// folder macOS asks him about, his credentials or the whole disk. **macOS
+    /// asks him about those folders on Fleet's behalf** (the owner, 8 Oct 2026,
+    /// after a `find /`); any other read runs (16 Oct 2026).
     ReachesOutside,
     /// Its shape could not be read. **The one reason about this module rather
     /// than about the call**: `eval`, a backtick and a command substitution can
@@ -44,7 +45,7 @@ impl Because {
             Because::Destructive => "it removes or overwrites something",
             Because::PushesToShared => "it sends code where other people read it",
             Because::WritesOffMachine => "it writes to something off this machine",
-            Because::ReachesOutside => "it reaches into your files outside its slot",
+            Because::ReachesOutside => "it writes to your files outside its slot, or reads what macOS guards",
             Because::Unreadable => "what this line does cannot be read from it",
         }
     }
@@ -133,7 +134,12 @@ pub fn because_in_a_session_owning(
     let named = ["file_path", "path"]
         .iter()
         .filter_map(|key| asking.input.get(*key)?.as_str());
-    if named.into_iter().any(reaches_outside) {
+    let reads = matches!(tool, "Read" | "Grep" | "Glob" | "LS");
+    let walks = matches!(tool, "Grep" | "Glob");
+    if named
+        .into_iter()
+        .any(|path| reaches_outside(path) && (!reads || read_refused(path, walks)))
+    {
         return Some(Because::ReachesOutside);
     }
     because(asking)
@@ -180,13 +186,71 @@ pub(super) fn reaches_outside(word: &str) -> bool {
         return false;
     }
     let root = word.trim_end_matches('/');
-    (root.is_empty() && word.starts_with('/'))
+    // Only `/` itself: jq's `//` is an operator, not the disk.
+    word == "/"
         || matches!(root, "/Users" | "/Volumes")
         || word.starts_with('~')
         || word.contains("$HOME")
         || word.contains("${HOME}")
         || word.starts_with("/Users/")
         || word.starts_with("/Volumes/")
+}
+
+/// Folders under the owner's home that macOS puts a privacy prompt in front of, and the ones
+/// holding his credentials. Compared without case, as the disk does.
+const GUARDED: &[&str] = &[
+    "desktop",
+    "documents",
+    "downloads",
+    "pictures",
+    "movies",
+    "music",
+    "library/mobile documents",
+    "library/mail",
+    "library/messages",
+    "library/safari",
+    "library/calendars",
+    "library/application support/addressbook",
+    "library/keychains",
+    ".ssh",
+    ".aws",
+    ".gnupg",
+    ".netrc",
+    ".config/gh",
+];
+
+/// Whether a read of `word`, a path [`reaches_outside`] named, is still refused: a folder
+/// [`GUARDED`] names, another volume, or a search (`walks`) from the root, `/Users` or the
+/// home, which reaches every one of them. **Every other read outside the slots runs** (the
+/// owner, 16 Oct 2026: "reads are fine, writes are the ones we need to be careful of").
+pub(super) fn read_refused(word: &str, walks: bool) -> bool {
+    let word = word.rsplit('=').next().unwrap_or(word);
+    let word = word.trim_matches(|c| c == '\'' || c == '"');
+    if word.to_lowercase().contains("armada") {
+        return false;
+    }
+    if word == "/Volumes" || word.starts_with("/Volumes/") {
+        return true;
+    }
+    let under = ["~", "$HOME", "${HOME}"]
+        .iter()
+        .find_map(|home| word.strip_prefix(home))
+        .map(str::to_string)
+        .or_else(|| {
+            let rest = word.strip_prefix("/Users/")?;
+            Some(rest.find('/').map_or(String::new(), |at| rest[at..].to_string()))
+        });
+    let Some(under) = under else {
+        return walks && matches!(word.trim_end_matches('/'), "" | "/Users");
+    };
+    let under = under.trim_matches('/').to_lowercase();
+    if under.split('/').any(|part| part == "..") {
+        return true;
+    }
+    (walks && under.is_empty())
+        || GUARDED
+            .iter()
+            .any(|guarded| under == *guarded || under.starts_with(&format!("{guarded}/")))
 }
 
 /// The directories of `held` that are slots. Before its first lease a session runs in
@@ -224,6 +288,15 @@ fn in_the_slot(word: &str, slots: &[&str], relative: bool) -> bool {
         return slots.iter().any(below);
     }
     relative && !matches!(word.trim_end_matches('/'), "" | "." | "*") && slots.iter().any(below)
+}
+
+/// Whether a `cd` to `to` lands in one of `slots`, its root included: unlike a
+/// removal, standing at the root of a slot is the slot's own.
+fn cd_stays(to: &str, slots: &[&str]) -> bool {
+    let to = to.trim_matches(|c| c == '\'' || c == '"');
+    !to.is_empty()
+        && !to.contains(['$', '~'])
+        && slots.iter().any(|slot| inside_the_directory(to, slot))
 }
 
 /// Where a session may write and remove besides its slot.
@@ -513,7 +586,7 @@ fn shell_in(line: &str, slots: &[&str], own: Own, reaching: bool) -> Option<Beca
         relative: segments.iter().all(|said| {
             let mut words = said.split_whitespace();
             match words.next() {
-                Some("cd" | "pushd") => words.next().is_some_and(|to| in_the_slot(to, slots, true)),
+                Some("cd" | "pushd") => words.next().is_some_and(|to| cd_stays(to, slots)),
                 Some("popd") => false,
                 _ => true,
             }
@@ -601,7 +674,7 @@ fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
         return Some(Because::Unreadable);
     }
     match program {
-        "git" => return git(&arguments, slot.is_some(), own),
+        "git" => return git(&arguments, slot, own),
         "gh" => return forge(&arguments),
         "curl" | "wget" | "http" => return fetching(&arguments),
         _ => {}
@@ -707,7 +780,7 @@ fn into_a_device(after: &[char]) -> bool {
 
 /// `git`, by its subcommand. **Reading history is not writing it**: `log`,
 /// `status`, `diff`, `show` and `worktree list` run.
-fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
+fn git(arguments: &[&str], slot: Option<Slot>, own: Own) -> Option<Because> {
     // `-C <path>` and `-c <key=value>` carry a value, which is not the verb.
     let mut words = arguments.iter();
     let subcommand = loop {
@@ -720,9 +793,10 @@ fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
     };
     // **A session in its own slot rewrites its own branch unasked**: a reset, a
     // checkout, a rebase or a forced tag there touches nothing but the work it
-    // made (the owner, 8 Oct 2026). Pointed elsewhere with `-C`, it is read as
-    // before; the stash is every worktree's, and a push, a deleted branch and
-    // a pruned repository are everyone's.
+    // made (the owner, 8 Oct 2026). It is in one where it has not `cd`ed out of
+    // its slots, or where `-C` names a slot it holds (16 Oct 2026); pointed
+    // anywhere else it is read as before. The stash is every worktree's, and a
+    // push, a deleted branch and a pruned repository are everyone's.
     const OWN_BRANCH: &[&str] = &[
         "reset",
         "clean",
@@ -735,11 +809,28 @@ fn git(arguments: &[&str], own_slot: bool, own: Own) -> Option<Because> {
         "merge",
         "tag",
     ];
-    let elsewhere = arguments.iter().any(|word| {
-        *word == "-C" || word.starts_with("--git-dir") || word.starts_with("--work-tree")
+    let pointed: Vec<&str> = arguments
+        .windows(2)
+        .filter(|pair| pair[0] == "-C")
+        .map(|pair| pair[1])
+        .collect();
+    let own_slot = slot.is_some_and(|slot| {
+        let held = |path: &str| {
+            let path = path.trim_matches(|c| c == '\'' || c == '"');
+            !path.contains(['$', '~'])
+                && (path.starts_with('/') || slot.relative)
+                && slot.slots.iter().any(|one| inside_the_directory(path, one))
+        };
+        let other_tree = arguments
+            .iter()
+            .any(|word| word.starts_with("--git-dir") || word.starts_with("--work-tree"));
+        !other_tree
+            && match pointed.is_empty() {
+                true => slot.relative,
+                false => pointed.iter().all(|path| held(path)),
+            }
     });
     if own_slot
-        && !elsewhere
         && OWN_BRANCH.contains(subcommand)
         && !(*subcommand == "tag" && arguments.iter().any(|w| matches!(*w, "-d" | "--delete")))
     {

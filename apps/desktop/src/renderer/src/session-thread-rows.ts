@@ -81,6 +81,8 @@ function rowsDrawn(rows: Session["rows"], ledger: readonly SessionAttachment[]):
       ...(row.files === undefined ? {} : { files: row.files }),
       ...(row.sketches === undefined ? {} : { sketches: row.sketches }),
       ...(row.tags === undefined ? {} : { tags: row.tags }),
+      ...(row.delivery === undefined ? {} : { delivery: row.delivery }),
+      ...(row.stableKey === undefined ? {} : { stableKey: row.stableKey }),
     };
   });
 }
