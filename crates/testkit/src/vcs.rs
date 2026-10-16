@@ -712,6 +712,21 @@ impl Delivery for FakeVcs {
         delivery.pulled.clone()
     }
 
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadAnUncommittedChange {
+                in_repo: in_repo.to_string(),
+                path: path.to_string(),
+            });
+        self.delivery
+            .lock()
+            .expect("not poisoned")
+            .uncommitted_change
+            .clone()
+    }
+
     fn manifest_by_pull_request(&self, _in_repo: &str, _file: &str) -> bool {
         self.manifest_goes_by_pull_request()
     }

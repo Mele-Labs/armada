@@ -26,6 +26,11 @@ const CHECKOUT_NOT_HELD: &str = "fleet.checkout_not_held";
 /// branch, commits main lacks, a file main also changed, or nothing uncommitted
 /// to set aside. A 409, and the message names which.
 const CHECKOUT_NOT_CATCHABLE: &str = "fleet.checkout_not_catchable";
+/// A diff asked for a path the hold does not list as uncommitted. A 409: nothing
+/// outside the list is read, whatever the path.
+const CHECKOUT_PATH_NOT_HELD: &str = "fleet.checkout_path_not_held";
+/// git would not print a listed file's change. A 500: the read may go on the next press.
+const CHECKOUT_DIFF_UNREAD: &str = "fleet.checkout_diff_unread";
 
 /// Why the pull `catch_up_checkout` offers cannot be run for this hold, as a
 /// code and a sentence. **The same four conditions Bridge's card names**, read
@@ -173,5 +178,40 @@ where
             code: pulled.code,
             output: pulled.output,
         })
+    }
+
+    /// `checkout_diff`: one uncommitted file of the held checkout, against `HEAD`.
+    ///
+    /// **Only a path the hold lists.** The list is the one Fleet kept at its last
+    /// reading of main, which is the one Bridge drew the card from, so no path
+    /// outside it is read and the press costs no fetch. Reads only, so it takes
+    /// no part in the merge end.
+    pub(crate) async fn checkout_diff_of(&self, ask: ipc::CheckoutDiffAsk) -> Result<ipc::CheckoutDiff, Refusal> {
+        let raised = |code: &'static str, said: String| WireError::raised(code, said, self.run_id());
+        let Some(served) = self.repositories().serving(ask.manifest_id.as_str()) else {
+            return Err(Refusal::Unacceptable(raised(
+                NOT_SERVED,
+                format!("this Fleet does not serve {}", ask.manifest_id.as_str()),
+            )));
+        };
+        let root = served.root().to_string();
+        let held = self.sweeping().lock().await.held_back.get(&root).cloned();
+        let Some(held) = held else {
+            return Err(Refusal::IllegalMove(raised(
+                CHECKOUT_NOT_HELD,
+                String::from("nothing holds the checkout back"),
+            )));
+        };
+        if !held.uncommitted.contains(&ask.path) {
+            return Err(Refusal::IllegalMove(raised(
+                CHECKOUT_PATH_NOT_HELD,
+                format!("`{}` is not among the checkout's uncommitted files", ask.path),
+            )));
+        }
+        let path = ask.path;
+        self.forge_asked(&root, move |vcs: &V, root: &str| vcs.uncommitted_change_of(root, &path))
+            .await
+            .map(|diff| ipc::CheckoutDiff { diff })
+            .map_err(|said| Refusal::Fault(raised(CHECKOUT_DIFF_UNREAD, said)))
     }
 }

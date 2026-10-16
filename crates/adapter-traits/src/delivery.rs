@@ -1126,6 +1126,14 @@ pub trait Delivery {
     /// back is left where git left it** and reported as a non-zero code.
     fn pulled_the_checkout(&self, in_repo: &str) -> CheckoutPulled;
 
+    /// The unified diff of one tracked file's uncommitted change against `HEAD`
+    /// in `in_repo`, as git prints it. **Reads only.** Empty where the file has
+    /// no change; `Err` carries git's own words where it would not run.
+    ///
+    /// The path is taken literally, never as a pathspec, but **what may be asked
+    /// for is the caller's to have limited**: this reads any path it is given.
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String>;
+
     /// Whether an edit to the Manifest at `file` can go out as a pull request:
     /// `in_repo` is a repository with an `origin`, and the file is tracked and
     /// not ignored there. **False sends the edit to the file on disk.**

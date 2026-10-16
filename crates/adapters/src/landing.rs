@@ -506,6 +506,21 @@ pub(crate) fn pulled_the_checkout(in_repo: &str) -> CheckoutPulled {
     }
 }
 
+/// One tracked file's uncommitted change against `HEAD`, as `git diff` prints it.
+/// `--literal-pathspecs`, so a path with pathspec magic in its name is a file name.
+pub(crate) fn uncommitted_change_of(in_repo: &str, path: &str) -> Result<String, String> {
+    let run = run_in(
+        in_repo,
+        "git",
+        &["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "HEAD", "--", path],
+    )
+    .map_err(|why| why.to_string())?;
+    if !run.status.success() {
+        return Err(said(&run));
+    }
+    Ok(String::from_utf8_lossy(&run.stdout).into_owned())
+}
+
 /// The paths `theirs` changed since it and `ours` parted.
 fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::Oid) -> Vec<String> {
     let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();

@@ -5,8 +5,8 @@
 //! land most pull requests now.
 
 use adapter_traits::{CheckoutPulled, HeldBack, RepositoryStanding};
-use api::{Commands, Refusal};
-use ipc::{CatchUpCheckout, ManifestId};
+use api::{Commands, Queries, Refusal};
+use ipc::{CatchUpCheckout, CheckoutDiffAsk, ManifestId};
 
 use crate::tests::main_ci::{a_fleet_over, the_hub, Fixture, MANIFEST, ONE, TWO};
 use crate::tests::tmp::TempDir;
@@ -159,6 +159,8 @@ async fn held_by(home: &TempDir, held: HeldBack) -> Fixture {
         why: String::from("`main` is carrying 1 uncommitted change(s)"),
     });
     vcs.held_back_by(Some(held));
+    // Under another branch Fleet fast-forwards the local base itself where it can; these holds are the ones it could not.
+    vcs.base_fast_forwards(false);
     fleet.turn().await.unwrap();
     assert!(held_back(&fleet).await.is_some(), "the hold was read");
     fleet
@@ -275,4 +277,76 @@ async fn a_repository_this_fleet_does_not_serve_is_refused() {
         other => panic!("{other:?}"),
     }
     assert_eq!(fleet.vcs().times_the_checkout_was_pulled(), 0);
+}
+
+// ------------------------------------------------------- what an uncommitted file holds
+
+fn asking_for(path: &str) -> CheckoutDiffAsk {
+    CheckoutDiffAsk { manifest_id: ManifestId::carried("01FIXTUREMANIFEST"), path: path.to_string() }
+}
+
+#[tokio::test]
+async fn a_path_the_hold_lists_answers_with_its_diff() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.vcs().uncommitted_change_is(Ok(String::from("diff --git a/armada.yml b/armada.yml\n+auto_merge: checks-pass\n")));
+
+    let read = fleet.checkout_diff(asking_for("armada.yml")).await.expect("a listed path is read");
+
+    assert!(read.diff.contains("+auto_merge: checks-pass"));
+    assert_eq!(fleet.vcs().uncommitted_changes_read(), ["armada.yml"]);
+}
+
+/// Nothing outside the list is read, whatever the path says.
+#[tokio::test]
+async fn a_path_the_hold_does_not_list_is_refused_and_git_is_not_asked() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+
+    for path in ["src/other.rs", "../outside", "/etc/passwd", ""] {
+        match fleet.checkout_diff(asking_for(path)).await {
+            Err(Refusal::IllegalMove(why)) => assert_eq!(why.code, "fleet.checkout_path_not_held", "{path:?}"),
+            other => panic!("{path:?}: {other:?}"),
+        }
+    }
+    assert!(fleet.vcs().uncommitted_changes_read().is_empty());
+}
+
+#[tokio::test]
+async fn nothing_is_read_where_no_hold_is_kept() {
+    let home = TempDir::new();
+    let fleet = a_fleet_over(&home, MANIFEST);
+
+    match fleet.checkout_diff(asking_for("armada.yml")).await {
+        Err(Refusal::IllegalMove(why)) => assert_eq!(why.code, "fleet.checkout_not_held"),
+        other => panic!("{other:?}"),
+    }
+    assert!(fleet.vcs().uncommitted_changes_read().is_empty());
+}
+
+#[tokio::test]
+async fn a_diff_git_would_not_print_is_a_fault_with_git_words() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    fleet.vcs().uncommitted_change_is(Err(String::from("fatal: bad revision 'HEAD'")));
+
+    match fleet.checkout_diff(asking_for("armada.yml")).await {
+        Err(Refusal::Fault(why)) => {
+            assert_eq!(why.code, "fleet.checkout_diff_unread");
+            assert!(why.message.contains("bad revision"));
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn a_diff_of_a_repository_this_fleet_does_not_serve_is_refused() {
+    let home = TempDir::new();
+    let fleet = held_by(&home, dirty()).await;
+    let ask = CheckoutDiffAsk { manifest_id: ManifestId::carried("01NOSUCHMANIFEST"), path: String::from("armada.yml") };
+
+    match fleet.checkout_diff(ask).await {
+        Err(Refusal::Unacceptable(why)) => assert_eq!(why.code, "fleet.repository_not_served"),
+        other => panic!("{other:?}"),
+    }
 }

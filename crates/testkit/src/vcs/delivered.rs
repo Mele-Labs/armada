@@ -68,6 +68,8 @@ pub enum Delivered {
     /// person is standing in that a person asked for**, so a test that could
     /// not see it could not tell a press that ran from one that was refused.
     PulledTheCheckout { in_repo: String },
+    /// One file's uncommitted change was read from the served checkout.
+    ReadAnUncommittedChange { in_repo: String, path: String },
     /// The forge was asked to merge a pull request. **The one write to a
     /// repository Fleet did not make**, so a test that could not see it could
     /// not tell a press that merged from one that only moved a Job.

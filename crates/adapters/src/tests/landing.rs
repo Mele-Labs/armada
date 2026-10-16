@@ -13,7 +13,7 @@
 
 use adapter_traits::{HeldBack, Rendering, RepositoryStanding};
 
-use crate::landing::{base_fast_forwarded, caught_up, checkout_has, fields, held_back, pulled_the_checkout, rendering};
+use crate::landing::{base_fast_forwarded, caught_up, checkout_has, fields, held_back, pulled_the_checkout, rendering, uncommitted_change_of};
 use crate::tests::repo::TempRepo;
 
 // ------------------------------------------------------- one line, four fields
@@ -411,6 +411,44 @@ fn a_diverged_checkout_is_refused_by_git_and_left_as_it_was() {
         std::fs::read_to_string(repo.root().join("src/mine.rs")).expect("reads"),
         "and more"
     );
+}
+
+// ------------------------------------------- what an uncommitted file holds
+
+#[test]
+fn an_uncommitted_edit_reads_as_a_unified_diff_against_head() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.write("armada.yml", "version: 1\nauto_merge: checks-pass\n");
+
+    let diff = uncommitted_change_of(&repo.root_str(), "armada.yml").expect("reads");
+
+    assert!(diff.contains("diff --git a/armada.yml b/armada.yml"), "{diff}");
+    assert!(diff.contains("+auto_merge: checks-pass"), "{diff}");
+    assert!(diff.contains("-version: 1") || diff.contains(" version: 1") || diff.contains("@@"), "{diff}");
+}
+
+#[test]
+fn an_unchanged_file_reads_as_an_empty_diff_and_another_files_change_is_not_in_it() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.write("armada.yml", "auto_merge: checks-pass\n");
+
+    assert_eq!(uncommitted_change_of(&repo.root_str(), "src/never-touched.rs").expect("reads"), "");
+}
+
+/// A name that is pathspec magic is a file name here, and matches nothing.
+#[test]
+fn a_path_is_a_literal_file_name_and_never_a_pathspec() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.write("armada.yml", "auto_merge: checks-pass\n");
+
+    for path in [":(top)armada.yml", "*.yml", "arm*"] {
+        assert_eq!(uncommitted_change_of(&repo.root_str(), path).expect("reads"), "", "{path}");
+    }
+}
+
+#[test]
+fn somewhere_that_is_not_a_repository_has_no_change_to_read() {
+    assert!(uncommitted_change_of("/nonexistent/armada/landing", "armada.yml").is_err());
 }
 
 /// **A repository takes every directory it made with it.**

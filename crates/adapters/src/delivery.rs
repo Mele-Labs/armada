@@ -408,6 +408,10 @@ impl Delivery for GitVcs {
         crate::landing::pulled_the_checkout(in_repo)
     }
 
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String> {
+        crate::landing::uncommitted_change_of(in_repo, path)
+    }
+
     fn manifest_by_pull_request(&self, in_repo: &str, file: &str) -> bool {
         crate::manifest_edit::goes_by_pull_request(in_repo, file)
     }

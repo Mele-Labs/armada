@@ -1,5 +1,5 @@
 use crate::{
-    decode, encode, CatchUpCheckout, CheckoutCaughtUp, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
+    decode, encode, CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -318,4 +318,16 @@ fn what_a_pull_came_to_survives_the_wire_with_its_code_and_words() {
         encode(&CheckoutCaughtUp { code: 0, output: "ok".to_string() }).unwrap(),
         r#"{"code":0,"output":"ok"}"#
     );
+}
+
+#[test]
+fn a_checkout_diff_is_asked_by_manifest_and_path_and_answers_with_the_text_unchanged() {
+    let asked = CheckoutDiffAsk { manifest_id: crate::ManifestId::carried("shop"), path: "src/a b.rs".to_string() };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop","path":"src/a b.rs"}"#);
+    let read: CheckoutDiffAsk = decode("a diff ask", encode(&asked).unwrap().as_bytes()).expect("reads");
+    assert_eq!(read, asked);
+
+    let answer = CheckoutDiff { diff: "diff --git a/f b/f\n@@ -1 +1 @@\n-a\n+b \"quoted\"\n".to_string() };
+    let back: CheckoutDiff = decode("a diff", encode(&answer).unwrap().as_bytes()).expect("reads");
+    assert_eq!(back, answer);
 }

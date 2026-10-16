@@ -88,6 +88,23 @@ pub struct CheckoutCaughtUp {
     pub output: String,
 }
 
+/// `checkout_diff`'s query: one uncommitted file of a held checkout. **Only a path
+/// the hold lists** is answered; any other is refused.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutDiffAsk {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+    /// The file, as the hold's `uncommitted` names it: from the repository's root.
+    pub path: String,
+}
+
+/// `checkout_diff`'s answer: the file's change against `HEAD`, as git prints a
+/// unified diff. Empty where the file no longer differs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutDiff {
+    pub diff: String,
+}
+
 /// Who holds main's red on another machine. **No title and no work**: the store
 /// holds neither, and only the machine that holds a claim can say what it is.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

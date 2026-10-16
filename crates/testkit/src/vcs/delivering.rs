@@ -71,6 +71,8 @@ pub struct Delivering {
     /// What the one pull a held checkout is offered comes to. A clean pull by
     /// default.
     pub pulled: CheckoutPulled,
+    /// What reading a file's uncommitted change comes to. A small diff by default.
+    pub uncommitted_change: Result<String, String>,
     /// Whether the local base branch fast-forwards while another is checked out.
     pub base_fast_forwards: bool,
     /// What merging one local branch into another comes to.
@@ -119,6 +121,9 @@ impl Default for Delivering {
                 code: 0,
                 output: String::from("Fast-forward"),
             },
+            uncommitted_change: Ok(String::from(
+                "diff --git a/armada.yml b/armada.yml\n--- a/armada.yml\n+++ b/armada.yml\n@@ -1 +1,2 @@\n version: 1\n+auto_merge: checks-pass\n",
+            )),
             base_fast_forwards: true,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
