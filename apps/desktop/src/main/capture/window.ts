@@ -34,7 +34,7 @@ import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { PageFinder } from "./finder";
-import { StepWalk } from "./stepwalk";
+import { beginsOn, StepWalk } from "./stepwalk";
 import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
 
@@ -747,7 +747,8 @@ export class CaptureWindow {
     // The steps Bridge plays begin on the first load of the shown page: not a sign-in address, and not
     // a provider's page the window passed through, whose words the steps were not written for.
     contents.on("did-finish-load", () => {
-      if (this.stepwalk === null || this.stepsBegun || this.signingIn || !onOrigin(this.pin.origin, contents.getURL())) return;
+      const onShownOrigin = onOrigin(this.pin.origin, contents.getURL());
+      if (this.stepwalk === null || !beginsOn({ begun: this.stepsBegun, signingIn: this.signingIn, onShownOrigin })) return;
       this.stepsBegun = true;
       this.stepwalk.begin();
     });

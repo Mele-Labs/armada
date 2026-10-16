@@ -207,6 +207,15 @@ export function keyEvents(spec: string): Key[] {
   ];
 }
 
+/**
+ * Whether a finished load is the one the steps begin on: the first, of the shown page. **Not a sign-in
+ * address's load, and not a provider's page** the window passed through, which the steps were not written
+ * for and which the finder is asked of no more than the shown origin.
+ */
+export function beginsOn(load: { begun: boolean; signingIn: boolean; onShownOrigin: boolean }): boolean {
+  return !load.begun && !load.signingIn && load.onShownOrigin;
+}
+
 /** What the walk needs of the window around it. */
 export type StepHost = {
   finder: PageFinder;
