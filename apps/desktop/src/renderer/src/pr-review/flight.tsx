@@ -5,12 +5,10 @@
 // The last tile adds one. Mock only: it records the tool and writes no file.
 
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { History, LoaderCircle, RefreshCw, SquarePlus } from "lucide-react";
 import { Button, Checkbox, Dialog, Input, Kbd, PrMark, Radio, RadioGroup, Sheet, Textarea, Tooltip, agoOf, forgetKept } from "@armada/components";
 import { useAtFloor } from "@armada/shell";
 
-import { REVIEW_KEYS, capOf } from "./key-table";
 import { ReviewKeys } from "./keys";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
@@ -24,8 +22,8 @@ const WHOSE = { armada: "Armada's", kit: "the Kit's", repository: "the repositor
 
 const typing = (target: EventTarget | null): boolean => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-/** The tiles, as a block for a Flight control panel to hold. `leave` is the Cockpit's mode tile, drawn last where there is one. */
-export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () => void; icon: ReactNode } }) {
+/** The tiles, as a block for a Flight control panel to hold. */
+export function ReviewTools() {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const pr = reviews.prs.find((one) => one.key === reviews.open);
@@ -56,7 +54,7 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
     return () => window.removeEventListener("keydown", down);
   });
 
-  const count = tools.length + 1 + (leave === undefined ? 0 : 1);
+  const count = tools.length + 1;
   return (
     <>
       <div className="deck-controls__block pr-tools" data-n={count} style={{ "--n": count } as React.CSSProperties}>
@@ -101,17 +99,6 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
             </Kbd>
           </button>
         </Tooltip>
-        {leave === undefined ? null : (
-          <Tooltip label="PR Review" shortcut={capOf(REVIEW_KEYS.mode)} asChild>
-            <button type="button" className="deck-tile" data-mode aria-label="PR Review" aria-pressed={leave.pressed} onClick={leave.press}>
-              {leave.icon}
-              <span className="deck-tile__text">PR Review</span>
-              <Kbd className="deck-tile__key" aria-hidden="true">
-                {capOf(REVIEW_KEYS.mode)}
-              </Kbd>
-            </button>
-          </Tooltip>
-        )}
       </div>
       <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
       <SpendConfirm />
@@ -176,7 +163,7 @@ function SpendConfirm() {
   );
 }
 
-/** Take B's panel: the same tiles under the same band as the Cockpit's Flight control, at the foot of the review surface. */
+/** The Reviews page's panel: the same tiles under the same band as the Cockpit's Flight control, at the foot of the review surface. */
 export function ReviewFlight() {
   return (
     <div className="deck-foot">

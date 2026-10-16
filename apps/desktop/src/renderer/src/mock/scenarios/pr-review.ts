@@ -1,8 +1,7 @@
 // The review surface over the flight deck's ship: five pull requests in two repositories, three that teammates asked his
 // review of (one with threads already) and two that agents of his opened (one held by a Session). Fleet serves none of it
 // yet, so the seed is the mock's (`draft.prReview`, `../pr-review-pages.ts`) and every act is recorded and goes no further.
-// The walks `prReviewMode` and `prReviewTab` play it: the same surface reached from the Cockpit's Flight control, and from
-// a tab of its own.
+// The walk `prReviewTab` plays it: the surface on a tab of its own.
 
 import type { Scenario } from "../moment";
 import { reviewSeed } from "../pr-review-pages";

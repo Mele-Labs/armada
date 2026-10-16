@@ -1,6 +1,5 @@
 // The Reviews page: the review surface in a frame of its own. The list is the left column, the reader the stage
-// and the review tools a Flight control at its foot, in the Cockpit's own grid, so the page and the Cockpit's
-// review mode are one set of parts in two places. Only the way in and the frame differ.
+// and the review tools a Flight control at its foot, in the Cockpit's own grid.
 
 import { useRef } from "react";
 import { DockHandle } from "@armada/components";

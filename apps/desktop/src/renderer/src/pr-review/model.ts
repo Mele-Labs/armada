@@ -84,12 +84,19 @@ export type ToolDef = {
 };
 
 /**
+ * Where a step of How to Test came from. **The author's own directions come first**, in the description. Where there are none, or
+ * they do not cover a changed area, the nearest docs to the changed code: READMEs and agent files (`CLAUDE.md`, `AGENTS.md`) up
+ * the tree from each changed path, and the docs they point to. A doc is named by its path and opens at its address.
+ */
+export type StepSource = { from: "description" } | { from: "doc"; path: string; address: string };
+
+/**
  * What an explanation says, in the shape that kind of explanation has. How it works is the themes view, built from
  * `ReviewPr.explanation`. The rest are these. A kind a repository adds that has no shape of its own is `text`.
  */
 export type Account =
   | { shape: "change"; rows: { what: string; before: string; after: string }[] }
-  | { shape: "steps"; steps: { do: string; look: string; code?: string }[] }
+  | { shape: "steps"; steps: { do: string; look: string; code?: string; from?: StepSource }[] }
   | { shape: "reason"; problem: string; cost: string; links: { label: string; address: string }[] }
   | { shape: "text"; body: string };
 
@@ -216,8 +223,6 @@ export type ReviewSnapshot = {
   finds: readonly Find[];
   /** `key` of the pull request open in the reader. */
   open: string | undefined;
-  /** The Cockpit has swapped into review mode. */
-  mode: boolean;
   /** The Natural Search box is up, in place of the list. */
   searching: boolean;
   /** Asking before anything that spends tokens runs. One setting for all of it, turned off by "Don't ask again". Machine-local. */

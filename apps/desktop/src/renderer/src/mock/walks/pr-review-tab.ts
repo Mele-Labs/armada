@@ -1,5 +1,5 @@
-// Take B of the review surface: a Reviews tab in the title bar's places, with the same three parts as the Cockpit's
-// review mode, so the Cockpit stays on the work. Over the `pr-review` scenario; the other take is `prReviewMode`.
+// The review surface: a Reviews tab in the title bar's places, with the list, the reader and the review tools in the
+// Cockpit's own grid. Over the `pr-review` scenario.
 
 import { theExplanation, theNewTool, theSessionsOwn, theTools, toTheList } from "../pr-review-steps";
 import { place, region, walk } from "../walk";

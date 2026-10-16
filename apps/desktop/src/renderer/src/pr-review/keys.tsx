@@ -13,8 +13,7 @@ import { useEffect } from "react";
 import { isPressed, pressedSlot } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
-import { chooseQuick } from "./explain";
-import { QUICK_KEYS, REVIEW_KEYS } from "./key-table";
+import { REVIEW_KEYS } from "./key-table";
 import { useReviewStore, useReviews, type ReviewStore } from "./store";
 
 const ZONES = [".pr-list", ".pr-reader", ".deck-controls"] as const;
@@ -36,6 +35,9 @@ function focusList(): void {
   (rows.find((one) => one.hasAttribute("data-selected")) ?? rows[0] ?? document.querySelector<HTMLElement>(".pr-list .pr-list__pick button") ?? document.querySelector<HTMLElement>(".pr-list"))?.focus();
 }
 function focusReader(): void {
+  document.querySelector<HTMLElement>(".pr-reader")?.focus();
+}
+function focusBar(): void {
   (document.querySelector<HTMLElement>('.pr-explainer [role="tab"][tabindex="0"]') ?? document.querySelector<HTMLElement>(".pr-reader"))?.focus();
 }
 function focusTools(): void {
@@ -89,13 +91,18 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     event.stopPropagation();
   };
 
-  // Esc backs out a level: the box, a tool's results, a part, the open pull request, the mode.
+  // Esc backs out a level: the box, a tool's results, a part and the open pull request.
   if (isPressed("close", event)) {
-    if (here === undefined && !snap.mode && document.querySelector(".pr-surface") === null) return;
+    if (here === undefined && document.querySelector(".pr-surface") === null) return;
     if (snap.searching) {
       take();
       store.setSearching(false);
       return focusList();
+    }
+    // Esc leaves the quick actions bar for the reader, and only then backs out further.
+    if (target.closest(".pr-explainer") !== null && target.closest('[role="tab"], .pr-asked__words') !== null) {
+      take();
+      return document.querySelector<HTMLElement>(".pr-reader")?.focus();
     }
     if (pr !== undefined && (snap.work[pr.key]?.view ?? "explanation") !== "explanation" && here !== ".pr-list") {
       take();
@@ -109,10 +116,6 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
       take();
       return store.open(undefined);
     }
-    if (snap.mode) {
-      take();
-      return store.setMode(false);
-    }
     return;
   }
 
@@ -121,12 +124,6 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     const at = here === undefined ? -1 : ZONES.indexOf(here);
     const to = ZONES[(at + (event.shiftKey ? -1 : 1) + ZONES.length) % ZONES.length]!;
     return FOCUS[to]();
-  }
-
-  // Leaving the mode is the PR Review tile's key, and it is a toggle: the deck reads the same key to enter.
-  if (event.key === REVIEW_KEYS.mode && event.shiftKey && snap.mode) {
-    take();
-    return store.setMode(false);
   }
 
   // Which part: the same letters the deck uses for the same places.
@@ -142,12 +139,11 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     return store.setSearching(true);
   }
 
-  // The quick actions and the description, for the pull request that is open.
+  // The quick actions bar takes one key, and the description its own, for the pull request that is open.
   if (pr !== undefined) {
-    const quick = Object.entries(QUICK_KEYS).find(([, key]) => key === event.key);
-    if (quick !== undefined) {
+    if (event.key === REVIEW_KEYS.quick) {
       take();
-      return chooseQuick(store, pr, quick[0]);
+      return focusBar();
     }
     if (event.key === REVIEW_KEYS.description) {
       take();
@@ -177,11 +173,23 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   }
 
   if (here === ".pr-reader") {
-    // The strip of quick actions moves focus along it and chooses nothing: a choice that spends asks first.
-    const tab = target.closest('[role="tab"]');
-    if (tab !== null && target.closest(".pr-explainer") !== null && sideways) {
-      take();
-      return step(all('.pr-explainer [role="tab"]'), tab, event.key === "ArrowRight" ? 1 : -1);
+    // **The bar**: its actions, then the questions asked, are one run for j and k and the arrows. ↵ or `o` chooses, and Esc leaves it.
+    const inBar = target.closest(".pr-explainer") !== null && target.closest('[role="tab"], .pr-asked__words') !== null;
+    if (inBar) {
+      const run = all('.pr-explainer [role="tab"], .pr-explainer .pr-asked__words');
+      const at = run.findIndex((one) => one === target.closest('[role="tab"], .pr-asked__words'));
+      const tabs = all('.pr-explainer [role="tab"]');
+      // Left and right stay along the actions (on a question they move between its own buttons, below). Past the last of the run, down goes on to the description.
+      if (vertical || (sideways && at < tabs.length)) {
+        take();
+        const next = vertical ? at + by : Math.min(tabs.length - 1, Math.max(0, at + (event.key === "ArrowRight" ? 1 : -1)));
+        if (next >= run.length) return document.querySelector<HTMLElement>(".pr-desc > header button")?.focus();
+        return run[Math.max(0, next)]?.focus();
+      }
+      if (event.key === "Enter" || event.key === " " || isPressed("open", event)) {
+        take();
+        return target.closest<HTMLElement>('[role="tab"], .pr-asked__words')!.click();
+      }
     }
     // A question's row: its words, Run again, Remove.
     const row = target.closest(".pr-asked__row");
@@ -197,8 +205,8 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     }
     if (vertical) {
       take();
-      // The strip is one stop, held by the tab that takes the Tab key, wherever along it focus is.
-      const from = tab !== null && target.closest(".pr-explainer") !== null ? (document.querySelector('.pr-explainer [role="tab"][tabindex="0"]') ?? target) : target;
+      // A question's own buttons stand for its row.
+      const from = target.closest(".pr-asked__row")?.querySelector<HTMLElement>(".pr-asked__words") ?? target;
       return step(all(STOPS), from, by);
     }
     if (event.key === "Enter" || event.key === " ") {
@@ -219,7 +227,7 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
   if (here === ".deck-controls") {
     if (vertical || sideways) {
       take();
-      const tiles = all(".deck-controls .pr-tool, .deck-controls [data-mode]");
+      const tiles = all(".deck-controls .pr-tool");
       return step(tiles, target, sideways ? (event.key === "ArrowRight" ? 1 : -1) : by);
     }
     if (event.key === "Enter" && target.closest("button") !== null) {

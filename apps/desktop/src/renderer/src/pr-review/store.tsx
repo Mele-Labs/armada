@@ -1,10 +1,9 @@
-// The review surface's state, held outside React so the Cockpit's review mode and the Reviews tab are one
-// thing: what was open, run or drafted is the same whichever door it was reached by, and leaving the mode
-// puts the Cockpit back without touching either. **Built per window from a seed**, as Sessions are, and handed
+// The review surface's state, held outside React so what was open, run or drafted stays as it was when the Reviews
+// tab is left and come back to. **Built per window from a seed**, as Sessions are, and handed
 // down by `ReviewsFrom`. Nothing is served yet, so every act is recorded here and goes no further.
 //
-// **An agent runs only when he presses**: Explain on a pull request nobody of his wrote, and each tool. Both
-// run for this pull request alone, and a result stands until he asks again.
+// **An agent runs only when he presses**, and asks first: a quick action, Ask, a tool, or Natural Search. Each runs for
+// this pull request alone, and a result stands until he asks again.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -40,7 +39,6 @@ export type ReviewStore = {
   rerunFind: (id: string) => void;
   removeFind: (id: string) => void;
   open: (key: string | undefined) => void;
-  setMode: (on: boolean) => void;
   /** Puts the Natural Search box up in place of the list, or takes it down. */
   setSearching: (on: boolean) => void;
   /**
@@ -100,7 +98,6 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     tab: "requested",
     finds: [],
     open: undefined,
-    mode: false,
     searching: false,
     askFirst: true,
     spending: undefined,
@@ -195,7 +192,6 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     },
     removeFind: (id) => set({ finds: snapshot.finds.filter((one) => one.id !== id), tab: snapshot.tab === id ? "requested" : snapshot.tab }),
     open: (open) => set({ open }),
-    setMode: (mode) => set({ mode }),
     setSearching: (searching) => set({ searching }),
     spend: (what, run) => {
       if (!snapshot.askFirst) return run();
@@ -303,7 +299,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, mode: false, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

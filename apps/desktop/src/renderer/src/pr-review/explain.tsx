@@ -4,13 +4,13 @@
 // at once. Explanations are defined in the same three places the tools are, so a repository can add its own.
 
 import { useState } from "react";
-import { Bot, Check, ExternalLink, Eye, History, LoaderCircle, RefreshCw, RotateCw, SquareTerminal, X } from "lucide-react";
-import { Button, Prose, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
+import { Bot, BookOpen, Check, ExternalLink, Eye, FileText, History, LoaderCircle, RefreshCw, RotateCw, SquareTerminal, X } from "lucide-react";
+import { Button, Kbd, Prose, PrMark, Tabs, Textarea, Tooltip, agoOf, forgetKept, sendsOn } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
 import { SOURCE_MARK } from "./marks";
 import type { Account, Asked, ReviewPr, ToolDef } from "./model";
-import { QUICK_KEYS, capOf } from "./key-table";
+import { REVIEW_KEYS, capOf } from "./key-table";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { ThemeBlock } from "./themes";
 import { bySession, onlyExplanations, toolsOf } from "./tools";
@@ -32,10 +32,15 @@ export function QuickActions({ pr }: { pr: ReviewPr }) {
   const kinds = onlyExplanations(toolsOf(reviews, pr.manifestId));
   return (
     <section className="pr-explainer" aria-label="Quick actions">
-      <h3 className="pr-what__title">Quick actions</h3>
+      <h3 className="pr-what__title pr-explainer__title">
+        Quick actions
+        <Tooltip label="Go to the quick actions" shortcut={capOf(REVIEW_KEYS.quick)}>
+          <Kbd>{capOf(REVIEW_KEYS.quick)}</Kbd>
+        </Tooltip>
+      </h3>
       <div className="pr-explainer__pick">
         <Tabs
-          items={[...kinds, { id: ASK, name: "Ask", checks: "Ask about this pull request in your own words" }].map((one) => ({ id: one.id, label: one.name, hint: one.checks, ...(QUICK_KEYS[one.id] === undefined ? {} : { keycap: capOf(QUICK_KEYS[one.id]!) }) }))}
+          items={[...kinds, { id: ASK, name: "Ask", checks: "Ask about this pull request in your own words" }].map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
           value={work.kind ?? ""}
           onChange={(id) => chooseQuick(store, pr, id)}
         />
@@ -278,7 +283,18 @@ function AccountView({ account, onOpenLink }: { account: Account; onOpenLink: (a
           <li key={at} className="pr-steps__step" aria-label={`Step ${at + 1}`}>
             <span className="pr-steps__n mono">{at + 1}</span>
             <div className="pr-steps__body">
-              <p className="pr-steps__do">{step.do}</p>
+              <p className="pr-steps__do">
+                {step.do}
+                {step.from === undefined ? null : step.from.from === "description" ? (
+                  <PrMark Glyph={FileText} said="From the description" />
+                ) : (
+                  <Tooltip label={`From ${step.from.path}`}>
+                    <Button variant="ghost" size="sm" iconOnly aria-label={`Open ${step.from.path}`} onClick={() => onOpenLink(step.from!.from === "doc" ? step.from!.address : "")}>
+                      <BookOpen size={16} strokeWidth={2} aria-hidden />
+                    </Button>
+                  </Tooltip>
+                )}
+              </p>
               {step.code === undefined ? null : <Prose text={`\`\`\`bash\n${step.code}\n\`\`\``} />}
               <p className="pr-steps__look" role="note" aria-label={`Look for: ${step.look}`}>
                 <PrMark Glyph={Eye} said="Look for" />

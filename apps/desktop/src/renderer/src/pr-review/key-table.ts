@@ -8,13 +8,9 @@ export const REVIEW_KEYS = {
   tools: "f",
   lists: "L",
   search: "/",
+  quick: "Q",
   description: "D",
-  mode: "P",
 } as const;
-
-/** The quick actions' keys, by the id of the explanation. A kind someone adds has none. */
-export const QUICK_KEYS: Readonly<Record<string, string>> = { "how-it-works": "h", "for-you": "i", "how-to-test": "z", why: "y", ask: "A" };
 
 /** A key as it is drawn on a cap: a capital is Shift and the letter. */
 export const capOf = (key: string): string => (/^[A-Z]$/.test(key) ? `⇧${key}` : key);
-

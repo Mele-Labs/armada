@@ -25,8 +25,6 @@ import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
 import { useShip } from "./ship";
-import { REVIEW_KEYS } from "../../pr-review/key-table";
-import { useReviewStore, useReviews } from "../../pr-review/store";
 import { useOpenSessionInCockpitAsked } from "../../open-session";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
@@ -103,9 +101,6 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
   const held = useDeck((deck) => deck.held);
   const visited = useDeck((deck) => deck.visited);
   const off = placesOff(hidden, useLayout("rail").all);
-  // The deck's own keys act on the work, which review mode has put away: they wait until it is back.
-  const reviewing = useReviews().mode;
-  const reviews = useReviewStore();
   useEffect(() => setHere(here), [here]);
 
   // An answered call is held out until Fleet stops carrying it, or `holdFor` has passed.
@@ -199,12 +194,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       event.preventDefault();
       return armChord(Object.fromEntries(Object.entries(PAGE_LETTERS).map(([letter, place]) => [letter, () => go(place)])));
     }
-    // ⇧P is the PR Review tile's key: it enters the mode here, and `ReviewKeys` leaves it.
-    if (state.here && !reviewing && reviews !== undefined && event.key === REVIEW_KEYS.mode && event.shiftKey) {
-      event.preventDefault();
-      return reviews.setMode(true);
-    }
-    if (!state.here || reviewing) return;
+    if (!state.here) return;
     if (isPressed("key_sheet", event)) {
       event.preventDefault();
       return setKeySheet(true);
