@@ -7,7 +7,7 @@ import { ShieldCheck, ShieldX } from "lucide-react";
 
 import { Sprite, keyed, onPlane, px, vars } from "./bf-parts";
 import { short } from "./geometry";
-import { FLAT, rand, type P3, type Point, type PrIn, type Territory, type Tile } from "./layout";
+import { FLAT, rand, type Bar, type FileAct, type P3, type Point, type PrIn, type Territory, type Tile } from "./layout";
 import { STAGE_SAID } from "./plays";
 import type { Play } from "./plays";
 import { STAGE } from "./shared";
@@ -210,5 +210,26 @@ export function Payload({ at, from, pr, arriving, fresh, onPress, onTip }: { at:
         </Sprite>
       </div>
     </div>
+  );
+}
+
+/** What is being done to a file, as a tooltip names it. */
+export const FILE_SAID: Record<FileAct | "rest", string> = { write: "Writing", edit: "Editing", remove: "Removing", rest: "File" };
+
+/**
+ * A file as a small bar standing on the plot of its directory, at the plot's height. A file being made, changed or taken away is lit
+ * in the colour of that act; one at rest is plain. A bar taken away fades, and the repository stops listing it.
+ */
+export function FileBar({ bar, height, onTip }: { bar: Bar; height: number; onTip: OnTip }) {
+  const { rect } = bar;
+  const said = FILE_SAID[bar.act ?? "rest"];
+  return (
+    <div
+      className="bf-bar"
+      data-act={bar.act}
+      style={vars({ left: rect.x, top: rect.y * FLAT, width: rect.w, height: rect.h * FLAT, "--h": (height + 10).toFixed(2) })}
+      onMouseEnter={(event) => onTip({ label: said, title: bar.path, hue: "quiet" }, event.currentTarget, { x: event.clientX, y: event.clientY })}
+      onMouseLeave={() => onTip(undefined, undefined)}
+    />
   );
 }

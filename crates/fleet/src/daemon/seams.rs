@@ -100,6 +100,11 @@ where
     /// only` is resolved to a value** — `crate::helm::admitting` is the one
     /// place it is asked, and the brief and the door both follow that answer.
     /// `#943`.
+    /// Whether a Session may follow a workflow: `features.workflows`.
+    pub(crate) fn workflows_on(&self) -> bool {
+        self.tuned(|dials| dials.workflows)
+    }
+
     pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
         self.tuned(|dials| dials.helm_authority)
     }
