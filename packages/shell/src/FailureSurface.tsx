@@ -10,16 +10,20 @@ import {
   Button,
   COPY_DEBUG_INFO,
   copyDebugInfo,
+  debugInfo,
   envelopeOf,
   FailureNotice,
-  FileAnIssue,
+  FILE_AN_ISSUE,
   isPressed,
   NOT_OFFERED,
+  SplitButton,
   Toast,
+  useFileAnIssue,
 } from "@armada/components";
 import type { Filing } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
+import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { CopiedToast, ToastRegion, useCopied } from "./CopiedToast";
 import type { Caught, Failure } from "./failures";
@@ -43,6 +47,15 @@ import { rendererFailure } from "./failures";
  */
 export function copyDebugInfoFor(failure: Failure, onCopied: (what: string) => void): void {
   copyDebugInfo({ ...failure.payload, at: new Date().toISOString() }, onCopied);
+}
+
+/**
+ * The text Copy debug info puts on the clipboard, stamped at the press, for the
+ * act that hands it to a Session instead. One function for the instant, so the
+ * Session is told exactly what a copy would have carried.
+ */
+export function debugInfoFor(failure: Failure): string {
+  return debugInfo({ ...failure.payload, at: new Date().toISOString() });
 }
 
 /**
@@ -84,14 +97,22 @@ export type FailureBlockProps = {
   onDismiss?: () => void;
   /** What a person can do about this one failure, ahead of the acts every failure has. */
   acts?: ReactNode;
+  /**
+   * Starts a Session told the failure's debug info, and resolves to whether it
+   * was started and told. **Absent where the app that owns Sessions cannot be
+   * reached from here**, and the control is not drawn: Copy debug info stays the
+   * way out. A refusal is said by whoever passes this, not here.
+   */
+  onDispatchSession?: (info: string) => Promise<boolean>;
 };
 
 /**
  * One failure, with something to do about it.
  *
- * Ghost controls, because none of them is a decision Armada participates in:
- * reloading redraws a window, and copying puts the machine's own record of the
- * failure onto the clipboard so nobody retypes a stack.
+ * One split control and a ghost Dismiss, because none of the acts is a decision
+ * Armada participates in: reloading redraws a window, and copying puts the
+ * machine's own record of the failure onto the clipboard so nobody retypes a
+ * stack. The split is what keeps the row inside a toast.
  *
  * **Copying and filing are two acts and the second one has a review.** Copying
  * stays on the machine; an issue is public and permanent, so `File an issue`
@@ -111,7 +132,18 @@ export function FailureBlock({
   reloadable = true,
   onDismiss,
   acts,
+  onDispatchSession,
 }: FailureBlockProps) {
+  const [dispatching, setDispatching] = useState(false);
+  const filing = useFileAnIssue({ compose: () => filingFor(failure), onCopied });
+  const dispatch = async () => {
+    if (onDispatchSession === undefined || dispatching) return;
+    setDispatching(true);
+    const done = await onDispatchSession(debugInfoFor(failure));
+    setDispatching(false);
+    // A failure that was not handed on stays up, with Copy debug info beside it.
+    if (done) onDismiss?.();
+  };
   return (
     <FailureNotice
       // The class comes off the failure, which is the only thing that knows
@@ -134,34 +166,37 @@ export function FailureBlock({
       actions={
         <>
           {acts}
-          {reloadable ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              ground="sunken"
+          {/* One split control, because four ghost buttons in a row were wider
+              than a toast. **The face is the act the failure calls for:**
+              handing it to a Session where the app can, and copying it where
+              it cannot. Copy debug info is the face or the first entry, never
+              neither, and every other act is one entry behind the caret. The
+              label is the key map's verb, as it was on its own control, and no
+              glyph is drawn but the caret the split button owns — the error
+              treatment carries none. */}
+          <SplitButton
+            variant="secondary"
+            ground="sunken"
+            size="sm"
+            items={[
+              ...(onDispatchSession === undefined ? [] : [{ label: COPY_DEBUG_INFO, onSelect: () => copyDebugInfoFor(failure, onCopied) }]),
+              // Beside copying, never instead of it. **Copying stays on the
+              // machine and filing leaves it**, so the two are different acts
+              // and only one of them takes a review: this opens it and sends
+              // nothing, and the review is what makes send never one press
+              // from the error.
+              { label: FILE_AN_ISSUE, onSelect: filing.open },
               // Bridge and Fleet have independent lifetimes: this drops a
               // window, not a daemon, and the running jobs never notice.
-              onClick={() => window.location.reload()}
-            >
-              Reload Bridge
-            </Button>
-          ) : null}
-          {/* No glyph and no kbd on the control. The error treatment carries
-              no glyph at all, and a binding is discovered in the palette and
-              the tooltip — the two surfaces the contract gives a kbd to. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            ground="sunken"
-            onClick={() => copyDebugInfoFor(failure, onCopied)}
+              ...(reloadable ? [{ label: "Reload Bridge", onSelect: () => window.location.reload() }] : []),
+            ]}
+            menuLabel="More ways to act on this failure"
+            pending={dispatching}
+            onAction={onDispatchSession === undefined ? () => copyDebugInfoFor(failure, onCopied) : () => void dispatch()}
           >
-            {COPY_DEBUG_INFO}
-          </Button>
-          {/* Beside copying, never instead of it. **Copying stays on the
-              machine and filing leaves it**, so the two are different acts and
-              only one of them takes a review — and the review is what makes
-              send never one press from the error. */}
-          <FileAnIssue compose={() => filingFor(failure)} onCopied={onCopied} />
+            {onDispatchSession === undefined ? COPY_DEBUG_INFO : "Dispatch session"}
+          </SplitButton>
+          {filing.review}
           {onDismiss === undefined ? null : (
             <Button variant="ghost" size="sm" ground="sunken" onClick={onDismiss}>
               Dismiss
@@ -179,6 +214,8 @@ export type FailureToastProps = {
   /** Required: a failure is evidence, so it stays until somebody puts it away. */
   onDismiss: () => void;
   reloadable?: boolean;
+  /** As on `FailureBlock`. A Session started from the toast dismisses it. */
+  onDispatchSession?: (info: string) => Promise<boolean>;
 };
 
 /**
@@ -196,11 +233,17 @@ export type FailureToastProps = {
  * **Esc with focus inside it dismisses it, and nothing else.** A panel open
  * under it keeps its own Esc for every press made outside the toast.
  */
-export function FailureToast({ failure, onCopied, onDismiss, reloadable = false }: FailureToastProps) {
+export function FailureToast({ failure, onCopied, onDismiss, reloadable = false, onDispatchSession }: FailureToastProps) {
   return (
     <div onKeyDown={(event) => escDismisses(event, onDismiss)}>
       <Toast>
-        <FailureBlock failure={failure} onCopied={onCopied} reloadable={reloadable} onDismiss={onDismiss} />
+        <FailureBlock
+          failure={failure}
+          onCopied={onCopied}
+          reloadable={reloadable}
+          onDismiss={onDismiss}
+          {...(onDispatchSession === undefined ? {} : { onDispatchSession })}
+        />
       </Toast>
     </div>
   );
