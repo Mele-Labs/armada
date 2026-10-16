@@ -103,7 +103,7 @@ import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
-import { runnerOf } from "./session-runner";
+import { bangOf, runnerOf } from "./session-runner";
 import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
@@ -1224,6 +1224,12 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
+                // `! command` runs in the Session's directory, in the docked terminal, and is not a message to the agent.
+                const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
+                if (bang !== undefined && terminal !== null) {
+                  terminal.dock.start(bang);
+                  return Promise.resolve(true);
+                }
                 const sketches = drawn;
                 const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
                 setDrawn(NO_SKETCHES);
@@ -1296,39 +1302,50 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
 export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
   const draft = useSessionsDraft();
   const numbered = useNumbered(session.manifestId);
+  // A `! command` typed here runs in a pane of this box's own, as the Session page's does.
+  const runner = draft === undefined ? undefined : runnerOf(draft, session);
+  const dock = useTerminalDock(useCodeRun(runner), session.id);
   if (draft === undefined || session.dead !== undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   return (
-    <SessionComposer
-      modeLocked={session.terminal === true}
-      modeHidden={session.terminal === true && session.mode === undefined}
-      working={session.turn.state === "working"}
-      mode={mode}
-      onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
-      model={session.model ?? null}
-      effort={session.effort ?? null}
-      models={draft.models}
-      {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
-      {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
-      efforts={draft.efforts}
-      onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-      commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
-      compact
-      taggable={[]}
-      {...(numbered === undefined ? {} : { numbered })}
-      tags={session.pendingTags ?? []}
-      draftKey={session.id}
-      onTags={(tags) => draft.setTags(session.id, tags)}
-      drawn={[]}
-      onDraw={() => onOpen(session.id)}
-      onRemoveDrawn={() => undefined}
-      onSend={(sent) => {
-        if (onSend !== undefined) return onSend(sent.text);
-        const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
-        // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
-        return draft.retry === undefined ? done : Promise.resolve(true);
-      }}
-    />
+    <>
+      {draft.terminalRuns === undefined ? null : <DockedTerminal dock={dock} />}
+      <SessionComposer
+        modeLocked={session.terminal === true}
+        modeHidden={session.terminal === true && session.mode === undefined}
+        working={session.turn.state === "working"}
+        mode={mode}
+        onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+        model={session.model ?? null}
+        effort={session.effort ?? null}
+        models={draft.models}
+        {...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel })}
+        {...(session.resolvedModel === undefined ? {} : { resolvedModel: session.resolvedModel })}
+        efforts={draft.efforts}
+        onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+        commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+        compact
+        taggable={[]}
+        {...(numbered === undefined ? {} : { numbered })}
+        tags={session.pendingTags ?? []}
+        draftKey={session.id}
+        onTags={(tags) => draft.setTags(session.id, tags)}
+        drawn={[]}
+        onDraw={() => onOpen(session.id)}
+        onRemoveDrawn={() => undefined}
+        onSend={(sent) => {
+          if (onSend !== undefined) return onSend(sent.text);
+          const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
+          if (bang !== undefined && draft.terminalRuns !== undefined) {
+            dock.start(bang);
+            return Promise.resolve(true);
+          }
+          const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] });
+          // In the thread from now, with a Retry if it did not go: nothing for the box to take back.
+          return draft.retry === undefined ? done : Promise.resolve(true);
+        }}
+      />
+    </>
   );
 }
 
