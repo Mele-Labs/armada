@@ -39,6 +39,8 @@ export function said(outcome: Outcome): string {
       return "A job needs a manifest Fleet holds. Nothing was sent.";
     case "not_connected":
       return "Fleet is not connected. Nothing was sent.";
+    case "not_understood":
+      return "Bridge could not read that request. Nothing was sent.";
     case "not_set_up":
       return "This repository has no Manifest yet. Set it up first. Nothing was sent.";
     case "already_approving":

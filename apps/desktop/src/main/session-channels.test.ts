@@ -29,9 +29,10 @@ describe("answering a session's ask", () => {
     expect(answer).toHaveBeenLastCalledWith(expect.objectContaining({ answer: "always_block", folder: "/Users/user/Documents" }));
   });
 
-  it("sends nothing for a word that is no answer", async () => {
+  it("sends nothing for a word that is no answer, and says so rather than Fleet not connected", async () => {
     const { send, answer } = wired();
-    await send({ session_id: "s", call: "helm-1", answer: "maybe" } as unknown as AnswerSessionAsk);
+    const said = await send({ session_id: "s", call: "helm-1", answer: "maybe" } as unknown as AnswerSessionAsk);
     expect(answer).not.toHaveBeenCalled();
+    expect(said).toEqual({ ok: false, outcome: { ok: false, why: "not_understood" } });
   });
 });

@@ -31,6 +31,9 @@ const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const cells = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65535;
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
+// **A request main cannot read is not a lost connection**: an answer missing from a list here
+// was told to the owner as Fleet not connected, while it was (16 Oct 2026).
+const unread = { ok: false, outcome: { ok: false, why: "not_understood" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
   ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => {
@@ -41,82 +44,82 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked);
   });
   ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
-    text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,
+    text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.exitPilot, (_event, jobId: string, exit: PilotExit, note?: string) =>
-    text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unsent.outcome,
+    text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unread.outcome,
   );
   ipc.handle(CHANNELS.sendSessionMessage, (_event, send: SendSessionMessage) => {
-    if (!text(send?.session_id) || typeof send.text !== "string") return unsent;
+    if (!text(send?.session_id) || typeof send.text !== "string") return unread;
     return connection()?.sessions.send(send) ?? unsent;
   });
   ipc.handle(CHANNELS.answerSessionAsk, (_event, answer: AnswerSessionAsk) => {
-    if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unsent;
+    if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unread;
     return connection()?.sessions.answer(answer) ?? unsent;
   });
   ipc.handle(CHANNELS.answerWaiting, (_event, answer: AnswerWaiting) => {
-    if (!text(answer?.session_id) || !text(answer.item_id)) return unsent;
-    if (answer.mode !== undefined && answer.mode !== "best" && answer.mode !== "quick") return unsent;
+    if (!text(answer?.session_id) || !text(answer.item_id)) return unread;
+    if (answer.mode !== undefined && answer.mode !== "best" && answer.mode !== "quick") return unread;
     return connection()?.sessions.answerWaiting(answer) ?? unsent;
   });
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
-    if (!Number.isInteger(claim?.number) || claim.number < 1) return unsent;
+    if (!Number.isInteger(claim?.number) || claim.number < 1) return unread;
     // Exactly one claimant, as Fleet reads it.
     const to = text(claim.session_id) && !text(claim.job_id) ? { session_id: claim.session_id } : text(claim.job_id) && !text(claim.session_id) ? { job_id: claim.job_id } : undefined;
-    return to === undefined ? unsent : (connection()?.sessions.claimPullRequest({ number: claim.number, ...to }) ?? unsent);
+    return to === undefined ? unread : (connection()?.sessions.claimPullRequest({ number: claim.number, ...to }) ?? unsent);
   });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
-    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;
+    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
     return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
   });
   ipc.handle(CHANNELS.approvePlan, (_event, approve: ApprovePlan) => {
-    if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unsent;
+    if (!text(approve?.session_id) || !Number.isInteger(approve.version) || approve.version < 1) return unread;
     return connection()?.sessions.approvePlan({ session_id: approve.session_id, version: approve.version }) ?? unsent;
   });
   ipc.handle(CHANNELS.sendPlanChanges, (_event, changes: SendPlanChanges) => {
-    if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unsent;
+    if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unread;
     return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
   });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
-    if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;
+    if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unread;
     return connection()?.sessions.rename({ session_id: rename.session_id, title: rename.title.trim() }) ?? unsent;
   });
   ipc.handle(CHANNELS.tuneSession, (_event, tune: TuneSession) => {
-    if (!text(tune?.session_id) || !MODES.includes(tune.mode)) return unsent;
+    if (!text(tune?.session_id) || !MODES.includes(tune.mode)) return unread;
     return connection()?.sessions.tune(tune) ?? unsent;
   });
   ipc.handle(CHANNELS.runSessionCommand, (_event, sessionId: string, command: string) =>
-    text(sessionId) && text(command) ? (connection()?.sessions.runCommand({ session_id: sessionId, command }) ?? unsent) : unsent,
+    text(sessionId) && text(command) ? (connection()?.sessions.runCommand({ session_id: sessionId, command }) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.forkSession, (_event, sessionId: string) =>
-    text(sessionId) ? (connection()?.sessions.fork(sessionId) ?? unsent) : unsent,
+    text(sessionId) ? (connection()?.sessions.fork(sessionId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.forkSessionAt, (_event, sessionId: string, at: string) =>
-    text(sessionId) && text(at) ? (connection()?.sessions.fork(sessionId, at) ?? unsent) : unsent,
+    text(sessionId) && text(at) ? (connection()?.sessions.fork(sessionId, at) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.closeSession, (_event, sessionId: string) =>
-    text(sessionId) ? (connection()?.sessions.end(sessionId) ?? unsent) : unsent,
+    text(sessionId) ? (connection()?.sessions.end(sessionId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.stopSession, (_event, sessionId: string) =>
-    text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unsent,
+    text(sessionId) ? (connection()?.sessions.stop(sessionId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.setSessionWorkflow, (_event, sessionId: string, workflow?: string) =>
-    text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unsent,
+    text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
-    if (!text(sessionId)) return unsent;
+    if (!text(sessionId)) return unread;
     // Each row a kind and a target, or none sent; anything else is not a choice Fleet could read.
     const chosen = Array.isArray(rows) && rows.every((one) => text(one?.kind) && text(one?.target)) ? (rows as ChosenHold[]).map(({ kind, target }) => ({ kind, target })) : undefined;
-    if (rows !== undefined && chosen === undefined) return unsent;
+    if (rows !== undefined && chosen === undefined) return unread;
     return (
       connection()?.sessions.releaseHolds({ session_id: sessionId, ...(text(toSessionId) ? { to_session_id: toSessionId } : {}), ...(chosen === undefined ? {} : { rows: chosen }) }) ?? unsent
     );
   });
   ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
-    text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unsent,
+    text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.retroSession, (_event, sessionId: string) =>
-    text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unsent.outcome,
+    text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unread.outcome,
   );
   ipc.handle(CHANNELS.watchSession, (_event, sessionId: string) =>
     text(sessionId) ? connection()?.sessions.watch(sessionId) : undefined,
@@ -125,13 +128,13 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     text(sessionId) && text(path) ? (connection()?.sessions.openFile(sessionId, path) ?? { ok: false, why: "not_addressable", address: path }) : { ok: false, why: "not_addressable", address: "" },
   );
   ipc.handle(CHANNELS.openSessionWindow, (_event, sessionId: string, url: string) =>
-    text(sessionId) && text(url) ? (connection()?.sessions.openWindow(sessionId, url) ?? unsent.outcome) : unsent.outcome,
+    text(sessionId) && text(url) ? (connection()?.sessions.openWindow(sessionId, url) ?? unsent.outcome) : unread.outcome,
   );
   ipc.handle(CHANNELS.readSessionFile, (_event, sessionId: string, file: string) =>
-    text(sessionId) && text(file) ? (connection()?.sessions.file(sessionId, file) ?? { ok: false, outcome: unsent.outcome }) : { ok: false, outcome: unsent.outcome },
+    text(sessionId) && text(file) ? (connection()?.sessions.file(sessionId, file) ?? { ok: false, outcome: unsent.outcome }) : { ok: false, outcome: unread.outcome },
   );
   ipc.handle(CHANNELS.readSessionSubagent, (_event, sessionId: string, subagentId: string) =>
-    text(sessionId) && text(subagentId) ? (connection()?.sessions.subagent(sessionId, subagentId) ?? unsent) : unsent,
+    text(sessionId) && text(subagentId) ? (connection()?.sessions.subagent(sessionId, subagentId) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readSessionArtifact, (_event, sessionId: string, path: string) =>
     text(sessionId) && text(path) ? (connection()?.sessions.readArtifact(sessionId, path) ?? { ok: false, why: "not_addressable" }) : { ok: false, why: "not_addressable" },
@@ -146,41 +149,41 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.startSessionRun, (_event, sessionId: string, command: string, cols?: number, rows?: number) =>
     text(sessionId) && text(command) && (cols === undefined) === (rows === undefined) && (cols === undefined || (cells(cols) && cells(rows)))
       ? (connection()?.sessions.startRun({ session_id: sessionId, command, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
-      : unsent,
+      : unread,
   );
   ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
-    text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unsent,
+    text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.sendCheckoutAsPullRequest, (_event, manifestId: string) =>
-    text(manifestId) ? (connection()?.sessions.sendCheckoutAsPullRequest({ manifest_id: manifestId }) ?? unsent) : unsent,
+    text(manifestId) ? (connection()?.sessions.sendCheckoutAsPullRequest({ manifest_id: manifestId }) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readCheckoutDiff, (_event, manifestId: string, path: string) =>
-    text(manifestId) && text(path) ? (connection()?.sessions.checkoutDiff(manifestId, path) ?? unsent) : unsent,
+    text(manifestId) && text(path) ? (connection()?.sessions.checkoutDiff(manifestId, path) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.stopSessionRun, (_event, runId: string) =>
-    text(runId) ? (connection()?.sessions.stopRun({ run_id: runId }) ?? unsent) : unsent,
+    text(runId) ? (connection()?.sessions.stopRun({ run_id: runId }) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.writeSessionRun, (_event, runId: string, data: string) =>
-    text(runId) && typeof data === "string" ? (connection()?.sessions.writeRun({ run_id: runId, data }) ?? unsent) : unsent,
+    text(runId) && typeof data === "string" ? (connection()?.sessions.writeRun({ run_id: runId, data }) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.resizeSessionRun, (_event, runId: string, cols: number, rows: number) =>
-    text(runId) && cells(cols) && cells(rows) ? (connection()?.sessions.resizeRun({ run_id: runId, cols, rows }) ?? unsent) : unsent,
+    text(runId) && cells(cols) && cells(rows) ? (connection()?.sessions.resizeRun({ run_id: runId, cols, rows }) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
-    text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
+    text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.pressRepositoryPullRequest, (_event, manifestId: string, number: number, press: PullRequestPress) =>
-    text(manifestId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.pressInRepository(manifestId, number, press) ?? unsent) : unsent,
+    text(manifestId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.pressInRepository(manifestId, number, press) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readPullRequestPage, (_event, sessionId: string, number: number) =>
-    text(sessionId) && Number.isInteger(number) ? (connection()?.sessions.pullRequestPage(sessionId, number) ?? unsent) : unsent,
+    text(sessionId) && Number.isInteger(number) ? (connection()?.sessions.pullRequestPage(sessionId, number) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.readPullRequestFile, (_event, sessionId: string, number: number, path: string) =>
-    text(sessionId) && Number.isInteger(number) && text(path) ? (connection()?.sessions.pullRequestFile(sessionId, number, path) ?? unsent) : unsent,
+    text(sessionId) && Number.isInteger(number) && text(path) ? (connection()?.sessions.pullRequestFile(sessionId, number, path) ?? unsent) : unread,
   );
   ipc.handle(CHANNELS.writePullRequest, (_event, sessionId: string, number: number, write: PullRequestWrite) =>
     text(sessionId) && Number.isInteger(number) && WRITES.includes(write?.kind) && (write.body === undefined || typeof write.body === "string")
       ? (connection()?.sessions.writePullRequest(sessionId, number, write) ?? unsent)
-      : unsent,
+      : unread,
   );
 }
