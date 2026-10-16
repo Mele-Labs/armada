@@ -29,14 +29,13 @@ export function quietSaid(forge: Forge, several: boolean): string | undefined {
   return `GitHub not answering for ${forge.quiet.map((one) => `${one.name} since ${clockOf(one.since)}`).join(", ")}`;
 }
 
-/** `Read 40s ago`, moving as it is looked at. */
+/** `Read 40s ago`, `Read 3m ago`, `Read 2h 05m ago`, from how long ago in ms. */
+export function readSaid(ms: number): string {
+  if (ms < 5000) return "Read just now";
+  return `Read ${ms < 60_000 ? `${Math.floor(ms / 1000)}s` : spanOf(ms)} ago`;
+}
+
+/** The age of the reading, moving as it is looked at. */
 export function ReadAgo({ at }: { at: number }) {
-  return (
-    <Ticking step={5000}>
-      {(now) => {
-        const ms = Math.max(0, now - at);
-        return ms < 5000 ? "Read just now" : `Read ${ms < 60_000 ? `${Math.floor(ms / 1000)}s` : spanOf(ms)} ago`;
-      }}
-    </Ticking>
-  );
+  return <Ticking step={5000}>{(now) => readSaid(Math.max(0, now - at))}</Ticking>;
 }

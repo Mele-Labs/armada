@@ -399,3 +399,20 @@ fn a_checkout_diff_is_asked_by_manifest_and_path_and_answers_with_the_text_uncha
     let back: CheckoutDiff = decode("a cut diff", encode(&short).unwrap().as_bytes()).expect("reads");
     assert_eq!(back, short);
 }
+
+#[test]
+fn how_old_the_hub_is_and_when_the_forge_went_quiet_are_spelled_and_left_out_when_absent() {
+    let line = a_line(Some(MergeLineHub {
+        forge_read_at: Some(Instant::carried("2026-10-16T18:39:00Z")),
+        quiet_since: Some(Instant::carried("2026-10-16T18:40:00Z")),
+        ..a_red_hub()
+    }));
+    let spelled = encode(&line).expect("plain data");
+    assert!(spelled.contains(r#""forge_read_at":"2026-10-16T18:39:00Z""#), "{spelled}");
+    assert!(spelled.contains(r#""quiet_since":"2026-10-16T18:40:00Z""#), "{spelled}");
+    let read: MergeLine = decode("a merge line", spelled.as_bytes()).expect("reads");
+    assert_eq!(read, line);
+
+    let bare = encode(&a_line(Some(a_red_hub()))).expect("plain data");
+    assert!(!bare.contains("forge_read_at") && !bare.contains("quiet_since"), "{bare}");
+}
