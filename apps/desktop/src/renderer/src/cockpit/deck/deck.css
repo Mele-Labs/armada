@@ -134,7 +134,7 @@
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
-.deck-activity { flex: none; height: calc(var(--space-12) * 6); }
+.deck-activity { flex: none; height: var(--deck-activity, calc(var(--space-12) * 6)); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
