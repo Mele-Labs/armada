@@ -154,6 +154,8 @@ export type HubPull = {
   review?: "approved" | "changes_requested" | "review_required" | "none";
   additions?: number;
   deletions?: number;
+  /** A form edit's pull request that waits for a person to merge it. Absent is any other. */
+  mergeByHand?: true;
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */

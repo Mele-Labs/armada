@@ -538,6 +538,12 @@ export type SessionsDraft = {
    */
   runInRepository?: (root: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
   /**
+   * An act on a pull request no Session holds, such as a form edit's (`merge_by_hand`): the repository at `root` is named to
+   * Fleet by its Manifest, which refuses a pull request that is not open or not that repository's. Resolves whether Fleet
+   * took the act. Absent where nothing serves it, and the pull request is drawn without the act.
+   */
+  actInRepository?: (root: string, number: number, act: PullRequestAct) => Promise<boolean>;
+  /**
    * One uncommitted file of a repository's held checkout, read by Fleet when a person opens it from "Your checkout".
    * Fleet refuses a path the hold does not list. Absent where nothing serves it, and the lines are plain text.
    */

@@ -72,9 +72,13 @@ impl Rig {
 
     /// `scripts/restart` has installed the build: the commit, and the tree it came from.
     fn on_file(&self, preview: bool) {
+        self.on_file_at(&self.build, preview);
+    }
+
+    fn on_file_at(&self, commit: &str, preview: bool) {
         let support = self.support();
         fs::create_dir_all(&support).unwrap();
-        fs::write(support.join("restart-commit"), format!("{}\n", self.build)).unwrap();
+        fs::write(support.join("restart-commit"), format!("{commit}\n")).unwrap();
         let _ = fs::remove_file(support.join("restart-source"));
         if preview {
             fs::write(support.join("restart-source"), "/Users/user/armada/.armada/preview\n").unwrap();
@@ -244,20 +248,59 @@ async fn a_session_with_neither_a_branch_nor_a_restart_wait_is_not_told() {
 }
 
 #[tokio::test]
-async fn a_session_that_only_holds_a_branch_is_not_told() {
+async fn a_session_is_told_when_its_branch_enters_the_build_and_not_when_it_stays_put() {
     let rig = a_rig();
     let holding = rig.a_hosted_session().await;
     let elsewhere = rig.a_hosted_session().await;
     rig.holds_branch(&holding, "armada/work").await;
+    rig.holds_branch(&holding, "armada/other").await;
     rig.holds_branch(&elsewhere, "feature/custom-margins").await;
     rig.on_file(true);
 
     rig.fleet.builds_told().await;
 
-    for session in [&holding, &elsewhere] {
-        assert!(rig.thread_of(session).await.is_empty(), "it did not ask: {session}");
-        assert!(!rig.told(session).await);
-    }
+    let short = &rig.build[..7];
+    let said = rig.thread_of(&holding).await;
+    let [said] = said.as_slice() else { panic!("one notice: {said:?}") };
+    assert!(
+        said.contains(&format!("Fleet and Bridge now run the preview at {short}.\narmada/work is in it.")),
+        "{said}"
+    );
+    assert!(!said.contains("armada/other"), "never in, so nothing dropped: {said}");
+    assert!(rig.thread_of(&elsewhere).await.is_empty(), "git cannot place its branch");
+
+    let root = rig.home.path();
+    let rebuilt = commit_on(root, "preview", &rig.build, "another branch merged");
+    rig.on_file_at(&rebuilt, true);
+    rig.fleet.builds_told().await;
+    assert_eq!(rig.thread_of(&holding).await.len(), 1, "its branch is where it was");
+
+    let newer = commit_on(root, "armada/work", &rig.build, "more on work");
+    let rebuilt = commit_on(root, "preview", &newer, "rebuilt with it");
+    rig.on_file_at(&rebuilt, true);
+    rig.fleet.builds_told().await;
+    let said = rig.thread_of(&holding).await;
+    assert_eq!(said.len(), 2, "{said:?}");
+    assert!(said[1].ends_with("\narmada/work is in it."), "{}", said[1]);
+}
+
+#[tokio::test]
+async fn a_session_is_told_when_its_branch_drops_out_of_the_build() {
+    let rig = a_rig();
+    let holding = rig.a_hosted_session().await;
+    rig.holds_branch(&holding, "armada/work").await;
+    rig.on_file(true);
+    rig.fleet.builds_told().await;
+
+    let root = rig.home.path();
+    let base = git(root, &["rev-parse", "main"]);
+    let without = commit_on(root, "preview", &base, "rebuilt without it");
+    rig.on_file_at(&without, true);
+    rig.fleet.builds_told().await;
+
+    let said = rig.thread_of(&holding).await;
+    assert_eq!(said.len(), 2, "{said:?}");
+    assert!(said[1].ends_with("\narmada/work is not in it."), "{}", said[1]);
 }
 
 #[tokio::test]
