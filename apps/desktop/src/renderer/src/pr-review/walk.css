@@ -1,0 +1,55 @@
+/* The Walk tool: where a change runs, found one source at a time, and the walk written from the pull request. Tokens only.
+   Its hue is the one status colour no other review tool takes, and it carries the tile, the head of the results and the
+   left edge of each request, as the other tools' do. */
+
+[data-tool="walk"] { --tool-hue: var(--status-completed-success); }
+
+.pr-walk .pr-change { border-left: var(--space-1) solid var(--tool-hue); }
+.pr-walk .pr-change:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+/* How the place was found: a line per source tried, in the order he chose. */
+.pr-walk__facts { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); }
+.pr-walk__fact { display: flex; min-width: 0; align-items: center; gap: var(--space-2); color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-walk__fact[data-state="found"],
+.pr-walk__fact[data-state="done"] { color: var(--fg-default); }
+.pr-walk__said { min-width: 0; overflow-wrap: anywhere; }
+.pr-walk__code { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); overflow-wrap: anywhere; }
+.pr-walk__fact .pr-walk__code { margin-left: var(--space-2); }
+
+.pr-walk__body { display: flex; flex-direction: column; gap: var(--space-3); }
+.pr-walk__against { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
+
+/* The one act of a card: its button, with the key drawn on it. */
+.pr-walk__ask,
+.pr-walk__card { gap: var(--space-2); }
+.pr-walk__card > .armada-button,
+.pr-walk__ask > .armada-button { align-self: flex-start; }
+.pr-walk .armada-button .armada-kbd { margin-left: var(--space-1); }
+
+/* A step's act, as the walk plays it: the verb, then the thing it is aimed at. */
+.pr-walk__act { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-walk__verb { padding: 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); color: var(--tool-hue); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.pr-walk__target { min-width: 0; overflow-wrap: anywhere; }
+
+/* The walk window, drawn where it opens: its address, the step it is on, and Back and Next. */
+.pr-walk__window { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--tool-hue); border-radius: var(--radius-lg); background: var(--bg-base, var(--bg-sunken)); box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--tool-hue) 25%, transparent); }
+.pr-walk__window-head { display: flex; align-items: center; gap: var(--space-2); color: var(--tool-hue); }
+.pr-walk__window-head .armada-button { margin-left: auto; }
+.pr-walk__window-card { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--bg-raised); box-shadow: inset 0 0 0 var(--border-width) var(--border-subtle); }
+.pr-walk__window-foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* An API walk: a card per request, its body, the response and what to look for. */
+.pr-walk__requests { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-walk__request .pr-change__head { flex-wrap: wrap; }
+.pr-walk__path { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-xs); }
+.pr-walk__json { margin: 0; padding: var(--space-2) var(--space-3); overflow-x: auto; border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.pr-walk__response { display: flex; flex-direction: column; gap: var(--space-1); }
+.pr-walk__status { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
+.pr-walk__ms { color: var(--fg-muted); font-size: var(--text-2xs); }
+
+/* The sheet that asks, and the list of places Armada remembers. */
+.pr-walk-ask__remember { display: flex; align-items: center; gap: var(--space-3); }
+.pr-walk-ask__remember .armada-input-field { flex: 1 1 0; min-width: 0; }
+.pr-walk-places { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-walk-place { border-left-color: var(--status-rejected); }
+.pr-walk-place:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }

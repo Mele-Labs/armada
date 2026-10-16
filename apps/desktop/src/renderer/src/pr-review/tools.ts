@@ -30,6 +30,9 @@ export const SOURCE_SAID = { armada: "Armada's tool", kit: "Your Kit's tool, in 
 /** The tools, which fill the Flight control. */
 export const onlyTools = (defs: readonly ToolDef[]): readonly ToolDef[] => defs.filter((one) => one.kind === "tool");
 
+/** The Walk tool plays the change instead of listing findings, so its body is the walk's and not the results'. */
+export const isWalk = (tool: ToolDef): boolean => tool.mark === "walk";
+
 /** The explanations he can choose under the description. */
 export const onlyExplanations = (defs: readonly ToolDef[]): readonly ToolDef[] => defs.filter((one) => one.kind === "explanation");
 

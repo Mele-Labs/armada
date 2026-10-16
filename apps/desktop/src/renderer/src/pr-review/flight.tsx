@@ -13,7 +13,9 @@ import { ReviewKeys } from "./keys";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { onlyTools, toolsOf } from "./tools";
+import { isWalk, onlyTools, toolsOf } from "./tools";
+import { WalkSheets } from "./walk";
+import { useWalkState, useWalks } from "./walk-store";
 
 /** What a tile says under its glyph, where the tool's name is long. */
 const SHORT: Record<string, string> = { "api-breaking-changes": "API breaks" };
@@ -30,9 +32,13 @@ export function ReviewTools() {
   const work = pr === undefined ? NO_WORK : (reviews.work[pr.key] ?? NO_WORK);
   const tools = onlyTools(toolsOf(reviews, pr?.manifestId));
   const [adding, setAdding] = useState(false);
+  const walks = useWalks();
+  const asking = useWalkState().sheet !== undefined;
 
   const press = (tool: ToolDef) => {
     if (pr === undefined) return;
+    // The Walk finds where the change runs before it spends on writing the walk, so it asks first itself.
+    if (isWalk(tool)) return walks.press(pr, tool);
     const kept = work.runs[tool.id];
     // A kept result opens at once. Only a run that has not happened asks first.
     if (!tool.agent || (kept !== undefined && kept.state !== "idle")) store.runTool(pr.key, tool);
@@ -42,7 +48,7 @@ export function ReviewTools() {
   // The keys 1 to 9 press the tiles, where no box is being typed in.
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing(event.target) || adding) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing(event.target) || adding || asking) return;
       const at = Number(event.key) - 1;
       if (!Number.isInteger(at) || at < 0 || at > 8) return;
       if (at < tools.length) press(tools[at]!);
@@ -102,6 +108,7 @@ export function ReviewTools() {
       </div>
       <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
       <SpendConfirm />
+      <WalkSheets />
       <ReviewKeys />
     </>
   );

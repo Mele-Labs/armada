@@ -5,7 +5,7 @@
 // the body with what it found, and the way back is at its head.
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, GitPullRequest, Signpost, SquareTerminal } from "lucide-react";
 import { Badge, Button, DiffSize, Kbd, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { useSendFindings } from "./acts";
@@ -16,7 +16,9 @@ import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
 import { ToolResults } from "./results";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { toolsOf } from "./tools";
+import { isWalk, toolsOf } from "./tools";
+import { WalkView } from "./walk";
+import { useWalks } from "./walk-store";
 
 const TABS = [
   { id: "explanation", label: "Overview" },
@@ -60,6 +62,7 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
   const send = useSendFindings(pr);
+  const walks = useWalks();
   const state = STATE[pr.draft ? "draft" : "open"];
   const opened = agoOf(pr.page.created_at);
   const tool = toolsOf(reviews, pr.manifestId).find((one) => one.id === work.view);
@@ -86,6 +89,11 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
               </Button>
             </Tooltip>
           )}
+          <Tooltip label="Where changes run" shortcut={capOf(REVIEW_KEYS.where)}>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Where changes run" onClick={() => walks.showPlaces()}>
+              <Signpost size={16} aria-hidden="true" />
+            </Button>
+          </Tooltip>
           <Tooltip label="Open on the forge">
             <Button variant="ghost" size="sm" iconOnly aria-label="Open on the forge" onClick={() => onOpenLink(pr.address)}>
               <ExternalLink size={16} aria-hidden="true" />
@@ -119,7 +127,8 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         {work.view === "checks" ? <PrChecks rows={pr.page.checks} onOpenLink={onOpenLink} /> : null}
         {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
         {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
-        {tool !== undefined && tool.agent ? <ToolResults pr={pr} tool={tool} send={send} /> : null}
+        {tool !== undefined && tool.agent && !isWalk(tool) ? <ToolResults pr={pr} tool={tool} send={send} /> : null}
+        {tool !== undefined && isWalk(tool) ? <WalkView pr={pr} tool={tool} /> : null}
         {work.view === "explanation" ? <Overview pr={pr} send={send} onOpenLink={onOpenLink} /> : null}
       </div>
       <AskComposer pr={pr} />

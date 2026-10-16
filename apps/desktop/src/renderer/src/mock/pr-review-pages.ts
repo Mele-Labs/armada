@@ -617,6 +617,22 @@ const devon = build({
                 "   );",
               ],
             ],
+            [
+              "apps/desktop/src/renderer/src/cockpit/deck/bay-history.test.tsx",
+              [
+                "@@ -12,5 +12,10 @@ describe(\"BayHistoryPane\", () => {",
+                "   it(\"lists a bay's entries\", async () => {",
+                "     const pane = await mountPane(bay);",
+                "     expect(pane.entries()).toHaveLength(3);",
+                "   });",
+                "+",
+                "+  it(\"says where the list was cut\", async () => {",
+                "+    const pane = await mountPane(bay, { cut: true });",
+                "+    expect(pane.note()).toBe(\"Older entries exist\");",
+                "+  });",
+                " });",
+              ],
+            ],
           ],
         },
       ],
@@ -1057,7 +1073,7 @@ const pause = build({
 
 // ---- Found by a find, on neither of his lists ------------------------------------------------------------
 
-const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
+const quick = (spec: { conversation?: PullRequestEntry[]; accounts?: Readonly<Record<string, Account>>; lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
   build({
     repository: "mele-labs/armada",
     manifestId: "armada",
@@ -1071,7 +1087,7 @@ const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: Revi
     body: spec.body,
     checks: "passed",
     review: "none",
-    conversation: [],
+    conversation: spec.conversation ?? [],
     checkRows: checks("mele-labs/armada", spec.number, [
       ["build", "passed", 120],
       ["test · rust", "passed", 230],
@@ -1084,6 +1100,7 @@ const quick = (spec: { accounts?: Readonly<Record<string, Account>>; lists: Revi
   });
 
 const hub = quick({
+  conversation: [{ kind: "comment", author: "preview-bot", at: minutesAgo(280), body: "Preview ready: https://pr-1907.preview.armada.dev\n\nBuilt from the last commit. Taken down when the pull request closes." }],
   lists: ["team"],
   team: "@Mele-Labs/fleet",
   number: 1907,
@@ -1238,6 +1255,7 @@ const armadaTools: ToolDef[] = [
   { id: "bugs", kind: "tool", name: "Possible bugs", source: "armada", mark: "bugs", agent: true, checks: "Behaviour that differs from what the change says it does: an off by one, a case the code skips, a state it never resets." },
   { id: "api-breaking-changes", kind: "tool", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
   { id: "comments", kind: "tool", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
+  { id: "walk", kind: "tool", name: "Walk", source: "armada", mark: "walk", agent: true, checks: "Plays the change where it runs, as a walk in a Bridge window or a sequence of requests, written from the description, How to Test and the themes. Where it runs is read from the pull request, then from what Armada remembers of the area, then asked." },
   { id: "how-it-works", kind: "explanation", name: "How it works", source: "armada", mark: "custom", agent: true, checks: "How the code does what it does: its changes in the order they were made, each with why." },
   { id: "for-you", kind: "explanation", name: "User Impact", source: "armada", mark: "custom", agent: true, checks: "How this changes things for someone who uses it: what they see or can do differently, before and after." },
   { id: "how-to-test", kind: "explanation", name: "How to Test", source: "armada", mark: "custom", agent: true, checks: "The steps to try this change, each with what to look for. Follow the author's own testing directions in the description first. Where there are none, or they do not cover a changed area, use the nearest docs up the tree from each changed path: READMEs, CLAUDE.md and AGENTS.md, and the docs they point to. Say where each step came from." },

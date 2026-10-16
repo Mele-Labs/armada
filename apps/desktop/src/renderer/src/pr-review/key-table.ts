@@ -11,6 +11,7 @@ export const REVIEW_KEYS = {
   quick: "Q",
   ask: "A",
   description: "D",
+  where: "W",
 } as const;
 
 /** A key as it is drawn on a cap: a capital is Shift and the letter. */
