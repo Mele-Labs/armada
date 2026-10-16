@@ -4,12 +4,13 @@
 // or a Session are one thing in both places. Under it is the checkout, while a served repository's is held behind main, and a green
 // main with one has a card too. #2301.
 
-import { FolderGit2 } from "lucide-react";
+import { FolderGit2, Unplug } from "lucide-react";
 import { MainRedBand, Tooltip } from "@armada/components";
 import { recentSessionsOf, type MergeLineView } from "@armada/screens";
 
 import { useFixChoice } from "../../merge-line";
 import { useSessions } from "../../sessions-draft";
+import { ReadAgo, type Forge } from "./forge";
 import { LightCard } from "./LightCard";
 import { checkoutSaid, YourCheckout, type Held } from "./YourCheckout";
 import type { CockpitProps } from "./props";
@@ -55,7 +56,7 @@ function RedBand({ red, props, ship, named, away }: { red: Red; props: CockpitPr
   );
 }
 
-export function MainLight({ props, ship, reds, held, said }: { props: CockpitProps; ship: Ship; reds: readonly Red[]; held: readonly Held[]; said: string }) {
+export function MainLight({ props, ship, reds, held, said, forge, quiet }: { props: CockpitProps; ship: Ship; reds: readonly Red[]; held: readonly Held[]; said: string; forge: Forge; quiet: string | undefined }) {
   const summoned = useDeck((deck) => deck.light === "checkout");
   const mark = held.length === 0 ? undefined : checkoutSaid(held);
   return (
@@ -67,7 +68,14 @@ export function MainLight({ props, ship, reds, held, said }: { props: CockpitPro
       to=".deck-checkout"
       chip={
         <>
-          <span className="deck-chip__dot" data-tone={reds.length > 0 ? "bad" : "calm"} aria-hidden="true" />
+          <span className="deck-chip__dot" data-tone={reds.length > 0 ? "bad" : "calm"} data-stale={quiet !== undefined || undefined} aria-hidden="true" />
+          {quiet === undefined ? null : (
+            <Tooltip label={quiet}>
+              <span className="deck-chip__quiet" role="img" aria-label={quiet}>
+                <Unplug size={12} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
           {mark === undefined ? null : (
             <Tooltip label={mark}>
               <span className="deck-chip__checkout" role="img" aria-label={mark}>
@@ -93,6 +101,18 @@ export function MainLight({ props, ship, reds, held, said }: { props: CockpitPro
           {held.map((one) => (
             <YourCheckout key={one.root} held={one} named={held.length > 1} />
           ))}
+          {/* The light's tooltip stands down while the card is open, so the card says what the tooltip would. */}
+          {forge.readAt === undefined && quiet === undefined ? null : (
+            <div className="deck-main-card__forge">
+              {forge.readAt === undefined ? null : <span><ReadAgo at={forge.readAt} /></span>}
+              {quiet === undefined ? null : (
+                <span className="deck-main-card__quiet">
+                  <Unplug size={12} aria-hidden="true" />
+                  {quiet}
+                </span>
+              )}
+            </div>
+          )}
         </>
       )}
     </LightCard>

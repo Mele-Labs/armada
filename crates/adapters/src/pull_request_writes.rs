@@ -38,6 +38,8 @@ pub(crate) fn arguments<'a>(
                 Some(body),
             ))
         }
+        // Comments cannot ride `pr review`; `write` hands a review to its own module first.
+        PullRequestWrite::Review { .. } => Err("a review with comments is posted as one review".into()),
     }
 }
 
@@ -48,6 +50,22 @@ pub(crate) fn write(
     pull_request: &str,
     write: &PullRequestWrite,
 ) -> Result<(), String> {
+    if let PullRequestWrite::Review {
+        verdict,
+        body,
+        comments,
+        commit,
+    } = write
+    {
+        return crate::pull_request_review::post(
+            in_repo,
+            pull_request,
+            *verdict,
+            body.as_deref(),
+            comments,
+            commit.as_deref(),
+        );
+    }
     let (args, body) = arguments(pull_request, write)?;
     let mut child = Command::new(FORGE)
         .arg("pr")

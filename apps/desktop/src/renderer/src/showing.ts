@@ -25,6 +25,8 @@ export type Open = {
   doctoring?: boolean;
   /** The account's page, reached from the title row's menu and from Settings. */
   accounting?: boolean;
+  /** Reviews: the pull requests waiting on him. */
+  reviewing?: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
@@ -42,6 +44,7 @@ export function showingOf(open: Open): string {
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
   if (open.sessioning) return SURFACE.sessions;
+  if (open.reviewing === true) return SURFACE.reviews;
   if (open.jobbing === true) return SURFACE.jobs;
   if (open.doctoring === true) return SURFACE.doctor;
   return SURFACE.overview;

@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { StateChange } from "./state-change";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
@@ -200,6 +201,7 @@ import type { HelmAim, HelmCarry } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
+import { REVIEWS_CHANNELS, type ReviewsApi } from "./api/reviews";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -263,7 +265,8 @@ type OldBridgeState = {
 
 type OldBridgeApi = {
     state: () => Promise<OldBridgeState>;
-    subscribe: (onState: (state: OldBridgeState) => void) => () => void;
+    subscribeChanges: (onChange: (change: StateChange<OldBridgeState>) => void) => () => void;
+    syncState: () => Promise<StateChange<OldBridgeState>>;
     onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
     proposeFromRequest: (request: string, attachments: readonly StagedAttachment[], repository?: string | null) => Promise<Proposed>;
     stopProposal: () => Promise<Outcome>;
@@ -565,7 +568,7 @@ type OldBridgeApi = {
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
     onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
-} & AutopilotApi & SketchShareApi;
+} & AutopilotApi & SketchShareApi & ReviewsApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -623,6 +626,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
 const OLD_CHANNELS = {
     state: "bridge:state",
     changed: "bridge:changed",
+    syncState: "bridge:sync-state",
     walkFocused: "bridge:walk-focused",
     proposeFromRequest: "bridge:propose-from-request",
     stopProposal: "bridge:stop-proposal",
@@ -919,6 +923,7 @@ const OLD_CHANNELS = {
     sessionRunMessage: "bridge:session-run-message",
     ...AUTOPILOT_CHANNELS,
     ...SKETCH_SHARE_CHANNELS,
+    ...REVIEWS_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

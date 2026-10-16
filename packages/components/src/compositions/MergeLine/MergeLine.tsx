@@ -168,6 +168,10 @@ export type MergeLineHub = {
   recentSessions?: readonly RecentSession[];
   /** The served checkout, where main moved past it and Fleet would not catch it up. Absent while it has main's tip. */
   checkout?: HeldCheckout;
+  /** When Fleet last had every answer it asked the forge for, so the age of everything above. Absent until a visit has. */
+  readAt?: string;
+  /** When the forge stopped answering, while it has not since: what is above is then held from before. Absent while it answers. */
+  quietSince?: string;
 };
 
 export type MergeLineProps = {

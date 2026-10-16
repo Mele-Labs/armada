@@ -46,6 +46,7 @@ import { ACCOUNTS_CHANNELS } from "./api/accounts";
 import { PLAN_USAGE_CHANNELS } from "./api/plan-usage";
 import { MODEL_DOWNSHIFT_CHANNELS } from "./api/model-downshift";
 import { CLASHES_CHANNELS } from "./api/clashes";
+import { REVIEWS_CHANNELS } from "./api/reviews";
 import { TERRITORY_CHANNELS } from "./api/territory";
 import { TIMELINE_CHANNELS } from "./api/timeline";
 import { BAY_HISTORY_CHANNELS } from "./api/bay-history";
@@ -165,6 +166,7 @@ export const CHANNELS = {
   ...PLAN_USAGE_CHANNELS,
   ...MODEL_DOWNSHIFT_CHANNELS,
   ...CLASHES_CHANNELS,
+  ...REVIEWS_CHANNELS,
   ...TERRITORY_CHANNELS,
   ...TIMELINE_CHANNELS,
   ...BAY_HISTORY_CHANNELS,

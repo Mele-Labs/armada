@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { NOTHING_YET, type BridgeState } from "../../../shared/bridge";
+import { stateOf } from "../state-feed";
 import type { WalkSubject } from "./subject";
 import { WalkJob } from "./WalkJob";
 import { WalkSession } from "./WalkSession";
@@ -12,8 +13,9 @@ export function Panel({ subject }: { subject: WalkSubject | null }) {
   const [state, setState] = useState<BridgeState>(NOTHING_YET);
   useEffect(() => {
     let live = true;
-    void window.armada.state().then((read) => live && read !== undefined && setState(read));
-    const off = window.armada.subscribe(setState);
+    const source = stateOf(window.armada);
+    void source.state().then((read) => live && read !== undefined && setState(read));
+    const off = source.subscribe(setState);
     return () => {
       live = false;
       off();

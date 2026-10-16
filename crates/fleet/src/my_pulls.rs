@@ -21,10 +21,16 @@ impl Mine {
         let known: Vec<String> = logins
             .into_iter()
             .flatten()
-            .map(|login| login.trim().to_lowercase())
+            .map(|login| login.trim().to_string())
             .filter(|login| !login.is_empty())
             .collect();
         Mine((!known.is_empty()).then_some(known))
+    }
+
+    /// The first login known, **as the forge wrote it**: the account Armada is signed in as,
+    /// else the forge command line's. Absent where neither is.
+    pub(crate) fn login(&self) -> Option<&str> {
+        self.0.as_ref()?.first().map(String::as_str)
     }
 
     pub(crate) fn owns(&self, author: Option<&str>) -> bool {

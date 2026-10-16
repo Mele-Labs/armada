@@ -425,6 +425,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - **A pull request waits on main only when every check that failed on it also fails on main.** A failure on any other check is its own, and a pull request with no failed check is never waiting.
 - **Main's log opens through `observe_land_check` under the branch `main`**, with the job's Check or name as the check. Fleet asks the forge for that job's log when it is pressed, bounded to its last 256 KiB, and serves it as a finished Check's. Bridge never calls the forge.
 - **Recently landed reads the forge when Fleet serves `hub.merged`**, newest first, and the queue's own outcome files only from a Fleet before 23.42 or where the forge said none. The retired queue's `landed` list is otherwise not drawn.
+- **How old the hub is rides on it as `forge_read_at`, and a forge that has stopped answering as `quiet_since`** (both RFC 3339, `docs/concepts/fleet.md`, *What Fleet knows about main's CI*). Bridge puts the read time in the tooltip of main's chip and, while `quiet_since` is set, marks the chip with a glyph naming the time and draws its dot dimmed, so a green nobody has confirmed does not read as a live one. Neither is a phrase on the row.
 
 ### When main goes red
 

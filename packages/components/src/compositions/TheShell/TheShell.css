@@ -24,7 +24,7 @@
     var(--bg-base);
 }
 
-.armada-shell:has(.armada-shell__dock) {
+.armada-shell[data-dock] {
   background:
     radial-gradient(calc(var(--space-12) * 13 + var(--space-4)) calc(var(--space-12) * 11 - var(--space-2)) at 100% 100%, var(--helm-faint), transparent),
     radial-gradient(calc(var(--space-12) * 16 - var(--space-2)) calc(var(--space-12) * 10) at 0 0, var(--accent-faint), transparent),
@@ -148,7 +148,7 @@
 
 /* The handle supplies its own margin in the gap it now occupies — #1094's
    dock kept the whole 16px as its own left margin because nothing sat in it. */
-.armada-shell__work:has(.armada-dock-handle) .armada-shell__dock {
+.armada-shell__work[data-handle] .armada-shell__dock {
   margin-left: 0;
 }
 

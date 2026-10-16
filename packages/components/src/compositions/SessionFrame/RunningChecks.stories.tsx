@@ -57,7 +57,8 @@ export const ListedAndOpened: Story = {
     await expect(canvas.getByRole("menuitem", { name: "Check app_smoke, running" })).toBeVisible();
 
     await userEvent.click(canvas.getByRole("menuitem", { name: "Check app_smoke, running" }));
-    await expect(args.onOpenCheck).toHaveBeenCalledExactlyOnceWith(33);
+    await expect(args.onOpenCheck).toHaveBeenCalledOnce();
+    await expect(args.onOpenCheck).toHaveBeenCalledWith(33);
     await expect(canvas.queryByRole("menu")).not.toBeInTheDocument();
   },
 };
@@ -80,7 +81,8 @@ export const Walked: Story = {
     await expect(first).toHaveFocus();
 
     await userEvent.keyboard("{ArrowDown}{Enter}");
-    await expect(args.onOpenCheck).toHaveBeenCalledExactlyOnceWith(33);
+    await expect(args.onOpenCheck).toHaveBeenCalledOnce();
+    await expect(args.onOpenCheck).toHaveBeenCalledWith(33);
   },
 };
 

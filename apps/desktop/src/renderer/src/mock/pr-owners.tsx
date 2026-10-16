@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { PrOwnerRegistryProvider } from "@armada/components";
 import type { PrOwnerRegistry } from "@armada/components";
 
+import { stateOf } from "../state-feed";
 import type { MockDraft } from "./moment";
 
 function Held({ owners, children }: { owners: NonNullable<MockDraft["prOwners"]>; children: ReactNode }) {
@@ -16,8 +17,9 @@ function Held({ owners, children }: { owners: NonNullable<MockDraft["prOwners"]>
   // The switch is the open Manifest's, so it follows the repository the window has picked.
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => {
-    void window.armada.state().then((state) => setPicked(state.repository));
-    return window.armada.subscribe((state) => setPicked(state.repository));
+    const source = stateOf(window.armada);
+    void source.state().then((state) => setPicked(state.repository));
+    return source.subscribe((state) => setPicked(state.repository));
   }, []);
 
   const value = useMemo<PrOwnerRegistry>(

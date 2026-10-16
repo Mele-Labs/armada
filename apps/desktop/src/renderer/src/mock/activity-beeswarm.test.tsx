@@ -28,3 +28,16 @@ test("a dot's card names its events, and pressing it picks its event and rings i
   await userEvent.click(page.elementLocator(dot));
   await expect.poll(() => dots().filter((one) => one.hasAttribute("data-lit"))).toEqual([dot]);
 });
+
+test("the arrow keys step along the dots, and no dot carries its place as an attribute that every event would rewrite", async () => {
+  mount("activity-beeswarm");
+  await onScreen();
+  await expect.poll(() => dots().length).toBeGreaterThan(20);
+  expect(dots().filter((one) => one.hasAttribute("data-i"))).toHaveLength(0);
+  const last = dots().at(-1)!;
+  last.focus();
+  await userEvent.keyboard("{ArrowLeft}");
+  expect(document.activeElement).toBe(dots().at(-2));
+  await userEvent.keyboard("{ArrowRight}");
+  expect(document.activeElement).toBe(last);
+});

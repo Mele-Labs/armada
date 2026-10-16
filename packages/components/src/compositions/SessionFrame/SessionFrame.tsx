@@ -12,6 +12,7 @@ import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownM
 import { ContextFigure, type ContextFill } from "./ContextFigure";
 import { FreshNudge, type FreshStart } from "./FreshNudge";
 import { RunningChecks, type RunningCheck } from "./RunningChecks";
+import { useMarking, type Mark } from "../../marking";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -200,10 +201,14 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
+const DOCKED: readonly Mark[] = [{ of: ".armada-shell", as: "data-dock" }];
+
 export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, checks, onOpenCheck, context, fresh, repository, actions, menu, back, aside, children }: SessionFrameProps) {
   const named = address ?? id;
+  // The aside wears the dock's class, and the shell's glow follows it (`TheShell.css`).
+  const docked = useMarking(DOCKED);
   return (
-    <div className="armada-session-panels">
+    <div ref={aside === undefined || aside === null ? undefined : docked} className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${named}`}>
       <header className="armada-session-frame__head">
         <span className="armada-session-frame__state">{state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={`${said} · ${named}`} />}</span>
