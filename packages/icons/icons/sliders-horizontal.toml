@@ -1,0 +1,7 @@
+[icons.sliders-horizontal]
+  means = "Three horizontal tracks, each with a knob — the System tab, the pages that set this machine up"
+  group = "Navigation"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The System tab in the title row only, drawn where the row has no room for the word. Never the Settings surface, which is `settings`, and never Kit, which is `briefcase`."
+  notes = "Proposed 15 Oct 2026 for the walk `places-narrow`. The places collapse to their glyphs on a narrow window, and System, which opens Kit, Mods, Settings, Guides and Workflows, had no surface of its own to take one from. Refused: `settings`, reserved to the Settings surface; `wrench`, reserved to awaiting repair; `cpu`, `server`, `laptop` and `monitor`, which name a machine or a resource rather than the pages about it; `layout-grid` and `panels-top-left`, reserved to the Dashboard grid and a layout mod."

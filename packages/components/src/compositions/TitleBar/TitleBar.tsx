@@ -1,5 +1,5 @@
 import { BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -242,6 +242,45 @@ export type TitleBarProps = {
   };
 };
 
+const PlacesRoom = createContext<number | undefined>(undefined);
+
+/**
+ * The width the places have in the row: what is left once the two sides and the search trigger are drawn. Read by
+ * the places to choose what fits, so the strip stays on one line. `undefined` outside a title bar and before the
+ * first measure.
+ */
+export function usePlacesRoom(): number | undefined {
+  return useContext(PlacesRoom);
+}
+
+/** The sides are `max-content` and never give way (`TitleBar.css`), so the room is the row less them, the gaps and the trigger. */
+function useRoomForPlaces(on: boolean) {
+  const bar = useRef<HTMLDivElement>(null);
+  const start = useRef<HTMLDivElement>(null);
+  const center = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLButtonElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState<number>();
+  useLayoutEffect(() => {
+    const row = bar.current;
+    if (!on || row === null) return;
+    const measure = () => {
+      const style = getComputedStyle(row);
+      const inner = row.clientWidth - parseFloat(style.paddingInlineStart) - parseFloat(style.paddingInlineEnd);
+      const gap = parseFloat(style.columnGap) || 0;
+      const width = (part: HTMLElement | null) => part?.getBoundingClientRect().width ?? 0;
+      const trigger = width(search.current);
+      const between = center.current === null ? 0 : parseFloat(getComputedStyle(center.current).columnGap) || 0;
+      setRoom(Math.floor(inner - 2 * gap - width(start.current) - width(end.current) - (trigger > 0 ? trigger + between : 0)));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    for (const part of [row, start.current, search.current, end.current]) if (part !== null) watch.observe(part);
+    return () => watch.disconnect();
+  }, [on]);
+  return { bar, start, center, search, end, room };
+}
+
 export function TitleBar({
   repositoryPicker,
   repository,
@@ -261,9 +300,10 @@ export function TitleBar({
   // The palette's key as this person bound it in Settings → Keyboard, redrawn when they rebind it.
   useKeyBindings();
   const searchKey = keyFor("command_palette");
+  const parts = useRoomForPlaces(places !== undefined);
   return (
-    <div className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
-      <div className="armada-title-bar__start">
+    <div ref={parts.bar} className="armada-title-bar" data-places={places === undefined ? undefined : ""}>
+      <div ref={parts.start} className="armada-title-bar__start">
         {wordmark === undefined ? null : <div className="armada-title-bar__wordmark">{wordmark}</div>}
         {repository === undefined ? null : (
           // `title`, not `Tooltip`: its bubble sits inside its anchor, and the anchor clips to cut the name.
@@ -276,10 +316,15 @@ export function TitleBar({
         )}
       </div>
 
-      <div className="armada-title-bar__center">
-        {places === undefined ? null : <div className="armada-title-bar__places">{places}</div>}
+      <div ref={parts.center} className="armada-title-bar__center">
+        {places === undefined ? null : (
+          <div className="armada-title-bar__places">
+            <PlacesRoom.Provider value={parts.room}>{places}</PlacesRoom.Provider>
+          </div>
+        )}
         {onSearch === undefined ? null : (
           <button
+            ref={parts.search}
             type="button"
             className="armada-title-bar__search"
             onClick={onSearch}
@@ -292,7 +337,7 @@ export function TitleBar({
         )}
       </div>
 
-      <div className="armada-title-bar__end">
+      <div ref={parts.end} className="armada-title-bar__end">
         {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
 
         {helm === undefined ? null : (
