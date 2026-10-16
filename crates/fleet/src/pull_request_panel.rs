@@ -9,14 +9,16 @@
 //! every Session's `pr` row follows it.
 
 use adapter_traits::{
-    AgentHarness, CheckStanding, Delivery, FileChange, FilePatch, Mergeability, PullRequestPageFacts,
-    PullRequestWrite, ReviewSaid, ReviewStanding, Said, Vcs, WorkProduct,
+    AgentHarness, CheckStanding, Delivery, DiffSide as FactSide, FileChange, FilePatch, Mergeability,
+    PullRequestPageFacts, PullRequestWrite, ReviewComment as FactComment, ReviewSaid, ReviewStanding,
+    Said, Vcs, WorkProduct,
 };
 use api::{PullRequestPanel, Refusal};
 use ipc::{
-    ManifestId, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
+    DiffSide, ManifestId, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
     PullRequestFile, PullRequestFilePatch, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
-    PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, WritePullRequest,
+    PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, PullReviewComment, PullReviewThread,
+    PullReviewThreadComment, PullReviewLists, PullThreadResolved, ResolvePullThread, WritePullRequest,
 };
 
 use crate::daemon::Fleet;
@@ -31,9 +33,22 @@ const FILE_UNKNOWN: &str = "fleet.pull_request_file_unknown";
 /// What a file says where the forge sent no patch for it.
 const NO_PATCH: &str = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
 
-/// The write a request makes, or why it cannot be made.
+/// The write a request makes, or why it cannot be made. **With comments it is one review and a
+/// body may be empty for all three kinds**: the comments are what it says.
 fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> {
     let body = write.body.clone().filter(|body| !body.trim().is_empty());
+    if !write.comments.is_empty() {
+        return Ok(PullRequestWrite::Review {
+            verdict: match write.kind {
+                PullRequestWriteKind::Comment => ReviewSaid::Commented,
+                PullRequestWriteKind::Approve => ReviewSaid::Approved,
+                PullRequestWriteKind::RequestChanges => ReviewSaid::ChangesRequested,
+            },
+            body,
+            comments: write.comments.iter().map(comment_of).collect(),
+            commit: write.commit.clone().filter(|commit| !commit.trim().is_empty()),
+        });
+    }
     match write.kind {
         PullRequestWriteKind::Comment => body
             .map(|body| PullRequestWrite::Comment { body })
@@ -42,6 +57,36 @@ fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> 
         PullRequestWriteKind::RequestChanges => body
             .map(|body| PullRequestWrite::RequestChanges { body })
             .ok_or("a request for changes needs a reason"),
+    }
+}
+
+fn side_of(side: DiffSide) -> FactSide {
+    match side {
+        DiffSide::Left => FactSide::Left,
+        DiffSide::Right => FactSide::Right,
+    }
+}
+
+fn comment_of(comment: &PullReviewComment) -> FactComment {
+    match comment.clone() {
+        PullReviewComment::Line { path, line, side, body } => FactComment::Line {
+            path,
+            line,
+            side: side_of(side),
+            body,
+        },
+        PullReviewComment::File { path, body } => FactComment::File { path, body },
+        PullReviewComment::Reply { thread, body } => FactComment::Reply { thread, body },
+    }
+}
+
+/// What the reviews have come to, in the wire's words.
+pub(crate) fn review_state(review: ReviewStanding) -> PullRequestReviewState {
+    match review {
+        ReviewStanding::Approved => PullRequestReviewState::Approved,
+        ReviewStanding::ChangesRequested => PullRequestReviewState::ChangesRequested,
+        ReviewStanding::Required => PullRequestReviewState::Required,
+        ReviewStanding::None => PullRequestReviewState::None,
     }
 }
 
@@ -60,12 +105,7 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
             Mergeability::Conflicting => PullRequestMergeable::Conflicting,
             Mergeability::Unknown => PullRequestMergeable::Unknown,
         },
-        review: match facts.review {
-            ReviewStanding::Approved => PullRequestReviewState::Approved,
-            ReviewStanding::ChangesRequested => PullRequestReviewState::ChangesRequested,
-            ReviewStanding::Required => PullRequestReviewState::Required,
-            ReviewStanding::None => PullRequestReviewState::None,
-        },
+        review: review_state(facts.review),
         approvals: facts.approvals,
         conversation: facts
             .conversation
@@ -127,6 +167,32 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
                 headline: commit.headline,
                 author: commit.author,
                 at: commit.at,
+            })
+            .collect(),
+        head: facts.head,
+        body: facts.body,
+        threads: facts
+            .threads
+            .into_iter()
+            .map(|thread| PullReviewThread {
+                id: thread.id,
+                path: thread.path,
+                line: thread.line,
+                side: match thread.side {
+                    FactSide::Left => DiffSide::Left,
+                    FactSide::Right => DiffSide::Right,
+                },
+                resolved: thread.resolved,
+                comments: thread
+                    .comments
+                    .into_iter()
+                    .map(|said| PullReviewThreadComment {
+                        id: said.id,
+                        author: said.author,
+                        at: said.at,
+                        body: said.body,
+                    })
+                    .collect(),
             })
             .collect(),
         owner: None,
@@ -276,5 +342,18 @@ where
             self.ledger_follows(&state).await;
         }
         self.page_with_owner(&manifest_id, root, number).await
+    }
+
+    async fn get_review_lists(&self) -> Result<PullReviewLists, Refusal> {
+        self.review_lists_read().await
+    }
+
+    async fn resolve_review_thread(
+        &self,
+        manifest_id: ManifestId,
+        resolve: ResolvePullThread,
+    ) -> Result<PullThreadResolved, Refusal> {
+        let served = self.served_named(Some(&manifest_id))?;
+        self.review_thread_resolved(served.root(), resolve)
     }
 }

@@ -300,6 +300,7 @@ mod pull_registry;
 /// What a pull request's panel reads when it opens, and its comment box writes.
 /// Since 23.83.
 mod pull_request_panel;
+mod pull_review_lists;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;
