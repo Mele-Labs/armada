@@ -426,8 +426,10 @@ export type SessionsDraft = {
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
    * **A promise on a real Fleet**, which names the Session; one that could not start says why in `said`.
    * `root` is the repository it starts in; absent, the picked one, or the only one Fleet serves.
+   * `request` is the words the person dispatched with: Fleet reads them once to fill in the title, workflow,
+   * model and effort, and the Session starts on the answer without the press waiting for it.
    */
-  start: (tag?: SessionTag, root?: string) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string) => string | Promise<string | undefined>;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
   /**

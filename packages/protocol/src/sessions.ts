@@ -111,6 +111,27 @@ export type SessionRecord = {
    * done nothing Fleet observed. See `session-build.ts`.
    */
   build?: SessionBuild;
+  /**
+   * The workflow id the Session runs under. Absent is a custom Session, which is not a default workflow.
+   * Hosted Sessions only. Since 23.91.
+   */
+  workflow?: string;
+  /** What the proposer did for this Session. Absent where it was never asked. Since 23.91. */
+  proposal?: SessionProposal;
+};
+
+/** A value of a Session the proposer can pick. */
+export type ProposedField = "title" | "workflow" | "model" | "effort";
+
+/**
+ * The proposer's part in a Session, per field. A field in `picked` is one the proposer chose and nobody has
+ * changed since, so it is marked "Picked by the proposer"; the person changing it in a panel takes it out.
+ * `reading` is the call being out: the Session exists and its process starts on the answer. In memory in
+ * Fleet, so a Fleet that restarts reads nothing as reading. Since 23.91.
+ */
+export type SessionProposal = {
+  reading?: boolean;
+  picked?: ProposedField[];
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
