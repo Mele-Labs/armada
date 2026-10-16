@@ -135,8 +135,10 @@
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
-/* Activity and Incoming calls on the left rest at the same share of their columns, which are the same height, so their edges line up. */
-.deck-activity { flex: 0 1 40%; min-height: calc(var(--space-12) * 3); }
+/* Activity and Incoming calls rest at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so their edges
+   line up with the middle's. They give way, never overlap, when the column is shorter. */
+.deck-activity,
+.deck-incoming { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
@@ -476,7 +478,6 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   .deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 60%; animation: none; }
 }
 
-.deck-incoming { flex: 2 1 0; }
 .deck-bays,
 .deck-ledger { flex: 3 1 0; }
 /* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */

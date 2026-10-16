@@ -5,7 +5,7 @@
 // the body and the keys are one thing. The stage at rest is the map (the battlefield) or the timeline, one switch. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
@@ -157,6 +157,30 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
       </ul>
     </section>
   );
+}
+
+/**
+ * Activity and Incoming calls stand as tall as the merge queue and the flight controls beside them: from the queue's top to the foot's
+ * bottom. Each is in a side column, so the height is set on the grid and both read it. A size he has dragged to takes over from it.
+ */
+function useActivityBeside(grid: RefObject<HTMLDivElement | null>, layout: string) {
+  useEffect(() => {
+    const root = grid.current;
+    if (root === null || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => measure());
+    const measure = () => {
+      const queue = root.querySelector<HTMLElement>(".deck-queue");
+      const foot = root.querySelector<HTMLElement>(".deck-foot");
+      if (queue === null || foot === null) return;
+      // The queue is redrawn when the repository changes, so the one on screen is watched each time.
+      watch.observe(queue);
+      const height = foot.getBoundingClientRect().bottom - queue.getBoundingClientRect().top;
+      if (height > 0) root.style.setProperty("--deck-activity", `${Math.round(height)}px`);
+    };
+    for (const one of root.querySelectorAll(".deck-centre, .deck-foot, .deck-stage > *")) watch.observe(one);
+    measure();
+    return () => watch.disconnect();
+  }, [grid, layout]);
 }
 
 /**
@@ -747,6 +771,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const layout = unified ? "session" : reading ? "reading" : "idle";
   const { columns, resize, reset } = useColumns(grid, layout);
   const splits = useSplits(grid, layout);
+  useActivityBeside(grid, layout);
   // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
   const building = reading && selected !== undefined ? builds.get(selected) : undefined;
