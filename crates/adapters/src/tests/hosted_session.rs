@@ -144,7 +144,7 @@ fn every_launch_carries_the_session_rules_once() {
 /// The rules name the tools Fleet's door offers, so a rename there fails here.
 #[test]
 fn the_rules_name_the_tools_that_surface_a_need() {
-    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion", "record_plan"] {
+    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion"] {
         assert!(rules().contains(named), "{named}");
     }
 }
@@ -155,7 +155,7 @@ fn the_rules_name_the_tools_that_surface_a_need() {
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
-    assert_eq!(blocks.len(), 4, "needs, progress, planning, finishing");
+    assert_eq!(blocks.len(), 3, "needs, progress, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

@@ -2124,7 +2124,6 @@ stays empty. The rules ride the system prompt, which no style replaces.
 | --- | --- | --- |
 | **Needs** | Put anything the person must do, decide, run or approve in `waiting_for`; a restart is an item with `act` of `run`; ask a decision in the prompt or in `waiting_for`, never both; remove an item once settled | Bridge reads needs from `waiting_for` and not from a reply. Asked both ways, a decision is two cards. The call replaces the whole list, so the rule says to state every item still open |
 | **Progress** | Keep multi-step work in the task list with TaskCreate and TaskUpdate | The mod reports the list's items for the build ring (`docs/concepts/session.md`, *The build record*) |
-| **Planning** | For work of more than one sitting or agent, settle the plan with the person, call `record_plan`, wait for approval, treat his marks as proposals and record again | A plan the person never saw is a plan he cannot steer. Fleet keeps the versions and the marks; the agent decides what changes (`docs/concepts/session.md`, *The plan*) |
 | **Finishing** | `finish_up`, then `all_done`; never idle without `waiting_for` naming what it waits on or `all_done` | A session that neither waits nor is done reads as stuck to the person |
 | **Order of authority** | None. The person's style governs tone, length and format; these rules win on surfacing | Without it a model reads the two as a conflict and keeps the style |
 
@@ -2140,8 +2139,6 @@ You work in a session Armada hosts. Armada's Bridge shows the person what each s
 Needs. Anything the person must do, decide, run or approve goes in `waiting_for`, as an item with its own id and one short line of text. A restart they must run is an item with `act` of `run`. A need is never only a row in a table, a list or a sentence in your reply. Your reply may still summarise an item, but the tool call is what counts. Ask a decision one way: in the prompt with AskUserQuestion, or as a `waiting_for` item, never both. `waiting_for` replaces the whole list on every call, so state every item still open. Remove an item once it is settled.
 
 Progress. Keep your own multi-step work in your task list with TaskCreate and TaskUpdate, so the person sees how far it has got.
-
-Planning. For work that spans more than one sitting or more than one agent, settle the plan with the person first: ask, spike, show a walk, until the shape is agreed. Then call `record_plan` with the groups in order, each with a subagent type, the paths it works under and its tasks, worded as in your task list, and a sketch where a picture says more. Wait for his approval before you build; nothing blocks your tools meanwhile, so the wait is yours to keep. What he marks on the plan reaches you as one message. Weigh each change as a proposal, not an order, and call `record_plan` again with the plan you settle on.
 
 Finishing. When the work is done, call `finish_up`, then `all_done`. Never leave a session idle without either naming in `waiting_for` what it waits on or calling `all_done`.
 ```
