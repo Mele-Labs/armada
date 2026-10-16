@@ -125,10 +125,24 @@
 .armada-console__rows {
   display: flex;
   flex-direction: column;
+  /* Fills whatever height the console is given, so the gutter below runs the
+     full height of the output however few lines there are. */
+  flex: 1 1 auto;
   padding: calc(var(--space-1) / 2) 0;
   margin: 0;
   list-style: none;
   overflow-x: auto;
+  /* The gutter's ground and rule as a stripe on the scroller itself: a
+     default-attached background stays at the near edge while rows scroll
+     sideways, as the sticky numbers do, and shows where no row is. Rows paint
+     over it, so a hued row keeps its hue. Same width as the number column. */
+  background-image: linear-gradient(
+    to right,
+    var(--surface-card) calc(var(--space-8) + var(--space-1) - var(--border-width)),
+    var(--border-subtle) calc(var(--space-8) + var(--space-1) - var(--border-width)),
+    var(--border-subtle) calc(var(--space-8) + var(--space-1)),
+    transparent calc(var(--space-8) + var(--space-1))
+  );
 }
 
 /* Every row is one grid so the numbers share an edge and the text shares one.
