@@ -264,8 +264,8 @@ const BAR: { kind: LedgerKind; said: string; Glyph: LucideIcon }[] = [
   { kind: "artifact", said: "Artifacts", Glyph: Files },
 ];
 
-/** What the Search field's draft is kept under: a viewer's one search, which survives leaving the panel. */
-const SEARCH_KEEP = "session-ledger-search";
+/** What a Session's Search draft is kept under, so it survives leaving the panel. */
+const searchKeep = (keepKey: string | undefined) => (keepKey === undefined ? false : `session-ledger-search:${keepKey}`);
 
 /** Which kind the bar narrows to, kept like a section's view. A viewer's convenience, so a blocked store only forgets it. */
 function useOnly(): [LedgerKind | undefined, (next: LedgerKind | undefined) => void] {
@@ -298,9 +298,10 @@ function plain(node: ReactNode): string {
   return isValidElement<{ children?: ReactNode }>(node) ? Children.toArray(node.props.children).map(plain).join("") : "";
 }
 
-export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
+export function SessionLedger({ entries, folded = false, keepKey }: { entries: readonly LedgerEntry[]; folded?: boolean; keepKey?: string }) {
   const [only, setOnly] = useOnly();
-  const [query, setQuery] = useState(() => readKept<string>(SEARCH_KEEP) ?? "");
+  const keep = searchKeep(keepKey);
+  const [query, setQuery] = useState(() => (keep === false ? "" : (readKept<string>(keep) ?? "")));
   const [finding, setFinding] = useState(query !== "");
   // A kind the Session holds no row of cannot narrow anything, so a choice kept from another Session is not applied.
   const chosen = only !== undefined && rowsOf(entries, only).length > 0 ? only : undefined;
@@ -310,12 +311,13 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
     all: rowsOf(entries, section.kind).filter((row) => asked === "" || `${row.name} ${plain(row.text)}`.toLowerCase().includes(asked)),
   }));
   const stopFinding = () => {
-    forgetKept(SEARCH_KEEP);
+    if (keep !== false) forgetKept(keep);
     setQuery("");
     setFinding(false);
   };
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
+      {entries.length === 0 ? null : (
       <div className="armada-session-ledger__bar" role="group" aria-label="Narrow the ledger">
         <Tooltip label="Search">
           <Button
@@ -324,7 +326,6 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
             iconOnly
             aria-label="Search"
             aria-pressed={finding}
-            disabled={entries.length === 0}
             onClick={() => (finding ? stopFinding() : setFinding(true))}
           >
             <Search size={12} strokeWidth={2} aria-hidden />
@@ -353,7 +354,7 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
             <Textarea
               autoFocus
               rows={1}
-              keep={SEARCH_KEEP}
+              keep={keep}
               aria-label="Search the ledger"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -370,6 +371,7 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
           </div>
         ) : null}
       </div>
+      )}
       {sections.every((one) => one.all.length === 0) ? <EmptyLedger /> : null}
       {sections.map(({ kind, label, Glyph, all }) => (
         <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={all} />

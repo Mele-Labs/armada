@@ -1055,7 +1055,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                       </Button>
                     </Tooltip>
                   </div>
-                  <SessionLedger entries={ledger} />
+                  <SessionLedger key={session.id} entries={ledger} keepKey={session.id} />
                 </>
               ),
             })}
@@ -1166,10 +1166,10 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
           )}
         </div>
       </SessionFrame>
-      {deck?.ledger == null ? null : createPortal(<SessionLedger entries={ledger} />, deck.ledger)}
+      {deck?.ledger == null ? null : createPortal(<SessionLedger key={session.id} entries={ledger} keepKey={session.id} />, deck.ledger)}
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
-          <SessionLedger entries={ledger} folded />
+          <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
         </Sheet>
       ) : null}
       <ReadingSheet
