@@ -1261,7 +1261,8 @@ where
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {
-                    let cut = self.cut_off_subagents(id).await;
+                    let mut cut = self.cut_off_subagents(id).await;
+                    cut.extend(self.cut_off_background(id).await);
                     self.kept_restart(id, "resumed", super::cut_off::cut_off_said(&cut).as_deref())
                         .await;
                     runtime.state().cut_off = cut;
