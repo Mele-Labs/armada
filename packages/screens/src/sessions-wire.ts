@@ -316,6 +316,7 @@ function askOf(ask: HelmCallInFlight): SessionAsk {
     offers: ask.offers,
     ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),
     ...(ask.reaches === undefined ? {} : { reaches: ask.reaches }),
+    ...(ask.reaches_to === undefined ? {} : { reachesTo: ask.reaches_to }),
   };
 }
 
@@ -343,6 +344,7 @@ const SETTLED: Record<string, string> = {
   allowed_and_remembered: "allowed and remembered",
   always_allowed: "always allowed",
   always_blocked: "always blocked",
+  allowed_for_session: "allowed for this session",
   refused: "refused",
   unanswered: "no answer",
   session_gone: "session ended",

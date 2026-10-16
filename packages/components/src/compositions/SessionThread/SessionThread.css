@@ -954,6 +954,10 @@
   font-weight: var(--weight-medium);
 }
 
+.armada-session-thread__always-kind {
+  font-weight: var(--weight-heading);
+}
+
 .armada-session-thread__always-covers {
   color: var(--fg-muted);
   font-family: var(--font-mono);

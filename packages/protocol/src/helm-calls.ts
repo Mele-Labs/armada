@@ -24,6 +24,10 @@
  * it, which fleet puts on the folder list (`features.reachFolders`) every session's guard reads.
  * **Never a CLI rule**: the rule matches a command, and the guard runs before the CLI's settings.
  *
+ * `allow_for_session` carries `folder` the same way and lets only the session that asked reach it,
+ * until that session is closed. Fleet holds it in memory: nothing goes on `features.reachFolders`,
+ * and a folder the owner blocked stays blocked.
+ *
  * **Offered, never assumed.** `offers` carries the subset fleet will take, and
  * an answer outside it is a 409.
  *
@@ -33,8 +37,11 @@
  * appear on.
  */
 /** Every answer, for a process that checks one before sending it on. */
-export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "always_block"] as const;
+export const HELM_CALL_ANSWERS = ["allow_once", "allow_and_remember", "refuse", "always_allow", "allow_for_session", "always_block"] as const;
 export type HelmCallAnswer = (typeof HELM_CALL_ANSWERS)[number];
+
+/** Whether a call past a session's slots reads what it names or writes to it. */
+export type ReachesTo = "read" | "write";
 
 /**
  * One call a helm session is waiting on a person to answer, right now. Since
@@ -65,6 +72,8 @@ export type HelmCallInFlight = {
   questions?: AskedQuestion[];
   /** The absolute path past a session's slots the guard asked about. The folder an "always" answer names is this or one above it. */
   reaches?: string;
+  /** Whether the call reads or writes past the slots, on a card the guard drew over a reach. Set where `reaches` is, and where the path could not be read as one. */
+  reaches_to?: ReachesTo;
 };
 
 /** One question the agent put to the person. Since protocol 23.71. */
@@ -94,7 +103,7 @@ export type AnswerHelmCall = {
   note?: string;
   /** One entry per question, for a call that asked some. Since protocol 23.71. */
   answers?: QuestionAnswer[];
-  /** The folder an `always_allow` or `always_block` is for: `reaches` or a folder above it. Read for those two only. */
+  /** The folder an `always_allow`, `always_block` or `allow_for_session` is for: `reaches` or a folder above it. Read for those three only. */
   folder?: string;
 };
 

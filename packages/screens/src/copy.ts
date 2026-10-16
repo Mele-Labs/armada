@@ -457,6 +457,10 @@ export const HELM_CALL_ANSWER: Record<HelmCallAnswer, { label: string; means: st
     label: "Always block",
     means: "Not run. Every session is refused the folder chosen, and under it, with no card. Settings, Features lists it.",
   },
+  allow_for_session: {
+    label: "Always allow for this session",
+    means: "Runs it now. This session reads and writes in the folder chosen, and under it, with no card, until it is closed. Settings does not list it.",
+  },
 };
 
 /** The once answers on a card over a session reaching past its slots, in the owner's words for them. */
