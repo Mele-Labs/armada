@@ -23,7 +23,7 @@ afterEach(() => {
 
 const session = { id: "s1", attachments: [{ kind: "slot", slot: 9 }, { kind: "branch", name: "bridge/queue-for-later", slot: 9 }], rows: [], turn: { state: "idle" } } as unknown as Session;
 const entry = (kind: LedgerEntry["kind"], key: string, text: string): LedgerEntry => ({ key, kind, name: text, text, onOpen: () => undefined, ...(kind === "artifact" ? { artifact: "window" } : {}) }) as unknown as LedgerEntry;
-const HELD = [entry("slot", "slot9", "9"), entry("branch", "bridge/queue-for-later", "bridge/queue-for-later"), entry("subagent", "a1", "A subagent")];
+const HELD = [entry("slot", "slot9", "9"), entry("branch", "bridge/queue-for-later", "bridge/queue-for-later")];
 
 function mount(entries: readonly LedgerEntry[]) {
   const host = document.createElement("div");
@@ -38,15 +38,16 @@ function mount(entries: readonly LedgerEntry[]) {
 const panel = (host: HTMLElement) => host.querySelector<HTMLElement>('section[aria-label="Ledger"]')!;
 
 test("it lists what the Session holds beside its branch and bay, which are chips in the band", () => {
-  const { host } = mount([...HELD, entry("artifact", "w1", "Queue for later walk")]);
+  const { host } = mount([...HELD, entry("artifact", "w1", "Queue for later walk"), entry("subagent", "a1", "Mock walk subagent")]);
   expect(host.querySelectorAll('section[aria-label="Ledger"]')).toHaveLength(1);
   expect(panel(host).hasAttribute("data-collapsed")).toBe(false);
   expect(panel(host).textContent).toContain("Queue for later walk");
+  expect(panel(host).textContent).toContain("Mock walk subagent");
   expect(host.querySelector('[aria-label="Branch bridge/queue-for-later"]')).not.toBeNull();
   expect(host.querySelector('[aria-label="Bay 9"]')).not.toBeNull();
 });
 
-test("with only a slot, a branch and subagents held it is its band: folded, no placeholder, the chips kept", () => {
+test("with only a slot and a branch held it is its band: folded, no placeholder, the chips kept", () => {
   const { host } = mount(HELD);
   expect(panel(host).hasAttribute("data-collapsed")).toBe(true);
   expect(panel(host).hasAttribute("data-empty")).toBe(true);
