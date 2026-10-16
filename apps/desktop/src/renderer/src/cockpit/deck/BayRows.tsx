@@ -1,5 +1,5 @@
 // The bays as the flight deck lists them, each drawn as a bay: the state it is in as a glyph with its tooltip, the kind of whoever
-// holds it, and the facts behind the state, each with its tooltip. Three looks are on trial, `?bayTake=a|b|c` in the mock. Nothing
+// holds it, and the facts behind the state, each with its tooltip. Four looks are on trial, `?bayTake=a|b|c|d` in the mock. Nothing
 // is worded beyond the facts and nothing is counted beside the list. The states are the pool's own (`bays.ts`). #2301.
 
 import { ArrowUpFromLine, Box, FilePenLine, Flame, HardDrive, Mail, Snowflake, SquareTerminal, Unplug } from "lucide-react";
@@ -152,15 +152,15 @@ function Lead({ view }: { view: BayView }) {
   );
 }
 
-type Take = "a" | "b" | "c";
+type Take = "a" | "b" | "c" | "d";
 
-/** Mock only: which of three looks the bays are drawn in, `?bayTake=a|b|c`. No param is the first. */
+/** Mock only: which of four looks the bays are drawn in, `?bayTake=a|b|c|d`. No param is the first. */
 const takeOf = (): Take => {
   const asked = new URLSearchParams(window.location.search).get("bayTake");
-  return asked === "b" || asked === "c" ? asked : "a";
+  return asked === "b" || asked === "c" || asked === "d" ? asked : "a";
 };
 
-/** Take A: a small card, a solid band of the state's hue over a dark body. */
+/** Takes A and D: a small card, a band naming the bay and its state over a dark body. A tints the band, D leaves it bare. */
 function Card({ view, repo }: { view: BayView; repo: string }) {
   return (
     <>
@@ -231,7 +231,7 @@ function Tile({ view, repo }: { view: BayView; repo: string }) {
 /** The bays panel: every slot of the pool, a row each. A press selects the slot. */
 export function Bays({ views, repoName, working, selected, onSelect, onOpenSlots }: { views: readonly BayView[]; repoName: (manifest: string) => string; working: ReadonlySet<string>; selected: string | undefined; onSelect: (key: string) => void; onOpenSlots?: (() => void) | undefined }) {
   const take = takeOf();
-  const Cell = take === "a" ? Card : take === "b" ? Berth : Tile;
+  const Cell = take === "a" || take === "d" ? Card : take === "b" ? Berth : Tile;
   return (
     <section className="deck-panel deck-bays" aria-label="Bays" data-take={take} tabIndex={-1}>
       <header className="deck-band">
