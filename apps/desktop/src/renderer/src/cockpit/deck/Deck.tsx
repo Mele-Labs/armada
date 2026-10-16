@@ -395,10 +395,16 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
 
 // ---- The right column, and the foot -------------------------------------------------------------------
 
-function BaysPanel({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
+/** A Job or Session picked in the list narrows the bays to those it holds, or held last where stranded. Nothing picked, every bay. */
+function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; ship: Ship; selected: string | undefined; picked: string | undefined }) {
   const bays = useBayViews(props);
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
-  return <Bays views={bays.map((one) => one.view)} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
+  const shown = bays.map((one) => one.view).filter((view) => {
+    if (picked === undefined) return true;
+    const holder = view.holder ?? view.last;
+    return holder !== undefined && `${holder.kind}:${holder.id}` === picked;
+  });
+  return <Bays views={shown} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
 }
 
 /** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */
@@ -732,7 +738,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
               <LedgerPanel host={setLedgerHost} />
             </>
-          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
+          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} picked={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} />}
           <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
         </div>
       </div>

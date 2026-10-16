@@ -1,9 +1,10 @@
 // The Cockpit's Bays panel, each bay drawn as a bay. Three looks are on trial in the mock, `?bayTake=a|b|c`; this walk stands on the
 // panel and reads each state in turn. Over `bays-look-like-bays`.
 
-import { inside, region, role, walk } from "../walk";
+import { button, inside, region, role, walk } from "../walk";
 
 const bays = region("Bays");
+const list = region("Jobs and Sessions");
 const bay = (name: RegExp) => inside(bays, role("button", name));
 
 const baysLookLikeBays = walk("bays-look-like-bays", [
@@ -21,6 +22,10 @@ const baysLookLikeBays = walk("bays-look-like-bays", [
   { look: bay(/^slot-2, pocket, Closed/), say: "A closed bay, shuttered and faint" },
   { press: bay(/^slot-3, armada, Held/), say: "A press selects a bay, and its pane opens" },
   { look: bay(/^slot-3, armada, Held/), say: "The selected bay is framed in the accent" },
+  { press: inside(list, button("Shorten the reconnect wait")), say: "A Job picked in the list narrows the Bays to the ones it holds" },
+  { look: bay(/^slot-3, armada, Held/), say: "Only its bay is left, and the other Jobs' and Sessions' bays are out of the list" },
+  { press: inside(region(/^Job: Shorten the reconnect wait/), button("Back")), say: "Back lets go of the Job" },
+  { look: bay(/^slot-5, armada, Free/), say: "Nothing picked, so every bay is drawn again" },
 ]);
 
 export { baysLookLikeBays as "bays-look-like-bays" };
