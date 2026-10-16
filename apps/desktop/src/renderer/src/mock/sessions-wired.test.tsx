@@ -362,6 +362,31 @@ test("Sessions wired: a running subagent opens as its own thread, gains rows as 
   await expect.element(done.getByText("None reads the clock.")).toBeVisible();
 });
 
+test("Sessions wired: a subagent's sheet is wide and states its type, its model and its context in the head", async () => {
+  const fleet = new FakeSessionsFleet([
+    terminal(ID, {
+      title: "Read the CI history",
+      attachments: [held("subagent", "live1", { description: "Read the CI history", type: "rust-engineer" })],
+    }),
+  ]);
+  fleet.subagents["live1"] = {
+    rows: [agent("a1", "Reading the runs.")],
+    finished: false,
+    model: "vendor-opus-5-5",
+    context_tokens: 142_000,
+    context_window: 200_000,
+  };
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(page.getByRole("button", { name: "Read the CI history" }));
+  await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
+  const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
+  await expect.element(panel.getByText("rust-engineer")).toBeVisible();
+  await expect.element(panel.getByText("Opus 5.5")).toBeVisible();
+  await expect.element(panel.getByRole("img", { name: "Context 71%" })).toBeVisible();
+  expect(panel.element().getAttribute("data-size")).toBe("wide");
+});
+
 test("Sessions wired: a page on the ledger is shown in main's view over the panel and taken away when the panel closes", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Write up the clock", attachments: [held("artifact", "https://example.com/artifact/findings", { form: "page", title: "Clock findings" })] }),

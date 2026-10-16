@@ -636,6 +636,15 @@ pub struct SessionSubagent {
     /// What it said last, once it has finished.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
+    /// The model it runs on, as its transcript writes the id. Absent until it has answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// What its last answer had in its window, and the window that is measured against.
+    /// Absent until it has answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u64>,
 }
 
 /// `session.row`: one row appended or replaced, by `row.id()`.
