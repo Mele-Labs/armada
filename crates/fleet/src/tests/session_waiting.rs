@@ -50,6 +50,7 @@ fn card(call: &str, question: Option<&str>) -> HelmCallInFlight {
         offers: vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse],
         holding_for_seconds: 600,
         questions,
+        reaches: None,
     }
 }
 
