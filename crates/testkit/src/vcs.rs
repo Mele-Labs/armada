@@ -696,6 +696,37 @@ impl Delivery for FakeVcs {
             .clone()
     }
 
+    fn pulled_the_checkout(&self, in_repo: &str) -> adapter_traits::CheckoutPulled {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::PulledTheCheckout {
+                in_repo: in_repo.to_string(),
+            });
+        let mut delivery = self.delivery.lock().expect("not poisoned");
+        // A pull that took leaves the checkout on the forge's tip, which is what
+        // the next reading of main finds.
+        if delivery.pulled.code == 0 && delivery.checkout.is_some() {
+            delivery.checkout = self.main_ci.head();
+        }
+        delivery.pulled.clone()
+    }
+
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadAnUncommittedChange {
+                in_repo: in_repo.to_string(),
+                path: path.to_string(),
+            });
+        self.delivery
+            .lock()
+            .expect("not poisoned")
+            .uncommitted_change
+            .clone()
+    }
+
     fn manifest_by_pull_request(&self, _in_repo: &str, _file: &str) -> bool {
         self.manifest_goes_by_pull_request()
     }

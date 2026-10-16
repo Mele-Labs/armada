@@ -402,6 +402,15 @@ where
         self.change_fleet_build_now(&asked)
     }
 
+    /// The one pull a held checkout is offered — `crate::catching_up`. **Not
+    /// `budgeted`**, `change_fleet_build`'s reason: no Job is touched.
+    async fn catch_up_checkout(
+        &self,
+        asked: ipc::CatchUpCheckout,
+    ) -> Result<ipc::CheckoutCaughtUp, Refusal> {
+        self.caught_up_checkout(asked).await
+    }
+
     /// Take back a rule a person always-allowed for this Manifest's
     /// repository — `crate::permitting::repository`. **Not `budgeted`**, for
     /// `save_limits`' reason: no Job is touched.

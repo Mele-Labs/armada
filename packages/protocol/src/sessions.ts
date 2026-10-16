@@ -241,7 +241,22 @@ export type WindowTake = { name: string; url: string };
  * `POST /sessions/window`, the agent's: a page to show. `variations` offers several takes of one
  * change in the one window, each a page of its own, and `url` is the first's. Absent: one page.
  */
-export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[] };
+export type ShowWindow = {
+  url: string;
+  title?: string;
+  session_id?: string;
+  variations?: WindowTake[];
+  /** Other `http` or `https` origins, with no path, the window may pass through: a single sign-on provider. */
+  origins?: string[];
+  /** Addresses on the shown origin or one of `origins`, loaded in order before the page. A secret: Fleet keeps it in memory and writes it nowhere. */
+  sign_in?: string[];
+};
+
+/** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */
+export type TakeWindowSignIn = { session_id: string; url: string };
+
+/** What it answers: the addresses, once. Empty where none are held. */
+export type WindowSignIn = { sign_in: string[] };
 
 /**
  * `POST /sessions/sketch`, the agent's: a diagram to draw. `scene` is the format `parseScene` reads

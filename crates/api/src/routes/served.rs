@@ -433,6 +433,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window/closed",
     },
     Route {
+        operation: "take_window_sign_in",
+        method: "POST",
+        path: "/sessions/window/sign_in",
+    },
+    Route {
         operation: "window_failed",
         method: "POST",
         path: "/sessions/window/failed",

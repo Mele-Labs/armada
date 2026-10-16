@@ -119,6 +119,13 @@ pub trait Sessions: Send + Sync + 'static {
         closed: ipc::WindowClosed,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `take_window_sign_in` — Bridge, opening a session's window, takes the sign-in addresses held for it.
+    /// Once: the next take finds none. Answers empty where none are held.
+    fn take_window_sign_in(
+        &self,
+        take: ipc::TakeWindowSignIn,
+    ) -> impl Future<Output = Result<ipc::WindowSignIn, Refusal>> + Send;
+
     /// `window_failed` — a session's window could not show its page, and the session is told in
     /// Fleet's voice. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn window_failed(

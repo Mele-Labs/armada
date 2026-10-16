@@ -222,6 +222,10 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn take_window_sign_in(&self, _take: ipc::TakeWindowSignIn) -> Result<ipc::WindowSignIn, Refusal> {
+        Ok(ipc::WindowSignIn { sign_in: ipc::SignIn::default() })
+    }
+
     async fn window_failed(self: std::sync::Arc<Self>, _failed: ipc::WindowFailed) -> Result<ipc::WalkTold, Refusal> {
         Ok(ipc::WalkTold { told: true })
     }
