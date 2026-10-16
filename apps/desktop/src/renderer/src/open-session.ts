@@ -1,5 +1,5 @@
 // A way for the annotation layer, which has a root of its own beside the app's, to ask the app to
-// open a Session. A window event, because the layer must not import the app.
+// open a Session, on its page or on the Cockpit. A window event, because the layer must not import the app.
 
 import { useEffect } from "react";
 
@@ -14,6 +14,21 @@ export function useOpenSessionAsked(open: (id: string) => void): void {
     const heard = (event: Event): void => open((event as CustomEvent<string>).detail);
     window.addEventListener(OPEN_SESSION, heard);
     return () => window.removeEventListener(OPEN_SESSION, heard);
+  }, [open]);
+}
+
+const OPEN_SESSION_IN_COCKPIT = "armada:open-session-in-cockpit";
+
+/** The Session opened on the Cockpit's deck rather than the Sessions page: where an annotation sent to it goes. */
+export function askToOpenSessionInCockpit(id: string): void {
+  window.dispatchEvent(new CustomEvent<string>(OPEN_SESSION_IN_COCKPIT, { detail: id }));
+}
+
+export function useOpenSessionInCockpitAsked(open: (id: string) => void): void {
+  useEffect(() => {
+    const heard = (event: Event): void => open((event as CustomEvent<string>).detail);
+    window.addEventListener(OPEN_SESSION_IN_COCKPIT, heard);
+    return () => window.removeEventListener(OPEN_SESSION_IN_COCKPIT, heard);
   }, [open]);
 }
 

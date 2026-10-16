@@ -394,7 +394,8 @@ pub use judged::{
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
-    KitInventory, KitServerRow, KitServers, RemoveKitAllowedCommand, ServerAddress,
+    KitInventory, KitServerRow, KitServers, OutputStyleFacts, RemoveKitAllowedCommand,
+    ServerAddress,
     SetKitServerReach, SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable,
     WhatWasRead,
 };

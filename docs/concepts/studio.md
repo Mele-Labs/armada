@@ -202,7 +202,7 @@ flowchart LR
 > **Rule.** Capture on another repository's web app happens in a window of its own, opened from a serving Run and pinned to that Run's own loopback origin. Bridge's window loads nothing but itself and that does not change. #1294.
 > Why: what that window may load, what the layer injected into the page may touch and send back, and what is refused outright are settled in `../practices/capture-window.md`.
 
-> **Rule.** The development annotation layer stays beside Studio capture, unchanged: ⌥⌘A under `pnpm dev`, a file under `.armada/annotations/`, Send to Fleet, and `/annotations`.
+> **Rule.** The development annotation layer stays beside Studio capture, unchanged: ⌥⌘A under `pnpm dev`, a file under `.armada/annotations/`, Dispatch job and Start session, and `/annotations`.
 > Why: it is how a person annotates Bridge while building it. See `../practices/running-locally.md`, Annotating Bridge.
 
 > **Rule.** A Note captured there records the Run and the origin it was pinned to, beside everything a Note captured on Bridge records.

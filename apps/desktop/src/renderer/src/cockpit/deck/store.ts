@@ -41,6 +41,8 @@ export type DeckState = {
   replay: Replay | undefined;
   /** The row the arrow keys are on in the list. Enter opens it. */
   cursor: string | undefined;
+  /** The Job or Session under the pointer or the keys, in the list or by a bay it holds: the other lights too. */
+  hover: string | undefined;
   view: DeckView;
   only: Only | undefined;
   needs: boolean;
@@ -76,6 +78,7 @@ function fresh(): DeckState {
     focus: undefined,
     replay: undefined,
     cursor: undefined,
+    hover: undefined,
     view: readRemembered(DECK_VIEW_KEY, viewNamed),
     only: only === "" ? undefined : only,
     needs: filters.includes("needs"),
@@ -138,6 +141,9 @@ export function useDeck<T>(read?: (deck: DeckState) => T): DeckState | T {
   return useSyncExternalStore(subscribe, () => (read === undefined ? state : read(state)));
 }
 export const deckNow = () => state;
+
+/** Lights a Job or Session, by its list key, in the list and in the bays. */
+export const setHover = (hover: string | undefined) => state.hover !== hover && set({ hover });
 
 export const select = (sel: Sel | undefined) => set({ sel, from: undefined, ...(sel === undefined ? {} : { cursor: sel.kind === "job" || sel.kind === "session" ? sel.key : state.cursor }) });
 /** Opens a thing from what is open, which back returns to: a holder in a bay's history. */

@@ -25,8 +25,12 @@ import { SystemStrip } from "./SystemStrip";
 import { TabBar } from "./TabBar";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
 import { useShip } from "./ship";
+import { useOpenSessionInCockpitAsked } from "../../open-session";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
+
+/** How long a Session asked for on the deck is waited on before it opens on its own page instead. */
+const AWAIT_SESSION_MS = 3000;
 
 type Where = {
   state: BridgeState;
@@ -109,6 +113,23 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
     const timer = window.setTimeout(() => release([]), Math.max(0, next));
     return () => window.clearTimeout(timer);
   }, [held, ship.calls]);
+
+  // A Session asked for on the deck (a note sent to it) opens as its row does, once the ship holds it: a new one arrives a moment
+  // after Fleet answers. One the ship never holds, Helm's own or one the picked repository leaves out, opens on its own page.
+  const [awaited, setAwaited] = useState<{ id: string; since: number } | undefined>();
+  useOpenSessionInCockpitAsked((id) => setAwaited({ id, since: Date.now() }));
+  useEffect(() => {
+    if (awaited === undefined) return;
+    const subject = ship.subjects.find((one) => one.kind === "session" && one.id === awaited.id);
+    if (subject !== undefined) {
+      setAwaited(undefined);
+      select(selOfSubject(subject));
+      if (!deckNow().here) onGoTo(SURFACE.overview);
+      return;
+    }
+    const timer = window.setTimeout(() => (setAwaited(undefined), onOpenSession(awaited.id)), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [awaited, ship.subjects, onGoTo, onOpenSession]);
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;

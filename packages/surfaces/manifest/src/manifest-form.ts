@@ -26,6 +26,8 @@ export type ManifestFormSlice = {
   onReadFile: () => Promise<ManifestFileRead>;
   onEditManifest: (body: EditManifest) => Promise<ManifestEditAnswer>;
   onReadSpend: () => Promise<ManifestSpendRead>;
+  /** The form edit's pull request that waits for a person to merge it, where the merge line holds one. */
+  mergeByHand?: ManifestFormProps["mergeByHand"];
 };
 
 /** The forms, as the screen draws them. */
@@ -119,6 +121,7 @@ export function useManifestForm({
   onEditManifest,
   onReadSpend,
   repository,
+  mergeByHand,
 }: ManifestFormSlice): ManifestForming {
   const [held, setHeld] = useState<Held>({ state: "none" });
   const [spend, setSpend] = useState<ManifestSpend | null>(null);
@@ -206,6 +209,7 @@ export function useManifestForm({
       changed,
       saving: held.saving,
       onSave: () => save(false),
+      ...(mergeByHand === undefined ? {} : { mergeByHand }),
       onDiscard: () =>
         setHeld((prev) =>
           prev.state === "open" ? { ...prev, draft: draftOf(prev.declared), refused: undefined } : prev,

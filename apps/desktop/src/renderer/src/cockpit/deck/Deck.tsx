@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -19,7 +19,7 @@ import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
-import { dotsOf } from "../horizon";
+import { dotsOf, MERGE_BY_HAND } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
 import { useClock } from "./clock";
@@ -32,7 +32,7 @@ import { BuildColumn } from "./BuildColumn";
 import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
-import { useBays, slotKey } from "./bays";
+import { holderKeyOf, useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
@@ -43,7 +43,7 @@ import { checkoutSaid, heldOf } from "./YourCheckout";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
-import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
+import { callOfSubject, enterAutopilot, incomingOf, keepOf, needingOf, leaveAutopilot, listOf, moveCursor, openCall, select, selOfPr, selOfSubject, setFocus, setHover, setView, toggleChecks, toggleNeeds, toggleOnly, useDeck, type DeckState } from "./store";
 import { useShip, type Pr, type Ship, type Subject } from "./ship";
 import "../cockpit.css";
 import "./deck.css";
@@ -110,13 +110,14 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
 
 function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
   const cursor = useDeck((deck) => deck.cursor);
+  const hover = useDeck((deck) => deck.hover);
   const row = (one: Subject) => {
     const Kind = one.kind === "job" ? Box : SquareTerminal;
     const quiet = one.since ?? one.step?.label ?? "";
     const said = quiet.length > 9 ? "" : quiet;
     return (
       <li key={one.key} className="deck-list__item">
-        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => moveCursor(one.key)}>
+        <button type="button" className="deck-row" data-row={one.key} data-job-id={one.kind === "job" ? one.id : undefined} data-tone={toneOf(one)} data-selected={selected === one.key || undefined} data-cursor={cursor === one.key || undefined} data-hover={hover === one.key || undefined} aria-label={one.title} aria-current={selected === one.key || undefined} onClick={() => onPick(one)} onFocus={() => (moveCursor(one.key), setHover(one.key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(one.key)} onMouseLeave={() => setHover(undefined)}>
           <Tooltip label={one.kind === "job" ? "Job" : "Session"}>
             <span className="deck-row__kind" role="img" aria-label={one.kind === "job" ? "Job" : "Session"}>
               <Kind size={14} aria-hidden="true" />
@@ -317,6 +318,13 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         {place === undefined ? null : <span className="deck-chip__place" aria-hidden="true">{place}</span>}
         <span className="deck-chip__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} aria-hidden="true" />
         <span>{dot.card.heading}</span>
+        {dot.card.byHand === undefined ? null : (
+          <Tooltip label={MERGE_BY_HAND}>
+            <span className="deck-chip__hand" role="img" aria-label={MERGE_BY_HAND}>
+              <UserCheck size={12} aria-hidden="true" />
+            </span>
+          </Tooltip>
+        )}
       </>
     );
     return (
@@ -395,10 +403,16 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
 
 // ---- The right column, and the foot -------------------------------------------------------------------
 
-function BaysPanel({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
+/** A Job or Session picked in the list narrows the bays to those it holds, or held last where stranded. Nothing picked, every bay. */
+function BaysPanel({ props, ship, selected, picked }: { props: CockpitProps; ship: Ship; selected: string | undefined; picked: string | undefined }) {
   const bays = useBayViews(props);
   const working = useMemo(() => new Set(ship.subjects.filter((one) => one.phase === "working").map((one) => one.key)), [ship.subjects]);
-  return <Bays views={bays.map((one) => one.view)} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
+  const shown = bays.map((one) => one.view).filter((view) => {
+    if (picked === undefined) return true;
+    return holderKeyOf(view) === picked;
+  });
+  const hovered = useDeck((deck) => deck.hover);
+  return <Bays views={shown} hovered={hovered} onHover={setHover} repoName={(manifest) => repoNameOf(props, manifest)} working={working} selected={selected} onSelect={(key) => select({ kind: "slot", key })} onOpenSlots={props.onGoTo === undefined ? undefined : () => props.onGoTo?.(DECK_LINK.bays)} />;
 }
 
 /** A Session open on the stage keeps its ledger here, where the Bays are otherwise. The pane draws the ledger into `host`. */
@@ -732,7 +746,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               {building === undefined ? null : <BuildColumn key={building.key} build={building} />}
               <LedgerPanel host={setLedgerHost} />
             </>
-          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
+          ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} picked={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} />}
           <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
         </div>
       </div>
