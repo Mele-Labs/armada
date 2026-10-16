@@ -42,7 +42,8 @@ type Spec = {
   title: string;
   branch: string;
   author: string;
-  tab: ReviewPr["tab"];
+  lists: ReviewPr["lists"];
+  team?: string;
   opened: number;
   body: string;
   checks: ReviewPr["checks"];
@@ -116,7 +117,8 @@ function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, rea
     draft: false,
     checks: spec.checks,
     head: spec.commits.at(-1)?.sha ?? "",
-    tab: spec.tab,
+    lists: spec.lists,
+    ...(spec.team === undefined ? {} : { team: spec.team }),
     ...(spec.holder === undefined ? {} : { holder: spec.holder }),
     body: spec.body,
     page,
@@ -141,7 +143,8 @@ const marta = build({
   title: "Cache the plan windows for a minute",
   branch: "marta/plan-windows-cache",
   author: "marta",
-  tab: "requested",
+  lists: ["requested", "team", "assigned"],
+  team: "@Mele-Labs/fleet",
   opened: 205,
   body: "The title bar's meters read the plan windows every five seconds, and each read is a call to the provider.\n\n- Fleet keeps the last read for **60 seconds** and serves it again\n- Bridge asks once a minute instead of every five seconds\n- `read_at` says when Fleet last read, so the meters can say how old they are\n\nThe windows move on the minute, so a minute is the longest a figure is wrong by.",
   checks: "passed",
@@ -459,7 +462,8 @@ const devon = build({
   title: "Serve a bay's history from one query",
   branch: "devon/bay-history-query",
   author: "devon",
-  tab: "requested",
+  lists: ["team"],
+  team: "@Mele-Labs/bridge",
   opened: 64,
   body: "A bay's pane asked Fleet for every slot event and filtered them in Bridge.\n\nThe query answers one bay's leases and checkouts, newest first, and says when it cut.",
   checks: "running",
@@ -588,7 +592,7 @@ const mia = build({
   title: "Bump the manifest icons",
   branch: "mia/manifest-icons",
   author: "mia",
-  tab: "requested",
+  lists: ["requested"],
   opened: 120,
   body: "The home screen icons were 144 and 192. The install prompt wants 512 as well, with a maskable one.",
   checks: "passed",
@@ -660,7 +664,7 @@ const reconnect = build({
   title: "Fix the reconnect wait",
   branch: "fleet/reconnect-wait",
   author: "claude",
-  tab: "mine",
+  lists: ["mine"],
   opened: 40,
   holder: { id: "f1", title: "Fix the reconnect wait" },
   body: "When Bridge loses its socket to Fleet it waited a flat 30 seconds.\n\n- the first wait is 5 seconds\n- each one after doubles, up to the 60 second cap\n- a wait is jittered by 20% so two windows do not reconnect together",
@@ -913,7 +917,7 @@ const pause = build({
   title: "Add the pause marker column",
   branch: "armada/82-pause-column",
   author: "claude",
-  tab: "mine",
+  lists: ["mine"],
   opened: 30,
   body: "Adds `paused_at` to the jobs table, null until a Job is paused.",
   checks: "running",
@@ -987,7 +991,7 @@ const pause = build({
 
 // ---- Found by a find, on neither of his lists ------------------------------------------------------------
 
-const quick = (spec: { number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
+const quick = (spec: { lists: ReviewPr["lists"]; team?: string; number: number; title: string; branch: string; author: string; opened: number; body: string; summary: string; theme: ThemeIn }) =>
   build({
     repository: "mele-labs/armada",
     manifestId: "armada",
@@ -995,7 +999,8 @@ const quick = (spec: { number: number; title: string; branch: string; author: st
     title: spec.title,
     branch: spec.branch,
     author: spec.author,
-    tab: "other",
+    lists: spec.lists,
+    ...(spec.team === undefined ? {} : { team: spec.team }),
     opened: spec.opened,
     body: spec.body,
     checks: "passed",
@@ -1012,6 +1017,8 @@ const quick = (spec: { number: number; title: string; branch: string; author: st
   });
 
 const hub = quick({
+  lists: ["team"],
+  team: "@Mele-Labs/fleet",
   number: 1907,
   title: "Name the hub's ports",
   branch: "priya/hub-ports",
@@ -1058,6 +1065,7 @@ const hub = quick({
 });
 
 const totals = quick({
+  lists: [],
   number: 1905,
   title: "Round invoice totals once",
   branch: "marek/invoice-rounding",
@@ -1092,6 +1100,7 @@ const totals = quick({
 });
 
 const webhook = quick({
+  lists: ["assigned"],
   number: 1908,
   title: "Retry the webhook on a 5xx",
   branch: "devon/webhook-retry",

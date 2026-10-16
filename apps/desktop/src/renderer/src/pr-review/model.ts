@@ -10,10 +10,14 @@
 import type { DiffLine } from "@armada/components";
 import type { PullRequestPage } from "@armada/protocol";
 
-/** Which of his two lists a pull request is on, or neither: found only by a find. */
-export type PrTab = "requested" | "mine" | "other";
+/**
+ * The lists a pull request can be on. **He is asked to review in two ways**: directly (`requested`), or through a team
+ * he is on (`team`, and the row names the team). `assigned` is the forge's own assignee, and `mine` is his agents'.
+ * A pull request can be on several, and on none, where only a find turns it up.
+ */
+export type PrList = "requested" | "team" | "assigned" | "mine";
 
-/** The list the stage's left column shows: `requested`, `mine`, or the id of a find he saved. */
+/** The list the stage's left column shows: a `PrList`, or the id of a find he saved. */
 export type ReviewTab = string;
 
 /** A pull request a find turned up, and the one line that says why it matched. */
@@ -110,7 +114,9 @@ export type ReviewPr = {
   /** The commit the branch is at, as the forge last said. A run's result is kept for the commit it ran on. */
   head: string;
   /** Which list it is on: someone asked for his review, or an agent of his opened it. */
-  tab: PrTab;
+  lists: readonly PrList[];
+  /** The team that was asked, as the forge names it, where he is asked through one. */
+  team?: string;
   /** The Session that holds it, where one of his does. */
   holder?: { id: string; title: string };
   /** The description, as Markdown. */

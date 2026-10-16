@@ -16,8 +16,10 @@ import type { Find, ReviewPr } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 
 const LISTS = [
-  { id: "requested", label: "Review requested" },
-  { id: "mine", label: "Mine" },
+  { id: "requested", label: "Requested for Review" },
+  { id: "team", label: "Team" },
+  { id: "assigned", label: "Assigned" },
+  { id: "mine", label: "My PRs" },
 ];
 
 const FIND_KEEP = "pr-review:find";
@@ -41,7 +43,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   const find = finds.find((one) => one.id === tab);
   const rows: { pr: ReviewPr; reason?: string }[] =
     find === undefined
-      ? prs.filter((one) => one.tab === tab && inRepository(one, picked)).map((pr) => ({ pr }))
+      ? prs.filter((one) => one.lists.some((list) => list === tab) && inRepository(one, picked)).map((pr) => ({ pr, ...(tab === "team" && pr.team !== undefined ? { reason: pr.team } : {}) }))
       : find.hits.flatMap((hit) => {
           const pr = prs.find((one) => one.key === hit.key);
           return pr === undefined || !inRepository(pr, picked) ? [] : [{ pr, reason: hit.reason }];
@@ -53,7 +55,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
     ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
     ...finds.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.words, selected: here === one.id })),
     { kind: "separator", id: "ask-rule" },
-    { kind: "item", id: ASK, label: "Find pull requests…", selected: asking },
+    { kind: "item", id: ASK, label: "Natural Search", selected: asking },
   ];
   const ask = () => {
     if (words.trim() === "") return;
@@ -79,7 +81,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
         <DropdownMenu
           align="start"
           portal
-          triggerLabel={asking ? "Find pull requests" : find === undefined ? (LISTS.find((one) => one.id === tab)?.label ?? "") : find.words}
+          triggerLabel={asking ? "Natural Search" : find === undefined ? (LISTS.find((one) => one.id === tab)?.label ?? "") : find.words}
           triggerAriaLabel="List"
           entries={entries}
           onSelect={(id) => {
@@ -91,7 +93,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
       {asking ? (
       <form
         className="pr-find"
-        aria-label="Find pull requests"
+        aria-label="Natural Search"
         onSubmit={(event) => {
           event.preventDefault();
           ask();
@@ -101,7 +103,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
           rows={3}
           autoFocus
           keep={FIND_KEEP}
-          aria-label="Find pull requests"
+          aria-label="Natural Search"
           value={words}
           onChange={(event) => setWords(event.target.value)}
           onKeyDown={(event) => {
@@ -113,7 +115,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
         />
         <Tooltip label="A Drone looks for them, once, when you send" asChild>
           <Button variant="secondary" size="sm" type="submit" disabled={words.trim() === ""}>
-            Find
+            Search
           </Button>
         </Tooltip>
       </form>
