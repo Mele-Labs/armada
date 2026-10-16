@@ -223,7 +223,7 @@ export function SessionPane({ subject, props, acts, ledger, hosts, openSession }
     <section className="deck-pane" data-frame="" aria-label={`Session: ${subject.title}`}>
       <SessionView
         session={session}
-        goes={{ onOpenJob: props.onOpen, onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id) => props.onOpenSession(id) }}
+        goes={{ onOpenJob: props.onOpen, onGoTo: props.onGoTo ?? (() => {}), onOpenLink: props.onOpenLink, onOpenCheck: (id, run) => (props.onOpenCheck === undefined ? props.onOpenSession(id) : props.onOpenCheck(id, run)) }}
         onOpen={openSession}
         // The deck's ship already wants the pool while it is drawn.
         held={{ held: state.held, onWant: () => {} }}

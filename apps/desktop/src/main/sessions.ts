@@ -142,7 +142,9 @@ export class SessionsHost {
   async again(port: number): Promise<void> {
     const answer = await ask(port, "GET", "/sessions");
     if (answer.ok !== true) {
-      this.sessions = null;
+      // **A list already held stays when the next read fails**, as the pool's does (`holding.ts`): a read that times out
+      // on a busy machine must not empty every Session out of the window and put them all back a moment later.
+      if (this.sessions !== null) return;
       this.publish({ sessions: { state: "failed", outcome: answer.outcome } });
       return;
     }
