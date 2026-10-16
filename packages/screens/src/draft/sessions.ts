@@ -544,10 +544,10 @@ export type SessionsDraft = {
   diffInRepository?: (root: string, path: string) => Promise<CheckoutDiffRead>;
   /**
    * Commits the uncommitted files of a repository's held checkout to a branch, opens a pull request with auto-merge on, and
-   * answers its number. Fleet then carries it on the hold (`HeldCheckout.pull_request`). Absent where nothing serves it, and
-   * the card offers no such act.
+   * answers its number, or `undefined` where Fleet refused (it said why). Fleet then carries the pull request on the hold
+   * (`HeldCheckout.pull_request`). Absent where nothing serves it, and the card offers no such act.
    */
-  sendCheckoutAsPullRequest?: (root: string) => Promise<{ number: number }>;
+  sendCheckoutAsPullRequest?: (root: string) => Promise<{ number: number } | undefined>;
   /**
    * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
    * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,

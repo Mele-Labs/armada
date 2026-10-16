@@ -183,7 +183,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, CheckoutCaughtUp, CheckoutDiff, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
@@ -547,6 +547,7 @@ type OldBridgeApi = {
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
     catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
+    sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
     readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
@@ -888,6 +889,7 @@ const OLD_CHANNELS = {
     writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
     catchUpCheckout: "bridge:catch-up-checkout",
+    sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
     readCheckoutDiff: "bridge:read-checkout-diff",
     stopSessionRun: "bridge:stop-session-run",
     writeSessionRun: "bridge:write-session-run",

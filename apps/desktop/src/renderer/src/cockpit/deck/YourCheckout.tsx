@@ -62,7 +62,8 @@ function SendAsPullRequest({ root }: { root: string }) {
         pending={pending}
         onClick={() => {
           setPending(true);
-          void send(root).finally(() => setPending(false));
+          // Sent, the button waits for the hold to carry the pull request and the card to swap it for the chip; a refusal frees it.
+          void send(root).then((sent) => sent === undefined && setPending(false), () => setPending(false));
         }}
       >
         <GitPullRequestArrow size={12} aria-hidden="true" />

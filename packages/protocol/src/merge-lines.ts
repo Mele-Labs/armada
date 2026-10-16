@@ -117,6 +117,17 @@ export type CatchUpCheckout = {
   manifest_id: string;
 };
 
+/** `checkout_to_pull_request`'s body: send a held checkout's uncommitted files up as a pull request. Names the repository and no path: Fleet reads the hold again and sends the files it lists. */
+export type CheckoutToPullRequest = {
+  manifest_id: string;
+};
+
+/** `checkout_to_pull_request`'s answer: the pull request that was opened. `auto_merge` is false where the forge refused it; the pull request is open all the same. */
+export type CheckoutSentAsPullRequest = {
+  pull_request: number;
+  auto_merge: boolean;
+};
+
 /** `checkout_diff`'s query: which uncommitted file of a held checkout to read. */
 export type CheckoutDiffAsk = {
   manifest_id: string;

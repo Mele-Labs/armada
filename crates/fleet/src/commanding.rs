@@ -409,6 +409,15 @@ where
         self.caught_up_checkout(asked).await
     }
 
+    /// A held checkout's files sent up as a pull request —
+    /// `crate::catching_up`. **Not `budgeted`**, for the same reason.
+    async fn checkout_to_pull_request(
+        &self,
+        asked: ipc::CheckoutToPullRequest,
+    ) -> Result<ipc::CheckoutSentAsPullRequest, Refusal> {
+        self.checkout_sent_as_pull_request(asked).await
+    }
+
     /// Take back a rule a person always-allowed for this Manifest's
     /// repository — `crate::permitting::repository`. **Not `budgeted`**, for
     /// `save_limits`' reason: no Job is touched.

@@ -93,29 +93,7 @@ pub(crate) fn send(
             auto_merge: Ok(()),
         }),
         PullRequestFor::Open { base } => {
-            let opened = run_in(
-                in_repo,
-                FORGE,
-                &[
-                    "pr",
-                    "create",
-                    "--base",
-                    base,
-                    "--head",
-                    &sending.branch,
-                    "--title",
-                    &sending.message,
-                    "--body",
-                    BODY,
-                ],
-            )
-            .map_err(|why| {
-                NotDelivered::of("the pull request", format!("`{FORGE}` would not run: {why}"))
-            })?;
-            if !opened.status.success() {
-                return Err(NotDelivered::of("the pull request", said(&opened)));
-            }
-            let pull_request = last_line(&opened);
+            let pull_request = opened(in_repo, base, &sending.branch, &sending.message, BODY)?;
             let auto_merge = enable_auto_merge(in_repo, &pull_request);
             Ok(ManifestEditSent {
                 commit,
@@ -124,6 +102,30 @@ pub(crate) fn send(
             })
         }
     }
+}
+
+/// Open a pull request from `branch` into `base`, and answer its address.
+pub(crate) fn opened(
+    in_repo: &str,
+    base: &str,
+    branch: &str,
+    title: &str,
+    body: &str,
+) -> Result<String, NotDelivered> {
+    let opened = run_in(
+        in_repo,
+        FORGE,
+        &[
+            "pr", "create", "--base", base, "--head", branch, "--title", title, "--body", body,
+        ],
+    )
+    .map_err(|why| {
+        NotDelivered::of("the pull request", format!("`{FORGE}` would not run: {why}"))
+    })?;
+    if !opened.status.success() {
+        return Err(NotDelivered::of("the pull request", said(&opened)));
+    }
+    Ok(last_line(&opened))
 }
 
 /// The commit, made on `parent`'s tree with the one file replaced, and pushed
@@ -163,19 +165,20 @@ fn committed_and_pushed(
         .commit(None, &who, &who, &sending.message, &tree, &[&parent])
         .map_err(git)?
         .to_string();
+    pushed(in_repo, &commit, &sending.branch)?;
+    Ok(commit)
+}
+
+/// Push `commit` to a branch of that name on the remote. Never forced.
+pub(crate) fn pushed(in_repo: &str, commit: &str, branch: &str) -> Result<(), NotDelivered> {
     let pushed = run_in(
         in_repo,
         "git",
-        &[
-            "push",
-            "--quiet",
-            REMOTE,
-            &format!("{commit}:refs/heads/{}", sending.branch),
-        ],
+        &["push", "--quiet", REMOTE, &format!("{commit}:refs/heads/{branch}")],
     )
     .map_err(|why| NotDelivered::of("the push", format!("`git` would not run: {why}")))?;
     match pushed.status.success() {
-        true => Ok(commit),
+        true => Ok(()),
         false => Err(NotDelivered::of("the push", said(&pushed))),
     }
 }

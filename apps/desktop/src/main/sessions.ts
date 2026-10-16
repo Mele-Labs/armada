@@ -19,6 +19,8 @@ import type {
   CatchUpCheckout,
   CheckoutCaughtUp,
   CheckoutDiff,
+  CheckoutSentAsPullRequest,
+  CheckoutToPullRequest,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -164,6 +166,14 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/merge_lines/catch_up", catchUp);
     return answer.ok === true ? { ok: true, value: answer.body as CheckoutCaughtUp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** A held checkout's uncommitted files as a pull request, committed by Fleet without touching the checkout. */
+  async sendCheckoutAsPullRequest(send: CheckoutToPullRequest): Promise<SessionActed<CheckoutSentAsPullRequest>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/merge_lines/checkout_to_pull_request", send);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutSentAsPullRequest } : { ok: false, outcome: answer.outcome };
   }
 
   /** One uncommitted file of a held checkout, read by Fleet from the served checkout. */
