@@ -107,6 +107,14 @@ Per row:
 
 Every trigger is mechanical, and a scope request is no exception — the trigger is a tool call rather than a schedule. The Judge never fires on a timer, on a healthy Drone with nothing asked of it, or on its own initiative.
 
+## A Session's judge
+
+Since 16 Oct 2026. A Session is not a Job and has no step to gate, but the same call reads its work. **The same call, the same answer format and the same reading**: a brief laid in labelled parts so a citation says where it landed, an answer quoting words not in the brief discarded, a refusal that must say what was expected, produced and what follows (`verification::Brief::about_work`).
+
+**What it is shown is `Work`'s fields and nothing else**: the request the person dispatched with, the plan, the repository's standing rules and the diff against the base, cut at 120,000 characters with a note saying so. There is no parameter for the transcript, so it cannot read the agent's account of its own work, as a Job's Judge cannot. It reads no checkout.
+
+**One call for each question.** A step's `judge_checks` give the questions at a boundary, and the tile adds a standing one, whether the diff carries out the plan and stays inside the request. A panel size and a gaming check are ignored here. What it raises is a concern the person sends or dismisses (`session.md`, *The judges*); it gates nothing. This is the Judge rows of *Where it fires* with **no gate**, like the final review.
+
 ## Multi-criterion judging
 
 Supersedes the single-`question` shape.

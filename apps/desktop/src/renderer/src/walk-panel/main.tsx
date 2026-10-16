@@ -12,6 +12,7 @@ import { BUILT_IN_SWATCHES, modSwatch } from "../swatches";
 import { Themed } from "../theme";
 import { Panel } from "./Panel";
 import { subjectOf } from "./subject";
+import { withState } from "../state-feed";
 
 // The panel beside a walk window's page — `docs/practices/capture-window.md`, *The panel beside the
 // page*. A third renderer entry, beside Bridge's and the bar's: a Bridge document with Bridge's
@@ -21,7 +22,7 @@ import { subjectOf } from "./subject";
 // with the components Bridge's window draws it with. Its subject is the query main loaded it with; a
 // Job's is Bridge's open Job, because main made it so when this window opened or took focus.
 
-const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
 const SUBJECT = subjectOf(window.location.search);
 
 function Root() {

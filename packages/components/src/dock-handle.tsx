@@ -1,5 +1,10 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
+import { useMarking, type Mark } from "./marking";
+
+/** What `TheShell.css` reads in place of `:has(.armada-dock-handle)` on the work area. */
+const HANDLED: readonly Mark[] = [{ of: ".armada-shell__work", as: "data-handle" }];
+
 /**
  * A panel's inner-edge resize handle, and the range it drags in. **One
  * handle for every panel that resizes**: Helm's dock (`TheShell`) and every
@@ -89,6 +94,7 @@ export type DockHandleProps = {
 };
 
 export function DockHandle({ width, min, max, label, grows = "left", onResize, onReset, quiet, className }: DockHandleProps) {
+  const handled = useMarking(HANDLED);
   const drag = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   // Only for the line's own intensified colour while dragging — `:hover` drops
   // the moment the cursor leaves the 8px hit area, which a fast drag does
@@ -99,7 +105,11 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
 
   function pointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer sent by a script has nothing to capture; its moves are sent to the handle as well.
+    }
     drag.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
     setDragging(true);
     document.body.style.cursor = "col-resize";
@@ -137,6 +147,7 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
 
   return (
     <div
+      ref={handled}
       className={className === undefined ? "armada-dock-handle" : `armada-dock-handle ${className}`}
       role="separator"
       aria-orientation="vertical"

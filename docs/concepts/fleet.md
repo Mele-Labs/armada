@@ -455,6 +455,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
+**A forge that does not answer keeps the last reading, and the hub says how old it is.** Each repository's visit makes five asks: the head, the open pull requests, the merge queue, the merged listing and the runs on the commits it decides main from. `forge_read_at` is the instant of the last visit in which all five were answered, which `main.read_at` is not: that moves only when the head does. `quiet_since` is the instant of the first visit in which any of them was not, kept until a visit is answered whole, and absent while the forge answers. Both are in memory and a restart forgets them. A repository whose forge has never answered since the start is served as a hub holding `quiet_since` alone. A log or a culprit asked only after main changes is not one of the five. Every visit moves `forge_read_at`, so the merge line is published once a visit.
+
 ### Telling the owner of a pull request
 
 **Nobody watches a pull request for failures. Fleet reads each open one once an interval and tells its owner when any of these happens.** One call a repository returns, for each open pull request, its checks on the newest commit with their log addresses, whether it conflicts with the base, and where the merge queue holds it. The merged pull requests are the listing already read for the hub.
@@ -466,6 +468,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | Left the queue | It was in the merge queue at the last reading and is not now |
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
+
+**A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the watch's the 100 updated last, the hub's the 100 created last), and a repository can have more open. So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Session or a Job, or the pull request of a Job not yet settled. It is added to the list as one entry, so a pull request in both is told once, and the hub shows it in Bridge. A pull request nobody holds is never read by number: paging every open one costs two or three calls a round to watch pull requests nobody owns.
 
 **A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said. Hung again, it is told like any failure.
 

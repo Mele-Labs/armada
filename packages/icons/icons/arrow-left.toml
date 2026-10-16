@@ -1,0 +1,8 @@
+[icons.arrow-left]
+  means = "An arrow pointing left - back from a tool's results to the pull request's overview"
+  group = "Navigation"
+  size = "16px"
+  status = "Proposed"
+  paired_with = "arrow-up"
+  reserved = "The head of a review tool's results, naming `Back to the overview`. Never a history step, which is `chevron-left`, and never a move, which is `arrow-up` and `arrow-down`."
+  notes = "Borrowed for the Reviews tab's mock walk `pr-review-tab`, and kept by the owner on 16 Oct 2026. A tooltip names it and it carries no words beside it."

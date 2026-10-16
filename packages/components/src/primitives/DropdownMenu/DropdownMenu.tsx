@@ -18,9 +18,10 @@ import { Tooltip } from "../Tooltip/Tooltip";
  * `aria-current` carries the fact for anyone not reading the glyph — a chosen
  * item never also has a shortcut.
  *
- * No glyphs otherwise: icons stay on ghost/icon-only row actions, confirmation
- * dialogs and toolbars, per iconography; one drawing in the sheet disagrees,
- * see the report.
+ * No glyphs by default: icons stay on ghost/icon-only row actions, confirmation
+ * dialogs and toolbars, per iconography. **An item may carry its act's glyph**
+ * (`icon`), leading its label, for a menu that gathers a header's acts (the
+ * owner, 16 Oct 2026): the same glyph the act wore as a button.
  */
 export type DropdownMenuEntry =
   | {
@@ -29,6 +30,8 @@ export type DropdownMenuEntry =
       label: string;
       shortcut?: string;
       danger?: boolean;
+      /** The act's glyph, before the label. */
+      icon?: LucideIcon;
       selected?: boolean;
       /**
        * Listed and not choosable: `aria-disabled`, `--fg-subtle`, and a press
@@ -328,6 +331,7 @@ export function DropdownMenu({
                   onSelect?.(entry.id);
                 }}
               >
+                {entry.icon === undefined ? null : <entry.icon className="armada-dropdown-menu__icon" size={16} strokeWidth={2} aria-hidden />}
                 <span className="armada-dropdown-menu__text">
                   {entry.label}
                   <Count of={entry.count} />

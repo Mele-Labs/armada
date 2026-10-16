@@ -27,7 +27,7 @@ async function open() {
 
 test("with a Session open the flight controls are that Session's, and the six return when it closes", async () => {
   await open();
-  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact session context", "Report issue with session", "Map", "Release everything the Session holds"]);
+  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact session context", "Report issue with session", "Map", "Judge", "Release everything the Session holds"]);
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(tiles).toEqual(["Jobs only", "Sessions only", "Checks", "Needs me", "Map", "Timeline"]);
 });
@@ -35,9 +35,9 @@ test("with a Session open the flight controls are that Session's, and the six re
 test("Ask for update sends the Session a status request, and the key 1 does the same", async () => {
   await open();
   await controls().getByRole("button", { name: "Ask for update" }).click();
-  await expect.poll(() => pane().element().textContent?.split("Progress update, please: what is done, what is running now, what is next, and anything blocked.").length).toBe(2);
+  await expect.poll(() => pane().element().textContent?.split("Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.").length).toBe(2);
   await userEvent.keyboard("1");
-  await expect.poll(() => pane().element().textContent?.split("Progress update, please: what is done, what is running now, what is next, and anything blocked.").length).toBe(3);
+  await expect.poll(() => pane().element().textContent?.split("Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.").length).toBe(3);
 });
 
 test("Compact runs the Session's compact", async () => {

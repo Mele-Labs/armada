@@ -1,5 +1,6 @@
-//! A Session's `armada check` through a real Fleet: placed by the slot the directory is in, a
-//! thread row and a Checks page row that move as the run ends, and its log read by run id.
+//! A Session's `armada check` through a real Fleet: placed by the slot the directory is in and the
+//! lease there, a thread row and a Checks page row that move as the run ends, and its log read by
+//! run id.
 
 use api::Sessions;
 use ipc::{
@@ -95,6 +96,65 @@ async fn a_session_check_where_no_session_holds_the_slot_is_nobodys_run() {
     }
     assert!(fleet.manifest_checks(None).await.expect("lists").rows.is_empty());
     assert!(fleet.session_check_output(99).await.is_err());
+}
+
+/// A Session's ledger names the slot it first wrote in, and the pool names every slot it leased:
+/// its own, and a subagent's through `armada worktree lease`.
+#[tokio::test]
+async fn a_check_run_in_a_second_slot_a_session_leased_gets_a_row_on_that_sessions_thread() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let first = leased(&root, 2, "fleet/topic", By::Job("s1"));
+    fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s1"),
+            fact: SessionFact::Started {
+                cwd: first,
+                title: None,
+                origin: ipc::SessionOrigin::Bridge,
+                mod_version: None,
+            },
+        })
+        .await
+        .expect("kept");
+    let as_job = leased(&root, 3, "fleet/second", By::Job("s1"));
+    let as_process = leased(&root, 4, "fleet/third", By::Session("s1"));
+
+    for (slot, at) in [(3, as_job), (4, as_process)] {
+        let SessionCheckAnswer { run: Some(run), .. } = fleet
+            .session_check_reported(call(SessionCheckAct::Start, &format!("{at}/crates")))
+            .await
+            .expect("begins")
+        else {
+            panic!("the lease in slot {slot} names the Session");
+        };
+        let out = fleet.manifest_checks(None).await.expect("lists");
+        let row = out.rows.iter().find(|row| row.asked_run_id == Some(run as i64)).expect("a run");
+        assert_eq!(row.session_id.as_deref(), Some("s1"));
+        assert_eq!(row.requester, ipc::Requester::session("s1", slot));
+    }
+    let rows = fleet.rows_of("s1").await.expect("the thread");
+    assert_eq!(rows.iter().filter(|row| matches!(row, ipc::SessionRow::Check { .. })).count(), 2);
+}
+
+/// A lease that names no live Session, and a slot no row stands in, is a person's own run.
+#[tokio::test]
+async fn a_check_run_in_a_slot_leased_to_nobody_live_is_nobodys_run() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let theirs = leased(&root, 2, "fleet/topic", By::Nobody);
+    let gone = leased(&root, 3, "fleet/other", By::Job("never-reported"));
+    for at in [theirs, gone] {
+        let answered = fleet
+            .session_check_reported(call(SessionCheckAct::Start, &at))
+            .await
+            .expect("answers");
+        assert_eq!(answered, SessionCheckAnswer { run: None, stop: None });
+    }
+    assert!(fleet.manifest_checks(None).await.expect("lists").rows.is_empty());
 }
 
 #[tokio::test]

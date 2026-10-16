@@ -11,18 +11,33 @@ use crate::under_review::as_written;
 /// limit, and a runner that hung is the likeliest cause.
 const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
-const QUERY: &str = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){\
-    pullRequests(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{\
-    number headRefName url headRefOid mergeable author{login} mergeQueueEntry{state} \
+/// What the watch reads of each pull request, in the list's query and in the by-number one.
+const FIELDS: &str = "number headRefName url headRefOid mergeable author{login} \
+    mergeQueueEntry{state} \
     commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
     ... on CheckRun{name status conclusion detailsUrl startedAt completedAt} \
-    ... on StatusContext{context state targetUrl}}}}}}}}}}}";
+    ... on StatusContext{context state targetUrl}}}}}}}";
+
+fn list_query() -> String {
+    format!(
+        "query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{\
+         pullRequests(states:OPEN,first:100,orderBy:{{field:UPDATED_AT,direction:DESC}}){{nodes{{\
+         {FIELDS}}}}}}}}}"
+    )
+}
+
+/// `state` rides along so a pull request that closed since is not told as open.
+fn one_query() -> String {
+    format!(
+        "query($owner:String!,$name:String!,$number:Int!){{repository(owner:$owner,name:$name){{\
+         pullRequest(number:$number){{state {FIELDS}}}}}}}"
+    )
+}
 
 /// One pull request a line: number, branch, address, head, mergeability, queue state, then its
 /// checks (RS apart) of name, status, conclusion, address and seconds it ran (US apart), then the
 /// author's login.
-const LINES: &str = "\
-    .data.repository.pullRequests.nodes[]? | [(.number | tostring), (.headRefName // \"\"), \
+const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
     (.url // \"\"), (.headRefOid // \"\"), (.mergeable // \"\"), (.mergeQueueEntry.state // \"\"), \
     ([.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]? | \
     [(.name // .context // \"\"), (.status // \"\"), (.conclusion // .state // \"\"), \
@@ -33,22 +48,12 @@ const LINES: &str = "\
 
 /// Every open pull request, `None` where the forge would not answer.
 pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
-    let query = format!("query={QUERY}");
+    let query = format!("query={}", list_query());
+    let lines = format!(".data.repository.pullRequests.nodes[]? | {LINE}");
     let run = run_in(
         in_repo,
         FORGE,
-        &[
-            "api",
-            "graphql",
-            "-F",
-            "owner={owner}",
-            "-F",
-            "name={repo}",
-            "-f",
-            &query,
-            "--jq",
-            LINES,
-        ],
+        &["api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-f", &query, "--jq", &lines],
     )
     .ok()?;
     run.status.success().then(|| {
@@ -57,6 +62,29 @@ pub(crate) fn read(in_repo: &str, gate: &str) -> Option<WatchedPulls> {
             .filter_map(|line| pull_of_line(line, gate))
             .collect()
     })
+}
+
+/// One pull request by its number. `None` where the forge would not answer, or it is not open:
+/// the answer's line is empty then.
+pub(crate) fn read_one(in_repo: &str, gate: &str, number: u64) -> Option<WatchedPull> {
+    let query = format!("query={}", one_query());
+    let number = format!("number={number}");
+    let line = format!(".data.repository.pullRequest | select(.state == \"OPEN\") | {LINE}");
+    let run = run_in(
+        in_repo,
+        FORGE,
+        &[
+            "api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-F", &number, "-f",
+            &query, "--jq", &line,
+        ],
+    )
+    .ok()?;
+    if !run.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&run.stdout)
+        .lines()
+        .find_map(|line| pull_of_line(line, gate))
 }
 
 /// `gate` is the check that decides where the pull request carries one.
@@ -138,6 +166,15 @@ mod tests {
     use super::*;
 
     const SHA: &str = "1111111111111111111111111111111111111111";
+
+    #[test]
+    fn both_queries_close_every_brace_they_open() {
+        for query in [list_query(), one_query()] {
+            let open = query.matches('{').count();
+            assert_eq!(open, query.matches('}').count(), "{query}");
+        }
+        assert!(one_query().contains("pullRequest(number:$number)"));
+    }
 
     #[test]
     fn a_line_is_read_into_checks_a_conflict_and_a_queue_state() {

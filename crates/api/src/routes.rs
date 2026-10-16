@@ -276,6 +276,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
         .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
+        .route("/sessions/judge", post(crate::sessions::judge_session::<D>))
+        .route("/sessions/judge/send", post(crate::sessions::send_concern::<D>))
+        .route("/sessions/judge/dismiss", post(crate::sessions::dismiss_concern::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),

@@ -386,6 +386,26 @@ impl Delivery for FakeVcs {
         self.main_ci.watched()
     }
 
+    fn watched_pull(
+        &self,
+        _in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<adapter_traits::WatchedPull> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.watched_one(number)
+    }
+
+    fn open_pull_request(
+        &self,
+        _in_repo: &str,
+        gate: &str,
+        number: u64,
+    ) -> Option<adapter_traits::OpenPull> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.open_one(number)
+    }
+
     fn forge_login(&self, _in_repo: &str) -> Option<String> {
         self.main_ci.login()
     }
@@ -459,7 +479,20 @@ impl Delivery for FakeVcs {
         _in_repo: &str,
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestFacts> {
-        self.pull_request_read(pull_request)
+        // A pull request the watch lists is open, as a forge read of it says, unless a test
+        // scripted what the read answers.
+        self.pull_request_read(pull_request).or_else(|| {
+            let number: u64 = pull_request.trim_start_matches('#').parse().ok()?;
+            let pull = self.main_ci.watched()?.into_iter().find(|pull| pull.number == number)?;
+            Some(adapter_traits::PullRequestFacts {
+                standing: adapter_traits::PullRequestStanding::Open,
+                branch: pull.branch.as_written().to_string(),
+                auto_merge: false,
+                title: String::new(),
+                url: pull.url.as_written().to_string(),
+                body: None,
+            })
+        })
     }
 
     fn mark_ready(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {

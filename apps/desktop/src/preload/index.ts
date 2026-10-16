@@ -15,6 +15,7 @@ import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol"
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
 import type { Pattern } from "../shared/haptics";
+import type { StateChange } from "../shared/state-change";
 import type {
   CheckOutputRead,
   BriefRead,
@@ -34,7 +35,7 @@ import type { ModChecked } from "@armada/protocol";
 import type { PullReviewLists, PullThreadResolved, ResolvePullThread, ReviewRun, ReviewRuns, ReviewTools, SaveReviewTool, StartReviewRun, WritePullRequest } from "@armada/protocol";
 import type { ChosenHold, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -116,13 +117,14 @@ import type {
 const api: BridgeApi = {
   state: (): Promise<BridgeState> => ipcRenderer.invoke(CHANNELS.state),
 
-  subscribe: (onState: (state: BridgeState) => void): (() => void) => {
-    const handler = (_event: unknown, state: BridgeState): void => onState(state);
+  subscribeChanges: (onChange: (change: StateChange<BridgeState>) => void): (() => void) => {
+    const handler = (_event: unknown, change: StateChange<BridgeState>): void => onChange(change);
     ipcRenderer.on(CHANNELS.changed, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.changed, handler);
     };
   },
+  syncState: (): Promise<StateChange<BridgeState>> => ipcRenderer.invoke(CHANNELS.syncState),
   onWalkFocus: (onFocus: (focused: boolean) => void): (() => void) => {
     const handler = (_event: unknown, focused: unknown): void => onFocus(focused === true);
     ipcRenderer.on(CHANNELS.walkFocused, handler);
@@ -754,6 +756,9 @@ const api: BridgeApi = {
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),
   sendPlanChanges: (changes: SendPlanChanges): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendPlanChanges, changes),
+  judgeSession: (judge: JudgeSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.judgeSession, judge),
+  sendConcern: (send: SendConcern): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendConcern, send),
+  dismissConcern: (dismiss: DismissConcern): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissConcern, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   runSessionCommand: (sessionId: string, command: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.runSessionCommand, sessionId, command),

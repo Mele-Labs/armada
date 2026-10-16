@@ -14,12 +14,12 @@ import { Button, Tooltip, WorkflowStepCard } from "@armada/components";
 
 import { Builds, aimedAt, placeBuilds } from "./Builds";
 import { AskUpdate } from "./AskUpdate";
-import { Callout, type Anchor } from "./Callout";
+import { Callout } from "./Callout";
 import { Doings } from "./Doings";
-import { Drone, type OnTip } from "./Drone";
+import { Drone } from "./Drone";
 import { Lifted } from "./Lifted";
 import { Pins, RouteLegs, tipOf } from "./Route";
-import { Base, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
+import { Base, FileBar, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
 import { onPlane, px, vars } from "./bf-parts";
 import { LOCK_EYE, MISSION_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
 import { loopsOf, type CallTone } from "./field";
@@ -31,6 +31,8 @@ import { CAM, FLAT, alongOf, bigOf, layoutOf, type DroneIn, type P3, type Point,
 import { sceneOf, type SceneIn } from "./mission";
 import type { BuildIn } from "./build";
 import { aimAt, camera as kept } from "./store";
+import { TipLayer } from "./TipLayer";
+import { steadyTips } from "./tip-hover";
 import { clashLines, droneTip, type DroneFacts, type GoalIn, type PadIn, type Tip } from "./tip";
 import type { Clash } from "./touches";
 import { useCamera } from "./useCamera";
@@ -52,6 +54,8 @@ export type BattlefieldProps = {
   /** The drone a picked event is about. */
   focus?: string | undefined;
   selected: string | undefined;
+  /** The root of the one repository drawn, where the map is cut to one. A change of it sends the camera to the new fit. */
+  scope?: string | undefined;
   /** The ring under each drone that is building one. None where Fleet reports none. */
   builds?: readonly BuildIn[] | undefined;
   /** The waypoint of a Job's route its structure stands at: the step that works the plan. */
@@ -68,7 +72,7 @@ export type BattlefieldProps = {
 
 const NO_BUILDS: readonly BuildIn[] = [];
 
-export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
+export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, facts, calls, clashes, focus, selected, scope, scene, builds = NO_BUILDS, standAt, onSelect, onClear, onPad, onGoal, onPr }: BattlefieldProps) {
   const host = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size>({ width: 900, height: 560 });
   const [measured, setMeasured] = useState(false);
@@ -143,8 +147,16 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     return fit({ x: (l + r) / 2, y: ((t + b) / 2) * FLAT, eye: Math.min(home.eye, fitted), tilt: false });
   })();
 
-  const [tip, setTip] = useState<{ tip: Tip; anchor: Anchor }>();
   const [hot, setHot] = useState<string>();
+  const [hotTile, setHotTile] = useState<string>();
+  // What the pointer is on is held here, apart from this component's state: a card that comes and goes redraws the card and nothing else, and
+  // the drone or tile it lights moves only once the card has settled (`tip-hover.ts`).
+  const [tips] = useState(steadyTips);
+  tips.onSettle((shown) => {
+    setHot(shown?.hot);
+    setHotTile(shown?.tile);
+  });
+  useEffect(() => tips.cancel, [tips]);
   const locateRef = useRef<() => void>(() => undefined);
   const view = useCamera({
     host,
@@ -156,10 +168,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     arriving: arrival.length > 0,
     keep: scene === undefined,
     locate: () => locateRef.current(),
-    onHand: () => {
-      setTip(undefined);
-      setHot(undefined);
-    },
+    onHand: () => tips.clear(),
   });
   const { eff, latest, go, zoomMid, homeAgain } = view;
   const pitch = eff.tilt ? CAM.near : CAM.wide;
@@ -192,6 +201,14 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
     first.current = false;
     go(lookingAt(at, Math.max(latest.current.eye, LOCK_EYE)), "ease");
   }, [layout]);
+
+  // Another repository drawn: the camera lets go of where it was and eases to the fit of the new field.
+  const was = useRef(scope);
+  useEffect(() => {
+    if (was.current === scope) return;
+    was.current = scope;
+    if (scene === undefined) homeAgain();
+  }, [scope]);
 
   // The lifted lines are hidden while the pitch eases, since they are drawn for the pitch it is going to.
   const [easing, setEasing] = useState(false);
@@ -227,9 +244,9 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const alive = loopsOf(drones.filter((one) => one.hover), { focus, selected, hot });
   const writing = new Map<string, "loop" | "still">();
   for (const one of doers) if (one.doing === "write") writing.set(aimOf(one)!.path, loops.has(one.key) || writing.get(aimOf(one)!.path) === "loop" ? "loop" : "still");
-  const showTip: OnTip = (next, target, at) => {
-    if (next === undefined || target === undefined) return setTip(undefined);
-    setTip({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) } });
+  const showTip = (next: Tip | undefined, target?: Element, at?: { x: number; y: number }, lit?: { hot?: string; tile?: string }) => {
+    if (next === undefined || target === undefined) return tips.leave();
+    tips.show({ tip: next, anchor: { target, ...(at === undefined ? {} : { at }) }, ...lit });
   };
   // A pin pressed: its step's card stays open beside it until Esc, a press on the ground, or another pin.
   const [pinned, setPinned] = useState<{ id: string; target: Element }>();
@@ -247,8 +264,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
         setPinned(undefined);
         return;
       }
-      setTip(undefined);
-      setHot(undefined);
+      tips.clear();
     };
     window.addEventListener("keydown", away, true);
     return () => window.removeEventListener("keydown", away, true);
@@ -261,7 +277,6 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
   const lockedTip = useMemo(() => (building === undefined || lockedDrone === undefined || selected === undefined ? undefined : droneTip(lockedDrone, facts.get(selected), ShieldCheck)), [building, lockedDrone, facts, selected]);
   const lockedAnchor = useMemo(() => (lockedEl === null ? undefined : { target: lockedEl }), [lockedEl]);
   const locked = selected !== undefined && lock !== undefined;
-  const [hotTile, setHotTile] = useState<string>();
   // The plots: a name for those the selected drone is over and those a calling drone is over, a lift for those a working drone is over,
   // an amber slab where Fleet says two are writing.
   const pulsing = new Set((focus === undefined ? [] : (layout.over.get(focus) ?? [])).map((one) => one.tile.path));
@@ -374,18 +389,16 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                     writing={writing.get(tile.path)}
                     bump={bump.get(tile.path)}
                     room={room}
-                    onEnter={(event) => {
-                      setHotTile(tile.path);
-                      showTip(clash === undefined ? { label: "Directory", title: tile.path, hue: "quiet" } : { label: "Write clash", title: tile.path, hue: "ask", lines: clashLines(clash) }, event.currentTarget, { x: event.clientX, y: event.clientY });
-                    }}
-                    onLeave={() => {
-                      setHotTile(undefined);
-                      showTip(undefined);
-                    }}
+                    onEnter={(event) => showTip(clash === undefined ? { label: "Directory", title: tile.path, hue: "quiet" } : { label: "Write clash", title: tile.path, hue: "ask", lines: clashLines(clash) }, event.currentTarget, { x: event.clientX, y: event.clientY }, { tile: tile.path })}
+                    onLeave={() => showTip(undefined)}
                   />
                 );
               }),
             )}
+
+            {[...layout.bars.values()].map((bar) => (
+              <FileBar key={bar.path} bar={bar} height={heights.get(bar.tile.path) ?? 0} onTip={showTip} />
+            ))}
 
             <Doings layout={layout} frame={frame} plays={plays} droneBy={droneBy} loops={loops} focus={focus} />
 
@@ -445,7 +458,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                 pinned={pinned?.id}
                 readable={readable}
                 onPress={(one, target) => {
-                  setTip(undefined);
+                  tips.clear();
                   setPinned((was) => (was?.id === one.id ? undefined : { id: one.id, target }));
                 }}
                 onTip={(next, target) => (next === undefined || pinned !== undefined ? showTip(undefined) : showTip(next, target))}
@@ -489,10 +502,7 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                       call={callOf(drone.key)}
                       leaving={!calls.has(drone.key)}
                       onSelect={() => onSelect(drone.key)}
-                      onTip={(next, target) => {
-                        setHot(next === undefined ? undefined : drone.key);
-                        showTip(next, target);
-                      }}
+                      onTip={(next, target) => showTip(next, target, undefined, { hot: drone.key })}
                     />
                   </div>
                 </div>
@@ -532,9 +542,8 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
           </button>
         );
       })}
-      {tip === undefined || host.current === null ? null : <Callout tip={tip.tip} anchor={tip.anchor} host={host.current} />}
-      {tip !== undefined || pinned !== undefined || lockedTip === undefined || lockedAnchor === undefined || host.current === null ? null : <Callout key={`locked:${selected}`} tip={lockedTip} anchor={lockedAnchor} host={host.current} pinned />}
-      {pinned === undefined || card === undefined || host.current === null ? null : <Callout key={pinned.id} tip={card} anchor={{ target: pinned.target }} host={host.current} pinned />}
+      {host.current === null ? null : <TipLayer tips={tips} host={host.current} view={eff} held={pinned !== undefined} {...(lockedTip === undefined || lockedAnchor === undefined ? {} : { locked: { tip: lockedTip, anchor: lockedAnchor, key: selected } })} />}
+      {pinned === undefined || card === undefined || host.current === null ? null : <Callout key={pinned.id} tip={card} anchor={{ target: pinned.target }} host={host.current} view={eff} pinned />}
       <div className="bf-zoom">
         {mine === undefined ? null : <AskUpdate subject={mine} />}
         <Tooltip label="Zoom in" shortcut="+" asChild>

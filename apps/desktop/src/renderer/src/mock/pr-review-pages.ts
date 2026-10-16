@@ -12,7 +12,7 @@ import { drawnOf } from "@armada/screens/src/drawn-patch";
 import type { Account, Change, Hunk, ReviewPr, Theme, ToolDef } from "../pr-review/model";
 import { ARMADA_DEFS, type FindingSeed, type MockPr, type ReviewSeed, type SeedThread } from "./review-seed";
 
-const FORGE = "https://github.com/mele-labs";
+const FORGE = "https://forge.example/mele-labs";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
 
 const checks = (repository: string, number: number, rows: readonly (readonly [string, PullRequestCheckRow["state"], number?])[]): PullRequestCheckRow[] =>
@@ -156,7 +156,7 @@ const marta = build({
   lists: ["requested", "team", "assigned"],
   team: "@Mele-Labs/fleet",
   opened: 205,
-  body: "## Why\n\nThe title bar's meters read the plan windows every five seconds, and each read is a call to the provider. With two windows open that is 24 calls a minute before a single Session has started, against an allowance of 30. On 11 Oct that was enough to rate limit three Sessions (#1880).\n\n## What changes\n\n- Fleet keeps the last read for **60 seconds** and serves it again\n- Bridge asks once a minute instead of every five seconds\n- `read_at` says when Fleet last read, so the meters can say how old they are\n- A failed read is not cached, so the next ask tries the provider again\n\nThe windows move on the minute, so a minute is the longest a figure is wrong by.\n\n## How it is cached\n\nThe cache is one `Held` behind a `Mutex`, filled on the first ask and replaced when it is older than `CACHE_FOR`:\n\n```rust\nconst CACHE_FOR: Duration = Duration::from_secs(60);\n\nasync fn windows(&self) -> Result<Reading, Error> {\n    let mut held = self.held.lock().await;\n    if let Some(one) = held.as_ref().filter(|one| one.at.elapsed() < CACHE_FOR) {\n        return Ok(one.reading());\n    }\n    let fresh = anthropic::windows().await?;\n    *held = Some(Held { at: Instant::now(), windows: fresh });\n    Ok(held.as_ref().unwrap().reading())\n}\n```\n\n## Not in this pull request\n\n- A shared cache across Fleets on one machine. There is only ever one Fleet per home, so it would add a file to guard for nothing.\n- Pushing the figure to Bridge. Bridge still asks; it just asks less.\n- Any change to how the meters are drawn beyond the age line.\n\n## Compatibility\n\n`read_at` is a new required field on the wire. Bridge and Fleet ship together, so the protocol version moves with it and an old Bridge is refused at connect, as for any wire change.\n\nCloses #1871.",
+  body: "## Why\n\nThe title bar's meters read the plan windows every five seconds, and each read is a call to the provider. With two windows open that is 24 calls a minute before a single Session has started, against an allowance of 30. On 11 Oct that was enough to rate limit three Sessions (#1880).\n\n## What changes\n\n- Fleet keeps the last read for **60 seconds** and serves it again\n- Bridge asks once a minute instead of every five seconds\n- `read_at` says when Fleet last read, so the meters can say how old they are\n- A failed read is not cached, so the next ask tries the provider again\n\nThe windows move on the minute, so a minute is the longest a figure is wrong by.\n\n## How it is cached\n\nThe cache is one `Held` behind a `Mutex`, filled on the first ask and replaced when it is older than `CACHE_FOR`:\n\n```rust\nconst CACHE_FOR: Duration = Duration::from_secs(60);\n\nasync fn windows(&self) -> Result<Reading, Error> {\n    let mut held = self.held.lock().await;\n    if let Some(one) = held.as_ref().filter(|one| one.at.elapsed() < CACHE_FOR) {\n        return Ok(one.reading());\n    }\n    let fresh = provider::windows().await?;\n    *held = Some(Held { at: Instant::now(), windows: fresh });\n    Ok(held.as_ref().unwrap().reading())\n}\n```\n\n## Not in this pull request\n\n- A shared cache across Fleets on one machine. There is only ever one Fleet per home, so it would add a file to guard for nothing.\n- Pushing the figure to Bridge. Bridge still asks; it just asks less.\n- Any change to how the meters are drawn beyond the age line.\n\n## Compatibility\n\n`read_at` is a new required field on the wire. Bridge and Fleet ship together, so the protocol version moves with it and an old Bridge is refused at connect, as for any wire change.\n\nCloses #1871.",
   checks: "passed",
   review: "required",
   conversation: [
@@ -193,9 +193,9 @@ const marta = build({
     "how-to-test": {
       shape: "steps",
       steps: [
-        { do: "Run the plan usage tests, by name.", code: "armada check test plan_usage", look: "The cache cases pass: a second read inside the minute is served, and one after it calls the provider again.", from: { from: "doc", path: "crates/fleet/CLAUDE.md", address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/CLAUDE.md` } },
+        { do: "Run the plan usage tests, by name.", code: "armada check test plan_usage", look: "The cache cases pass: a second read inside the minute is served, and one after it calls the provider again.", from: { from: "doc", path: "crates/fleet/AGENTS.md", address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/AGENTS.md` } },
         { do: "Start Fleet on this branch and watch its log for plan reads.", code: "tail -f ~/.armada/fleet.log | grep plan_usage", look: "One provider call a minute, where it was one every five seconds.", from: { from: "doc", path: "crates/fleet/README.md", address: `${FORGE}/mele-labs/armada/blob/main/crates/fleet/README.md` } },
-        { do: "Open a second Bridge window and leave both on the Cockpit for two minutes.", look: "Still one call a minute in the log, not two.", from: { from: "doc", path: "apps/desktop/CLAUDE.md", address: `${FORGE}/mele-labs/armada/blob/main/apps/desktop/CLAUDE.md` } },
+        { do: "Open a second Bridge window and leave both on the Cockpit for two minutes.", look: "Still one call a minute in the log, not two.", from: { from: "doc", path: "apps/desktop/AGENTS.md", address: `${FORGE}/mele-labs/armada/blob/main/apps/desktop/AGENTS.md` } },
         { do: "Hover a plan meter in the title bar.", look: "It says how long ago Fleet read the figure, counting up from read_at.", from: { from: "doc", path: "docs/practices/bridge.md", address: `${FORGE}/mele-labs/armada/blob/main/docs/practices/bridge.md` } },
       ],
     },
@@ -231,7 +231,7 @@ const marta = build({
                 " ",
                 " use tokio::sync::Mutex;",
                 " ",
-                " use crate::anthropic::{self, Windows};",
+                " use crate::provider::{self, Windows};",
                 "+",
                 "+/// The windows move on the minute, so a read younger than this is served again.",
                 "+const CACHE_FOR: Duration = Duration::from_secs(60);",
@@ -242,7 +242,7 @@ const marta = build({
                 "+}",
                 "+",
                 "+pub struct PlanUsage {",
-                "+    client: anthropic::Client,",
+                "+    client: provider::Client,",
                 "+    held: Mutex<Option<Held>>,",
                 "+}",
                 " ",
@@ -259,11 +259,11 @@ const marta = build({
               RUST,
               [
                 "@@ -12,5 +25,18 @@ pub struct PlanUsage {",
-                "-pub async fn read(client: &anthropic::Client) -> Result<Windows, ReadError> {",
+                "-pub async fn read(client: &provider::Client) -> Result<Windows, ReadError> {",
                 "-    client.windows().await",
                 "-}",
                 "+impl PlanUsage {",
-                "+    pub fn new(client: anthropic::Client) -> Self {",
+                "+    pub fn new(client: provider::Client) -> Self {",
                 "+        Self { client, held: Mutex::new(None) }",
                 "+    }",
                 "+",
@@ -309,7 +309,7 @@ const marta = build({
                 "+",
                 "+    #[tokio::test(start_paused = true)]",
                 "+    async fn a_read_inside_the_minute_is_served_again() {",
-                "+        let usage = PlanUsage::new(anthropic::Client::counting());",
+                "+        let usage = PlanUsage::new(provider::Client::counting());",
                 "+        usage.read().await.unwrap();",
                 "+        tokio::time::advance(Duration::from_secs(59)).await;",
                 "+        usage.read().await.unwrap();",
@@ -710,14 +710,14 @@ const reconnect = build({
   number: 1896,
   title: "Fix the reconnect wait",
   branch: "fleet/reconnect-wait",
-  author: "claude",
+  author: "drone",
   lists: ["mine"],
   opened: 40,
   holder: { id: "f1", title: "Fix the reconnect wait" },
   body: "When Bridge loses its socket to Fleet it waited a flat 30 seconds.\n\n- the first wait is 5 seconds\n- each one after doubles, up to the 60 second cap\n- a wait is jittered by 20% so two windows do not reconnect together",
   checks: "failed",
   review: "required",
-  conversation: [{ kind: "comment", author: "claude", at: minutesAgo(38), body: "The first wait is 5 seconds and doubles up to the cap. desktop_test is red on the resize case, which this does not touch." }],
+  conversation: [{ kind: "comment", author: "drone", at: minutesAgo(38), body: "The first wait is 5 seconds and doubles up to the cap. desktop_test is red on the resize case, which this does not touch." }],
   checkRows: checks("mele-labs/armada", 1896, [
     ["build", "passed", 122],
     ["test · rust", "passed", 244],
@@ -726,8 +726,8 @@ const reconnect = build({
     ["typecheck", "passed", 93],
   ]),
   commits: commits([
-    ["5c18d3e", "Wait 5 seconds first, then back off", "claude", 38],
-    ["80a2f6b", "Jitter the wait", "claude", 31],
+    ["5c18d3e", "Wait 5 seconds first, then back off", "drone", 38],
+    ["80a2f6b", "Jitter the wait", "drone", 31],
   ]),
   accounts: {
     "user-impact": {
@@ -990,7 +990,7 @@ const pause = build({
   number: 1892,
   title: "Add the pause marker column",
   branch: "armada/82-pause-column",
-  author: "claude",
+  author: "drone",
   lists: ["mine"],
   opened: 30,
   body: "Adds `paused_at` to the jobs table, null until a Job is paused.",
@@ -1002,7 +1002,7 @@ const pause = build({
     ["test · rust", "running"],
     ["verify-foundations", "passed", 55],
   ]),
-  commits: commits([["9e4b7a0", "Add the pause marker column", "claude", 29]]),
+  commits: commits([["9e4b7a0", "Add the pause marker column", "drone", 29]]),
   summary: "A Job is paused when `paused_at` is set and resumed when it is cleared. The column is added to the jobs table, read into the store's row, and sent on the wire.",
   explainedBy: "agent",
   themes: [
@@ -1268,7 +1268,7 @@ export function reviewSeed(): ReviewSeed {
     },
     results: Object.fromEntries(all.map((one) => [one.pr.key, one.results])),
     pushes: {
-      [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "claude" },
+      [reconnect.pr.key]: { sha: "d41e7a9", headline: "Reset the attempt count when the socket opens", author: "drone" },
     },
     finds: [
       {

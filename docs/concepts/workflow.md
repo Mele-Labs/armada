@@ -75,6 +75,10 @@ Picking one by hand stays available and is the override, not the path. That docu
 
 **What is proposed is not what is stored.** The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press, as above. The proposal chooses which one and a person may choose another before the press; freezing is what stops it moving afterwards, so a workflow edited in the repo after the copy reaches no Job already holding one.
 
+### A Session follows a workflow too
+
+A hosted Session may follow one workflow, which the proposer picks at dispatch or a person sets. It is not run as a Job is: no step gates it. Fleet reads the Session's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` is read by a judge as the Session leaves it, advisory and never blocking. `session.md`, *The rail* and *The judges*. **An owner can switch the workflow system off** (`features.workflows`), and every Session is then a plain one.
+
 ### Where a definition comes from
 
 **Three places, merged by `workflow_id`, the most specific winning**: the set Armada carries, then [Kit](kit.md)'s Workflows at `~/.armada/workflows/`, then the repository's own `.armada/workflows/`. A repository with no workflows of its own dispatches on the carried set, and one file in either later place replaces a carried definition by id. `config::Catalogue` holds the rule. #425.

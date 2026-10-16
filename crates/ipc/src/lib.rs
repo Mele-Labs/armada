@@ -242,6 +242,8 @@ mod session_activity;
 /// What a Session has built: its phase, pieces and road, read off what Fleet observed.
 mod session_build;
 mod session_plan;
+/// A Session's workflow rail and its judges: the step it is on, and the concerns a judge raises.
+mod session_rail;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -378,9 +380,9 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds, RunSessionCommand,
-    SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode, SessionRow,
-    SessionRowChanged, SessionTag, SetSessionWorkflow,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
+    SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
@@ -548,6 +550,10 @@ pub use session_plan::{
     PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
     TASK_LIST_IS_THE_PLAN,
+};
+pub use session_rail::{
+    ConcernFrom, ConcernHow, ConcernSettled, DismissConcern, JudgeConcern, JudgeReading, JudgeSession, WaitingCite,
+    SendConcern,
 };
 pub use session_build::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,

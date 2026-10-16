@@ -562,6 +562,11 @@ fn sed_reads(segment: &str) -> bool {
 
 /// One segment of a line.
 fn reads(segment: &str) -> bool {
+    // A group's `(` `{` and `)` `}` run nothing of their own: `(cd x && ls)`.
+    let segment = segment.trim_start_matches(['(', '{', ' ']).trim_end_matches([')', '}', ' ']);
+    if segment.is_empty() {
+        return true;
+    }
     let segment = &*plain_git(segment);
     if segment.starts_with("gh api ") {
         return api_reads(segment);
@@ -583,6 +588,15 @@ fn reads(segment: &str) -> bool {
         return true;
     }
     if git_lists(segment) {
+        return true;
+    }
+    // `L=~/x.log; grep y $L` sets a name and writes nothing: [`segments`] has already refused a
+    // substitution, so the value is text.
+    if segment.split_whitespace().all(|word| {
+        word.split_once('=').is_some_and(|(name, _)| {
+            !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+    }) {
         return true;
     }
     if segment.starts_with("find ") && (segment.contains("-delete") || segment.contains("-exec")) {

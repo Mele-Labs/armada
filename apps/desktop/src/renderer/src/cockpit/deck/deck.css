@@ -19,10 +19,11 @@
 /* The shell keeps a gutter round every screen (the work's leading margin, the panel's trailing one, the mount's top, the
    overview's left and foot) that the rail it was drawn for needed. The deck has no rail: its panels run to the one gap the
    title bar's own side padding is, the same on the left, the right and under the bars. */
-.armada-shell__body:has(.deck) > .armada-shell__work { margin-left: 0; }
-.armada-shell__work:has(.deck) > .armada-shell__panel { margin-right: 0; }
-.armada-screen__mounted:has(.deck) { padding-top: var(--space-3); }
-.armada-screen__overview:has(> .deck) { padding: 0; }
+/* The deck marks the containers it sits in (`DECK_MARKS`): `:has(.deck)` on them restyled each one whenever anything beneath it was inserted. */
+.armada-shell__body[data-deck] > .armada-shell__work { margin-left: 0; }
+.armada-shell__work[data-deck] > .armada-shell__panel { margin-right: 0; }
+.armada-screen__mounted[data-deck] { padding-top: var(--space-3); }
+.armada-screen__overview[data-deck] { padding: 0; }
 .deck [data-hue="ask"],
 .deck [data-hue="issue"] { --hue: var(--status-awaiting-review); }
 .deck [data-hue="bad"] { --hue: var(--status-completed-failed); }
@@ -77,7 +78,8 @@
   align-items: center;
   gap: var(--space-3);
   min-height: var(--h-row-header);
-  padding: var(--space-2) var(--space-4) var(--space-1);
+  /* No padding above or below: the band's own height centres the line, so there is as much space over the title as under it. */
+  padding: 0 var(--space-4);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -141,7 +143,10 @@
 
 /* ---- Activity: the beeswarm, in the narrow column under the list ---------------------------------------- */
 
-.deck-activity { flex: none; height: var(--deck-activity, calc(var(--space-12) * 6)); }
+/* Activity and Incoming calls rest at the height of the merge queue to the foot of the flight controls (`useActivityBeside`), so their edges
+   line up with the middle's. They give way, never overlap, when the column is shorter. */
+.deck-activity,
+.deck-incoming { flex: 0 1 var(--deck-activity, calc(var(--space-12) * 6)); min-height: calc(var(--space-12) * 3); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 
 /* ---- A pane: one head, then its body -------------------------------------------------------------------- */
@@ -250,6 +255,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* Main's chip: the Cockpit's own green with its glow, red when it is red. */
 .deck-chip[data-main] .deck-chip__dot[data-tone="calm"] { --dot: var(--status-completed-success); box-shadow: 0 0 var(--space-2) var(--dot); }
 .deck-chip[data-main] .deck-chip__dot[data-tone="bad"] { box-shadow: 0 0 var(--space-2) var(--dot); }
+/* A forge that has stopped answering: the dot is what Fleet last read, so it is dimmed and hollow and gives up main's glow, and an unplugged glyph says since when. */
+.deck-chip__dot[data-stale] { opacity: 0.4; }
+.deck-chip[data-main] .deck-chip__dot[data-stale] { background: transparent; box-shadow: inset 0 0 0 var(--border-width) var(--dot); }
+.deck-chip__quiet { display: inline-flex; flex: none; color: var(--status-escalated); }
 /* A red main's light opens a card, which says what the light's tooltip would. */
 .deck-chip[data-card] .armada-tooltip__bubble { display: none; }
 /* The queue's own tooltip stands down while a chip in it shows its card, which would sit on top of it. */
@@ -281,6 +290,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* The state of a green main at the head of its card, in the success hue, as the red band is in the failure's. */
 .deck-main-card__state { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-default); background: var(--status-completed-success-bg); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
 .deck-main-card__state .deck-chip__dot { --dot: var(--status-completed-success); background: var(--dot); }
+/* How old main's reading is, and the forge's silence, under the rest of main's card. */
+.deck-main-card__forge { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-4); color: var(--fg-muted); font-size: var(--text-xs); }
+.deck-main-card__quiet { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--status-escalated); }
 /* Your checkout, a section of main's card with the red band's own build: a band across the top in the caution hue, then rows
    with the label set back. */
 .deck-checkout { display: flex; flex-direction: column; border-bottom: var(--border-width) solid var(--border-default); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); }
@@ -496,13 +508,12 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   .deck-autopilot__bar[data-state="running"] .deck-autopilot__fill { width: 60%; animation: none; }
 }
 
-.deck-incoming { flex: 2 1 0; }
 .deck-bays,
 .deck-ledger { flex: 3 1 0; }
 /* The Session's ledger, as the Sessions window's panel draws it, scrolling in the panel's own height. */
 .deck-ledger__body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; padding: 0 var(--space-2) var(--space-2); }
 .deck-ledger__body > .armada-session-ledger { flex: 1 1 0; width: auto; }
-.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; }
+.deck-incoming__cards { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-height: 0; margin: 0; padding: var(--space-3); list-style: none; overflow-y: auto; overflow-x: hidden; }
 .deck-incoming__cards > li { display: flex; flex: none; min-width: 0; }
 
 /* A call that has come in: a card, edged in its hue. The front one rings, slowly, until he opens it. A card that
@@ -536,7 +547,12 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
    reach as that shadow did, one --space-4 past each edge: the card is its own inline-size container so the scale
    can be read from its width (the container is the content box, so the card's padding and border go back on), and its
    height is the control height. */
+/* The front card's ring grows past the card into the list's side padding, and a scroller's overflow moves with it: its layers were made and
+   dropped on every beat of the ring. The ring was already clipped there, so a list that cannot scroll sideways draws the same. */
 .deck-hail { position: relative; container-type: inline-size; }
+/* The ring's growth overflowed the list's scroller, which redid its overflow and repainted the whole window on every beat. Clipped one
+   --space-4 out, which is as far as the ring reaches, nothing it draws is lost. */
+.deck-hail { overflow: clip; overflow-clip-margin: var(--space-4); }
 .deck-hail[data-first]::after {
   content: "";
   position: absolute;
@@ -779,3 +795,46 @@ button.deck-pr:hover { border-color: var(--border-strong); color: var(--fg-defau
 .deck-history__to { flex: none; }
 .deck-history__sha { flex: none; font-family: var(--font-mono); color: var(--fg-subtle); }
 .deck-history__checkout .deck-history__span { flex: none; font-variant-numeric: tabular-nums; }
+
+/* ---- A panel folds to its band ------------------------------------------------------------------------------ */
+
+/* The band is what folds a panel: pressed, it closes the panel to the band alone, and pressed again it opens. The size is animated, and what
+   is under the band is clipped by the panel while it goes and hidden from the pointer and the keyboard once it has. The band, with its key,
+   stays as it was. */
+.deck-foot { interpolate-size: allow-keywords; }
+.deck-band[role="button"],
+.sv-panel__band[role="button"] { cursor: pointer; user-select: none; }
+.deck-band[role="button"]:hover,
+.sv-panel__band[role="button"]:hover { color: var(--fg-default); }
+.deck-band[role="button"]:focus-visible,
+.sv-panel__band[role="button"]:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
+.deck-panel { --folded: calc(var(--h-row-header) + var(--border-width) * 2); }
+.deck-panel,
+.sv-panel {
+  transition: flex-grow calc(var(--duration-sheet) * 1.6) var(--ease), flex-basis calc(var(--duration-sheet) * 1.6) var(--ease), min-height calc(var(--duration-sheet) * 1.6) var(--ease), max-height calc(var(--duration-sheet) * 1.6) var(--ease), height calc(var(--duration-sheet) * 1.6) var(--ease), margin-top calc(var(--duration-sheet) * 1.6) var(--ease);
+}
+.deck-panel > :not(.deck-band),
+.sv-panel > :not(.sv-panel__band) { visibility: visible; }
+.deck-panel[data-collapsed] > :not(.deck-band),
+.sv-panel[data-collapsed] > :not(.sv-panel__band) { visibility: hidden; transition: visibility 0s linear calc(var(--duration-sheet) * 1.6); }
+/* In a column the panel gives up its share and keeps the band. Specific enough to stand over each panel's own size. */
+.deck-panel[data-collapsed][data-collapsed][data-collapsed],
+.sv-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 0 0 var(--folded); min-height: 0; height: auto; max-height: var(--folded); }
+/* In the foot, a row, it keeps its width and gives up its height. */
+.deck-foot > .deck-panel[data-collapsed][data-collapsed][data-collapsed] { flex: 1 1 auto; align-self: flex-start; height: var(--folded); }
+
+/* ---- A Session's flight controls fill the panel ------------------------------------------------------------- */
+
+/* The tiles take the whole of what the foot gives the panel: the block is sized by its place and the grid fills it. One row of seven where
+   the block is wide and low, two rows of four where it is not, whichever makes the tiles closest to square. Each tile sizes its glyph and
+   its word from its own box. */
+.deck-controls__block[data-subject="session"] { display: block; flex: 1 1 0; container: tiles / size; min-height: calc(var(--tile) * 2 + var(--space-2)); }
+.deck-controls__tiles { display: grid; height: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+@container tiles (min-aspect-ratio: 45 / 10) {
+  .deck-controls__tiles { grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+}
+.deck-controls__tiles > .deck-tile { container: tile / size; gap: var(--space-2); }
+.deck-controls__tiles > .deck-tile svg,
+.deck-controls__tiles > .deck-tile > .armada-session-mark svg { width: clamp(var(--space-6), 34cqmin, var(--space-12)); height: clamp(var(--space-6), 34cqmin, var(--space-12)); }
+.deck-controls__tiles > .deck-tile .deck-tile__text { font-size: clamp(var(--text-2xs), 12cqmin, var(--text-base)); line-height: var(--leading-xs); }
+.deck-tile__done { color: var(--step-advanced); }

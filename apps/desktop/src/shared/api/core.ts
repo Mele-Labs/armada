@@ -16,11 +16,18 @@ import type {
   ServerList,
 } from "@armada/protocol";
 import type { Pattern } from "../haptics";
+import type { StateChange } from "../state-change";
 
 /** `S` is the whole app's state, which `state` and `subscribe` hand over; Core cannot name it. */
 export type CoreApi<S = CoreState> = {
   state: () => Promise<S>;
-  subscribe: (onState: (state: S) => void) => () => void;
+  /**
+   * What moved in the state, as main tells it: the whole of it once and then only what differs, `shared/state-change.ts`.
+   * **Surfaces do not read this**; `renderer/src/state-feed.ts` folds it into `subscribe`'s whole states.
+   */
+  subscribeChanges: (onChange: (change: StateChange<S>) => void) => () => void;
+  /** The whole state, as the first change a window folds the rest onto, and again where one reaches it out of order. */
+  syncState: () => Promise<StateChange<S>>;
   /** Whether a walk window has focus, as it changes — Bridge dims behind it. */
   onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
   /**
@@ -162,7 +169,9 @@ export const CORE_NOTHING_YET: CoreState = {
 
 export const CORE_CHANNELS = {
   state: "bridge:state",
+  /** Main to a window: a `StateChange`. */
   changed: "bridge:changed",
+  syncState: "bridge:sync-state",
   /** A walk window took or gave up focus, so Bridge dims behind it or lifts the dim. */
   walkFocused: "bridge:walk-focused",
   // The rail's pick. A root and nothing else; main ignores one Fleet does not list.

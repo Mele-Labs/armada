@@ -80,6 +80,7 @@ mod session_checks;
 mod sent_back;
 mod session_ledger;
 mod session_plan;
+mod session_rail;
 mod settings_file;
 mod showing;
 mod signers;

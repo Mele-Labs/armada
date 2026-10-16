@@ -144,9 +144,16 @@ fn every_launch_carries_the_session_rules_once() {
 /// The rules name the tools Fleet's door offers, so a rename there fails here.
 #[test]
 fn the_rules_name_the_tools_that_surface_a_need() {
-    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion"] {
+    for named in ["waiting_for", "finish_up", "all_done", "TaskCreate", "TaskUpdate", "AskUserQuestion", "record_plan"] {
         assert!(rules().contains(named), "{named}");
     }
+}
+
+/// Fleet runs judges itself, so a plan's group is never given the `judge` subagent: the rules say so, in the planning paragraph.
+#[test]
+fn the_rules_say_no_group_names_a_judge() {
+    let planning = rules().split("\n\n").find(|block| block.starts_with("Planning.")).expect("a planning paragraph");
+    assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
 }
 
 /// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
@@ -155,7 +162,7 @@ fn the_rules_name_the_tools_that_surface_a_need() {
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).collect();
-    assert_eq!(blocks.len(), 3, "needs, progress, finishing");
+    assert_eq!(blocks.len(), 4, "needs, progress, planning, finishing");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }
@@ -526,4 +533,20 @@ fn a_picture_read_is_looked_at_and_code_and_a_written_picture_are_not() {
         written_document("Write", "/repo/shot.png +1", "/Users/user"),
         Some("/repo/shot.png".into())
     );
+}
+
+/// Both refused a read on 16 Oct 2026: a line that sets a name first, and a subshell.
+#[test]
+fn an_assignment_and_a_subshell_read_as_what_they_run() {
+    for read in [
+        "L=/x/audit.jsonl; grep -n foo \"$L\" | tail -30",
+        "F=~/a.jsonl; wc -l $F",
+        "(cd /repo && git status)",
+        "{ ls; pwd; }",
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    for write in ["(cd /repo && rm x)", "X=1; touch y", "{ ls; npm install; }"] {
+        assert!(!reads_only(write), "{write}");
+    }
 }
