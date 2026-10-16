@@ -22,6 +22,8 @@ import type {
   ReviewDispatched,
   SendPlanChanges,
   SendSessionMessage,
+  ChosenHold,
+  SessionHoldsReleased,
   SessionRecord,
   SessionRow,
   SessionRunMessage,
@@ -100,6 +102,12 @@ export type SessionsApi = {
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
+  /**
+   * Gives back the slots, branches, pull requests, Jobs and needs the Session holds, or hands them to
+   * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
+   * running is stopped first where a slot is among them. Answers what moved and what stayed, with why.
+   */
+  releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
   /**
    * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
    * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
@@ -219,6 +227,7 @@ export const SESSIONS_CHANNELS = {
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
+  releaseSessionHolds: "bridge:release-session-holds",
   moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

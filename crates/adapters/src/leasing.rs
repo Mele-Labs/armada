@@ -18,6 +18,7 @@
 mod answers;
 mod existing;
 mod git;
+mod handing;
 mod history;
 pub(crate) mod jobs;
 mod parking;

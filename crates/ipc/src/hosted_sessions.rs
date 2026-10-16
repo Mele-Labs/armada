@@ -203,6 +203,60 @@ pub struct StopSession {
     pub session_id: SessionId,
 }
 
+/// `release_session_holds`: the person gives back everything a Session holds on the ledger, or
+/// hands it to another live Session of the same repository. `docs/concepts/session.md`,
+/// *Releasing what a Session holds*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReleaseSessionHolds {
+    pub session_id: SessionId,
+    /// Absent gives every row back. Present, each row is written standing for this Session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_session_id: Option<SessionId>,
+    /// The rows to act on, each the Session holds standing. Absent is every one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<Vec<ChosenHold>>,
+}
+
+/// One ledger row the person ticked, as the ledger keys it within the Session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChosenHold {
+    /// `slot`, `branch`, `pr`, `job` or `need`.
+    pub kind: String,
+    pub target: String,
+}
+
+/// What `release_session_holds` moved, and what stayed.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionHoldsReleased {
+    /// The Session that was handed them. Absent where they were given back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_session_id: Option<SessionId>,
+    /// Each row given back, or handed over.
+    pub moved: Vec<HoldMoved>,
+    /// Each row that stays the Session's, with why.
+    pub kept: Vec<HoldKept>,
+}
+
+/// One ledger row `release_session_holds` moved.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldMoved {
+    /// `slot`, `branch`, `pr`, `job` or `need`.
+    pub kind: String,
+    pub target: String,
+    /// For a slot given back: the branch its work is on, and what was committed to it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub released: Option<crate::SlotReleased>,
+}
+
+/// One ledger row `release_session_holds` left where it was.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldKept {
+    pub kind: String,
+    pub target: String,
+    /// Why, in a sentence.
+    pub why: String,
+}
+
 /// A turn running, or none. **A message from another session starts one**, so
 /// `working` can have no author on the person's side.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
