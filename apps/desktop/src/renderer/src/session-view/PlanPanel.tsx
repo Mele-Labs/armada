@@ -14,8 +14,9 @@ function Group({ group }: { group: WorkGroup }) {
   const [open, setOpen] = useState(false);
   const live = group.tasks.some((task) => task.state === "working");
   const complete = group.tasks.every((task) => task.state === "done");
+  const failed = group.tasks.some((task) => task.state === "failed");
   return (
-    <section className="sv-group" data-state={complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
+    <section className="sv-group" data-state={failed ? "failed" : complete ? "done" : live ? "live" : undefined} data-open={open || undefined} aria-label={group.title}>
       <button type="button" className="sv-group__row" aria-expanded={open} aria-label={group.title} onClick={() => setOpen((was) => !was)}>
         <span className="sv-group__head">
           <Tooltip label="Subagent type">

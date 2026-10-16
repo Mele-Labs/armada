@@ -114,7 +114,7 @@ export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 // the Cockpit and on the Sessions page alike. Mock only: Fleet serves none of it yet. Progress is the agent's
 // task states with what Fleet observed beside them (`seen`), and a status ring no longer stands for it.
 
-export type WorkTaskState = "open" | "working" | "done";
+export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed";
 
 /** One task the agent recorded. `seen` is whether Fleet observed edits for it. */
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };

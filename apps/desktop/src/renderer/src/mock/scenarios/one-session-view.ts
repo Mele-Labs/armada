@@ -23,6 +23,7 @@ const ROOT = servedFrom(board.manifests[0]!).root;
 const MINE = "one-view-1";
 const QUIET = "one-view-2";
 const BUSY = "one-view-3";
+const BIG = "one-view-4";
 const BRANCH = "armada/lease-retry";
 
 /** A long workflow, to see how twelve steps read in the Status area. */
@@ -112,6 +113,119 @@ function groups(stage: number): WorkGroup[] {
     { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", paths: ["apps/desktop"], tasks: [task("T4", "Show the attempt on the bay tile", at(2, 4))] },
   ];
 }
+
+// ---- A plan at size: six groups and twenty-five tasks, unevenly spread -------------------------------------------
+
+/** The change the plan is for: Sessions absorb Jobs. A task's state is a letter: open, working, handed in, done, failed. */
+const BIG_GROUPS: readonly { id: string; agent: string; title: string; paths: readonly string[]; tasks: readonly string[] }[] = [
+  {
+    id: "p1",
+    agent: "rust-engineer",
+    title: "Plan tool in Fleet",
+    paths: ["crates/fleet", "crates/store"],
+    tasks: [
+      "Add a record_plan tool to the Session MCP",
+      "Store the plan on the Session record",
+      "Check each group's paths against the repository",
+      "Refuse a plan with no tasks",
+      "Keep the sketch with the plan",
+      "Replace a plan the agent records again",
+      "Emit a plan event when a task changes state",
+      "Read the tasks back through get_session",
+    ],
+  },
+  {
+    id: "p2",
+    agent: "protocol-engineer",
+    title: "Plan on the wire",
+    paths: ["crates/ipc", "packages/protocol"],
+    tasks: ["Put the plan in the Session reply", "Carry task state on the event", "Mirror the types in packages/protocol", "Bump the protocol ID"],
+  },
+  {
+    id: "p3",
+    agent: "bridge-engineer",
+    title: "Plan panel",
+    paths: ["apps/desktop/src/renderer/src/session-view"],
+    tasks: ["Draw each group as an expanding row", "Tick tasks as events arrive", "Fold the panel to its band", "Open the sketch from the header"],
+  },
+  {
+    id: "p4",
+    agent: "bridge-engineer",
+    title: "Approval card in the thread",
+    paths: ["packages/components/src/compositions/SessionThread"],
+    tasks: ["Draw the compact card above the composer", "Open the plan in a review overlay", "Settle the card once it is approved"],
+  },
+  {
+    id: "p5",
+    agent: "general-purpose",
+    title: "Judge at step boundaries",
+    paths: ["crates/fleet", "crates/judge"],
+    tasks: ["Read the work at each step boundary", "Raise concerns as calls in Incoming calls", "Send a concern to the Session as a message", "Let a person send a judge by hand"],
+  },
+  {
+    id: "p6",
+    agent: "rust-engineer",
+    title: "Remove Jobs",
+    paths: ["crates/api", "apps/desktop/src/renderer/src/jobs"],
+    tasks: ["Take the Job routes out of the API", "Delete the Jobs page and its tab"],
+  },
+];
+
+/** Where each group's tasks stand at each moment of the build, a letter a task. The first is as it is approved; two more follow. */
+const BIG_STATES: readonly (readonly string[])[] = [
+  ["ddfdhwoo", "ddwo", "dwoo", "woo", "oooo", "oo"],
+  ["ddfddwwo", "dddw", "ddwo", "wwo", "owoo", "oo"],
+  ["ddfdddwo", "dddd", "dddw", "dwo", "dwoo", "wo"],
+];
+const LETTER: Record<string, WorkTaskState> = { o: "open", w: "working", h: "handed_in", d: "done", f: "failed" };
+
+/** The plan's groups at a moment: `at` indexes `BIG_STATES`, and none draws every task open. */
+function bigGroups(at: number | undefined): WorkGroup[] {
+  let n = 0;
+  return BIG_GROUPS.map((one, g) => ({
+    id: one.id,
+    agent: one.agent,
+    title: one.title,
+    paths: one.paths,
+    tasks: one.tasks.map((text, i) => {
+      n += 1;
+      const state = at === undefined ? "open" : LETTER[BIG_STATES[at]![g]![i]!]!;
+      return task(`B${n}`, text, state);
+    }),
+  }));
+}
+
+const BIG_SKETCH_ID = "sketch:Plan";
+const BIG_SKETCH = scene(
+  [
+    box("tool", 0, 0, "Fleet", "record_plan tool, the plan on the record", { icon: "server", step: 1 }),
+    box("wire", 340, 0, "Wire", "Plan and task state on the reply and the event", { icon: "webhook", step: 2 }),
+    box("panel", 680, -70, "Plan panel", "Groups tick as events arrive", { icon: "layers", step: 3 }),
+    box("card", 680, 70, "Thread card", "Approve, or open to review", { icon: "scroll-text", step: 3 }),
+    box("judge", 340, 150, "Judge", "Reads at each step boundary", { icon: "scale", step: 4 }),
+  ],
+  [arrow("tool", "wire", "plan", undefined, 2), arrow("wire", "panel", "events", undefined, 3), arrow("wire", "card", "plan", undefined, 3), arrow("judge", "tool", "concerns", undefined, 4)],
+);
+
+const big: Session = {
+  id: BIG,
+  title: "Fold Jobs into Sessions",
+  manifestId: OWNER,
+  cwd: ROOT,
+  turn: { state: "idle" },
+  lastTurn: "14:05",
+  lastTurnAt: ago(1),
+  standing: "replied",
+  rows: [
+    you("g-1", "14:03:00", "Fold Jobs into Sessions. A Session plans, he approves, and its work is the Job."),
+    agent("g-2", "14:05:10", "The plan is recorded: twenty-five tasks in six groups. Approve it, or tell me what to change."),
+  ],
+  attachments: [{ kind: "sketch", id: BIG_SKETCH_ID, title: "Plan", by: "agent", drawing: BIG_SKETCH }],
+  work: {
+    workflow: { ...FEATURE, at: 0 },
+    plan: { scope: ["crates/fleet", "crates/ipc", "packages/protocol", "apps/desktop"], approved: false, after: "g-2", sketch: { id: BIG_SKETCH_ID, title: "Plan", scene: BIG_SKETCH }, groups: bigGroups(undefined) },
+  },
+};
 
 // ---- The floor and the drones over it ---------------------------------------------------------------------
 
@@ -213,10 +327,10 @@ const QUESTIONS = [
 
 function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy]);
+  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy, big]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
-  const own = new Set([MINE, QUIET, BUSY]);
+  const own = new Set([MINE, QUIET, BUSY, BIG]);
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
   let stage = 0;
@@ -298,6 +412,21 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
     });
   };
 
+  // The long plan, approved: the agent is mid-build and groups tick as the walk lets time pass.
+  let bigAt = 0;
+  const bigPlan = (edit: (plan: NonNullable<SessionWork["plan"]>) => NonNullable<SessionWork["plan"]>) =>
+    base.edit(BIG, (one) => ({ ...one, work: { ...one.work, ...(one.work?.plan === undefined ? {} : { plan: edit(one.work.plan) }) } }));
+  const approveBig = () => {
+    bigAt = 0;
+    bigPlan((plan) => ({ ...plan, approved: true, groups: bigGroups(0) }));
+    base.edit(BIG, (one) => ({
+      ...one,
+      ...working(),
+      work: { ...one.work, workflow: one.work?.workflow === undefined ? { ...FEATURE, at: 1 } : { ...one.work.workflow, at: 1 } },
+      rows: [...one.rows, you("g-3", "14:05:40", "Approved the plan."), agent("g-4", "14:05:42", "Starting with the plan tool in Fleet. The wire and the panel follow.")],
+    }));
+  };
+
   return {
     ...base,
     watch: (id) => {
@@ -326,7 +455,8 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       },
       unpick: (_id, value) =>
         works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
-      approve: () => {
+      approve: (id) => {
+        if (id === BIG) return approveBig();
         works((work) => (work.plan === undefined ? work : { ...work, plan: { ...work.plan, approved: true } }));
         push(
           [
@@ -374,6 +504,12 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       return done;
     },
     later() {
+      if (base.get().find((one) => one.id === BIG)?.work?.plan?.approved === true && bigAt < BIG_STATES.length - 1) {
+        bigAt += 1;
+        const at = bigAt;
+        bigPlan((plan) => ({ ...plan, groups: bigGroups(at) }));
+        return;
+      }
       const now = mine();
       if (now === undefined) return;
       const plan = now.work?.plan;

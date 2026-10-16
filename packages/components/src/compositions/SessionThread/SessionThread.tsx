@@ -816,11 +816,13 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
                 </span>
               </Tooltip>
               <span className="armada-session-thread__group-title">{group.title}</span>
-              <span className="armada-session-thread__marks">
-                {group.tasks.map((task) => (
-                  <TaskMark key={task.id} state="open" />
-                ))}
-              </span>
+              {approved ? null : (
+                <span className="armada-session-thread__marks">
+                  {group.tasks.map((task) => (
+                    <TaskMark key={task.id} state="open" />
+                  ))}
+                </span>
+              )}
             </li>
           ))}
         </ul>
