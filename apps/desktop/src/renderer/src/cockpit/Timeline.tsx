@@ -607,3 +607,110 @@ export function ActivityFeed({
     </section>
   );
 }
+
+/** How wide a column of the graph is, how many there are, and so how far back it reaches: twenty of three minutes, the last hour. */
+const SPAN = 3 * 60_000;
+const COLUMNS = 20;
+/** The newest events the graph counts. A bar needs no row of its own, so this reaches further than the feed's. */
+const MOST_GRAPH = 500;
+/** The newest events a column's card lists. A card cannot scroll, so a busier column is cut here. */
+const MOST_CARD = 8;
+/** The tallest bar is at least this many events high, so one event beside none is a short mark and not the whole panel. */
+const FLOOR = 8;
+/** Bottom to top: what is owed him and what is failing sits on top, where it is read first. */
+const STACK: readonly EventTone[] = ["idle", "ok", "run", "bad", "ask"];
+
+/** Fleet's events in the last hour, newest first, in the column each falls in: the oldest column first, `now` at the right edge of the last. */
+function columnsOf(lanes: readonly Lane[], now: number): FleetEvent[][] {
+  const columns = Array.from({ length: COLUMNS }, () => [] as FleetEvent[]);
+  for (const event of lanes.flatMap((lane) => lane.events)) {
+    const back = Math.floor((now - Date.parse(event.at)) / SPAN);
+    if (back < COLUMNS) columns[COLUMNS - 1 - Math.max(0, back)]!.push(event);
+  }
+  for (const column of columns) column.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return columns;
+}
+
+/** What a column's card says: its newest events, each as the stacked row draws one, the glyph in the event's colour. Nothing in it can be pressed. */
+function Hour({ events, now, lit }: { events: readonly FleetEvent[]; now: number; lit: string | undefined }) {
+  return (
+    <span className="armada-tl__tip armada-tl__hour">
+      {events.slice(0, MOST_CARD).map((event) => {
+        const Kind = GLYPH[event.subject.kind];
+        const Owed = event.tone === "ask" ? STANDING_MARK.ask.icon : event.tone === "bad" ? STANDING_MARK.bad.icon : undefined;
+        return (
+          <span key={event.id} className="armada-tl__moment" data-lit={lit === event.id || undefined} data-weight={QUIET_KINDS.has(event.kind) ? "quiet" : undefined} style={toneOf(event.tone)}>
+            <Kind size={14} aria-hidden="true" className="armada-tl__kindmark" />
+            <span className="armada-tl__title">{titleOf(event.subject)}</span>
+            <time className="armada-tl__age" dateTime={event.at}>
+              {ageOf(event.at, now)}
+            </time>
+            <span className="armada-tl__says">
+              <span className="armada-tl__what">{event.says}</span>
+              {event.detail === undefined ? null : <span className="armada-tl__detail">{event.detail}</span>}
+              {Owed === undefined ? null : <Owed size={14} aria-hidden="true" className="armada-tl__flag" />}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/**
+ * The deck's Activity as a graph and no text: a column for each three minutes of the last hour, the newest at the right, each stacked
+ * by the tone of its events, the quiet kinds fainter. A faint tick under the right edge is now. **Hovering or focusing a column
+ * shows its events in a card, and pressing it picks its newest**: the card is a tooltip and holds nothing to press. Takes what the
+ * feed takes, so the Job or Session open narrows it and the filters keep the same events.
+ */
+export function ActivityGraph({
+  now,
+  jobs,
+  views = NO_VIEWS,
+  filter,
+  keep,
+  onPick,
+  lit,
+  of,
+}: {
+  now: number;
+  jobs: readonly JobSummary[];
+  views?: readonly MergeLineView[];
+  filter: DashboardTab;
+  keep?: (subject: Subject) => boolean;
+  /** Narrows the graph to this Job or Session alone: the one open on the flight deck's stage. */
+  of?: Of;
+  /** A press on a column picks the newest event in it. */
+  onPick: (event: FleetEvent) => void;
+  /** The event held lit, by id: its column is marked. */
+  lit?: string;
+}) {
+  const lanes = useLanes(now, jobs, views, filter, keep, of, MOST_GRAPH);
+  const columns = useMemo(() => columnsOf(lanes, now), [lanes, now]);
+  const tallest = Math.max(FLOOR, ...columns.map((column) => column.length));
+  return (
+    <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour" data-take="graph">
+      <div className="armada-tl__plot">
+        {columns.map((events, index) => {
+          const newest = events[0];
+          if (newest === undefined) return <i key={index} className="armada-tl__col" data-empty aria-hidden="true" />;
+          return (
+            <Tooltip key={index} label={<Hour events={events} now={now} lit={lit} />} card beside asChild>
+              <button type="button" className="armada-tl__col" data-lit={events.some((event) => event.id === lit) || undefined} aria-label={`${titleOf(newest.subject)}: ${newest.says}`} onClick={() => onPick(newest)}>
+                <span className="armada-tl__bar" style={{ ["--share" as string]: events.length / tallest } as CSSProperties}>
+                  {STACK.flatMap((tone) =>
+                    [false, true].flatMap((quiet) => {
+                      const n = events.filter((event) => event.tone === tone && QUIET_KINDS.has(event.kind) === quiet).length;
+                      return n === 0 ? [] : [<i key={`${tone}:${quiet}`} className="armada-tl__seg" data-weight={quiet ? "quiet" : undefined} style={{ ...toneOf(tone), flexGrow: n }} />];
+                    }),
+                  )}
+                </span>
+              </button>
+            </Tooltip>
+          );
+        })}
+        <i className="armada-tl__now" aria-hidden="true" />
+      </div>
+    </div>
+  );
+}

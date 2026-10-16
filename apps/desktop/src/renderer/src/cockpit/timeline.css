@@ -170,3 +170,43 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 /* What a mark says on hover, on the tooltip's own bubble: one row a fact. */
 .armada-tl__tip { display: flex; width: max-content; flex-direction: column; gap: var(--space-1); min-width: calc(var(--space-12) * 3); max-width: calc(var(--space-12) * 7); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); }
 .armada-tl__tip .armada-tl__detail { overflow-wrap: anywhere; white-space: normal; }
+
+/* ---- The graph: the deck's Activity, a column for each three minutes and no words ------------------------ */
+
+/* The plot is the anchor every column's card hangs off, so a card stands beside the panel and never over the columns it is read against. */
+.armada-tl__graph { display: flex; flex-direction: column; padding: var(--space-2) var(--space-4) var(--space-4); }
+.armada-tl__plot { position: relative; display: grid; flex: 1 1 0; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: calc(var(--border-width) * 2); min-height: 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+
+.armada-tl__col { display: flex; align-items: flex-end; min-width: 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; }
+button.armada-tl__col { cursor: pointer; }
+button.armada-tl__col:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
+button.armada-tl__col:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-tl__col[data-lit] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
+/* A span with nothing in it is a short stub on the baseline, so the hour still reads as twenty places. */
+.armada-tl__col[data-empty]::after { content: ""; width: 100%; height: calc(var(--border-width) * 2); background: var(--border-subtle); opacity: 0.6; }
+
+.armada-tl__bar { display: flex; flex-direction: column-reverse; gap: var(--border-width); width: 100%; height: calc(var(--share) * 100%); }
+.armada-tl__seg { flex: 1 1 0; min-height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: var(--tone); }
+.armada-tl__seg[data-weight="quiet"] { opacity: 0.35; }
+
+/* Now: a faint tick under the right edge of the last column. */
+.armada-tl__now { position: absolute; top: 100%; right: 0; height: var(--space-2); border-right: var(--border-width) solid var(--fg-subtle); opacity: 0.6; pointer-events: none; }
+
+/* A column's card: the stacked row's look, each event's glyph in its own colour. It is a tooltip, and nothing in it is pressed. */
+.armada-tl__hour { gap: 0; width: calc(var(--space-12) * 6); max-width: none; padding: var(--space-1); font-family: var(--font-sans); }
+.armada-tl__moment { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-tl__moment:last-child { border-bottom-color: transparent; }
+.armada-tl__moment[data-lit] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); border-bottom-color: transparent; }
+.armada-tl__moment[data-weight="quiet"] { color: var(--fg-muted); }
+.armada-tl__kindmark { grid-column: 1; grid-row: 1; color: var(--tone); }
+.armada-tl__moment > .armada-tl__title { grid-column: 2; grid-row: 1; font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
+.armada-tl__moment > .armada-tl__age { grid-column: 3; grid-row: 1; width: auto; font-family: var(--font-sans); line-height: var(--leading-2xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.armada-tl__moment > .armada-tl__says { grid-column: 2 / span 2; grid-row: 2; gap: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); }
+.armada-tl__what { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.armada-tl__moment .armada-tl__detail { flex: 0 100 auto; font-family: var(--font-mono); font-size: var(--text-2xs); overflow-wrap: normal; white-space: nowrap; }
+.armada-tl__flag { display: inline-flex; flex: none; margin-left: auto; color: var(--tone); }
+
+@supports (anchor-name: --a) {
+  .armada-tl__plot { anchor-name: --armada-tl-plot; }
+  .armada-tl__col > .armada-tooltip__bubble { position-anchor: --armada-tl-plot; }
+}
