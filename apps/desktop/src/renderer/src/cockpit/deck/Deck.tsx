@@ -114,7 +114,7 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
 }
 
 /** An idea saved to start later, a row of the list: dashed, with its repository and model. ↵ (a click with no pointer) or its play press starts it, never a mouse click on its words; Remove lets it go. */
-function QueuedRow({ idea }: { idea: QueuedIdea }) {
+export function QueuedRow({ idea }: { idea: QueuedIdea }) {
   const draft = useSessionsDraft();
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);

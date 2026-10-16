@@ -832,6 +832,16 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 **Held turns are in memory.** A Fleet that restarts while a Session is still being read loses them; the message row stays on the thread.
 
+## A queued idea
+
+**A Session can be kept as an idea that does not start.** The dispatcher's Session kind offers Queue for later beside Start (`queue_session`, `⇧⌘↵`, rebindable), and its Model and Effort selects set what the idea will start on. Pressing it clears the draft and keeps `{ text, root, repository, model?, effort? }`. It is not a Session: no row on Fleet, no slot, no process, no proposal call.
+
+**It lives on this machine, in Bridge.** The ideas are kept in `localStorage` (`armada.bridge.queued-ideas`, `queued-ideas.ts`), oldest first, since Fleet's preference set is closed and holds nothing of the kind. Another Bridge window hears the change through the `storage` event. A restart of Bridge or of Fleet keeps them.
+
+**A queued idea sits at the head of its repository's band on the Cockpit deck's list**, dashed, with two acts and no other: Start and Remove. A click on its words starts nothing; `↵` on the row starts it.
+
+**Start sends the idea through `StartSession` like any start**, with `request` the idea's words and `model` and `effort` only where the idea has them, so Fleet's proposer fills what is unset and never overwrites what was picked. The idea is removed once the Session's id exists, and a start that fails keeps it. The words go to the new Session as its first message.
+
 ## Stopping a turn
 
 **A Stop sits beside the working mark at the end of a hosted Session's thread**, and the same press is available wherever that mark is drawn with a turn running. It sends `stop_session` (`POST /sessions/stop`, 23.84). Fleet ends the process as it does after a quiet spell, withdraws a question the agent was held on, sets the turn to `idle` and publishes the row. **The row stays live and the slot stays held**: nothing is parked or committed, which is what separates it from `close_session`. The next message resumes the conversation. The thread keeps every row the agent had written, and Stop draws no row of its own.

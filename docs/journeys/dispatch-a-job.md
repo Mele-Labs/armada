@@ -40,7 +40,7 @@ The Cockpit has no dispatch bar of its own. Autopilot's bar is the Autopilot lan
 | Kind | Needs a repository | Act | Body |
 | --- | --- | --- | --- |
 | Job | Yes | Dispatch | Settings, closed to start |
-| Session | Yes, where the rail is on All | Start | None |
+| Session | Yes, where the rail is on All | Start, or Queue for later | Model and Effort, each left unset to let Fleet choose |
 | Autopilot | Yes | Read it, then Start Autopilot | Fleet's reading of the sentence: the instruction and the settings, each editable |
 
 Tab steps through the kinds on offer, and Autopilot is chosen for one opening only: the next dispatch is a Job again.
@@ -56,6 +56,8 @@ Tab steps through the kinds on offer, and Autopilot is chosen for one opening on
 | Empty outline | Fleet could not tell, or could not be asked |
 
 **With none chosen the act gives the row the keys.** A Job, a Session and an Autopilot all need a repository. Pressing the act with none chosen takes the frame to the call's hue and puts focus on the first chip; the arrows move along the row and `↵` on a chip picks it and sends. Pressing the act while the read is still out waits for it.
+
+**Queue for later keeps a Session as an idea instead of starting it** (`⇧⌘↵`). The draft clears as for a send, and the idea waits on the Cockpit deck's list, in its repository's band, with Start and Remove. It stays on this machine across restarts, and a failed start keeps it. [Session](../concepts/session.md), *A queued idea*.
 
 **A Job or an Autopilot sent leaves a strip over the one bar's field.** It holds the kind's mark, the Job's title or the Autopilot's repository, and Open. The mark turns until Fleet has named the Job the call is reading for, which it does from the call's first message, well before the proposer answers. `↵` or a press opens the Job, or the repository's Autopilot lane on the Cockpit. Esc or Dismiss lets it go, and typing starts a new draft over it. Only the latest send is held. A Session opens itself and leaves no strip. A refusal puts Fleet's words in the strip.
 
