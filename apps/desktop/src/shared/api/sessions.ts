@@ -20,6 +20,7 @@ import type {
   RenameSession,
   ReviewDispatched,
   SendSessionMessage,
+  ChosenHold,
   SessionHoldsReleased,
   SessionRecord,
   SessionRow,
@@ -96,11 +97,11 @@ export type SessionsApi = {
   /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
   stopSession: (sessionId: string) => Promise<SessionActed>;
   /**
-   * Gives back every slot, branch, pull request, Job and need the Session holds, or hands them to
-   * `toSessionId`, a live Session of the same repository. A turn running is stopped first. Answers
-   * what moved and what stayed, with why.
+   * Gives back the slots, branches, pull requests, Jobs and needs the Session holds, or hands them to
+   * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
+   * running is stopped first where a slot is among them. Answers what moved and what stayed, with why.
    */
-  releaseSessionHolds: (sessionId: string, toSessionId?: string) => Promise<SessionActed<SessionHoldsReleased>>;
+  releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
   /**
    * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
    * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.

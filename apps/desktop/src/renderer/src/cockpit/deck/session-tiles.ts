@@ -58,7 +58,7 @@ export type Offered = {
 };
 
 /** One thing a Session holds on the ledger, as the release confirmation names it. `kind` is the ledger's. */
-export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; name: string; said: string };
+export type Held = { kind: "slot" | "branch" | "pr" | "job" | "need"; target: string; name: string; said: string };
 
 /**
  * Everything a release acts on, by name, in the ledger's order: slots, branches, open pull requests, Jobs, needs. A merged pull request
@@ -69,13 +69,13 @@ export function heldOf(session: Session): Held[] {
   for (const kind of ["slot", "branch", "pull_request", "job"] as const) {
     for (const one of session.attachments) {
       if (one.kind !== kind) continue;
-      if (one.kind === "slot") held.push({ kind: "slot", name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` });
-      else if (one.kind === "branch") held.push({ kind: "branch", name: one.name, said: "Branch" });
-      else if (one.kind === "pull_request" && one.state !== "merged") held.push({ kind: "pr", name: `#${one.number} ${one.title}`.trim(), said: "Pull request" });
-      else if (one.kind === "job") held.push({ kind: "job", name: `#${one.number} ${one.title}`, said: "Job" });
+      if (one.kind === "slot") held.push({ kind: "slot", target: String(one.slot), name: `slot-${one.slot}`, said: one.handed === undefined ? "Slot" : `Slot of piloted Job #${one.handed.job}` });
+      else if (one.kind === "branch") held.push({ kind: "branch", target: one.name, name: one.name, said: "Branch" });
+      else if (one.kind === "pull_request" && one.state !== "merged") held.push({ kind: "pr", target: String(one.number), name: `#${one.number} ${one.title}`.trim(), said: "Pull request" });
+      else if (one.kind === "job") held.push({ kind: "job", target: one.id, name: `#${one.number} ${one.title}`, said: "Job" });
     }
   }
-  for (const need of session.needs ?? []) held.push({ kind: "need", name: need.path, said: need.what === "" ? "Need" : `Need: ${need.what}` });
+  for (const need of session.needs ?? []) held.push({ kind: "need", target: need.path, name: need.path, said: need.what === "" ? "Need" : `Need: ${need.what}` });
   return held;
 }
 
@@ -99,8 +99,8 @@ export function handTargets(session: Session, all: readonly Session[]): Session[
   return all.filter((one) => one.id !== session.id && one.dead === undefined && one.manifestId === session.manifestId);
 }
 
-/** The confirm key: the act it sends, named. */
-export const releaseKeyOf = (to: Session | undefined): string => (to === undefined ? "Release all" : `Hand to ${to.title ?? to.address ?? to.id}`);
+/** The confirm key: the act it sends, named. `all` is whether every row is ticked. */
+export const releaseKeyOf = (to: Session | undefined, all = true): string => (to === undefined ? (all ? "Release all" : "Release") : `Hand to ${to.title ?? to.address ?? to.id}`);
 
 /** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
 export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined): Offered {

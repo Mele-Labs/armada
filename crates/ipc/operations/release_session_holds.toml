@@ -4,9 +4,9 @@ transport = "HTTP"
 agent_access = "No"
 description = "Give back everything a session holds on the ledger, or hand it to another live session of the same repository"
 notes = """
-`POST /sessions/release_holds`, body `ReleaseSessionHolds`: `session_id`, and an optional `to_session_id`. Answered with `SessionHoldsReleased`: `moved`, each row given back or handed over (a slot given back carries `released`, the branch and what was committed to it), and `kept`, each row that stayed with why. `docs/concepts/session.md`, *Releasing what a Session holds*.
+`POST /sessions/release_holds`, body `ReleaseSessionHolds`: `session_id`, an optional `to_session_id`, and an optional `rows`, each a `ChosenHold` of `kind` and `target`. Answered with `SessionHoldsReleased`: `moved`, each row given back or handed over (a slot given back carries `released`, the branch and what was committed to it), and `kept`, each row that stayed with why. `docs/concepts/session.md`, *Releasing what a Session holds*.
 
-**It acts on every `standing` `slot`, `branch`, `pr`, `job` and `need` row the Session holds.** Artifacts, messages, subagents and the links between Sessions are left alone. A hosted Session whose turn is running is stopped first, as `stop_session` stops it; the Session stays live and its next message resumes it. Nothing is deleted: no branch and no file.
+**It acts on the `standing` `slot`, `branch`, `pr`, `job` and `need` rows `rows` names, and on every one where `rows` is absent.** A slot the pool holds for the Session counts though its ledger has no row for it, and a slot takes the `branch` row of what it has checked out with it. A row the Session does not hold standing is refused with a 409, `fleet.hold_not_standing`, before anything changes. Artifacts, messages, subagents and the links between Sessions are left alone. Where a slot is among the rows, a hosted Session whose turn is running is stopped first, as `stop_session` stops it, and only then; the Session stays live and its next message resumes it. Nothing is deleted: no branch and no file.
 
 **With no `to_session_id`, each row is given back.** Each slot the pool holds for the Session is released as `change_slot_pool`'s `release` releases it: what is uncommitted is committed to the slot's branch and the slot is freed. A slot that release refuses stays held and is named in `kept`.
 

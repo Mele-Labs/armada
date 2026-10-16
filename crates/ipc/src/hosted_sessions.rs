@@ -212,6 +212,17 @@ pub struct ReleaseSessionHolds {
     /// Absent gives every row back. Present, each row is written standing for this Session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub to_session_id: Option<SessionId>,
+    /// The rows to act on, each the Session holds standing. Absent is every one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<Vec<ChosenHold>>,
+}
+
+/// One ledger row the person ticked, as the ledger keys it within the Session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChosenHold {
+    /// `slot`, `branch`, `pr`, `job` or `need`.
+    pub kind: String,
+    pub target: String,
 }
 
 /// What `release_session_holds` moved, and what stayed.

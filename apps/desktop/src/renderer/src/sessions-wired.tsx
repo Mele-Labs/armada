@@ -243,9 +243,9 @@ export class WiredStore {
   }
 
   /** One call; a refusal is the toast `stop`'s is. Both Sessions' rows change by `session.changed`. */
-  private async releasing(id: string, to: string | undefined): Promise<HoldsReleased | undefined> {
+  private async releasing(id: string, to: string | undefined, rows: readonly { kind: string; target: string }[] | undefined): Promise<HoldsReleased | undefined> {
     this.say(undefined);
-    const done = await this.api.releaseSessionHolds(id, to);
+    const done = await this.api.releaseSessionHolds(id, to, rows === undefined ? undefined : rows.map(({ kind, target }) => ({ kind, target })));
     if (!done.ok) return void this.tell(done.outcome);
     return holdsReleasedOf(done.value);
   }
@@ -420,7 +420,7 @@ export class WiredStore {
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
-    releaseHolds: (id, to) => this.releasing(id, to),
+    releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),

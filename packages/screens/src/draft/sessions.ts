@@ -458,11 +458,12 @@ export type SessionsDraft = {
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
   /**
-   * Gives back every slot, branch, pull request, Job and need a Session holds, or hands them to the live Session
-   * `to` of the same repository. A running turn is stopped first and the Session stays live. Resolves to what moved
-   * and what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
+   * Gives back the slots, branches, pull requests, Jobs and needs a Session holds, or hands them to the live Session
+   * `to` of the same repository: the `rows` ticked, by the ledger's kind and target, or every one where absent. A
+   * running turn is stopped first where a slot is among them, and the Session stays live. Resolves to what moved and
+   * what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
    */
-  releaseHolds?: (id: string, to?: string) => Promise<HoldsReleased | undefined>;
+  releaseHolds?: (id: string, to?: string, rows?: readonly { kind: string; target: string }[]) => Promise<HoldsReleased | undefined>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**

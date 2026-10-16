@@ -59,6 +59,7 @@ test("a hand goes to a live Session of the same repository, and the key names it
   const targets = handTargets(held(), all);
   expect(targets.map((one) => one.id)).toEqual(["s2"]);
   expect(releaseKeyOf(undefined)).toBe("Release all");
+  expect(releaseKeyOf(undefined, false)).toBe("Release");
   expect(releaseKeyOf(targets[0])).toBe("Hand to Takes over");
 });
 

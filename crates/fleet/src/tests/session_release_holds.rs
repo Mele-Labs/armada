@@ -2,7 +2,7 @@
 //! `docs/concepts/session.md`, *Releasing what a Session holds*.
 
 use api::HostedSessions;
-use ipc::{ReleaseSessionHolds, SessionId, SessionTurn};
+use ipc::{ChosenHold, ReleaseSessionHolds, SessionId, SessionTurn};
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::session_gate::{in_its_slot, standing};
@@ -10,8 +10,18 @@ use super::session_host::Rig;
 use crate::tests::peer::Placing;
 
 async fn release(rig: &Rig, id: &SessionId, to: Option<&SessionId>) -> Result<ipc::SessionHoldsReleased, api::Refusal> {
+    chosen(rig, id, to, None).await
+}
+
+async fn chosen(
+    rig: &Rig,
+    id: &SessionId,
+    to: Option<&SessionId>,
+    rows: Option<&[(&str, &str)]>,
+) -> Result<ipc::SessionHoldsReleased, api::Refusal> {
+    let rows = rows.map(|rows| rows.iter().map(|(kind, target)| ChosenHold { kind: kind.to_string(), target: target.to_string() }).collect());
     rig.fleet
-        .release_session_holds(ReleaseSessionHolds { session_id: id.clone(), to_session_id: to.cloned() })
+        .release_session_holds(ReleaseSessionHolds { session_id: id.clone(), to_session_id: to.cloned(), rows })
         .await
 }
 
@@ -91,4 +101,34 @@ async fn a_hand_to_itself_is_refused_and_nothing_moves() {
     assert_eq!(error.code, "fleet.hand_to_itself");
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
     assert!(rig.fleet.vcs().parked_slots().is_empty());
+}
+
+#[tokio::test]
+async fn only_the_rows_ticked_move_and_a_working_turn_runs_on_without_a_slot_among_them() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    opened(&rig, &id, "2430").await;
+    opened(&rig, &id, "2431").await;
+    let other = rig.start_titled(Some("Takes it over")).await;
+
+    let handed = chosen(&rig, &id, Some(&other), Some(&[("pr", "2430")])).await.expect("handed");
+
+    assert_eq!(rig.turn(&id).await, SessionTurn::Working { woken_by: None }, "no slot was chosen, so the turn runs on");
+    assert_eq!(handed.moved.iter().map(|one| (one.kind.as_str(), one.target.as_str())).collect::<Vec<_>>(), vec![("pr", "2430")]);
+    assert_eq!(standing(&rig, &id, "pr").await, vec!["2431"]);
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
+    assert_eq!(standing(&rig, &other, "pr").await, vec!["2430"]);
+    assert!(standing(&rig, &other, "slot").await.is_empty());
+}
+
+#[tokio::test]
+async fn a_row_the_session_does_not_hold_is_refused_and_nothing_moves() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    opened(&rig, &id, "2430").await;
+
+    let refused = chosen(&rig, &id, None, Some(&[("pr", "2430"), ("pr", "9999")])).await.expect_err("not held");
+
+    let api::Refusal::IllegalMove(error) = refused else { panic!("{refused:?}") };
+    assert_eq!(error.code, "fleet.hold_not_standing");
+    assert_eq!(standing(&rig, &id, "pr").await, vec!["2430"]);
+    assert_eq!(rig.turn(&id).await, SessionTurn::Working { woken_by: None });
 }

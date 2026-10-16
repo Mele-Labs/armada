@@ -17,7 +17,7 @@ import { askForUpdate } from "./acts";
 import { HoldsReleasedBox, ReleaseHoldsDialog } from "./ReleaseHolds";
 import { ReportBox } from "./ReportBox";
 import { reportBrief } from "./report-brief";
-import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type SessionTileId } from "./session-tiles";
+import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
 
 const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, release: Unplug } as const;
@@ -31,7 +31,7 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
   const [reporting, setReporting] = useState(false);
   const [releasing, setReleasing] = useState(false);
   /** What Fleet answered, with the Session as it stood before, which names each row. */
-  const [released, setReleased] = useState<{ answer: HoldsReleased; to: Session | undefined; before: Session } | undefined>();
+  const [released, setReleased] = useState<{ answer: HoldsReleased; to: Session | undefined; before: Session; unticked: readonly Held[] } | undefined>();
   /** The Session a report started, kept while its message is refused so a second press tells the same one. */
   const started = useRef<string | undefined>(undefined);
   const events = useFleetEvents();
@@ -62,12 +62,14 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     map: () => setView("map"),
     release: () => setReleasing(true),
   };
-  const release = async (to: Session | undefined): Promise<boolean> => {
+  const release = async (to: Session | undefined, rows: readonly Held[]): Promise<boolean> => {
     const before = session;
-    const answer = await draft.releaseHolds?.(session.id, to?.id);
+    const unticked = heldOf(session).filter((one) => !rows.some((it) => it.kind === one.kind && it.target === one.target));
+    const answer = await draft.releaseHolds?.(session.id, to?.id, rows.map(({ kind, target }) => ({ kind, target })));
     if (answer === undefined) return false;
     setReleasing(false);
-    setReleased({ answer, to, before });
+    // A slot takes the branch it has checked out with it, so an unticked branch can still have moved.
+    setReleased({ answer, to, before, unticked: unticked.filter((one) => !answer.moved.some((it) => it.kind === one.kind && it.target === one.target)) });
     return true;
   };
   const report = async (words: string): Promise<boolean> => {
@@ -93,7 +95,7 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     <ReleaseHoldsDialog session={session} held={heldOf(session)} targets={handTargets(session, draft.get())} send={release} onCancel={() => setReleasing(false)} />
   ) : null;
   if (released !== undefined) {
-    return <HoldsReleasedBox released={released.answer} to={released.to} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
+    return <HoldsReleasedBox released={released.answer} to={released.to} unticked={released.unticked} nameOfRow={(row) => nameOfHeldRow(released.before, row)} onClose={() => setReleased(undefined)} />;
   }
   if (reporting) {
     return (

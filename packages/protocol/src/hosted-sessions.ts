@@ -131,8 +131,11 @@ export type MoveSession = { session_id: string; manifest_id: string };
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
 
-/** `POST /sessions/release_holds`: give back every slot, branch, pull request, Job and need a Session holds, or hand them to `to_session_id`. */
-export type ReleaseSessionHolds = { session_id: string; to_session_id?: string };
+/** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
+export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };
+
+/** One row the person ticked: its kind and target as the ledger names them. */
+export type ChosenHold = { kind: string; target: string };
 
 /** What `release_session_holds` moved, and what stayed with why. */
 export type SessionHoldsReleased = {

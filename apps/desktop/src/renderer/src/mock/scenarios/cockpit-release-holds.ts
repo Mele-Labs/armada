@@ -1,6 +1,6 @@
 // Two Sessions of one repository on the flight deck. The first is working and holds two slots, a branch, a pull request, a Job and a
-// need; the second holds a slot and a branch of its own. Release answers as Fleet's `release_session_holds` does: a hand moves every
-// row to the Session picked, and a release gives each back, committing a slot's files first, except the slot whose checkout is on no
+// need; the second holds a slot and a branch of its own. Release answers as Fleet's `release_session_holds` does, for the rows ticked:
+// a hand moves each to the Session picked, and a release gives each back, committing a slot's files first, except the slot whose checkout is on no
 // branch, which stays and says why. The claims are in `walks/cockpit-release-holds.ts`.
 
 import { featureRunning } from "@armada/jobs/fake";
@@ -86,14 +86,20 @@ function build(): Scenario {
             }
             return only;
           },
-          releaseHolds: async (id, to) => {
+          releaseHolds: async (id, to, rows) => {
             const source = store.get().find((one) => one.id === id);
             if (source === undefined) return undefined;
-            const acted = source.attachments.filter((one) => rowOf(one) !== undefined);
+            const picked = (row: { kind: string; target: string }) => rows === undefined || rows.some((it) => it.kind === row.kind && it.target === row.target);
+            const slots = source.attachments.filter((one) => one.kind === "slot" && picked(rowOf(one)!)).map((one) => (one.kind === "slot" ? one.slot : 0));
+            // A slot takes the branch it has checked out with it, as Fleet's does.
+            const acted = source.attachments.filter((one) => {
+              const row = rowOf(one);
+              return row !== undefined && (picked(row) || (one.kind === "branch" && slots.includes(one.slot)));
+            });
             // A hand moves the lease as it stands, so nothing is committed and nothing can stay.
             const stays = (one: SessionAttachment) => to === undefined && one.kind === "slot" && one.slot === DETACHED;
             const going = acted.filter((one) => !stays(one));
-            const needs = source.needs ?? [];
+            const needs = (source.needs ?? []).filter((one) => picked({ kind: "need", target: one.path }));
             const moved: HeldRow[] = going.map((one) => {
               const row = rowOf(one)!;
               if (to !== undefined || one.kind !== "slot") return row;
@@ -104,12 +110,13 @@ function build(): Scenario {
             });
             moved.push(...needs.map((one) => ({ kind: "need", target: one.path })));
             const kept = acted.filter(stays).map((one) => ({ ...rowOf(one)!, why: DETACHED_WHY }));
+            // Only a slot moved from under the agent stops its turn.
+            const stopped = slots.length > 0 ? { turn: { state: "idle" as const }, standing: "idle" as const } : {};
             store.edit(id, (one) => ({
               ...one,
-              turn: { state: "idle" },
-              standing: "idle",
+              ...stopped,
               attachments: one.attachments.filter((it) => !going.includes(it)),
-              needs: [],
+              needs: (one.needs ?? []).filter((it) => !needs.includes(it)),
             }));
             if (to !== undefined) {
               store.edit(to, (one) => ({

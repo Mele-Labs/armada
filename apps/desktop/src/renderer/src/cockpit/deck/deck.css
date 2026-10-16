@@ -484,7 +484,10 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* Release: the confirmation names each thing the Session holds, one row a thing, its kind a mark with a tooltip. What Fleet answered
    stands where the tiles do until Close: what moved, then what stayed with why. */
 .deck-holds { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.deck-holds__row { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.deck-holds__row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+/* A ticked row is one line: the box, the mark and the name centred on it, the name wrapping only in its own column. */
+.deck-holds__row > .armada-checkbox { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; }
+.deck-holds__row > .armada-checkbox > :last-child { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; }
 .deck-holds__mark { display: inline-flex; flex: none; color: var(--fg-muted); }
 .deck-holds__text { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); min-width: 0; overflow-wrap: anywhere; }
 .deck-holds__why { color: var(--fg-muted); }

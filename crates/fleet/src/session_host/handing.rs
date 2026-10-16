@@ -9,7 +9,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    ChangeSlotPool, HoldKept, HoldMoved, ManifestId, ReleaseSessionHolds, SessionHoldsReleased,
+    ChangeSlotPool, ChosenHold, HoldKept, HoldMoved, ManifestId, ReleaseSessionHolds, SessionHoldsReleased,
     SessionTurn, SlotAct, StopSession, WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionState};
@@ -26,6 +26,8 @@ const HAND_TO_ITSELF: &str = "fleet.hand_to_itself";
 const HAND_TO_ENDED: &str = "fleet.hand_to_ended";
 /// A hand to a Session of another repository. A 409.
 const HAND_TO_OTHER_REPOSITORY: &str = "fleet.hand_to_other_repository";
+/// A chosen row the Session does not hold standing. A 409.
+const HOLD_NOT_STANDING: &str = "fleet.hold_not_standing";
 
 /// One slot the pool holds for the Session, and who the pool says holds it.
 struct Leased {
@@ -44,9 +46,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Give back or hand over every standing row of [`HELD_KINDS`]. **The target is checked before
-    /// anything moves**, so a refusal changes nothing. A slot is moved before its rows, and a slot
-    /// the pool would not move keeps its `slot` row and the `branch` row of what it has checked out.
+    /// Give back or hand over the standing rows of [`HELD_KINDS`] the person chose, every one where he
+    /// named none. **The target and the choice are checked before anything moves**, so a refusal
+    /// changes nothing. A slot is moved before its rows, takes the `branch` row of what it has checked
+    /// out with it, and where the pool would not move it keeps both.
     pub(crate) async fn session_holds_released(
         &self,
         asked: ReleaseSessionHolds,
@@ -57,14 +60,7 @@ where
             Some(to) => Some(self.hand_target(&source, to.as_str()).await?),
             None => None,
         };
-        let hosted = self.store().lock().await.hosting(&id).map_err(|why| self.ledger_fault(why))?;
-        if hosted.is_some() && source.state != SessionState::Ended {
-            let working = matches!(self.hosts().of(&id).state().turn, SessionTurn::Working { .. });
-            if working {
-                self.stop_session(StopSession { session_id: asked.session_id.clone() }).await?;
-            }
-        }
-        let rows: Vec<KeptAttachment> = self
+        let standing: Vec<KeptAttachment> = self
             .store()
             .lock()
             .await
@@ -73,6 +69,56 @@ where
             .into_iter()
             .filter(|row| row.state == AttachmentState::Standing && HELD_KINDS.contains(&row.kind.as_str()))
             .collect();
+        let manifest = source.manifest_id.clone();
+        let served = match &manifest {
+            Some(manifest) => self.served_named(Some(&ManifestId::carried(manifest))).ok(),
+            None => None,
+        };
+        let leased_all = match &served {
+            Some(served) => self.leased_for(served, &id).await,
+            None => Vec::new(),
+        };
+        let mut chosen: Vec<(String, String)> = match &asked.rows {
+            None => standing
+                .iter()
+                .map(|row| (row.kind.clone(), row.target.clone()))
+                .chain(leased_all.iter().map(|one| (String::from("slot"), one.slot.to_string())))
+                .collect(),
+            Some(rows) => {
+                // A slot the pool holds for the Session counts as held though its ledger has no row for it.
+                let held = |row: &ChosenHold| {
+                    standing.iter().any(|one| one.kind == row.kind && one.target == row.target)
+                        || (row.kind == "slot" && leased_all.iter().any(|one| one.slot.to_string() == row.target))
+                };
+                if let Some(not) = rows.iter().find(|row| !held(row)) {
+                    return Err(Refusal::IllegalMove(WireError::raised(
+                        HOLD_NOT_STANDING,
+                        format!("the session does not hold {} {}", not.kind, not.target),
+                        self.run_id(),
+                    )));
+                }
+                rows.iter().map(|row| (row.kind.clone(), row.target.clone())).collect()
+            }
+        };
+        let picked = |chosen: &[(String, String)], kind: &str, target: &str| chosen.iter().any(|(k, t)| k == kind && t == target);
+        let leased: Vec<Leased> = leased_all.into_iter().filter(|one| picked(&chosen, "slot", &one.slot.to_string())).collect();
+        for one in &leased {
+            if let Some(branch) = &one.branch {
+                if standing.iter().any(|row| row.kind == "branch" && row.target == *branch) && !picked(&chosen, "branch", branch) {
+                    chosen.push((String::from("branch"), branch.clone()));
+                }
+            }
+        }
+        let rows: Vec<KeptAttachment> = standing.into_iter().filter(|row| picked(&chosen, &row.kind, &row.target)).collect();
+        let hosted = self.store().lock().await.hosting(&id).map_err(|why| self.ledger_fault(why))?;
+        // Only a slot moved from under the agent needs its turn stopped.
+        let slot_chosen = chosen.iter().any(|(kind, _)| kind == "slot");
+        if slot_chosen && hosted.is_some() && source.state != SessionState::Ended {
+            let working = matches!(self.hosts().of(&id).state().turn, SessionTurn::Working { .. });
+            if working {
+                self.stop_session(StopSession { session_id: asked.session_id.clone() }).await?;
+            }
+        }
         let mut answer = SessionHoldsReleased {
             to_session_id: to.as_ref().map(|one| ipc::SessionId::carried(one.id.clone())),
             ..SessionHoldsReleased::default()
@@ -94,14 +140,9 @@ where
                 });
             }
         }
-        let manifest = source.manifest_id.clone();
-        let served = match &manifest {
-            Some(manifest) => self.served_named(Some(&ManifestId::carried(manifest))).ok(),
-            None => None,
-        };
         let mut handed_slots: Vec<(u32, Option<String>)> = Vec::new();
         if let Some(served) = &served {
-            for leased in self.leased_for(served, &id).await {
+            for leased in leased {
                 let moved = match &to {
                     None => self.slot_released(served, &id, hosted.is_some(), &leased).await,
                     Some(to) => self.slot_handed(served, &leased, &to.id).await,
