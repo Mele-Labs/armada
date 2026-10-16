@@ -6,13 +6,20 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import { ONE_BAR } from "../one-bar";
 import { DispatchPanel, useHung } from "./DispatchPanel";
 import { DispatchedStrip } from "./DispatchedStrip";
-import { useDispatching } from "./dispatching";
+import { useDispatching, type Dispatching } from "./dispatching";
 
 /** The sheet, centred over the window, wherever an entry opened it. */
 export function DispatchSheet() {
   const dispatching = useDispatching();
+  if (dispatching === undefined) return null;
+  return <Sheet dispatching={dispatching} />;
+}
+
+/** Holds the words and their reading, so a key typed draws this and not the window. */
+function Sheet({ dispatching }: { dispatching: Dispatching }) {
+  const panel = dispatching.usePanel();
   const field = useRef<HTMLTextAreaElement>(null);
-  const shown = dispatching?.sheet === true;
+  const shown = dispatching.sheet;
 
   // The cursor lands at the end of the words the palette sent, so typing carries on from them.
   useEffect(() => {
@@ -22,8 +29,8 @@ export function DispatchSheet() {
     field.current?.setSelectionRange(end, end);
   }, [shown]);
 
-  if (dispatching === undefined || !shown) return null;
-  return <DispatchPanel fieldRef={field} onDismiss={dispatching.closeSheet} {...dispatching.panel()} />;
+  if (!shown) return null;
+  return <DispatchPanel fieldRef={field} onDismiss={dispatching.closeSheet} {...panel} />;
 }
 
 /**
