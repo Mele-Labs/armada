@@ -324,6 +324,9 @@ this window, and that is another security review. `#1294`.
 > and pushes it; nothing is asked of the page.
 > Why: the owner approving a page its Session is still editing approves a page
 > that is about to change under him.
+> A Session that ends its turn with a subagent still at work on it is still editing: the page
+> reads *Still changing* until a turn ends with none standing (`docs/concepts/session.md`,
+> *Showing a window*).
 
 > **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
 > the act JobDetail's Approve sends; on a Session it is a message from the
