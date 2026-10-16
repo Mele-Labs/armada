@@ -703,14 +703,15 @@ export function ActivityGraph({
     [lanes, now],
   );
   const busiest = Math.max(1, ...rows.flatMap((row) => row.spans.map(weighOf)));
-  // The rows that fit: a cell is as wide as a column is, and square.
+  // The rows that fit: no row is shorter than a cell is wide.
   const plot = useRef<HTMLDivElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState<number>();
   useLayoutEffect(() => {
     const held = plot.current;
     if (held === null || typeof ResizeObserver === "undefined") return;
     const measure = () => {
-      const gap = Number.parseFloat(getComputedStyle(held).columnGap) || 0;
+      const gap = Number.parseFloat(getComputedStyle(grid.current ?? held).columnGap) || 0;
       const cell = (held.clientWidth - gap * (COLUMNS - 1)) / COLUMNS;
       if (cell > 0) setFit(Math.max(1, Math.floor((held.clientHeight + gap) / (cell + gap))));
     };
@@ -719,34 +720,37 @@ export function ActivityGraph({
     watch.observe(held);
     return () => watch.disconnect();
   }, []);
+  const shown = rows.slice(0, fit);
   return (
     <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour" data-take="graph">
       <div className="armada-tl__plot" ref={plot}>
-        {rows.slice(0, fit).map(({ lane, spans }) => (
-          <div key={lane.key} className="armada-tl__row" role="group" aria-label={titleOf(lane.subject)}>
-            {spans.map((events, index) => {
-              const newest = events[0];
-              if (newest === undefined) return <i key={index} className="armada-tl__cell" data-level="0" aria-hidden="true" />;
-              const owed = owedOf(events);
-              const level = Math.min(LEVELS, Math.max(1, Math.ceil((weighOf(events) / busiest) * LEVELS)));
-              return (
-                <Tooltip key={index} label={<Hour events={events} now={now} lit={lit} />} card beside asChild>
-                  <button
-                    type="button"
-                    className="armada-tl__cell"
-                    data-level={level}
-                    data-owed={owed}
-                    data-lit={events.some((event) => event.id === lit) || undefined}
-                    style={owed === undefined ? undefined : toneOf(owed)}
-                    aria-label={`${titleOf(newest.subject)}: ${newest.says}`}
-                    onClick={() => onPick(newest)}
-                  />
-                </Tooltip>
-              );
-            })}
-          </div>
-        ))}
-        <i className="armada-tl__now" aria-hidden="true" />
+        <div className="armada-tl__cells" ref={grid} style={{ ["--rows" as string]: shown.length } as CSSProperties}>
+          {shown.map(({ lane, spans }) => (
+            <div key={lane.key} className="armada-tl__row" role="group" aria-label={titleOf(lane.subject)}>
+              {spans.map((events, index) => {
+                const newest = events[0];
+                if (newest === undefined) return <i key={index} className="armada-tl__cell" data-level="0" aria-hidden="true" />;
+                const owed = owedOf(events);
+                const level = Math.min(LEVELS, Math.max(1, Math.ceil((weighOf(events) / busiest) * LEVELS)));
+                return (
+                  <Tooltip key={index} label={<Hour events={events} now={now} lit={lit} />} card beside asChild>
+                    <button
+                      type="button"
+                      className="armada-tl__cell"
+                      data-level={level}
+                      data-owed={owed}
+                      data-lit={events.some((event) => event.id === lit) || undefined}
+                      style={owed === undefined ? undefined : toneOf(owed)}
+                      aria-label={`${titleOf(newest.subject)}: ${newest.says}`}
+                      onClick={() => onPick(newest)}
+                    />
+                  </Tooltip>
+                );
+              })}
+            </div>
+          ))}
+          <i className="armada-tl__now" aria-hidden="true" />
+        </div>
       </div>
     </div>
   );

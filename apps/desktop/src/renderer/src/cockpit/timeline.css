@@ -175,11 +175,13 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 
 /* The plot is the anchor every cell's card hangs off, so a card stands beside the panel and never over the cells it is read against. */
 .armada-tl__graph { display: flex; flex-direction: column; padding: var(--space-2) var(--space-4) var(--space-4); }
-.armada-tl__plot { position: relative; display: grid; flex: 1 1 0; grid-template-columns: repeat(20, minmax(0, 1fr)); align-content: start; gap: calc(var(--border-width) * 2); min-height: 0; }
+.armada-tl__plot { position: relative; flex: 1 1 0; min-height: 0; }
+/* The rows share the plot's height, and none is taller than a bar of this size, so one row is not a giant: the rest is left empty. */
+.armada-tl__cells { --row-most: calc(var(--space-6) + var(--space-1)); position: relative; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); grid-template-rows: repeat(var(--rows, 1), minmax(0, 1fr)); gap: calc(var(--border-width) * 2); height: 100%; max-height: calc(var(--rows, 1) * var(--row-most) + (var(--rows, 1) - 1) * var(--border-width) * 2); }
 /* A row is its own cells, laid on the plot's grid. */
 .armada-tl__row { display: contents; }
 
-.armada-tl__cell { display: block; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+.armada-tl__cell { display: block; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
 /* One hue, from the glass to a pale blue, by how much happened in the cell. */
 .armada-tl__cell[data-level="1"] { background: color-mix(in srgb, var(--status-running) 22%, color-mix(in srgb, var(--fg-default) 6%, transparent)); }
 .armada-tl__cell[data-level="2"] { background: color-mix(in srgb, var(--status-running) 42%, color-mix(in srgb, var(--fg-default) 6%, transparent)); }
