@@ -291,6 +291,18 @@ export class WiredStore {
     return done.ok;
   }
 
+  /** A refusal is a toast, since the Manifest form and the deck have no Sessions view to show it in. */
+  private async actingInRepository(root: string, number: number, act: "ready" | "merge" | "auto_merge" | "review"): Promise<boolean> {
+    const manifestId = this.inputs?.holds.repositories?.find((one) => one.root === root)?.manifest?.id;
+    if (manifestId === undefined) {
+      this.tell({ ok: false, why: "no_manifest" });
+      return false;
+    }
+    const done = await this.api.pressRepositoryPullRequest(manifestId, number, act);
+    if (!done.ok) this.tell(done.outcome);
+    return done.ok;
+  }
+
   private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<void> {
     this.say(undefined);
     const done = await act;
@@ -424,6 +436,8 @@ export class WiredStore {
       if (manifestId === undefined) return { ok: false, said: "Fleet serves no Manifest for that repository." };
       return checkoutDiffRead(await this.api.readCheckoutDiff(manifestId, path));
     },
+    // A pull request no Session holds is named by its repository's Manifest; Fleet reads the hub again after a merge.
+    actInRepository: (root, number, act) => this.actingInRepository(root, number, act),
     said: () => this.refusal,
     taggable: () => (this.inputs?.jobs ?? NONE).map((job): SessionTag => ({ kind: "job", id: job.id, title: job.title })),
     setTags: (id, tags) => this.tagged(id, tags),
@@ -474,8 +488,8 @@ export function WiredSessions({ children }: { children: ReactNode }) {
   const store = useMemo(() => new WiredStore(window.armada), []);
   useEffect(() => store.attach(), [store]);
   const served = useSyncExternalStore(store.subscribe, store.served);
-  const { runInRepository, diffInRepository } = store.draft;
-  const acts = useMemo(() => ({ runInRepository, diffInRepository }), [runInRepository, diffInRepository]);
+  const { runInRepository, diffInRepository, actInRepository } = store.draft;
+  const acts = useMemo(() => ({ runInRepository, diffInRepository, actInRepository }), [runInRepository, diffInRepository, actInRepository]);
   return (
     <SessionsFrom held={served ? store.draft : undefined} acts={acts}>
       {children}

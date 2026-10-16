@@ -543,6 +543,7 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    pressRepositoryPullRequest: (manifestId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
     readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
     readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
@@ -885,6 +886,7 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    pressRepositoryPullRequest: "bridge:press-repository-pull-request",
     readPullRequestPage: "bridge:read-pull-request-page",
     readPullRequestFile: "bridge:read-pull-request-file",
     writePullRequest: "bridge:write-pull-request",

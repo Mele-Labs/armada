@@ -443,12 +443,19 @@ where
     /// Each served repository's hub, by root. A repository Fleet has read
     /// nothing for is left out.
     pub(crate) async fn merge_hubs(&self) -> Vec<(String, MergeLineHub)> {
-        let roots: Vec<String> = self
-            .repositories()
-            .served()
-            .iter()
-            .map(|served| served.root().to_string())
-            .collect();
+        // The pull request each repository's pending form edit waits on a person for.
+        let (roots, by_hand): (Vec<String>, BTreeMap<String, u64>) = {
+            let served = self.repositories().served();
+            let roots = served.iter().map(|it| it.root().to_string()).collect();
+            let by_hand = served
+                .iter()
+                .filter_map(|it| {
+                    let number = it.repository().pending_edit().standing()?.merge_by_hand()?;
+                    Some((it.root().to_string(), number))
+                })
+                .collect();
+            (roots, by_hand)
+        };
         let (pulls, merged, runs, queues, elsewhere, held_back) = {
             let sweep = self.sweeping().lock().await;
             (
@@ -495,6 +502,11 @@ where
                 hub.fixing_session = fixing.as_ref().and_then(|by| by.session()).map(session_titled);
                 hub.fixing_elsewhere = elsewhere.get(&root).map(fixing_elsewhere);
                 hub.checkout = held_back.get(&root).map(held_checkout);
+                if let Some(number) = by_hand.get(&root) {
+                    for pull in hub.pull_requests.iter_mut().filter(|it| it.number == *number) {
+                        pull.merge_by_hand = true;
+                    }
+                }
                 // A switch turned off since the reading shows none, another machine's rows included.
                 if !self.registers_owners(&root) {
                     hub.pull_requests.iter_mut().for_each(|pull| pull.owner = None);
@@ -739,6 +751,7 @@ fn request(
         additions: pull.facts.additions,
         deletions: pull.facts.deletions,
         owner: one.owner.as_ref().map(PullOwner::on_the_wire),
+        merge_by_hand: false,
     }
 }
 

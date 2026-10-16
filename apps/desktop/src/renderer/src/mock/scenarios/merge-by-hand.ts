@@ -50,9 +50,9 @@ export const s261MergeByHand: Scenario = (() => {
         const store = ship.draft!.sessions!(control);
         return {
           ...store,
-          // No Session holds this pull request, so the act comes without one; Merge is the press the walk makes.
-          act: async (id, number, what) => {
-            if (number !== edit.number) return store.act(id, number, what);
+          // No Session holds this pull request, so the act is pressed on the repository; Merge is the press the walk makes.
+          actInRepository: async (_root, number, what) => {
+            if (number !== edit.number) return false;
             if (what === "merge") fleet?.publish({ mergeLines: merged(fleet.state().mergeLines!) });
             return true;
           },

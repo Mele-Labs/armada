@@ -62,6 +62,7 @@ fn a_red_hub() -> MergeLineHub {
             additions: Some(120),
             deletions: Some(0),
             owner: None,
+            merge_by_hand: false,
         }],
         merged: vec![HubMerged {
             number: 1815,
@@ -269,6 +270,18 @@ fn a_pull_requests_owner_is_a_kind_an_id_a_machine_and_whether_it_is_this_one() 
     let owner = read.owner.as_ref().expect("an owner");
     assert_eq!((owner.kind, owner.id.as_str(), owner.machine.as_str(), owner.this_machine), (HolderKind::Session, "s-a", "mac-a", false));
     assert_eq!(encode(&read).unwrap(), with);
+}
+
+#[test]
+fn a_pull_request_that_waits_for_a_person_says_so_and_any_other_leaves_the_key_out() {
+    let waiting = r#"{"number":7,"title":"t","branch":"b","url":"u","merge_by_hand":true}"#;
+    let read: HubPullRequest = decode("a pull request", waiting.as_bytes()).expect("reads");
+    assert!(read.merge_by_hand);
+    assert_eq!(encode(&read).unwrap(), waiting);
+    let other = r#"{"number":7,"title":"t","branch":"b","url":"u"}"#;
+    let read: HubPullRequest = decode("a pull request", other.as_bytes()).expect("reads");
+    assert!(!read.merge_by_hand);
+    assert!(!encode(&read).unwrap().contains("merge_by_hand"));
 }
 
 #[test]

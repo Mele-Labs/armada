@@ -2,7 +2,7 @@
 // Merge act Sessions has: a call in Incoming calls, a person's glyph on the pull request in the merge queue with Merge on its
 // pane, and the Manifest form's line under Save, whose number opens the pull request panel Sessions uses. Over `merge-by-hand`.
 
-import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, walk } from "../walk";
 
 const incoming = region("Incoming calls");
 const queue = region("Merge queue");

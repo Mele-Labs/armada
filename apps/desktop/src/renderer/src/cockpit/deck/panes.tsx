@@ -366,7 +366,7 @@ export function PrPane({ pr, owner, props, acts }: { pr: Pr; owner: Subject | un
             ["Author", pr.author],
             ["Opened", opened === undefined ? undefined : `${opened} ago`],
             ["Review", card?.review],
-            ["Merge", card?.byHand === true ? <ByHandActs number={pr.number} ci={pr.ci} /> : undefined],
+            ["Merge", card?.byHand === true ? <ByHandActs root={pr.root} number={pr.number} ci={pr.ci} /> : undefined],
             ["Draft", card?.draft === true ? "Yes" : undefined],
             ["Conflicts", card?.conflicts === true ? "Yes" : undefined],
             ["Owner", who],

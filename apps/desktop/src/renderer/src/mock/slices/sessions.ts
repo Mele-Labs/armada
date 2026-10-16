@@ -41,6 +41,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     hideSessionPage: async () => undefined,
     onSessionPageEscape: () => () => undefined,
     pressPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
+    pressRepositoryPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
     readPullRequestPage: async () => ({ ok: false, outcome: unanswered("/pull_request_details") }),
     readPullRequestFile: async () => ({ ok: false, outcome: unanswered("/pull_request_files") }),
     writePullRequest: async () => ({ ok: false, outcome: unanswered("/pull_request_writes") }),

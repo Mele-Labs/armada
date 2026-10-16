@@ -324,6 +324,11 @@ pub struct HubPullRequest {
     /// included), and whenever the store could not be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<PullRequestOwner>,
+    /// The pull request of an `armada.yml` edit a form sent, which the forge would not turn
+    /// auto-merge on for, so it waits for a person to merge it. Absent is any other pull request,
+    /// and one the forge is going to merge itself.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub merge_by_hand: bool,
 }
 
 /// Who registered a pull request. **A kind, a short id and a machine's name, and nothing

@@ -12,7 +12,7 @@ import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions"
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
 /** The acts on a repository's own card, which a real Fleet serves whether or not the Sessions list has been read. */
-export type RepositoryActs = Pick<SessionsDraft, "runInRepository" | "diffInRepository">;
+export type RepositoryActs = Pick<SessionsDraft, "runInRepository" | "diffInRepository" | "actInRepository">;
 const Acts = createContext<RepositoryActs | undefined>(undefined);
 
 const NONE: readonly Session[] = [];
@@ -34,7 +34,11 @@ export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | u
 export function useRepositoryActs(): RepositoryActs {
   const acts = useContext(Acts);
   const held = useContext(Held);
-  return { runInRepository: acts?.runInRepository ?? held?.runInRepository, diffInRepository: acts?.diffInRepository ?? held?.diffInRepository };
+  return {
+    runInRepository: acts?.runInRepository ?? held?.runInRepository,
+    diffInRepository: acts?.diffInRepository ?? held?.diffInRepository,
+    actInRepository: acts?.actInRepository ?? held?.actInRepository,
+  };
 }
 
 /** The Sessions this window was mounted holding and the acts on them, or `undefined` where none are served. */

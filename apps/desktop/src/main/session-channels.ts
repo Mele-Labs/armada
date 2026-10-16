@@ -141,6 +141,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.pressRepositoryPullRequest, (_event, manifestId: string, number: number, press: PullRequestPress) =>
+    text(manifestId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.pressInRepository(manifestId, number, press) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.readPullRequestPage, (_event, sessionId: string, number: number) =>
     text(sessionId) && Number.isInteger(number) ? (connection()?.sessions.pullRequestPage(sessionId, number) ?? unsent) : unsent,
   );

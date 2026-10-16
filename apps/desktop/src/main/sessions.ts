@@ -475,14 +475,26 @@ export class SessionsHost {
    * folded here.
    */
   async press(sessionId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+    const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
+    if (manifestId === undefined) return this.port() === null ? { ok: false, outcome: NOT_CONNECTED } : { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    return await this.pressOn(manifestId, number, press, sessionId);
+  }
+
+  /**
+   * The same press on a pull request no Session holds, such as a form edit's: **the repository is named by its Manifest**,
+   * as `catchUpCheckout` names it. A review is dispatched under no Session.
+   */
+  async pressInRepository(manifestId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+    return await this.pressOn(manifestId, number, press);
+  }
+
+  private async pressOn(manifestId: string, number: number, press: PullRequestPress, sessionId?: string): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
-    if (manifestId === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
     const repository = encodeURIComponent(manifestId);
     const answer =
       press === "review"
-        ? await ask(port, "POST", `/pull_request_reviews/${repository}`, { pull_request: String(number), session_id: sessionId })
+        ? await ask(port, "POST", `/pull_request_reviews/${repository}`, { pull_request: String(number), ...(sessionId === undefined ? {} : { session_id: sessionId }) })
         : press === "read"
           ? await ask(port, "GET", `/pull_requests/${repository}/${number}`)
           : await ask(port, "POST", `/pull_requests/${repository}/${number}/${PRESS_ROUTE[press]}`);

@@ -570,7 +570,7 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
             hue: "ask",
             where,
             body: [["Branch", pull.branch]],
-            acts: () => <ByHandActs number={pull.number} {...(pull.ci === undefined ? {} : { ci: pull.ci })} />,
+            acts: () => <ByHandActs root={view.root} number={pull.number} {...(pull.ci === undefined ? {} : { ci: pull.ci })} />,
           });
           continue;
         }

@@ -779,6 +779,13 @@ const api: BridgeApi = {
     press: PullRequestPress,
   ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
     ipcRenderer.invoke(CHANNELS.pressPullRequest, sessionId, number, press),
+  // A pull request no Session holds, named by its repository's Manifest.
+  pressRepositoryPullRequest: (
+    manifestId: string,
+    number: number,
+    press: PullRequestPress,
+  ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
+    ipcRenderer.invoke(CHANNELS.pressRepositoryPullRequest, manifestId, number, press),
   readPullRequestPage: (sessionId: string, number: number): Promise<SessionActed<PullRequestPage>> =>
     ipcRenderer.invoke(CHANNELS.readPullRequestPage, sessionId, number),
   readPullRequestFile: (sessionId: string, number: number, path: string): Promise<SessionActed<PullRequestFilePatch>> =>
