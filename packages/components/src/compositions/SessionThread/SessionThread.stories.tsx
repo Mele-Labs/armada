@@ -614,3 +614,107 @@ export const NothingElseIsCopied: Story = {
     }
   },
 };
+
+const LIVE_PLAN = {
+  version: 2,
+  approved: false,
+  groups: [
+    { id: "q1", agent: "rust-engineer", title: "Keep the queue in the store", tasks: ["Add the queue table", "Read it back when Fleet starts", "Take a Session off it when a bay is free"] },
+    { id: "q2", agent: "protocol-engineer", title: "Queue operation on the wire", tasks: ["Add queue_session", "Mirror it in the TypeScript wire"] },
+    { id: "q3", agent: "bridge-engineer", title: "Queue from the dispatch panel", tasks: ["Offer Queue beside Start", "Show a queued Session in the list", "Let him take one off the queue"] },
+    { id: "q4", agent: "general-purpose", title: "Document the queue", tasks: ["Write the queue's place in the Session concept", "Say what a restart keeps"] },
+  ].map((group) => ({ ...group, tasks: group.tasks.map((text, at) => ({ id: `${group.id}-${at}`, text })) })),
+  onApprove: fn(),
+  onReview: fn(),
+};
+const LIVE_ROWS: SessionThreadRow[] = [
+  { id: "l1", at: "14:03:00", kind: "message", from: "you", text: "Queue a Session for later, so it starts when a bay is free." },
+  { id: "l2", at: "14:05:10", kind: "message", from: "agent", text: "The plan is recorded: ten tasks in four groups. Approve it, or tell me what to change." },
+  { id: "l3", at: "14:08:40", kind: "message", from: "you", text: "Update the plan: the queue should survive a restart." },
+];
+
+/** A plan with four groups and ten tasks pending, beside a judge's concerns and a permission: the thread's last message stays in view and the calls scroll in a region of their own. */
+export const LivePlanKeepsTheLastMessageInView: Story = {
+  args: {
+    rows: LIVE_ROWS,
+    approval: LIVE_PLAN,
+    concerns: [
+      { id: "c1", text: "The queue has no ceiling, so a restart can start every queued Session at once.", cites: ["crates/fleet/src/queue.rs:12"] },
+      { id: "c2", text: "A queued Session that is taken off is not told.", cites: ["crates/fleet/src/pool.rs"] },
+    ],
+    asked: { command: "cargo test -p fleet queue" },
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ display: "flex", height: "calc(var(--space-12) * 7)", width: "calc(var(--space-12) * 10)", background: "var(--bg-raised)" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    const thread = canvas.getByRole("region", { name: "Thread" });
+    const last = canvas.getByText("Update the plan: the queue should survive a restart.");
+    const view = thread.getBoundingClientRect();
+    const row = last.getBoundingClientRect();
+    await expect(view.height).toBeGreaterThan(60);
+    await expect(row.top).toBeGreaterThanOrEqual(view.top - 1);
+    await expect(row.bottom).toBeLessThanOrEqual(view.bottom + 1);
+    const calls = thread.nextElementSibling as HTMLElement;
+    const whole = thread.parentElement!.getBoundingClientRect().height;
+    await expect(calls.getBoundingClientRect().height).toBeLessThanOrEqual(whole * 0.41);
+    const plan = canvas.getByRole("article", { name: "Plan to approve" });
+    await expect(plan.getBoundingClientRect().height).toBeLessThanOrEqual(240.5);
+    await expect(calls.scrollHeight).toBeGreaterThan(calls.clientHeight);
+  },
+};
+
+/** The plan card folds on its band to one line: Plan, its version and its state, with Approve still on it. */
+export const PlanFoldsToOneLine: Story = {
+  args: { rows: LIVE_ROWS, approval: LIVE_PLAN },
+  play: async ({ canvas, args }) => {
+    await expect(canvas.getByText("Keep the queue in the store")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Plan" }));
+    await expect(canvas.queryByText("Keep the queue in the store")).toBeNull();
+    await expect(canvas.getByText("v2")).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Plan waiting for approval" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Approve" }));
+    await expect(args.approval!.onApprove).toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Plan" }));
+    await expect(canvas.getByText("Keep the queue in the store")).toBeVisible();
+  },
+};
+
+/** A judge's concern says what it is: the glyph and Judge in its band, where it came from, the concern, its cites as chips, and Send says whose message it goes as. */
+export const JudgeConcernSaysWhatItIs: Story = {
+  args: {
+    rows: LIVE_ROWS,
+    concerns: [
+      { id: "c1", step: "Build", text: "The queue has no ceiling.", cites: ["crates/fleet/src/queue.rs:12", "crates/fleet/src/pool.rs"] },
+      { id: "c2", text: "A queued Session that is taken off is not told." },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("group", { name: "Judge: The queue has no ceiling." });
+    await expect(within(card).getByRole("img", { name: "Judge" })).toBeInTheDocument();
+    await expect(card.querySelector(".armada-session-thread__eyebrow")?.textContent).toBe("Judge");
+    await expect(within(card).getByText("Build")).toBeInTheDocument();
+    await expect(within(card).getByText("crates/fleet/src/queue.rs:12")).toBeInTheDocument();
+    await expect(within(canvas.getByRole("group", { name: "Judge: A queued Session that is taken off is not told." })).getByText("Judge tile")).toBeInTheDocument();
+    await userEvent.hover(within(card).getByRole("button", { name: "Send to session" }));
+    await expect((await canvas.findAllByText("Goes to the agent as your message")).length).toBeGreaterThan(0);
+  },
+};
+
+/** A re-recorded plan's rename stacks: the old text struck through, and the new text on the line below it. */
+export const RenameStacksOldOverNew: Story = {
+  args: {
+    rows: LIVE_ROWS,
+    approval: { ...LIVE_PLAN, changes: [{ kind: "renamed", from: "Add the queue table", text: "Add the queue table and its index" }] },
+  },
+  play: async ({ canvas }) => {
+    const old = canvas.getByText("Add the queue table");
+    const now = canvas.getByText("Add the queue table and its index");
+    await expect(old.tagName).toBe("S");
+    await expect(now.getBoundingClientRect().top).toBeGreaterThanOrEqual(old.getBoundingClientRect().bottom - 1);
+  },
+};

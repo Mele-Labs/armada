@@ -149,6 +149,13 @@ fn the_rules_name_the_tools_that_surface_a_need() {
     }
 }
 
+/// Fleet runs judges itself, so a plan's group is never given the `judge` subagent: the rules say so, in the planning paragraph.
+#[test]
+fn the_rules_say_no_group_names_a_judge() {
+    let planning = rules().split("\n\n").find(|block| block.starts_with("Planning.")).expect("a planning paragraph");
+    assert!(planning.contains("A group's subagent is the type that does its work, and Fleet runs judges itself, so no group names one."));
+}
+
 /// The mod's `Armada` output style repeats the rules by hand, so a drift between the two fails
 /// here. The rules' opening paragraph addresses a hosted session and the style has its own.
 #[test]

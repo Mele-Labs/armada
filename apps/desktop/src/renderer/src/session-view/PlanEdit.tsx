@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import type { DragEvent, KeyboardEvent } from "react";
-import { Bot, MessageSquarePlus, MessageSquare, Plus, Send, Trash2, Undo2, X } from "lucide-react";
+import { Bot, MessageSquarePlus, MessageSquare, Pencil, Plus, Send, Trash2, Undo2, X } from "lucide-react";
 import { Button, Input, Select, TaskMark, Textarea, Tooltip } from "@armada/components";
 import type { PlanMark, WorkPlan } from "@armada/screens/src/draft/sessions";
 
@@ -128,7 +128,12 @@ function SinceMark({ since }: { since: Since }) {
     <Tooltip label={said}>
       <span className="sv-since" data-kind={since.kind} role="img" aria-label={said}>
         {since.kind === "added" ? <Plus size={12} strokeWidth={2} aria-hidden /> : null}
-        {since.kind === "renamed" ? <s>{since.from}</s> : null}
+        {since.kind === "renamed" ? (
+          <>
+            <Pencil size={12} strokeWidth={2} aria-hidden />
+            <s>{since.from}</s>
+          </>
+        ) : null}
       </span>
     </Tooltip>
   );

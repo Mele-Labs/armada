@@ -25,6 +25,7 @@ const MINE = "one-view-1";
 const QUIET = "one-view-2";
 const BUSY = "one-view-3";
 const BIG = "one-view-4";
+const LIVE = "one-view-5";
 const BRANCH = "armada/lease-retry";
 
 /** A long workflow, to see how twelve steps read in the Status area. */
@@ -242,6 +243,43 @@ const big: Session = {
   },
 };
 
+/** The shape one real Session had pending: four groups, ten tasks, ten scope paths, and the person's own message last. */
+const live: Session = {
+  id: LIVE,
+  title: "Queue session for later",
+  manifestId: OWNER,
+  cwd: ROOT,
+  turn: { state: "idle" },
+  lastTurn: "14:09",
+  lastTurnAt: ago(2),
+  standing: "idle",
+  rows: [
+    you("l-1", "14:03:00", "Queue a Session for later, so it starts when a bay is free."),
+    agent("l-2", "14:05:10", "The plan is recorded: ten tasks in four groups. Approve it, or tell me what to change."),
+    you("l-3", "14:08:40", "Update the plan: the queue should survive a restart, and say so in the first group."),
+  ],
+  attachments: [],
+  work: {
+    workflow: { ...FEATURE, at: 0 },
+    plan: {
+      version: 2,
+      scope: ["crates/fleet/src/queue.rs", "crates/fleet/src/pool.rs", "crates/store/src/queue.rs", "crates/ipc/src/queue.rs", "crates/ipc/operations/queue_session.toml", "packages/protocol/src/queue.ts", "apps/desktop/src/main/queue.ts", "apps/desktop/src/renderer/src/queue.tsx", "apps/desktop/src/renderer/src/dispatch-panel", "docs/concepts/session.md"],
+      approved: false,
+      after: "l-2",
+      groups: [
+        { id: "q1", agent: "rust-engineer", title: "Keep the queue in the store", paths: ["crates/store/src/queue.rs", "crates/fleet/src/queue.rs"], tasks: [task("Q1", "Add the queue table", "open"), task("Q2", "Read it back when Fleet starts", "open"), task("Q3", "Take a Session off it when a bay is free", "open")] },
+        { id: "q2", agent: "protocol-engineer", title: "Queue operation on the wire", paths: ["crates/ipc/src/queue.rs", "crates/ipc/operations/queue_session.toml", "packages/protocol/src/queue.ts"], tasks: [task("Q4", "Add queue_session", "open"), task("Q5", "Mirror it in the TypeScript wire", "open")] },
+        { id: "q3", agent: "bridge-engineer", title: "Queue from the dispatch panel", paths: ["apps/desktop/src/main/queue.ts", "apps/desktop/src/renderer/src/queue.tsx", "apps/desktop/src/renderer/src/dispatch-panel"], tasks: [task("Q6", "Offer Queue beside Start", "open"), task("Q7", "Show a queued Session in the list", "open"), task("Q8", "Let him take one off the queue", "open")] },
+        { id: "q4", agent: "general-purpose", title: "Document the queue", paths: ["docs/concepts/session.md", "crates/fleet/src/pool.rs"], tasks: [task("Q9", "Write the queue's place in the Session concept", "open"), task("Q10", "Say what a restart keeps", "open")] },
+      ],
+    },
+  },
+  waitingFor: [
+    { id: "w-1", text: "Restart onto the preview", since: ago(3), source: "agent", act: { kind: "run", target: "scripts/preview --restart" } },
+    { id: "w-2", text: "Run the tests", since: ago(2), source: "agent", act: { kind: "run", target: "pnpm test" } },
+  ],
+};
+
 // ---- The floor and the drones over it ---------------------------------------------------------------------
 
 const F = "crates/fleet/src/";
@@ -318,7 +356,7 @@ const PLAN_SKETCH = scene(
 );
 
 /** What a judge sent by hand finds the first time: one concern on the build so far. A second read finds nothing. */
-const SENT_CONCERN: WorkConcern = { id: "j1", step: "Build", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it.", cites: ["crates/fleet/src/lease.rs"] };
+const SENT_CONCERN: WorkConcern = { id: "j1", judge: "Judge", text: "The lease is renewed after the retry, so a slow attempt can outlive it.", cites: ["crates/fleet/src/lease.rs"] };
 const READ_MS = 2200;
 
 const REPLIES: Record<string, string> = {
@@ -342,11 +380,11 @@ const QUESTIONS = [
 
 function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
-  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy, big]);
+  const base = sessionsStore([none, none], none, [], control, [], [dispatched, quiet, busy, big, live]);
   // The mock's first start is a fixture Session with a script of its own; it is spent here and kept off the ship.
   base.start();
   revision.on = false;
-  const own = new Set([MINE, QUIET, BUSY, BIG]);
+  const own = new Set([MINE, QUIET, BUSY, BIG, LIVE]);
   let from: readonly Session[] | undefined;
   let only: readonly Session[] = [];
   let stage = 0;
@@ -512,6 +550,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         works((work) => (work.proposal?.picked === undefined ? work : { ...work, proposal: { ...work.proposal, picked: work.proposal.picked.filter((one) => one !== value) } })),
       approve: (id) => {
         if (id === BIG) return approveBig();
+        if (id === LIVE) return base.edit(LIVE, (one) => ({ ...one, work: { ...one.work, ...(one.work?.plan === undefined ? {} : { plan: { ...one.work.plan, approved: true } }) } }));
         approveMine();
       },
       // The marks he put on the plan, sent as one message. The agent answers each: it takes some, pushes back on one with a reason,
@@ -549,7 +588,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         const one = mine()?.work?.concerns?.find((it) => it.id === concern);
         if (one === undefined) return;
         works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) }));
-        push([asked(`${one.step}: ${one.text}`)], working());
+        push([asked(`${one.step ?? "Judge tile"}: ${one.text}`)], working());
         after(700, () => push([tool("Edit crates/fleet/src/lease.rs"), said(REPLIES[concern] ?? "Noted.")], idle()));
       },
       judge: async () => {

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
-import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench } from "lucide-react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, Hourglass, KeyRound, Layers, ListChecks, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -148,6 +148,8 @@ export type QuestionAnswer = { question: string; chosen: string[] };
  * approved a record in the line of the thread, after the row `after` that recorded it, with no press left on it.
  */
 export type PlanApproval = {
+  /** The version the agent recorded, named on the folded line. */
+  version?: number;
   groups: readonly { id: string; agent: string; title: string; tasks: readonly { id: string; text: string }[] }[];
   approved: boolean;
   after?: string;
@@ -660,8 +662,8 @@ function Row({
   if (row.kind === "concern") {
     return (
       <li className="armada-session-concern-settled" role="region" aria-label="Concern dismissed">
-        <Tooltip label="Dismissed">
-          <span role="img" aria-label="Dismissed" className="armada-session-concern-settled__mark">
+        <Tooltip label="Judge concern, dismissed">
+          <span role="img" aria-label="Judge concern, dismissed" className="armada-session-concern-settled__mark">
             <Scale size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -861,19 +863,33 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
  */
 function PlanCard({ approval }: { approval: PlanApproval }) {
   const { approved, onReview } = approval;
-  const review = onReview === undefined ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
+  const [folded, setFolded] = useState(false);
+  const Fold = folded ? ChevronRight : ChevronDown;
+  const stateSaid = approved ? "Plan approved" : "Plan waiting for approval";
+  const StateGlyph = approved ? BadgeCheck : Hourglass;
+  const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
   return (
-    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined} {...review}>
-      <span className="armada-session-thread__eyebrow">
-        Plan
-        {approved ? (
-          <Tooltip label="Plan approved">
-            <span className="armada-session-thread__settled" role="img" aria-label="Plan approved">
-              <BadgeCheck size={16} strokeWidth={2} aria-hidden />
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined} data-folded={folded || undefined} {...review}>
+      <div className="armada-session-thread__plan-head">
+        <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label="Plan" onClick={() => setFolded(!folded)}>
+          <ListChecks size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-session-thread__eyebrow">Plan</span>
+          {approval.version === undefined ? null : <span className="armada-session-thread__plan-version">v{approval.version}</span>}
+          <Tooltip label={stateSaid}>
+            <span className="armada-session-thread__settled" role="img" aria-label={stateSaid} data-state={approved ? "approved" : "waiting"}>
+              <StateGlyph size={16} strokeWidth={2} aria-hidden />
             </span>
           </Tooltip>
-        ) : null}
-      </span>
+          <Fold className="armada-session-thread__plan-fold" size={12} strokeWidth={2} aria-hidden />
+        </button>
+        {approved || !folded ? null : (
+          <Button size="sm" variant="primary" onClick={approval.onApprove}>
+            Approve
+          </Button>
+        )}
+      </div>
+      {folded ? null : (
+        <>
       {approval.changes === undefined || approval.changes.length === 0 ? null : (
         <ul className="armada-session-thread__changes" aria-label="Changed since the last plan">
           {approval.changes.map((one, at) => (
@@ -883,8 +899,10 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
                   {one.kind === "added" ? <Plus size={12} strokeWidth={2} aria-hidden /> : one.kind === "renamed" ? <Pencil size={12} strokeWidth={2} aria-hidden /> : <Trash2 size={12} strokeWidth={2} aria-hidden />}
                 </span>
               </Tooltip>
-              {one.from === undefined ? null : <s>{one.from}</s>}
-              {one.kind === "removed" ? <s>{one.text}</s> : <span>{one.text}</span>}
+              <span className="armada-session-thread__change-text">
+                {one.from === undefined ? null : <s>{one.from}</s>}
+                {one.kind === "removed" ? <s>{one.text}</s> : <span>{one.text}</span>}
+              </span>
             </li>
           ))}
         </ul>
@@ -922,6 +940,8 @@ function PlanCard({ approval }: { approval: PlanApproval }) {
             Approve
           </Button>
         </div>
+      )}
+        </>
       )}
     </Card>
   );
@@ -984,17 +1004,19 @@ export function SessionThread({ rows, concerns, onSendConcern, onDismissConcern,
         </ProseRunner.Provider>
         </ProseWalk.Provider>
       </div>
+      <div className="armada-session-thread__calls">
       {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
       {(concerns ?? []).map((one) => (
-        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={one.text}>
-          <span className="armada-session-thread__eyebrow armada-session-thread__concern-head">
+        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
+          <div className="armada-session-thread__concern-band">
             <Tooltip label="Judge">
-              <span role="img" aria-label={one.step === undefined ? "Judge" : `Judge on ${one.step}`} className="armada-session-thread__concern-judge">
-                <Scale size={12} strokeWidth={2} aria-hidden />
+              <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
+                <Scale size={16} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>
-            {one.step ?? "Judge"}
-          </span>
+            <span className="armada-session-thread__eyebrow">Judge</span>
+            <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
+          </div>
           <p className="armada-session-thread__command">{one.text}</p>
           {one.cites === undefined || one.cites.length === 0 ? null : (
             <ul className="armada-session-thread__cites" aria-label="Cites">
@@ -1006,9 +1028,11 @@ export function SessionThread({ rows, concerns, onSendConcern, onDismissConcern,
             </ul>
           )}
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-            <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
-              Send to session
-            </Button>
+            <Tooltip label="Goes to the agent as your message">
+              <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
+                Send to session
+              </Button>
+            </Tooltip>
             <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
               Dismiss
             </Button>
@@ -1129,6 +1153,7 @@ export function SessionThread({ rows, concerns, onSendConcern, onDismissConcern,
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

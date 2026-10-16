@@ -184,7 +184,7 @@
 .sv-edit-group__name .sv-edit__text { overflow-wrap: anywhere; }
 .sv-edit-group__head > .sv-group__agent { align-self: flex-start; }
 .sv-edit-group__head .armada-select-field { min-width: 0; }
-.sv-edit { display: inline-flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.sv-edit { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; }
 .sv-edit__text { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: text; }
 .sv-edit__text:hover { text-decoration: underline dotted; text-underline-offset: var(--space-1); }
 .sv-edit__text:focus-visible { outline: var(--border-width) solid var(--accent); }
@@ -207,7 +207,13 @@
 .sv-since { display: inline-flex; align-items: center; color: var(--fg-muted); font-size: var(--text-2xs); }
 .sv-since[data-kind="added"] { color: var(--step-advanced); }
 .sv-since[data-kind="removed"] { color: var(--step-failed); }
-.sv-since[data-kind="renamed"] { color: var(--step-running); }
+.sv-since[data-kind="renamed"] { color: var(--step-running); gap: var(--space-2); }
+/* A rename stacks: the old text struck through on a line of its own, the new text on the line below. */
+.sv-task__line,
+.sv-edit-group__name,
+.sv-group__head { flex-wrap: wrap; }
+.sv-since[data-kind="renamed"] { order: -1; flex: 0 0 100%; }
+.sv-since[data-kind="renamed"] s { color: var(--fg-muted); }
 .sv-note-box { display: flex; align-items: center; gap: var(--space-1); }
 .sv-note-box > *:first-child { flex: 1; min-width: 0; }
 .sv-pins { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }

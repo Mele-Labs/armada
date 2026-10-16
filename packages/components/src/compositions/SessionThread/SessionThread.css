@@ -16,6 +16,22 @@
   overflow: auto;
 }
 
+/* Everything the Session waits on the person for sits under the thread in one region. It never takes more than two fifths of the thread
+   and scrolls past that, so his message and the agent's replies above it are always in view. */
+.armada-session-thread__calls {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  max-height: min(40%, 40vh);
+  overflow: auto;
+}
+.armada-session-thread__calls:empty { display: none; }
+.armada-session-thread__calls > * { flex-shrink: 0; }
+.armada-session-thread__calls > .armada-session-thread__ask,
+.armada-session-thread__calls > .armada-session-needs { max-height: none; }
+
 /* The first write: the one row that is not a message, filled in the slot's
    leased hue so it reads before anything around it. */
 .armada-session-lease {
@@ -170,6 +186,16 @@
 .armada-session-thread__plan[data-reviewable] { cursor: pointer; transition: border-color var(--duration-fast) var(--ease); }
 .armada-session-thread__plan[data-reviewable]:hover { border-color: var(--accent); }
 .armada-session-thread__plan[data-reviewable]:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-session-thread__plan { max-height: calc(var(--space-12) * 5); overflow: hidden; }
+.armada-session-thread__calls > .armada-session-thread__plan { max-height: calc(var(--space-12) * 5); }
+.armada-session-thread__plan-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.armada-session-thread__plan-band { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: transparent; color: var(--fg-muted); font: inherit; text-align: start; cursor: pointer; }
+.armada-session-thread__plan-band:hover { color: var(--fg-default); }
+.armada-session-thread__plan-band:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-session-thread__plan-version { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.armada-session-thread__plan-fold { margin-inline-start: auto; }
+.armada-session-thread__settled[data-state="waiting"] { color: var(--step-waiting); }
+.armada-session-thread__plan > .armada-session-thread__plan-body { min-height: 0; overflow: auto; }
 .armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
 .armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
 .armada-session-thread__groups { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
@@ -177,7 +203,7 @@
 .armada-session-thread__group-title { min-width: 0; font-weight: var(--weight-heading); overflow-wrap: anywhere; }
 .armada-session-thread__group > .armada-session-thread__agent { grid-column: 1; }
 .armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); }
-.armada-session-thread__marks { display: flex; flex: none; gap: var(--space-1); }
+.armada-session-thread__marks { display: flex; flex-wrap: wrap; flex: none; justify-content: flex-end; max-width: 50%; gap: var(--space-1); }
 .armada-session-thread__sketch { margin: 0; padding: 0; list-style: none; }
 .armada-session-thread__record { list-style: none; }
 .armada-session-thread__plan-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: center; }
@@ -986,10 +1012,14 @@
 }
 
 .armada-session-thread__changes li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-2);
 }
+
+/* A rename stacks: the old text struck through, then the new text on the line below, both under the glyph's right edge. */
+.armada-session-thread__change-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 
 .armada-session-thread__changes [data-kind="added"] > span[role="img"] { color: var(--step-advanced); }
 .armada-session-thread__changes [data-kind="renamed"] > span[role="img"] { color: var(--step-running); }
@@ -998,8 +1028,10 @@
 .armada-session-thread__changes s { color: var(--fg-muted); }
 
 /* A judge's concern, waiting on him: the question card's own frame, with what it cites. */
-.armada-session-thread__concern-head { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+.armada-session-thread__concern { border-color: var(--status-piloted); box-shadow: inset 0 0 0 var(--border-width) var(--status-piloted); }
+.armada-session-thread__concern-band { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: var(--border-width) solid color-mix(in srgb, var(--status-piloted) 45%, transparent); color: var(--status-piloted); }
 .armada-session-thread__concern-judge { display: inline-flex; }
+.armada-session-thread__concern-from { margin-inline-start: auto; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
 .armada-session-thread__cites { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .armada-session-thread__cites code { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: var(--text-2xs); }
 
