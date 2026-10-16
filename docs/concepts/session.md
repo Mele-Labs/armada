@@ -172,6 +172,17 @@ engine with a note and a few more tools, one per repository.
 > because Fleet keeps its `origin` when the mod reports its start and ignores the
 > mod reporting its end, which is a process stopping.
 
+> **Rule.** Every process of a hosted session carries Armada's session rules in
+> its system prompt (`--append-system-prompt`), appended to whatever output style
+> the person has. They lead the argument; Helm's note and a fork's or move's note
+> follow. Where the person's style and the rules conflict on how a need or
+> progress is surfaced, the rules win, and the style keeps tone, length and format.
+> Why: a style that asks for every action in a table leaves `waiting_for`, the task
+> list and `all_done` uncalled, and Bridge reads needs and progress from those
+> alone. The wording is `docs/contracts/agent-prompt.md`, *5f. The session rules*.
+> The `Armada` output style in the mod carries the same rules for a person with
+> none (*Installing the Claude Code mod*).
+
 > **Rule.** A hosted session starts with no slot and leases one on its first
 > write, and one resumed with no slot is leased one before its process starts.
 > Why: most conversations never write, and a slot held by a conversation that
@@ -949,5 +960,7 @@ beside the folder and renamed over it, so a session never reads half of one.
 A tree with no `plugins/` leaves the old copy and warns. Whatever compares a
 session's reported mod version with the installed one reads
 `Armada/mod/armada/.claude-plugin/plugin.json`.
+
+**The mod ships an output style, `Armada`** (`plugins/armada/output-styles/armada.md`), found from the folder with no entry in `plugin.json`, and picked with `/output-style` as `armada:Armada`. It keeps the coding instructions (`keep-coding-instructions: true`), states the session rules and sets plain, concise replies. A hosted session needs it no more than it needs the rules in its prompt; it is for a terminal session of a person who has no style of their own.
 
 It loads in a Drone, a Judge call and a scout too, since they read the person's user settings. Fleet starts each with `ARMADA_DRONE=1`; the mod reads it and reports nothing, so only the person's own sessions reach the ledger ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).
