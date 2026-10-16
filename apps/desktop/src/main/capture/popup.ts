@@ -31,6 +31,14 @@ export type PopupHold = {
 export type Popup = { contents: WebContents; close: () => void };
 
 /**
+ * Whether a `window.open` becomes the popup. **A Session's window only, one at a time, and onto an
+ * address the window may reach**; anything else is refused as every popup was.
+ */
+export function mayOpenPopup(ask: { session: boolean; standing: boolean; allowed: boolean }): boolean {
+  return ask.session && !ask.standing && ask.allowed;
+}
+
+/**
  * Open the popup and hold it. **Around `options.webContents`**, which Electron made for the page's
  * popup and requires the window to be built on. **Nothing here throws into main**: a popup that cannot
  * be built is closed and refused quietly, as every popup was.

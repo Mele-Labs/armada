@@ -34,7 +34,7 @@ import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { PageFinder } from "./finder";
-import { openPopup, type Popup } from "./popup";
+import { mayOpenPopup, openPopup, type Popup } from "./popup";
 import { beginsOn, StepWalk } from "./stepwalk";
 import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
@@ -714,7 +714,7 @@ export class CaptureWindow {
     // one or one it named. Any other address, a second popup, and every popup of a Run's page or a Job's
     // are refused, as every popup was.
     contents.setWindowOpenHandler(({ url }) => {
-      if (!("session" in this.landsOn) || this.popup !== null || !allowed(url)) {
+      if (!mayOpenPopup({ session: "session" in this.landsOn, standing: this.popup !== null, allowed: allowed(url) })) {
         this.refuse(url, "window");
         return { action: "deny" };
       }
