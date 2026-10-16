@@ -37,6 +37,7 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         options: Vec::new(),
         steps: Vec::new(),
         place,
+        concern: None,
     }
 }
 

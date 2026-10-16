@@ -1,0 +1,10 @@
+[operations.send_concern]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Send a judge's concern to the Session's agent as the person's message"
+notes = """
+`POST /sessions/judge/send`, body `SendConcern`: `session_id` and `item_id`, the `judge:<n>` id of a waiting item. Since 23.92. Answers the `SessionRecord`, and `SessionChanged` is published.
+
+**The concern becomes his message to the agent**: it is written to the thread as a message from him, naming where the concern came from (the step, or the Judge tile), its text and what it cites, and sent as any message of his is. The message is sent before the item is settled, so a failed send leaves it waiting. The item leaves `waiting_for` and is carried by `settled` with `concern.settled` `{how: "sent", at}`. 409 `fleet.session_waiting_unheld` for an item that is not waiting (settled already, or never raised).
+"""

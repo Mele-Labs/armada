@@ -217,6 +217,45 @@ pub(crate) async fn send_plan_changes<D: Sessions>(State(served): State<Served<D
     }
 }
 
+/// The person asks a judge to read a Session's work now. 200 with the row at once, `judging` set; 409 for a Session
+/// that ended; 422 for a terminal one.
+pub(crate) async fn judge_session<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let judge: ipc::JudgeSession = match ipc::decode("a Session to judge", &body) {
+        Ok(judge) => judge,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().judge_session(judge).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person sends a judge's concern to the agent as his message. 200 with the row; 409 for an item that no longer
+/// waits.
+pub(crate) async fn send_concern<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let send: ipc::SendConcern = match ipc::decode("a concern to send", &body) {
+        Ok(send) => send,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_concern(send).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person dismisses a judge's concern; the agent is told nothing. 200 with the row; 409 for an item that no longer
+/// waits.
+pub(crate) async fn dismiss_concern<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let dismiss: ipc::DismissConcern = match ipc::decode("a concern to dismiss", &body) {
+        Ok(dismiss) => dismiss,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().dismiss_concern(dismiss).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session asks the person about a place on its walk. 200 with the row, or a [`Receipt`] through the door; 422 for an address on no
 /// window the session showed, a blank question or selector, or a call that places no session.
 pub(crate) async fn ask_in_window<D: Sessions>(

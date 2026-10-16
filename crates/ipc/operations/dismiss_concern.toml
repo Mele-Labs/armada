@@ -1,0 +1,10 @@
+[operations.dismiss_concern]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Dismiss a judge's concern, telling the Session's agent nothing"
+notes = """
+`POST /sessions/judge/dismiss`, body `DismissConcern`: `session_id` and `item_id`, the `judge:<n>` id of a waiting item. Since 23.92. Answers the `SessionRecord`, and `SessionChanged` is published.
+
+**The agent is told nothing**: no message, no thread row beyond the settled line. The item leaves `waiting_for` and is carried by `settled` with `concern.settled` `{how: "dismissed", at}`. 409 `fleet.session_waiting_unheld` for an item that is not waiting.
+"""
