@@ -10,10 +10,14 @@
 //! **The agent is told so, too.** The copy carries the old session's subagents, background
 //! tasks and slots in its words, and the CLI replays their notifications into it, so the fork
 //! would take them for its own. Every process of a fork has [`fork_note`] in its system prompt.
+//!
+//! **A move is a fork across repositories.** [`Fleet::moved_session`] ends the old session and forks
+//! its whole conversation into another served repository; the two `forked_*` rows carry
+//! `detail.moved`, and the fork is told [`move_note`] in place of [`fork_note`].
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
-use ipc::{ForkFrom, SessionRecord, StartSession, WireError};
+use api::{HostedSessions, Refusal};
+use ipc::{CloseSession, ForkFrom, MoveSession, SessionRecord, StartSession, WireError};
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
 
 use super::rows::new_id;
@@ -23,10 +27,22 @@ use crate::daemon::Fleet;
 /// A fork of a session that is still running. A 409.
 const FORK_LIVE: &str = "fleet.session_fork_live";
 
+/// A move to the repository the session already works in. A 409.
+const SESSION_MOVE_SAME: &str = "fleet.session_move_same";
+/// A move of a terminal session whose mod is still asking: its process is in the owner's terminal. A 409.
+const SESSION_MOVE_LISTENING: &str = "fleet.session_move_listening";
+/// A move to a repository Fleet does not serve. A 404.
+const NO_SUCH_MANIFEST: &str = "fleet.no_such_manifest";
+
 /// On the old session's ledger, naming the fork.
 pub(crate) const FORKED_TO: &str = "forked_to";
 /// On the fork's ledger, naming the session it came from.
 pub(crate) const FORKED_FROM: &str = "forked_from";
+/// On both `forked_*` rows of a move, which a fork has not: the id of the repository on the other
+/// side, the one the session came from on `forked_from` and the one it went to on `forked_to`.
+pub(crate) const MOVED: &str = "moved";
+/// On a move's `forked_from` detail: the old session's branch or branches, comma-separated.
+const BRANCH: &str = "branch";
 /// On `forked_from`'s detail: the thread row the fork ends at, which Bridge cuts the old rows by.
 const AT: &str = "at";
 /// On `forked_from`'s detail: the transcript line that row is, which the first process is told.
@@ -54,6 +70,44 @@ pub(crate) fn fork_note(old_title: Option<&str>, old: &str, when: &str, ended: b
     )
 }
 
+/// What a moved session's agent is told it is: bare facts, and what stayed behind. `from` and `to`
+/// are the repositories' roots, `branch` what the old session's branch or branches were.
+pub(crate) fn move_note(
+    old_title: Option<&str>,
+    old: &str,
+    when: &str,
+    from: &str,
+    to: &str,
+    branch: Option<&str>,
+) -> String {
+    let title = old_title
+        .map(|title| title.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|title| !title.is_empty())
+        .map(|title| format!("\"{title}\" "))
+        .unwrap_or_default();
+    let branch = branch.map(|branch| format!("its branch ({branch}), ")).unwrap_or_default();
+    format!(
+        "This session was moved from repository {from} to repository {to} at {when}. Your \
+         conversation up to the move is a copy of {title}({old}), which has ended. You now work \
+         in {to}. Its slot, {branch}and the files it had changed stayed in {from}, and none of \
+         them are yours. Nothing it started is yours: its subagents, background tasks and \
+         shells, windows, pull requests and peer sessions stay its own, whatever your copy of \
+         the conversation says about them. A task-notification about its background work \
+         (finished, failed, stopped, \"didn't finish before the previous session ended\") \
+         belongs to it: do not act on it, relaunch that work, or report it to the owner as \
+         yours. Do not write in {from}. Paths in the conversation before the move name {from}. \
+         Your own work starts with your first write, in a slot leased for you in {to}."
+    )
+}
+
+/// What a move carries to the fork it starts.
+struct Moved {
+    /// The repository the old session was in.
+    from: String,
+    /// The old session's branch or branches there, comma-separated.
+    branch: Option<String>,
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -78,18 +132,34 @@ where
     /// each start, so whether the old session is live is as of then.
     pub(crate) async fn fork_note_of(&self, id: &str, old: &str) -> Option<String> {
         let store = self.store().lock().await;
-        let when = store
+        let link = store
             .attachments_of(&Holder::session(id))
             .ok()?
             .into_iter()
-            .find(|one| one.kind == FORKED_FROM)
-            .map(|one| one.since)?;
+            .find(|one| one.kind == FORKED_FROM)?;
         // An old session the ledger has forgotten is one that has ended.
         let old_session = store.session(old).ok().flatten();
+        let title = old_session.as_ref().and_then(|one| one.title.as_deref());
+        if let Some(from) = link.detail.get(MOVED) {
+            // A repository no longer served is named by its id.
+            let named = |manifest: &str| {
+                self.repositories()
+                    .serving(manifest)
+                    .map_or_else(|| manifest.to_string(), |served| served.root().to_string())
+            };
+            return Some(move_note(
+                title,
+                old,
+                &link.since,
+                &named(from),
+                &named(&link.manifest_id),
+                link.detail.get(BRANCH).map(String::as_str),
+            ));
+        }
         Some(fork_note(
-            old_session.as_ref().and_then(|one| one.title.as_deref()),
+            title,
             old,
-            &when,
+            &link.since,
             old_session
                 .as_ref()
                 .is_none_or(|one| one.state == store::SessionState::Ended),
@@ -100,6 +170,96 @@ where
         &self,
         start: StartSession,
         from: ForkFrom,
+    ) -> Result<SessionRecord, Refusal> {
+        self.forked(start, from, None).await
+    }
+
+    /// Ends session `moved.session_id` if it is live and starts its whole conversation again in
+    /// `moved.manifest_id`, under the same title. Every refusal comes before anything is ended.
+    pub(crate) async fn moved_session(&self, moved: MoveSession) -> Result<SessionRecord, Refusal> {
+        let old_id = moved.session_id.as_str().to_string();
+        let to = moved.manifest_id.as_str().to_string();
+        let (session, hosting, branches) = {
+            let store = self.store().lock().await;
+            let session = store
+                .session(&old_id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| {
+                    Refusal::NoSuchJob(WireError::raised(
+                        NO_SUCH_SESSION,
+                        format!("no session is named {old_id}"),
+                        self.run_id(),
+                    ))
+                })?;
+            let hosting = store.hosting(&old_id).map_err(|why| self.ledger_fault(why))?;
+            let held = store
+                .attachments_of(&Holder::session(&old_id))
+                .map_err(|why| self.ledger_fault(why))?;
+            (session, hosting, held)
+        };
+        if self.repositories().serving(&to).is_none() {
+            return Err(Refusal::NoSuchJob(WireError::raised(
+                NO_SUCH_MANIFEST,
+                format!("no repository is served as {to}: held are `{}`", self.held_manifests()),
+                self.run_id(),
+            )));
+        }
+        let from = hosting
+            .as_ref()
+            .map(|hosting| hosting.manifest_id.clone())
+            .or(session.manifest_id.clone());
+        if from.as_deref() == Some(to.as_str()) {
+            return Err(Refusal::IllegalMove(WireError::raised(
+                SESSION_MOVE_SAME,
+                format!("session {old_id} already works in {to}"),
+                self.run_id(),
+            )));
+        }
+        let live = session.state != store::SessionState::Ended;
+        if live && hosting.is_none() && self.hosts().terminals().listening(&old_id) {
+            return Err(Refusal::IllegalMove(WireError::raised(
+                SESSION_MOVE_LISTENING,
+                format!("session {old_id} runs in a terminal, which Fleet cannot move"),
+                self.run_id(),
+            )));
+        }
+        // Read before the close gives the slot back.
+        let branch = branches
+            .iter()
+            .filter(|one| {
+                one.kind == BRANCH
+                    && one.state == AttachmentState::Standing
+                    && Some(one.manifest_id.as_str()) == from.as_deref()
+            })
+            .map(|one| one.target.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        if live && hosting.is_some() {
+            self.close_session(CloseSession { session_id: moved.session_id.clone() }).await?;
+        }
+        let start = StartSession {
+            manifest_id: moved.manifest_id,
+            title: None,
+            model: hosting.as_ref().and_then(|hosting| hosting.model.clone()),
+            effort: hosting.as_ref().and_then(|hosting| hosting.effort.clone()),
+            mode: hosting.as_ref().map(|hosting| super::serving::mode_of(&hosting.mode)),
+            root: None,
+            pilot: None,
+            fork: None,
+        };
+        let whole = ForkFrom { session_id: moved.session_id, at: None };
+        let moved = Moved {
+            from: from.unwrap_or_default(),
+            branch: Some(branch).filter(|branch| !branch.is_empty()),
+        };
+        self.forked(start, whole, Some(moved)).await
+    }
+
+    async fn forked(
+        &self,
+        start: StartSession,
+        from: ForkFrom,
+        moved: Option<Moved>,
     ) -> Result<SessionRecord, Refusal> {
         let old_id = from.session_id.as_str().to_string();
         let served = self.served_named(Some(&start.manifest_id))?;
@@ -178,12 +338,20 @@ where
             // `spent`, not `standing`: the old session ending gives back what
             // it holds, and the link is a fact that stays.
             for (holder, kind, target) in [(&id, FORKED_FROM, &old_id), (&old_id, FORKED_TO, &id)] {
-                let detail = match (&from.at, &cut) {
+                let mut detail: std::collections::BTreeMap<String, String> = match (&from.at, &cut) {
                     (Some(at), Some(cut)) if kind == FORKED_FROM => {
                         [(AT.to_string(), at.clone()), (CUT.to_string(), cut.clone())].into()
                     }
                     _ => Default::default(),
                 };
+                if let Some(moved) = &moved {
+                    // Each ledger names the repository on the other side.
+                    let other = if kind == FORKED_FROM { &moved.from } else { &manifest };
+                    detail.insert(MOVED.to_string(), other.clone());
+                    if let (FORKED_FROM, Some(branch)) = (kind, &moved.branch) {
+                        detail.insert(BRANCH.to_string(), branch.clone());
+                    }
+                }
                 store
                     .attach(
                         &KeptAttachment {

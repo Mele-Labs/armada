@@ -77,6 +77,7 @@ mod landing;
 /// The pool of warm worktrees a repository leases out, shared by agents.
 pub mod leasing;
 mod main_ci;
+mod manifest_edit;
 mod mcp;
 mod merge_queue;
 mod merging_in;

@@ -124,6 +124,9 @@ export type RunSessionCommand = { session_id: string; command: string };
 /** `POST /sessions/close`. A terminal session is ended by its mod, and the row ends when the terminal says so. */
 export type CloseSession = { session_id: string };
 
+/** `POST /sessions/move`: ends the session and continues its conversation in another served repository. Answers the new session's record. */
+export type MoveSession = { session_id: string; manifest_id: string };
+
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
 
@@ -232,6 +235,12 @@ export type SessionRow =
    * `target` is what the run was narrowed to, the filter it was given or the crates `--changed` narrowed to; absent, it ran whole.
    */
   | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
+  /**
+   * A command the person ran from the thread or the Needs-you band, ended, and what the Session was told of it, in place
+   * of a message from Fleet. `code` is absent where the run was stopped or a signal ended it; `tail` is the last lines it
+   * printed as plain text, the same the agent was sent. Since 23.89.
+   */
+  | { kind: "ran"; id: string; at: string; command: string; code?: number; tail: string }
   /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for

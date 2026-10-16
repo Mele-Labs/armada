@@ -876,6 +876,31 @@ pub fn fleet_timeline(ask: &ipc::TimelineAsk) -> ipc::FleetTimeline {
     ipc::FleetTimeline { events, cut }
 }
 
+/// Three entries for the slot asked about, newest first: enough for a route test to prove the
+/// manifest and the slot reach the daemon as the ask Bridge wrote.
+pub fn slot_history(ask: &ipc::BayHistoryAsk) -> ipc::BayHistory {
+    let holder = ipc::BayHolder { kind: ipc::BayHolderKind::Agent, id: "sess-1".to_string(), title: None };
+    ipc::BayHistory {
+        manifest_id: ask.manifest_id.clone(),
+        slot: ask.slot,
+        entries: vec![
+            ipc::BayHistoryEntry::Checkout {
+                at: ipc::Instant::carried("2026-10-12T10:10:00.000Z"),
+                from: Some("bug-fix".to_string()),
+                to: "main".to_string(),
+                sha: "a".repeat(40),
+            },
+            ipc::BayHistoryEntry::Released { at: ipc::Instant::carried("2026-10-12T10:05:00.000Z"), holder: holder.clone() },
+            ipc::BayHistoryEntry::Leased {
+                at: ipc::Instant::carried("2026-10-12T10:00:00.000Z"),
+                holder,
+                branch: Some("bug-fix".to_string()),
+            },
+        ],
+        cut: false,
+    }
+}
+
 /// Two models and a default, which is the shape a picker draws from.
 pub fn models() -> ModelChoices {
     ModelChoices {

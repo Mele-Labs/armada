@@ -117,7 +117,11 @@ impl Pool {
             SlotRescue::Scrap => self.scrapped(&path, branch)?,
             SlotRescue::Stash { message } => self.stashed(&path, branch, &message)?,
         };
+        let held = Record::read(&self.record_path(number));
         Record::clear(&self.record_path(number)).map_err(RescueRefused::Vcs)?;
+        if let Some(held) = held {
+            self.noted_release(number, &held);
+        }
         drop(lock);
         Ok(rescued)
     }

@@ -242,6 +242,21 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
   });
 
+  it("keeps a run that ended as a row with its exit and the lines it was sent, and a stopped one with no code", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "ran", id: "r1", at: AT, command: "make", code: 2, tail: "error: no rule" },
+        { kind: "ran", id: "r2", at: AT, command: "sleep 30", tail: "" },
+      ],
+      () => undefined,
+    );
+    expect(drawn).toMatchObject([
+      { kind: "ran", command: "make", code: 2, tail: "error: no rule" },
+      { kind: "ran", command: "sleep 30", code: null, tail: "" },
+    ]);
+  });
+
   it("keeps a question asked in the window as a line, with how it was answered once it is", () => {
     const asked = {
       kind: "window_ask",
@@ -532,6 +547,16 @@ describe("a session nothing can be said to", () => {
     // A fork at a message carries the row it was taken at, which cuts the old rows shown; `cut` is Fleet's.
     const at = record("new", { attachments: [held("forked_from", "old", { at: "m2", cut: "7d0a52c4" }, "spent")] });
     expect(sessionOfRecord(at, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old", at: "m2" }]);
+    const moved = record("new", { attachments: [held("forked_from", "old", { moved: "01OLD", branch: "armada/x" }, "spent")] });
+    expect(sessionOfRecord(moved, undefined, beside()).attachments).toEqual([
+      { kind: "forked_from", id: "old", moved: "01OLD", branch: "armada/x" },
+    ]);
+    // The old Session's side of a move names the repository it went to, and carries no branch.
+    const from = record("old", { attachments: [held("forked_to", "new", { moved: "01NEW" }, "spent")] });
+    expect(sessionOfRecord(from, undefined, beside()).attachments).toEqual([{ kind: "forked_to", id: "new", moved: "01NEW" }]);
+    // A move that left no branch carries none.
+    const bare = record("new", { attachments: [held("forked_from", "old", { moved: "01OLD" }, "spent")] });
+    expect(sessionOfRecord(bare, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old", moved: "01OLD" }]);
   });
 });
 

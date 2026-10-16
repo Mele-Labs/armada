@@ -3,11 +3,11 @@
 // holds, and a call as the real call card. Every pane has one head with the way back, which Esc is too. Ported from
 // proto/cockpit-flight-deck. #2301.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Box, ExternalLink, GitPullRequest, Rows3, Square, SquareTerminal, X, type LucideIcon } from "lucide-react";
 import { Button, ClashMark, NowPanel, Tabs, Tooltip, isPressed, pressedDigit } from "@armada/components";
-import { ScrapConfirm, SlotFinding } from "@armada/components/src/compositions/PoolSlots/SlotFinding";
-import type { JobDetail, RescueAct } from "@armada/protocol";
+import { BayManage } from "@armada/cleanup";
+import type { JobDetail } from "@armada/protocol";
 import { JobRun, detailOf, nowPanelOf } from "@armada/jobs";
 import { droneViewsOf, type DroneView } from "@armada/jobs/draft/drone";
 import { holdsText } from "@armada/screens/src/keys";
@@ -23,8 +23,8 @@ import { viewsOf } from "../../merge-line";
 import { SessionView } from "../../sessions";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import type { Acts } from "./acts";
-import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as BayHolder, type Ledger } from "./bays";
-import { offeredOf, refusalOf } from "./rescue";
+import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
+import { useBayHistory } from "./bay-history";
 import { SlotHistory } from "./SlotHistory";
 import { MarkGlyph, PrChip, StepsBar } from "./shared";
 import type { Pr, Subject } from "./ship";
@@ -228,6 +228,7 @@ export function SessionPane({ subject, props, acts, onPr, ledger, openSession }:
         board={state.jobs}
         lines={state.mergeLines}
         settings={state.settings}
+        repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
           acts: (
@@ -274,30 +275,39 @@ function Holder({ kind, id, title }: { kind: "job" | "session"; id: string; titl
 
 export function SlotPane({ view, ledger, clock, repo, known, props }: { view: BayView; ledger: Ledger; clock: number; repo: string; known: ReadonlySet<string>; props: CockpitProps }) {
   const slot = view.slot;
-  const [acting, setActing] = useState(false);
-  const [refused, setRefused] = useState<string>();
-  const [scrapping, setScrapping] = useState(false);
   const stranded = view.state === "stranded";
-  const offered = offeredOf(slot, props.onRescueSlot !== undefined);
-  const rescue = async (act: RescueAct) => {
-    if (props.onRescueSlot === undefined) return;
-    setActing(true);
-    setRefused(undefined);
-    const outcome = await props.onRescueSlot(slot.manifest_id, { act, slot: slot.slot });
-    setActing(false);
-    if (!outcome.ok) setRefused(refusalOf(act, outcome));
-  };
+  const history = useBayHistory(slot.manifest_id, slot.slot, ledger);
+  const worktrees = props.state.held.state === "read" ? props.state.held.held.worktrees : [];
+  const sends = props.bayActs;
+  const manages = sends !== undefined || props.onRescueSlot !== undefined;
   // A holder the ship still holds opens as a link; one that is gone is named by its id.
-  const who = (one: BayHolder | undefined) =>
+  const who = (one: LedgerHolder | undefined) =>
     one === undefined ? undefined : known.has(`${one.kind}:${one.id}`) ? <Holder kind={one.kind} id={one.id} title={one.title ?? one.id} /> : <span className="deck-link__plain">{one.title ?? shortOf(one.id)}</span>;
+  const mark = <MarkGlyph mark={{ Glyph: view.Glyph, said: view.said ?? view.word, tone: stranded ? "ask" : "calm" }} />;
   const files = slot.stranded?.uncommitted ?? [];
   const commits = slot.stranded?.commits ?? [];
-  const mark = <MarkGlyph mark={{ Glyph: view.Glyph, said: view.said ?? view.word, tone: stranded ? "ask" : "calm" }} />;
-  const acts = offered.start || offered.stop || offered.stash || offered.scrap;
   return (
     <section className="deck-pane" aria-label={`Bay: slot-${slot.slot}`}>
       <PaneHead glyph={Rows3} kind="Bay" title={`slot-${slot.slot}`} where={repo} mark={mark} />
       <div className="deck-pane__body">
+        {!manages ? null : (
+          <div className="deck-slot__manage" data-bay={slot.closed === true ? "closed" : view.state === "leased" && view.kept !== undefined ? "kept" : view.state}>
+            <BayManage
+              key={view.key}
+              slot={slot}
+              worktrees={worktrees}
+              jobs={props.state.jobs}
+              now={props.now}
+              onChange={sends?.onChange}
+              onRescue={props.onRescueSlot}
+              onReclaim={sends?.onReclaim}
+              onDeleteBranch={sends?.onDeleteBranch}
+              onForget={sends?.onForget}
+              onPause={sends?.onPause}
+              onResume={sends?.onResume}
+            />
+          </div>
+        )}
         <Facts
           rows={[
             ["State", view.said ?? view.word],
@@ -315,51 +325,7 @@ export function SlotPane({ view, ledger, clock, repo, known, props }: { view: Ba
             ["Path", slot.path, true],
           ]}
         />
-        {!stranded ? null : (
-          <div className="deck-slot__rescue">
-            <SlotFinding slot={slot} />
-            {!acts ? null : scrapping ? (
-              <ScrapConfirm
-                slot={slot}
-                onScrap={() => {
-                  setScrapping(false);
-                  void rescue("scrap");
-                }}
-                onCancel={() => setScrapping(false)}
-              />
-            ) : (
-              <div className="deck-slot__acts">
-                {offered.start ? (
-                  <Button variant="secondary" size="sm" disabled={acting} onClick={() => void rescue("start")}>
-                    Rescue
-                  </Button>
-                ) : null}
-                {offered.stop ? (
-                  <Button variant="secondary" size="sm" disabled={acting} onClick={() => void rescue("stop")}>
-                    Stop
-                  </Button>
-                ) : null}
-                {offered.pickUp ? (
-                  <Button variant="secondary" size="sm" disabled={acting} onClick={() => void rescue("pick_up")}>
-                    Pick up
-                  </Button>
-                ) : null}
-                {offered.stash ? (
-                  <Button variant="secondary" size="sm" disabled={acting} onClick={() => void rescue("stash")}>
-                    Stash
-                  </Button>
-                ) : null}
-                {offered.scrap ? (
-                  <Button variant="destructive" size="sm" disabled={acting} onClick={() => setScrapping(true)}>
-                    Scrap
-                  </Button>
-                ) : null}
-                {refused === undefined ? null : <span className="deck-slot__asked">{refused}</span>}
-              </div>
-            )}
-          </div>
-        )}
-        <SlotHistory ledger={ledger} clock={clock} known={known} onOpen={(one) => openFrom({ kind: one.kind, key: `${one.kind}:${one.id}` })} />
+        {history === undefined ? null : <SlotHistory history={history} clock={clock} known={known} onOpen={(one) => openFrom({ kind: one.kind, key: `${one.kind}:${one.id}` })} />}
       </div>
     </section>
   );

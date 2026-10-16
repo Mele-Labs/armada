@@ -29,3 +29,7 @@ allowBuilds:
 # exact version. Without this the mismatch is a WARN line nobody reads, and the
 # failure lands later as a stack trace from whichever tool broke first.
 engineStrict: true
+
+# xterm writes its colours into <style> elements and style attributes, which Bridge's CSP (default-src 'self') refuses; the patch adopts the sheets and sets styles through CSSOM instead (docs/practices/bridge.md).
+patchedDependencies:
+  '@xterm/xterm': patches/@xterm__xterm.patch

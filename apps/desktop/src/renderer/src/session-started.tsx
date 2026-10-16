@@ -29,7 +29,8 @@ export function unsentEntry(item: WaitingItem, goToBox: () => void): LedgerEntry
 /** A fork or a start on the ledger, of the Session that made it and of the one it made. */
 export function linkEntry(one: Extract<SessionAttachment, { kind: "forked_to" | "forked_from" | "started_to" | "started_by" }>, sessions: readonly Session[], open: (id: string) => void): LedgerEntry {
   const title = sessions.find((other) => other.id === one.id)?.title ?? one.id;
-  const way = { forked_to: "Forked to", forked_from: "Forked from", started_to: "Started", started_by: "Started by" }[one.kind];
+  const moved = (one.kind === "forked_to" || one.kind === "forked_from") && one.moved !== undefined;
+  const way = moved ? (one.kind === "forked_to" ? "Moved to" : "Moved from") : { forked_to: "Forked to", forked_from: "Forked from", started_to: "Started", started_by: "Started by" }[one.kind];
   const name = `${way} ${title}`;
   return { key: `${one.kind}${one.id}`, kind: one.kind.startsWith("fork") ? "fork" : "start", name, text: name, onOpen: () => open(one.id) };
 }

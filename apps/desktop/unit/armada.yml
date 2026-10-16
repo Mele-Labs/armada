@@ -24,6 +24,8 @@ depends_on:
   - "apps/desktop/src/renderer/src/*.tsx"
   - "apps/desktop/src/renderer/src/annotate/**"
   - "apps/desktop/src/renderer/src/styles/**"
+  - "apps/desktop/src/**/*.css"
+  - "packages/**/*.css"
   - "apps/desktop/src/renderer/src/mock/guides-met.ts"
   - "apps/desktop/vitest.config.ts"
   - "apps/desktop/vitest.browser.preset.ts"

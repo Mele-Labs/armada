@@ -187,6 +187,11 @@ pub(crate) fn readings(slots: &SlotPool) -> Vec<SlotReading> {
     pool(slots).readings()
 }
 
+/// [`readings`] that leaves a slot alone when nothing has touched it.
+pub(crate) fn readings_kept(slots: &SlotPool, full: bool) -> Vec<SlotReading> {
+    super::watching::readings(&pool(slots), full)
+}
+
 pub(crate) fn change(slots: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused> {
     let pool = pool(slots);
     let changed = match change {

@@ -3474,6 +3474,33 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.78 answers 404 and Bridge shows the refusal as for any act on a Session. A Bridge before it never calls the route. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
+## Protocol 23.89: a run's end is a row in the thread
+
+`docs/concepts/session.md`, *Running a block*. **Additive only**: one thread row, and no operation changes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `session.row`, `get_session` | `SessionRow` kind `ran`: `id`, `at`, `command`, `code?`, `tail` | A hosted Session's thread keeps one when a run ends, in place of the message from Fleet it kept before. `code` is absent where the run was stopped or a signal ended it. `tail` is the last 40 lines as a person would have read them, escapes and carriage-return overwrites resolved: the text the agent is sent, and empty where the run printed nothing |
+
+The agent is sent the same words as before (the command, `Exit <code>.` or `Stopped.`, the last lines, and the note that Fleet took a waiting item off), **once**, and the thread shows no message from Fleet beside the row. A terminal Session's thread is the transcript its CLI keeps and Fleet cannot write to it, so it has no `ran` row and its mod is still handed the words.
+
+**Skew.** A Bridge before 23.89 reads a `ran` row as a kind it does not know and draws nothing for it, or draws it badly. A Fleet before sends the message. The IDs differ, so the two are refused regardless, and the lifeboat serves. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
+## Protocol 23.88: a Session's run is on a terminal
+
+`docs/concepts/session.md`, *Running a block*. **Two things change that exist, two operations are new.** Both operations are `agent_access: No`: running a block and typing into it are the person's own acts.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session_run` | `StartSessionRun` gains optional `cols` and `rows` | The command runs on a pseudo-terminal of that size (80 by 24 where absent) with `TERM=xterm-256color`, as the session leader with the terminal as its controlling terminal. 422 for a `cols` or `rows` of 0 |
+| `observe_session_run` | `SessionRunMessage` loses `lines` and gains `output` (`text`) | `text` is the terminal's bytes as UTF-8 with the escapes intact, sent as they arrive. A character a read ends inside waits for the next message, so none is split. A late viewer's first `output` is the held tail, the last 256 KiB, replacing the last 2000 lines |
+| `write_session_run` (`POST /sessions/run/write`) | `WriteSessionRun`: `run_id`, `data`. Answers 200 `SessionRunUnderway` | `data` is written to the terminal as it is. Ctrl-C is the byte 3 and reaches the command as SIGINT. 422 on a run that has ended or Fleet does not hold, the shape a stop has |
+| `resize_session_run` (`POST /sessions/run/resize`) | `ResizeSessionRun`: `run_id`, `cols`, `rows`. Answers 200 `SessionRunUnderway` | 422 as `write_session_run`'s, and for a size of 0 |
+
+**The Session is told when the run ends**, as Fleet tells a Session anything: the command, `Exit <code>.` or `Stopped.`, and the last 40 lines with escapes and carriage-return overwrites resolved. A `run` item in the Session's `waiting_for` whose target is the command, trimmed, is taken off the list in the same moment when the exit is 0. Bridge no longer answers it. A Session that has ended is not told. *Protocol 23.89 keeps a hosted thread's telling as a `ran` row.* A slash command sent to a terminal Session is no run, and Bridge still settles its item.
+
+**Skew.** A Fleet before 23.88 sends `lines`, which a newer Bridge ignores, and answers 404 to the two routes. A Bridge before it ignores `output`. The IDs differ, so the two are refused regardless. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest. There is no number to take: `armada need --status` showed nothing standing on these paths.
+
 ## Protocol 23.76: a shell block run from a Session's thread
 
 `docs/concepts/session.md`. **Additive only**: three operations, all `agent_access: No`, and their types. No type that exists changes.
@@ -3484,7 +3511,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `stop_session_run` (`POST /sessions/run/stop`) | `StopSessionRun`: `run_id`. Answers 200 `SessionRunUnderway` | SIGTERM to the group, SIGKILL after 3 seconds. 422 on a run not in flight |
 | `observe_session_run` (`GET /sessions/run/:run_id/observe`, WebSocket) | `SessionRunMessage`, tagged by `kind`: `opened` (`protocol_id`, `run_id`), `lines` (`lines[]`), `missed` (`dropped`), `exited` (`code`: integer, or `null` where the run was stopped or signalled) | `exited` is sent once, last, then the socket closes. 422 on a run Fleet does not hold |
 
-**Nothing is written down.** A run's last 2000 lines are held in memory while it lives and for 90 seconds after it exits, so an observer that opens late replays them and then `exited`. After that the run is unknown.
+**Nothing is written down.** A run's output is held in memory while it lives and for 90 seconds after it exits, so an observer that opens late replays it and then `exited`. After that the run is unknown. *Protocol 23.88 moved the run onto a terminal and replaced `lines` with `output`.*
 
 **The event stream.** None of this rides `/events`. Each observer has a bounded broadcast of 256 messages and is told `missed` with how many it lost, so a slow viewer does not slow the run and does not believe a gap is whole; on `missed` it should reopen the socket, which replays the held tail. This is the bounded-with-a-count shape the open WebSocket risk asks for, one subject over.
 
@@ -3917,7 +3944,7 @@ so it enters nothing.
 
 **A pull request is entered whether or not anyone is shown it**, but Bridge draws it only on the track of the Job or Session that owns it, and leaves out one it cannot attribute (`fromWire` in `cockpit/fleet-events.tsx`).
 
-**Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it), and
+**Not entered, deliberately.** A Check's start (its result is entered), a slot an agent leases with `armada worktree lease` (Fleet never hears of it; *A bay's history* below reads it from the pool), and
 anything before this shipped. A Session already live when Fleet starts is entered as started the first time
 its row changes.
 
@@ -3993,12 +4020,14 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/
 | --- | --- | --- |
 | `SessionRecord.build` (`session.changed`, `get_session`, `list_sessions`) | Fleet writes, Bridge draws | `SessionBuild`: `phase`, `pieces[]`, `stops[]`, `forecast[]`, `landed_at?`, `quiet_since?`, `stalled`, `workers[]`. Left out for a Session that has done nothing Fleet observed |
 | `SessionBuild.phase` | Fleet writes, Bridge matches | `scope`, `plan`, `implement`, `road`, `landed` |
-| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) |
+| `SessionBuild.pieces[]` | Fleet writes, Bridge matches `piece` | `BuildPiece`: `id`, `text`, `piece` (`solid`, `hollow`, `scaffold` or `ghost`) and `by?`, the writing subagent's label in the form `workers` uses (`Type: what it was asked`), left out for the Session's own tasks |
 | `SessionBuild.stops[]`, `forecast[]` | Fleet writes, Bridge matches `id` | `BuildStop`: `id` (`walk`, `pushed`, `pr`, `checks` or `auto_merge`) and `at?`, left out for a stop not yet reached |
-| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`). `committed` and `pushed` carry `branch?` |
+| `SessionFact` `tasks`, `plan_left`, `committed`, `pushed` | The mod writes | `tasks` carries `ReportedTask`: `id`, `text`, `status` (`pending`, `in_progress` or `completed`) and `by?`, the `agentId` of the subagent that wrote the task, absent for the Session's own (mod 0.3.24). `committed` and `pushed` carry `branch?` |
 | `TimelineKind` `session.walked`, `session.committed`, `session.pushed` | Fleet writes, Bridge draws | Strict. A walk's detail is the page's title, the others' the branch |
 
 **Every closed set here is a plain enum Bridge matches on**, as `SessionStanding` is, because no registry declares them. **The arrays are always sent**, empty when they hold nothing, so a reader never tests for them. An unreached stop has no `at`, and none is sent as `null`.
+
+**Subagents' tasks, 15 Oct 2026. Additive:** `ReportedTask.by?` and `BuildPiece.by?`, both optional and left out when absent, and the migration `20261015T2000Z-session_build.task_worker` adding a nullable `made_by` to `session_build_tasks`. A row kept before it reads as the Session's own tasks. A Bridge that predates `by` ignores it and draws every piece as the Session's. A mod before `0.3.24` tells no subagent's task, so the ring lacks them.
 
 **Skew.** A Bridge that predates this ignores a `build` it does not read. A Fleet that predates it sends none. A mod before `0.3.23` tells none of the new facts, so its Session's `build` holds only what Fleet heard otherwise, and the Session is marked `mod_out_of_date`. A Fleet that predates the facts refuses them, and the mod goes on.
 
@@ -4071,6 +4100,21 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*;
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand. **Kept.** `session_waiting.steps`, a JSON array column (store migration `20261015T1200Z-session_waiting.steps`), additive with a default of `[]`, so an item kept before it reads as no steps. **The event stream.** `session.row` carries the lines with the item, a few short lines at most, so this is neither better nor worse for the unbounded sink.
 
+## A Session moves to another repository
+
+`docs/concepts/session.md`, *A moved session*. **Additive only**: one operation, one DTO, three error codes and a detail on a ledger row that already crosses the wire.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `move_session` (`POST /sessions/move`) | Bridge calls, an agent may | `MoveSession`: `session_id`, `manifest_id`. Answers 200 with the new Session's `SessionRecord`. `agent_access` Yes |
+| `fleet.no_such_session`, `fleet.no_such_manifest` | Fleet refuses | 404 for a Session or repository Fleet does not hold. `fleet.no_such_session` is 422 as `start_session`'s `fork` answers it and 404 here |
+| `fleet.session_move_same`, `fleet.session_move_listening` | Fleet refuses | 409 for a move into the Session's own repository, and for a terminal Session whose mod is still asking |
+| `Attachment.detail.moved` on `forked_to`, `forked_from` | Fleet writes, Bridge reads | The id of the repository on the other side. Present only on a move |
+| `Attachment.detail.branch` on `forked_from` | Fleet writes, Bridge reads | The old Session's branch or branches, comma-separated. Present only on a move that left one |
+| `moveSession` (preload) | Bridge | `moveSession(sessionId, manifestId)`, answering `SessionActed` as `startSession` does |
+
+**Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand. There is no number to take: `armada need` has nothing to order. Attachment kinds and details are open text, so no type changes and a Bridge that has not met `moved` draws the pair as a fork. **The event stream is untouched** beyond the `session.changed` each Session already publishes, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
+
 ## An issue is named by its tracker's reference
 
 `docs/concepts/tracker.md`. An issue crossed the wire as a number, which names nothing once a tracker has more than one project and drew as `#123` for Jira's `ABC-123`. The protocol ID moves with the files below, and there is no number to take.
@@ -4084,6 +4128,25 @@ Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*;
 | `getIssue` (preload) | Bridge | Takes the reference as text where it took a number |
 
 **The `#` picker takes a key as well as digits.** An issue's tag id is its key where the tracker names issues by one, and the picker matches what is typed against the reference, ignoring case. A lookup by number reads only numbers. **The event stream is untouched**: no event carries an issue, so the back-pressure risk below is neither better nor worse. The lifeboat is untouched.
+
+## A bay's history: the pool's own record, and the slot's reflog
+
+`get_slot_history` (`GET /slot_history?manifest_id=&slot=`) answers the Cockpit's Bay pane: who held one slot, and what was checked out in it, newest first, for thirty days, at most 300 (`MOST_BAY_HISTORY`) with `cut` when older ones were left out. Since 15 Oct 2026. `agent_access` is `No`.
+
+| Entry | Source | Why not the timeline |
+|---|---|---|
+| `leased`, `released` | `slot-<n>.history`, which the pool writes beside the lease record | The timeline's `slot.leased` is written by Fleet's own calls, so `armada worktree lease` never reaches it. A slot held 65 hours by an agent's lease had no history at all |
+| `checkout` | The slot's own `HEAD` reflog, `<git dir>/worktrees/<slot>/logs/HEAD`, read as a file | Checkouts inside a bay are recorded nowhere else |
+
+**The pool writes the lease line, in whichever process takes the lease.** Fleet noticing a record change was rejected: a read of the record misses a lease taken and given back between two reads and every one taken while Fleet is down, and the lease command is a process of its own. The pool already holds the slot's lock when it writes or clears the record, so the line goes down there (`crates/adapters/src/leasing/history.rs`) and no caller has to remember. A failure to write it never fails the lease. The file is cut to thirty days on its next write.
+
+**A lease taken from a holder that had gone, without giving the slot back, is entered as that holder's release** first, dated when the lease took the slot: nothing dates the holder's going, and two leases in a row would leave a reader to guess.
+
+**Fleet names the holders when asked.** The pool writes a process (pid and start time, with the agent session where its record has one) or an id. A Job's lease is its id, a hosted Session's is a Job of its own id, and a repair's is `<job>-repair-…`, so an id Fleet has no Job for is a `session`. A process is an `agent`, with the Session as `id` where the record has one and the pid where not. Titles are read when asked and not kept with the entry, so a Job forgotten since has none. This is the same resolution `list_worktrees` makes for a slot's holder.
+
+**Additive.** One new operation, `BayHistory`, `BayHistoryEntry` (tagged by `kind`, strict), `BayHolder` and `BayHolderKind` (strict). Bridge's half is `packages/protocol/src/bay-history.ts`, written by hand, and `getSlotHistory(manifestId, slot)` on the preload. Every optional field is left out when empty. There is no number to take and `armada need` has nothing to order: the protocol ID moves with the wire files.
+
+**The event stream is untouched**, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched. The read is two small files and the reflog on each ask, in a blocking task, with nothing kept; a reflog of thirty days of an agent's `git switch` is the largest of them.
 
 ## Open questions
 

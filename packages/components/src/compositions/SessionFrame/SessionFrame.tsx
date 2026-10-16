@@ -114,6 +114,8 @@ export type SessionFrameProps = {
   context?: ContextFill;
   /** Big or old: a quiet mark after the context tank, offering a fresh Session or a fork. Absent draws nothing. */
   fresh?: FreshStart;
+  /** Where the Session works, after the title: the repository's name, or the control that moves it. Absent draws nothing. */
+  repository?: ReactNode;
   /** Icon-only acts after the title: Retro, End session, and the ledger's button where it has folded. */
   actions?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
@@ -181,7 +183,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, fresh, repository, actions, aside, children }: SessionFrameProps) {
   const named = address ?? id;
   return (
     <div className="armada-session-panels">
@@ -193,6 +195,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
           </span>
         </Tooltip>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
+        {repository}
         {actions}
         {context === undefined ? null : <ContextFigure fill={context} />}
         <span className="armada-session-frame__marks">

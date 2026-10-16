@@ -243,8 +243,14 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
       case "forked_from":
         out.push(
           one.kind === "forked_to"
-            ? { kind: "forked_to", id: one.target }
-            : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
+            ? { kind: "forked_to", id: one.target, ...(detail["moved"] === undefined ? {} : { moved: detail["moved"] }) }
+            : {
+                kind: "forked_from",
+                id: one.target,
+                ...(detail["at"] === undefined ? {} : { at: detail["at"] }),
+                ...(detail["moved"] === undefined ? {} : { moved: detail["moved"] }),
+                ...(detail["branch"] === undefined ? {} : { branch: detail["branch"] }),
+              },
         );
         break;
       case "started_to":
@@ -394,6 +400,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "check":
         out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
+        break;
+      case "ran":
+        out.push({ id: row.id, at, kind: "ran", command: row.command, code: row.code ?? null, tail: row.tail });
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });

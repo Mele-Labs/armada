@@ -77,10 +77,16 @@ export type SessionAttachment =
    * **A code edit is never one**; those are Branches and Pull requests.
    */
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
-  /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
-  | { kind: "forked_to"; id: string }
-  /** `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it. */
-  | { kind: "forked_from"; id: string; at?: string }
+  /**
+   * The Session this one was forked to, and the one it was forked from. `id` is the other Session's.
+   * `moved` is present where the fork was a move to another repository: the id of the repository on the other side.
+   */
+  | { kind: "forked_to"; id: string; moved?: string }
+  /**
+   * `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it.
+   * `moved` is the repository the Session was moved from and `branch` the branch it left there, comma-separated.
+   */
+  | { kind: "forked_from"; id: string; at?: string; moved?: string; branch?: string }
   /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
   | { kind: "started_to"; id: string }
   | { kind: "started_by"; id: string };
@@ -194,6 +200,8 @@ export type SessionRow =
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
+  /** A command the person ran from the thread or the band, which the Session was told: its exit (`code` is null where it was stopped) and the last lines it printed, as plain text. */
+  | { id: string; at: string; kind: "ran"; command: string; code: number | null; tail: string }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
@@ -402,6 +410,13 @@ export type SessionsDraft = {
    * serves it, and selecting words in a message offers no Fork.
    */
   forkAt?: (id: string, at: string) => string | Promise<string | undefined>;
+  /**
+   * Ends a Session, if it is live, and starts a new one in another repository (`manifestId`) with the whole
+   * conversation and the same title, and returns the new Session's id. The old one's slot, branch and
+   * uncommitted files stay in the old repository. A Session in a terminal that is still listening is not
+   * moved. Absent where nothing serves it, and the repository is not drawn as a control.
+   */
+  move?: (id: string, manifestId: string) => Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
@@ -494,12 +509,24 @@ export type SessionsDraft = {
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
   /**
    * Runs a command from a code block in a Session's thread, in the Session's working directory (its
-   * slot if it has one), and reports output and the exit as they come. The person's own act: nothing
-   * is sent to the agent. Absent where nothing serves it, and the block is left without Run.
-   * Fleet answers it with a Session run (`start_session_run`, `observe_session_run`,
+   * slot if it has one), on a terminal of `size` cells, and reports the terminal's bytes and the exit as
+   * they come. `write` types into the terminal and `resize` tells it the screen changed. The person's
+   * own act: nothing is sent to the agent by the run, though Fleet tells the Session how it ended.
+   * Absent where nothing serves it, and the block is left without Run. Fleet answers it with a Session
+   * run (`start_session_run`, `observe_session_run`, `write_session_run`, `resize_session_run`,
    * `stop_session_run`).
    */
-  run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  run?: (
+    id: string,
+    command: string,
+    on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void,
+    size?: { cols: number; rows: number },
+  ) => { stop: () => void; write?: (data: string) => void; resize?: (cols: number, rows: number) => void };
+  /**
+   * Whether a run is drawn as a terminal that takes keys, docked at the foot of the Session's view, as
+   * opposed to lines of output under the block. Set where `run` answers with the terminal's bytes.
+   */
+  terminalRuns?: true;
   /**
    * As `run`, for a call about a repository's served checkout, which has no Session: the command runs in
    * the repository at `root`. Absent where nothing serves it, and the card offers Copy alone.

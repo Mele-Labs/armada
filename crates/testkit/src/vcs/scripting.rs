@@ -22,6 +22,11 @@ impl FakeVcs {
         self.pool_reads.load(Ordering::Relaxed)
     }
 
+    /// How many of those were [`Vcs::slot_pool_kept`] asked for every slot.
+    pub fn whole_pool_reads(&self) -> u64 {
+        self.whole_pool_reads.load(Ordering::Relaxed)
+    }
+
     /// `done`, after counting it for [`Vcs::changes`].
     pub(super) fn noted<T>(&self, done: T) -> T {
         self.changed.fetch_add(1, Ordering::Relaxed);

@@ -906,6 +906,11 @@ where
         Ok(self.request_repository(words).await)
     }
 
+    /// Who held one slot and what was checked out in it — [`crate::bay_history`].
+    async fn get_slot_history(&self, ask: ipc::BayHistoryAsk) -> Result<ipc::BayHistory, Refusal> {
+        self.slot_history(ask).await
+    }
+
     /// What happened inside a window — [`crate::timeline`].
     async fn get_fleet_timeline(
         &self,

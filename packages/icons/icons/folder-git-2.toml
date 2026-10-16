@@ -41,8 +41,15 @@
     notes = "Proposed 14 Oct 2026 for the walk `title-bar-menu`. The panel at the top of the left column draws the repository's name with a chevron, and at the 48px rail this glyph stands for it, the name in the tooltip. The same meaning it has everywhere else: the repository."
 
   [[icons.folder-git-2.usage]]
-    means = "A call about the repository's served checkout: it is behind main and Fleet would not catch it up"
-    group = "Cockpit call"
-    size = "16px"
+    means = "The repository a Session works in, and each repository it can be moved to"
+    group = "Git and config"
+    size = "12px"
+    status = "Specified"
+    notes = "Accepted 15 Oct 2026 with the walks. Proposed 15 Oct 2026 for the walks `session-move-repository` and `cockpit-session-move-repository`. The control in a Session's head, tooltip `Move to another repository`, precedes the repository's name in mono and is followed by the chevron that says it opens. It also leads each repository in the list it opens and the row at either end of a moved Session's thread. The same meaning it has everywhere else: the repository."
+
+  [[icons.folder-git-2.usage]]
+    means = "The served checkout is behind main and Fleet would not catch it up: the light beside main in the merge queue"
+    group = "Cockpit"
+    size = "12px"
     status = "Proposed"
-    notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. The kind mark on the Checkout call, in the card's band and on its row in Incoming calls, tooltip `Checkout`. The same meaning it has everywhere else: the repository."
+    notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. A chip beside main's light while a served repository's hub carries a held checkout, in the warning hue, tooltip `Checkout <n> commits behind main`. It opens a card with the facts and the one safe command. The same meaning it has everywhere else: the repository."

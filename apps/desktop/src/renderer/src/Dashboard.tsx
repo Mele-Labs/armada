@@ -36,6 +36,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button, Radio, RadioGroup, limitHeldSaid, type FixRefusal } from "@armada/components";
+import type { BayActs } from "@armada/cleanup";
 import type { FixMain, JobSummary, Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
@@ -199,6 +200,8 @@ export type Hosts = {
   onAnswerCard?: ((jobId: string, card: string, option: string) => Promise<JobAnswered>) | undefined;
   /** Releases a slot an agent session holds, for the holder the confirm showed: a terminal's process, or a hosted Session's id. */
   onReleaseSlot?: ((manifestId: string, slot: number, holder: string) => Promise<Outcome>) | undefined;
+  /** Every other act the worktree pool's tile panel offers, which a bay's pane draws too. Absent, the pane offers none of them. */
+  bayActs?: Omit<BayActs, "onRescue"> | undefined;
   /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */

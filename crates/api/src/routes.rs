@@ -69,6 +69,7 @@ use crate::repositories::{
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
+use crate::bay_history::get_slot_history;
 use crate::timeline::get_fleet_timeline;
 use crate::servers::{list_servers, observe_server, start_server, stop_server};
 use crate::sockets::{events, job_log, observe_check_output, observe_job, observe_land_check};
@@ -238,6 +239,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::stop_session_run::<D>),
         )
         .route(
+            "/sessions/run/write",
+            post(crate::sessions::write_session_run::<D>),
+        )
+        .route(
+            "/sessions/run/resize",
+            post(crate::sessions::resize_session_run::<D>),
+        )
+        .route(
             "/sessions/run/:run_id/observe",
             get(crate::sessions::observe_session_run::<D>),
         )
@@ -332,6 +341,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::close_session::<D>),
         )
         .route(
+            "/sessions/move",
+            post(crate::hosted_sessions::move_session::<D>),
+        )
+        .route(
             "/sessions/stop",
             post(crate::hosted_sessions::stop_session::<D>),
         )
@@ -370,6 +383,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/clone", post(clone_repository::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
         .route("/timeline", get(get_fleet_timeline::<D>))
+        .route("/slot_history", get(get_slot_history::<D>))
         .route("/merge_lines/checks/observe", get(observe_land_check::<D>))
         .route("/merge_lines/fix", post(fix_main::<D>))
         .route("/models", get(list_models::<D>))

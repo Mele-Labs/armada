@@ -52,3 +52,14 @@ stops in the scope phase.
 | With no task list the ring is one unsegmented band: a faint outline while scoping or planning, an even scaffold texture once edits are seen, solid when landed. The texture turns only while the drone is writing | A partial fill implies a fraction nobody measured |
 | Wherever a ring is drawn, a button asks for an update: the column's header, the drone's pinned card, a Job's mission | He wants an answer without opening the thread |
 | A Session is sent the words through its composer's call. A Job's go to its Commander. The button reads sent until the reply is in the thread, or five minutes where no reply can be seen | A Job's Commander thread is not held by the deck |
+
+## 15 Oct 2026: subagents are on the ring
+
+His words: *"An entire session contributes to the workload for that session from a scope/plan to implementation."* This reverses the rule that a subagent's own list is not the Session's. Asked, he chose to draw each running subagent as a worker inside the ring, and to make the tasks a subagent writes segments too, so the ring fills as subagents tick their own steps.
+
+| Rule | Why |
+|---|---|
+| A subagent's `TaskCreate` and `TaskUpdate` go into the Session's list, each task marked with the subagent that made it | The task list is shared with the parent (measured on claude 2.1.300): the mod dropped the subagent's task, so the list lacked it and a later update of it read as unseen |
+| A piece carries `by`, its subagent's worker label, kept after the subagent ends | The finished subagent's pieces stay on the ring, and Bridge matches a piece to a worker by the label |
+| A subagent's `TodoWrite` is still not heard | It is a list of its own and would replace the Session's |
+| With many subagents each gets its own arc: a subagent's tasks are grouped in the order the subagents started, and the main agent's keep list order | Parallel subagents interleave their tasks in the shared list, and ten drones crowded the ring so no piece said whose it was |

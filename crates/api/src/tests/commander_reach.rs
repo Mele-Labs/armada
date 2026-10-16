@@ -95,8 +95,10 @@ const EDITS_CHECKS_MANIFEST_OR_SETTINGS: &[&str] = &[
     "clone_repository",
 ];
 
-/// Ends, pauses, hands over or revives a Job, or takes back what it holds.
+/// Ends, pauses, hands over or revives a Job, or takes back what it holds. `move_session` ends a
+/// Session and starts its conversation in another repository.
 const THE_JOBS_LIFE: &[&str] = &[
+    "move_session",
     "kill_job",
     "kill_drone",
     "kill_one_drone",

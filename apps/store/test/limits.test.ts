@@ -13,19 +13,31 @@ const enrolFrom = (ip: string, spki: string) =>
     body: JSON.stringify({ token: "any-token", public_key: spki, machine: "studio" }),
   });
 
+/**
+ * Enrols from `ip` until the first refusal. The limiter's minute is the wall clock's, so a run that
+ * crosses one starts the count again: enough tries for two whole minutes' worth always reach a 429.
+ */
+async function untilRefused(ip: string, spki: string): Promise<Response[]> {
+  const answers: Response[] = [];
+  for (let n = 0; n < 25; n++) {
+    const answer = await enrolFrom(ip, spki);
+    answers.push(answer);
+    if (answer.status === 429) break;
+  }
+  return answers;
+}
+
 describe("enrolling too often", () => {
   it("is refused with 429 once an address has used its minute, and the forge is not asked", async () => {
     const { spki } = await newKeyPair();
     const forge = forgeAnswers(8001);
 
-    const statuses: number[] = [];
-    for (let n = 0; n < 15; n++) statuses.push((await enrolFrom("203.0.113.7", spki)).status);
+    const statuses = (await untilRefused("203.0.113.7", spki)).map((answer) => answer.status);
 
-    const allowed = statuses.filter((status) => status === 200).length;
-    expect(allowed).toBeGreaterThan(0);
-    expect(allowed).toBeLessThan(15);
-    expect(statuses.slice(allowed).every((status) => status === 429)).toBe(true);
-    expect(forge).toHaveBeenCalledTimes(allowed);
+    expect(statuses.at(-1)).toBe(429);
+    expect(statuses.slice(0, -1).every((status) => status === 200)).toBe(true);
+    expect(statuses.length).toBeGreaterThan(1);
+    expect(forge).toHaveBeenCalledTimes(statuses.length - 1);
   });
 
   it("does not hold one address's minute against another", async () => {
@@ -38,10 +50,9 @@ describe("enrolling too often", () => {
   it("names the refusal", async () => {
     const { spki } = await newKeyPair();
     forgeAnswers(8003);
-    let last: Response | undefined;
-    for (let n = 0; n < 15; n++) last = await enrolFrom("203.0.113.10", spki);
-    expect(last!.status).toBe(429);
-    expect(await last!.json()).toEqual({ error: "enrol_rate_limited" });
+    const last = (await untilRefused("203.0.113.10", spki)).at(-1)!;
+    expect(last.status).toBe(429);
+    expect(await last.json()).toEqual({ error: "enrol_rate_limited" });
   });
 });
 

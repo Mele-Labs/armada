@@ -33,7 +33,7 @@ fn every_path_under_the_directory_narrows_to_its_packages() {
             Some(&by_package(&[], None)),
             &paths(&[
                 "crates/fleet/src/lib.rs",
-                "crates/api",
+                "crates/api/Cargo.toml",
                 "crates/fleet/Cargo.toml"
             ])
         ),
@@ -50,6 +50,7 @@ fn one_path_outside_the_directory_runs_it_whole() {
         "Cargo.lock",
         "apps/desktop/src/a.ts",
         "crates",
+        "crates/README.md",
     ] {
         assert_eq!(
             narrowed_at_the_gate(
@@ -156,13 +157,13 @@ fn a_change_only_outside_runs_the_narrowed_command_alone() {
 }
 
 /// `reached` has already widened `crates/fleet` to its dependents, so `api`
-/// arrives here as a path of its own.
+/// arrives here as its manifest.
 #[test]
 fn a_path_outside_beside_a_crate_adds_nothing_to_its_packages() {
     assert_eq!(
         narrowed_at_the_gate(
             Some(&reading_outside()),
-            &paths(&["apps/x.ts", "crates/fleet/src/lib.rs", "crates/api"])
+            &paths(&["apps/x.ts", "crates/fleet/src/lib.rs", "crates/api/Cargo.toml"])
         ),
         Narrowed::To("cargo nextest run -p xtask -p api -p fleet".to_string())
     );

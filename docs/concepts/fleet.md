@@ -410,6 +410,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **It is also caught up whenever main moves, whoever merged.** The reading of main (*What Fleet knows about main's CI*) compares main's tip on the forge with the commit the checkout has, in process, and fast-forwards on the same refusals when the checkout lacks it. Sessions and the merge queue land most pull requests, and a catch-up that waited for a Job's merge left the owner's checkout days behind in October 2026. A checkout it would not move is kept in memory with what holds it: the branch it is on where that is not the base, its uncommitted tracked files and which of them main also changed, and how far it is behind and ahead. It is served on the merge line's `hub` as `checkout`, and cleared once the checkout has main's tip.
 
+**A form's save to the Manifest never lands in that checkout.** It is committed from objects on top of `origin/<base>`, pushed to `armada/manifest-<id>` and opened as a pull request with auto-merge on, and the checkout's tree, index and `HEAD` are not read or written. Fleet keeps that edit in memory, one per repository: a second save commits on the same branch, the live keys and the reading a form is drawn from follow its text, and it is dropped once the checkout has its commit or the forge reports the pull request closed unmerged, which the reading of main checks. A tracked file only: an ignored or untracked `armada.yml`, a repository with no `origin` and a Manifest with no base are written to disk as before. An edit left uncommitted in the checkout was what blocked the catch-up on 14 Oct 2026.
+
 **What merged can be proved, and only where the repository asks.** A Manifest that names Checks under `after_merge` has them run once against the tree the fast-forward left — see [Manifest](manifest.md), *Proving what merged*. A Manifest that names none runs nothing, which is every Manifest by default: what this costs is a build and test run on the machine somebody is working on, for an event nobody is waiting for, and `../practices/rust.md` section 8 names a hook that rebuilt on merge as the cause of v1's four-minute cold build.
 
 **The run belongs to the commit and its record is keyed by the commit**, in a table with no `job_id` column and no foreign key to `jobs`. Two Jobs merging within a minute are two merges into one commit; the second finds it already proved and starts nothing. What is keyed by a Job is only the line saying it happened, which goes into the log of whichever Job's turn started the run — beside the fast-forward's own line, and for the same reason.
@@ -473,11 +475,12 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 | A live session in a served repository | Told |
 |---|---|
-| Holds a branch | The build, and for each branch whether it is in it |
-| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, as the answer to that wait, so it wakes once |
-| Neither | Nothing |
+| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main`, and that is the build now running | The build, and for each branch it holds whether it is in it, as the answer to that wait, so it wakes once |
+| Anything else, a held branch or a wait for the other build included | Nothing |
 
-**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
+**Only a session that asked is told.** Every branch-holder was told until 15 Oct 2026, and the notice arrived as input, so each session spent a turn answering "no action needed" — in another repository's sessions too, where nothing it held could be in the build.
+
+**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
 
 **A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
 
@@ -571,6 +574,15 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Stash | Commits the uncommitted files to the slot's branch, pushes the branch to `origin` under its own name, and frees the slot. Refused on a checkout on no branch or on the base, and where there is no `origin` |
 | Close, open | A closed slot is never leased until it is opened. A holder keeps one closed under it until its lease ends, and it stays closed after |
 
+**Bridge's Cleanup list is kept from file events, with a deadline.** Fleet keeps the list and
+reads it again behind Bridge's asking: for the slots the file system named (a slot's git
+directory, the base branch's ref, the work tree of a free slot, never a held slot's, whose builds
+write thousands of events a minute), and for every slot every 10 seconds. **The list is never
+wrong for longer than 10 seconds**, which is the owner's bound (15 Oct 2026); a change an event
+announces shows in under three. What no event announces is a holder dying, another process
+changing the pool's size, and a branch deleted from under a free slot's commits.
+`docs/spikes/032-what-moves-when-a-slot-changes.md` has the measurements.
+
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
@@ -580,6 +592,8 @@ pipeline between the two does not become the holder. **A session Fleet hosts is
 the exception**: Fleet ends and resumes its process when it moves slots, so
 `armada worktree lease` there holds as a Job of the session's id, read from
 `ARMADA_SESSION`, and is given back when the session closes. **A terminal agent's lease also records the agent session it ran under**, read from the environment the agent sets in each command it runs, so the pool says which Session holds a slot a process holds. A lease taken by hand, or before this was written, names none.
+
+**Every lease and release is also written to the slot's history**, `slot-<n>.history` beside the record, by the pool in whichever process writes or clears the record, so one an agent took with `armada worktree lease` is in it though Fleet never heard. It is kept thirty days, and `get_slot_history` serves it with the checkouts the slot's own `HEAD` reflog holds (`docs/practices/protocol.md`, *A bay's history*).
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease

@@ -20,12 +20,14 @@
 //! Job it is refusing, is owed an answer sooner than a restart.
 //!
 //! **[`Reloads`] is the only thing that can write, and the live keys are all it
-//! can write.** Fleet is never handed one, so the crate holding the Manifest
-//! cannot move it: the method is not on anything Fleet has.
+//! can write.** It re-reads the file, or text it was told to hold where an edit
+//! is not in the file yet. Fleet is never handed one and asks the composition
+//! root, which holds it, so the crate holding the Manifest cannot move it: the
+//! method is not on anything Fleet has.
 //! [`ResolvedWorkflow`]: crate::ResolvedWorkflow
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use core_model::{AutoMerge, PrMode, ReviewGate};
 
@@ -383,6 +385,10 @@ pub struct Reloads {
     path: PathBuf,
     live: Cell,
     at_start: AtStart,
+    /// What the file would say, where an edit sent as a pull request has not
+    /// reached the checkout yet. **Read in place of the file** until it is
+    /// cleared, so a re-read the file's own change prompts cannot undo it.
+    holding: Mutex<Option<String>>,
 }
 
 impl Reloads {
@@ -391,7 +397,15 @@ impl Reloads {
             path,
             live,
             at_start: AtStart::of(manifest),
+            holding: Mutex::new(None),
         }
+    }
+
+    /// Read `text` in place of the file from the next [`reread`](Reloads::reread)
+    /// on, or the file again where it is `None`. **The writer stays here**: what
+    /// is held is text to parse, and the live keys move only through `reread`.
+    pub fn hold(&self, text: Option<String>) {
+        *self.holding.lock().unwrap_or_else(PoisonError::into_inner) = text;
     }
 
     /// The file this re-reads. The path is held rather than passed in, so
@@ -400,7 +414,8 @@ impl Reloads {
         &self.path
     }
 
-    /// Read the file again and adopt whatever its live keys now say.
+    /// Read the file again, or the text [`hold`](Reloads::hold) was given, and
+    /// adopt whatever its live keys now say.
     ///
     /// **The whole file is parsed and every refusal it carries is returned**,
     /// rather than the two keys being picked out of the YAML: a Manifest that
@@ -412,7 +427,15 @@ impl Reloads {
     /// that stopped because somebody mistyped a number would be worse than one
     /// that ignored the edit.
     pub fn reread(&self) -> Result<Adopted, LoadError> {
-        let fresh = Manifest::load(&self.path)?;
+        let held = self
+            .holding
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        let fresh = match held {
+            Some(text) => Manifest::parse(&self.path, &text)?,
+            None => Manifest::load(&self.path)?,
+        };
         let after = fresh.in_force();
         let before = self.live.replace(after);
         Ok(Adopted {

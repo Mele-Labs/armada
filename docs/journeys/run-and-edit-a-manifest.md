@@ -169,8 +169,10 @@ The schema and the form move together — a field added to one is a field added 
 > **Rule.** Editing during a running Job needs no warning and no lock.
 > Why: a Job is judged against the Checks and Commands it snapshotted at creation, so an edit here cannot reach it — the next Job picks up the new file, the running one does not.
 
-> **Rule.** Save writes the file to disk and stops there — no staging, no commit.
-> Why: the file is tracked, so the edit appears in the working tree and is committed along with everything else; Armada committing to git on your behalf would be a surprise in the one place a person is most sensitive to one.
+> **Rule.** A form's save goes out as a pull request and applies at once; the checkout is not written. Only where the file is tracked and not ignored, the repository has an `origin` and the Manifest names a base: anywhere else the form writes the file to disk, and the file view's Save always does, with no staging and no commit.
+> Why: an edit left uncommitted in the checkout Fleet serves blocks every catch-up, because Fleet only fast-forwards a clean one (14 Oct 2026). Decided 15 Oct 2026, the owner's words: "PR, applies now, only in repos where the file is not gitignored."
+
+A second form save while that pull request is open commits on top of its branch, so it stays one pull request. Until the checkout has its commit, or the forge reports it closed unmerged, the forms and the live keys read the pull request's text. Checks and Commands wait for a restart, as they do for any edit.
 
 > **Rule.** Write always commits whatever the proposal has iterated to — there is no separate Write-path mode for a single workspace versus a monorepo batch.
 > Why: iteration happens per workspace, at whatever pace suits its own evidence, so there is nothing left for a Write-path mode to choose between.

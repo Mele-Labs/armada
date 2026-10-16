@@ -855,6 +855,10 @@ impl Queries for FakeDaemon {
         Ok(shapes::fleet_timeline(&ask))
     }
 
+    async fn get_slot_history(&self, ask: ipc::BayHistoryAsk) -> Result<ipc::BayHistory, Refusal> {
+        Ok(shapes::slot_history(&ask))
+    }
+
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(ipc::MergeLines::default())
     }
