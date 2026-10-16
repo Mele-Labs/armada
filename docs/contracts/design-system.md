@@ -1948,6 +1948,13 @@ header; `--bg-raised` is 7 below it, and on the canvas the two differ by 7
 either side of `--bg-base` — so one value serves both rather than a rule
 scoped to a layer. Measured on the built app, 18 Sep 2026.
 
+**The title row's places never wrap; they fall back to glyphs.** A strip in a
+panel wraps, but the places share one row with the title bar's sides, and a
+track on two or three lines read as broken there (the owner, 15 Oct 2026).
+`TitleBar` measures the room its sides and the search trigger leave, and where
+the labels are wider than that the places draw `iconsOnly`: each tab its
+surface's registry glyph, its name in the tooltip.
+
 **Still the `tabs` primitive.** A segmented control is how the strip is
 painted, not a new base component — hard rule 2 stands.
 
