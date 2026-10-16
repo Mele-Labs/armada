@@ -612,6 +612,154 @@ async fn a_hub_that_moves_is_published_as_the_merge_lines_whole() {
     );
 }
 
+/// Every ask of a visit answered: the head, its runs, the open pull requests, the queue and the merged listing.
+fn the_forge_answers_everything(fleet: &Fixture) {
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    forge.pulls_are(Some(Vec::new()));
+    forge.queue_is(Some(Vec::new()));
+    forge.recently_merged_are(Some(Vec::new()));
+}
+
+/// The next `merge_lines.changed` within `wait`.
+async fn next_merge_lines(
+    events: &mut api::Subscription,
+    wait: Duration,
+) -> Result<ipc::MergeLines, tokio::time::error::Elapsed> {
+    tokio::time::timeout(wait, async {
+        loop {
+            if let Some(api::Next::Send(delivered)) = events.next().await {
+                if let ipc::Event::MergeLinesChanged(lines) = delivered.event {
+                    return lines;
+                }
+            }
+        }
+    })
+    .await
+}
+
+#[tokio::test]
+async fn a_fully_answered_visit_moves_the_read_time_and_leaves_the_forge_not_quiet() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    the_forge_answers_everything(&fleet);
+
+    fleet.turn().await.unwrap();
+    let first = the_hub(&fleet).await;
+    let read = first.forge_read_at.expect("a visit that was answered whole");
+    assert!(first.quiet_since.is_none());
+
+    // The head did not move, so main's own reading is not written again: the visit still is.
+    fleet.turn().await.unwrap();
+    let second = the_hub(&fleet).await;
+    assert!(second.forge_read_at.expect("read again").as_str() > read.as_str());
+    assert_eq!(
+        second.main.unwrap().read_at,
+        first.main.unwrap().read_at,
+        "main.read_at moves with the head and could not say this"
+    );
+}
+
+#[tokio::test]
+async fn any_one_ask_unanswered_makes_the_visit_quiet() {
+    // Each ask of the visit silent in turn, the rest answered.
+    let silences: [(&str, fn(&Fixture)); 5] = [
+        ("the head", |it| it.vcs().main_ci.head_is(None)),
+        ("the open pull requests", |it| it.vcs().main_ci.pulls_are(None)),
+        ("the queue", |it| it.vcs().main_ci.queue_is(None)),
+        ("the merged listing", |it| it.vcs().main_ci.recently_merged_are(None)),
+        ("the runs on the head", |it| it.vcs().main_ci.head_is(Some(TWO))),
+    ];
+    for (which, silence) in silences {
+        let home = TempDir::new();
+        let fleet = a_fleet_reading_main(&home);
+        the_forge_answers_everything(&fleet);
+        fleet.turn().await.unwrap();
+        assert!(the_hub(&fleet).await.quiet_since.is_none(), "{which}");
+
+        silence(&fleet);
+        fleet.turn().await.unwrap();
+        assert!(
+            the_hub(&fleet).await.quiet_since.is_some(),
+            "{which} was not answered"
+        );
+    }
+}
+
+#[tokio::test]
+async fn quiet_since_keeps_its_first_instant_and_clears_on_the_next_clean_visit() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    the_forge_answers_everything(&fleet);
+    fleet.turn().await.unwrap();
+    let last_whole = the_hub(&fleet).await.forge_read_at.unwrap();
+
+    forge.pulls_are(None);
+    fleet.turn().await.unwrap();
+    let quiet = the_hub(&fleet).await;
+    let since = quiet.quiet_since.clone().expect("the first visit it was not answered");
+    assert_eq!(quiet.forge_read_at.as_ref(), Some(&last_whole));
+
+    fleet.turn().await.unwrap();
+    let still = the_hub(&fleet).await;
+    assert_eq!(still.quiet_since.as_ref(), Some(&since), "kept from the first");
+    assert_eq!(
+        still.forge_read_at.as_ref(),
+        Some(&last_whole),
+        "a visit not answered whole reads nothing"
+    );
+    assert!(
+        still.main.is_some(),
+        "the last reading is kept, which is why its age is said"
+    );
+
+    forge.pulls_are(Some(Vec::new()));
+    fleet.turn().await.unwrap();
+    let back = the_hub(&fleet).await;
+    assert!(back.quiet_since.is_none());
+    assert!(back.forge_read_at.unwrap().as_str() > last_whole.as_str());
+}
+
+#[tokio::test]
+async fn a_forge_that_has_never_answered_is_served_as_a_hub_that_says_so() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    fleet.turn().await.unwrap();
+    let hub = the_hub(&fleet).await;
+    assert!(hub.quiet_since.is_some() && hub.forge_read_at.is_none());
+    assert!(hub.main.is_none() && hub.pull_requests.is_empty());
+}
+
+#[tokio::test]
+async fn every_forge_visit_publishes_the_merge_lines_and_a_pause_between_visits_does_not() {
+    let home = TempDir::new();
+    let fleet = std::sync::Arc::new(a_fleet_reading_main(&home));
+    the_forge_answers_everything(&fleet);
+    fleet.turn().await.unwrap();
+    let before = the_hub(&fleet).await.forge_read_at.unwrap();
+    let mut events = fleet.events().subscribe();
+    let reading = crate::merge_lines::keep_reading(
+        std::sync::Arc::clone(&fleet),
+        fleet.events(),
+        fleet.timeline().clone(),
+        Duration::from_millis(50),
+    );
+    // The first read is the baseline, and with no visit nothing moves.
+    assert!(next_merge_lines(&mut events, Duration::from_millis(400)).await.is_err());
+
+    for _ in 0..2 {
+        fleet.turn().await.unwrap();
+        let lines = next_merge_lines(&mut events, Duration::from_secs(5))
+            .await
+            .expect("a visit that changed nothing else still publishes");
+        let read = lines.lines[0].hub.as_ref().unwrap().forge_read_at.clone().unwrap();
+        assert!(read.as_str() > before.as_str());
+    }
+    reading.abort();
+}
+
 #[tokio::test]
 async fn a_failed_job_on_mains_log_is_served_by_its_check_or_its_name_while_main_is_red() {
     let home = TempDir::new();

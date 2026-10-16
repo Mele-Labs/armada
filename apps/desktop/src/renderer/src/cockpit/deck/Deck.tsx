@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, UserCheck } from "lucide-react";
+import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, Unplug, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, useMarking, type Clashing, type Mark } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -47,6 +47,7 @@ import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
 import { checkoutSaid, heldOf } from "./YourCheckout";
+import { forgeOf, quietSaid, ReadAgo } from "./forge";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
@@ -417,6 +418,8 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   );
   const held = heldOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
   const red = reds.map((one) => one.name);
+  const forge = forgeOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
+  const quiet = quietSaid(forge, views.length > 1);
   const mainSaid = `${red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
     const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
@@ -485,12 +488,19 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         }}>
           <li>
             {reds.length > 0 || held.length > 0 ? (
-              <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} />
+              <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} forge={forge} quiet={quiet} />
             ) : (
-              <Tooltip label={mainSaid} asChild>
+              <Tooltip label={forge.readAt === undefined ? mainSaid : <>{mainSaid}. <ReadAgo at={forge.readAt} /></>} asChild>
                 <span className="deck-chip" data-main role="img" aria-label={mainSaid}>
-                  <span className="deck-chip__dot" data-tone="calm" aria-hidden="true" />
+                  <span className="deck-chip__dot" data-tone="calm" data-stale={quiet !== undefined || undefined} aria-hidden="true" />
                   <span>main</span>
+                  {quiet === undefined ? null : (
+                    <Tooltip label={quiet}>
+                      <span className="deck-chip__quiet" role="img" aria-label={quiet}>
+                        <Unplug size={12} aria-hidden="true" />
+                      </span>
+                    </Tooltip>
+                  )}
                 </span>
               </Tooltip>
             )}

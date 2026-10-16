@@ -146,8 +146,10 @@ pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
 
 /// Fold the hubs every [`EVERY`] and publish `merge_lines.changed` when they moved.
 ///
-/// **At most one event a read, and only on a change**, so a quiet forge
-/// publishes nothing. It adds no queue of its own; the shared drop-oldest
+/// **At most one event a read, and only on a change.** Every forge visit moves
+/// `forge_read_at`, so a forge that answers publishes about once a visit, one
+/// repository a minute; a Bridge that did not hear it would show a read time
+/// older than the reading. It adds no queue of its own; the shared drop-oldest
 /// backlog is still the only one.
 ///
 /// **What a change was is entered on the timeline**: the list is carried whole,
