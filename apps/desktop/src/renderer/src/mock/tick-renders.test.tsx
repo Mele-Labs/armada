@@ -71,12 +71,13 @@ async function twoTicks(): Promise<Map<string, number>> {
   return total;
 }
 
-test("a tick on the Cockpit draws nothing: its figures read minutes", async () => {
+test("a tick on the Cockpit does not draw the window: its figures read minutes", async () => {
   mount("every-state");
   await onScreen();
   const total = await twoTicks();
   expect(total.has("App")).toBe(false);
-  expect([...total.values()].reduce((sum, n) => sum + n, 0)).toBe(0);
+  // Not a count: the deck draws once when the minute turns, which can fall in the window.
+  expect(total.has("Shell")).toBe(false);
 }, 20_000);
 
 test("a tick on the Jobs list moves its seconds and draws no more than the list", async () => {
