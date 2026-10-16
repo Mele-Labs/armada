@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
+import { Box, ChartNoAxesGantt, CircleDashed, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Play, Power, Send, ShieldCheck, SquareTerminal, Trash2, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -16,7 +16,8 @@ import { clashingOf, useWriteClashes } from "../../clashes";
 import { askToOpenHolder } from "../../open-holder";
 import { useDispatching } from "../../dispatch-panel/dispatching";
 import { viewsOf } from "../../merge-line";
-import { useSessions, useSessionsDraft } from "../../sessions-draft";
+import { askToOpenSessionInCockpit } from "../../open-session";
+import { useQueued, useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { dotsOf, MERGE_BY_HAND } from "../horizon";
@@ -36,6 +37,7 @@ import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
 import { holderKeyOf, useBays, slotKey } from "./bays";
 import { PanelKey, panelAt } from "./keys";
+import { queuedIn, queuedKey } from "./queued";
 import { JobMission, MapView } from "./MapPane";
 import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
@@ -110,7 +112,67 @@ function Phase({ subject, builds, jobs }: { subject: Subject; builds: ReadonlyMa
   );
 }
 
-function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; onPick: (subject: Subject) => void }) {
+/** Ideas saved to start later, a group at the head of the list. A row starts the idea on ↵ or on its play press, and Remove lets it go. */
+function Queued({ picked }: { picked: RepositorySummary | null }) {
+  const draft = useSessionsDraft();
+  const ideas = queuedIn(useQueued(), picked);
+  const cursor = useDeck((deck) => deck.cursor);
+  const hover = useDeck((deck) => deck.hover);
+  if (ideas.length === 0) return null;
+  const start = (id: string) => {
+    if (draft?.startQueued === undefined) return;
+    void Promise.resolve(draft.startQueued(id)).then((session) => session !== undefined && askToOpenSessionInCockpit(session));
+  };
+  return (
+    <li className="deck-list__band deck-list__queued" role="group" aria-label="Queued">
+      <h3 className="deck-list__repository">Queued</h3>
+      <ul className="deck-list__group">
+        {ideas.map((idea) => {
+          const key = queuedKey(idea.id);
+          const title = idea.text.trim().split("\n")[0] ?? "";
+          return (
+            <li key={key} className="deck-list__item">
+              <button type="button" className="deck-row" data-row={key} data-queued data-cursor={cursor === key || undefined} data-hover={hover === key || undefined} aria-label={title} onClick={() => start(idea.id)} onFocus={() => (moveCursor(key), setHover(key))} onBlur={() => setHover(undefined)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(undefined)}>
+                <Tooltip label="Queued">
+                  <span className="deck-row__kind" role="img" aria-label="Queued">
+                    <CircleDashed size={14} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+                <span className="deck-row__title">{title}</span>
+                <span className="deck-row__tags">
+                  <Tooltip label="Repository">
+                    <span role="img" aria-label={`Repository ${idea.repository}`}>
+                      {idea.repository}
+                    </span>
+                  </Tooltip>
+                  {idea.model === undefined ? null : (
+                    <Tooltip label="Model">
+                      <span role="img" aria-label={`Model ${idea.model}`}>
+                        {idea.model}
+                      </span>
+                    </Tooltip>
+                  )}
+                </span>
+              </button>
+              <Tooltip label="Start" asChild>
+                <Button variant="ghost" size="sm" iconOnly aria-label={`Start ${title}`} onClick={() => start(idea.id)}>
+                  <Play size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+              <Tooltip label="Remove" asChild>
+                <Button variant="ghost" size="sm" iconOnly aria-label={`Remove ${title}`} onClick={() => draft?.dropQueued?.(idea.id)}>
+                  <Trash2 size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            </li>
+          );
+        })}
+      </ul>
+    </li>
+  );
+}
+
+function List({ subjects, banding, selected, builds, jobs, picked, onPick }: { subjects: readonly Subject[]; banding: readonly Banding[] | undefined; selected: string | undefined; builds: ReadonlyMap<string, BuildIn>; jobs: readonly JobSummary[]; picked: RepositorySummary | null; onPick: (subject: Subject) => void }) {
   const cursor = useDeck((deck) => deck.cursor);
   const hover = useDeck((deck) => deck.hover);
   const row = (one: Subject) => {
@@ -142,6 +204,7 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
         <PanelKey id="list" />
       </header>
       <ul className="deck-list__rows">
+        <Queued picked={picked} />
         {banding === undefined
           ? subjects.map(row)
           : bandsOf(subjects, banding).map((band) => (
@@ -768,7 +831,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
       <div ref={grid} className="deck-grid" style={columns === undefined ? undefined : ({ "--deck-left": `${columns.left}px`, "--deck-right": `${columns.right}px` } as CSSProperties)}>
         <div className="deck-left">
           <RepositoryScope props={props} />
-          <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
+          <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} picked={props.picked} onPick={(one) => select(selOfSubject(one))} />
           <Activity props={props} listed={listed} ship={ship} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
