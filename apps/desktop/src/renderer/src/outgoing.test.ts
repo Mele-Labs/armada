@@ -3,7 +3,7 @@
 import { expect, it } from "vitest";
 import type { Session, SessionRow, SessionsDraft, SentMessage } from "@armada/screens/src/draft/sessions";
 
-import { withOutgoing } from "./outgoing";
+import { outgoing, withOutgoing } from "./outgoing";
 
 const message = (id: string, from: "you" | "agent", text: string): SessionRow => ({ id, at: "14:00:00", kind: "message", from: { kind: from }, text });
 
@@ -104,4 +104,33 @@ it("hands back the same Sessions when nothing of its own changed", async () => {
   await result;
   const first = draft.get();
   expect(draft.get()).toBe(first);
+});
+
+it("holds words over a thread that has no Session, and takes the mark off the row Fleet records for words sent on", async () => {
+  const held = outgoing();
+  const words = held.hold("helm:armada", sent("Tidy the cap"), new Set());
+  expect(held.overlay("helm:armada", [])[0]).toMatchObject({ text: "Tidy the cap", delivery: "sending" });
+
+  const result = words.deliver(() => true);
+  expect(await result).toBe(true);
+  const target = { kind: "session" as const, id: "s9", title: "Cart totals", repository: "armada" };
+  const rows = held.overlay("helm:armada", [{ id: "r7", at: "14:00:00", kind: "sent", text: "Tidy the cap", target }]);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ id: "r7", kind: "sent", stableKey: "sending:1" });
+});
+
+it("takes words out of the thread when they went nowhere, and sends them again the way they first went", async () => {
+  const held = outgoing();
+  const dropped = held.hold("helm:armada", sent("Not this"), new Set());
+  dropped.drop();
+  expect(held.overlay("helm:armada", [])).toHaveLength(0);
+
+  const words = held.hold("helm:armada", sent("Tidy the cap"), new Set());
+  let taken = false;
+  expect(await words.deliver(() => taken)).toBe(false);
+  expect(held.overlay("helm:armada", [])[0]).toMatchObject({ delivery: "failed" });
+  taken = true;
+  held.retry("helm:armada", "sending:2", new Set());
+  await settled();
+  expect("delivery" in held.overlay("helm:armada", [])[0]!).toBe(false);
 });

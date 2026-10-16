@@ -41,6 +41,7 @@ import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSh
 import type { JobCheckLog } from "./check-log-sheet";
 import { movedGroups, moveSent, planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
+import { useSentRedirect } from "./sent-redirect";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
 import { proposeInstruction, rewriteInstruction } from "./tab-plan-ask";
 import { planGraphOf, taskCard } from "./plan-canvas";
@@ -508,6 +509,7 @@ export function usePlanReview({
           });
   const drone = open === undefined || revisable ? undefined : droneOfTask(whole, open);
   const steering = steeringOf(job, whole);
+  const redirected = useSentRedirect(job.id);
   const peekTurns = useMemo(
     () =>
       own?.transcript === undefined
@@ -568,6 +570,8 @@ export function usePlanReview({
           disabled: stale || steering.act === undefined,
           disabledReason: NO_DRONE,
           ...(steering.sent === undefined ? {} : { waiting: steering.sent }),
+          ...(redirected.sent === undefined ? {} : { sent: redirected.sent }),
+          ...(redirected.onRetry === undefined ? {} : { onRetry: redirected.onRetry }),
         };
 
   // Everything the Job did to the open file. **The Job's patch, not the

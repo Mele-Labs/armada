@@ -71,6 +71,7 @@ export type SessionThreadRow =
       files?: readonly { id: string; name: string; src?: string }[];
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly ComposerTag[];
+      stableKey?: string;
     }
   /** Helm's `ask_person_to_approve` call, drawn as the card that asks for the press on that Job's gate. */
   | { id: string; at: string; kind: "approval"; card: HelmApprovalCard }
@@ -591,6 +592,49 @@ function Delivery({ row }: { row: { delivery?: "sending" | "failed" } }) {
   );
 }
 
+/** What a message of the person's draws from. */
+type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery">;
+
+/**
+ * The person's own message: the band with its Delivery mark, the words, and a Retry where it did not go.
+ * **One row wherever words are sent**: a Session's thread, Helm's, and the box under a Drone's log draw this.
+ */
+export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; onRetry?: (rowId: string) => void; forkable?: boolean }) {
+  // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
+  const refs = useContext(ProseRefs);
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
+  const placed = placeTags(row.text, row.tags ?? [], openTag);
+  return (
+    <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
+      <div className="armada-session-you__band">
+        <span className="armada-session-you__who">You</span>
+        <Delivery row={row} />
+        <span className="armada-session-you__at">{row.at}</span>
+      </div>
+      <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
+        {placed.parts !== null ? (
+          <p className="armada-session-said">{placed.parts}</p>
+        ) : (
+          // Run is on what the agent wrote, not on what the person did.
+          <ProseRunner.Provider value={null}>
+            <ProseCommand.Provider value={null}>
+              <Prose text={row.text} />
+            </ProseCommand.Provider>
+          </ProseRunner.Provider>
+        )}
+        <Sent row={row} tags={placed.loose} />
+        {row.delivery === "failed" && onRetry !== undefined ? (
+          <div className="armada-session-you__retry">
+            <Button size="sm" variant="secondary" onClick={() => onRetry(row.id)}>
+              Retry
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 function Row({
   row,
   onOpenSession,
@@ -812,36 +856,7 @@ function Row({
   if (row.from === "you") {
     const act = actOf(row.text);
     if (act !== null) return <Did act={act} at={row.at} />;
-    const placed = placeTags(row.text, row.tags ?? [], openTag);
-    return (
-      <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
-        <div className="armada-session-you__band">
-          <span className="armada-session-you__who">You</span>
-          <Delivery row={row} />
-          <span className="armada-session-you__at">{row.at}</span>
-        </div>
-        <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
-          {placed.parts !== null ? (
-            <p className="armada-session-said">{placed.parts}</p>
-          ) : (
-            // Run is on what the agent wrote, not on what the person did.
-            <ProseRunner.Provider value={null}>
-              <ProseCommand.Provider value={null}>
-                <Prose text={row.text} />
-              </ProseCommand.Provider>
-            </ProseRunner.Provider>
-          )}
-          <Sent row={row} tags={placed.loose} />
-          {row.delivery === "failed" && onRetry !== undefined ? (
-            <div className="armada-session-you__retry">
-              <Button size="sm" variant="secondary" onClick={() => onRetry(row.id)}>
-                Retry
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </li>
-    );
+    return <YourMessage row={row} forkable={forkable} {...(onRetry === undefined ? {} : { onRetry })} />;
   }
   const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (

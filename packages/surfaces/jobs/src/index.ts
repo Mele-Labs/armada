@@ -14,6 +14,7 @@ export * from "./Overrule";
 export * from "./RaiseCap";
 export * from "./RaiseTurnCap";
 export * from "./Redirect";
+export * from "./sent-redirect";
 export * from "./Lessons";
 export type { AnswerLesson, LessonsSource, LessonsTab, LessonsView, ReadLessons, ReadRetro, StartLessonSession } from "./retro";
 export type { AskLesson, ReviewLessons } from "./LessonsReview";

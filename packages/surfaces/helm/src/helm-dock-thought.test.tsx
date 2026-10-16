@@ -325,7 +325,7 @@ test("the cards come in the order typed even when the later reading lands first"
   await say(FIRST);
   await say(SECOND);
   slow[SECOND]?.({ kind: "thought" });
-  await expect.element(page.getByRole("status", { name: "Finding where this goes" })).toBeVisible();
+  expect(sendCard().elements()).toHaveLength(0);
   expect(newCard().elements()).toHaveLength(0);
 
   slow[FIRST]?.({ kind: "thought", match: MATCH });

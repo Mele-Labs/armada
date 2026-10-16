@@ -28,6 +28,7 @@ import { absoluteOf } from "@armada/screens/src/duration";
 import { isWorking, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { steeringOf } from "./steering";
+import { useSentRedirect } from "./sent-redirect";
 import {
   droneSays,
   droneLabelOf,
@@ -177,6 +178,7 @@ export function DronesTab({
   const open = drones.find((drone) => drone.id === openRow);
   useEffect(() => trail?.onHere(open === undefined ? null : { id: open.id, label: labelOf(open) }), [open?.id]);
   const steering = steeringOf(job, whole);
+  const redirected = useSentRedirect(job.id);
 
   if (reading && drones.length === 0) {
     return (
@@ -281,6 +283,8 @@ export function DronesTab({
                           disabled={stale || steering.act === undefined}
                           disabledReason="No Drone is on this Job, so there is nothing to redirect."
                           {...(steering.sent === undefined ? {} : { waiting: steering.sent })}
+                          {...(redirected.sent === undefined ? {} : { sent: redirected.sent })}
+                          {...(redirected.onRetry === undefined ? {} : { onRetry: redirected.onRetry })}
                         />
                       ),
                     }),
