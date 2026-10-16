@@ -47,6 +47,7 @@ export const oneSessionView = walk("one-session-view", [
   { later: places, say: "The agent records its plan" },
   { look: inside(stage, role("article", "Plan to approve")), say: "The plan arrives as a compact card in the thread, whole above the composer: each group a closed row with its subagent type, title and a mark per task, a thumbnail of the sketch the agent drew with it, and Approve" },
   { look: plan, say: "The Plan panel on the right already shows the plan, with no approval band and no amber frame. The approval lives in the thread alone" },
+  { hover: inside(plan, role("button", "Ask for an update")), say: "Ask for an update sits in the Plan's header. It tells the agent to bring its task list up to date with the plan's own task text, then say where it stands. A press does not fold the panel" },
   { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "A group in the panel opens to its own paths and its tasks in full. Closed it is a row: its title, its subagent type and a glyph for each task" },
   { press: inside(plan, role("button", /^Retry the slot lease when the pool is contended, with back off$/)), say: "And closes again" },
   { press: inside(stage, role("article", "Plan to approve")), say: "A press on the card, anywhere but Approve, opens the plan in a large overlay to review" },

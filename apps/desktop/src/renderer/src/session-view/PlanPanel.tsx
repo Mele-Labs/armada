@@ -7,6 +7,7 @@ import { BadgeCheck, Bot, ChevronDown, PencilLine, PencilRuler } from "lucide-re
 import { Button, TaskMark, Tooltip } from "@armada/components";
 import type { WorkPlan } from "@armada/screens/src/draft/sessions";
 
+import { AskUpdate } from "../cockpit/deck/AskUpdate";
 import { AddGroup, GroupEditor, SendChanges, type PlanEditing } from "./PlanEdit";
 import { viewOf, type ViewGroup } from "./plan-marks";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
@@ -54,29 +55,29 @@ function Group({ group, ed }: { group: ViewGroup; ed: PlanEditing }) {
   );
 }
 
-export function PlanPanel({ plan, place, ed, onOpenSketch }: { plan: WorkPlan; place: Place; ed: PlanEditing; onOpenSketch: (sketch: string) => void }) {
+export function PlanPanel({ id, plan, place, ed, onOpenSketch }: { id: string; plan: WorkPlan; place: Place; ed: PlanEditing; onOpenSketch: (sketch: string) => void }) {
   const finished = plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
   const state: PanelState | undefined = !plan.approved ? undefined : finished ? "done" : "live";
   const sketch = plan.sketch;
-  const acts =
-    sketch === undefined && !plan.approved ? undefined : (
-      <>
-        {sketch === undefined ? null : (
-          <Tooltip label="Sketch">
-            <Button variant="ghost" size="sm" iconOnly aria-label="Sketch" onClick={() => onOpenSketch(sketch.id)}>
-              <PencilRuler size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-        )}
-        {plan.approved ? (
-          <Tooltip label="Plan approved">
-            <span className="sv-panel__mark" role="img" aria-label="Plan approved">
-              <BadgeCheck size={16} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
-        ) : null}
-      </>
-    );
+  const acts = (
+    <>
+      {sketch === undefined ? null : (
+        <Tooltip label="Sketch">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Sketch" onClick={() => onOpenSketch(sketch.id)}>
+            <PencilRuler size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      )}
+      <AskUpdate subject={`session:${id}`} />
+      {plan.approved ? (
+        <Tooltip label="Plan approved">
+          <span className="sv-panel__mark" role="img" aria-label="Plan approved">
+            <BadgeCheck size={16} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
+    </>
+  );
   return (
     <SvPanel label="Plan" area="plan" place={place} state={state} acts={acts}>
       <div className="sv-plan">
