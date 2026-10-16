@@ -1,0 +1,7 @@
+[icons.message-square-plus]
+  means = "A speech bubble with a plus: add a note here"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Pinning a note to a row of a plan the person is editing, shown on hover. Never Helm, which is `message-square`, and never an annotation on a page."
+  notes = "Proposed 16 Oct 2026 for the plan edit's per-row tools. The note is a suggestion to the agent that rides with the edit. Tooltip `Suggest`."
