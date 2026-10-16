@@ -260,6 +260,7 @@ pub(super) fn denied(answer: &GateAnswer) -> bool {
 pub(super) fn reason(answer: &GateAnswer) -> String {
     match answer {
         GateAnswer::Hold { held } => held.reason.clone(),
+        GateAnswer::Rewrite { rewritten } => rewritten.reason.clone(),
         GateAnswer::Pass {} => String::new(),
     }
 }

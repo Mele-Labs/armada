@@ -2,6 +2,7 @@ import { ArmadaMark } from "@armada/brand";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { FigureList, type Figure } from "../FigureList/FigureList";
+import { useNowWhile } from "../../clock";
 import { Panel } from "../Panel/Panel";
 import { FleetBuildSection, type FleetBuild } from "../FleetBuild/FleetBuild";
 
@@ -46,6 +47,8 @@ export type FleetPanelProps = {
    * the two protocol versions when Fleet is ahead.
    */
   detail?: ReactNode;
+  /** `rows` and `detail` at a time, which the panel asks at its own clock: the up time and the silence move each second. Wins over both. */
+  reading?: (now: number) => { rows?: Figure[] | undefined; detail?: ReactNode };
   doctor?: DoctorLine;
   /**
    * Opens Doctor's own grid. **Present makes the Doctor row a control**, drawn
@@ -111,7 +114,11 @@ export function FleetStarting({ className, size = 16, phrase }: { className: str
 /** What the Board's card says under the mark while Fleet starts. */
 export const STARTING_PHRASE = "Armada activating";
 
-export function FleetPanel({ state, label, rows, detail, doctor, onOpenDoctor, build, open, onOpenChange, narrow }: FleetPanelProps) {
+export function FleetPanel({ state, label, rows: fixedRows, detail: fixedDetail, reading, doctor, onOpenDoctor, build, open, onOpenChange, narrow }: FleetPanelProps) {
+  const now = useNowWhile(reading !== undefined);
+  const read = reading?.(now);
+  const rows = read === undefined ? fixedRows : read.rows;
+  const detail = read === undefined ? fixedDetail : read.detail;
   // **The state is the head's dot; the body is what the head cannot carry** —
   // the owner, 28 Sep 2026: *"Delete this row and just put the status dot next
   // to the 'Fleet' title in the panel header."* The row said in words what the

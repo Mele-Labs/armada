@@ -587,13 +587,11 @@ where
             .ledger_waiting(&session, reads)
             .into_iter()
             .find(|one| one.id == said.item_id)
-        .ok_or_else(|| {
-            Refusal::IllegalMove(WireError::raised(
-                SESSION_WAITING_UNHELD,
-                "nothing is waiting under that item. It was settled already, or the session stopped waiting",
-                self.run_id(),
-            ))
-        })?;
+        .ok_or_else(|| self.settled_already())?;
+        let _settling = self
+            .hosts()
+            .settling(&id, &item.id)
+            .ok_or_else(|| self.settled_already())?;
         let nothing = said.choice.is_none()
             && said.mode.is_none()
             && said.text.as_deref().map_or(true, |t| t.trim().is_empty());
@@ -749,14 +747,12 @@ where
                 .waiting_for
                 .into_iter()
                 .find(|one| one.id == dismiss.item_id)
-                .ok_or_else(|| {
-                    Refusal::IllegalMove(WireError::raised(
-                        SESSION_WAITING_UNHELD,
-                        "nothing is waiting under that item. It was settled already, or the session stopped waiting",
-                        self.run_id(),
-                    ))
-                })?
+                .ok_or_else(|| self.settled_already())?
         };
+        let _settling = self
+            .hosts()
+            .settling(&id, &item.id)
+            .ok_or_else(|| self.settled_already())?;
         if item.source == WaitingSource::Agent {
             let sent = SendSessionMessage {
                 session_id: dismiss.session_id.clone(),
@@ -767,6 +763,15 @@ where
             Arc::clone(&self).send_known(terminal, sent).await?;
         }
         self.drop_answered(&id, &item.id).await
+    }
+
+    /// An item no longer waiting, or one another answer or removal is being delivered for.
+    fn settled_already(&self) -> Refusal {
+        Refusal::IllegalMove(WireError::raised(
+            SESSION_WAITING_UNHELD,
+            "nothing is waiting under that item. It was settled already, or the session stopped waiting",
+            self.run_id(),
+        ))
     }
 
     /// Take an agent item off the list for good and tell Bridge, once the person's word on it has been

@@ -98,8 +98,8 @@ export type LedgerEntry = {
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
   /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other. */
-  options?: readonly { label: string; description?: string; onPick: () => void }[];
-  onOther?: (text: string) => void;
+  options?: readonly { label: string; description?: string; onPick: () => void | Promise<unknown> }[];
+  onOther?: (text: string) => void | Promise<unknown>;
   /**
    * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
@@ -358,8 +358,7 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
                   const chosen = answers?.[0]?.chosen[0];
                   if (chosen === undefined) return;
                   const at = options.findIndex((one) => one.label === chosen);
-                  if (at >= 0) options[at]!.onPick();
-                  else row.onOther?.(chosen);
+                  return at >= 0 ? options[at]!.onPick() : row.onOther?.(chosen);
                 }}
               />
               {removal(row)}

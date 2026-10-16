@@ -146,11 +146,13 @@
 }
 
 /* The agent's last word: a band in the done hue over its two ways on, set under the thread as the ask is. */
+/* Many rows scroll inside it, so End session stays in view. */
 .armada-session-done {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   flex-shrink: 0;
+  max-height: 40vh;
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--step-advanced);
   border-radius: var(--radius-md);
@@ -183,9 +185,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-height: 0;
   margin: 0;
   padding: 0;
   list-style: none;
+  overflow-y: auto;
 }
 
 .armada-session-done__acts {
