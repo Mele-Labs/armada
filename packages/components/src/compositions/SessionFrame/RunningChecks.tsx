@@ -87,7 +87,7 @@ export function RunningChecks({ checks, onOpenCheck }: { checks: readonly Runnin
     <span ref={host} className="armada-session-frame__checks-host" onKeyDown={onKeyDown}>
       <Tooltip asChild label={said}>
         <button ref={button} type="button" className="armada-session-frame__checks" aria-label={said} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((on) => !on)}>
-          <span className="armada-session-mark" data-pulsing>
+          <span className="armada-session-mark">
             <CircleDot size={16} strokeWidth={2} aria-hidden />
           </span>
           {checks.length}

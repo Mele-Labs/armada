@@ -8,9 +8,9 @@ const LIST = role("menu", "2 checks running");
 
 export const sessionRunningChecks = walk("session-running-checks", [
   { press: place("Sessions"), say: "Sessions" },
-  { press: inside(region("Sessions"), button("Session running checks")), say: "A Session whose agent has Checks out" },
-  { hover: MARK, say: "The Checks still running, counted" },
-  { press: MARK, say: "Pressing it lists them" },
-  { press: inside(LIST, role("menuitem", "Check test session_checking, running")), say: "Pressing one opens its log" },
-  { look: dialog("Check log"), say: "That run, over the Session" },
+  { press: inside(region("Sessions"), button("Session running checks")), say: "A Session with two checks running" },
+  { hover: MARK, say: "Checks running in this Session" },
+  { press: MARK, say: "Press to list them" },
+  { press: inside(LIST, role("menuitem", "Check test session_checking, running")), say: "Press one to open its log" },
+  { look: dialog("Check log"), say: "Its log, over the Session" },
 ]);
