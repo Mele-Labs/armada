@@ -6,7 +6,6 @@ import { Manifest } from "@armada/manifest";
 import { Setup } from "@armada/setup";
 import { clocked } from "./clocked";
 import { DoctorSurface } from "./doctor/Doctor";
-import { JobsSurface } from "./jobs-surface";
 import { StudiosSurface } from "./StudiosSurface";
 
 export const JobDetailNow = clocked(JobDetail);
@@ -15,4 +14,3 @@ export const ManifestNow = clocked(Manifest);
 export const SetupNow = clocked(Setup);
 export const StudiosSurfaceNow = clocked(StudiosSurface);
 export const DoctorSurfaceNow = clocked(DoctorSurface);
-export const JobsSurfaceNow = clocked(JobsSurface);

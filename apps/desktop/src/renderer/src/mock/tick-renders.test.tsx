@@ -86,6 +86,6 @@ test("a tick on the Jobs list moves its seconds and draws no more than the list"
   const before = document.body.textContent;
   const total = await twoTicks();
   expect(document.body.textContent, "the elapsed figures moved").not.toEqual(before);
-  expect(total.has("App")).toBe(false);
-  expect(total.has("Shell")).toBe(false);
+  // The figures themselves and what draws them, and no row, list or screen.
+  expect([...total.keys()].filter((name) => !["Last", "Marks", "JobMarks", "DoingNow", "Tooltip"].includes(name))).toEqual([]);
 }, 20_000);

@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from "react";
 import { Ellipsis, LoaderCircle } from "lucide-react";
-import { Button, Chip, DropdownMenu, StepBar, Tabs, Tooltip, usePilot, useOpenInSession } from "@armada/components";
+import { Button, Chip, DropdownMenu, StepBar, Tabs, Tooltip, useNow, usePilot, useOpenInSession } from "@armada/components";
 import type { DropdownMenuEntry } from "@armada/components";
 import type { JobSummary, MergeLines, RepositorySummary } from "@armada/protocol";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -79,10 +79,42 @@ function nowOf(job: JobSummary, nows: Readonly<Record<string, NowView>> | undefi
   return doing === undefined || drone.since === undefined ? undefined : { step, doing, since: drone.since };
 }
 
+// The three figures a tile draws off the clock. Each reads it here, so a tick draws these and not the rows.
+
+/** The time at the tile's top right: the run time while it runs, how long ago it started or ended otherwise. */
+function Last({ job, running }: { job: JobSummary; running: boolean }) {
+  const now = useNow();
+  const time = running ? elapsedOf(job, now) : agoOf(job.ended_at ?? job.created_at, now);
+  if (time === undefined) return null;
+  return (
+    <Tooltip label={running ? "Run time" : job.ended_at === undefined ? `Dispatched ${absoluteOf(job.created_at) ?? ""}` : `Ended ${absoluteOf(job.ended_at) ?? ""}`}>
+      <span className="armada-jobs-page__last">{time}</span>
+    </Tooltip>
+  );
+}
+
+function Marks({ job }: { job: JobSummary }) {
+  const now = useNow();
+  return hasMarks(job, now) ? <JobMarks job={job} now={now} /> : null;
+}
+
+/** A running Job's Now line: what its Drone is doing, and how long ago. */
+function DoingNow({ doing, since }: { doing: string; since: string }) {
+  const age = sinceOf(since, useNow());
+  return (
+    <Tooltip label={`${doing} · ${age}`} asChild>
+      <div className="armada-jobs-page__now">
+        <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-jobs-page__now-doing">{doing}</span>
+        <span className="armada-jobs-page__now-age">· {age}</span>
+      </div>
+    </Tooltip>
+  );
+}
+
 function Tile({
   job,
   headline,
-  now,
   repository,
   lines,
   nows,
@@ -90,7 +122,6 @@ function Tile({
 }: {
   job: JobSummary;
   headline: string;
-  now: number;
   repository: string | undefined;
   lines: MergeLines | null;
   nows: Readonly<Record<string, NowView>> | undefined;
@@ -105,8 +136,6 @@ function Tile({
   const pull = pullOf(job, lines);
   const doing = nowOf(job, nows);
   const step = doing?.step ?? job.current_step_id;
-  const run = elapsedOf(job, now);
-  const ago = agoOf(job.ended_at ?? job.created_at, now);
   const recent = sectionOf(job) === "recently-ended";
   const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
   const entries: DropdownMenuEntry[] = [
@@ -143,7 +172,6 @@ function Tile({
       </Tooltip>
     ),
   ].filter((one) => one !== null);
-  const time = running ? run : ago;
   return (
     <li className="armada-jobs-page__row" data-status={reading.status} data-lit={LIT.has(reading.status) || undefined} data-ended={ended || undefined} style={{ ["--hue" as string]: `var(--status-${reading.status})` }}>
       <div className="armada-jobs-page__top">
@@ -154,13 +182,9 @@ function Tile({
             </span>
           </Tooltip>
           <span className="armada-jobs-page__title">{headline}</span>
-          {hasMarks(job, now) ? <JobMarks job={job} now={now} /> : null}
+          <Marks job={job} />
         </button>
-        {time === undefined ? null : (
-          <Tooltip label={running ? "Run time" : job.ended_at === undefined ? `Dispatched ${absoluteOf(job.created_at) ?? ""}` : `Ended ${absoluteOf(job.ended_at) ?? ""}`}>
-            <span className="armada-jobs-page__last">{time}</span>
-          </Tooltip>
-        )}
+        <Last job={job} running={running} />
         {entries.length === 0 ? null : (
           <span className="armada-jobs-page__more">
             <DropdownMenu triggerLabel={`More for ${plainTitle(job)}`} icon={Ellipsis} entries={entries} onSelect={choose} portal />
@@ -168,13 +192,7 @@ function Tile({
         )}
       </div>
       {doing === undefined ? null : (
-        <Tooltip label={`${doing.doing} · ${sinceOf(doing.since, now)}`} asChild>
-          <div className="armada-jobs-page__now">
-            <LoaderCircle size={12} strokeWidth={2} aria-hidden />
-            <span className="armada-jobs-page__now-doing">{doing.doing}</span>
-            <span className="armada-jobs-page__now-age">· {sinceOf(doing.since, now)}</span>
-          </div>
-        </Tooltip>
+        <DoingNow doing={doing.doing} since={doing.since} />
       )}
       {facts.length === 0 ? null : <div className="armada-jobs-page__facts">{facts}</div>}
     </li>
@@ -183,7 +201,6 @@ function Tile({
 
 export function JobsSurface({
   state,
-  now,
   repositories,
   disconnected,
   nows,
@@ -197,7 +214,6 @@ export function JobsSurface({
   onCursor,
 }: {
   state: BridgeState;
-  now: number;
   repositories: readonly RepositorySummary[];
   disconnected: string | null;
   /** What each running Job's Drone is doing now, by Job id. Mock only. */
@@ -257,7 +273,6 @@ export function JobsSurface({
                         key={job.id}
                         job={job}
                         headline={headlineOf(job, read.dispatch.get(job.id))}
-                        now={now}
                         repository={repositoryOf(job, repositories, all)}
                         lines={state.mergeLines}
                         nows={nows}
