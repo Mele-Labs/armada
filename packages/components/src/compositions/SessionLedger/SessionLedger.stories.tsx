@@ -72,6 +72,22 @@ export const WaitingOnYou: Story = {
   },
 };
 
+let delivered: () => void = () => undefined;
+const sent = fn(() => new Promise<void>((done) => (delivered = done)));
+/** While Fleet delivers an answer, Answer is disabled, so a second press cannot send it again. */
+export const AnswerSentOnce: Story = {
+  args: { entries: [{ ...WAITING[3]!, key: "w6", options: [{ label: "Fake", onPick: sent }, { label: "Frozen", onPick: sent }] }] },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("radio", { name: "Frozen" }));
+    const answer = canvas.getByRole("button", { name: "Answer" });
+    await userEvent.click(answer);
+    await expect(answer).toBeDisabled();
+    await expect(sent).toHaveBeenCalledTimes(1);
+    delivered();
+    await waitFor(() => expect(answer).toBeEnabled());
+  },
+};
+
 const replied = fn();
 /** An item with no act and a reply: its glyph is Reply, a press opens a box under the row, and a send hands over the line. */
 export const WaitingReply: Story = {
