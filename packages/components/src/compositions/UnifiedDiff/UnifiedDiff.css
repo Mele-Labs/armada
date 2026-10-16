@@ -185,3 +185,56 @@
   color: var(--fg-muted);
   text-wrap: pretty;
 }
+
+/* A review's additions. A folded file keeps its header and nothing under it. */
+.armada-diff__file[data-folded] .armada-diff__head {
+  border-bottom-color: transparent;
+}
+
+.armada-diff__actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.armada-diff__mark:not(:empty) + .armada-diff__actions {
+  margin-left: 0;
+}
+
+/* The gutter button sits over the line's leading edge and is there only while the line is pointed at
+   or focused, so a diff that takes comments reads as the diff does. */
+.armada-diff__line {
+  position: relative;
+}
+
+.armada-diff__gutter {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--leading-2xs);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.armada-diff__line:hover > .armada-diff__gutter,
+.armada-diff__gutter:focus-visible {
+  opacity: 1;
+}
+
+.armada-diff__gutter:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

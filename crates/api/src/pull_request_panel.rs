@@ -1,5 +1,5 @@
 //! `get_pull_request_detail`, `get_pull_request_file` and `write_pull_request`. Since 23.83;
-//! the file read since 23.87.
+//! the file read since 23.87. `get_review_lists` and `resolve_review_thread` beside them.
 
 use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
@@ -57,6 +57,34 @@ pub(crate) async fn write_pull_request<D: PullRequestPanel>(
         .await
     {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_review_lists<D: PullRequestPanel>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_review_lists().await {
+        Ok(lists) => answer(StatusCode::OK, &lists, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 422 for a repository Fleet does not serve; 409 with the forge's sentence where it would not
+/// take the act.
+pub(crate) async fn resolve_review_thread<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let resolve: ipc::ResolvePullThread = match ipc::decode("a resolve on a review thread", &body) {
+        Ok(resolve) => resolve,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .resolve_review_thread(ManifestId::carried(repository), resolve)
+        .await
+    {
+        Ok(resolved) => answer(StatusCode::OK, &resolved, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

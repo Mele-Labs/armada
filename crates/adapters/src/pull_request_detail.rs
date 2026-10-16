@@ -6,6 +6,9 @@
 //!
 //! The forge's words (`MERGEABLE`, `TIMED_OUT`, `RENAMED`) stop here. A word
 //! Armada has no name for reads as the cautious answer.
+//!
+//! The review threads are a second call (`crate::pull_request_threads`), because the forge keeps
+//! them out of `pr view`.
 
 use std::collections::BTreeSet;
 
@@ -25,7 +28,7 @@ pub(crate) const MOST_COMMITS: usize = 250;
 pub(crate) const MOST_SAID: usize = 200;
 
 const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable,reviewDecision,\
-                      latestReviews,comments,reviews,statusCheckRollup,files,commits";
+                      latestReviews,comments,reviews,statusCheckRollup,files,commits,headRefOid,body";
 
 /// `// ""` on every field, so a `null` cannot stop jq mid-stream. Seconds are
 /// worked out here because jq reads the timestamps; `try` makes one it cannot
@@ -33,7 +36,8 @@ const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable
 /// review with no body and no verdict says nothing.
 const REDUCTION: &str = "\
     ([\"head\", (.baseRefName // \"\"), (.author.login // \"\"), (.createdAt // \"\"), \
-      (.additions // 0), (.deletions // 0), (.mergeable // \"\"), (.reviewDecision // \"\")]), \
+      (.additions // 0), (.deletions // 0), (.mergeable // \"\"), (.reviewDecision // \"\"), \
+      (.headRefOid // \"\"), (.body // \"\")]), \
     (.latestReviews // [] | .[] | select(.state == \"APPROVED\") | \
         [\"approver\", (.author.login // \"\")]), \
     (.comments // [] | .[] | \
@@ -57,7 +61,11 @@ const REDUCTION: &str = "\
 /// Ask the forge. `None` is its silence: no tool, nobody signed in, no such
 /// pull request, or an answer with no head record.
 pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestPageFacts> {
-    folded(&asked_lines(in_repo, pull_request, FIELDS, REDUCTION)?)
+    let mut page = folded(&asked_lines(in_repo, pull_request, FIELDS, REDUCTION)?)?;
+    // **A page without its threads is not a page**: a review of a diff that hides the
+    // conversations on it would be answered wrongly, so their silence is the page's.
+    page.threads = crate::pull_request_threads::read(in_repo, pull_request)?;
+    Some(page)
 }
 
 /// The records the reduction printed, as one value. Split from [`read`] so a
@@ -83,6 +91,8 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
                     deletions: number(&next()),
                     mergeable: mergeability(&next()),
                     review: review_standing(&next()),
+                    commit: next(),
+                    body: next(),
                 });
             }
             "approver" => {
@@ -161,6 +171,9 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
         files,
         commits,
         omitted,
+        head: (!head.commit.is_empty()).then_some(head.commit),
+        body: (!head.body.trim().is_empty()).then_some(head.body),
+        threads: Vec::new(),
     })
 }
 
@@ -172,6 +185,8 @@ struct Head {
     deletions: u64,
     mergeable: Mergeability,
     review: ReviewStanding,
+    commit: String,
+    body: String,
 }
 
 fn number(said: &str) -> u64 {
@@ -186,7 +201,7 @@ fn mergeability(said: &str) -> Mergeability {
     }
 }
 
-fn review_standing(said: &str) -> ReviewStanding {
+pub(crate) fn review_standing(said: &str) -> ReviewStanding {
     match said {
         "APPROVED" => ReviewStanding::Approved,
         "CHANGES_REQUESTED" => ReviewStanding::ChangesRequested,
