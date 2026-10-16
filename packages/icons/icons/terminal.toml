@@ -18,10 +18,3 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Ran`. **An exception to the reservation to Pilot, ruled by the owner on 14 Oct 2026** (\"Keep terminal\"): a command run is not Pilot, and the two never share a surface, since Pilot is drawn on a Job's ledger row and this on a timeline row. Draws in `--fg-subtle` on a muted row. The row opens to its commands, newest first."
-
-[[icons.terminal.usage]]
-  means = "A shell command the Session's agent ran in the background, on its ledger row"
-  group = "Session"
-  size = "12px"
-  status = "Proposed"
-  notes = "Proposed 16 Oct 2026 for the walk `ledger-background`, tooltip `Background command`. **Needs the owner's ruling, as the timeline's did**: a command run is not Pilot, but this row shares a ledger with a piloted Job's mark, which the timeline's never did. The alternative is `square-terminal`, which is a Session's."
