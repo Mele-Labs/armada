@@ -9,7 +9,7 @@
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestPage } from "@armada/protocol";
 import { drawnOf } from "@armada/screens/src/drawn-patch";
 
-import type { Change, FindingSeed, Hunk, ReviewPr, ReviewSeed, Theme, Thread, ToolDef } from "../pr-review/model";
+import type { Account, Change, FindingSeed, Hunk, ReviewPr, ReviewSeed, Theme, Thread, ToolDef } from "../pr-review/model";
 
 const FORGE = "https://github.com/mele-labs";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -59,6 +59,8 @@ type Spec = {
   themes: readonly ThemeIn[];
   /** Threads by the change they are on, and the line of its first hunk by what it says. */
   threads?: readonly { id: string; change: string; match?: string; resolved?: boolean; comments: readonly (readonly [author: string, ago: number, body: string])[] }[];
+  /** What each of the other explanations says, by the kind's id. */
+  accounts?: Readonly<Record<string, Account>>;
   /** What each tool finds, by the tool's id. */
   results?: Readonly<Record<string, readonly FindingSeed[]>>;
 };
@@ -124,6 +126,7 @@ function build(spec: Spec): { pr: ReviewPr; results: Readonly<Record<string, rea
     page,
     explanation: { summary: spec.summary, themes },
     explainedBy: spec.explainedBy,
+    accounts: spec.accounts ?? {},
     threads,
   };
   return { pr, results: spec.results ?? {} };
@@ -166,6 +169,36 @@ const marta = build({
     ["f9b2e63", "Read the plan once a minute in Bridge", "marta", 196],
     ["02d7a8c", "Say when the windows were read", "marta", 150],
   ]),
+  accounts: {
+    "for-you": {
+      shape: "change",
+      rows: [
+        { what: "The plan meters in the title bar", before: "Each meter read the provider every five seconds, so a figure was never more than five seconds old.", after: "A figure can be up to a minute old, and the meter says how old it is." },
+        { what: "A second window", before: "Every window asked the provider on its own.", after: "Windows ask Fleet once a minute, and Fleet answers from its last read." },
+        { what: "A provider that is slow", before: "The meters waited on each read, and stalled with it.", after: "The last read is served again until its minute is up." },
+      ],
+    },
+    "how-to-test": {
+      shape: "steps",
+      steps: [
+        { do: "Start Fleet on this branch and watch its log for plan reads.", code: "tail -f ~/.armada/fleet.log | grep plan_usage", look: "One provider call a minute, where it was one every five seconds." },
+        { do: "Run the plan usage tests.", code: "armada check test plan_usage", look: "The cache cases pass: a second read inside the minute is served, and one after it calls the provider again." },
+        { do: "Open a second Bridge window and leave both on the Cockpit for two minutes.", look: "Still one call a minute in the log, not two." },
+        { do: "Hover a plan meter in the title bar.", look: "It says how long ago Fleet read the figure, counting up from read_at." },
+      ],
+    },
+    why: {
+      shape: "reason",
+      problem: "Every open window read the plan windows every five seconds, and each read was a call to the provider. The provider allows 30 requests a minute to an account, and the meters used the same allowance a Session needs to start.",
+      cost: "On the afternoon of 11 Oct two windows and three Sessions went over it, and Sessions began failing with a rate limit error before they had done anything.",
+      links: [
+        { label: "#1871 Plan meters hit the provider's rate limit", address: `${FORGE}/mele-labs/armada/issues/1871` },
+        { label: "#1880 Sessions rate limited on 11 Oct", address: `${FORGE}/mele-labs/armada/issues/1880` },
+      ],
+    },
+    changelog: { shape: "text", body: "The plan meters in the title bar now refresh once a minute and say how old their figure is. Opening more windows no longer uses more of your plan's request allowance." },
+    "on-call": { shape: "text", body: "Nothing new pages. A provider that cannot be reached now leaves the meters on their last figure for a minute and then marks them stale.\n\nFleet logs `plan_usage: provider unreachable` once a minute, where it logged it every five seconds. A burst of those lines is the provider, not Fleet." },
+  },
   summary:
     "The title bar's meters read the plan windows every five seconds, and every read called the provider. Fleet now keeps its last read for a minute and serves it again, Bridge asks once a minute, and each reading carries the instant it was taken so a meter can say how old its figure is.",
   explainedBy: "agent",
@@ -682,6 +715,31 @@ const reconnect = build({
     ["5c18d3e", "Wait 5 seconds first, then back off", "claude", 38],
     ["80a2f6b", "Jitter the wait", "claude", 31],
   ]),
+  accounts: {
+    "for-you": {
+      shape: "change",
+      rows: [
+        { what: "Fleet restarts", before: "Every window stayed dark for 30 seconds.", after: "The first retry is at 5 seconds, so a restart is back in about that." },
+        { what: "Fleet is away for a while", before: "A retry every 30 seconds for as long as it stayed away.", after: "Waits of 5, 10, 20 and 40 seconds, then one every 60." },
+        { what: "Two windows open", before: "Both retried on the same beat.", after: "Each wait is spread by a fifth, so they do not knock together." },
+      ],
+    },
+    "how-to-test": {
+      shape: "steps",
+      steps: [
+        { do: "Open Bridge, then stop Fleet.", code: "armada fleet stop", look: "The link mark says reconnecting, and the first retry comes at about 5 seconds." },
+        { do: "Leave Fleet stopped for two minutes.", look: "Retries at about 5, 10, 20 and 40 seconds, then every 60." },
+        { do: "Start Fleet again.", code: "armada fleet start", look: "Bridge connects at its next retry and the link mark says connected." },
+        { do: "Open a second window and stop Fleet again.", look: "The two windows do not retry in the same second." },
+      ],
+    },
+    why: {
+      shape: "reason",
+      problem: "A Fleet restart left every Bridge window dark for 30 seconds, because the wait after a lost socket was a flat 30 seconds and the first retry was already late. A Fleet that stayed away was asked every 30 seconds for as long as it did.",
+      cost: "Jobs kept progressing, but nothing could be reviewed or answered for half a minute after every update, and two windows retried in step.",
+      links: [{ label: "#1859 Bridge takes 30 seconds to come back after an update", address: `${FORGE}/mele-labs/armada/issues/1859` }],
+    },
+  },
   summary:
     "Bridge waited a flat 30 seconds after losing its socket to Fleet, so a Fleet restart left every window dark for half a minute. The wait now starts at 5 seconds and doubles up to 60. Each wait is spread by a fifth so two windows do not knock together, and the link says when it is connected.",
   explainedBy: "session",
@@ -1144,21 +1202,27 @@ const webhook = quick({
 // ---- The tools ------------------------------------------------------------------------------------------------
 
 const armadaTools: ToolDef[] = [
-  { id: "risks", name: "Risks", source: "armada", mark: "risks", agent: true, checks: "What could go wrong that the change does not handle: shared state, ordering, a caller that was not updated." },
-  { id: "bugs", name: "Possible bugs", source: "armada", mark: "bugs", agent: true, checks: "Behaviour that differs from what the change says it does: an off by one, a case the code skips, a state it never resets." },
-  { id: "api-breaking-changes", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
-  { id: "comments", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
+  { id: "risks", kind: "tool", name: "Risks", source: "armada", mark: "risks", agent: true, checks: "What could go wrong that the change does not handle: shared state, ordering, a caller that was not updated." },
+  { id: "bugs", kind: "tool", name: "Possible bugs", source: "armada", mark: "bugs", agent: true, checks: "Behaviour that differs from what the change says it does: an off by one, a case the code skips, a state it never resets." },
+  { id: "api-breaking-changes", kind: "tool", name: "API breaking changes", source: "armada", mark: "breaks", agent: true, checks: "Public shapes others depend on: wire fields, exported types and signatures, files a caller reads." },
+  { id: "comments", kind: "tool", name: "Comments", source: "armada", mark: "comments", agent: false, checks: "The forge's conversation and line comments, with his pending review." },
+  { id: "how-it-works", kind: "explanation", name: "How it works", source: "armada", mark: "custom", agent: true, checks: "How the code does what it does: its changes in the order they were made, each with why." },
+  { id: "for-you", kind: "explanation", name: "What it changes for you", source: "armada", mark: "custom", agent: true, checks: "How this changes things for someone who uses it: what they see or can do differently, before and after." },
+  { id: "how-to-test", kind: "explanation", name: "How to test it", source: "armada", mark: "custom", agent: true, checks: "The steps to try this change, each with what to look for." },
+  { id: "why", kind: "explanation", name: "Why it was needed", source: "armada", mark: "custom", agent: true, checks: "The problem, and what it cost, with the issue or incident the pull request names." },
 ];
 
 const kitTools: ToolDef[] = [
-  { id: "test-gaps", name: "Test gaps", source: "kit", mark: "custom", agent: true, checks: "What the change does that no test would notice if it broke." },
+  { id: "changelog", kind: "explanation", name: "For the changelog", source: "kit", mark: "custom", agent: true, checks: "The line that would go in the changelog, in the words a user would read." },
+  { id: "test-gaps", kind: "tool", name: "Test gaps", source: "kit", mark: "custom", agent: true, checks: "What the change does that no test would notice if it broke." },
 ];
 
 /** `.armada/review-tools/` in the armada repository: one that is its own, and one that replaces the Kit's of the same name. */
 const repositoryTools: Record<string, ToolDef[]> = {
   armada: [
-    { id: "test-gaps", name: "Test gaps", source: "repository", mark: "custom", agent: true, checks: "What the change does that no test in this repository's suites would notice if it broke. Name the suite that should hold it." },
-    { id: "migration-safety", name: "Migration safety", source: "repository", mark: "custom", agent: true, checks: "A migration under crates/store/migrations that locks a table, rewrites rows, or cannot be run twice." },
+    { id: "on-call", kind: "explanation", name: "What it changes for on-call", source: "repository", mark: "custom", agent: true, checks: "What a person on call sees differently: pages, logs, dashboards, and what to do when it misbehaves." },
+    { id: "test-gaps", kind: "tool", name: "Test gaps", source: "repository", mark: "custom", agent: true, checks: "What the change does that no test in this repository's suites would notice if it broke. Name the suite that should hold it." },
+    { id: "migration-safety", kind: "tool", name: "Migration safety", source: "repository", mark: "custom", agent: true, checks: "A migration under crates/store/migrations that locks a table, rewrites rows, or cannot be run twice." },
   ],
 };
 

@@ -12,6 +12,7 @@ import { useSessionsDraft } from "../sessions-draft";
 import type { ReviewPr, Verdict } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { BareChanges, ThemeBlock } from "./themes";
+import { isExplained } from "./tools";
 
 const KINDS = [
   { id: "comment", label: "Comment" },
@@ -38,7 +39,7 @@ export function CommentsView({ pr, send }: { pr: ReviewPr; send: ReturnType<type
     <div className="pr-comments">
       <YourReview pr={pr} />
       <PrConversation page={{ ...pr.page, conversation }} description={pr.body} />
-      {work.explain.state === "done" ? (
+      {isExplained(work) ? (
         pr.explanation.themes.map((theme, at) => <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="comments" send={send} />)
       ) : (
         <BareChanges pr={pr} mode="comments" send={send} />

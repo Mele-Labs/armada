@@ -13,7 +13,7 @@ import { useAtFloor } from "@armada/shell";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { toolsOf } from "./tools";
+import { onlyTools, toolsOf } from "./tools";
 
 /** What a tile says under its glyph, where the tool's name is long. */
 const SHORT: Record<string, string> = { "api-breaking-changes": "API breaks" };
@@ -28,7 +28,7 @@ export function ReviewTools({ leave }: { leave?: { pressed: boolean; press: () =
   const reviews = useReviews();
   const pr = reviews.prs.find((one) => one.key === reviews.open);
   const work = pr === undefined ? NO_WORK : (reviews.work[pr.key] ?? NO_WORK);
-  const tools = toolsOf(reviews, pr?.manifestId);
+  const tools = onlyTools(toolsOf(reviews, pr?.manifestId));
   const [adding, setAdding] = useState(false);
 
   const press = (tool: ToolDef) => {
@@ -128,15 +128,17 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
   const [name, setName] = useState("");
   const [checks, setChecks] = useState("");
   const [scope, setScope] = useState<"kit" | "repository">("kit");
+  const [kind, setKind] = useState<ToolDef["kind"]>("tool");
   const ready = name.trim() !== "" && checks.trim() !== "";
   const keep = "pr-review:add-tool:checks";
   const save = () => {
     if (!ready) return;
-    store.addTool({ name, checks, scope, manifestId: pr?.manifestId ?? "" });
+    store.addTool({ kind, name, checks, scope, manifestId: pr?.manifestId ?? "" });
     forgetKept(keep);
     setName("");
     setChecks("");
     setScope("kit");
+    setKind("tool");
     onClose();
   };
   return (
@@ -149,8 +151,24 @@ function AddTool({ open, pr, onClose }: { open: boolean; pr: ReviewPr | undefine
           save();
         }}
       >
+        <RadioGroup label="Kind">
+          <Tooltip label="Finds things on a pull request, as a tile in the Flight control" asChild>
+            <span className="pr-add__choice">
+              <Radio name="kind" checked={kind === "tool"} onChange={() => setKind("tool")}>
+                Tool
+              </Radio>
+            </span>
+          </Tooltip>
+          <Tooltip label="Tells him one thing about a pull request, chosen under its description" asChild>
+            <span className="pr-add__choice">
+              <Radio name="kind" checked={kind === "explanation"} onChange={() => setKind("explanation")}>
+                Explanation
+              </Radio>
+            </span>
+          </Tooltip>
+        </RadioGroup>
         <Input label="Name" value={name} onChange={(event) => setName(event.target.value)} />
-        <Textarea rows={6} keep={keep} aria-label="What it checks" placeholder="What it checks" value={checks} onChange={(event) => setChecks(event.target.value)} />
+        <Textarea rows={6} keep={keep} aria-label={kind === "tool" ? "What it checks" : "What it explains"} placeholder={kind === "tool" ? "What it checks" : "What it explains"} value={checks} onChange={(event) => setChecks(event.target.value)} />
         <RadioGroup label="Save to">
           <Tooltip label="~/.armada/review-tools/, every repository on this machine" asChild>
             <span className="pr-add__choice">

@@ -60,6 +60,9 @@ export type ToolSource = "armada" | "kit" | "repository";
 /** What a tool is drawn with. Armada's four have a mark each; one anybody adds takes the clipboard. */
 export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "custom";
 
+/** What a definition is for: a tool that finds things, or an explanation that tells him one thing about the pull request. */
+export type DefKind = "tool" | "explanation";
+
 /**
  * A review tool: a name and what it checks, as a prompt. **Shared like a skill**: a file in `~/.armada/review-tools/`
  * is his, in every repository on the machine, and one in `.armada/review-tools/` is the repository's, for everyone
@@ -67,16 +70,28 @@ export type ToolMark = "risks" | "bugs" | "breaks" | "comments" | "custom";
  */
 export type ToolDef = {
   id: string;
+  /** **An explanation comes from the same three places a tool does** and is merged the same way. */
+  kind: DefKind;
   name: string;
   source: ToolSource;
   mark: ToolMark;
-  /** What it checks. */
+  /** What it checks, or for an explanation what it explains. */
   checks: string;
   /** Runs an agent when pressed. Comments does not: it is the forge's conversation. */
   agent: boolean;
   /** The source a tool of the same name was replaced from, where it replaced one. */
   replaces?: ToolSource;
 };
+
+/**
+ * What an explanation says, in the shape that kind of explanation has. How it works is the themes view, built from
+ * `ReviewPr.explanation`. The rest are these. A kind a repository adds that has no shape of its own is `text`.
+ */
+export type Account =
+  | { shape: "change"; rows: { what: string; before: string; after: string }[] }
+  | { shape: "steps"; steps: { do: string; look: string; code?: string }[] }
+  | { shape: "reason"; problem: string; cost: string; links: { label: string; address: string }[] }
+  | { shape: "text"; body: string };
 
 /** Armada's own note on a change, from a tool he pressed. **Never posted to the forge.** */
 export type Finding = {
@@ -124,11 +139,14 @@ export type ReviewPr = {
   /** The forge's page: conversation, checks, commits, the review, and who opened it. */
   page: PullRequestPage;
   /**
-   * What the pull request does. **Where it comes from**: a Session of his that wrote it knows why, so it is there
-   * at open (`session`). On anybody else's it is read by an agent when he presses Explain (`agent`).
+   * How it works, as themes. **Where an explanation comes from**: a Session of his that wrote the pull request knows
+   * how it works and why it was needed, so those two are there at open (`session`). Every other explanation, and every
+   * explanation of anybody else's pull request, is read by an agent when he first chooses it (`agent`).
    */
   explanation: Explanation;
   explainedBy: "session" | "agent";
+  /** What the other explanations would say, by the id of the kind. A kind with none says nothing. */
+  accounts: Readonly<Record<string, Account>>;
   threads: Thread[];
 };
 
@@ -160,7 +178,10 @@ export type View = "explanation" | "checks" | "commits" | (string & {});
 
 /** What the store holds about one pull request beyond what the forge served. */
 export type PrWork = {
-  explain: AgentRun;
+  /** The explanations run for this pull request, by kind, each kept for the commit it read. */
+  explains: Readonly<Record<string, AgentRun>>;
+  /** The explanation shown under the description, if he has chosen one. */
+  kind: string | undefined;
   view: View;
   runs: Readonly<Record<string, AgentRun>>;
   /** Changes whose hunks are open. */

@@ -1,20 +1,19 @@
-// The reader: one pull request as an explanation. What it does, in a few plain sentences, then its changes
-// grouped into themes by what they make happen, each change in the order it was made with why. No list of files:
-// a path is a caption on a change, and a hunk is its evidence, folded until opened. Checks and Commits stay
-// reachable. A tool pressed in the Flight control below replaces the body with what it found, and the way back is
-// at its head. **Where the explanation comes from**: a Session of his that wrote the pull request knows why, so it is
-// there at open; on anybody else's, an agent writes it when he presses Explain.
+// The reader: one pull request, description first. Under it he can choose an explanation (`explain.tsx`): how it works
+// (its changes grouped into themes by what they make happen, each in the order it was made with why), what it changes
+// for him, how to test it, or why it was needed. No list of files: a path is a caption on a change, and a hunk is its
+// evidence, folded until opened. Checks and Commits stay reachable. A tool pressed in the Flight control below replaces
+// the body with what it found, and the way back is at its head.
 
-import { Bot, ExternalLink, GitPullRequest, RefreshCw, SquareTerminal } from "lucide-react";
-import { Badge, Button, DiffSize, PrChecks, PrCommits, Prose, PrMark, Tabs, Tooltip, agoOf } from "@armada/components";
+import { ExternalLink, GitPullRequest, SquareTerminal } from "lucide-react";
+import { Badge, Button, DiffSize, PrChecks, PrCommits, Prose, Tabs, Tooltip, agoOf } from "@armada/components";
 
 import { useSendFindings } from "./acts";
 import { CommentsView } from "./comments";
+import { Explainer } from "./explain";
 import { ChecksMark, ReviewMark } from "./marks";
 import type { ReviewPr } from "./model";
 import { ToolResults } from "./results";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { ThemeBlock } from "./themes";
 import { toolsOf } from "./tools";
 
 const TABS = [
@@ -116,64 +115,22 @@ function Reader({ pr, onOpenLink, onOpenSession }: ReaderHosts & { pr: ReviewPr 
         {work.view === "commits" ? <PrCommits rows={pr.page.commits} /> : null}
         {work.view === "comments" ? <CommentsView pr={pr} send={send} /> : null}
         {tool !== undefined && tool.agent ? <ToolResults pr={pr} tool={tool} send={send} /> : null}
-        {work.view === "explanation" ? <Explanation pr={pr} send={send} /> : null}
+        {work.view === "explanation" ? <Overview pr={pr} send={send} onOpenLink={onOpenLink} /> : null}
       </div>
     </section>
   );
 }
 
-function Explanation({ pr, send }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings> }) {
-  const store = useReviewStore()!;
-  const work = useReviews().work[pr.key] ?? NO_WORK;
-  const explained = work.explain.state === "done";
-  const running = work.explain.state === "running";
-  const by = pr.explainedBy === "session" ? { Glyph: SquareTerminal, said: "Written by the Session that made this pull request" } : { Glyph: Bot, said: "Explained by an agent when you pressed Explain" };
-  const kept = work.explain.state === "done" ? work.explain : undefined;
-  // An agent's explanation is kept for the commit it read. A newer commit leaves it standing, marked, with Explain again as the act.
-  const stale = pr.explainedBy === "agent" && kept !== undefined && kept.head !== pr.head;
+function Overview({ pr, send, onOpenLink }: { pr: ReviewPr; send: ReturnType<typeof useSendFindings>; onOpenLink: (address: string) => void }) {
   return (
     <div className="pr-explain">
       <section className="pr-what pr-desc" aria-label="Description">
         <header className="pr-what__head">
           <h3 className="pr-what__title">Description</h3>
-          {explained ? null : (
-            <span className="pr-what__acts">
-              <Tooltip label="An agent reads this pull request, once, and adds what it does and its themes" asChild>
-                <Button variant="secondary" size="sm" pending={running} disabled={running} onClick={() => store.explain(pr.key)}>
-                  {running ? "Explaining" : "Explain"}
-                </Button>
-              </Tooltip>
-            </span>
-          )}
         </header>
         <Prose text={pr.body} />
       </section>
-      {explained ? (
-        <>
-          <section className="pr-what" aria-label="What this does">
-            <header className="pr-what__head">
-              <h3 className="pr-what__title">What this does</h3>
-              <span className="pr-what__source" data-by={pr.explainedBy}>
-                <PrMark Glyph={by.Glyph} said={kept === undefined || pr.explainedBy === "session" ? by.said : `${by.said}, ${agoOf(new Date(kept.at).toISOString())}, on ${kept.head.slice(0, 7)}`} />
-              </span>
-              {stale ? (
-                <span className="pr-what__acts">
-                  <PrMark Glyph={RefreshCw} said={`Out of date. Explained on ${kept.head.slice(0, 7)}, the pull request is at ${pr.head.slice(0, 7)}`} />
-                  <Button variant="ghost" size="sm" onClick={() => store.explainAgain(pr.key)}>
-                    Explain again
-                  </Button>
-                </span>
-              ) : null}
-            </header>
-            <Prose text={pr.explanation.summary} />
-          </section>
-          <div className="pr-themes">
-            {pr.explanation.themes.map((theme, at) => (
-              <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="explain" send={send} />
-            ))}
-          </div>
-        </>
-      ) : null}
+      <Explainer pr={pr} send={send} onOpenLink={onOpenLink} />
     </div>
   );
 }

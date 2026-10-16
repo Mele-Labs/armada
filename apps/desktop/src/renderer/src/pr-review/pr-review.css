@@ -130,6 +130,33 @@
 .pr-what__head { display: flex; align-items: center; gap: var(--space-2); }
 .pr-what__title { margin: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
 
+/* The choice of explanations, and the one chosen. A kind he added scrolls rather than wraps the strip. */
+.pr-explainer { display: flex; flex-direction: column; gap: var(--space-3); }
+.pr-explainer__pick { overflow-x: auto; }
+.pr-what[data-source="kit"] { border-color: color-mix(in srgb, var(--status-rejected) 45%, var(--border-default)); }
+.pr-what[data-source="repository"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
+
+/* What it changes for you: the thing, then before and after side by side. */
+.pr-before-after { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-before-after__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-3); row-gap: var(--space-1); }
+.pr-before-after__what { grid-column: 1 / -1; margin: 0; color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.pr-before-after__before, .pr-before-after__after { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-before-after__before { background: var(--bg-base); box-shadow: inset 0 0 0 var(--border-width) var(--border-subtle); color: var(--fg-muted); }
+.pr-before-after__after { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); }
+.pr-before-after__tag { color: var(--fg-subtle); font-size: var(--text-2xs); letter-spacing: var(--tracking-caps); line-height: var(--leading-2xs); text-transform: uppercase; }
+
+/* How to test it: numbered steps, a command in its block, and what to look for under it. */
+.pr-steps { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.pr-steps__step { display: flex; gap: var(--space-3); }
+.pr-steps__n { display: inline-flex; flex: none; width: var(--space-6); height: var(--space-6); align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); }
+.pr-steps__body { display: flex; min-width: 0; flex: 1 1 0; flex-direction: column; gap: var(--space-1); }
+.pr-steps__do { margin: 0; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.pr-steps__look { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+
+/* Why it was needed: the problem, what it cost, and where the pull request says it came from. */
+.pr-reason { display: flex; flex-direction: column; gap: var(--space-2); }
+.pr-reason__links { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+
 .pr-themes { display: flex; flex-direction: column; gap: var(--space-4); }
 
 /* A theme: its number, its title, one line of purpose, and its changes down a spine in the order they were made. */

@@ -13,7 +13,7 @@ import type { PullRequestPage } from "@armada/protocol";
 import { SURFACE } from "@armada/shell";
 
 import type { Anchor, Find, Finding, PrWork, ReviewPr, ReviewSeed, ReviewSnapshot, ReviewTab, ToolDef, Verdict, View } from "./model";
-import { idOfName } from "./tools";
+import { bySession, idOfName } from "./tools";
 
 /** How long an agent runs in the mock before it has read the pull request. */
 export const AGENT_MS = 2200;
@@ -24,9 +24,9 @@ const withPush = (pr: ReviewPr, push: ReviewSeed["pushes"][string] | undefined):
     ? pr
     : { ...pr, head: push.sha, page: { ...pr.page, commits: [...pr.page.commits, { sha: push.sha, headline: push.headline, author: push.author, at: new Date().toISOString() }] } };
 
-const EMPTY: PrWork = { explain: { state: "idle" }, view: "explanation", runs: {}, opened: [], drafts: [], threads: [], findings: [], submissions: [], review: "none" };
+const EMPTY: PrWork = { explains: {}, kind: undefined, view: "explanation", runs: {}, opened: [], drafts: [], threads: [], findings: [], submissions: [], review: "none" };
 
-export type ToolIn = { name: string; checks: string; scope: "kit" | "repository"; manifestId: string };
+export type ToolIn = { kind: ToolDef["kind"]; name: string; checks: string; scope: "kit" | "repository"; manifestId: string };
 
 export type ReviewStore = {
   get: () => ReviewSnapshot;
@@ -42,10 +42,10 @@ export type ReviewStore = {
   open: (key: string | undefined) => void;
   setMode: (on: boolean) => void;
   setView: (key: string, view: View) => void;
-  /** An agent reads the pull request and says what it does. Only where nobody of his wrote it. */
-  explain: (key: string) => void;
+  /** Chooses an explanation. An agent reads the pull request the first time only, unless a Session of his already knows. A kept one shows at once. */
+  explain: (key: string, def: ToolDef) => void;
   /** Explains again, at the commit the pull request is at now. */
-  explainAgain: (key: string) => void;
+  explainAgain: (key: string, def: ToolDef) => void;
   /** Runs a tool for this pull request, or shows what it found last time. Comments runs nothing. */
   runTool: (key: string, tool: ToolDef) => void;
   /** Asks a tool again, for this pull request. */
@@ -71,7 +71,8 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
   const timers = new Set<number>();
   const initialWork = (pr: ReviewPr): PrWork => ({
     ...EMPTY,
-    explain: pr.explainedBy === "session" ? { state: "done", at: Date.now(), head: pr.head } : { state: "idle" },
+    explains: pr.explainedBy === "session" ? { "how-it-works": { state: "done", at: Date.now(), head: pr.head }, why: { state: "done", at: Date.now(), head: pr.head } } : {},
+    kind: pr.explainedBy === "session" ? "how-it-works" : undefined,
     threads: pr.threads,
     review: pr.page.review,
   });
@@ -134,6 +135,11 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     );
   };
 
+  const read = (key: string, def: ToolDef, head: string) => {
+    change(key, { kind: def.id, explains: { ...work(key).explains, [def.id]: { state: "running", since: Date.now() } } });
+    timers.add(window.setTimeout(() => change(key, { explains: { ...work(key).explains, [def.id]: { state: "done", at: Date.now(), head } } }), AGENT_MS));
+  };
+
   return {
     get: () => snapshot,
     subscribe: (listener) => {
@@ -163,18 +169,18 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
     open: (open) => set({ open }),
     setMode: (mode) => set({ mode }),
     setView: (key, view) => change(key, { view }),
-    explain: (key) => {
+    explain: (key, def) => {
       const pr = prOf(key);
-      if (pr === undefined || pr.explainedBy === "session" || work(key).explain.state !== "idle") return;
-      change(key, { explain: { state: "running", since: Date.now() } });
-      timers.add(window.setTimeout(() => change(key, { explain: { state: "done", at: Date.now(), head: pr.head } }), AGENT_MS));
+      if (pr === undefined) return;
+      const kept = work(key).explains[def.id];
+      change(key, { kind: def.id });
+      if (bySession(pr, def) || (kept !== undefined && kept.state !== "idle")) return;
+      read(key, def, pr.head);
     },
-    explainAgain: (key) => {
+    explainAgain: (key, def) => {
       const pr = prOf(key);
-      if (pr === undefined || pr.explainedBy === "session" || work(key).explain.state !== "done") return;
-      const head = pr.head;
-      change(key, { explain: { state: "running", since: Date.now() } });
-      timers.add(window.setTimeout(() => change(key, { explain: { state: "done", at: Date.now(), head } }), AGENT_MS));
+      if (pr === undefined || bySession(pr, def) || work(key).explains[def.id]?.state === "running") return;
+      read(key, def, pr.head);
     },
     runTool: (key, tool) => {
       if (!tool.agent) return change(key, { view: tool.id });
@@ -218,8 +224,8 @@ export function createReviewStore(seed: ReviewSeed): ReviewStore {
         submissions: [...current.submissions, { verdict, body: body.trim(), comments: current.drafts.length, at: now, ...(told === undefined ? {} : { told }) }],
       });
     },
-    addTool: ({ name, checks, scope, manifestId }) => {
-      const def: ToolDef = { id: idOfName(name), name: name.trim(), source: scope, mark: "custom", checks: checks.trim(), agent: true };
+    addTool: ({ kind, name, checks, scope, manifestId }) => {
+      const def: ToolDef = { id: idOfName(name), kind, name: name.trim(), source: scope, mark: "custom", checks: checks.trim(), agent: true };
       if (scope === "kit") set({ kit: [...snapshot.kit.filter((one) => one.id !== def.id), def] });
       else set({ repository: { ...snapshot.repository, [manifestId]: [...(snapshot.repository[manifestId] ?? []).filter((one) => one.id !== def.id), def] } });
     },

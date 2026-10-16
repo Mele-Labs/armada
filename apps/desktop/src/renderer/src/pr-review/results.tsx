@@ -9,6 +9,7 @@ import type { useSendFindings } from "./acts";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
+import { isExplained } from "./tools";
 import { BareChanges, ThemeBlock } from "./themes";
 
 export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; send: ReturnType<typeof useSendFindings> }) {
@@ -57,7 +58,7 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
         </p>
       ) : (
         <div className="pr-results__themes">
-          {work.explain.state === "done" ? (
+          {isExplained(work) ? (
             pr.explanation.themes.map((theme, at) => (
               <ThemeBlock key={theme.id} pr={pr} theme={theme} number={at + 1} mode="result" tool={tool.id} send={send} quiet={(one) => !mine.some((finding) => finding.change === one.id)} />
             ))
