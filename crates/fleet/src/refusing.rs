@@ -48,7 +48,7 @@ const DRONE_NOT_LIVE: &str = "fleet.drone_not_live";
 const NO_CHECK_TO_ACT: &str = "fleet.no_check_to_act";
 const FAULT: &str = "fleet.fault";
 /// A Job whose repository this Fleet does not serve. A 422.
-const NOT_SERVED: &str = "fleet.repository_not_served";
+pub(crate) const NOT_SERVED: &str = "fleet.repository_not_served";
 /// A `save_preferences` naming something outside the five preferences it
 /// reads. A 422, refused by name — `name` rides on the field the message quotes.
 const UNKNOWN_PREFERENCE: &str = "fleet.unknown_preference";

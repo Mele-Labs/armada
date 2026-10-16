@@ -177,6 +177,18 @@ pub trait Commands: Send + Sync + 'static {
         fix: ipc::FixMain,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `catch_up_checkout` — pull a served checkout that Fleet would not catch
+    /// up level with its base, setting its uncommitted files aside and putting
+    /// them back. **Reads the hold again first** and refuses unless a pull
+    /// cannot lose or stop on anything: [`Refusal::IllegalMove`] where nothing
+    /// holds the checkout back or the hold is not that one;
+    /// [`Refusal::Unacceptable`] on a repository this Fleet does not serve.
+    /// **A pull git refused or left conflicted is an answer**, not a refusal.
+    fn catch_up_checkout(
+        &self,
+        asked: ipc::CatchUpCheckout,
+    ) -> impl Future<Output = Result<ipc::CheckoutCaughtUp, Refusal>> + Send;
+
     /// `resume_job` — lifts the pause. **A gate Job takes a slot now if one is
     /// free** and waits for the first to free if not; a queued one is let into
     /// admission's line. Neither starts a Drone itself. 409 where the Job is

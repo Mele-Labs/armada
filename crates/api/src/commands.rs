@@ -560,6 +560,22 @@ pub(crate) async fn fix_main<D: Commands>(
     }
 }
 
+/// Pull a held checkout level: `Commands::catch_up_checkout`. The pull's code and
+/// words come back, a refused or conflicted one among them.
+pub(crate) async fn catch_up_checkout<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::CatchUpCheckout = match ipc::decode("a catch-up for a checkout", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().catch_up_checkout(asked).await {
+        Ok(pulled) => answer(StatusCode::OK, &pulled, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Lift the pause: `Commands::resume_job`. The row comes back without `paused`,
 /// or with `resuming` set where every slot was held.
 pub(crate) async fn resume_job<D: Commands>(

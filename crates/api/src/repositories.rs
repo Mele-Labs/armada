@@ -45,6 +45,25 @@ pub(crate) async fn get_merge_lines<D: Queries>(State(served): State<Served<D>>)
     }
 }
 
+/// `?manifest_id=&path=`, both asked for.
+#[derive(serde::Deserialize)]
+pub(crate) struct CheckoutDiffQuery {
+    manifest_id: String,
+    path: String,
+}
+
+/// One uncommitted file of a held checkout, as a diff: `Queries::checkout_diff`.
+pub(crate) async fn checkout_diff<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<CheckoutDiffQuery>,
+) -> Response {
+    let ask = ipc::CheckoutDiffAsk { manifest_id: ipc::ManifestId::carried(asked.manifest_id), path: asked.path };
+    match served.daemon().checkout_diff(ask).await {
+        Ok(diff) => answer(StatusCode::OK, &diff, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// 201: the repository is served when this answers.
 pub(crate) async fn add_repository<D: Commands>(
     State(served): State<Served<D>>,
