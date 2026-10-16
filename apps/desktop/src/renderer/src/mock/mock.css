@@ -298,13 +298,3 @@
 .armada-mock-walk-window__frame iframe[data-armed] {
   cursor: crosshair;
 }
-
-/* `?take=one` on walk `places-narrow`: the plan's limits as one ring rather than two stacked meters. Goes once the
-   owner picks a take. */
-[data-take="one"] .armada-title-bar__usage {
-  display: none;
-}
-
-[data-take="one"] .armada-title-bar__usage-ring {
-  display: flex;
-}

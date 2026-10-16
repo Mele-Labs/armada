@@ -1,5 +1,5 @@
 import { BellRing, Check, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
-import { createContext, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -10,7 +10,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import { Kbd, KbdBinding, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { useKeyBindings } from "../../keymap";
-import { StopCard, useCardOpen, type StopCardRow } from "../StopCard/StopCard";
+import { useCardOpen, type StopCardRow } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 import { TitleMenu } from "./TitleMenu";
@@ -62,55 +62,30 @@ function countdown(ms: number): string {
   return `${minutes}m`;
 }
 
-/**
- * One limit as a fill meter, and the card it opens: **hover or focus opens it, a press keeps it open, and
- * Esc or a press outside closes it**, as a metro stop's card does in the Bays view. No acts.
- */
-function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; name: string } }) {
-  const { open, pinned, toggle, close, bind } = useCardOpen();
-  const percent = Math.round(one.percentUsed);
-  const level = usageLevel(percent);
-  return (
-    <span className="armada-title-bar__usage-limit" data-level={level} {...bind}>
-      <button
-        type="button"
-        className="armada-title-bar__usage-meter"
-        aria-label={`${limit.name} ${percent}%`}
-        aria-expanded={open}
-        style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
-        onClick={toggle}
-      >
-        <span className="armada-title-bar__usage-label">{limit.short}</span>
-        <span className="armada-title-bar__usage-track" />
-        {one.offer?.attention === undefined ? null : (
-          <Tooltip label={one.offer.attention} beside>
-            <span className="armada-title-bar__usage-attention" role="img" aria-label={one.offer.attention}>
-              <BellRing size={12} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
-        )}
-      </button>
-      {open ? <LimitCard className="armada-title-bar__usage-card" one={one} limit={limit} pinned={pinned} close={close} /> : null}
-    </span>
-  );
-}
+type Drawn = { one: PlanUsage; limit: { short: string; name: string } };
 
-/** One limit's card: how much is used, when it resets, and what is on offer. */
-function LimitCard({ one, limit, pinned, close, className }: { one: PlanUsage; limit: { short: string; name: string }; pinned: boolean; close: () => void; className?: string }) {
+/** One limit in the card: its name and how much is used on one line, then when it resets, any offer's facts and its acts. */
+function LimitSection({ one, limit, close }: Drawn & { close: () => void }) {
   const percent = Math.round(one.percentUsed);
   const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
   const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
+  const rows: readonly StopCardRow[] = [...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])];
   return (
-    <StopCard
-      {...(className === undefined ? {} : { className })}
-      role="dialog"
-      aria-label={limit.name}
-      data-pinned={pinned || undefined}
-      pill={`${percent}% used`}
-      where={limit.short}
-      title={limit.name}
-      rows={[...(resets === undefined ? [] : [["Resets in", countdown(resets.getTime() - Date.now()), true] as const]), ...(one.offer?.facts ?? [])]}
-    >
+    <section className="armada-title-bar__usage-limit" data-level={usageLevel(percent)} aria-label={limit.name}>
+      <p className="armada-title-bar__usage-head">
+        {limit.name}
+        <span className="armada-title-bar__usage-percent">{percent}%</span>
+      </p>
+      {rows.length === 0 ? null : (
+        <dl className="armada-title-bar__usage-facts">
+          {rows.map(([term, value, mono]) => (
+            <div key={term}>
+              <dt>{term}</dt>
+              <dd data-mono={mono || undefined}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {one.offer?.acts === undefined || one.offer.acts.length === 0 ? null : (
         <span className="armada-title-bar__usage-acts">
           {one.offer.acts.map((act) => (
@@ -128,21 +103,25 @@ function LimitCard({ one, limit, pinned, close, className }: { one: PlanUsage; l
           ))}
         </span>
       )}
-    </StopCard>
+    </section>
   );
 }
 
-type Drawn = { one: PlanUsage; limit: { short: string; name: string } };
-
 /**
- * Take "one" (mock walk `places-narrow`, until the owner picks): both limits as one glyph, the first limit the
- * outer ring and the second the inner, each arc in its level's tone. One card holds both.
+ * The plan's limits as one ring glyph, and the one card it opens: **hover or focus opens it, a press keeps it
+ * open, and Esc or a press outside closes it**, as a metro stop's card does in the Bays view. The first limit is
+ * the outer ring and the second the inner, each arc in its level's tone.
  */
-function LimitRing({ drawn }: { drawn: readonly Drawn[] }) {
+function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
   const { open, pinned, toggle, close, bind } = useCardOpen();
+  const drawn: readonly Drawn[] = usage.flatMap((one) => {
+    const limit = LIMITS[one.kind];
+    return limit === undefined ? [] : [{ one, limit }];
+  });
+  if (drawn.length === 0) return null;
   const attention = drawn.find(({ one }) => one.offer?.attention !== undefined)?.one.offer?.attention;
   return (
-    <span className="armada-title-bar__usage-ring" {...bind}>
+    <span className="armada-title-bar__usage" {...bind}>
       <button
         type="button"
         className="armada-title-bar__usage-meter"
@@ -171,31 +150,13 @@ function LimitRing({ drawn }: { drawn: readonly Drawn[] }) {
         )}
       </button>
       {open ? (
-        <span className="armada-title-bar__usage-card armada-title-bar__usage-cards">
+        <div className="armada-title-bar__usage-card" role="dialog" aria-label="Plan limits" data-pinned={pinned || undefined}>
           {drawn.map(({ one, limit }) => (
-            <LimitCard key={one.kind} one={one} limit={limit} pinned={pinned} close={close} />
+            <LimitSection key={one.kind} one={one} limit={limit} close={close} />
           ))}
-        </span>
+        </div>
       ) : null}
     </span>
-  );
-}
-
-function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
-  const drawn = usage.flatMap((one) => {
-    const limit = LIMITS[one.kind];
-    return limit === undefined ? [] : [{ one, limit }];
-  });
-  if (drawn.length === 0) return null;
-  return (
-    <>
-      <div className="armada-title-bar__usage">
-        {drawn.map(({ one, limit }) => (
-          <LimitMeter key={one.kind} one={one} limit={limit} />
-        ))}
-      </div>
-      <LimitRing drawn={drawn} />
-    </>
   );
 }
 
