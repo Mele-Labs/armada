@@ -30,6 +30,7 @@ import { approvedText, sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
+import { StateSends } from "./state-sends";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
@@ -370,13 +371,21 @@ function withView(state: BridgeState, view: PickedView): BridgeState {
   return { ...state, ...rest, holds: { ...state.holds, leftOut } };
 }
 
+/** What each window holds of the state, so a send is only what moved since: `shared/state-change.ts`. */
+const sends = new StateSends<BridgeState>();
+
+function sendState(contents: Electron.WebContents, state: BridgeState): void {
+  const change = sends.next(contents, state);
+  if (change !== null) contents.send(CHANNELS.changed, change);
+}
+
 /** Every window sees the same state, save its own pick — `pickedViews`, overlaid here. */
 const toWindows = coalesce((state: BridgeState) => {
   for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send(CHANNELS.changed, withView(state, viewFor(window.id)));
+    if (!window.isDestroyed()) sendState(window.webContents, withView(state, viewFor(window.id)));
   }
   // A walk window's panel reads what Bridge's windows read, and picks no repository of its own.
-  for (const panel of captureWindows.panels()) panel.send(CHANNELS.changed, withView(state, NO_PICK));
+  for (const panel of captureWindows.panels()) sendState(panel, withView(state, NO_PICK));
 });
 
 /**
@@ -401,7 +410,7 @@ function publishToWindow(windowId: number, change: Partial<PickedView>): void {
   pickedViews.set(windowId, view);
   const window = BrowserWindow.getAllWindows().find((one) => one.id === windowId);
   if (window !== undefined && !window.isDestroyed()) {
-    window.webContents.send(CHANNELS.changed, withView(published, view));
+    sendState(window.webContents, withView(published, view));
   }
 }
 
@@ -571,6 +580,11 @@ void app.whenReady().then(() => {
   // Awaited, because `state()` brings the connection current first — a window
   // reload is a fresh reader and gets what exists rather than what main last
   // heard about. See `FleetConnection.state`.
+  // The whole state as a window's own base for the changes that follow, on mount and wherever one reaches it out of order.
+  ipcMain.handle(CHANNELS.syncState, async (event) => {
+    const state = (await connection?.state()) ?? published;
+    return sends.full(event.sender, withView(state, viewFor(windowIdOf(event))));
+  });
   ipcMain.handle(CHANNELS.state, async (event) => {
     const state = await connection?.state();
     // A fresh window asks for state on mount with its listener already

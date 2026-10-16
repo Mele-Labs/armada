@@ -21,6 +21,7 @@ import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
 import { createFleetTimeline } from "./fleet-timeline";
+import { withState } from "./state-feed";
 import { FleetEventsOver } from "./cockpit/fleet-events";
 import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
@@ -53,29 +54,29 @@ import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 // when everything under it has gone.
 
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
-const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+const THEMES = createFleetThemes(withState(window.armada), CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
-const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(window.armada);
+const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(withState(window.armada));
 /** The owner's key bindings, over Fleet. Not a mod, so safe mode keeps them. */
-wireFleetKeymap(window.armada);
+wireFleetKeymap(withState(window.armada));
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
-const SLEEP = createFleetSleep(window.armada);
+const SLEEP = createFleetSleep(withState(window.armada));
 /** The plan's windows in the title row, over Fleet. */
-const PLAN_USAGE = createFleetPlanUsage(window.armada);
+const PLAN_USAGE = createFleetPlanUsage(withState(window.armada));
 /** The default model's offered step down on the weekly meter, over Fleet. */
-const DOWNSHIFT = createFleetDownshift(window.armada);
-const TIMELINE = createFleetTimeline(window.armada);
+const DOWNSHIFT = createFleetDownshift(withState(window.armada));
+const TIMELINE = createFleetTimeline(withState(window.armada));
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
-const CLASHES = createFleetClashes(window.armada);
+const CLASHES = createFleetClashes(withState(window.armada));
 /** The directories the deck's map is drawn in and what each slot's holder has changed, over Fleet. */
-const TERRITORY = createFleetTerritory(window.armada);
+const TERRITORY = createFleetTerritory(withState(window.armada));
 /** The pull requests waiting on him, read from the forge by Fleet when the Reviews tab opens. The agent half is fixtures until wave 2. */
 const REVIEWS = createReviewStore(reviewSourceOf(window.armada), NO_FIXTURES);
 /** The title menu's account entry: the profiles and the sign-in, over Fleet. */
-const ACCOUNT = createFleetAccount(window.armada);
+const ACCOUNT = createFleetAccount(withState(window.armada));
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least

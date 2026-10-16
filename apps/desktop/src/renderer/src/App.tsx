@@ -174,6 +174,7 @@ import { useGuideListWidth } from "./guide-list-width";
 import { fleetPanelClocked } from "./left-column";
 import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
+import { stateOf } from "./state-feed";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { askToOpenHelm, Shell, SURFACE, SURFACES, useAtFloor, useLayout, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -342,8 +343,9 @@ export function App({ draft }: AppProps = {}) {
     // answers the window keeps the one it has: a poll that changed nothing else must not draw the whole window.
     const take = (next: BridgeState) =>
       setState((was) => share(was, next.connection.state === "connected" && was.readAt !== null && next.readAt !== null ? { ...next, readAt: was.readAt } : next));
-    void window.armada.state().then(take);
-    return window.armada.subscribe(take);
+    const source = stateOf(window.armada);
+    void source.state().then(take);
+    return source.subscribe(take);
   }, []);
 
   // What main is asked to hold open for the Job being read: the Job itself, what

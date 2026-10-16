@@ -14,6 +14,7 @@ import type { HubPullRequest, RepositorySummary } from "@armada/protocol";
 
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
+import { withState, type StateSource } from "./state-feed";
 import { issueHit, lookedUpPullRequest, NumberedFrom, pullRequestHit } from "./numbered";
 import type { NumberedSource } from "./numbered";
 
@@ -22,7 +23,7 @@ export const STALE_MS = 30_000;
 
 const NONE: readonly never[] = [];
 
-type Reads = Pick<BridgeApi, "state" | "subscribe" | "listIssues" | "getIssue" | "getPullRequest">;
+type Reads = StateSource & Pick<BridgeApi, "listIssues" | "getIssue" | "getPullRequest">;
 
 type Issues = { at: number; loading: boolean; hits: readonly NumberedHit[] };
 
@@ -131,7 +132,7 @@ export class FleetNumbered {
 
 /** `#` over a real Fleet, for the window the app mounts. The mock mounts its own. */
 export function WiredNumbered({ children }: { children: ReactNode }) {
-  const store = useMemo(() => new FleetNumbered(window.armada), []);
+  const store = useMemo(() => new FleetNumbered(withState(window.armada)), []);
   useEffect(() => store.attach(), [store]);
   return <NumberedFrom held={store.source}>{children}</NumberedFrom>;
 }

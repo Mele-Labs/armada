@@ -72,6 +72,9 @@
 .bf-slab { position: absolute; transform-style: preserve-3d; pointer-events: none; --top: color-mix(in srgb, var(--fg-default) var(--tint, 6%), var(--bg-base)); --side: color-mix(in srgb, var(--fg-default) calc(var(--tint, 6%) * 0.5), var(--bg-base)); }
 .bf-top,
 .bf-face { position: absolute; transition: transform var(--rise) var(--ease), background-color var(--rise) var(--ease); }
+/* A transition and an animation on the one property cannot both run on the compositor, so the transition waits while the loop runs. */
+.bf-slab[data-writing="loop"] :is(.bf-top, .bf-face) { transition: none; }
+.bf-drone[data-launching] .bf-beam3 { transition: none; }
 .bf-top { inset: 0; transform: translateZ(calc(var(--h) * var(--border-width))); background: var(--top); box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--fg-default) 18%, transparent); pointer-events: auto; }
 .bf-contour { position: absolute; inset: calc(9 * var(--bf-u)); border: var(--border-width) solid color-mix(in srgb, var(--fg-default) 8%, transparent); border-radius: calc(12 * var(--bf-u)); }
 .bf-face { background: var(--side); border-top: var(--border-width) solid color-mix(in srgb, var(--fg-default) 16%, transparent); pointer-events: none; }
@@ -350,6 +353,8 @@
 .bf-callout__lead { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .bf-callout__lead line { stroke: var(--tip); stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.9; }
 .bf-callout__lead circle { fill: var(--tip); }
+/* Placement moves this; the card inside has its entry animation to itself. */
+.bf-callout__place { position: absolute; inset: 0; pointer-events: none; }
 .bf-callout__card {
   position: absolute;
   left: 0;
@@ -403,10 +408,11 @@
 .bf-callout__ticks rect { fill: var(--tip); }
 .bf-callout__ticks rect[data-empty] { opacity: 0.3; }
 /* The flick of the brackets on the drone itself as the callout opens. */
-.bf-reticle[data-flick] { transform-box: view-box; transform-origin: 0 0; animation: bf-flick 140ms var(--ease) backwards; }
+/* Opacity alone: an SVG group cannot be scaled on the compositor, and the scale it had ran on the main thread, repainting the drone's layer. */
+.bf-reticle[data-flick] { animation: bf-flick 140ms var(--ease) backwards; }
 @keyframes bf-flick {
-  from { opacity: 0; scale: 1.35; }
-  to { opacity: 1; scale: 1; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .bf-zoom { position: absolute; top: var(--space-3); right: var(--space-3); z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); }
 .bf-zoom .armada-button { border: var(--border-width) solid var(--border-glass); border-radius: 50%; background: var(--bg-glass); box-shadow: inset 0 var(--border-width) 0 var(--border-highlight), var(--shadow-card); }

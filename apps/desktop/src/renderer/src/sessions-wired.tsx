@@ -48,6 +48,7 @@ import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
 import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
+import { stateOf } from "./state-feed";
 
 const NONE: readonly never[] = [];
 
@@ -99,8 +100,9 @@ export class WiredStore {
   /** Read the state and follow it. Returns the way to stop. */
   attach(): () => void {
     let live = true;
-    void this.api.state().then((state) => live && this.take(state));
-    const off = this.api.subscribe((state) => this.take(state));
+    const source = stateOf(this.api);
+    void source.state().then((state) => live && this.take(state));
+    const off = source.subscribe((state) => this.take(state));
     // Another window saved or started an idea: this one reads the queue again.
     const heard = hearQueuedIdeas(() => this.keepQueued(readQueuedIdeas()));
     return () => {
