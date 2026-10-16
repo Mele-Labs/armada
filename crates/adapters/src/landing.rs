@@ -461,16 +461,19 @@ pub(crate) fn held_back(in_repo: &str, base: &str) -> Option<HeldBack> {
             .filter_map(|entry| entry.path().map(str::to_string))
             .collect(),
     };
-    // **A file main changed that is main's own content now is not a clash**: the change went up
-    // another road, and the pull over it takes nothing from anyone.
+    // **A file main changed that already holds the owner's change is not a clash**: the change
+    // went up another road, and the pull over it takes nothing from anyone.
     let (clashing, already_on_base): (Vec<String>, Vec<String>) = match uncommitted.is_empty() {
         true => (Vec::new(), Vec::new()),
         false => {
-            let tip = repo.find_commit(theirs).and_then(|commit| commit.tree()).ok()?;
+            let tree = |oid| repo.find_commit(oid).and_then(|commit| commit.tree()).ok();
+            let (here, tip) = (tree(ours)?, tree(theirs)?);
             changed_between(&repo, ours, theirs)
                 .into_iter()
                 .filter(|path| uncommitted.contains(path))
-                .partition(|path| !same_as_the_tree(&repo, &tip, path))
+                .partition(|path| {
+                    !same_as_the_tree(&repo, &tip, path) && !held_by_the_tree(&repo, &here, &tip, path)
+                })
         }
     };
     Some(HeldBack {
@@ -579,6 +582,37 @@ pub(crate) fn same_as_the_tree(repo: &Repository, tree: &git2::Tree<'_>, path: &
         }
         _ => false,
     }
+}
+
+/// Whether `tip` already holds the owner's uncommitted change to `path`: their
+/// change, merged with main's over what `here` has, gives back main's file
+/// exactly. Main took the change and moved on (a comment reworded beside it), so
+/// the pull keeps everything of theirs.
+fn held_by_the_tree(repo: &Repository, here: &git2::Tree<'_>, tip: &git2::Tree<'_>, path: &str) -> bool {
+    let Working::File(content, mode) = working(repo, path) else {
+        return false;
+    };
+    let (Ok(was), Ok(main)) = (here.get_path(Path::new(path)), tip.get_path(Path::new(path))) else {
+        return false;
+    };
+    if main.filemode() != i32::from(mode) {
+        return false;
+    }
+    let (Some(root), Ok(owners)) = (repo.workdir(), repo.blob(&content)) else {
+        return false;
+    };
+    // `--object-id`, so nothing is written beside the owner's files.
+    let Ok(merged) = run_in(
+        &root.to_string_lossy(),
+        "git",
+        &["merge-file", "-p", "--object-id", &owners.to_string(), &was.id().to_string(), &main.id().to_string()],
+    ) else {
+        return false;
+    };
+    merged.status.success()
+        && repo
+            .find_blob(main.id())
+            .is_ok_and(|blob| blob.content() == merged.stdout.as_slice())
 }
 
 /// The paths `theirs` changed since it and `ours` parted.

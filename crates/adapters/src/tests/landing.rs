@@ -241,8 +241,12 @@ fn somewhere_that_is_not_a_repository_is_left_alone() {
 
 /// Commit `path` in the second checkout and push it, as a merge on the forge.
 fn merged_elsewhere(repo: &TempRepo, path: &str) {
+    merged_elsewhere_as(repo, path, "main's version");
+}
+
+fn merged_elsewhere_as(repo: &TempRepo, path: &str, text: &str) {
     let elsewhere = repo.root().with_extension("elsewhere");
-    std::fs::write(elsewhere.join(path), "main's version").expect("writes");
+    std::fs::write(elsewhere.join(path), text).expect("writes");
     for args in [
         vec!["add", "--", path],
         vec!["commit", "-m", "main changed it"],
@@ -338,6 +342,56 @@ fn a_file_one_byte_from_main_s_content_still_clashes() {
     let held = held_back(&repo.root_str(), "main").expect("read");
 
     assert_eq!(held.clashing, ["armada.yml"]);
+    assert!(held.already_on_base.is_empty());
+}
+
+/// Main took the owner's change and reworded a line beside it: the file is not
+/// main's byte for byte, but nothing of theirs is lost by the pull.
+#[test]
+fn an_uncommitted_change_main_already_holds_is_not_a_clash_and_pulls_clean() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "a\nb\nc\n", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let elsewhere = repo.root().with_extension("elsewhere");
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&elsewhere)
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere_as(&repo, "notes.md", "header\na\nb\nc\nd\n");
+    repo.write("notes.md", "a\nb\nc\nd\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert!(held.clashing.is_empty(), "{:?}", held.clashing);
+    assert_eq!(held.already_on_base, ["notes.md"]);
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(std::fs::read_to_string(repo.root().join("notes.md")).expect("reads"), "header\na\nb\nc\nd\n");
+    assert!(repo.status().is_empty(), "{:?}", repo.status());
+}
+
+/// A change that merges clean but is not in main's file is still the owner's own.
+#[test]
+fn an_uncommitted_change_main_does_not_hold_still_clashes() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "a\nb\nc\n", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let elsewhere = repo.root().with_extension("elsewhere");
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&elsewhere)
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere_as(&repo, "notes.md", "header\na\nb\nc\nd\n");
+    repo.write("notes.md", "a\nb\nc\ne\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!(held.clashing, ["notes.md"]);
     assert!(held.already_on_base.is_empty());
 }
 
