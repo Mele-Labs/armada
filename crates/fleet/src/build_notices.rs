@@ -9,7 +9,9 @@
 //! **Told once**: the key is (build commit, session) in the store, so a later Fleet does not
 //! repeat it. A session that cannot be told now is asked again next reading, with nothing kept.
 //! Who is told: a live session waiting on the person to restart onto this build — the act Bridge
-//! draws as Refresh preview or Update to main. That wait is answered with the notice.
+//! draws as Refresh preview or Update to main — as the answer to that wait, with every branch it
+//! holds. And a session whose branch the build newly holds, holds newer commits of, or dropped,
+//! with those branches only: a rebuild that leaves its branches where they were says nothing.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -59,7 +61,7 @@ fn said(build: BuildSource, commit: &str, branches: &[(String, BranchInBuild)]) 
     for (branch, standing) in branches {
         out.push('\n');
         out.push_str(&match standing {
-            BranchInBuild::In => format!("{branch} is in it."),
+            BranchInBuild::In { .. } => format!("{branch} is in it."),
             BranchInBuild::NotIn => format!("{branch} is not in it."),
             BranchInBuild::Partly { newest, since: 1 } => {
                 format!("{branch} is in it up to {}; 1 commit since is not.", short(newest))
@@ -70,6 +72,18 @@ fn said(build: BuildSource, commit: &str, branches: &[(String, BranchInBuild)]) 
         });
     }
     out
+}
+
+/// What a session was last told of a branch, as kept: none of it in the build, or the newest
+/// commit of it the build holds.
+const OUT: &str = "out";
+
+fn kept_as(standing: &BranchInBuild) -> String {
+    match standing {
+        BranchInBuild::NotIn => OUT.to_string(),
+        BranchInBuild::In { tip } => tip.clone(),
+        BranchInBuild::Partly { newest, .. } => newest.clone(),
+    }
 }
 
 fn answer(session: &str, item: String, text: &str) -> AnswerWaiting {
@@ -144,26 +158,57 @@ where
             if kept {
                 continue;
             }
-            let mut settling = reasons.restarts.into_iter().filter(|(_, asked)| *asked == build).map(|(item, _)| item);
-            // Only a session that asked the person for this build is told, and its wait is answered
-            // with the notice itself, so it wakes once. Any other session would spend a turn on it.
-            let Some(first) = settling.next() else {
-                continue;
-            };
             let standing = self.branches_in_build(served, commit, &reasons.branches).await;
-            let text = said(build, commit, &standing);
-            if Arc::clone(self).settle_waiting(answer(&session, first, &text)).await.is_err() {
+            let moved = self.branches_moved(&session, &standing).await;
+            let mut settling = reasons.restarts.into_iter().filter(|(_, asked)| *asked == build).map(|(item, _)| item);
+            // A wait for this build is answered with the notice itself, so the session wakes once.
+            let told = match settling.next() {
+                Some(item) => {
+                    let text = said(build, commit, &standing);
+                    Arc::clone(self).settle_waiting(answer(&session, item, &text)).await.is_ok()
+                }
+                None if moved.is_empty() => continue,
+                None => matches!(self.told_news_by_fleet(&session, &said(build, commit, &moved)).await, Ok(true)),
+            };
+            if !told {
                 everyone = false;
                 continue;
             }
             let at = self.now();
-            let _ = self.store().lock().await.keep_build_notice(commit, &session, &at);
+            {
+                let mut store = self.store().lock().await;
+                let _ = store.keep_build_notice(commit, &session, &at);
+                for (branch, one) in &standing {
+                    let _ = store.keep_build_branch_told(&session, branch, &kept_as(one), &at);
+                }
+            }
             let words = format!("Restarted: {} at {}", build_word(build), short(commit));
             for item in settling {
                 let _ = Arc::clone(self).settle_waiting(answer(&session, item, &words)).await;
             }
         }
         everyone
+    }
+
+    /// The branches whose standing is news to this session: newly in the build or newer commits of
+    /// it, or out of it after it was told it was in. Out of a build it never heard it was in is not.
+    async fn branches_moved(
+        &self,
+        session: &str,
+        standing: &[(String, BranchInBuild)],
+    ) -> Vec<(String, BranchInBuild)> {
+        let store = self.store().lock().await;
+        standing
+            .iter()
+            .filter(|(branch, one)| {
+                let Ok(last) = store.build_branch_told(session, branch) else {
+                    return false;
+                };
+                let now = kept_as(one);
+                last.as_deref() != Some(now.as_str()) && (now != OUT || last.is_some())
+            })
+            .cloned()
+            .collect()
     }
 
     /// Where each branch a session holds stands in the build. A branch git will not say is left out.
