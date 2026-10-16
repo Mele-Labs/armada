@@ -5,16 +5,19 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { afterEach, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 
 import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
+import { REOPEN_WITHIN_MS, SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
+/** What the Fleet answers a take of a window's sign-in with. */
+let held: string[] = [];
 
 afterEach(async () => {
+  held = [];
   const server = listening;
   listening = null;
   if (server === null) return;
@@ -56,10 +59,12 @@ async function fleet(sent: Sent[], sessions: SessionRecord[], threads: Record<st
       };
       if (refuse && url.pathname.endsWith("/merge")) return answer(409, { code: "fleet.merge_checks_not_passed", message: "Checks have not passed: lint." });
       if (url.pathname === "/sessions") return answer(200, { sessions });
+      if (url.pathname === "/sessions/window/failed") return answer(200, { told: true });
       if (url.pathname === "/sessions/one") {
         const id = url.searchParams.get("session_id") ?? "";
         return answer(200, { session: sessions.find((one) => one.id === id), rows: threads[id] ?? [] });
       }
+      if (url.pathname === "/sessions/window/sign_in") return answer(200, { sign_in: held });
       if (url.pathname.startsWith("/sessions/")) return answer(200, sessions[0]);
       return answer(200, { manifest_id: "armada", number: 1, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "t", branch: "b", address: "a" });
     });
@@ -183,7 +188,42 @@ it("opens a window when a Session shows a page, once, and never for a row a thre
   expect(opened).toEqual([]);
   sessions.row({ session_id: "a", row: { ...shown, id: "w2" } });
   sessions.row({ session_id: "a", row: { ...shown, id: "w2" } });
-  expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]);
+  await vi.waitFor(() => expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]));
+  await new Promise((done) => setTimeout(done, 20));
+  expect(opened.length).toBe(1);
+});
+
+it("takes the sign-in addresses Fleet holds for a window once, and hands them to the window that opens, never to a row or the ledger", async () => {
+  const sent: Sent[] = [];
+  const url = "https://staging.example.com/app";
+  const link = "https://staging.example.com/dev/login?token=abc";
+  held = [link];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, published } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, address, _takes, origins, signIn) => opened.push([id, address, origins, signIn]));
+  await sessions.again(port);
+  sessions.row({
+    session_id: "a",
+    row: { kind: "window", id: "w1", at: AT, title: "Staging", url, origins: ["https://login.example.org"] },
+  });
+  await vi.waitFor(() => expect(opened).toEqual([["a", url, ["https://login.example.org"], [link]]]));
+  expect(sent.filter((one) => one.path === "/sessions/window/sign_in")).toEqual([
+    { method: "POST", path: "/sessions/window/sign_in", body: { session_id: "a", url } },
+  ]);
+  expect(JSON.stringify(published)).not.toContain("token=abc");
+});
+
+it("opens a window with no sign-in where Fleet holds none or does not answer", async () => {
+  const sent: Sent[] = [];
+  const url = "https://staging.example.com/app";
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, _address, _takes, _origins, signIn) => opened.push([id, signIn]));
+  await sessions.again(port);
+  sessions.row({ session_id: "a", row: { kind: "window", id: "w1", at: AT, title: "Staging", url } });
+  await vi.waitFor(() => expect(opened).toEqual([["a", []]]));
 });
 
 it("opens the window with its takes, from the row that shows it and from the ledger that reopens it, and reads a ledger that is not takes as none", async () => {
@@ -207,9 +247,35 @@ it("opens the window with its takes, from the row that shows it and from the led
   sessions.onWindow((id, _title, address, withTakes) => opened.push([id, address, withTakes]));
   await sessions.again(port);
   sessions.row({ session_id: "a", row: { kind: "window", id: "w1", at: AT, title: "Findings", url, variations: takes } });
+  await vi.waitFor(() => expect(opened.length).toBe(1));
   expect(sessions.openWindow("a", url)).toEqual({ ok: true });
   expect(sessions.openWindow("b", url)).toEqual({ ok: true });
   expect(opened).toEqual([["a", url, takes], ["a", url, takes], ["b", url, []]]);
+});
+
+it("reopens a window from the ledger with the origins it may pass through and no sign-in, and reads origins that are not a list as none", async () => {
+  const sent: Sent[] = [];
+  const url = "https://staging.example.com/app";
+  const attached = (origins: string) => ({
+    kind: "artifact",
+    target: url,
+    state: "standing" as const,
+    detail: { form: "window", title: "Staging", origins },
+    since: AT,
+    changed_at: AT,
+  });
+  const port = await fleet(sent, [
+    record("a", { attachments: [attached(JSON.stringify(["https://login.example.org"]))] }),
+    record("b", { attachments: [attached(`{"login":"https://login.example.org"}`)] }),
+  ]);
+  const { sessions } = host(port);
+  const opened: unknown[] = [];
+  sessions.onWindow((id, _title, _address, _takes, origins, signIn) => opened.push([id, origins, signIn]));
+  await sessions.again(port);
+  expect(sessions.openWindow("a", url)).toEqual({ ok: true });
+  expect(sessions.openWindow("b", url)).toEqual({ ok: true });
+  expect(opened).toEqual([["a", ["https://login.example.org"], []], ["b", [], []]]);
+  expect(sent.some((one) => one.path === "/sessions/window/sign_in")).toBe(false);
 });
 
 it("brings the walk forward when a Session asks in it, once, and never for an answered question or one a read brought", async () => {
@@ -238,7 +304,9 @@ it("brings the walk forward when a Session asks in it, once, and never for an an
   expect(forward).toEqual([]);
   sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
   sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
-  expect(forward).toEqual([["a", "Findings", walk, `${walk}findings`]]);
+  await vi.waitFor(() => expect(forward).toEqual([["a", "Findings", walk, `${walk}findings`]]));
+  await new Promise((done) => setTimeout(done, 20));
+  expect(forward.length).toBe(1);
 });
 
 it("reopens only an address the ledger shows as a window", async () => {
@@ -303,6 +371,17 @@ it("claims a pull request on its own route with the session named, and holds not
   expect(await host(null).sessions.claimPullRequest({ number: 1823, session_id: "a" })).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
 });
 
+// Fleet answers `{ told }` here, not the record: folded, it sat in the list with no `attachments` and broke every redraw.
+it("tells Fleet a window could not show its page, and folds nothing of the answer", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, published } = host(port);
+  const told = await sessions.windowFailed({ session_id: "a", url: "http://localhost:5173/", why: "refused" });
+  expect(told).toEqual({ ok: true, value: { told: true } });
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/window/failed"]);
+  expect(published).toEqual([]);
+});
+
 it("writes a Session's retro on its own route and answers when it is written", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")]);
@@ -331,6 +410,18 @@ it("presses a pull request against the session's own repository", async () => {
     "POST /pull_request_reviews/storefront",
   ]);
   expect(sent[4]!.body).toEqual({ pull_request: "1847", session_id: "a" });
+});
+
+it("presses a pull request no Session holds by its repository's Manifest, and a review names no Session", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, []);
+  const { sessions } = host(port);
+  sent.length = 0;
+  await sessions.pressInRepository("storefront", 2405, "merge");
+  await sessions.pressInRepository("storefront", 2405, "review");
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /pull_requests/storefront/2405/merge", "POST /pull_request_reviews/storefront"]);
+  expect(sent[1]!.body).toEqual({ pull_request: "2405" });
+  expect(await host(null).sessions.pressInRepository("storefront", 2405, "merge")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
 });
 
 it("hands Fleet's refusal of a merge back with its words", async () => {
@@ -444,4 +535,68 @@ it("holds the twenty threads opened last, and reads one let go again when it is 
   await sessions.watch("s0");
   expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads + 1);
   expect(Object.keys(last("sessionThreads") as object)).toHaveLength(THREADS_HELD);
+});
+
+describe("a window shown while Bridge was away", () => {
+  const url = "https://staging.example.com/app";
+  const shownAt = Date.parse(AT);
+  const showing = (extra: Partial<SessionRecord> = {}) =>
+    record("a", {
+      attachments: [{ kind: "artifact", target: url, state: "standing", detail: { form: "window", title: "Staging" }, since: AT, changed_at: AT }],
+      ...extra,
+    });
+  const row = (change: Record<string, unknown> = {}) => ({ kind: "window", id: "w1", at: AT, title: "Staging", url, ...change }) as SessionRow;
+
+  async function reopened(age: number, rows: SessionRow[], session = showing()) {
+    // Several of these run in one test: the Fleet before is let go of, as `afterEach` lets go of the last.
+    const before = listening;
+    if (before !== null) await new Promise<void>((done) => before.close(() => done()));
+    const port = await fleet([], [session], { a: rows });
+    const opened: string[][] = [];
+    const sessions = new SessionsHost(() => {}, () => port, () => shownAt + age);
+    sessions.onWindow((id, title, address) => opened.push([id, title, address]));
+    await sessions.again(port);
+    return { sessions, port, opened };
+  }
+
+  it("opens when it was shown within fifteen minutes", async () => {
+    const { opened } = await reopened(REOPEN_WITHIN_MS - 1000, [row()]);
+    await vi.waitFor(() => expect(opened).toEqual([["a", "Staging", url]]));
+  });
+
+  it("opens at the edge of the quarter hour and not a moment after", async () => {
+    const edge = await reopened(REOPEN_WITHIN_MS, [row()]);
+    await vi.waitFor(() => expect(edge.opened).toHaveLength(1));
+    const past = await reopened(REOPEN_WITHIN_MS + 1, [row()]);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(past.opened).toEqual([]);
+  });
+
+  it("stays closed when it was shown longer ago, as a walk from before a restart", async () => {
+    const { opened } = await reopened(REOPEN_WITHIN_MS * 4, [row()]);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(opened).toEqual([]);
+  });
+
+  it("stays closed when the row has an end, or the session is not live", async () => {
+    const ended = await reopened(1000, [row({ ended_at: AT })]);
+    const gone = await reopened(1000, [row()], showing({ state: "ended" }));
+    await new Promise((done) => setTimeout(done, 40));
+    expect(ended.opened).toEqual([]);
+    expect(gone.opened).toEqual([]);
+  });
+
+  it("opens once in a process, however many times Bridge reconnects", async () => {
+    const { sessions, port, opened } = await reopened(1000, [row()]);
+    await vi.waitFor(() => expect(opened).toHaveLength(1));
+    await sessions.again(port);
+    await sessions.again(port);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(opened).toHaveLength(1);
+  });
+
+  it("opens the newest shown page and not the ones before it", async () => {
+    const { opened } = await reopened(1000, [row({ id: "w1", url: "https://old.example.com/" }), row({ id: "w2" })]);
+    await vi.waitFor(() => expect(opened).toEqual([["a", "Staging", url]]));
+  });
 });

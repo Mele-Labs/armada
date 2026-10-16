@@ -211,6 +211,21 @@ pub(crate) async fn window_closed<D: Sessions>(
     }
 }
 
+/// Bridge, opening a session's window, takes the sign-in addresses held for it. 200 with the addresses, empty where none are held.
+pub(crate) async fn take_window_sign_in<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let take: ipc::TakeWindowSignIn = match ipc::decode("a window to sign in", &body) {
+        Ok(take) => take,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().take_window_sign_in(take).await {
+        Ok(taken) => answer(StatusCode::OK, &taken, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session's window could not show its page. 200 with whether the session was told; 422 for a
 /// session Fleet does not know.
 pub(crate) async fn window_failed<D: Sessions>(

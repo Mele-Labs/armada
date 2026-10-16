@@ -16,6 +16,11 @@ import WebSocket from "ws";
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  CatchUpCheckout,
+  CheckoutCaughtUp,
+  CheckoutDiff,
+  CheckoutSentAsPullRequest,
+  CheckoutToPullRequest,
   ClaimPullRequest,
   DismissWaiting,
   Followed,
@@ -43,7 +48,10 @@ import type {
   StopSessionRun,
   TuneSession,
   WindowClosed,
+  WalkTold,
   WindowFailed,
+  WalkStep,
+  WindowSignIn,
   WindowTake,
   WriteSessionRun,
 } from "@armada/protocol";
@@ -51,13 +59,16 @@ import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
-import { openSessionFile, readSessionArtifact, takesOfWindow, titleOfWindow } from "./session-file";
+import { openSessionFile, originsOfWindow, readSessionArtifact, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
 
 type Publish = (change: Partial<BridgeState>) => void;
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
+
+/** A Bridge offline a few minutes still opens the page shown meanwhile, and a walk from before a restart stays closed. */
+export const REOPEN_WITHIN_MS = 15 * 60 * 1000;
 
 /** Where each press on a pull request is served. `crates/ipc/operations/` is the authority. */
 const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = {
@@ -90,11 +101,21 @@ export class SessionsHost {
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
-  private shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[]) => void = () => {};
+  private shown: (
+    sessionId: string,
+    title: string,
+    url: string,
+    takes: readonly WindowTake[],
+    origins: readonly string[],
+    signIn: readonly string[],
+    steps: readonly WalkStep[],
+  ) => void = () => {};
   /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
   private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
+  /** A window row waits on Fleet for its sign-in, so a window and a question about it are acted on in the order their rows came. */
+  private turn: Promise<void> = Promise.resolve();
   /** Where a run's messages go: main's, set once, since windows are not a thing this host holds. */
   private ran: (runId: string, message: SessionRunMessage) => void = () => {};
   /** The socket each running block is read on, by run id. */
@@ -102,9 +123,12 @@ export class SessionsHost {
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
 
-  constructor(publish: Publish, port: () => number | null) {
+  private readonly now: () => number;
+
+  constructor(publish: Publish, port: () => number | null, now: () => number = Date.now) {
     this.publish = publish;
     this.port = port;
+    this.now = now;
   }
 
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
@@ -117,7 +141,41 @@ export class SessionsHost {
     }
     this.sessions = (answer.body as SessionList).sessions;
     this.publish({ sessions: { state: "read", sessions: this.sessions } });
+    // Before the threads are read, since a thread read marks its window rows as met.
+    await this.reopen(port);
     await Promise.all(Object.keys(this.threads).map((id) => this.read(port, id)));
+  }
+
+  /**
+   * Opens the window of each live Session whose newest shown page never opened here, because Bridge was
+   * not connected when it was shown. **One that has ended, that this process already opened, or that was
+   * shown more than `REOPEN_WITHIN_MS` ago is left**. Fleet holds the Session's sign-in for one that
+   * opens, and it is taken now.
+   */
+  private async reopen(port: number): Promise<void> {
+    const showing = (this.sessions ?? []).filter(
+      (one) => one.state === "live" && one.attachments.some((held) => held.kind === "artifact" && held.detail?.["form"] === "window"),
+    );
+    await Promise.all(
+      showing.map(async (record) => {
+        const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(record.id)}`);
+        if (answer.ok !== true) return;
+        const row = (answer.body as SessionThread).rows.findLast((one) => one.kind === "window");
+        if (row === undefined || row.kind !== "window" || row.ended_at !== undefined || this.opened.has(row.id)) return;
+        if (!(this.now() - Date.parse(row.at) <= REOPEN_WITHIN_MS)) return;
+        this.opened.add(row.id);
+        this.showWindow(record.id, row);
+      }),
+    );
+  }
+
+  /** Opens the window a `window` row names, with the sign-in Fleet holds for it, in the order the rows came. */
+  private showWindow(sessionId: string, row: Extract<SessionRow, { kind: "window" }>): void {
+    const { title, url, variations, steps, origins } = row;
+    this.inOrder(async () => {
+      const signIn = await this.signInFor(sessionId, url);
+      this.shown(sessionId, title, url, variations ?? [], origins ?? [], signIn, readSteps(steps));
+    });
   }
 
   /** `session.changed`: the session, whole. */
@@ -143,6 +201,30 @@ export class SessionsHost {
     const underway = answer.body as SessionRunUnderway;
     this.observeRun(port, underway.run_id);
     return { ok: true, value: underway };
+  }
+
+  /** The one pull a held checkout is offered. Fleet answers 200 with the code and words, even for a pull git refused. */
+  async catchUpCheckout(catchUp: CatchUpCheckout): Promise<SessionActed<CheckoutCaughtUp>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/merge_lines/catch_up", catchUp);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutCaughtUp } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** A held checkout's uncommitted files as a pull request, committed by Fleet without touching the checkout. */
+  async sendCheckoutAsPullRequest(send: CheckoutToPullRequest): Promise<SessionActed<CheckoutSentAsPullRequest>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/merge_lines/checkout_to_pull_request", send);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutSentAsPullRequest } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** One uncommitted file of a held checkout, read by Fleet from the served checkout. */
+  async checkoutDiff(manifestId: string, path: string): Promise<SessionActed<CheckoutDiff>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/merge_lines/checkout_diff?manifest_id=${encodeURIComponent(manifestId)}&path=${encodeURIComponent(path)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as CheckoutDiff } : { ok: false, outcome: answer.outcome };
   }
 
   async stopRun(stop: StopSessionRun): Promise<SessionActed<SessionRunUnderway>> {
@@ -193,7 +275,17 @@ export class SessionsHost {
   }
 
   /** Say what opens a window: main's, since a window is not a thing this host holds. */
-  onWindow(shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[]) => void): void {
+  onWindow(
+    shown: (
+      sessionId: string,
+      title: string,
+      url: string,
+      takes: readonly WindowTake[],
+      origins: readonly string[],
+      signIn: readonly string[],
+      steps: readonly WalkStep[],
+    ) => void,
+  ): void {
     this.shown = shown;
   }
 
@@ -210,8 +302,26 @@ export class SessionsHost {
     const record = this.sessions?.find((one) => one.id === sessionId);
     const title = titleOfWindow(record, url);
     if (title === null) return { ok: false, why: "no_manifest" };
-    this.shown(sessionId, title, url, takesOfWindow(record, url));
+    this.shown(sessionId, title, url, takesOfWindow(record, url), originsOfWindow(record, url), [], stepsOfWindow(record, url));
     return { ok: true };
+  }
+
+  /**
+   * The addresses Fleet held for a window to sign in with, once, or none. **A secret**: it goes to the
+   * window that loads it and is neither kept nor logged here, and a Fleet that does not answer, or has
+   * none, gives none.
+   */
+  private async signInFor(sessionId: string, url: string): Promise<string[]> {
+    const port = this.port();
+    if (port === null) return [];
+    const answer = await ask(port, "POST", "/sessions/window/sign_in", { session_id: sessionId, url });
+    if (answer.ok !== true) return [];
+    const held = (answer.body as Partial<WindowSignIn> | null)?.sign_in;
+    return Array.isArray(held) ? held.filter((one) => typeof one === "string") : [];
+  }
+
+  private inOrder(act: () => void | Promise<void>): void {
+    this.turn = this.turn.then(act).catch(() => {});
   }
 
   /** `session.row`: one row of a thread, appended or replaced by its id. */
@@ -220,14 +330,15 @@ export class SessionsHost {
     // there, and none of those opens a window.
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
-      this.shown(change.session_id, change.row.title, change.row.url, change.row.variations ?? []);
+      this.showWindow(change.session_id, change.row);
     }
     // A question asked in the walk takes the person there, once, when it is asked.
     if (change.row.kind === "window_ask" && change.row.answer === undefined && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
       const record = this.sessions?.find((one) => one.id === change.session_id);
       const title = titleOfWindow(record, change.row.window) ?? change.row.window;
-      this.askedIn(change.session_id, title, change.row.window, change.row.place.url);
+      const { window, place } = change.row;
+      this.inOrder(() => this.askedIn(change.session_id, title, window, place.url));
     }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {
@@ -323,9 +434,12 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/window/closed", closed);
   }
 
-  /** A window a Session showed could not show its page: Fleet tells the Session. */
-  async windowFailed(failed: WindowFailed): Promise<SessionActed> {
-    return await this.act("POST", "/sessions/window/failed", failed);
+  /** A window a Session showed could not show its page: Fleet tells the Session. Fleet answers `WalkTold`, not the record, so nothing is folded. */
+  async windowFailed(failed: WindowFailed): Promise<SessionActed<WalkTold>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/window/failed", failed);
+    return answer.ok === true ? { ok: true, value: answer.body as WalkTold } : { ok: false, outcome: answer.outcome };
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {
@@ -407,14 +521,26 @@ export class SessionsHost {
    * folded here.
    */
   async press(sessionId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+    const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
+    if (manifestId === undefined) return this.port() === null ? { ok: false, outcome: NOT_CONNECTED } : { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    return await this.pressOn(manifestId, number, press, sessionId);
+  }
+
+  /**
+   * The same press on a pull request no Session holds, such as a form edit's: **the repository is named by its Manifest**,
+   * as `catchUpCheckout` names it. A review is dispatched under no Session.
+   */
+  async pressInRepository(manifestId: string, number: number, press: PullRequestPress): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
+    return await this.pressOn(manifestId, number, press);
+  }
+
+  private async pressOn(manifestId: string, number: number, press: PullRequestPress, sessionId?: string): Promise<SessionActed<PullRequestState | ReviewDispatched>> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
-    if (manifestId === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
     const repository = encodeURIComponent(manifestId);
     const answer =
       press === "review"
-        ? await ask(port, "POST", `/pull_request_reviews/${repository}`, { pull_request: String(number), session_id: sessionId })
+        ? await ask(port, "POST", `/pull_request_reviews/${repository}`, { pull_request: String(number), ...(sessionId === undefined ? {} : { session_id: sessionId }) })
         : press === "read"
           ? await ask(port, "GET", `/pull_requests/${repository}/${number}`)
           : await ask(port, "POST", `/pull_requests/${repository}/${number}/${PRESS_ROUTE[press]}`);

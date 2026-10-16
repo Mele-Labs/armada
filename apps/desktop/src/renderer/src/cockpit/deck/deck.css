@@ -299,6 +299,52 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
   color: var(--fg-default);
 }
 .deck-main-card__name { margin: 0; padding: var(--space-2) var(--space-3) 0; color: var(--fg-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); }
+/* The amber mark on main's chip while a checkout is held: small, beside the dot, which keeps meaning main's CI alone. */
+.deck-chip__checkout { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
+/* A form edit's pull request the forge would not auto-merge: a person's glyph after its number, in the hue of the state `user-check` is, awaiting a person. */
+.deck-chip__hand { display: inline-flex; flex: none; color: var(--status-awaiting-approval); }
+/* The state of a green main at the head of its card, in the success hue, as the red band is in the failure's. */
+.deck-main-card__state { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-bottom: var(--border-width) solid var(--border-default); background: var(--status-completed-success-bg); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-heading); }
+.deck-main-card__state .deck-chip__dot { --dot: var(--status-completed-success); background: var(--dot); }
+/* Your checkout, a section of main's card with the red band's own build: a band across the top in the caution hue, then rows
+   with the label set back. */
+.deck-checkout { display: flex; flex-direction: column; border-bottom: var(--border-width) solid var(--border-default); color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); }
+.deck-checkout:last-child { border-bottom: 0; }
+.deck-checkout:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.deck-checkout__head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4); background: var(--notice-caution-bg); }
+.deck-checkout__glyph { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
+.deck-checkout__heading { font-weight: var(--weight-heading); }
+.deck-checkout__repo { margin-left: auto; color: var(--fg-muted); font-size: var(--text-xs); }
+.deck-checkout__title { margin: 0; padding: var(--space-2) var(--space-4) 0; font-weight: var(--weight-heading); }
+.deck-checkout__fact { margin: 0; padding: 0 var(--space-4); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-muted); overflow-wrap: anywhere; }
+.deck-checkout__rows { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-4); margin: 0; padding: var(--space-2) var(--space-4); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.deck-checkout__rows dt { color: var(--fg-muted); }
+.deck-checkout__rows dd { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.deck-checkout__line { display: flex; align-items: center; gap: var(--space-2); padding-left: var(--space-2); border-left: calc(var(--border-width) * 2) solid transparent; user-select: text; }
+.deck-checkout__line:has(.deck-checkout__note) { border-left-color: var(--status-awaiting-review); }
+.deck-checkout__files { display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(6 * (var(--leading-xs) + var(--space-1)) - var(--space-1)); overflow-y: auto; overscroll-behavior: contain; }
+.deck-checkout__files:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-checkout__files .deck-checkout__line { flex: none; }
+.deck-checkout__note { display: inline-flex; flex: none; color: var(--status-awaiting-review); }
+.deck-checkout__command { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2); padding: var(--space-1) var(--space-4) var(--space-3); }
+/* The command takes the width the button leaves, and the button drops under it where the card is too narrow for both. */
+.deck-checkout__run { flex: 1 1 16rem; min-width: 0; }
+.deck-checkout__send { flex: none; }
+/* The pull request's auto-merge mark, in the success hue. */
+.deck-checkout__auto { display: inline-flex; flex: none; color: var(--status-completed-success); }
+/* The command is there to be run, as the ledger's is: Copy and Run are always shown, not only under the pointer. */
+.deck-checkout__command .armada-prose__run-acts { opacity: 1; }
+/* An uncommitted path that opens its change: a plain button in the line's own type, and the change under it inside the row's box. */
+.deck-checkout__change { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.deck-checkout__files .deck-checkout__change { flex: none; }
+.deck-checkout__path { appearance: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.deck-checkout__path:hover { color: var(--accent); }
+.deck-checkout__path:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.deck-checkout__diff { min-width: 0; max-height: calc(14 * var(--leading-xs)); overflow: auto; overscroll-behavior: contain; }
+/* The path is the line above, so the diff's own file header is left off. */
+.deck-checkout__diff .armada-diff__head { display: none; }
+/* A box that holds an open change grows to show it and still scrolls inside the card. */
+.deck-checkout__files:has(.deck-checkout__diff) { max-height: calc(18 * var(--leading-xs)); }
 
 /* ---- Bays ----------------------------------------------------------------------------------------------- */
 

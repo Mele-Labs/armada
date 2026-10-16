@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId};
+use crate::ids::{Instant, JobId, ManifestId};
 
 /// One repository's main and open pull requests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +65,78 @@ pub struct HeldCheckout {
     pub behind: u32,
     /// Commits the checkout has that main does not. Above zero is diverged.
     pub ahead: u32,
+    /// The pull request Fleet opened from the uncommitted files, on the person's
+    /// press of `checkout_to_pull_request`. Absent until then, and once the hold
+    /// clears.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<CheckoutPullRequest>,
+}
+
+/// The pull request a held checkout's uncommitted files went up as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutPullRequest {
+    pub number: u32,
+    /// Whether the forge took auto-merge. A pull request whose auto-merge it
+    /// refused is open all the same, for a person to merge.
+    pub auto_merge: bool,
+}
+
+/// `checkout_to_pull_request`'s body. **Names a repository and nothing more**,
+/// for `CatchUpCheckout`'s reason: Fleet reads the hold again and sends the
+/// files it lists, so no path crosses the wire.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutToPullRequest {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+}
+
+/// `checkout_to_pull_request`'s answer: the pull request that was opened.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutSentAsPullRequest {
+    pub pull_request: u32,
+    pub auto_merge: bool,
+}
+
+/// `catch_up_checkout`'s body: pull a held checkout level with its base, the one
+/// way that cannot lose a person's files. **Names a repository and nothing more.**
+/// There is no command in it: Fleet reads the hold again and runs the pull it
+/// knows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CatchUpCheckout {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+}
+
+/// `catch_up_checkout`'s answer: what the pull came to. **A pull git refused or
+/// left conflicted is still an answer**, with a non-zero `code`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutCaughtUp {
+    /// git's exit code. `1` where git exited clean and the stashed work would not
+    /// go back on; the work is in git's stash and nothing dropped it.
+    pub code: i32,
+    /// What git printed, for the person to read as it came.
+    pub output: String,
+}
+
+/// `checkout_diff`'s query: one uncommitted file of a held checkout. **Only a path
+/// the hold lists** is answered; any other is refused.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutDiffAsk {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+    /// The file, as the hold's `uncommitted` names it: from the repository's root.
+    pub path: String,
+}
+
+/// `checkout_diff`'s answer: the file's change against `HEAD`, as git prints a
+/// unified diff. Empty where the file no longer differs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutDiff {
+    pub diff: String,
+    /// Set where Fleet cut `diff` short of what git printed, at a line or byte
+    /// bound. The text is still whole lines of the start of the change.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cut: bool,
 }
 
 /// Who holds main's red on another machine. **No title and no work**: the store
@@ -282,6 +354,11 @@ pub struct HubPullRequest {
     /// included), and whenever the store could not be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<PullRequestOwner>,
+    /// The pull request of an `armada.yml` edit a form sent, which the forge would not turn
+    /// auto-merge on for, so it waits for a person to merge it. Absent is any other pull request,
+    /// and one the forge is going to merge itself.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub merge_by_hand: bool,
 }
 
 /// Who registered a pull request. **A kind, a short id and a machine's name, and nothing

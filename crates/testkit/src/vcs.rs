@@ -38,6 +38,7 @@ use adapter_traits::{
 
 use crate::work_product::Holding;
 
+mod checkout_sends;
 mod commit;
 mod delivered;
 mod delivering;
@@ -111,6 +112,8 @@ pub struct FakeVcs {
     merging: Mutex<Merging>,
     /// What a form's edit to the Manifest comes to.
     manifest_edits: Mutex<manifest_edits::ManifestEdits>,
+    /// What sending the served checkout's uncommitted files as a pull request comes to.
+    checkout_sends: Mutex<checkout_sends::CheckoutSends>,
     /// What the forge says about one pull request and does when it is readied.
     pull_requests: Mutex<pull_requests::PullRequests>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
@@ -676,9 +679,16 @@ impl Delivery for FakeVcs {
         delivery.repository.clone()
     }
 
-    fn checkout_has(&self, _in_repo: &str, commit: &str) -> bool {
+    fn checkout_has(&self, _in_repo: &str, _base: &str, commit: &str) -> bool {
         let delivery = self.delivery.lock().expect("not poisoned");
         delivery.checkout.as_deref().is_none_or(|on| on == commit)
+    }
+
+    fn base_fast_forwarded(&self, _in_repo: &str, _base: &str) -> bool {
+        self.delivery
+            .lock()
+            .expect("not poisoned")
+            .base_fast_forwards
     }
 
     fn held_back(&self, _in_repo: &str, _base: &str) -> Option<adapter_traits::HeldBack> {
@@ -686,6 +696,37 @@ impl Delivery for FakeVcs {
             .lock()
             .expect("not poisoned")
             .held_back
+            .clone()
+    }
+
+    fn pulled_the_checkout(&self, in_repo: &str) -> adapter_traits::CheckoutPulled {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::PulledTheCheckout {
+                in_repo: in_repo.to_string(),
+            });
+        let mut delivery = self.delivery.lock().expect("not poisoned");
+        // A pull that took leaves the checkout on the forge's tip, which is what
+        // the next reading of main finds.
+        if delivery.pulled.code == 0 && delivery.checkout.is_some() {
+            delivery.checkout = self.main_ci.head();
+        }
+        delivery.pulled.clone()
+    }
+
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadAnUncommittedChange {
+                in_repo: in_repo.to_string(),
+                path: path.to_string(),
+            });
+        self.delivery
+            .lock()
+            .expect("not poisoned")
+            .uncommitted_change
             .clone()
     }
 
@@ -708,6 +749,14 @@ impl Delivery for FakeVcs {
         sending: &adapter_traits::ManifestEditToSend,
     ) -> Result<adapter_traits::ManifestEditSent, NotDelivered> {
         self.manifest_edit_sent(sending)
+    }
+
+    fn send_checkout_as_pull_request(
+        &self,
+        _in_repo: &str,
+        sending: &adapter_traits::CheckoutToSend,
+    ) -> Result<adapter_traits::CheckoutSent, NotDelivered> {
+        self.checkout_sent(sending)
     }
 }
 

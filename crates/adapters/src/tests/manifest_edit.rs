@@ -124,6 +124,25 @@ fn an_edit_reaches_the_remote_branch_and_the_checkout_does_not_move() {
     );
 }
 
+/// The forge half is not reachable here, so opening the pull request fails, and
+/// the branch the push made must not be left on the remote with nothing on it.
+#[test]
+fn a_pull_request_that_will_not_open_takes_the_pushed_branch_off_the_remote() {
+    let (repo, bare) = behind_its_remote("armada.yml");
+    let base = on_the_base(&repo.root_str(), "main", &path_of(&repo, "armada.yml")).unwrap();
+    let mut opening = sending(&repo, "armada.yml", &base.commit, NOW);
+    opening.to = PullRequestFor::Open { base: String::from("main") };
+
+    let refused = send(&repo.root_str(), &opening);
+
+    assert!(refused.is_err(), "no forge here to open it");
+    assert_eq!(
+        git_in(&bare, &["branch", "--list", "armada/manifest-*"]),
+        "",
+        "the pushed branch is gone"
+    );
+}
+
 #[test]
 fn a_second_edit_stacks_on_the_branch_the_first_made() {
     let (repo, bare) = behind_its_remote("armada.yml");

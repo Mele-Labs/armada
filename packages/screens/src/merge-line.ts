@@ -170,11 +170,13 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
       ...(pull.review === undefined ? {} : { review: pull.review as NonNullable<HubPull["review"]> }),
       ...(pull.additions === undefined ? {} : { additions: pull.additions }),
       ...(pull.deletions === undefined ? {} : { deletions: pull.deletions }),
+      ...(pull.merge_by_hand === true ? { mergeByHand: true as const } : {}),
       ...(pull.ci === undefined ? {} : { ci: pull.ci as NonNullable<HubPull["ci"]> }),
       ...((pull.job ?? owners.get(pull.branch)) === undefined ? {} : { job: pull.job ?? owners.get(pull.branch)! }),
       ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
     })),
     recent,
+    ...(hub.checkout === undefined ? {} : { checkout: hub.checkout }),
   };
 }
 

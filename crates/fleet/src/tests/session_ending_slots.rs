@@ -22,7 +22,7 @@ async fn close(rig: &super::session_host::Rig, id: &SessionId) {
 async fn a_close_the_pool_refuses_keeps_the_slot_on_the_ledger_and_the_rest_given_back() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
-    rig.fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    rig.fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
 
     close(&rig, &id).await;
 
@@ -45,7 +45,7 @@ async fn a_close_the_pool_accepts_gives_the_slot_back_on_the_ledger() {
 #[tokio::test]
 async fn the_boot_pass_parks_a_slot_an_ended_session_still_holds_and_no_other() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
-    rig.fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    rig.fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
     close(&rig, &id).await;
     // A Job's slot, and a running session's: neither is an ended session's.
     rig.fleet.vcs().hold_slot(&rig.root, 2, "01JOBNOTASESSION");
@@ -63,9 +63,9 @@ async fn the_boot_pass_parks_a_slot_an_ended_session_still_holds_and_no_other() 
 #[tokio::test]
 async fn the_boot_pass_leaves_a_slot_the_pool_still_refuses_for_the_next_one() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
-    rig.fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    rig.fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
     close(&rig, &id).await;
-    rig.fleet.vcs().refuse_next_park(SlotParkRefused::OnTheBase(String::from("main")));
+    rig.fleet.vcs().refuse_next_park(SlotParkRefused::Vcs(String::from("git said no")));
 
     let served = rig.fleet.served_named(None).expect("served");
     rig.fleet.freed_from_ended_sessions(&served).await;
@@ -84,6 +84,7 @@ async fn a_walk_the_session_had_open_ends_with_it() {
             title: None,
             session_id: Some(id.clone()),
             variations: Vec::new(),
+            ..Default::default()
         })
         .await
         .expect("shown");

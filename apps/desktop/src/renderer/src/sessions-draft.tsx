@@ -11,12 +11,35 @@ import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions"
 
 const Held = createContext<SessionsDraft | undefined>(undefined);
 
+/** The acts on a repository's own card, which a real Fleet serves whether or not the Sessions list has been read. */
+export type RepositoryActs = Pick<SessionsDraft, "runInRepository" | "diffInRepository" | "actInRepository" | "sendCheckoutAsPullRequest">;
+const Acts = createContext<RepositoryActs | undefined>(undefined);
+
 const NONE: readonly Session[] = [];
 const NEVER = { get: () => NONE, subscribe: () => () => undefined };
 
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
-export function SessionsFrom({ held, children }: { held: SessionsDraft | undefined; children: ReactNode }) {
-  return <Held.Provider value={held}>{children}</Held.Provider>;
+export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
+  return (
+    <Acts.Provider value={acts}>
+      <Held.Provider value={held}>{children}</Held.Provider>
+    </Acts.Provider>
+  );
+}
+
+/**
+ * What a repository's card may run and read. **Held apart from the Sessions**: a real Fleet answers these before the list of
+ * Sessions has loaded, and a card that waited on the list showed no Run. The mock's draft carries them too.
+ */
+export function useRepositoryActs(): RepositoryActs {
+  const acts = useContext(Acts);
+  const held = useContext(Held);
+  return {
+    runInRepository: acts?.runInRepository ?? held?.runInRepository,
+    diffInRepository: acts?.diffInRepository ?? held?.diffInRepository,
+    actInRepository: acts?.actInRepository ?? held?.actInRepository,
+    sendCheckoutAsPullRequest: acts?.sendCheckoutAsPullRequest ?? held?.sendCheckoutAsPullRequest,
+  };
 }
 
 /** The Sessions this window was mounted holding and the acts on them, or `undefined` where none are served. */

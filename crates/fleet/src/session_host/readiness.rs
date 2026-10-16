@@ -6,7 +6,11 @@
 //! window reopened from the ledger reads it too. **Detected, not declared**: the mod reports the
 //! session's own file write (`wrote`) and every window it showed is working; its turn ending
 //! (`turn_completed`) or its showing the page again makes them ready; and a note taken in the window
-//! is working too, since the session will now change the page.
+//! is working too, since the session will now change the page. **A turn that ends with a subagent
+//! still standing leaves them working**: the session handed the note on and went quiet, and the
+//! page is still changing under the person. The subagent settling does not make them ready; the
+//! report it hands back wakes the session, and the end of that turn does. Only `subagent`
+//! attachments count, so a dev server left running holds nothing.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Sessions;
@@ -54,6 +58,19 @@ pub(crate) fn windows_set(
         changed |= store.attach(&KeptAttachment { detail, changed_at: now.to_string().into(), ..window }, false)?;
     }
     Ok(changed)
+}
+
+/// The session's turn ended: its windows are ready, unless a subagent it started is still at work
+/// on what they show. **Under the caller's lock**, as `windows_set` is.
+pub(crate) fn turn_ended(store: &mut Store, holder: &Holder, now: &str) -> Result<bool, store::WriteError> {
+    let at_work = store
+        .attachments_of(holder)?
+        .iter()
+        .any(|one| one.kind == "subagent" && one.state == AttachmentState::Standing);
+    if at_work {
+        return Ok(false);
+    }
+    windows_set(store, holder, now, false)
 }
 
 impl<H, V, W> Fleet<H, V, W>

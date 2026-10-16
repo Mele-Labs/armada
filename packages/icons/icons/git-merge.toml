@@ -12,3 +12,10 @@
     size = "16px"
     status = "Specified"
     notes = "Approved 14 Oct 2026 on the walk `battlefieldProgress`, the build ring (`.claude/decisions/2026-10-14-a-session-builds-a-ring.md`). Tooltip `Auto-merge`. Auto-merge set or the pull request queued. A stop reached, not the merge act."
+
+  [[icons.git-merge.usage]]
+    means = "Auto-merge is on for the pull request opened from the files of Your checkout"
+    group = "Cockpit"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Tooltip `Auto-merge on`, beside the pull request's chip in Your checkout. The pull request card and panel draw the same mark for the same state. A state, not the merge act."

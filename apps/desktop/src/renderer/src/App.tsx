@@ -17,6 +17,7 @@
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArmadaMark } from "@armada/brand";
 import { heldOfPicked, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
@@ -70,6 +71,7 @@ import { JobDetail, LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
+import { useDispatchFailure } from "./failure-session";
 import { SketchSharing } from "./sketch-sharing";
 import {
   examine,
@@ -153,6 +155,7 @@ import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./commander-acts";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
+import { useMergeByHand } from "./merge-by-hand";
 import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
@@ -412,8 +415,10 @@ export function App({ draft }: AppProps = {}) {
     onReadFile: readManifestFile,
     onSaveFile: saveManifestFile,
   });
-  // The forms beside it, held here for the same reason.
+  // The forms beside it, held here for the same reason. A form edit's pull request the forge would not auto-merge is read off the merge line.
+  const merging = useMergeByHand(state, openProseLink);
   const form = useManifestForm({
+    ...(merging.mergeByHand === undefined ? {} : { mergeByHand: merging.mergeByHand }),
     repository,
     showing: manifesting,
     reading: state.manifestReading,
@@ -467,6 +472,7 @@ export function App({ draft }: AppProps = {}) {
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
+  const dispatchFailure = useDispatchFailure(repositories, openSession);
   useTellAsked(tell); const commandering = useCommanderActs(tell); // The annotation layer's send that failed; the owner's words to a Commander and his pick on its card.
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
@@ -678,7 +684,7 @@ export function App({ draft }: AppProps = {}) {
           onCompose={() => newJob()}
           onSearch={palette.onOpen}
           {...titleRow}
-          wordmark="Armada"
+          wordmark={<ArmadaMark size={20} title="Armada" />}
           // The Cockpit's picker names it there; every other surface has none, so the row does.
           {...(atCockpit || repositories.length === 0 ? {} : { repository: pickedRepository === null ? "All repositories" : repositoryLabel(pickedRepository, repositories) })}
           places={<DeckPlaces state={state} picked={pickedRepository} nowViews={nowing.feed.calls} showing={showingNow} hidden={hidden} away={showingNow === SURFACE.overview && !atCockpit} onGoTo={goTo} onBack={back} onReplaceNext={replaceNext} />}
@@ -999,6 +1005,7 @@ export function App({ draft }: AppProps = {}) {
                  exists and none is created: the whole point of the surface is
                  that a person can run this project's lint without one. */
               <Boundary region="the manifest" {...guarded}>
+                <>
                 <Manifest
                   // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
                   key={state.repository ?? ""}
@@ -1048,6 +1055,8 @@ export function App({ draft }: AppProps = {}) {
                     />
                   }
                 />
+                {merging.panel}
+                </>
               </Boundary>
             ) : composing ? (
               <Composing
@@ -1275,6 +1284,7 @@ export function App({ draft }: AppProps = {}) {
           copied={copied}
           said={telling}
           onCopied={setCopied}
+          onDispatchSession={dispatchFailure}
         >
           <DownshiftAlert choose={openModelSetting} />
           <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />

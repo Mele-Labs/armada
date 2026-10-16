@@ -6,7 +6,7 @@
 // proto/cockpit-flight-deck. #2301.
 
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Box, ChartNoAxesGantt, FileCog, GitMerge, Megaphone, Orbit, Pause, Plane, Power, Send, ShieldCheck, SquareTerminal, UserCheck } from "lucide-react";
 import { Badge, Button, ClashMark, ClashesProvider, DockHandle, DropdownMenu, Kbd, Switch, Tooltip, keyFor, type Clashing } from "@armada/components";
 import type { JobSummary, WorktreeSlot } from "@armada/protocol";
 import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, repositoryLabel, rootOf, useLayout, useRecentRepositories } from "@armada/shell";
@@ -20,7 +20,7 @@ import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
 import { useSplits } from "./splits";
-import { dotsOf } from "../horizon";
+import { dotsOf, MERGE_BY_HAND } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
 import { useClock } from "./clock";
@@ -41,6 +41,7 @@ import { CallPane, JobPane, PaneHead, PrPane, SessionPane, SlotPane } from "./pa
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { SessionTiles } from "./SessionTiles";
 import { reportRoot } from "./session-tiles";
+import { checkoutSaid, heldOf } from "./YourCheckout";
 import { MainLight } from "./MainLight";
 import { MarkGlyph } from "./shared";
 import { toneOf } from "./order";
@@ -296,7 +297,7 @@ function Stage({ props, ship, listed, autopilot, ledger, hosts }: { props: Cockp
 /**
  * The merge queue: one row across the repositories, main first and then one chip for each pull request, each repository's
  * nearest main first. Main is one light, green while every main is and red if any is; a red one opens a card with the Merge line's
- * panel for each red (`MainLight`). A press on a chip opens the pull request on the stage. No count.
+ * panel for each red (`MainLight`), and a mark on it with the checkout section while a served checkout is held behind main. A press on a chip opens the pull request on the stage. No count.
  */
 function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship; selected: string | undefined }) {
   const sessions = useSessions();
@@ -307,8 +308,9 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
   const reds = views.flatMap((view) =>
     view.hub?.main?.state !== "red" ? [] : [{ view: { ...view, hub: view.hub }, name: ship.repos.find((one) => one.root === view.root)?.name ?? view.root }],
   );
+  const held = heldOf(views, (root) => ship.repos.find((one) => one.root === root)?.name ?? root);
   const red = reds.map((one) => one.name);
-  const mainSaid = red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green";
+  const mainSaid = `${red.length > 0 ? `Main is red in ${red.join(", ")}` : "Main is green"}${held.length > 0 ? `, ${checkoutSaid(held).replace(/^Checkout/, "checkout")}` : ""}`;
   const chipOf = (view: (typeof views)[number], dot: ReturnType<typeof dotsOf>[number]) => {
     const pr = ship.prs.find((one) => one.root === view.root && `pull:${one.number}` === dot.key);
     const owner = pr === undefined ? undefined : ship.subjects.find((one) => one.pr?.key === pr.key);
@@ -319,6 +321,13 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
         {place === undefined ? null : <span className="deck-chip__place" aria-hidden="true">{place}</span>}
         <span className="deck-chip__dot" data-state={dot.state} data-queued={dot.queued || undefined} data-tone={tone} aria-hidden="true" />
         <span>{dot.card.heading}</span>
+        {dot.card.byHand === undefined ? null : (
+          <Tooltip label={MERGE_BY_HAND}>
+            <span className="deck-chip__hand" role="img" aria-label={MERGE_BY_HAND}>
+              <UserCheck size={12} aria-hidden="true" />
+            </span>
+          </Tooltip>
+        )}
       </>
     );
     return (
@@ -376,8 +385,8 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
           if (event.deltaY !== 0 && event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
         }}>
           <li>
-            {reds.length > 0 ? (
-              <MainLight props={props} ship={ship} reds={reds} said={mainSaid} />
+            {reds.length > 0 || held.length > 0 ? (
+              <MainLight props={props} ship={ship} reds={reds} held={held} said={mainSaid} />
             ) : (
               <Tooltip label={mainSaid} asChild>
                 <span className="deck-chip" data-main role="img" aria-label={mainSaid}>

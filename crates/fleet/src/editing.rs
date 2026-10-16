@@ -170,13 +170,35 @@ where
     /// **What the file was when the edit started can.** `armada.yml` is
     /// tracked, so a save that took an incoming `git checkout` with it would
     /// destroy a committed edit with nothing said.
-    pub(crate) fn write_manifest_file(
+    ///
+    /// **Where a form's edit is pending, the text goes into its pull request**
+    /// as a commit of the whole text, and the file on disk is left alone, as a
+    /// second form save does. `crate::pending_edit`.
+    pub(crate) async fn write_manifest_file(
         &self,
         asked: SaveManifestFile,
         served: &crate::repositories::Served,
     ) -> Result<ManifestSaved, Refusal> {
         let file = served.manifest().path();
         let path = file.display().to_string();
+        let _turn = served.repository().pending_edit().turn().await;
+        if let (Some(held), Some(base)) = (
+            self.pending_edit_standing(served).await,
+            served.manifest().base().map(str::to_string),
+        ) {
+            if held.0.text != asked.read {
+                return Err(self.refusal(Adrift::ManifestMovedUnderTheEdit {
+                    path,
+                    on_disk: Some(held.0.text),
+                }));
+            }
+            self.raw_text_through_a_pull_request(served, base, asked.text, held)
+                .await?;
+            return Ok(ManifestSaved {
+                path,
+                at: Instant::from(&self.now()),
+            });
+        }
         save(file, &asked.read, &asked.text).map_err(|why| {
             self.refusal(match why {
                 NotSaved::Unreadable(cause) => Adrift::ManifestUnreadable { path, cause },

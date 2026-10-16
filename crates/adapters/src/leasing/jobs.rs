@@ -145,11 +145,6 @@ fn answered(parked: Result<Parked, ParkRefused>) -> Result<SlotParked, SlotParkR
         }
         Err(ParkRefused::HeldByAnother(who)) => Err(SlotParkRefused::HeldByAnother(who)),
         Err(ParkRefused::Busy) => Err(SlotParkRefused::Busy),
-        Err(ParkRefused::OnNoBranch) => Err(SlotParkRefused::OnNoBranch),
-        Err(ParkRefused::OnTheBase(base)) => Err(SlotParkRefused::OnTheBase(base)),
-        Err(ParkRefused::OnAnotherBranch { leased, on }) => {
-            Err(SlotParkRefused::OnAnotherBranch { leased, on })
-        }
         Err(ParkRefused::Release(refused)) => Err(SlotParkRefused::Release(refused.said())),
         Err(ParkRefused::Vcs(why)) => Err(SlotParkRefused::Vcs(why)),
     }

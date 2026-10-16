@@ -81,6 +81,26 @@ export type CaptureWalk = {
   ready: boolean;
   /** Past the last step. */
   done: boolean;
+  /**
+   * Present where **Bridge plays the steps itself**, a Session's `steps`: the bar draws the ring and the
+   * caption over the page, since the page draws nothing. Absent where the page plays its own walk and
+   * rings its own target.
+   */
+  guide?: CaptureGuide;
+};
+
+/** The ring and caption of a walk Bridge plays, and whether they are in the way. */
+export type CaptureGuide = {
+  /** The ringed target in the page's viewport. `null`: none is ringed, because the step is being looked for or is not found. */
+  box: CaptureRect | null;
+  /** Left off, so the page takes presses again. */
+  folded: boolean;
+  /** The target the step cannot find, as a person would name it. Absent: found, or not yet looked for. */
+  stopped?: string;
+  /** The page is on a provider the Session named, or has its popup open: the walk waits for the shown origin. Absent: it is not. */
+  signingIn?: boolean;
+  /** Autoplay stopped before a step that acts on a page off this machine, and Next is waited on. Absent: it is not. */
+  waiting?: true;
 };
 
 /** `ready`: done and waiting on the person. `working`: still being changed. */

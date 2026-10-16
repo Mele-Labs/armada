@@ -57,6 +57,24 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/merge_lines/fix",
     },
+    // One uncommitted file of a held checkout: the repository and the path are both asked for, so a query string.
+    Route {
+        operation: "checkout_diff",
+        method: "GET",
+        path: "/merge_lines/checkout_diff",
+    },
+    // The one pull a held checkout is offered, from the card on that line.
+    Route {
+        operation: "catch_up_checkout",
+        method: "POST",
+        path: "/merge_lines/catch_up",
+    },
+    // The same hold's other act: its uncommitted files up as a pull request.
+    Route {
+        operation: "checkout_to_pull_request",
+        method: "POST",
+        path: "/merge_lines/checkout_to_pull_request",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",

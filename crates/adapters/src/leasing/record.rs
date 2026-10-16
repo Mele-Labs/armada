@@ -114,6 +114,18 @@ impl Holder {
         }
     }
 
+    /// A few characters of who it is, fit to sit in a branch name.
+    pub(super) fn short(&self) -> String {
+        match self {
+            Holder::Process { pid, .. } => format!("pid{pid}"),
+            Holder::Job(id) => id
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric())
+                .take(8)
+                .collect(),
+        }
+    }
+
     pub(super) fn written(&self) -> String {
         match self {
             Holder::Process { pid, started } => format!("{pid} {started}"),

@@ -123,6 +123,15 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
       ? (connection()?.sessions.startRun({ session_id: sessionId, command, ...(cols === undefined || rows === undefined ? {} : { cols, rows }) }) ?? unsent)
       : unsent,
   );
+  ipc.handle(CHANNELS.catchUpCheckout, (_event, manifestId: string) =>
+    text(manifestId) ? (connection()?.sessions.catchUpCheckout({ manifest_id: manifestId }) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.sendCheckoutAsPullRequest, (_event, manifestId: string) =>
+    text(manifestId) ? (connection()?.sessions.sendCheckoutAsPullRequest({ manifest_id: manifestId }) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.readCheckoutDiff, (_event, manifestId: string, path: string) =>
+    text(manifestId) && text(path) ? (connection()?.sessions.checkoutDiff(manifestId, path) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.stopSessionRun, (_event, runId: string) =>
     text(runId) ? (connection()?.sessions.stopRun({ run_id: runId }) ?? unsent) : unsent,
   );
@@ -134,6 +143,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.pressRepositoryPullRequest, (_event, manifestId: string, number: number, press: PullRequestPress) =>
+    text(manifestId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.pressInRepository(manifestId, number, press) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.readPullRequestPage, (_event, sessionId: string, number: number) =>
     text(sessionId) && Number.isInteger(number) ? (connection()?.sessions.pullRequestPage(sessionId, number) ?? unsent) : unsent,

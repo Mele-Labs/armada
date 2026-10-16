@@ -183,7 +183,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
@@ -455,6 +455,7 @@ type OldBridgeApi = {
         walkBack: () => Promise<void>;
         walkAutoplay: (on: boolean) => Promise<void>;
         walkReplay: () => Promise<void>;
+        walkGuide: (shown: boolean) => Promise<void>;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
@@ -542,10 +543,14 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    pressRepositoryPullRequest: (manifestId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
     readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
     readPullRequestFile: (sessionId: string, number: number, path: string) => Promise<SessionActed<PullRequestFilePatch>>;
     writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
     startSessionRun: (sessionId: string, command: string, cols?: number, rows?: number) => Promise<SessionActed<SessionRunUnderway>>;
+    catchUpCheckout: (manifestId: string) => Promise<SessionActed<CheckoutCaughtUp>>;
+    sendCheckoutAsPullRequest: (manifestId: string) => Promise<SessionActed<CheckoutSentAsPullRequest>>;
+    readCheckoutDiff: (manifestId: string, path: string) => Promise<SessionActed<CheckoutDiff>>;
     stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
     writeSessionRun: (runId: string, data: string) => Promise<SessionActed<SessionRunUnderway>>;
     resizeSessionRun: (runId: string, cols: number, rows: number) => Promise<SessionActed<SessionRunUnderway>>;
@@ -823,6 +828,7 @@ const OLD_CHANNELS = {
     captureWindowWalkBack: "bridge:capture-window-walk-back",
     captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
     captureWindowWalkReplay: "bridge:capture-window-walk-replay",
+    captureWindowWalkGuide: "bridge:capture-window-walk-guide",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
@@ -881,10 +887,14 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    pressRepositoryPullRequest: "bridge:press-repository-pull-request",
     readPullRequestPage: "bridge:read-pull-request-page",
     readPullRequestFile: "bridge:read-pull-request-file",
     writePullRequest: "bridge:write-pull-request",
     startSessionRun: "bridge:start-session-run",
+    catchUpCheckout: "bridge:catch-up-checkout",
+    sendCheckoutAsPullRequest: "bridge:send-checkout-as-pull-request",
+    readCheckoutDiff: "bridge:read-checkout-diff",
     stopSessionRun: "bridge:stop-session-run",
     writeSessionRun: "bridge:write-session-run",
     resizeSessionRun: "bridge:resize-session-run",

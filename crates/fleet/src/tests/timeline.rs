@@ -264,6 +264,7 @@ fn pull(number: u64, ci: Option<HubPullCi>, queue: Option<HubQueue>) -> HubPullR
         additions: None,
         deletions: None,
         owner: None,
+        merge_by_hand: false,
     }
 }
 

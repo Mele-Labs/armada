@@ -1,13 +1,20 @@
 // The window's tabs: where a person moves about. Drawn in the title bar's centre (`TitleBar`'s `places`), each tab one
 // surface. System opens the strip of pages under the bar. #2301.
 
-import { Tabs } from "@armada/components";
-import { DECK_TABS, deckTabOf } from "@armada/shell";
+import { useLayoutEffect, useRef, useState } from "react";
+import { SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Tabs, usePlacesRoom } from "@armada/components";
+import { DECK_TABS, SURFACES, deckTabOf } from "@armada/shell";
 
 import "./deck-chrome.css";
 
 /** What the Cockpit tab's pip says: a call is waiting while the window is somewhere else. */
 const WAITING = "A call is waiting";
+
+/** Each tab's glyph is its surface's in the roster; System opens several pages, so it has its own. */
+function iconOf(tab: (typeof DECK_TABS)[number]): LucideIcon | undefined {
+  return tab.id === "system" ? SlidersHorizontal : SURFACES.find((one) => one.id === tab.surface)?.icon;
+}
 
 export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden = [] }: {
   /** The surface that is up. */
@@ -22,14 +29,32 @@ export function TabBar({ showing, onGoTo, waiting = false, away = false, hidden 
   waiting?: boolean;
 }) {
   const place = deckTabOf(showing);
+  const tabs = DECK_TABS.filter((tab) => tab.id === "system" || !hidden.includes(tab.surface));
+  const drawn = tabs.map((tab) => tab.id).join(" ");
+  // The strip stays on one line: where the room is narrower than the labels, each tab is drawn as its glyph. The
+  // labels' width is read while they are drawn, so it is known when the row widens again.
+  const room = usePlacesRoom();
+  const nav = useRef<HTMLElement>(null);
+  const [labels, setLabels] = useState<{ drawn: string; width: number }>();
+  const iconsOnly = labels?.drawn === drawn && room !== undefined && labels.width > room;
+  useLayoutEffect(() => {
+    if (iconsOnly || nav.current === null) return;
+    const width = Math.ceil(nav.current.getBoundingClientRect().width);
+    if (labels?.drawn !== drawn || labels.width !== width) setLabels({ drawn, width });
+  });
   return (
-    <nav className="deck-places" aria-label="Places">
+    <nav ref={nav} className="deck-places" aria-label="Places">
       <Tabs
-        items={DECK_TABS.filter((tab) => tab.id === "system" || !hidden.includes(tab.surface)).map((tab) => ({
-          id: tab.id,
-          label: tab.label,
-          ...(tab.id === "cockpit" && waiting && place !== "cockpit" ? { alert: WAITING } : {}),
-        }))}
+        iconsOnly={iconsOnly}
+        items={tabs.map((tab) => {
+          const icon = iconOf(tab);
+          return {
+            id: tab.id,
+            label: tab.label,
+            ...(icon === undefined ? {} : { icon }),
+            ...(tab.id === "cockpit" && waiting && place !== "cockpit" ? { alert: WAITING } : {}),
+          };
+        })}
         {...(place === undefined ? {} : { value: place })}
         onChange={(id) => {
           const tab = DECK_TABS.find((one) => one.id === id);

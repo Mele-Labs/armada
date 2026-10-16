@@ -21,10 +21,10 @@ export type StopCardProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
 };
 
 /**
- * The card a metro stop opens in the Cockpit's Bays view, and the one a plan meter opens in the title
- * bar: a head with a toned pill and a subtle place, a title, and facts. **The tone is the caller's**, as
- * `--tone` on the card (its top edge and the pill take it); where the card sits, when it opens and how it
- * is kept open are the caller's too, since the two places differ in all three.
+ * The card a metro stop opens in the Cockpit's Bays view, and a Session's context figure: a head with a toned
+ * pill and a subtle place, a title, and facts. **The tone is the caller's**, as `--tone` on the card (its top
+ * edge and the pill take it); where the card sits, when it opens and how it is kept open are the caller's too,
+ * since the places differ in all three.
  */
 export function StopCard({ pill, where, title, lead, rows = [], className, children, ref, ...rest }: StopCardProps) {
   return (

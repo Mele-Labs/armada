@@ -1101,14 +1101,38 @@ pub trait Delivery {
     /// anything it cannot do without merging, rebasing or discarding.
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding;
 
-    /// Whether the commit checked out in `in_repo` already has `commit`, read
-    /// in process. `false` where the commit is not here at all.
-    fn checkout_has(&self, in_repo: &str, commit: &str) -> bool;
+    /// Whether `in_repo` already has `commit` on `base`, read in process: the
+    /// commit checked out where `base` is, and the local `base` branch where
+    /// another is. `false` where the commit is not here at all.
+    fn checkout_has(&self, in_repo: &str, base: &str, commit: &str) -> bool;
+
+    /// Fast-forward the local `base` branch to `origin`'s while another branch
+    /// is checked out, touching nothing checked out. **False where git refuses**:
+    /// a history that will not fast-forward, or `base` checked out in some
+    /// worktree.
+    fn base_fast_forwarded(&self, in_repo: &str, base: &str) -> bool;
 
     /// Why `in_repo` cannot be fast-forwarded to `base` on the remote, read for
     /// a person to act on. Fetches the base first so the counts are current.
     /// `None` where the repository or its remote base cannot be read.
     fn held_back(&self, in_repo: &str, base: &str) -> Option<HeldBack>;
+
+    /// Pull the checkout in `in_repo` up to its upstream with a fast-forward
+    /// only, setting its uncommitted work aside and putting it back.
+    ///
+    /// **The press behind a held checkout's one safe command.** Whether the
+    /// hold is one a pull can clear is the caller's to have read just before;
+    /// this runs the pull and says what git said. **A stash git could not put
+    /// back is left where git left it** and reported as a non-zero code.
+    fn pulled_the_checkout(&self, in_repo: &str) -> CheckoutPulled;
+
+    /// The unified diff of one tracked file's uncommitted change against `HEAD`
+    /// in `in_repo`, as git prints it. **Reads only.** Empty where the file has
+    /// no change; `Err` carries git's own words where it would not run.
+    ///
+    /// The path is taken literally, never as a pathspec, but **what may be asked
+    /// for is the caller's to have limited**: this reads any path it is given.
+    fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String>;
 
     /// Whether an edit to the Manifest at `file` can go out as a pull request:
     /// `in_repo` is a repository with an `origin`, and the file is tracked and
@@ -1135,6 +1159,21 @@ pub trait Delivery {
         in_repo: &str,
         sending: &crate::ManifestEditToSend,
     ) -> Result<crate::ManifestEditSent, NotDelivered>;
+
+    /// Send the uncommitted files of the checkout in `in_repo` up as a pull
+    /// request into `sending.base`, auto-merge on: a commit on `origin`'s tip of
+    /// the base whose tree is that tip's with each path's working-tree content,
+    /// pushed to `sending.branch`.
+    ///
+    /// **Never touches `in_repo`'s working tree, index or HEAD**, which the
+    /// person is standing in: the commit is made from objects. **Refuses a path
+    /// the base also changed to something else**, so the commit can never undo
+    /// what landed on the base.
+    fn send_checkout_as_pull_request(
+        &self,
+        in_repo: &str,
+        sending: &crate::CheckoutToSend,
+    ) -> Result<crate::CheckoutSent, NotDelivered>;
 }
 
 /// A checkout Fleet would not catch up, and what stands in the way.
@@ -1142,17 +1181,33 @@ pub trait Delivery {
 pub struct HeldBack {
     pub base: String,
     /// The branch checked out, where it is not the base. `HEAD` when detached.
+    /// The counts below are then the local base branch's.
     pub on: Option<String>,
-    /// Tracked files with uncommitted changes. Untracked files never block a
-    /// fast-forward and are not named.
+    /// Tracked files with uncommitted changes, while the base is checked out.
+    /// Untracked files never block a fast-forward and are not named.
     pub uncommitted: Vec<String>,
-    /// Those of `uncommitted` that the remote base also changed, so an
-    /// autostash could stop on a conflict.
+    /// Those of `uncommitted` that the remote base also changed **to something
+    /// else**, so an autostash could stop on a conflict. A file whose content
+    /// is byte for byte the remote base's is in `already_on_base` instead.
     pub clashing: Vec<String>,
+    /// Those of `uncommitted` that the remote base also changed and whose
+    /// content here is exactly what it now holds: the change went up some other
+    /// way, and a pull over them takes nothing from anyone.
+    pub already_on_base: Vec<String>,
     /// Commits the remote base has that the checkout does not.
     pub behind: usize,
     /// Commits the checkout has that the remote base does not.
     pub ahead: usize,
+}
+
+/// What pulling a held checkout up came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CheckoutPulled {
+    /// git's exit code. `1` where git exited clean and left the stashed work
+    /// conflicted, and `-1` where git did not run or was stopped by a signal.
+    pub code: i32,
+    /// What git printed, both streams, for a person to read.
+    pub output: String,
 }
 
 /// A line for a person about where the base came from. Built here so the two

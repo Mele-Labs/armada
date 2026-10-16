@@ -32,6 +32,7 @@
 extern crate alloc;
 
 mod basing;
+mod checkout_send;
 mod ci;
 mod cloning;
 mod commit;
@@ -60,11 +61,12 @@ pub use basing::{BaseCheckout, BaseSpec, BaseSpecRefused, BranchListed};
 pub use ci::{
     CiCommand, CiConfiguration, CiNotFollowed, CiReading, FileEntry, FileRead, RepositoryFiles,
 };
+pub use checkout_send::{CheckoutSent, CheckoutToSend};
 pub use cloning::NotCloned;
 pub use commit::{CommitTime, Committed};
 pub use delivery::{
     how_the_base_was_found, Base, BaseFetched, BaseMergedIn, BaseOnTheRemote, BranchMerged, BroughtUpToDate,
-    Delivery, FiledIssue, HeldBack, KeptCurrent, Landing, Mergeable, Merged, NotDelivered, NotFiled,
+    CheckoutPulled, Delivery, FiledIssue, HeldBack, KeptCurrent, Landing, Mergeable, Merged, NotDelivered, NotFiled,
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,
 };
@@ -405,8 +407,9 @@ pub trait Vcs {
     /// session, and not a Job of that id.
     ///
     /// **A session rewrites its own branch inside its slot**, so this commits
-    /// to the branch the checkout is on, not the one the lease names, and
-    /// refuses only the base and a detached head. Whatever still runs with its
+    /// to the branch the checkout is on, not the one the lease names. Where
+    /// it is on none or on the base, a `kept/` branch is cut for what there is
+    /// to keep. Whatever still runs with its
     /// working directory in the slot is ended first, and nothing outside it.
     fn park_hosted_slot(
         &self,

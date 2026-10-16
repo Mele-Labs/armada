@@ -1,0 +1,79 @@
+/* The ring and caption of a walk Bridge plays, `show_window`'s steps. Every value a token; the target
+ * arrives from main as `--walk-*`, measured off the element in the page.
+ *
+ * Drawn in the capture window's bar view, which covers the whole frame while the guide is up, so this
+ * stacks as the question's does and on the same token. The ring and the card are the mock walk's own
+ * (`mock.css`'s `armada-mock-walk__ring` and `__card`). */
+.armada-walk-guide {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-palette);
+  pointer-events: none;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+}
+
+/* Over the page and not the bar: the walk's row is how the walk is driven, and stays pressable. */
+.armada-walk-guide__catch {
+  position: fixed;
+  inset: var(--walk-top) 0 0 0;
+  pointer-events: auto;
+}
+
+.armada-walk-guide__ring {
+  position: fixed;
+  left: var(--walk-x);
+  top: var(--walk-y);
+  width: var(--walk-w);
+  height: var(--walk-h);
+  border-radius: var(--radius-sm);
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  /* Off the element's edge, so it still reads on an accent-filled control. */
+  outline-offset: calc(var(--border-width) * 2);
+  box-shadow: 0 0 0 var(--space-2) var(--accent-faint);
+  pointer-events: none;
+}
+
+.armada-walk-guide__card {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--w-tooltip);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+/* Under the bar when the target is under the bottom corner. */
+.armada-walk-guide__card[data-edge="top"] {
+  bottom: auto;
+  top: calc(var(--walk-top) + var(--space-3));
+}
+
+.armada-walk-guide__where {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+/* The walk's name is what gives, so the step it is on stays readable. */
+.armada-walk-guide__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-walk-guide__said {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

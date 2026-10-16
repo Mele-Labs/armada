@@ -10,3 +10,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 7 Oct 2026 for the walk `sessions`. The Job's own mark is its state, so this says what the Session is doing with it, in the tooltip and not in a word."
+
+[[icons.search.usage]]
+  means = "A step of a walk Bridge plays whose target is not on the page"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 15 Oct 2026 with `steps` on `show_window`, for the walk row of the capture window's bar. The magnifier says the target was looked for and not found. The owner has not seen it. Tooltip `Not found: ` and the target as a person would name it; no sentence. The row carries no reservation."

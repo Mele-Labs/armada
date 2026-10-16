@@ -13,7 +13,7 @@
 
 use adapter_traits::{HeldBack, Rendering, RepositoryStanding};
 
-use crate::landing::{caught_up, checkout_has, fields, held_back, rendering};
+use crate::landing::{base_fast_forwarded, caught_up, checkout_has, fields, held_back, pulled_the_checkout, rendering, uncommitted_change_of};
 use crate::tests::repo::TempRepo;
 
 // ------------------------------------------------------- one line, four fields
@@ -241,8 +241,12 @@ fn somewhere_that_is_not_a_repository_is_left_alone() {
 
 /// Commit `path` in the second checkout and push it, as a merge on the forge.
 fn merged_elsewhere(repo: &TempRepo, path: &str) {
+    merged_elsewhere_as(repo, path, "main's version");
+}
+
+fn merged_elsewhere_as(repo: &TempRepo, path: &str, text: &str) {
     let elsewhere = repo.root().with_extension("elsewhere");
-    std::fs::write(elsewhere.join(path), "main's version").expect("writes");
+    std::fs::write(elsewhere.join(path), text).expect("writes");
     for args in [
         vec!["add", "--", path],
         vec!["commit", "-m", "main changed it"],
@@ -279,12 +283,9 @@ fn a_checkout_has_its_own_head_and_its_ancestors_and_nothing_newer() {
     let repo = TempRepo::with_a_commit();
     let first = repo.head_str();
     repo.commit_one("src/next.rs", "next", "the next commit");
-    assert!(checkout_has(&repo.root_str(), &first));
-    assert!(checkout_has(&repo.root_str(), &repo.head_str()));
-    repo.git(&["checkout", "--quiet", &first]);
-    let newer = repo.git(&["rev-parse", "main"]);
-    assert!(!checkout_has(&repo.root_str(), &newer));
-    assert!(!checkout_has(&repo.root_str(), "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"));
+    assert!(checkout_has(&repo.root_str(), "main", &first));
+    assert!(checkout_has(&repo.root_str(), "main", &repo.head_str()));
+    assert!(!checkout_has(&repo.root_str(), "main", "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"));
 }
 
 #[test]
@@ -300,6 +301,7 @@ fn uncommitted_files_main_did_not_touch_are_held_back_with_no_clash() {
             on: None,
             uncommitted: vec![String::from("armada.yml")],
             clashing: Vec::new(),
+            already_on_base: Vec::new(),
             behind: 1,
             ahead: 0,
         })
@@ -316,15 +318,271 @@ fn an_uncommitted_file_main_also_changed_is_named_as_clashing() {
     assert_eq!(held.clashing, ["armada.yml"]);
 }
 
+/// The change the owner kept uncommitted reached main by another road: the file is main's own now.
 #[test]
-fn a_checkout_on_another_branch_with_its_own_commit_names_both() {
+fn an_uncommitted_file_that_is_main_s_own_content_is_not_a_clash() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "main's version");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+
+    assert_eq!(held.uncommitted, ["armada.yml"]);
+    assert!(held.clashing.is_empty(), "{:?}", held.clashing);
+    assert_eq!(held.already_on_base, ["armada.yml"]);
+}
+
+/// One byte apart is a clash: only the same content is safe.
+#[test]
+fn a_file_one_byte_from_main_s_content_still_clashes() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "main's version\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+
+    assert_eq!(held.clashing, ["armada.yml"]);
+    assert!(held.already_on_base.is_empty());
+}
+
+/// Main took the owner's change and reworded a line beside it: the file is not
+/// main's byte for byte, but nothing of theirs is lost by the pull.
+#[test]
+fn an_uncommitted_change_main_already_holds_is_not_a_clash_and_pulls_clean() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "a\nb\nc\n", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let elsewhere = repo.root().with_extension("elsewhere");
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&elsewhere)
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere_as(&repo, "notes.md", "header\na\nb\nc\nd\n");
+    repo.write("notes.md", "a\nb\nc\nd\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert!(held.clashing.is_empty(), "{:?}", held.clashing);
+    assert_eq!(held.already_on_base, ["notes.md"]);
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(std::fs::read_to_string(repo.root().join("notes.md")).expect("reads"), "header\na\nb\nc\nd\n");
+    assert!(repo.status().is_empty(), "{:?}", repo.status());
+}
+
+/// A change that merges clean but is not in main's file is still the owner's own.
+#[test]
+fn an_uncommitted_change_main_does_not_hold_still_clashes() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "a\nb\nc\n", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let elsewhere = repo.root().with_extension("elsewhere");
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&elsewhere)
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere_as(&repo, "notes.md", "header\na\nb\nc\nd\n");
+    repo.write("notes.md", "a\nb\nc\ne\n");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!(held.clashing, ["notes.md"]);
+    assert!(held.already_on_base.is_empty());
+}
+
+/// The file's deletion landed on main too: gone from both is the same.
+#[test]
+fn a_file_deleted_here_and_on_main_is_main_s_own() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    let elsewhere = repo.root().with_extension("elsewhere");
+    for args in [vec!["rm", "--quiet", "armada.yml"], vec!["commit", "-m", "gone"], vec!["push", "origin", "main"]] {
+        let run = std::process::Command::new("git")
+            .args(["-c", "user.name=armada", "-c", "user.email=a@b.invalid", "-C"])
+            .arg(&elsewhere)
+            .args(&args)
+            .output()
+            .expect("git on PATH");
+        assert!(run.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&run.stderr));
+    }
+    std::fs::remove_file(repo.root().join("armada.yml")).expect("deleted by hand");
+
+    let held = held_back(&repo.root_str(), "main").expect("read");
+
+    assert_eq!(held.already_on_base, ["armada.yml"]);
+    assert!(held.clashing.is_empty());
+}
+
+#[test]
+fn a_checkout_on_another_branch_is_counted_by_its_local_base() {
     let repo = a_repository_behind_its_remote();
     repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
-    repo.commit_one("src/mine.rs", "mine", "my own commit");
+    repo.commit_one("mine.rs", "mine", "my own commit");
+    repo.write("mine.rs", "half a thought");
 
     let held = held_back(&repo.root_str(), "main").expect("read");
     assert_eq!(held.on.as_deref(), Some("something-of-my-own"));
-    assert_eq!((held.ahead, held.behind), (1, 1));
+    assert_eq!((held.ahead, held.behind), (0, 1), "main's, not the branch's");
+    assert!(held.uncommitted.is_empty(), "the branch's files are not main's");
+}
+
+/// The owner is not called for a checkout on another branch: its `main` moves and nothing checked out does.
+#[test]
+fn the_local_base_fast_forwards_under_another_branch_and_nothing_checked_out_moves() {
+    let repo = a_repository_behind_its_remote();
+    repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
+    repo.write("mine.rs", "half a thought");
+    let mine = repo.head_str();
+    repo.git(&["fetch", "--quiet", "origin"]);
+    let tip = repo.git(&["rev-parse", "origin/main"]);
+
+    assert!(!checkout_has(&repo.root_str(), "main", &tip));
+    assert!(base_fast_forwarded(&repo.root_str(), "main"));
+    assert!(checkout_has(&repo.root_str(), "main", &tip));
+    assert_eq!(repo.head_str(), mine);
+    assert_eq!(repo.git(&["branch", "--show-current"]), "something-of-my-own");
+    assert!(repo.status().iter().any(|line| line.contains("mine.rs")));
+}
+
+#[test]
+fn a_local_base_with_its_own_commit_does_not_fast_forward() {
+    let repo = a_repository_behind_its_remote();
+    repo.commit_one("mine.rs", "mine", "a commit on main only here");
+    repo.git(&["checkout", "--quiet", "-b", "something-of-my-own"]);
+
+    assert!(!base_fast_forwarded(&repo.root_str(), "main"));
+}
+
+// ------------------------------------------- the one pull a held checkout is offered
+
+/// The press behind "Your checkout": a file main never changed stays the owner's
+/// and the branch still moves.
+#[test]
+fn an_autostash_pull_moves_the_branch_and_keeps_a_file_main_did_not_touch() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "theirs.rs");
+    repo.write("armada.yml", "auto_merge: checks-pass");
+    let before = repo.head_str();
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_ne!(repo.head_str(), before, "the branch moved");
+    assert!(repo.root().join("theirs.rs").exists(), "main's file arrived");
+    assert_eq!(
+        std::fs::read_to_string(repo.root().join("armada.yml")).expect("reads"),
+        "auto_merge: checks-pass",
+        "the owner's edit is where it was"
+    );
+    assert_eq!(repo.git(&["stash", "list"]).trim(), "", "nothing is left in the stash");
+    assert!(!pulled.output.is_empty(), "git's words come back");
+}
+
+/// The pull Fleet runs by itself once the change is on main: the owner's file equals what arrives, and
+/// a second file main never touched stays theirs.
+#[test]
+fn an_autostash_pull_over_a_file_equal_to_main_s_succeeds_and_leaves_the_checkout_clean_of_it() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.commit_one("notes.md", "v1", "notes");
+    repo.git(&["push", "--quiet", "origin", "main"]);
+    let run = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo.root().with_extension("elsewhere"))
+        .args(["pull", "--quiet", "--ff-only"])
+        .output()
+        .expect("git on PATH");
+    assert!(run.status.success());
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "main's version");
+    repo.write("notes.md", "v2, mine");
+    let held = held_back(&repo.root_str(), "main").expect("read");
+    assert_eq!((held.clashing.as_slice(), held.already_on_base.as_slice()), (&[][..], &[String::from("armada.yml")][..]));
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_eq!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(repo.git(&["rev-parse", "HEAD"]), repo.git(&["rev-parse", "origin/main"]), "the checkout has main's tip");
+    assert_eq!(std::fs::read_to_string(repo.root().join("armada.yml")).expect("reads"), "main's version");
+    assert_eq!(std::fs::read_to_string(repo.root().join("notes.md")).expect("reads"), "v2, mine", "the untouched file stays the owner's");
+    assert_eq!(repo.status(), ["notes.md"], "only the owner's own file is left uncommitted");
+    assert_eq!(repo.git(&["stash", "list"]).trim(), "", "nothing is left in the stash");
+}
+
+/// **git exits clean for this and Fleet does not.** The fast-forward happened, the
+/// file is in conflict and the work is in the stash git left; none of it is dropped.
+#[test]
+fn a_stash_that_will_not_go_back_on_is_reported_and_left_in_place() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    merged_elsewhere(&repo, "armada.yml");
+    repo.write("armada.yml", "auto_merge: checks-pass");
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_ne!(pulled.code, 0, "{}", pulled.output);
+    assert!(
+        repo.git(&["stash", "list"]).contains("autostash"),
+        "the owner's work is still in git's stash"
+    );
+}
+
+/// A history that has diverged is refused by git, and the owner's file is not touched.
+#[test]
+fn a_diverged_checkout_is_refused_by_git_and_left_as_it_was() {
+    let repo = a_repository_behind_its_remote();
+    repo.commit_one("src/mine.rs", "mine", "my own commit");
+    repo.write("src/mine.rs", "and more");
+    let before = repo.head_str();
+
+    let pulled = pulled_the_checkout(&repo.root_str());
+
+    assert_ne!(pulled.code, 0, "{}", pulled.output);
+    assert_eq!(repo.head_str(), before);
+    assert_eq!(
+        std::fs::read_to_string(repo.root().join("src/mine.rs")).expect("reads"),
+        "and more"
+    );
+}
+
+// ------------------------------------------- what an uncommitted file holds
+
+#[test]
+fn an_uncommitted_edit_reads_as_a_unified_diff_against_head() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.write("armada.yml", "version: 1\nauto_merge: checks-pass\n");
+
+    let diff = uncommitted_change_of(&repo.root_str(), "armada.yml").expect("reads");
+
+    assert!(diff.contains("diff --git a/armada.yml b/armada.yml"), "{diff}");
+    assert!(diff.contains("+auto_merge: checks-pass"), "{diff}");
+    assert!(diff.contains("-version: 1") || diff.contains(" version: 1") || diff.contains("@@"), "{diff}");
+}
+
+#[test]
+fn an_unchanged_file_reads_as_an_empty_diff_and_another_files_change_is_not_in_it() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.write("armada.yml", "auto_merge: checks-pass\n");
+
+    assert_eq!(uncommitted_change_of(&repo.root_str(), "src/never-touched.rs").expect("reads"), "");
+}
+
+/// A name that is pathspec magic is a file name here, and matches nothing.
+#[test]
+fn a_path_is_a_literal_file_name_and_never_a_pathspec() {
+    let repo = a_repository_with_a_manifest_both_sides_have();
+    repo.write("armada.yml", "auto_merge: checks-pass\n");
+
+    for path in [":(top)armada.yml", "*.yml", "arm*"] {
+        assert_eq!(uncommitted_change_of(&repo.root_str(), path).expect("reads"), "", "{path}");
+    }
+}
+
+#[test]
+fn somewhere_that_is_not_a_repository_has_no_change_to_read() {
+    assert!(uncommitted_change_of("/nonexistent/armada/landing", "armada.yml").is_err());
 }
 
 /// **A repository takes every directory it made with it.**

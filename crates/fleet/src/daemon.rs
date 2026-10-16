@@ -124,6 +124,8 @@ pub struct Fleet<H, V, W> {
     sessions: crate::session_host::Hosts,
     /// Shell blocks run from a Session's thread. Never written down — `crate::session_running`.
     session_runs: crate::session_running::SessionRuns,
+    /// The addresses a session signs in with, until Bridge opens its window. A secret, never written down — `crate::window_sign_in`.
+    window_sign_ins: crate::window_sign_in::SignIns,
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,

@@ -36,11 +36,20 @@ const smokeBrowser = ["src/renderer/src/mock/**/*.test.tsx", "src/renderer/src/a
 const desktopBrowser = browserProject("desktop (browser)", ["src/renderer/**/*.test.tsx"]);
 desktopBrowser.test = { ...desktopBrowser.test, exclude: [...configDefaults.exclude, ...smokeBrowser] };
 
+// `electron.vite.config.ts` builds the walk finder into this module; a test that only loads
+// `capture/window.ts` needs the import to resolve, not the finder. `finder.test.ts` mocks its own.
+const walkFinderStub = {
+  name: "armada-walk-finder-stub",
+  resolveId: (source: string) => (source === "virtual:armada-walk-finder" ? "\0virtual:armada-walk-finder" : null),
+  load: (file: string) => (file === "\0virtual:armada-walk-finder" ? 'export default "var ArmadaFinder = {};"' : null),
+};
+
 export default defineConfig({
   test: {
     sequence: { sequencer: WeightedShards },
     projects: [
       {
+        plugins: [walkFinderStub],
         test: {
           name: "desktop",
           environment: "node",

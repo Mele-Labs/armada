@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
 import { ArrowUpToLine, Ban, Box, SquareTerminal, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, GitMerge, type LucideIcon } from "lucide-react";
+import type { HeldCheckout } from "@armada/protocol";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
@@ -153,6 +154,8 @@ export type HubPull = {
   review?: "approved" | "changes_requested" | "review_required" | "none";
   additions?: number;
   deletions?: number;
+  /** A form edit's pull request that waits for a person to merge it. Absent is any other. */
+  mergeByHand?: true;
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
@@ -163,6 +166,8 @@ export type MergeLineHub = {
   recent: readonly RecentJob[];
   /** The Sessions work can go back to, as a message. Absent is none. */
   recentSessions?: readonly RecentSession[];
+  /** The served checkout, where main moved past it and Fleet would not catch it up. Absent while it has main's tip. */
+  checkout?: HeldCheckout;
 };
 
 export type MergeLineProps = {
