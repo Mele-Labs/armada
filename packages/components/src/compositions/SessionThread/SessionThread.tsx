@@ -70,6 +70,7 @@ export type SessionThreadRow =
       files?: readonly { id: string; name: string; src?: string }[];
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly ComposerTag[];
+      stableKey?: string;
     }
   /** Helm's `ask_person_to_approve` call, drawn as the card that asks for the press on that Job's gate. */
   | { id: string; at: string; kind: "approval"; card: HelmApprovalCard }

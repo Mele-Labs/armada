@@ -467,6 +467,7 @@ export function App({ draft }: AppProps = {}) {
     settings: state.settings,
     openSession,
     openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)),
+    words: helmBox.words,
   });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf, carryOf: helmBox.carryOf });
   const oneBar = useOneBar({ live, dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
@@ -703,7 +704,8 @@ export function App({ draft }: AppProps = {}) {
               live={live}
               chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
               onRemoveChip={() => setChip(dismissed)}
-              onAsk={(text, context, carry) => void helmBox.ask(text, context, carry)}
+              onAsk={helmBox.asked}
+              outgoing={helmBox.outgoing}
               context={helmContext}
               studio={
                 shownStudio === null

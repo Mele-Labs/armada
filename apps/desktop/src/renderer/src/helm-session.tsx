@@ -2,7 +2,7 @@
 // as chips under the dock's head, and the sheets those chips open. The dock keeps what is Helm's own.
 // Apart from `App.tsx`, which is at its length. A repository with no Helm Session draws as before.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { HelmHolds, SessionThread, TileSheet } from "@armada/components";
 import type { HelmDockProps } from "@armada/helm";
@@ -19,9 +19,11 @@ import { pullRequestPlaceOf } from "./pull-request-place";
 import { entriesOf, ReadingSheet, readingOf, stepsReadingOf } from "./sessions";
 import type { HeldReads, LedgerGoes, Reading } from "./sessions";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
-import { threadRowsOf } from "./session-thread-rows";
+import { threadRowsFrom } from "./session-thread-rows";
+import type { HelmWords } from "./helm-box";
 
-const NO_ROWS: ReturnType<typeof threadRowsOf> = [];
+const NO_ROWS: ReturnType<typeof threadRowsFrom> = [];
+const NO_SESSION_ROWS: Session["rows"] = [];
 
 /** Helm's Session for the repository the dock answers for, among the Sessions the window lists. */
 export function helmSessionOf(sessions: readonly Session[], manifestId: string | undefined): Session | undefined {
@@ -52,10 +54,12 @@ type Host = {
   settings: SettingsList | null;
   openSession: (id: string) => void;
   openJob: (jobId: string) => void;
+  /** The words held in Helm's thread while they go. */
+  words: HelmWords;
 };
 
 /** What the dock is given to draw Helm as a Session, and the sheets its chips open, drawn once beside the dock. */
-export function useHelmHosted({ manifestId, goes, held, board, workflows, onApprove, lines, settings, openSession, openJob }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
+export function useHelmHosted({ manifestId, goes, held, board, workflows, onApprove, lines, settings, openSession, openJob, words }: Host): { hosted: HelmDockProps["hosted"]; sheets: ReactNode } {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = useHelmSession(manifestId);
@@ -75,7 +79,11 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
     onWant(true);
     return () => onWant(false);
   }, [holdsSlot, onWant]);
-  const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), id ?? "");
+  // Words the person sent are in the thread from the press, going, and Fleet's row takes their place when it arrives.
+  const version = useSyncExternalStore(words.engine.subscribe, () => words.engine.version(words.key));
+  const rows = useMemo(() => words.engine.overlay(words.key, session?.rows ?? NO_SESSION_ROWS), [words, session?.rows, version]);
+  const waiting = session === undefined && rows.length > 0;
+  const thread = useBackfilled(session === undefined && !waiting ? NO_ROWS : threadRowsFrom(rows, session?.attachments), id ?? words.key);
   const drawn = withApprovals(thread, {
     jobs: board,
     workflows,
@@ -83,7 +91,18 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
     onApprove,
     onPress: (cardId, press) => setPressed(({ [cardId]: _was, ...rest }) => (press === undefined ? rest : { ...rest, [cardId]: press })),
   });
-  if (draft === undefined || session === undefined) return { hosted: undefined, sheets: null };
+  if (draft === undefined) return { hosted: undefined, sheets: null };
+  // The repository's first message has no Session yet and so no thread: the words are shown where it will be.
+  if (session === undefined) {
+    if (!waiting) return { hosted: undefined, sheets: null };
+    return {
+      hosted: {
+        working: false,
+        thread: <SessionThread sessionId={words.key} rows={drawn} agentName="Helm" onRetry={words.retry} onAnswer={() => undefined} onOpenSession={openSession} />,
+      },
+      sheets: null,
+    };
+  }
 
   // `links.openPullRequestsIn` decides where a pull request opens: Armada's panel, or the forge in the browser.
   const read = (one: Reading) => {
@@ -113,6 +132,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
       <SessionThread
         sessionId={session.id}
         rows={drawn}
+        onRetry={words.retry}
         agentName="Helm"
         working={session.turn.state === "working"}
         {...(draft.stop === undefined ? {} : { onStop: () => draft.stop?.(session.id) })}
