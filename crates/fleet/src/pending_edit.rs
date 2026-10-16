@@ -13,12 +13,14 @@
 //! unmerged; each way the live keys are then read from the file again.
 //!
 //! **A raw save of the whole file stacks the same way**, as a commit of the text
-//! as typed on the pending branch, so it goes into the same pull request.
+//! as typed on the pending branch, so it goes into the same pull request. It is
+//! parsed first and refused as a broken form edit is: the pull request merges
+//! itself, so it never carries a file that does not load.
 //!
 //! **A forge that would not turn auto-merge on is kept on the edit**, as the
 //! plain fact [`Pending::merge_by_hand`] says. Nothing draws it yet: no surface
 //! Fleet already has for a fact with no Job to hang it on can carry it without
-//! a Bridge change, which is the owner's to ask for (#2396).
+//! a Bridge change, which is the owner's to decide (#2396).
 
 use std::io;
 use std::sync::{Mutex, PoisonError};
@@ -53,6 +55,8 @@ pub(crate) struct Pending {
 impl Pending {
     /// The fact a person is owed when the pull request waits for them, or
     /// `None` while the forge is going to merge it itself.
+    // #2396: nothing reads it until the owner decides where it is drawn.
+    #[allow(dead_code)]
     pub(crate) fn merge_by_hand(&self) -> Option<String> {
         self.auto_merge_refused.as_ref()?;
         let number = self.pull_request.rsplit('/').next().unwrap_or_default();
@@ -179,8 +183,8 @@ where
 
     /// Stack `text`, the file whole as a person typed it, on the pending edit's
     /// branch, or open a pull request for it where the pending one has merged.
-    /// **Called with the turn held**, and `text` is not parsed: a raw save puts
-    /// work in progress down, as it does on disk.
+    /// **Called with the turn held.** `text` is parsed first and refused as a
+    /// form's edit that would not load is, with nothing committed or pushed.
     pub(crate) async fn raw_text_through_a_pull_request(
         &self,
         served: &Served,
@@ -195,6 +199,8 @@ where
         if text == pending.text {
             return Ok(());
         }
+        config::Manifest::parse(file, &text)
+            .map_err(|load| self.not_amended(config::NotAmended::Refused(load)))?;
         let stacked = (stacking == Stacking::Open).then_some(pending);
         let carried = stacked
             .as_ref()
@@ -282,10 +288,6 @@ where
             text: text.to_string(),
             auto_merge_refused: sent.auto_merge.err().or(carried),
         };
-        // The one place it is said until a surface draws it.
-        if let Some(fact) = pending.merge_by_hand() {
-            eprintln!("{fact}");
-        }
         served.repository().pending_edit().set(Some(pending));
         Ok(())
     }

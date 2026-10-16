@@ -396,3 +396,23 @@ async fn a_raw_save_drawn_before_the_pending_edit_is_refused() {
     ));
     assert_eq!(fleet.vcs().manifest_edits_sent().len(), 1);
 }
+
+#[tokio::test]
+async fn a_raw_save_that_does_not_load_while_an_edit_is_pending_is_refused_and_sends_nothing() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    let edited = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    let refused = fleet
+        .write_manifest_file(
+            SaveManifestFile { read: edited.text.clone(), text: String::from("version: 1\nchecks: [\n") },
+            &fleet.first(),
+        )
+        .await
+        .expect_err("an auto-merging pull request must not carry a file that does not load");
+
+    assert_eq!(refused.status(), 422);
+    assert_eq!(refused.error().code, "fleet.manifest_edit_refused");
+    assert_eq!(fleet.vcs().manifest_edits_sent().len(), 1, "only the form's edit went out");
+    assert_eq!(what_a_form_reads(&fleet), edited.text);
+}
