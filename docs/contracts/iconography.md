@@ -692,7 +692,7 @@ reached for.
   border tokens and no words under it. `EmptyLine` in
   `packages/components/src/compositions/MergeLine/`.
 - **Spend, quota, elapsed, step N of M.** Numbers in mono. No gauge, no
-  coin, no timer. **One exception, the owner's, 12 Oct 2026**: the Claude plan's 5-hour and weekly limits are two fill meters in the title bar, the context card draws a Session's window as one slim bar of its categories, and a Session's head draws its context as a tank, a pill filled to the percent (14 Oct 2026).
+  coin, no timer. **One exception, the owner's, 12 Oct 2026**: the Claude plan's 5-hour and weekly limits are one ring of two arcs in the title bar (15 Oct 2026), the context card draws a Session's window as one slim bar of its categories, and a Session's head draws its context as a tank, a pill filled to the percent (14 Oct 2026).
 
 ---
 

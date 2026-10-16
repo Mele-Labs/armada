@@ -4,12 +4,16 @@
 
 .deck-places {
   display: flex;
+  flex: none;
   align-items: center;
   -webkit-app-region: no-drag;
 }
 
-/* Pill tabs: a glass track, the raised tab clearly lighter and filled. */
+/* Pill tabs: a glass track, the raised tab clearly lighter and filled. One line at every width: where the row has no
+   room for the labels, `TabBar` draws each tab as its glyph rather than letting the track wrap. */
 .deck-places .armada-tabs {
+  flex-wrap: nowrap;
+  max-width: none;
   border-color: var(--border-glass);
   border-radius: calc(var(--radius-lg) * 2);
   background: var(--bg-glass);

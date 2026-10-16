@@ -1,16 +1,16 @@
 // How full a Session's context window is, and how much of the plan is used. The context is a bare
-// figure in each Session's header, beside its acts, the live tokens and the percent, opening a card of what fills the window. The 5-hour and weekly limits are two fill meters in the
-// title bar, beside Sleep, each opening a card on hover or focus, kept by a press and closed by Esc or a press outside. Normal below 80%, amber from 80%, red from 95%.
+// figure in each Session's header, beside its acts, the live tokens and the percent, opening a card of what fills the window. The 5-hour and weekly limits are one ring in the
+// title bar, the 5-hour limit outside and the week inside, opening one card of both on hover or focus, kept by a press and closed by Esc or a press outside. Normal below 80%, amber from 80%, red from 95%.
 // A Session or a Job held for the plan limit wears a battery-low mark with when it resumes, on its row and, for
 // a Session, in its header. Over the `session-usage` scenario.
 
-import { inside, place, region, role, walk } from "../walk";
+import { dialog, inside, place, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const sessions = region("Sessions");
-const five = role("button", "5-hour limit");
-const weekly = role("button", "Weekly limit");
+const limits = role("button", "5-hour limit");
+const card = dialog("Plan limits");
 const limitMark = role("img", "Limit reached");
 
 /** Opens a Session from the list, then looks at and hovers its context figure. */
@@ -27,15 +27,14 @@ function context(title: string, address: string, said: string): Step[] {
 }
 
 const usage = walk("session-usage", [
-  { look: five, say: "The 5-hour limit, a fill meter in the title bar" },
-  { hover: five, say: "Hover for the card: used, and when it resets" },
-  { look: weekly, say: "The weekly limit" },
-  { hover: weekly, say: "Hover for its card" },
-  { press: weekly, say: "A press keeps the card open" },
-  { key: "Escape", on: weekly, say: "Esc closes it" },
-  { later: weekly, say: "Later in the week" },
-  { look: five, say: "Amber from 80%" },
-  { hover: weekly, say: "Red from 95%" },
+  { look: limits, say: "The plan's limits, one ring: 5 hours outside, the week inside" },
+  { hover: limits, say: "Hover for the card: each limit, how much is used and when it resets" },
+  { press: limits, say: "A press keeps the card open" },
+  { look: inside(card, region("Weekly limit")), say: "The weekly limit" },
+  { key: "Escape", on: limits, say: "Esc closes it" },
+  { later: limits, say: "Later in the week" },
+  { look: limits, say: "Amber from 80%, red from 95%" },
+  { hover: limits, say: "The figures in the card take the same tones" },
   { press: place("Jobs"), say: "A Job's row, on the Jobs page" },
   { look: limitMark, say: "A Job held for the limit wears this beside its status" },
   { hover: limitMark, say: "Hover for when it resumes" },

@@ -3,5 +3,5 @@
   group = "Plan limit"
   size = "12 and 16px"
   status = "Proposed"
-  reserved = "A Session or a Job held because the plan's limit was reached, until Fleet wakes it at the reset. Never spend or quota drawn as a reading, which stay figures and fill meters."
+  reserved = "A Session or a Job held because the plan's limit was reached, until Fleet wakes it at the reset. Never spend or quota drawn as a reading, which stay figures, fill meters and the plan ring."
   notes = "Proposed 12 Oct 2026 for the walk `session-usage`. It stands where a Session's live mark does and beside a Job's badge, never in place of it. Refused: `hourglass`, banned outright; `timer` and `alarm-clock`, since the set holds one time-shaped mark by decision (`clock`, and it is `queued`'s, where nobody is acting for want of a slot rather than of allowance); `circle-pause`, a Job the owner paused, which holds its work and gives the slot back; `snowflake`, a metaphor P1 confines to proper nouns. A battery is an object standing for a state rather than a gauge: it is drawn as a glyph at 12 and 16px and carries no reading. Not animated, as `eye` and `circle-dashed` are not."

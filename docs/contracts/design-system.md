@@ -1027,7 +1027,7 @@ The colour is the Fleet panel's, from the one map — the dot and the panel
 cannot disagree, because neither holds a table of its own. Status colour is
 mapped, never chosen; see [Iconography](iconography.md).
 
-**The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan meters' levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
+**The Session head is one row, and carries the context as a tank.** The terminal glyph (its tooltip is the address), the title on one line with the whole of it in its tooltip, Retro and End session as icons, the tank, the fresh, mod and clash marks, and the state mark last behind a rule. The head draws no address and no model: the composer's Model select reads the model. The tank is a mono pill of the live tokens and the percent of the window, `53.8k · 5%`, filled from its leading edge to that percent in a translucent tone with a crisp edge at the level, and a faint dotted line where the breakdown holds an autocompact threshold. The tone is the plan ring's levels: normal below 80, warning from 80, danger from 95. The fill eases when the value moves, and does not under reduced motion. Where Fleet holds a breakdown it is a button that opens the stop card (hover or focus, kept by a press, closed by Esc or a press outside): a pill `5% used`, the window as one slim bar of its categories, one fact a category with tokens in mono, and the heaviest memory files and MCP servers. No dial, and nothing drawn where no window is held. A Session or a Job held for the plan's limit wears `battery-low` and `Limit reached · resumes 6:40 PM` in place of its live mark.
 
 **pid, port, protocol and uptime do not follow it.** They stay in the panel.
 A dot cannot carry a figure; Fleet's own figures are read in the panel.
@@ -1949,6 +1949,15 @@ values below `--bg-overlay` and cut a visible hole in the activity log's
 header; `--bg-raised` is 7 below it, and on the canvas the two differ by 7
 either side of `--bg-base` — so one value serves both rather than a rule
 scoped to a layer. Measured on the built app, 18 Sep 2026.
+
+**The title row's places never wrap; they fall back to glyphs.** A strip in a
+panel wraps, but the places share one row with the title bar's sides, and a
+track on two or three lines read as broken there (the owner, 15 Oct 2026).
+`TitleBar` measures the room its sides and the search trigger leave, and where
+the labels are wider than that the places draw `iconsOnly`: each tab its
+surface's registry glyph, its name in the tooltip. Where even the glyphs do not
+fit, the row's start gives way, the repository's name truncating first; the
+places are never drawn over it.
 
 **Still the `tabs` primitive.** A segmented control is how the strip is
 painted, not a new base component — hard rule 2 stands.
@@ -2972,7 +2981,7 @@ first-class.
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — Fleet's
 panel carries neither, and nothing in the shell
-states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is two fill meters (`5h`, `wk`) in the title bar, each opening a hover card.
+states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is one ring in the title bar, the 5-hour limit outside and the week inside (the owner, 15 Oct 2026), opening one hover card of both, each limit's name and percent on one line over when it resets.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
 time", and the detail view surfaces the prior attempt. Presentation
@@ -3069,7 +3078,7 @@ value and no merge, so no Manifest is party to it.
 **Fleet**, one dot in the title row on every surface and its panel under the dot, reads "Fleet running"
 when idle, and pid, port, protocol and up as rows under it; it carries neither
 spend nor quota, which left the shell chrome entirely with the status bar
-Bridge/1088 replaced. The title bar draws the plan's limits as two fill meters in the title row and not in Fleet.
+Bridge/1088 replaced. The title bar draws the plan's limits as one ring in the title row and not in Fleet.
 
 **Two separate fields, not one.** These do different jobs and a reader
 should not have to guess which.
