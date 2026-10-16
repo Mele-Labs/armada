@@ -52,14 +52,13 @@ export function useDockCards(
   questions: Parameters<typeof dockCardsOf>[0],
   jobs: readonly JobSummary[],
   repositories: Parameters<typeof dockCardsOf>[2],
-  now: number,
   commands: ReturnType<typeof useCommands>,
 ) {
   const answering = useDockAnswering(commands);
   const onDiscuss = useCallback((_question: Outstanding, job: JobSummary) => pointHelm(job.owner_manifest_id), []);
   return useMemo(
-    () => dockCardsOf(questions, jobs, repositories, now, { ...answering, onDiscuss }),
-    [questions, jobs, repositories, now, answering, onDiscuss],
+    () => dockCardsOf(questions, jobs, repositories, null, { ...answering, onDiscuss }),
+    [questions, jobs, repositories, answering, onDiscuss],
   );
 }
 

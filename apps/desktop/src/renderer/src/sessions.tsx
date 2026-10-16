@@ -682,7 +682,7 @@ export function entriesOf(
   sessions: readonly Session[],
   open: (id: string) => void,
   openWindow: (url: string) => void,
-  answerWaiting: ((itemId: string, answer: { choice: number } | { text: string }) => void) | undefined,
+  answerWaiting: ((itemId: string, answer: { choice: number } | { text: string }) => void | Promise<unknown>) | undefined,
   scrollToAsk: () => void,
   known: Known,
   runner: Runner | undefined,

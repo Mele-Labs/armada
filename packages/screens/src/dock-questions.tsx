@@ -39,6 +39,10 @@ export function jobNumber(job: JobSummary): string {
   return /^(\d+)-/.exec(job.handle)?.[1] ?? job.handle;
 }
 
+/** How long it has waited: a figure at `now`, or where the window has no time to give, a card that reads the clock where it is drawn. */
+const waitingOf = (question: Outstanding, now: number | null): DockQuestion["waiting"] =>
+  now === null ? (at: number) => span(askedAt(question), at) ?? undefined : (span(askedAt(question), now) ?? undefined);
+
 /** Every card waiting on a person, split by where it is drawn. #1519. */
 export type DockCards = {
   /** The block at the top of the dock: a Drone's question and a Judge's, which belong to a Job. */
@@ -63,7 +67,7 @@ export function dockCardsOf(
   questions: readonly Outstanding[],
   jobs: readonly JobSummary[],
   repositories: readonly RepositorySummary[],
-  now: number,
+  now: number | null,
   acts: DockActs = {},
 ): DockCards {
   const of = (kept: readonly Outstanding[]) => dockQuestionsOf(kept, jobs, repositories, now, acts);
@@ -81,7 +85,7 @@ export function dockQuestionsOf(
   questions: readonly Outstanding[],
   jobs: readonly JobSummary[],
   repositories: readonly RepositorySummary[],
-  now: number,
+  now: number | null,
   acts: DockActs = {},
 ): DockQuestion[] {
   const byId = new Map(jobs.map((job) => [job.id, job]));
@@ -97,7 +101,7 @@ export function dockQuestionsOf(
           {
             id: outstandingId(question),
             repository: manifestLabel(question.call.manifest_id, repositories),
-            waiting: span(askedAt(question), now) ?? undefined,
+            waiting: waitingOf(question, now),
             ...askedOf(question),
             ...(onAnswer === undefined
               ? { note: "Open Armada on this machine to answer." }
@@ -115,7 +119,7 @@ export function dockQuestionsOf(
           repository: manifestLabel(job.owner_manifest_id, repositories),
           job: number,
           title: job.title,
-          waiting: span(askedAt(question), now) ?? undefined,
+          waiting: waitingOf(question, now),
           ...askedOf(question),
           ...(onAnswer === undefined
             ? { note: `Open job ${number} to answer.` }

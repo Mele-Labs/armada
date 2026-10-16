@@ -4,7 +4,7 @@
 // this, the body and the keys are one thing and a body that unmounts while a page is open comes back exact. #2301.
 
 import { useEffect, useMemo, useState } from "react";
-import { isPressed, pressedDigit, pressedSlot } from "@armada/components";
+import { isPressed, pressedDigit, pressedSlot, useNow } from "@armada/components";
 import { DECK_TABS, SURFACE, deckTabOf, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
@@ -15,7 +15,6 @@ import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
-import { quantized } from "./field";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -27,12 +26,15 @@ import { TabBar } from "./TabBar";
 import { callTrail, deckNow, goBack, incomingOf, leaveAutopilot, needingOf, listOf, moveCursor, openCall, release, select, selOfSubject, setFocus, setHere, setView, toggleJobView, useDeck } from "./store";
 import { useShip } from "./ship";
 import { useReviews } from "../../pr-review/store";
+import { useOpenSessionInCockpitAsked } from "../../open-session";
 
 const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} };
 
+/** How long a Session asked for on the deck is waited on before it opens on its own page instead. */
+const AWAIT_SESSION_MS = 3000;
+
 type Where = {
   state: BridgeState;
-  now: number;
   picked: RepositorySummary | null;
   nowViews: Readonly<Record<string, CallView>> | undefined;
   nows: Readonly<Record<string, NowView>> | undefined;
@@ -82,7 +84,7 @@ export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: strin
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
+export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
   hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
@@ -93,7 +95,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const ship = useShip({ ...NO_HOSTS, state, now: quantized(now, AGE_MS), picked, nowViews, nows }, false);
+  const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked, nowViews, nows }, false);
   const only = useDeck((deck) => deck.only);
   const needs = useDeck((deck) => deck.needs);
   const checks = useDeck((deck) => deck.checks);
@@ -114,6 +116,23 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
     const timer = window.setTimeout(() => release([]), Math.max(0, next));
     return () => window.clearTimeout(timer);
   }, [held, ship.calls]);
+
+  // A Session asked for on the deck (a note sent to it) opens as its row does, once the ship holds it: a new one arrives a moment
+  // after Fleet answers. One the ship never holds, Helm's own or one the picked repository leaves out, opens on its own page.
+  const [awaited, setAwaited] = useState<{ id: string; since: number } | undefined>();
+  useOpenSessionInCockpitAsked((id) => setAwaited({ id, since: Date.now() }));
+  useEffect(() => {
+    if (awaited === undefined) return;
+    const subject = ship.subjects.find((one) => one.kind === "session" && one.id === awaited.id);
+    if (subject !== undefined) {
+      setAwaited(undefined);
+      select(selOfSubject(subject));
+      if (!deckNow().here) onGoTo(SURFACE.overview);
+      return;
+    }
+    const timer = window.setTimeout(() => (setAwaited(undefined), onOpenSession(awaited.id)), Math.max(0, awaited.since + AWAIT_SESSION_MS - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [awaited, ship.subjects, onGoTo, onOpenSession]);
 
   const incoming = incomingOf(ship.calls, held, visited, needingOf(ship));
   const repositories = state.holds.repositories;

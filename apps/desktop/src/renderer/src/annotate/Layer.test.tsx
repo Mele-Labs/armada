@@ -543,6 +543,34 @@ test("a note sent to a Session says which, on its card", async () => {
   await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("Sent to Session Fix the flaky store test");
 });
 
+test("a saved note stays up in its card, with the acts its panel row has", async () => {
+  await annotating(sendable([]), served().fleet);
+  (document.querySelector(noted("fresh", 15)) as HTMLElement).click();
+  const draft = page.getByRole("dialog", { name: "New note" });
+  await draft.getByRole("textbox", { name: "Note" }).fill("The row should say which step it is on");
+  await draft.getByRole("button", { name: "Save note" }).click();
+
+  const card = page.getByRole("dialog", { name: "Note", exact: true });
+  await expect.element(card).toHaveTextContent("The row should say which step it is on");
+  for (const name of ["Dispatch job", "Start session", "Send to a Session", "Mark done", "Delete"]) {
+    await expect.element(card.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+});
+
+test("a card's Start session sends its note alone and opens the Session", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(batch());
+  const opened = vi.fn();
+  await annotating(held, fleet, opened);
+  await page.getByRole("button", { name: /^Note 2, open/ }).click();
+  await page.getByRole("dialog", { name: "Note" }).getByRole("button", { name: "Start session" }).click();
+
+  await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.text).toContain("third: what the owner said");
+  expect(sent[0]!.text).not.toContain("first: what the owner said");
+});
+
 // The all-notes panel, opened from the bar's count. What it does, held as the owner approved it.
 
 /** A note whose element is not on this screen: its selector finds nothing. */

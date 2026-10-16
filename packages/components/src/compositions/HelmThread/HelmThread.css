@@ -77,8 +77,8 @@
 /* **Words sit on the panel's own ground, left aligned, in every voice.** The
    label above them is what tells the voices apart. Several `said` turns fold
    into one reply, its paragraphs stacked by `__message`'s own gap rather than
-   a browser's `<p>` margin. */
-.armada-helm-thread__message p {
+   a browser's `<p>` margin. Zero specificity, so Prose's own gap between paragraphs still wins. */
+:where(.armada-helm-thread__message p) {
   margin: 0;
 }
 
