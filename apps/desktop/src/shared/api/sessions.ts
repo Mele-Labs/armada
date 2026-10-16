@@ -132,6 +132,15 @@ export type SessionsApi = {
     number: number,
     press: PullRequestPress,
   ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+  /**
+   * The same acts on a pull request no Session holds, such as a form edit's: the repository is named by its Manifest, and
+   * `review` dispatches its Code Review Job under no Session.
+   */
+  pressRepositoryPullRequest: (
+    manifestId: string,
+    number: number,
+    press: PullRequestPress,
+  ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
   /** What the panel's tabs and facts draw, read from the forge when the panel opens. Main names the repository from the Session. */
   readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
   /** One file of a pull request, read when a person opens it from the Files tab. Main names the repository from the Session. */
@@ -217,6 +226,7 @@ export const SESSIONS_CHANNELS = {
   hideSessionPage: "bridge:hide-session-page",
   sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
+  pressRepositoryPullRequest: "bridge:press-repository-pull-request",
   readPullRequestPage: "bridge:read-pull-request-page",
   readPullRequestFile: "bridge:read-pull-request-file",
   writePullRequest: "bridge:write-pull-request",

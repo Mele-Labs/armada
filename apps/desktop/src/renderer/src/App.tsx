@@ -154,6 +154,7 @@ import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./commander-acts";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
+import { useMergeByHand } from "./merge-by-hand";
 import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
@@ -413,8 +414,10 @@ export function App({ draft }: AppProps = {}) {
     onReadFile: readManifestFile,
     onSaveFile: saveManifestFile,
   });
-  // The forms beside it, held here for the same reason.
+  // The forms beside it, held here for the same reason. A form edit's pull request the forge would not auto-merge is read off the merge line.
+  const merging = useMergeByHand(state, openProseLink);
   const form = useManifestForm({
+    ...(merging.mergeByHand === undefined ? {} : { mergeByHand: merging.mergeByHand }),
     repository,
     showing: manifesting,
     reading: state.manifestReading,
@@ -995,6 +998,7 @@ export function App({ draft }: AppProps = {}) {
                  exists and none is created: the whole point of the surface is
                  that a person can run this project's lint without one. */
               <Boundary region="the manifest" {...guarded}>
+                <>
                 <Manifest
                   // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
                   key={state.repository ?? ""}
@@ -1044,6 +1048,8 @@ export function App({ draft }: AppProps = {}) {
                     />
                   }
                 />
+                {merging.panel}
+                </>
               </Boundary>
             ) : composing ? (
               <Composing

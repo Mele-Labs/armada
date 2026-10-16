@@ -18,6 +18,7 @@ import { useAnswering } from "../answers";
 import { useViewing } from "../viewed";
 import { CallCard, type CardKeys } from "../CallCard";
 import { dotsOf } from "../horizon";
+import { ByHandActs } from "../../merge-by-hand";
 import type { CockpitProps } from "./props";
 import { viewsOf } from "../../merge-line";
 import { SessionView } from "../../sessions";
@@ -365,6 +366,7 @@ export function PrPane({ pr, owner, props, acts }: { pr: Pr; owner: Subject | un
             ["Author", pr.author],
             ["Opened", opened === undefined ? undefined : `${opened} ago`],
             ["Review", card?.review],
+            ["Merge", card?.byHand === true ? <ByHandActs root={pr.root} number={pr.number} ci={pr.ci} /> : undefined],
             ["Draft", card?.draft === true ? "Yes" : undefined],
             ["Conflicts", card?.conflicts === true ? "Yes" : undefined],
             ["Owner", who],
