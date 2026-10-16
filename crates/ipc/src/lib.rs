@@ -373,9 +373,10 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HostedFacts, MessagesHeld, MoveSession, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile, SetSessionWorkflow,
-    SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    AnswerSessionAsk, ChosenHold, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
+    HeldCommand, HoldKept, HoldMoved, HostedFacts, MessagesHeld, MoveSession, PilotFrom, ReleaseSessionHolds,
+    RunSessionCommand, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionHoldsReleased, SessionMode,
+    SessionRow, SessionRowChanged, SessionTag, SetSessionWorkflow,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     StopSession, TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };

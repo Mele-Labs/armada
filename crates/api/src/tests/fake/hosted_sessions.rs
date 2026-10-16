@@ -115,6 +115,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn release_session_holds(
+        &self,
+        _release: ipc::ReleaseSessionHolds,
+    ) -> Result<ipc::SessionHoldsReleased, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_session(self: Arc<Self>, _id: SessionId) -> Result<SessionThread, Refusal> {
         Err(nothing_hosted())
     }

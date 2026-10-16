@@ -9,6 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
+import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
@@ -148,6 +149,25 @@ export type SetSessionWorkflow = {
   /** Absent clears it: a custom Session. */
   workflow?: string;
 };
+
+/** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
+export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };
+
+/** One row the person ticked: its kind and target as the ledger names them. */
+export type ChosenHold = { kind: string; target: string };
+
+/** What `release_session_holds` moved, and what stayed with why. */
+export type SessionHoldsReleased = {
+  to_session_id?: string;
+  moved: HoldMoved[];
+  kept: HoldKept[];
+};
+
+/** One row given back or handed over. `released` is a slot's branch and what was committed to it. */
+export type HoldMoved = { kind: string; target: string; released?: SlotReleased };
+
+/** One row that stayed the Session's. */
+export type HoldKept = { kind: string; target: string; why: string };
 
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */
 export type SessionTurn =

@@ -29,7 +29,7 @@ const helmIsASession = walk("helm-is-a-session", [
 
   { later: inside(thread, button("Stop")), say: "Helm writes" },
   { look: inside(thread, region("Leased on first write")), say: "The first write leases a slot and cuts a branch, in the thread where it happened" },
-  { look: inside(held, button("Open Worktree slot 8")), say: "Both are chips under the dock's head" },
+  { look: inside(held, role("img", "Worktree slot 8")), say: "The slot is the chip on the branch's chip under the dock's head" },
   { hover: inside(held, button("Open Branch helm/pin-ledger-clock")), say: "Named on hover" },
 
   { later: inside(thread, button("Stop")), say: "Helm runs a subagent" },

@@ -15,6 +15,8 @@
 
 use ipc::AskingToRun;
 
+use super::reading::{changes_only_held, command_of, queries, reaches_into_owners_files, with_variables};
+
 /// Why one call is being put to a person. **A reason and not a category**: it
 /// is written to be read in an event, and on the card itself one day.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,15 +128,7 @@ pub fn because_in_a_session_owning(
     }
     if tool == "Bash" {
         let line = flattened(asking.detail().unwrap_or_default());
-        // An escaped space is part of the path, as in `Application\ Support`.
-        if line
-            .replace("\\ ", "\u{0}")
-            .split_whitespace()
-            .any(reaches_outside)
-        {
-            return Some(Because::ReachesOutside);
-        }
-        return shell(&line, &slots_of(held), own);
+        return shell_in(&line, &slots_of(held), own, true);
     }
     let named = ["file_path", "path"]
         .iter()
@@ -179,7 +173,7 @@ pub fn pages_opened(line: &str) -> Vec<String> {
 /// volume or the whole disk. **A path that names Armada is let through**: it
 /// is most likely looking for something of Armada's (the owner, 8 Oct 2026).
 /// The system's own folders (`/opt`, `/usr`, `/tmp`) are no one's files.
-fn reaches_outside(word: &str) -> bool {
+pub(super) fn reaches_outside(word: &str) -> bool {
     let word = word.rsplit('=').next().unwrap_or(word);
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     if word.to_lowercase().contains("armada") {
@@ -462,6 +456,13 @@ fn writing(asking: &AskingToRun) -> Option<Because> {
 /// **Every segment, never the first word.** `cd crates && rm -rf target` has
 /// `cd` at the front of it, and a classifier reading one word would run it.
 fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
+    shell_in(line, slots, own, false)
+}
+
+/// [`shell`], and for a session (`reaching`) whether a segment's words name the owner's own
+/// files. **Read per segment, after the variables a line set are put back**, so `d=~/Music; ls $d`
+/// is read as the `ls ~/Music` it is, and the `~` of an awk script is not read as a path at all.
+fn shell_in(line: &str, slots: &[&str], own: Own, reaching: bool) -> Option<Because> {
     let line = line.trim();
     if line.is_empty() {
         return Some(Because::Unreadable);
@@ -478,12 +479,33 @@ fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
     // which then reads as a truncating redirect — `cargo build 2>&1 | tail -5`
     // asked, as a destructive line, until a case caught it.
     let quiet = unquoted(line);
-    let chained = quiet.replace("&&", ";").replace("||", ";");
-    let segments: Vec<&str> = chained
-        .split(|c| c == ';' || c == '|' || c == '\n')
-        .map(str::trim)
-        .filter(|said| !said.is_empty())
+    // Same length as the line, so a cut in one is a cut in the other.
+    let chained = quiet.replace("&&", " ;").replace("||", " ;");
+    let (mut cut, mut quiet_parts, mut whole_parts) = (String::new(), Vec::new(), Vec::new());
+    let mut whole = String::new();
+    for (c, original) in chained.chars().zip(line.chars()) {
+        if matches!(c, ';' | '|' | '\n') {
+            quiet_parts.push(std::mem::take(&mut cut));
+            whole_parts.push(std::mem::take(&mut whole));
+        } else {
+            cut.push(c);
+            whole.push(original);
+        }
+    }
+    quiet_parts.push(cut);
+    whole_parts.push(whole);
+    let kept: Vec<usize> = (0..quiet_parts.len())
+        .filter(|at| !quiet_parts[*at].trim().is_empty())
         .collect();
+    let segments: Vec<String> =
+        with_variables(kept.iter().map(|at| quiet_parts[*at].trim()).collect());
+    // **Read with its quotes**, which the segments above lose: a `/` left alone by a quoted `|`
+    // is no path.
+    let whole: Vec<String> =
+        with_variables(kept.iter().map(|at| whole_parts[*at].trim()).collect());
+    if reaching && whole.iter().any(|said| reaches_into_owners_files(said)) {
+        return Some(Because::ReachesOutside);
+    }
     // A `cd` into the slot keeps a relative path inside it; one anywhere else,
     // or one that cannot be read, loses track of where the line is.
     let slot = (!slots.is_empty()).then(|| Slot {
@@ -497,7 +519,7 @@ fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
             }
         }),
     });
-    segments.into_iter().find_map(|said| segment(said, slot, own))
+    segments.iter().find_map(|said| segment(said, slot, own))
 }
 
 /// `line` with every `;`, `|`, `&`, `<` and `>` inside quotes turned to a
@@ -548,13 +570,13 @@ fn word_in(line: &str, word: &str) -> bool {
 /// The slots a session's line may write in, and whether a relative path in it is
 /// still read against one of them.
 #[derive(Clone, Copy)]
-struct Slot<'a> {
-    slots: &'a [&'a str],
-    relative: bool,
+pub(super) struct Slot<'a> {
+    pub(super) slots: &'a [&'a str],
+    pub(super) relative: bool,
 }
 
 impl Slot<'_> {
-    fn holds(&self, word: &str) -> bool {
+    pub(super) fn holds(&self, word: &str) -> bool {
         in_the_slot(word, self.slots, self.relative)
     }
 }
@@ -570,14 +592,7 @@ fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
     {
         return Some(Because::Destructive);
     }
-    // The command is the first word that is not an assignment or a leading
-    // `env`, since `FOO=1 rm -rf x` is an `rm`.
-    let mut rest = said
-        .split_whitespace()
-        .skip_while(|word| word.contains('=') || *word == "env" || *word == "command")
-        .peekable();
-    let program = rest.next()?;
-    let program = program.rsplit('/').next().unwrap_or(program);
+    let (program, arguments) = command_of(said)?;
     // **The shell builtins, and only in the position that makes them one.**
     // `pnpm --dir x exec vitest run` carries `exec` as a subcommand and is the
     // ordinary way this repository runs its tests; reading the word anywhere on
@@ -585,7 +600,6 @@ fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
     if program == "eval" || program == "exec" {
         return Some(Because::Unreadable);
     }
-    let arguments: Vec<&str> = rest.collect();
     match program {
         "git" => return git(&arguments, slot.is_some(), own),
         "gh" => return forge(&arguments),
@@ -626,6 +640,12 @@ fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
         }
     } else if program == "kill" && kills_only_its_own(&arguments, own) {
         // A process it started is its own work, as a file in its slot is.
+    } else if matches!(program, "chmod" | "chown") {
+        if !changes_only_held(program, &arguments, slot) {
+            return Some(Because::Destructive);
+        }
+    } else if queries(program, &arguments) {
+        // `launchctl print` and `diskutil list` change nothing.
     } else if GONE.contains(&program) {
         return Some(Because::Destructive);
     }
@@ -649,7 +669,7 @@ fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
 
 /// A `>` that is not `>>` and not `>&`. **It destroys what the file held**,
 /// however ordinary the command in front of it.
-fn truncating_redirect(said: &str) -> bool {
+pub(super) fn truncating_redirect(said: &str) -> bool {
     let written: Vec<char> = said.chars().collect();
     written.iter().enumerate().any(|(at, c)| {
         *c == '>'
