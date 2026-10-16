@@ -722,7 +722,7 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
     };
   },
-  startSession: (title?: string, root?: string, request?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request),
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root, request, tuning),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>

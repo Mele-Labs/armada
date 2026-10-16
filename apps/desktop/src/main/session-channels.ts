@@ -30,10 +30,12 @@ const cells = (value: unknown): value is number => Number.isInteger(value) && (v
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => {
     const fleet = connection();
     if (fleet === null) return unsent;
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined);
+    // A model or effort the person did not pick is left off, so Fleet's proposer fills it in.
+    const picked = { ...(text(tuning?.model) ? { model: tuning.model } : {}), ...(text(tuning?.effort) ? { effort: tuning.effort } : {}) };
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined, text(request) && request.trim() !== "" ? request : undefined, picked);
   });
   ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
     text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,
