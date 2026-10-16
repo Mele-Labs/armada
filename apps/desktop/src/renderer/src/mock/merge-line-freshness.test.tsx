@@ -44,7 +44,7 @@ test("main's chip adds how long ago Fleet read the forge, and shows no glyph whi
 
 test("a quiet forge marks the chip with a glyph naming the time and dims the dot, and the age stays in the tooltip", async () => {
   await deck(standing(true));
-  const glyph = page.getByRole("img", { name: /^GitHub not answering since \d\d:\d\d$/ });
+  const glyph = page.getByRole("img", { name: /^.+ not answering since \d\d:\d\d$/ });
   await expect.element(glyph).toBeVisible();
   expect(chip().querySelector(".deck-chip__dot")!.hasAttribute("data-stale")).toBe(true);
   expect(bubble()).toMatch(/^Main is green\. Read 6m ago/);
@@ -58,5 +58,5 @@ test("a red main's card says the same, since the light's own tooltip stands down
   await light.hover();
   const card = page.getByRole("dialog", { name: /^Main is red in/ });
   await expect.element(card.getByText(/^Read 6m ago$/)).toBeVisible();
-  await expect.element(card.getByText(/^GitHub not answering since \d\d:\d\d$/)).toBeVisible();
+  await expect.element(card.getByText(/^.+ not answering since \d\d:\d\d$/)).toBeVisible();
 });

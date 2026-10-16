@@ -1,5 +1,5 @@
 // How old the merge queue's reading of the forge is, and the forge going quiet: main's chip on the flight deck, one repository.
-// Fleet's last visit answered 40 seconds before the walk starts, then at the next moment GitHub stops answering and the visit that
+// Fleet's last visit answered 40 seconds before the walk starts, then at the next moment the forge stops answering and the visit that
 // last answered is six minutes old. The walk `merge-line-freshness` plays it.
 
 import type { MergeLine, MergeLines } from "@armada/protocol";

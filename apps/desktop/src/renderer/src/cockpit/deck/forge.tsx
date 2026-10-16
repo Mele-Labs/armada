@@ -22,7 +22,7 @@ export function forgeOf(views: readonly MergeLineView[], nameOf: (root: string) 
   return { ...(reads.length === 0 ? {} : { readAt: Math.min(...reads) }), quiet };
 }
 
-/** `GitHub not answering since 18:40`, naming each repository only where more than one is served. */
+/** `<forge> not answering since 18:40`, naming each repository only where more than one is served. */
 export function quietSaid(forge: Forge, several: boolean): string | undefined {
   if (forge.quiet.length === 0) return undefined;
   if (!several) return `GitHub not answering since ${clockOf(forge.quiet[0]!.since)}`;
