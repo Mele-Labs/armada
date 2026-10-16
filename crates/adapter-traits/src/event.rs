@@ -315,6 +315,15 @@ pub enum ToolUse {
     Ran(String),
 }
 
+/// How an edit call changed the file it named.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FileAct {
+    /// The file written whole: made, or replaced.
+    Write,
+    /// Part of the file changed.
+    Edit,
+}
+
 #[cfg(test)]
 mod tests {
     use super::{CallDetail, DETAIL};

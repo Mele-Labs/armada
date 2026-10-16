@@ -1,0 +1,199 @@
+//! A shell line that only reads, or writes only under `/tmp` or a held slot, runs;
+//! the same line aimed at the owner's files or another session's slot does not.
+//! Each `ran` case is one the guard refused on 15 Oct 2026.
+
+use ipc::AskingToRun;
+
+use crate::helm::{because_in_a_session, Because};
+
+const SLOT: &str = "/repo/.armada/slots/slot-3";
+
+#[derive(serde::Serialize)]
+struct Ask<'a> {
+    tool_name: &'a str,
+    input: Command<'a>,
+}
+
+#[derive(serde::Serialize)]
+struct Command<'a> {
+    command: &'a str,
+}
+
+fn bash(line: &str) -> Option<Because> {
+    let body = ipc::encode(&Ask { tool_name: "Bash", input: Command { command: line } }).expect("an ask");
+    let ask: AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    because_in_a_session(&ask, &[SLOT])
+}
+
+fn ran(lines: &[&str]) {
+    for line in lines {
+        assert_eq!(bash(line), None, "{line} should run");
+    }
+}
+
+fn refused(lines: &[&str], why: Because) {
+    for line in lines {
+        assert_eq!(bash(line), Some(why), "{line} should be refused");
+    }
+}
+
+#[test]
+fn a_tilde_or_dollar_inside_an_awk_script_is_not_a_path() {
+    ran(&[
+        r#"ps -Ao pid,ppid,pri,%cpu,comm | awk '$5 ~ /rustc$/ {printf "%s %s\n", $1, $4}'"#,
+        r#"ps -Ao pid,comm | awk '$2 ~ /node$/ {print $1}' | head -3"#,
+        r#"echo '$HOME is not expanded in single quotes'"#,
+        r#"grep -c "~" notes.txt"#,
+    ]);
+    refused(
+        &["ls ~", "ls ~/Documents", "cat \"$HOME/Desktop/a.txt\"", "ls ~ | head"],
+        Because::ReachesOutside,
+    );
+}
+
+#[test]
+fn a_launchctl_or_system_query_reads() {
+    ran(&[
+        "launchctl print gui/502/com.armada.fleet | grep -iE 'spawn type|process type'",
+        "launchctl list | grep armada",
+        "sleep 3 &\nps -o pid,ppid,pri,command -p $!; wait; launchctl print gui/502/com.armada.fleet 2>/dev/null",
+        "diskutil list",
+        "systemctl status ssh",
+    ]);
+    refused(
+        &[
+            "launchctl unload /repo/x.plist",
+            "launchctl bootout gui/502/com.armada.fleet",
+            "launchctl kickstart -k gui/502/com.armada.fleet",
+            "diskutil eraseDisk JHFS+ x disk2",
+            "systemctl stop ssh",
+        ],
+        Because::Destructive,
+    );
+}
+
+#[test]
+fn a_write_under_tmp_is_scratch_however_the_path_is_spelled() {
+    ran(&[
+        "for p in 1 2; do ps -o pid -p $p >> /tmp/fleet-kids-$$.txt; done",
+        "for p in 1 2; do echo $p > /tmp/fleet-kids-$$.txt; done",
+        "out=/tmp/armada-load-samples.txt; : > $out",
+        "out=/tmp/armada-load-samples.txt\n: > \"$out\"\nuptime >> \"$out\"",
+        "out=$TMPDIR/samples.txt; : > $out",
+    ]);
+    refused(
+        &[
+            "echo x > /tmp/../etc/hosts",
+            "out=/etc/hosts; : > $out",
+            "out=/tmp/a; out=/etc/hosts; : > $out",
+            "echo x > $UNSET",
+            "echo x > /tmp/$USER/../../etc/hosts",
+        ],
+        Because::Destructive,
+    );
+}
+
+#[test]
+fn the_owners_toolchain_config_is_read_but_his_files_are_not() {
+    ran(&[
+        "cat ~/.cargo/config.toml ~/.cargo/config 2>/dev/null; command -v sccache",
+        "ls $HOME/.cargo/bin",
+        "cat ~/.rustup/settings.toml",
+    ]);
+    refused(
+        &[
+            "cat ~/.ssh/id_ed25519",
+            "cat ~/.aws/credentials",
+            "ls ~/Documents",
+            "cat ~/.cargo/../.ssh/id_rsa",
+        ],
+        Because::ReachesOutside,
+    );
+    // A write there is not a read.
+    assert!(bash("echo x > ~/.cargo/config.toml").is_some());
+    assert!(bash("rm ~/.cargo/config.toml").is_some());
+    assert!(bash("cp x ~/.cargo/config.toml").is_some());
+}
+
+#[test]
+fn a_heredoc_script_over_the_slots_own_tree_reads() {
+    ran(&[
+        "R=/repo/.armada/slots/slot-3\npython3 - \"$R\" <<'EOF'\nimport os, sys\nfor d, _, fs in os.walk(os.path.join(sys.argv[1], 'apps')):\n    print(d > '~', '$HOME')\nEOF",
+        "R=\"$(git rev-parse --show-toplevel)\"\npython3 - \"$R\" <<'EOF'\nimport os\nprint(os.walk('/Users/x'))\nEOF",
+        "python3 - <<EOF\nprint('/Users/x/Desktop')\nEOF",
+        "python3 -I - <<-'PY'\n\tprint(1)\n\tPY",
+    ]);
+}
+
+#[test]
+fn chmod_and_heredocs_inside_a_slot_are_the_sessions_work() {
+    ran(&[
+        "chmod +x /repo/.armada/slots/slot-3/scripts/run.sh",
+        "chmod 755 scripts/run.sh scripts/other.sh",
+        "chmod -R u+w target",
+        "cat > scripts/run.sh <<'EOF'\n#!/bin/sh\necho hi\nEOF",
+        "cat > scripts/run.sh <<EOF\n#!/bin/sh\necho $HOME\nEOF",
+        "cat <<'EOF' > /repo/.armada/slots/slot-3/notes.md\nhello\nEOF",
+        "cd scripts && cat > run.sh <<'EOF'\nhi\nEOF",
+        "cat >> scripts/run.sh <<'EOF'\nhi\nEOF",
+    ]);
+    refused(
+        &[
+            "chmod 777 /etc/hosts",
+            "chmod +x scripts/run.sh /etc/hosts",
+            "chown root /repo/.armada/slots/slot-9/a",
+            "chmod +x /repo/.armada/slots/slot-3/../../x",
+            "cd /etc && chmod +x hosts",
+            "cd /etc && cat > hosts <<'EOF'\nx\nEOF",
+        ],
+        Because::Destructive,
+    );
+}
+
+#[test]
+fn chmod_in_the_owners_home_asks_as_a_reach() {
+    refused(&["chmod -R 777 ~/.ssh", "chmod 777 $HOME/x"], Because::ReachesOutside);
+}
+
+#[test]
+fn another_sessions_slot_may_be_read_but_not_written() {
+    ran(&[
+        "git -C /repo/.armada/slots/slot-9 status",
+        "git -C /repo/.armada/slots/slot-9 log --oneline -5",
+        "git -C /repo/.armada/slots/slot-9 diff --stat",
+        "ls /repo/.armada/slots/slot-9/crates",
+        "cat /repo/.armada/slots/slot-9/Cargo.toml | head",
+        "grep -rn foo /repo/.armada/slots/slot-9/crates",
+        "find /repo/.armada/slots/slot-9 -name '*.rs' -maxdepth 3",
+    ]);
+    refused(
+        &[
+            "rm /repo/.armada/slots/slot-9/a.rs",
+            "echo x > /repo/.armada/slots/slot-9/a.rs",
+            "git -C /repo/.armada/slots/slot-9 reset --hard",
+            "git -C /repo/.armada/slots/slot-9 checkout main",
+            "git -C /repo/.armada/slots/slot-9 clean -fd",
+            "chmod +x /repo/.armada/slots/slot-9/a.sh",
+            "cat > /repo/.armada/slots/slot-9/a.rs <<'EOF'\nx\nEOF",
+        ],
+        Because::Destructive,
+    );
+}
+
+#[test]
+fn a_write_outside_the_slots_and_tmp_is_still_refused() {
+    refused(
+        &[
+            "rm /repo/src/main.rs",
+            "rm -rf /repo/crates",
+            "echo x > /repo/README.md",
+            "cat > /repo/README.md <<'EOF'\nx\nEOF",
+            "mv /repo/a /repo/b",
+            "truncate -s 0 /repo/a",
+            "do rm /repo/a",
+            "for f in a b; do rm /repo/$f; done",
+            "if true; then rm /repo/a; fi",
+        ],
+        Because::Destructive,
+    );
+}

@@ -304,7 +304,7 @@ async fn a_terminal_sessions_build_is_kept_and_read_back_off_its_row() {
     };
     report(&fleet, tasks(&[Todo, Todo])).await;
     apart().await;
-    report(&fleet, SessionFact::Touched { paths: vec!["src/a.rs".to_string()] }).await;
+    report(&fleet, SessionFact::Touched { paths: vec!["src/a.rs".to_string()], by: None, act: None }).await;
     apart().await;
     let row = report(&fleet, tasks(&[Done, Doing])).await;
     let build = row.build.expect("a build");
@@ -313,7 +313,7 @@ async fn a_terminal_sessions_build_is_kept_and_read_back_off_its_row() {
     assert!(build.quiet_since.is_some());
 
     apart().await;
-    report(&fleet, SessionFact::Touched { paths: vec!["src/b.rs".to_string()] }).await;
+    report(&fleet, SessionFact::Touched { paths: vec!["src/b.rs".to_string()], by: None, act: None }).await;
     apart().await;
     report(&fleet, SessionFact::Committed { branch: Some("armada/topic".to_string()) }).await;
     apart().await;

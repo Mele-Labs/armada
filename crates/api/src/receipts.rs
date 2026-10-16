@@ -33,6 +33,10 @@ enum Set<'a> {
     Sketch {
         sketch: &'a str,
     },
+    Plan {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        plan: Option<PlanReceipt<'a>>,
+    },
     Asked {
         #[serde(skip_serializing_if = "Option::is_none")]
         asked: Option<&'a str>,
@@ -42,6 +46,27 @@ enum Set<'a> {
         #[serde(skip_serializing_if = "Option::is_none")]
         done_since: Option<&'a str>,
     },
+}
+
+/// The plan as the agent needs it back: the version, and each group and task with the id Fleet gave
+/// it, which the agent sends again to keep it the same one through a rename.
+#[derive(Serialize)]
+struct PlanReceipt<'a> {
+    version: u32,
+    groups: Vec<GroupReceipt<'a>>,
+}
+
+#[derive(Serialize)]
+struct GroupReceipt<'a> {
+    id: &'a str,
+    title: &'a str,
+    tasks: Vec<TaskReceipt<'a>>,
+}
+
+#[derive(Serialize)]
+struct TaskReceipt<'a> {
+    id: &'a str,
+    title: &'a str,
 }
 
 #[derive(Serialize)]
@@ -82,6 +107,22 @@ impl<'a> Receipt<'a> {
 
     pub(crate) fn sketch(record: &'a SessionRecord, show: &'a ipc::ShowSketch) -> Self {
         Receipt::of(record, Set::Sketch { sketch: show.title.trim() })
+    }
+
+    pub(crate) fn plan(record: &'a SessionRecord) -> Self {
+        let plan = record.plan.as_ref().map(|plan| PlanReceipt {
+            version: plan.version,
+            groups: plan
+                .groups
+                .iter()
+                .map(|group| GroupReceipt {
+                    id: &group.id,
+                    title: &group.title,
+                    tasks: group.tasks.iter().map(|task| TaskReceipt { id: &task.id, title: &task.text }).collect(),
+                })
+                .collect(),
+        });
+        Receipt::of(record, Set::Plan { plan })
     }
 
     /// The newest open question at the place the agent named.

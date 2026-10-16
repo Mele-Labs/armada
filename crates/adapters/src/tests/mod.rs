@@ -42,6 +42,7 @@ mod leasing_existing_branch;
 mod leasing_history;
 mod leasing_jobs;
 mod slot_watching;
+mod subagent_lines;
 mod leasing_last_session;
 mod leasing_parking;
 mod leasing_rescue;
