@@ -275,8 +275,8 @@ hold, is held if it then runs anything that is not a read. `cd <slot> && git sta
 read and runs. **A relative `cd` after another is read from where the first left the line**,
 and so is a `..` path after it, never from where the call began. Every part of a line is told
 read from write before the slot rule applies, and `git worktree list`, `git stash list`,
-`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a variable or a
-substitution, a file a script opens by a name the line does not spell, and anything a build
+`git config --get` and the other listing forms of a subcommand are reads. **Not covered**: a path or a `cd` target built from a substitution or a variable the line did
+not set (one it set, `out=/tmp/x; : > $out`, is read as the path it holds), a file a script opens by a name the line does not spell, and anything a build
 writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 **The permission door reads the same ledger.** In `auto` it refuses a call that removes or
@@ -284,7 +284,8 @@ overwrites something outside the slots the session holds and `/tmp`: **every** s
 session holds, its own and each one a subagent leased, and not only the one it runs in. The
 door decides whether a call is one of the owner's three classes; whether a slot may be
 written at all is the gate's. **What the session started or made is its own to remove**
-(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree and of
+(the owner, retro of session 9c74d82e): `kill` of pids in its own process tree, or running a file from a slot it holds (a dev Fleet
+its subagent started leaves the tree by `setsid`), and of
 nothing else (`kill -9 -1` and `pkill` stay refused), `git branch -d`/`-D` of its leased
 branch and the branches of slots it holds, once the base holds every commit on them, and
 `rm` under `$TMPDIR` as under `/tmp`.
@@ -293,7 +294,11 @@ branch and the branches of slots it holds, once the base holds every commit on t
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
 off the machine unasked. A call that reaches into the owner's own files, or
 removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. Only a question (`AskUserQuestion`)
+reason the agent reads and works around. **A line that only reads is not that**: `launchctl print`,
+`diskutil list`, an awk script's `~` and `$5`, a read of `~/.cargo` or `~/.rustup` (his credentials
+and folders stay refused), and a read of another session's slot all run. `chmod` and `chown` in a
+held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
+variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
 
 **The slot is held by the session's id as a Job's is held by its id**, so a

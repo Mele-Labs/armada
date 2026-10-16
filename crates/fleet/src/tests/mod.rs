@@ -239,6 +239,7 @@ mod sent_back_wire;
 mod serving;
 mod session;
 mod session_auto;
+mod session_auto_reads;
 mod session_bays;
 mod session_fork;
 mod session_ending_slots;

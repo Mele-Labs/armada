@@ -176,6 +176,26 @@ pub trait PeerOf: Send + Sync {
     /// The processes `pid` started that are still running. Empty on any
     /// failure, the direction [`held_within`] may fail in.
     fn children(&self, pid: u32) -> Vec<u32>;
+
+    /// The file `pid` is running. `None` where it cannot be said, which reads as not one of the
+    /// session's own.
+    fn executable(&self, _pid: u32) -> Option<String> {
+        None
+    }
+}
+
+/// Whether `pid` runs a file under one of `directories`. **A daemon leaves its parent's tree**
+/// (a dev Fleet is `setsid`ed and reparented to launchd), so a session that started one can no
+/// longer reach it by descent; the binary it built in its own slot is what still says whose it is.
+pub fn runs_from(pid: u32, directories: &[String], peers: &dyn PeerOf) -> bool {
+    let Some(file) = peers.executable(pid) else {
+        return false;
+    };
+    let file = std::fs::canonicalize(&file).unwrap_or_else(|_| file.into());
+    directories.iter().any(|directory| {
+        let directory = std::fs::canonicalize(directory).unwrap_or_else(|_| directory.into());
+        file.starts_with(directory)
+    })
 }
 
 /// How deep and how wide [`held_within`] walks. A Helm session's relay is its
