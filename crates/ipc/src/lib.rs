@@ -142,6 +142,8 @@ pub mod layout;
 
 /// The owner's key bindings: which keys an act answers in place of the registry's. `docs/concepts/key-bindings.md`.
 pub mod key_bindings;
+/// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
+pub mod reach_folders;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
 /// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.

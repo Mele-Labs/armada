@@ -92,6 +92,7 @@ async fn ask_answered_through(door: &str) -> Option<ipc::Via> {
                 answer: ipc::HelmCallAnswer::AllowOnce,
                 note: None,
                 answers: Vec::new(),
+                folder: None,
             })
             .await
             .unwrap()

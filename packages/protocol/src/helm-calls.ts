@@ -19,6 +19,11 @@
  * CLI allows it without asking again — in helm and in their terminal alike.
  * `refuse` tells the session no.
  *
+ * `always_allow` and `always_block` are offered on a card over a session's reach past its
+ * slots, and only where `reaches` names the path. Each carries `folder`, the path or one above
+ * it, which fleet puts on the folder list (`features.reachFolders`) every session's guard reads.
+ * **Never a CLI rule**: the rule matches a command, and the guard runs before the CLI's settings.
+ *
  * **Offered, never assumed.** `offers` carries the subset fleet will take, and
  * an answer outside it is a 409.
  *
@@ -27,7 +32,7 @@
  * being asked, so no card is drawn over one and the answer had nothing to
  * appear on.
  */
-export type HelmCallAnswer = "allow_once" | "allow_and_remember" | "refuse";
+export type HelmCallAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block";
 
 /**
  * One call a helm session is waiting on a person to answer, right now. Since
@@ -56,6 +61,8 @@ export type HelmCallInFlight = {
   holding_for_seconds: number;
   /** The agent's questions, where the call is it asking the person. Absent for every other call. Since protocol 23.71. */
   questions?: AskedQuestion[];
+  /** The absolute path past a session's slots the guard asked about. The folder an "always" answer names is this or one above it. */
+  reaches?: string;
 };
 
 /** One question the agent put to the person. Since protocol 23.71. */
@@ -85,6 +92,8 @@ export type AnswerHelmCall = {
   note?: string;
   /** One entry per question, for a call that asked some. Since protocol 23.71. */
   answers?: QuestionAnswer[];
+  /** The folder an `always_allow` or `always_block` is for: `reaches` or a folder above it. Read for those two only. */
+  folder?: string;
 };
 
 /** What `list_helm_calls` and `answer_helm_call` answer. Since protocol 14.18. */

@@ -531,6 +531,8 @@ pub(crate) fn card_answer_says(answer: ipc::HelmCallAnswer) -> String {
         ipc::HelmCallAnswer::AllowOnce => "Answered: allow",
         ipc::HelmCallAnswer::AllowAndRemember => "Answered: always allow",
         ipc::HelmCallAnswer::Refuse => "Answered: refuse",
+        ipc::HelmCallAnswer::AlwaysAllow => "Answered: always allow the folder",
+        ipc::HelmCallAnswer::AlwaysBlock => "Answered: always block the folder",
     }
     .to_string()
 }

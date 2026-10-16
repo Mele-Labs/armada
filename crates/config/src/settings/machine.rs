@@ -2,7 +2,7 @@
 //! a behaviour on or off, the programs Bridge opens a file or a folder in, and
 //! where a pull request link opens, and the name this machine goes by.
 
-use super::{Applies, Entry, Flag, Kind, List, Options, Section, Shipped, Words};
+use super::{Applies, Entry, Flag, Json, Kind, List, Options, Section, Shipped, Words};
 
 pub const HARNESS_AGENT: Words = Words("harness.agent");
 pub const HARNESS_BINARY_PATH: Words = Words("harness.binaryPath");
@@ -12,6 +12,9 @@ pub const HELM_CAN_ACT: Flag = Flag("features.helmCanAct");
 pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
+/// The folders every session may reach past its slots with no card, and the ones it may not:
+/// `ipc::reach_folders`. Written by an "always" answer on a session's card.
+pub const REACH_FOLDERS: Json = Json("features.reachFolders");
 
 pub const EDITOR_COMMAND: Words = Words("editor.command");
 pub const TERMINAL_APP: Words = Words("terminal.app");
@@ -124,6 +127,17 @@ pub(super) const FEATURES: &[Entry] = &[
         description: "A guide opens by itself the first time you meet what it explains. Off, guides open only when you ask.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+    },
+    Entry {
+        key: REACH_FOLDERS.0,
+        section: Section::Features,
+        title: "Folders sessions reach",
+        description: "Folders outside its slots a session may read and write with no card, and folders it may not.",
+        kind: Kind::Json,
+        shipped: Shipped::Nothing,
         applies: Applies::Live,
         row: None,
         env: None,

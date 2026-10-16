@@ -708,7 +708,7 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
  * A select with its tooltip, and below the breakpoint a glyph in front of it
  * naming what it sets, so the row is a glyph and a value and not a label.
  */
-function Pick({ Glyph, compact, label, proposed = false, children }: { Glyph: LucideIcon; compact: boolean; label: string; proposed?: boolean; children: ReactNode }) {
+export function Pick({ Glyph, compact, label, proposed = false, children }: { Glyph: LucideIcon; compact: boolean; label: string; proposed?: boolean; children: ReactNode }) {
   return (
     <Tooltip label={label}>
       <span className="armada-session-composer__pick" data-compact={compact || undefined}>

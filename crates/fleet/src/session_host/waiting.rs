@@ -101,6 +101,8 @@ fn offer_label(offer: &HelmCallAnswer) -> &'static str {
         HelmCallAnswer::AllowOnce => "Allow once",
         HelmCallAnswer::AllowAndRemember => "Allow and remember",
         HelmCallAnswer::Refuse => "Refuse",
+        HelmCallAnswer::AlwaysAllow => "Always allow",
+        HelmCallAnswer::AlwaysBlock => "Always block",
     }
 }
 
@@ -701,6 +703,7 @@ where
                                 question: first.question.clone(),
                                 chosen: vec![chosen.to_string()],
                             }],
+                            folder: None,
                         },
                         _ => self.refusal_of(&said.session_id, &asked, line, None),
                     }
@@ -712,6 +715,8 @@ where
                             answer: offer.clone(),
                             note: None,
                             answers: Vec::new(),
+                            // A word from Needs you carries no picker: an "always" is for the path itself.
+                            folder: asked.reaches.clone(),
                         },
                         None => self.refusal_of(&said.session_id, &asked, line, words),
                     }
@@ -892,6 +897,7 @@ where
             answer: HelmCallAnswer::Refuse,
             note: words.or(line).map(str::to_string),
             answers: Vec::new(),
+            folder: None,
         }
     }
 }

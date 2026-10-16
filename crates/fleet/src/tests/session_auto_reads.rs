@@ -150,9 +150,10 @@ fn chmod_and_heredocs_inside_a_slot_are_the_sessions_work() {
     );
 }
 
+/// A change of mode is a removal's class, so a folder the owner allowed never lets it run unasked.
 #[test]
-fn chmod_in_the_owners_home_asks_as_a_reach() {
-    refused(&["chmod -R 777 ~/.ssh", "chmod 777 $HOME/x"], Because::ReachesOutside);
+fn chmod_in_the_owners_home_is_destructive() {
+    refused(&["chmod -R 777 ~/.ssh", "chmod 777 $HOME/x"], Because::Destructive);
 }
 
 #[test]
