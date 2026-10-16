@@ -2,7 +2,7 @@
 //! whoever held its branch; this is for the one it could not place, which a Session or Job that
 //! notices it claims for itself. `claim_pull_request`.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, PullRequestStanding, Vcs, WorkProduct};
 use api::{Caller, Refusal};
 use core_model::JobId;
 use ipc::{ClaimPullRequest, ManifestId, PullRequestClaimed};
@@ -78,18 +78,14 @@ where
         };
         let root = served.root().to_string();
         let number = claim.number;
-        let gate = served.manifest().ci_gate().to_string();
-        let pull = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_watch(root, &gate))
+        // **Asked for by its number**, not found in the watch: the watch reads the hundred updated
+        // last, and four of the owner's older drafts were refused as not open (16 Oct 2026).
+        let (branch, url) = self
+            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_facts(root, &number.to_string()))
             .await
-            .unwrap_or_default()
-            .into_iter()
-            .find(|pull| pull.number == number)
+            .filter(|facts| matches!(facts.standing, PullRequestStanding::Open | PullRequestStanding::Draft))
+            .map(|facts| (facts.branch, facts.url))
             .ok_or_else(|| refuse(format!("#{number} is not an open pull request here")))?;
-        let (branch, url) = (
-            pull.branch.as_written().to_string(),
-            pull.url.as_written().to_string(),
-        );
         for owner in self.owners_of(&served, number, &branch, false).await {
             if owner == me {
                 continue;
