@@ -110,7 +110,7 @@ const NO_SHOT = "No screenshot: on another screen";
 const noShot = (away: number, of: number): string => (away === of ? NO_SHOT : `No screenshot for ${away} of ${of}: on another screen`);
 
 export function Layer({ sink, fleet: given, openSession = askToOpenSessionInCockpit, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
-  const fleet: LayerFleet | undefined = given ?? withState(window.armada);
+  const fleet: LayerFleet | undefined = given ?? (window.armada === undefined ? undefined : withState(window.armada));
   const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
   const [notes, setNotes] = useState<Annotation[]>([]);
