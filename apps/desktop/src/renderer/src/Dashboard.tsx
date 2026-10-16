@@ -61,7 +61,7 @@ import type { JobAnswered } from "./cockpit/answer-job";
 import { checkoutCall } from "./cockpit/checkout";
 import { MERGE_BY_HAND } from "./cockpit/horizon";
 import { ByHandActs } from "./merge-by-hand";
-import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
+import { callKindOf, callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 import { useViewedVersion, viewedAt } from "./cockpit/viewed";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
@@ -472,7 +472,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     key: `session:${session.id}:${item.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
-    kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    kind: callKindOf(item.source),
     session: true,
     mark: item.source === "done" ? Power : Eye,
     state: item.source === "permission" ? "Waiting on a command" : item.source === "done" ? "Done" : "Waiting on you",

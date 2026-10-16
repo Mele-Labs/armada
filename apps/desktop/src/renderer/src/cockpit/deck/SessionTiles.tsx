@@ -5,8 +5,8 @@
 // (`report-brief.ts`), and opens it on the stage. The owner's ask of 15 Oct 2026. **Release** opens a confirmation naming what the Session
 // holds, and what Fleet answers stands in place of the tiles until Close (`ReleaseHolds.tsx`).
 
-import { useRef, useState } from "react";
-import { Bug, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Unplug } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bug, CircleCheck, CircleDot, FoldVertical, MessageCircleMore, Orbit, PlaneLanding, Scale, Unplug } from "lucide-react";
 import { Kbd, Tooltip } from "@armada/components";
 import type { HoldsReleased, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -20,7 +20,10 @@ import { reportBrief } from "./report-brief";
 import { COMPACT, LAND_OFF_TEXT, LAND_ON_TEXT, SESSION_TILES, handTargets, heldOf, nameOfHeldRow, offeredOf, plain, type Held, type SessionTileId } from "./session-tiles";
 import { select, setView } from "./store";
 
-const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, release: Unplug } as const;
+const GLYPH = { ask: MessageCircleMore, land: PlaneLanding, compact: FoldVertical, report: Bug, map: Orbit, judge: Scale, release: Unplug } as const;
+
+/** How long a judge that found nothing is shown as done. */
+const CLEAR_MS = 2400;
 
 /** The repository the report is about: its root and its name where it has one. */
 export type ReportRepository = { root: string; name?: string };
@@ -29,6 +32,18 @@ export type ReportRepository = { root: string; name?: string };
 export function SessionTiles({ session, draft, repository, startIn }: { session: Session; draft: SessionsDraft; repository: ReportRepository | undefined; startIn?: string }) {
   const [pending, setPending] = useState<SessionTileId | undefined>();
   const [reporting, setReporting] = useState(false);
+  /** When the Judge tile was last pressed: a reading with no concerns is "No concerns" only if it landed after this. */
+  const [pressedAt, setPressedAt] = useState<number | undefined>();
+  const [clear, setClear] = useState(false);
+  const judged = session.work?.judged;
+  /** Fleet answers the press at once with the record `judging`, so the tile reads it from there; the press is working until that arrives. */
+  const judging = session.work?.judging === true || pending === "judge";
+  useEffect(() => {
+    if (pressedAt === undefined || judged === undefined || judged.concerns !== 0 || Date.parse(judged.at) < pressedAt) return;
+    setClear(true);
+    const handle = window.setTimeout(() => setClear(false), CLEAR_MS);
+    return () => window.clearTimeout(handle);
+  }, [pressedAt, judged?.at, judged?.concerns]);
   const [releasing, setReleasing] = useState(false);
   /** What Fleet answered, with the Session as it stood before, which names each row. */
   const [released, setReleased] = useState<{ answer: HoldsReleased; to: Session | undefined; before: Session; unticked: readonly Held[] } | undefined>();
@@ -60,6 +75,13 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     },
     report: () => setReporting((open) => !open),
     map: () => setView("map"),
+    judge: () =>
+      void run("judge", async () => {
+        if (draft.work?.judge === undefined) return;
+        setClear(false);
+        setPressedAt(Date.now());
+        await draft.work.judge(session.id);
+      }),
     release: () => setReleasing(true),
   };
   const release = async (to: Session | undefined, rows: readonly Held[]): Promise<boolean> => {
@@ -89,6 +111,7 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     compact: "Compact the Session's context",
     report: "Report an issue with the Session",
     map: "Map",
+    judge: judging ? "Judge reading" : clear ? "No concerns" : "Send a judge to read the work",
     release: "Release or hand over everything the Session holds",
   };
   const dialog = releasing ? (
@@ -113,9 +136,12 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
     <>
       {dialog}
       <div className="deck-controls__block" data-subject="session">
+        <div className="deck-controls__tiles">
         {SESSION_TILES.map((tile, at) => {
           const Glyph = GLYPH[tile.id];
           const why = off[tile.id];
+          const reading = tile.id === "judge" && judging;
+          const cleared = tile.id === "judge" && clear && !reading;
           return (
             <Tooltip key={tile.id} label={why ?? tip[tile.id]} shortcut={String(at + 1)} asChild>
               <button
@@ -127,7 +153,17 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
                 aria-disabled={why !== undefined || undefined}
                 onClick={() => why === undefined && press[tile.id]()}
               >
-                <Glyph size={20} aria-hidden="true" />
+                {reading ? (
+                  <span className="armada-session-mark" role="img" aria-label="Judge reading" data-pulsing>
+                    <CircleDot size={20} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                ) : cleared ? (
+                  <span className="armada-session-mark deck-tile__done" role="img" aria-label="No concerns">
+                    <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                ) : (
+                  <Glyph size={20} aria-hidden="true" />
+                )}
                 <span className="deck-tile__text">{tile.text}</span>
                 <Kbd className="deck-tile__key" aria-hidden="true">
                   {at + 1}
@@ -136,6 +172,7 @@ export function SessionTiles({ session, draft, repository, startIn }: { session:
             </Tooltip>
           );
         })}
+      </div>
       </div>
     </>
   );

@@ -46,6 +46,22 @@ describe("the ledger", () => {
     expect(attachments).toContainEqual({ kind: "slot", slot: 3 });
   });
 
+  it("keeps a page it showed as an artifact, and a message channel it holds adds no row of its own", () => {
+    const attachments = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("slot", "9"),
+          held("branch", "bridge/queue-for-later"),
+          held("artifact", "http://localhost:40108/?walk=queue", { form: "window", title: "Queue for later walk" }),
+          held("message", "from:coordinator", { count: "15", direction: "received" }),
+        ],
+      }),
+      beside(),
+    );
+    expect(attachments).toContainEqual({ kind: "artifact", form: "window", id: "http://localhost:40108/?walk=queue", title: "Queue for later walk" });
+    expect(attachments.map((one) => one.kind).sort()).toEqual(["artifact", "branch", "slot"]);
+  });
+
   it("leaves out what a session let go, and keeps a merged pull request as merged", () => {
     const attachments = attachmentsOfRecord(
       record("a", {

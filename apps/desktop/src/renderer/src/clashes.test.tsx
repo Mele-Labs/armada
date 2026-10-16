@@ -5,10 +5,10 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test } from "vitest";
-import { ClashMark } from "@armada/components";
+import { ClashMark, ClashNotice } from "@armada/components";
 import type { WriteClash } from "@armada/protocol";
 
-import { ClashesFromFleet } from "./clashes";
+import { ClashesFrom, ClashesFromFleet } from "./clashes";
 import { createFleetClashes } from "./fleet-clashes";
 import { useOpenHolderAsked } from "./open-holder";
 
@@ -110,4 +110,51 @@ test("draws a clash against main as a picture, with nothing to open", async () =
   expect(mark?.tagName).not.toBe("BUTTON");
   await act(async () => (mark as HTMLElement).click());
   expect(opened).toEqual([]);
+});
+
+const TWO: WriteClash[] = [
+  { one: { kind: "session", id: "s1", label: "Retry tuning" }, other: { kind: "session", id: "s2", label: "Lint sweep" }, paths: ["crates/fleet/src/retry.rs"], since: "2026-10-13T09:00:00Z" },
+  { one: { kind: "session", id: "s1", label: "Retry tuning" }, other: { kind: "session", id: "s3", label: "Audit log" }, paths: ["crates/store/src/audit.rs", "crates/store/src/open.rs"], since: "2026-10-13T09:05:00Z" },
+];
+
+async function notice(clashes: WriteClash[], id = "s1"): Promise<HTMLElement> {
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  roots.push({ root, host });
+  await act(async () => root.render(<ClashesFrom clashes={clashes}><ClashNotice kind="session" id={id} /></ClashesFrom>));
+  return host;
+}
+
+test("two clashes are one bar, folded to a line of chips, and opening it lists both rows", async () => {
+  const host = await notice(TWO);
+  expect(host.querySelectorAll('section[aria-label="Write clash"]')).toHaveLength(1);
+  const toggle = host.querySelector<HTMLElement>("button.armada-clash-notice__toggle")!;
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  const box = host.querySelector<HTMLElement>(".armada-clash-notice__fold-box")!;
+  expect(box.hasAttribute("data-open")).toBe(false);
+  const chips = [...host.querySelectorAll(".armada-clash-notice__chips button")].map((chip) => chip.getAttribute("aria-label"));
+  expect(chips).toEqual(["Open Lint sweep", "Open Audit log"]);
+
+  await act(async () => toggle.click());
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(box.hasAttribute("data-open")).toBe(true);
+  expect(host.querySelectorAll(".armada-clash-notice__chips")).toHaveLength(0);
+  const rows = [...host.querySelectorAll(".armada-clash-notice__clash")];
+  expect(rows.map((row) => row.querySelector(".armada-clash-notice__with")?.textContent)).toEqual(["Lint sweep", "Audit log"]);
+  expect(rows[0]?.textContent).toContain("retry.rs");
+  expect(rows[1]?.textContent).toContain("audit.rs");
+  expect(host.textContent).not.toMatch(/\b2\b/);
+});
+
+test("the bar's open state is kept for the Session, and a clash arriving does not open it", async () => {
+  const mine = (clash: WriteClash): WriteClash => ({ ...clash, one: { kind: "session", id: "kept", label: "Retry tuning" } });
+  const toggleOf = (host: HTMLElement) => host.querySelector<HTMLElement>("button.armada-clash-notice__toggle")!;
+  const first = await notice([mine(TWO[0]!)], "kept");
+  expect(toggleOf(first).getAttribute("aria-expanded")).toBe("false");
+  const both = await notice(TWO.map(mine), "kept");
+  expect(toggleOf(both).getAttribute("aria-expanded")).toBe("false");
+  await act(async () => toggleOf(both).click());
+  const later = await notice([mine(TWO[0]!)], "kept");
+  expect(toggleOf(later).getAttribute("aria-expanded")).toBe("true");
+  await act(async () => toggleOf(later).click());
 });

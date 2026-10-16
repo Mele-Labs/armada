@@ -43,6 +43,8 @@ mod rows;
 pub(crate) use rows::UserLine;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
+/// A judge reading a Session's work, and sending or dismissing what it raised.
+pub(crate) mod session_judging;
 mod serving;
 pub(crate) mod standing;
 mod standing_tick;
@@ -389,6 +391,8 @@ pub(crate) struct State {
     pub proposal: proposing::ProposalState,
     /// The type each subagent call of the stream asked for, to name who made an edit. In memory.
     pub spawns: crate::file_touching::Spawns,
+    /// How many judges are reading the Session's work now. In memory: a Fleet that restarts reads none.
+    pub judging: u32,
     /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
     pub background: backgrounding::Calls,
 }
@@ -431,6 +435,7 @@ impl State {
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
+            judging: 0,
             background: backgrounding::Calls::default(),
         }
     }

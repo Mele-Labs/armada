@@ -50,6 +50,8 @@ export type DroneIn = {
   via?: string;
   /** The Job it belongs to or was dispatched by. */
   parent?: string;
+  /** The file it is over, where the repository draws files as bars: it hovers at the bar and not at the middle of the plot. */
+  file?: string;
   /** The directories it is changing, and how much of its change is in each. */
   touches: readonly Touch[];
   /** The bay it holds. */
@@ -156,7 +158,16 @@ export type Placed = { x: number; y: number; s: number; root: string };
 /** A pull request as the battlefield draws it: where it stands and which drone, if any, it belongs to. */
 export type PrIn = { key: string; number: number; stage: Pr["stage"]; root: string; owner?: string };
 
-export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas };
+/** What is being done to a file: made, changed or taken away. None is a file at rest. */
+export type FileAct = "write" | "edit" | "remove";
+
+/** A file of a repository, drawn as a small bar on the plot of its directory. */
+export type FileIn = { path: string; act?: FileAct };
+
+/** A file's bar as laid out: where it lies on its plot, in the layout's own units. */
+export type Bar = { path: string; act: FileAct | undefined; rect: Rect; cx: number; cy: number; tile: Tile };
+
+export type RepoIn = { root: string; name: string; pads: readonly string[]; goal: boolean; areas: Areas; files?: readonly FileIn[] };
 
 /** The files a top directory is drawn for when it lists no directories inside it and Fleet has not counted. */
 const BARE_FILES = 8;
@@ -164,6 +175,8 @@ const BARE_FILES = 8;
 export type Layout = {
   territories: Territory[];
   at: Map<string, Placed>;
+  /** The files drawn as bars, by path. */
+  bars: Map<string, Bar>;
   /** The plots each drone touches, the biggest share first. */
   over: Map<string, { tile: Tile; w: number }[]>;
   clashes: Clash[];
@@ -195,6 +208,7 @@ export function layoutOf(
   const at = new Map<string, Placed>();
   const over = new Map<string, { tile: Tile; w: number }[]>();
   const clashes: Clash[] = [];
+  const bars = new Map<string, Bar>();
   const want = new Map<string, Point>();
   const bounds = new Map<string, Rect>();
 
@@ -238,6 +252,20 @@ export function layoutOf(
     // A touched path belongs to the plot with the longest path that begins it.
     const tileOf = (path: string) => tiles.filter((t) => path === t.path || path.startsWith(`${t.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
 
+    // The files of a plot are bars in rows across it, in the order the repository lists them, each as wide as the plot allows.
+    for (const tile of tiles) {
+      const mine = (repo.files ?? []).filter((one) => tileOf(one.path) === tile);
+      if (mine.length === 0) continue;
+      const bw = Math.max(8, Math.min(22, (tile.rect.w - 10) / 3.2));
+      const bh = Math.max(3, bw * 0.34);
+      const cols = Math.max(1, Math.floor((tile.rect.w - 10 + 3) / (bw + 3)));
+      mine.forEach((one, i) => {
+        const x = tile.rect.x + 5 + (i % cols) * (bw + 3);
+        const y = tile.rect.y + 12 + Math.floor(i / cols) * (bh + 4);
+        bars.set(one.path, { path: one.path, act: one.act, rect: { x, y, w: bw, h: bh }, cx: x + bw / 2, cy: y + bh / 2, tile });
+      });
+    }
+
     const own = drones.filter((one) => one.root === repo.root);
     own.forEach((one, order) => {
       const share = new Map<Tile, number>();
@@ -247,7 +275,10 @@ export function layoutOf(
       }
       const list = [...share].map(([tile, w]) => ({ tile, w })).sort((a, b) => b.w - a.w || a.tile.path.localeCompare(b.tile.path));
       over.set(one.key, list);
-      if (list.length > 0) {
+      const bar = one.file === undefined ? undefined : bars.get(one.file);
+      if (bar !== undefined) {
+        want.set(one.key, { x: bar.cx, y: bar.cy });
+      } else if (list.length > 0) {
         const total = list.reduce((sum, one) => sum + one.w, 0);
         want.set(one.key, { x: list.reduce((sum, one) => sum + one.tile.cx * one.w, 0) / total, y: list.reduce((sum, one) => sum + one.tile.cy * one.w, 0) / total });
       } else {
@@ -343,7 +374,7 @@ export function layoutOf(
     const root = drones.find((one) => one.key === key)!.root;
     at.set(key, { x: p.x, y: p.y, s: 1, root });
   }
-  return { territories, at, over, clashes };
+  return { territories, at, bars, over, clashes };
 }
 
 // ---- The camera, the ground's height and the curves above it --------------------------------------------
