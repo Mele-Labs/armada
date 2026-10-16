@@ -11,14 +11,14 @@
 //! vendor's words (`success`, `timed_out`, ...) stop in [`state_of`].
 
 use std::io::Read;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use adapter_traits::{
     CiRun, CiRuns, CiState, CommitStatus, FromOutside, MergedPull, OpenPull, OpenPulls, PullFacts,
     PullMergeable, PullReview, RecentlyMerged, RecentlyMergedPulls, StatusState,
 };
 
-use crate::delivery::{run_in, FORGE};
+use crate::delivery::{read_in, run_in, FORGE};
 use crate::under_review::as_written;
 
 /// How much of a log's end is kept. A failure is printed last and a log runs to
@@ -98,7 +98,7 @@ pub(crate) fn log(in_repo: &str, run: &CiRun) -> Option<FromOutside> {
         return None;
     }
     let path = format!("repos/{{owner}}/{{repo}}/actions/jobs/{id}/logs");
-    let mut child = Command::new(FORGE)
+    let mut child = crate::background::command(FORGE)
         .args(["api", &path])
         .current_dir(in_repo)
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -443,7 +443,7 @@ fn is_a_commit(text: &str) -> bool {
 }
 
 pub(crate) fn asked(in_repo: &str, args: &[&str]) -> Option<String> {
-    let run = run_in(in_repo, FORGE, args).ok()?;
+    let run = read_in(in_repo, FORGE, args).ok()?;
     run.status
         .success()
         .then(|| String::from_utf8_lossy(&run.stdout).into_owned())

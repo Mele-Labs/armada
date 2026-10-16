@@ -442,6 +442,9 @@ impl Delivery for GitVcs {
     }
 }
 
+/// How a command is run: [`run_in`] or [`read_in`].
+type Runner = fn(&str, &str, &[&str]) -> Result<Output, std::io::Error>;
+
 /// Ask the forge one thing about one pull request, named as the forge names
 /// them — a branch, a number or an address, all of which `pr view` takes.
 ///
@@ -455,7 +458,19 @@ impl Delivery for GitVcs {
 /// process as one line of text and `store` and `ipc` stay the only two places
 /// that deserialise anything.
 pub(crate) fn asked(in_dir: &str, named: &str, fields: &str, jq: &str) -> Option<String> {
-    let run = viewed(in_dir, named, fields, jq)?;
+    asked_by(read_in, in_dir, named, fields, jq)
+}
+
+/// [`asked`] through `run`: [`read_in`] for a poll, [`run_in`] for the look a
+/// delivery takes before it acts.
+fn asked_by(
+    run: Runner,
+    in_dir: &str,
+    named: &str,
+    fields: &str,
+    jq: &str,
+) -> Option<String> {
+    let run = viewed(run, in_dir, named, fields, jq)?;
     run.status
         .success()
         .then(|| last_line(&run))
@@ -478,7 +493,7 @@ pub(crate) fn asked_lines(
     fields: &str,
     jq: &str,
 ) -> Option<Vec<String>> {
-    let run = viewed(in_dir, named, fields, jq)?;
+    let run = viewed(read_in, in_dir, named, fields, jq)?;
     if !run.status.success() {
         return None;
     }
@@ -496,7 +511,13 @@ pub(crate) fn asked_lines(
 
 /// One `pr view`, built in one place so the two readers above cannot come to
 /// spell the same command two ways.
-fn viewed(in_dir: &str, named: &str, fields: &str, jq: &str) -> Option<Output> {
+fn viewed(
+    run_in: Runner,
+    in_dir: &str,
+    named: &str,
+    fields: &str,
+    jq: &str,
+) -> Option<Output> {
     run_in(
         in_dir,
         FORGE,
@@ -510,7 +531,8 @@ fn viewed(in_dir: &str, named: &str, fields: &str, jq: &str) -> Option<Output> {
 /// Every failure is `None` — see [`asked`], which is where that rule lives now
 /// that two callers keep it.
 fn already_open(worktree: &Worktree) -> Option<String> {
-    asked(worktree.path(), worktree.branch(), "url", ".url")
+    // A delivery's own look before it pushes: an act, so not at utility.
+    asked_by(run_in, worktree.path(), worktree.branch(), "url", ".url")
 }
 
 /// The remote to push to: `origin` where there is one, otherwise the only other
@@ -631,7 +653,19 @@ fn run(worktree: &Worktree, program: &str, args: &[&str]) -> Result<Output, std:
 /// `crate::landing`**, whose questions are asked long after the worktree the
 /// work was written in has been reclaimed.
 pub(crate) fn run_in(dir: &str, program: &str, args: &[&str]) -> Result<Output, std::io::Error> {
-    Command::new(program)
+    asked_at(Command::new(program), dir, args)
+}
+
+/// [`run_in`] for a question Fleet asks on its own account, at utility
+/// priority: `crate::background` says why. **Every read goes here and every
+/// act through `run_in`**, so a merge the owner pressed is not queued behind
+/// the polling.
+pub(crate) fn read_in(dir: &str, program: &str, args: &[&str]) -> Result<Output, std::io::Error> {
+    asked_at(crate::background::command(program), dir, args)
+}
+
+fn asked_at(mut command: Command, dir: &str, args: &[&str]) -> Result<Output, std::io::Error> {
+    command
         .args(args)
         .current_dir(dir)
         // A tool that stops to ask has nobody to ask: Fleet is a daemon and

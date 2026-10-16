@@ -33,7 +33,7 @@ use git2::Repository;
 
 use crate::onto_base::{self, NotOntoBase, Onto};
 
-use crate::delivery::{asked, last_line, run_in, said, FORGE};
+use crate::delivery::{asked, last_line, read_in, run_in, said, FORGE};
 
 /// Ask the forge what became of one pull request, what it is showing beside
 /// it, and what a person would read about it before either of those answers
@@ -645,7 +645,7 @@ pub(crate) fn changed_between(repo: &Repository, ours: git2::Oid, theirs: git2::
 /// [`Rendering::Unreadable`], never `AsWritten`, because the caller's answer to
 /// a superseded base is to close and reopen a person's pull request.
 pub(crate) fn rendering(in_repo: &str, base: &str, pinned: &str, head: &str) -> Rendering {
-    let Ok(run) = run_in(in_repo, "git", &["merge-base", head, base]) else {
+    let Ok(run) = read_in(in_repo, "git", &["merge-base", head, base]) else {
         return Rendering::Unreadable;
     };
     let written_on = last_line(&run);

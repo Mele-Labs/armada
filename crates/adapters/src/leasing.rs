@@ -726,7 +726,7 @@ impl Pool {
     /// and otherwise the one warmed last.
     fn warmest_base(&self) -> Option<String> {
         let root = self.root.to_string_lossy();
-        let head = git(&self.root, &["rev-parse", &self.base_ref()]).ok();
+        let head = git::read(&self.root, &["rev-parse", &self.base_ref()]).ok();
         let mut warm: Vec<(std::time::SystemTime, String)> =
             std::fs::read_dir(self.root.join(".armada/bases"))
                 .ok()?
