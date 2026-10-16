@@ -5,6 +5,7 @@
 
 import type { FileTouch, PlanMark as WirePlanMark, ProposedField, SessionPlan, SessionRecord, SessionRow as WireRow, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
+import { clock } from "./duration";
 import type { PlanMark, SessionAttachment, SessionRow, SessionWork, SuggestLine, WorkConcern, WorkDrone, WorkFile, WorkflowChoice, WorkPlan } from "./draft/sessions";
 
 /** What the window holds beside a record that the work is read with. */
@@ -19,6 +20,8 @@ export type WorkBeside = {
   drawn: readonly SessionRow[];
   /** Picks the person has changed in this window, before the record says so. */
   unpicked: ReadonlySet<ProposedField>;
+  /** The owner's setting `features.workflows` is off: no workflow, no steps and no proposer's mark for one are drawn. */
+  workflowsOff?: boolean;
 };
 
 /** The workflows a Session may be given, as the picker lists them. */
@@ -32,8 +35,9 @@ function workflowOf(record: SessionRecord, workflows: readonly WorkflowSummary[]
   if (record.workflow === undefined) return undefined;
   const found = workflows.find((one) => one.id === record.workflow && (record.manifest_id === undefined || one.manifest_id === record.manifest_id)) ?? workflows.find((one) => one.id === record.workflow);
   if (found === undefined) return { name: record.workflow, steps: [] };
-  const at = record.workflow_step === undefined ? -1 : found.steps.findIndex((step) => step.step_id === record.workflow_step);
-  return { name: found.name, steps: found.steps.map((step) => step.label), ...(at < 0 ? {} : { at }) };
+  // `workflow_step` is the step's index, which Fleet leaves off for a custom Session, after the last step's pull request merged, and while workflows are off.
+  const at = record.workflow_step;
+  return { name: found.name, steps: found.steps.map((step) => step.label), ...(at === undefined || at < 0 || at >= found.steps.length ? {} : { at }) };
 }
 
 /** The wire row that recorded this version of the plan, and the last row before it that the thread draws. */
@@ -102,6 +106,7 @@ export function concernsOf(items: readonly WaitingItem[] | undefined): WorkConce
     .map((one) => ({
       id: one.id,
       text: one.text,
+      ...(one.concern?.from.kind === "step" ? { step: one.concern.from.label } : {}),
       ...(one.cites === undefined || one.cites.length === 0 ? {} : { cites: one.cites.map((cite) => (cite.line === undefined ? cite.path : `${cite.path}:${cite.line}`)) }),
     }));
 }
@@ -113,8 +118,9 @@ export function concernsOf(items: readonly WaitingItem[] | undefined): WorkConce
 export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork | undefined {
   if (record.helm === true) return undefined;
   const hosted = record.hosted !== undefined;
-  const picked = (record.proposal?.picked ?? []).filter((one) => PICKABLE.includes(one) && !beside.unpicked.has(one)) as ("workflow" | "model" | "effort")[];
-  const workflow = workflowOf(record, beside.workflows);
+  const off = beside.workflowsOff === true;
+  const picked = (record.proposal?.picked ?? []).filter((one) => PICKABLE.includes(one) && !beside.unpicked.has(one) && !(off && one === "workflow")) as ("workflow" | "model" | "effort")[];
+  const workflow = off ? undefined : workflowOf(record, beside.workflows);
   const { field, files } = fieldOf(record.touches ?? []);
   const concerns = record.state === "ended" ? [] : concernsOf(record.waiting_for);
   return {
@@ -125,7 +131,29 @@ export function workOf(record: SessionRecord, beside: WorkBeside): SessionWork |
     ...(record.plan === undefined ? {} : { plan: planOf(record.plan, beside) }),
     ...(field.length === 0 ? {} : { field, files }),
     ...(concerns.length === 0 ? {} : { concerns }),
+    ...(record.judging === true && record.state !== "ended" ? { judging: true as const } : {}),
+    ...(record.judge === undefined ? {} : { judged: { at: record.judge.at, concerns: record.judge.concerns } }),
+    ...(off ? { railOff: true as const } : {}),
   };
+}
+
+/**
+ * The concerns the person settled, each a line of the thread at the time it was settled. A sent one is his message to the agent,
+ * left out where the thread already carries it; a dismissed one is the folded line and the agent was told nothing.
+ */
+export function settledRowsOf(items: readonly WaitingItem[] | undefined, thread: readonly SessionRow[]): { at: string; row: SessionRow }[] {
+  const said = thread.flatMap((one) => (one.kind === "message" && one.from.kind === "you" ? [one.text] : []));
+  return (items ?? []).flatMap((one): { at: string; row: SessionRow }[] => {
+    const settled = one.concern?.settled;
+    if (one.source !== "judge" || settled === undefined) return [];
+    const at = clock(settled.at);
+    if (settled.how === "dismissed") {
+      const step = one.concern?.from.kind === "step" ? one.concern.from.label : "Judge";
+      return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "concern" as const, step, text: one.text } }];
+    }
+    if (said.some((text) => text.includes(one.text))) return [];
+    return [{ at: settled.at, row: { id: `settled:${one.id}`, at, kind: "message" as const, instant: settled.at, from: { kind: "you" as const }, text: one.text } }];
+  });
 }
 
 /** His marks as Fleet takes them: an added task and an added group are two marks, and the rest keep their names. */

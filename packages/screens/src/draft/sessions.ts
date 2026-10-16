@@ -154,7 +154,7 @@ export type WorkDrone = { id: string; agent?: string; task?: string; path: strin
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
 
 /** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
-export type WorkConcern = { id: string; step?: string; judge?: string; text: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
+export type WorkConcern = { id: string; /** The step it was raised after, where a boundary judge raised it; the Judge tile's carry none. */ step?: string; judge?: string; text: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
 
 /** A workflow a Session may follow: its steps in order. */
 export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };
@@ -170,6 +170,12 @@ export type SessionWork = {
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   concerns?: readonly WorkConcern[];
+  /** A judge is reading the work now. */
+  judging?: true;
+  /** The last reading's outcome: `concerns` 0 is how the tile says "No concerns". */
+  judged?: { at: string; concerns: number };
+  /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
+  railOff?: true;
 };
 
 /** The acts on a Session's work. Absent where nothing serves them. */
@@ -185,8 +191,8 @@ export type SessionWorkActs = {
   /** Sends the concern to the Session as a message to the agent. */
   sendConcern: (id: string, concern: string) => void;
   dismissConcern: (id: string, concern: string) => void;
-  /** Sends a judge to read the Session's work so far against its plan. Resolves with whether it raised concerns, which arrive as `concerns`. */
-  judge?: (id: string) => Promise<boolean>;
+  /** Sends a judge to read the Session's work so far against its plan. Fleet answers at once; the reading lands as `judging`, then `judged` and `concerns`. */
+  judge?: (id: string) => Promise<void>;
 };
 
 /** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */
@@ -308,6 +314,17 @@ export type SessionActivity = { now?: string; todos?: readonly SessionTodo[] };
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
+/** One ledger row a release moved or left: its kind as the ledger names it (`slot`, `branch`, `pr`, `job`, `need`) and its target. */
+export type HeldRow = {
+  kind: string;
+  target: string;
+  /** A slot given back: the branch its work is on, and the WIP commit and files where something was uncommitted. */
+  saved?: { branch: string; commit?: string; files: readonly string[] };
+};
+
+/** What a release gave back or handed over, and what stayed with why. `to` is the Session handed them. */
+export type HoldsReleased = { to?: string; moved: readonly HeldRow[]; kept: readonly (HeldRow & { why: string })[] };
+
 export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
@@ -346,6 +363,8 @@ export type Session = {
   /** The directory it was started in, `SessionRecord.cwd`. A report about it names where its transcript is kept. */
   cwd?: string;
   attachments: readonly SessionAttachment[];
+  /** The needs it holds standing, by repository-relative path and the words it declared each in. Absent is none. */
+  needs?: readonly { path: string; what: string }[];
   /**
    * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
    * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
@@ -534,6 +553,13 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Ends the turn that is running; the Session rests and takes the next message. Absent in the mock's fixtures. */
   stop?: (id: string) => void;
+  /**
+   * Gives back the slots, branches, pull requests, Jobs and needs a Session holds, or hands them to the live Session
+   * `to` of the same repository: the `rows` ticked, by the ledger's kind and target, or every one where absent. A
+   * running turn is stopped first where a slot is among them, and the Session stays live. Resolves to what moved and
+   * what stayed; a refusal is said as `stop`'s is and resolves to nothing. Absent where nothing serves it.
+   */
+  releaseHolds?: (id: string, to?: string, rows?: readonly { kind: string; target: string }[]) => Promise<HoldsReleased | undefined>;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
   /**

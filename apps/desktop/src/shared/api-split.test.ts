@@ -7,6 +7,8 @@ import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/sett
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import type {
+  ChosenHold,
+  SessionHoldsReleased,
   AddTask,
   FixMain,
   EditTask,
@@ -183,7 +185,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, JudgeRead, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendPlanChanges, SendSessionMessage, SessionRecord, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { AccountsActed } from "./api/accounts";
@@ -497,8 +499,9 @@ type OldBridgeApi = {
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
     sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
-    judgeSession: (sessionId: string) => Promise<SessionActed<JudgeRead>>;
-    actOnConcern: (act: "send" | "dismiss", sessionId: string, itemId: string) => Promise<SessionActed<SessionRecord | null>>;
+    judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
+    sendConcern: (send: SendConcern) => Promise<SessionActed>;
+    dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
@@ -534,6 +537,7 @@ type OldBridgeApi = {
     closeSession: (sessionId: string) => Promise<SessionActed>;
     stopSession: (sessionId: string) => Promise<SessionActed>;
     setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
+    releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
     moveSession: (sessionId: string, manifestId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -849,7 +853,8 @@ const OLD_CHANNELS = {
     approvePlan: "bridge:approve-plan",
     sendPlanChanges: "bridge:send-plan-changes",
     judgeSession: "bridge:judge-session",
-    actOnConcern: "bridge:act-on-concern",
+    sendConcern: "bridge:send-concern",
+    dismissConcern: "bridge:dismiss-concern",
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
@@ -883,6 +888,7 @@ const OLD_CHANNELS = {
     closeSession: "bridge:close-session",
     stopSession: "bridge:stop-session",
     setSessionWorkflow: "bridge:set-session-workflow",
+    releaseSessionHolds: "bridge:release-session-holds",
     moveSession: "bridge:move-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

@@ -122,6 +122,10 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
+### Releasing what a Session holds
+
+**The person gives back everything a Session holds, or hands it to another, with `release_session_holds`** (`session_id`, optional `to_session_id`), from Release on the Session's flight controls ([Cockpit](cockpit.md)). The owner, 16 Oct 2026: "Give me a button in the flight control of a session that is gated by a confirmation dialog. This button will let me force release everything in the ledger of that session. Agents sometimes can't do this but from Bridge we should be able to make it happen. It would be cool if I could select another session to transfer what it holds to." It acts on the `standing` `slot`, `branch`, `pr`, `job` and `need` rows named in `rows`, each a `kind` and `target`, and on every one where `rows` is absent, and leaves the rest. **Bridge draws each as a checkbox, all ticked when the confirmation opens, and sends the ones ticked.** The owner, 16 Oct 2026: "If we're building this, I should be able to check what I want to release. By default everything is checked." A row the Session does not hold standing is refused and nothing moves. A slot takes the branch it has checked out with it. Where a slot is among the rows, a hosted Session's running turn is stopped first, as `stop_session` stops it, and the Session stays live. With no target each row is given back, and each slot the pool holds for the Session is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed. With a target each row is given back and written standing for it, `detail.handed` reading `session <id>` as `take_over` writes `job <id>`, and each slot's lease moves to it as it stands, held as a Job of its id as a hosted Session holds its own. A target that is the Session itself, has ended or works in another repository is refused and nothing moves. Nothing is deleted. A slot the pool would not move stays with its branch, a piloted Job's slot, branch and Job stay for the pilot's exit, and the answer names each that stayed and why. `agent_access` is `No`: it is the person's act.
+
 ### Which machine owned a pull request
 
 **A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub account can tell who had it.** It is a small central store, set up by [signing in](account.md), and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
@@ -614,6 +618,42 @@ Since 16 Oct 2026. The owner, 15 Oct 2026: a Session plans with him first, and w
 
 **Who touched which file.** `SessionRecord.touches` is a bounded window of the Session's recent file touches for the Field: the subagent (type and the call that started it, absent for the Session's own agent), the `path` from the repository's root, the `act` (`write`, `edit` or `remove`) and `at`. The window holds 60; the same file by the same hand as the latest touch moves its instant and is not a new one. A hosted Session's touches are read off its process stream: the `Agent` call (once `Task`) names the type, and every line a subagent makes carries that call as `parent_tool_use_id`. A call whose start Fleet never heard (a Fleet that restarted) is named `subagent`. A terminal Session's come from the mod's `touched` fact, which carries the subagent's `agentId` (`by`) and the `act`; the type is read from the `subagent` attachment. A hosted Session loads the mod too, so only the stream is recorded for it. A removal is read from a plain `rm`, `git rm` or `unlink`; a command that removes by a pattern or a variable names nothing.
 
+## The rail
+
+Since 16 Oct 2026. A Session that follows a workflow has a **current step**, and it is **read off what Fleet observed, never off the agent's word**. `SessionRecord.workflow_step` is its index in the workflow's steps; it is derived each time the row is drawn (`rail.rs`, `Fleet::rail_drawn`), so nothing stores it beside the facts it comes from. It is absent for a custom Session, once the delivering step's pull request has merged with no step after it, and while `features.workflows` is off.
+
+**Three anchors are exact.** A `records_plan` step is current until a plan is approved. A `follows_plan` step is current from approval, and stays until a later step is entered. A `delivers` step is current from the first push until its pull request merges.
+
+**The steps between are read loosely**, each entered on the fact that fits it, only after every anchor before it has been passed:
+
+| Step declares | Entered on |
+|---|---|
+| evidence `diff` | the first edit |
+| evidence `test_suite_run` or `failing_test`, or a Manifest Check | a Check run the Session asked for, or the pull request's checks |
+| the `delivery` phase | a commit |
+| evidence `review` | a pull request opened |
+| anything else | never by itself |
+
+**Where a step cannot be told apart from the one before it, the earlier is kept**: a step that fits the same fact as its neighbour is not entered. A workflow edited under a running Session moves the indexes; the rail does not follow that.
+
+**Every move is entered on the timeline** as `session.step`, `says` `step: <old> → <new>`, a step by its label, `start` before the first and `done` past the last.
+
+**A skipped step draws one nudge, and nothing blocks.** Two skips are told, each once for each step in a Session's life: files edited before the `records_plan` step's plan was approved, and a push while the plan's tasks are open. Fleet sends the agent one short message from Fleet naming the step and what it asks (the step's own `about`, cut at 200 characters, else a default), and ends it with *Nothing is blocked*. A nudge that cannot be delivered because nobody is there is asked again later and not counted.
+
+**With `features.workflows` off** (Settings, live; the owner's decision of 16 Oct 2026) there is no step, no nudge and no boundary judge, even for a Session that already has a workflow, and the first turn does not tell the agent the steps. The Session keeps the workflow it has. The proposer is shown none and never picks one, and `set_session_workflow` refuses to set one (`fleet.session_workflows_off`) but still clears one.
+
+## The judges
+
+Since 16 Oct 2026. **A judge is the stateless call a Job's step is judged by**, on the Judge model setting (`judge.md`, *A Session's judge*), put about a Session's work. It is shown the request the person dispatched with (the Session's first message from him), the plan with the state Fleet observed for each task, the repository's standing rules and the diff against the base, and **never the transcript**. It is advisory: nothing it says blocks the Session.
+
+**Two things run one.** The **tile** (`judge_session`, `POST /sessions/judge`) runs a judge now: it asks whether the work carries out the plan and stays inside the request, and beside that the `judge_checks` of the step the Session is on. It answers the row at once with `judging` true, and the reading lands on it as `judge` `{at, concerns}`; zero is how Bridge says *No concerns*. A **boundary judge** runs in the background when the current step moves past a step that has `judge_checks`, with those checks as the questions, once for each step. Only the step just left is read, not steps passed over.
+
+**A concern is a call in the thread.** Each refusal the judge read becomes a waiting item, id `judge:<n>`, source `judge`, with its text (what was expected, produced and what follows), `concern.from` (the tile, or the step it came from), and `cites`: the files and lines of the diff its quotation landed on. A concern worded as one still waiting is not raised twice. **A call that fails or cannot be read raises nothing**, leaves `judge` as it was, and says why on Fleet's stderr.
+
+**The person decides what the agent hears.** `send_concern` sends it to the agent as his message (naming where it came from, the text and what it cites) and settles it; the message goes first, so a send that fails leaves the concern waiting. `dismiss_concern` settles it and tells the agent nothing. A settled concern leaves `waiting_for` and stays on the record in `settled`, a bounded window of the last 40, for the thread to draw as one line. `answer_waiting` and `dismiss_waiting` refuse a `judge` item, and sleep mode leaves it for the morning.
+
+**Held in memory:** `judging`, as a Fleet that restarts reads nothing as reading. Kept in the store: the rail's last step, the steps nudged and judged, the concerns and the last reading (`session_rail`, `session_concerns`, `session_judge_reading`).
+
 ## What fills the context window
 
 **A Session's context tank opens onto what fills it, the way `/context` shows it.** The mod asks the engine for a `summary` breakdown, estimated locally and never `full`, which would call the token-count API for every tool and file. It asks when the throttle lets a measurement through and the context moved, and sends `SessionRecord.context_breakdown`: `categories` (`name`, `tokens`, and a `kind` of `used`, `free`, `buffer` or `deferred` that Bridge branches on, never the name), `memory_files` (`path`, `tokens`), the ten `mcp_tools` that weigh most (`name`, `server`, `tokens`), `total_tokens`, `max_tokens` and `autocompact_threshold?`. **Names, paths and counts only**: no message text, prompt or file contents leave the mod. The live token count is the `context_tokens` already on `usage`.
@@ -785,7 +825,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 | Bridge draws | From |
 |---|---|
-| The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
+| The ledger's slot and branch as one pair | A branch row ends in the key chip of its slot, so a slot a branch is on has no section or row of its own. A slot no branch is on keeps a row under Branches, after the branches, with the key glyph. A press on either opens the slot on Cleanup. A `slot` of 0 on a branch is unknown and draws no chip |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
 | The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |

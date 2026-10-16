@@ -38,6 +38,8 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
+        concern: None,
+        cites: Vec::new(),
     }
 }
 

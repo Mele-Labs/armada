@@ -31,8 +31,9 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
+import type { ChosenHold, SessionHoldsReleased } from "@armada/protocol";
 import type { ModelDownshiftState, PlanUsage, SignedOut, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissWaiting, JudgeRead, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendPlanChanges, SendSessionMessage, SessionRecord, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, CheckoutCaughtUp, CheckoutDiff, CheckoutSentAsPullRequest, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, PilotOutcome, PullRequestClaimed, PullRequestFilePatch, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendConcern, SendPlanChanges, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -733,8 +734,9 @@ const api: BridgeApi = {
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   approvePlan: (approve: ApprovePlan): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.approvePlan, approve),
   sendPlanChanges: (changes: SendPlanChanges): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendPlanChanges, changes),
-  judgeSession: (sessionId: string): Promise<SessionActed<JudgeRead>> => ipcRenderer.invoke(CHANNELS.judgeSession, sessionId),
-  actOnConcern: (act: "send" | "dismiss", sessionId: string, itemId: string): Promise<SessionActed<SessionRecord | null>> => ipcRenderer.invoke(CHANNELS.actOnConcern, act, sessionId, itemId),
+  judgeSession: (judge: JudgeSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.judgeSession, judge),
+  sendConcern: (send: SendConcern): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.sendConcern, send),
+  dismissConcern: (dismiss: DismissConcern): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissConcern, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   runSessionCommand: (sessionId: string, command: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.runSessionCommand, sessionId, command),
@@ -744,6 +746,8 @@ const api: BridgeApi = {
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
   stopSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.stopSession, sessionId),
   setSessionWorkflow: (sessionId: string, workflow?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.setSessionWorkflow, sessionId, workflow),
+  releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]): Promise<SessionActed<SessionHoldsReleased>> =>
+    ipcRenderer.invoke(CHANNELS.releaseSessionHolds, sessionId, toSessionId, rows),
   moveSession: (sessionId: string, manifestId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.moveSession, sessionId, manifestId),
   retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),

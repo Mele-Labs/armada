@@ -69,8 +69,18 @@ describe("the workflow", () => {
   });
 
   it("lights the step Fleet names", () => {
-    expect(workOf(record({ workflow: "feature", workflow_step: "build" }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 });
-    expect(workOf(record({ workflow: "feature", workflow_step: "gone" }), beside())?.workflow?.at).toBeUndefined();
+    expect(workOf(record({ workflow: "feature", workflow_step: 1 }), beside())?.workflow).toEqual({ name: "Feature", steps: ["Plan", "Build", "Pull request"], at: 1 });
+    expect(workOf(record({ workflow: "feature", workflow_step: 0 }), beside())?.workflow?.at).toBe(0);
+    expect(workOf(record({ workflow: "feature", workflow_step: 9 }), beside())?.workflow?.at).toBeUndefined();
+  });
+
+  it("is hidden while the setting turns workflows off: no steps, no picker, no mark for a workflow", () => {
+    const one = record({ workflow: "feature", workflow_step: 1, proposal: { picked: ["workflow", "model"] } });
+    const work = workOf(one, beside({ workflowsOff: true }));
+    expect(work?.railOff).toBe(true);
+    expect(work?.workflow).toBeUndefined();
+    expect(work?.proposal?.picked).toEqual(["model"]);
+    expect(workOf(one, beside())?.railOff).toBeUndefined();
   });
 
   it("has no steps for a custom Session, and lists the picker's choices by id", () => {
@@ -151,6 +161,60 @@ describe("a judge's concerns", () => {
 
   it("are none once the Session has ended", () => {
     expect(workOf(record({ state: "ended", waiting_for: [item("c1", "judge")] }), beside())?.concerns).toBeUndefined();
+  });
+
+  it("name the step they were raised after, and the tile's carry none", () => {
+    const from = (concern: WaitingItem["concern"]) => concernsOf([item("c1", "judge", { concern })])[0];
+    expect(from({ from: { kind: "step", index: 1, label: "Build" } })?.step).toBe("Build");
+    expect(from({ from: { kind: "tile" } })?.step).toBeUndefined();
+  });
+
+  it("show the tile working while Fleet says a judge is reading", () => {
+    expect(workOf(record({ judging: true }), beside())?.judging).toBe(true);
+    expect(workOf(record(), beside())?.judging).toBeUndefined();
+    expect(workOf(record({ state: "ended", judging: true }), beside())?.judging).toBeUndefined();
+  });
+
+  it("carry the last reading, and zero concerns is the reading the tile calls No concerns", () => {
+    expect(workOf(record({ judge: { at: "2026-10-16T09:05:00Z", concerns: 0 } }), beside())?.judged).toEqual({ at: "2026-10-16T09:05:00Z", concerns: 0 });
+    expect(workOf(record(), beside())?.judged).toBeUndefined();
+  });
+});
+
+describe("the concerns he settled", () => {
+  const settledItem = (id: string, how: "sent" | "dismissed", from: NonNullable<WaitingItem["concern"]>["from"] = { kind: "tile" }): WaitingItem => ({
+    id,
+    text: `${id} text`,
+    since: AT,
+    source: "judge",
+    concern: { from, settled: { how, at: "2026-10-16T09:03:30Z" } },
+  });
+  const rows = [
+    { kind: "message", id: "m1", at: "2026-10-16T09:00:00Z", from: { kind: "you" }, text: "go" },
+    { kind: "message", id: "m2", at: "2026-10-16T09:04:00Z", from: { kind: "agent" }, text: "ok" },
+  ] as WireRow[];
+  const around = { jobs: [], picture: () => undefined, sketches: [], pending: [] } as Beside;
+
+  it("draw a dismissed one as the folded line, at the step it came from", () => {
+    const session = sessionOfRecord(record({ settled: [settledItem("j1", "dismissed", { kind: "step", index: 1, label: "Build" })] }), rows, around);
+    expect(session.rows.map((one) => one.kind)).toEqual(["message", "concern", "message"]);
+    expect(session.rows[1]).toMatchObject({ id: "settled:j1", step: "Build", text: "j1 text" });
+  });
+
+  it("draw a sent one as his message, in the thread where it was settled", () => {
+    const session = sessionOfRecord(record({ settled: [settledItem("j2", "sent")] }), rows, around);
+    expect(session.rows.map((one) => one.kind)).toEqual(["message", "message", "message"]);
+    expect(session.rows[1]).toMatchObject({ id: "settled:j2", from: { kind: "you" }, text: "j2 text" });
+  });
+
+  it("draw a sent one once, where the thread already carries his message", () => {
+    const carried = [...rows, { kind: "message", id: "m3", at: "2026-10-16T09:03:31Z", from: { kind: "you" }, text: "From the judge: j2 text" }] as WireRow[];
+    const session = sessionOfRecord(record({ settled: [settledItem("j2", "sent")] }), carried, around);
+    expect(session.rows.filter((one) => one.kind === "message" && one.text.includes("j2 text"))).toHaveLength(1);
+  });
+
+  it("are not waiting concerns", () => {
+    expect(workOf(record({ settled: [settledItem("j1", "sent")] }), beside())?.concerns).toBeUndefined();
   });
 });
 

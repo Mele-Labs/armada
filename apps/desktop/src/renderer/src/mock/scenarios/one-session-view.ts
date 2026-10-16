@@ -552,15 +552,18 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         push([asked(`${one.step}: ${one.text}`)], working());
         after(700, () => push([tool("Edit crates/fleet/src/lease.rs"), said(REPLIES[concern] ?? "Noted.")], idle()));
       },
-      judge: () =>
-        new Promise<boolean>((resolve) =>
-          after(READ_MS, () => {
-            const found = judged === 0;
-            judged += 1;
-            if (found) works((work) => ({ ...work, concerns: [...(work.concerns ?? []), SENT_CONCERN] }));
-            resolve(found);
-          }),
-        ),
+      judge: async () => {
+        works((work) => ({ ...work, judging: true }));
+        after(READ_MS, () => {
+          const found = judged === 0;
+          judged += 1;
+          works((work) => {
+            const { judging: was, ...rest } = work;
+            void was;
+            return { ...rest, judged: { at: new Date().toISOString(), concerns: found ? 1 : 0 }, ...(found ? { concerns: [...(work.concerns ?? []), SENT_CONCERN] } : {}) };
+          });
+        });
+      },
       dismissConcern: (_id, concern) => {
         const one = mine()?.work?.concerns?.find((it) => it.id === concern);
         if (one === undefined) return;

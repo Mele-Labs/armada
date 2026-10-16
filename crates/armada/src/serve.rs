@@ -371,6 +371,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // What happens to Jobs, Sessions, pull requests and slots, kept with its instant
             // for the Cockpit's timeline. Before anything can start one.
             fleet::timeline::keep_timeline(Arc::clone(&fleet));
+            // A Session's step, the nudge for one skipped, and the judge at a step's boundary.
+            fleet::rail_watching::keep_the_rail(Arc::clone(&fleet));
             // Main and the open pull requests, on the merge notice's interval but not
             // behind a turn, which waits on every Job's Checks.
             fleet::main_ci::keep_reading_main(

@@ -14,6 +14,8 @@
 import WebSocket from "ws";
 
 import type {
+  ReleaseSessionHolds,
+  SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
   CatchUpCheckout,
@@ -23,20 +25,20 @@ import type {
   CheckoutToPullRequest,
   ApprovePlan,
   ClaimPullRequest,
+  DismissConcern,
   DismissWaiting,
   Followed,
   FrameRead,
-  JudgeConcernAct,
-  JudgeRead,
-  JudgeSession,
   Outcome,
   PullRequestClaimed,
   PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
+  JudgeSession,
   RenameSession,
   RunSessionCommand,
   ReviewDispatched,
+  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
   SessionList,
@@ -444,28 +446,19 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/plan/changes", changes);
   }
 
-  /** A judge sent to read the Session's work. Fleet answers `JudgeRead`, and the concerns it raised arrive as waiting items on the record. */
-  async judge(judge: JudgeSession): Promise<SessionActed<JudgeRead>> {
-    const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "POST", "/sessions/judge", judge);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    const raised = (answer.body as Partial<JudgeRead> | null)?.raised;
-    return { ok: true, value: { raised: typeof raised === "number" ? raised : 0 } };
+  /** The person asked for a judge to read the work now. Fleet answers the record with `judging` set; the reading lands on it. */
+  async judgeSession(judge: JudgeSession): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/judge", judge);
   }
 
-  /** A judge's concern sent to the agent, or dropped with the agent told nothing. A record in the answer is folded; the item leaves the list either way. */
-  async actOnConcern(act: "send" | "dismiss", concern: JudgeConcernAct): Promise<SessionActed<SessionRecord | null>> {
-    const port = this.port();
-    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
-    const answer = await ask(port, "POST", `/sessions/judge/${act}`, concern);
-    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
-    const body = answer.body as Partial<SessionRecord> | null;
-    if (body !== null && typeof body === "object" && typeof body.id === "string" && typeof body.state === "string") {
-      this.fold(body as SessionRecord);
-      return { ok: true, value: body as SessionRecord };
-    }
-    return { ok: true, value: null };
+  /** A judge's concern, sent to the agent as the person's message and settled. */
+  async sendConcern(send: SendConcern): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/judge/send", send);
+  }
+
+  /** A judge's concern, settled with the agent told nothing. */
+  async dismissConcern(dismiss: DismissConcern): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/judge/dismiss", dismiss);
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
@@ -507,6 +500,14 @@ export class SessionsHost {
   /** The Session's workflow, or none with no `workflow`. Fleet tells the agent; the record it answers is folded in. */
   async setWorkflow(sessionId: string, workflow?: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/workflow", workflow === undefined ? { session_id: sessionId } : { session_id: sessionId, workflow });
+  }
+
+  /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
+  async releaseHolds(release: ReleaseSessionHolds): Promise<SessionActed<SessionHoldsReleased>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/release_holds", release);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionHoldsReleased } : { ok: false, outcome: answer.outcome };
   }
 
   /** The record Fleet answers is the new Session's, which is folded in; the old one's change arrives as `session.changed`. */

@@ -748,7 +748,10 @@ export function entriesOf(
       },
     };
   });
-  return [...waiting, ...session.attachments.map((one): LedgerEntry => ({ ...entryOf(one), card: cardOf(one, session, sessions, known) }))];
+  // A slot a branch row already carries as its chip has no row of its own.
+  const carried = new Set(attachmentsOf(session, "branch").map((one) => one.slot));
+  const drawn = session.attachments.filter((one) => one.kind !== "slot" || !carried.has(one.slot));
+  return [...waiting, ...drawn.map((one): LedgerEntry => ({ ...entryOf(one), card: cardOf(one, session, sessions, known) }))];
 
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
@@ -773,6 +776,7 @@ export function entriesOf(
           name: `Branch ${one.name}`,
           text: <code>{one.name}</code>,
           ...(one.handed === undefined ? {} : { handed: `Handed over with Job ${one.handed.job}, not created here` }),
+          ...(one.slot === 0 ? {} : { slot: one.slot }),
           onOpen: () => slot(one.slot),
         };
       case "pull_request":

@@ -1,6 +1,6 @@
 // With a Session open on the flight deck's stage, the flight controls are that Session's: Ask for update sends it a status
-// request, Compact runs its compact, Report hands off to a new Session, Auto land sends the land instruction and is kept, and Map
-// returns to the map. Activity narrows to the Session's own events and returns to all of them when it closes. The brief is
+// request, Compact runs its compact, Report hands off to a new Session, Auto land sends the land instruction and is kept, Map
+// returns to the map, and Release is the sixth. Activity narrows to the Session's own events and returns to all of them when it closes. The brief is
 // the owner's ask of 15 Oct 2026.
 
 import { expect, test } from "vitest";
@@ -27,7 +27,7 @@ async function open() {
 
 test("with a Session open the flight controls are that Session's, and the six return when it closes", async () => {
   await open();
-  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact session context", "Report issue with session", "Map"]);
+  await expect.poll(tiles).toEqual(["Ask for update", "Auto land", "Compact session context", "Report issue with session", "Map", "Release everything the Session holds"]);
   await pane().getByRole("button", { name: "Back" }).click();
   await expect.poll(tiles).toEqual(["Jobs only", "Sessions only", "Checks", "Needs me", "Map", "Timeline"]);
 });

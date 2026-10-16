@@ -6,14 +6,14 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, ProposedField, SentFile, SessionActivity as WireActivity, SessionRecord, SessionRow as WireRow, SessionTag as WireTag, TimelineEvent, WaitingItem, WorkflowSummary } from "@armada/protocol";
 
 import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { parseScene } from "@armada/components/src/compositions/SketchScene/scene";
 import type { Scene } from "@armada/components/src/compositions/SketchScene/scene";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
-import { changeOfEvent, linesOfWire, workOf } from "./session-work";
+import { changeOfEvent, linesOfWire, settledRowsOf, workOf } from "./session-work";
 import type {
   Session,
   SessionActivity,
@@ -45,6 +45,8 @@ export type Beside = {
   events?: readonly TimelineEvent[];
   /** Picks of the proposer the person has changed here, which the record has not yet said. */
   unpicked?: ReadonlySet<ProposedField>;
+  /** `features.workflows` is off, so the workflow picker, the steps and the proposer's mark for a workflow are not drawn. */
+  workflowsOff?: boolean;
 };
 
 const NO_WORKFLOWS: readonly WorkflowSummary[] = [];
@@ -494,13 +496,14 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
   );
   // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
+  const needs = ended ? [] : record.attachments.filter((one) => one.kind === "need" && one.state === "standing").map((one) => ({ path: one.target, what: one.detail?.["what"] ?? "" }));
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
-  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events);
+  const thread = rows === undefined ? [] : withChanges(rowsOfThread(record.id, rows, beside.picture, beside.repository), rows, record.id, beside.events, record.settled);
   const lapsed = rows === undefined || ended ? undefined : lapsedOf(rows);
   const activity = activityOf(record.activity);
-  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS });
+  const work = workOf(record, { workflows: beside.workflows ?? NO_WORKFLOWS, attachments, rows, drawn: thread, unpicked: beside.unpicked ?? NO_PICKS, workflowsOff: beside.workflowsOff === true });
   return {
     id: record.id,
     address: addressOf(record.id),
@@ -513,6 +516,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
+    ...(needs.length === 0 ? {} : { needs }),
     trail: trailOfRecord(record),
     rows: thread,
     turn:
@@ -544,14 +548,16 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   };
 }
 
-/** The values the person changed through a panel, which the agent was told of, as rows of the thread where they happened. */
-function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined): SessionRow[] {
-  const changes = (events ?? []).flatMap((event) => {
-    if (event.subject.kind !== "session" || event.subject.id !== sessionId) return [];
+/** The values the person changed through a panel, which the agent was told of, and the concerns he settled, as rows of the thread where they happened. */
+function withChanges(thread: SessionRow[], rows: readonly WireRow[], sessionId: string, events: readonly TimelineEvent[] | undefined, settled: readonly WaitingItem[] | undefined): SessionRow[] {
+  const changes = [...settledRowsOf(settled, thread)];
+  for (const event of events ?? []) {
+    if (event.subject.kind !== "session" || event.subject.id !== sessionId) continue;
     const change = changeOfEvent(event.kind, event.says);
-    return change === undefined ? [] : [{ at: event.at, row: { id: `event:${event.id}`, at: clock(event.at), kind: "change" as const, ...change } }];
-  });
+    if (change !== undefined) changes.push({ at: event.at, row: { id: `event:${event.id}`, at: clock(event.at), kind: "change" as const, ...change } });
+  }
   if (changes.length === 0) return thread;
+  changes.sort((a, b) => a.at.localeCompare(b.at));
   const when = new Map(rows.map((one) => [one.id, one.at]));
   const out = [...thread];
   for (const change of changes) {

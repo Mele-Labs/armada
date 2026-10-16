@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -72,10 +72,18 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unsent;
     return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
   });
-  ipc.handle(CHANNELS.judgeSession, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.judge({ session_id: sessionId }) ?? unsent) : unsent));
-  ipc.handle(CHANNELS.actOnConcern, (_event, act: string, sessionId: string, itemId: string) =>
-    (act === "send" || act === "dismiss") && text(sessionId) && text(itemId) ? (connection()?.sessions.actOnConcern(act, { session_id: sessionId, item_id: itemId }) ?? unsent) : unsent,
-  );
+  ipc.handle(CHANNELS.judgeSession, (_event, judge: JudgeSession) => {
+    if (!text(judge?.session_id)) return unsent;
+    return connection()?.sessions.judgeSession({ session_id: judge.session_id }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.sendConcern, (_event, send: SendConcern) => {
+    if (!text(send?.session_id) || !text(send.item_id)) return unsent;
+    return connection()?.sessions.sendConcern({ session_id: send.session_id, item_id: send.item_id }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.dismissConcern, (_event, dismiss: DismissConcern) => {
+    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;
+    return connection()?.sessions.dismissConcern({ session_id: dismiss.session_id, item_id: dismiss.item_id }) ?? unsent;
+  });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;
     return connection()?.sessions.rename({ session_id: rename.session_id, title: rename.title.trim() }) ?? unsent;
@@ -102,6 +110,15 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.setSessionWorkflow, (_event, sessionId: string, workflow?: string) =>
     text(sessionId) ? (connection()?.sessions.setWorkflow(sessionId, text(workflow) ? workflow : undefined) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.releaseSessionHolds, (_event, sessionId: string, toSessionId?: string, rows?: unknown) => {
+    if (!text(sessionId)) return unsent;
+    // Each row a kind and a target, or none sent; anything else is not a choice Fleet could read.
+    const chosen = Array.isArray(rows) && rows.every((one) => text(one?.kind) && text(one?.target)) ? (rows as ChosenHold[]).map(({ kind, target }) => ({ kind, target })) : undefined;
+    if (rows !== undefined && chosen === undefined) return unsent;
+    return (
+      connection()?.sessions.releaseHolds({ session_id: sessionId, ...(text(toSessionId) ? { to_session_id: toSessionId } : {}), ...(chosen === undefined ? {} : { rows: chosen }) }) ?? unsent
+    );
+  });
   ipc.handle(CHANNELS.moveSession, (_event, sessionId: string, manifestId: string) =>
     text(sessionId) && text(manifestId) ? (connection()?.sessions.move(sessionId, manifestId) ?? unsent) : unsent,
   );

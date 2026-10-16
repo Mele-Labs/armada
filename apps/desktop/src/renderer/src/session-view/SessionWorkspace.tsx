@@ -33,7 +33,7 @@ export function SessionWorkspace({ session, entries, repositories, hosts, ed, on
   const { id } = session;
   const right = (
     <>
-      <StatusPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={acts} />
+      {work.railOff === true ? null : <StatusPanel work={work} place="side" id={id} manifestId={session.manifestId} acts={acts} />}
       <LedgerPanel session={session} entries={entries} place="side" />
       {work.plan === undefined || ed === undefined ? null : <PlanPanel plan={work.plan} place="side" ed={ed} onOpenSketch={onOpenSketch} />}
     </>

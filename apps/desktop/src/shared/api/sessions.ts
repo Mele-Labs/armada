@@ -5,11 +5,11 @@ import type {
   AnswerSessionAsk,
   AnswerWaiting,
   ApprovePlan,
-  JudgeRead,
   CheckoutCaughtUp,
   CheckoutDiff,
   CheckoutSentAsPullRequest,
   ClaimPullRequest,
+  DismissConcern,
   DismissWaiting,
   Followed,
   FrameRead,
@@ -19,10 +19,14 @@ import type {
   PullRequestFilePatch,
   PullRequestPage,
   PullRequestState,
+  JudgeSession,
   RenameSession,
   ReviewDispatched,
+  SendConcern,
   SendPlanChanges,
   SendSessionMessage,
+  ChosenHold,
+  SessionHoldsReleased,
   SessionRecord,
   SessionRow,
   SessionRunMessage,
@@ -87,10 +91,12 @@ export type SessionsApi = {
   approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
   /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
   sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
-  /** Sends a judge to read the Session's work so far. What it raises arrives as `judge` waiting items on the record. */
-  judgeSession: (sessionId: string) => Promise<SessionActed<JudgeRead>>;
-  /** Sends a judge's concern to the agent, or drops it and tells the agent nothing. */
-  actOnConcern: (act: "send" | "dismiss", sessionId: string, itemId: string) => Promise<SessionActed<SessionRecord | null>>;
+  /** Runs a judge now on the work so far against the plan. Answers at once with `judging` set; `judge` lands on the record. */
+  judgeSession: (judge: JudgeSession) => Promise<SessionActed>;
+  /** Sends a judge's concern (`judge:<n>`) to the agent as his message, and settles it. */
+  sendConcern: (send: SendConcern) => Promise<SessionActed>;
+  /** Settles a judge's concern. The agent is told nothing. */
+  dismissConcern: (dismiss: DismissConcern) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -111,6 +117,12 @@ export type SessionsApi = {
    * agent at once. Answers the Session's record.
    */
   setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
+  /**
+   * Gives back the slots, branches, pull requests, Jobs and needs the Session holds, or hands them to
+   * `toSessionId`, a live Session of the same repository: `rows`, or every one where absent. A turn
+   * running is stopped first where a slot is among them. Answers what moved and what stayed, with why.
+   */
+  releaseSessionHolds: (sessionId: string, toSessionId?: string, rows?: ChosenHold[]) => Promise<SessionActed<SessionHoldsReleased>>;
   /**
    * Moves a Session started in the wrong repository: Fleet ends it and starts its whole conversation again in
    * `manifestId`. Answers the new Session's record; the old one's slot, branch and files stay where they were.
@@ -225,7 +237,8 @@ export const SESSIONS_CHANNELS = {
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
   judgeSession: "bridge:judge-session",
-  actOnConcern: "bridge:act-on-concern",
+  sendConcern: "bridge:send-concern",
+  dismissConcern: "bridge:dismiss-concern",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",
@@ -233,6 +246,7 @@ export const SESSIONS_CHANNELS = {
   closeSession: "bridge:close-session",
   stopSession: "bridge:stop-session",
   setSessionWorkflow: "bridge:set-session-workflow",
+  releaseSessionHolds: "bridge:release-session-holds",
   moveSession: "bridge:move-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

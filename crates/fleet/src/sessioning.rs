@@ -44,6 +44,8 @@ pub(crate) struct LedgerReads {
     /// The plan the Session recorded, and the files it and its subagents touched.
     plan: Option<store::KeptPlan>,
     touches: Vec<store::KeptTouch>,
+    /// What the workflow rail and the judge's last reading are derived from.
+    rail: crate::rail_keeping::RailReads,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -290,7 +292,7 @@ where
             .collect()
     }
 
-    fn ledger_unnamed(&self, what: &str) -> Refusal {
+    pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
             format!("a session report needs {what}"),
@@ -321,14 +323,18 @@ where
         let fault = |why| self.ledger_fault(why);
         let held = store.attachments_of(&Holder::session(&session.id)).map_err(fault)?;
         let build = build_read(store, session, &held).map_err(fault)?;
+        let hosting = if session.origin == "bridge" { store.hosting(&session.id).map_err(fault)? } else { None };
+        let rail = match &hosting {
+            Some(hosting) => {
+                crate::rail_keeping::rail_read(store, session, hosting.workflow.is_some()).map_err(fault)?
+            }
+            None => Default::default(),
+        };
         Ok(LedgerReads {
+            rail,
             held,
             build,
-            hosting: if session.origin == "bridge" {
-                store.hosting(&session.id).map_err(fault)?
-            } else {
-                None
-            },
+            hosting,
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
@@ -403,10 +409,13 @@ where
             .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        let settled = waited.settled;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
         record.plan = reads.plan.as_ref().map(crate::plan_record::wire);
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
+        record.settled = settled;
+        self.rail_drawn(session, &reads.rail, &mut record);
         record
     }
 
@@ -958,6 +967,18 @@ where
         self.plan_changes_sent(sent).await
     }
 
+    async fn judge_session(self: Arc<Self>, judge: ipc::JudgeSession) -> Result<SessionRecord, Refusal> {
+        self.judge_asked(judge).await
+    }
+
+    async fn send_concern(self: Arc<Self>, send: ipc::SendConcern) -> Result<SessionRecord, Refusal> {
+        self.concern_sent(send).await
+    }
+
+    async fn dismiss_concern(self: Arc<Self>, dismiss: ipc::DismissConcern) -> Result<SessionRecord, Refusal> {
+        self.concern_dismissed(dismiss).await
+    }
+
     async fn ask_in_window(
         &self,
         caller: Option<api::Caller>,
@@ -1314,5 +1335,9 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         proposal: None,
         plan: None,
         touches: Vec::new(),
+        workflow_step: None,
+        judging: false,
+        judge: None,
+        settled: Vec::new(),
     }
 }

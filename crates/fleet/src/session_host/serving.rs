@@ -387,6 +387,13 @@ where
         self.workflow_set(set).await
     }
 
+    async fn release_session_holds(
+        &self,
+        release: ipc::ReleaseSessionHolds,
+    ) -> Result<ipc::SessionHoldsReleased, Refusal> {
+        self.session_holds_released(release).await
+    }
+
     async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
         if let Some(session) = self.terminal_session(id.as_str()).await? {
             self.terminal_ask_standing(id.as_str()).await;

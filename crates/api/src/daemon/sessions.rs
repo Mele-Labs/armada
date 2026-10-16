@@ -112,6 +112,28 @@ pub trait Sessions: Send + Sync + 'static {
         changes: ipc::SendPlanChanges,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `judge_session` — the person asks for a judge to read the Session's work now. **Answers at once**, `judging`
+    /// set; the reading runs in a task. [`Refusal::IllegalMove`] for a Session that ended,
+    /// [`Refusal::Unacceptable`] for a terminal one.
+    fn judge_session(
+        self: std::sync::Arc<Self>,
+        judge: ipc::JudgeSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `send_concern` — a judge's concern goes to the agent as the person's message, and is settled.
+    /// [`Refusal::IllegalMove`] for an item that does not wait.
+    fn send_concern(
+        self: std::sync::Arc<Self>,
+        send: ipc::SendConcern,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `dismiss_concern` — a judge's concern is settled and the agent is told nothing.
+    /// [`Refusal::IllegalMove`] for an item that does not wait.
+    fn dismiss_concern(
+        self: std::sync::Arc<Self>,
+        dismiss: ipc::DismissConcern,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
     /// Answers the run, or none where no Session holds the slot that directory is in.
     /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.

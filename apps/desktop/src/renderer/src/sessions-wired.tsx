@@ -16,7 +16,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { ProposedField, SessionRunMessage, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import type { ProposedField, SessionHoldsReleased, SessionRunMessage, SettingsList, TimelineEvent, WorkflowSummary } from "@armada/protocol";
 import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
 import type { SessionCommand, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -27,6 +27,7 @@ import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wi
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   CheckoutDiffRead,
+  HoldsReleased,
   PullRequestFileRead,
   PullRequestPageRead,
   Session,
@@ -61,7 +62,10 @@ const HELD_WITHIN_MS = 3000;
 
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
-type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository" | "helm">;
+type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds" | "repository" | "helm"> & { workflowsOff: boolean };
+
+/** `features.workflows` in settings.json, which the owner turns off to dispatch plain Sessions. On until Fleet says otherwise. */
+export const workflowsOffIn = (settings: SettingsList | null): boolean => settings?.settings.find((one) => one.key === "features.workflows")?.value === false;
 
 /** The store behind one window's Sessions. Exported for a test that holds it without a window. */
 export class WiredStore {
@@ -99,8 +103,8 @@ export class WiredStore {
 
   private take(state: BridgeState): void {
     const was = this.inputs;
-    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository && was.helm === state.helm) return;
-    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository, helm: state.helm };
+    if (was !== undefined && was.sessions === state.sessions && was.sessionThreads === state.sessionThreads && was.jobs === state.jobs && was.holds === state.holds && was.repository === state.repository && was.helm === state.helm && was.workflowsOff === workflowsOffIn(state.settings)) return;
+    this.inputs = { sessions: state.sessions, sessionThreads: state.sessionThreads, jobs: state.jobs, holds: state.holds, repository: state.repository, helm: state.helm, workflowsOff: workflowsOffIn(state.settings) };
     this.recompute();
   }
 
@@ -124,6 +128,7 @@ export class WiredStore {
     repository: (manifestId) => this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "",
     workflows: this.inputs?.holds.workflows ?? NONE,
     events: this.events,
+    ...(this.inputs?.workflowsOff === true ? { workflowsOff: true } : {}),
     ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
   });
 
@@ -270,6 +275,14 @@ export class WiredStore {
     if (!done.ok) return void this.tell(done.outcome);
     await this.held(done.value.id);
     return done.value.id;
+  }
+
+  /** One call; a refusal is the toast `stop`'s is. Both Sessions' rows change by `session.changed`. */
+  private async releasing(id: string, to: string | undefined, rows: readonly { kind: string; target: string }[] | undefined): Promise<HoldsReleased | undefined> {
+    this.say(undefined);
+    const done = await this.api.releaseSessionHolds(id, to, rows === undefined ? undefined : rows.map(({ kind, target }) => ({ kind, target })));
+    if (!done.ok) return void this.tell(done.outcome);
+    return holdsReleasedOf(done.value);
   }
 
   /** As `forking`, from one message of a Session that may still be running. */
@@ -442,6 +455,7 @@ export class WiredStore {
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
+    releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     pullRequestPage: async (id, number) => pageRead(await this.api.readPullRequestPage(id, number)),
@@ -519,16 +533,13 @@ export class WiredStore {
         if (version === undefined) return;
         void this.plain(this.api.sendPlanChanges({ session_id: id, version, marks: wireMarksOf(marks), ...(approving === true ? { approve: true } : {}) }));
       },
-      sendConcern: (id, concern) => void this.plain(this.api.actOnConcern("send", id, concern)),
-      dismissConcern: (id, concern) => void this.plain(this.api.actOnConcern("dismiss", id, concern)),
+      sendConcern: (id, concern) => void this.plain(this.api.sendConcern({ session_id: id, item_id: concern })),
+      dismissConcern: (id, concern) => void this.plain(this.api.dismissConcern({ session_id: id, item_id: concern })),
+      // The answer is the record with `judging` set, which the state carries; the reading lands on it later.
       judge: async (id) => {
         this.say(undefined);
-        const done = await this.api.judgeSession(id);
-        if (!done.ok) {
-          this.tell(done.outcome);
-          return false;
-        }
-        return done.value.raised > 0;
+        const done = await this.api.judgeSession({ session_id: id });
+        if (!done.ok) this.tell(done.outcome);
       },
     },
     get commands() {
@@ -572,4 +583,20 @@ export function WiredSessions({ events, children }: { events?: TimelineSource; c
       {children}
     </SessionsFrom>
   );
+}
+
+/** Fleet's answer, as the deck draws it. */
+export function holdsReleasedOf(wire: SessionHoldsReleased): HoldsReleased {
+  const row = (one: SessionHoldsReleased["moved"][number]) => ({
+    kind: one.kind,
+    target: one.target,
+    ...(one.released === undefined || one.released === null
+      ? {}
+      : { saved: { branch: one.released.branch, files: one.released.saved?.files ?? [], ...(one.released.saved?.commit === undefined ? {} : { commit: one.released.saved.commit }) } }),
+  });
+  return {
+    ...(wire.to_session_id === undefined ? {} : { to: wire.to_session_id }),
+    moved: wire.moved.map(row),
+    kept: wire.kept.map((one) => ({ kind: one.kind, target: one.target, why: one.why })),
+  };
 }

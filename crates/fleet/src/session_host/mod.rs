@@ -21,6 +21,7 @@ mod finishing;
 mod fork_point;
 mod forking;
 mod gate;
+mod handing;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
@@ -40,6 +41,8 @@ mod rows;
 pub(crate) use rows::UserLine;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
+/// A judge reading a Session's work, and sending or dismissing what it raised.
+pub(crate) mod session_judging;
 mod serving;
 pub(crate) mod standing;
 mod standing_tick;
@@ -386,6 +389,8 @@ pub(crate) struct State {
     pub proposal: proposing::ProposalState,
     /// The type each subagent call of the stream asked for, to name who made an edit. In memory.
     pub spawns: crate::file_touching::Spawns,
+    /// How many judges are reading the Session's work now. In memory: a Fleet that restarts reads none.
+    pub judging: u32,
 }
 
 impl State {
@@ -426,6 +431,7 @@ impl State {
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),
+            judging: 0,
         }
     }
 }
