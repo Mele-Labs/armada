@@ -540,6 +540,9 @@ button.deck-chip:hover { background: color-mix(in srgb, var(--fg-default) 12%, t
 /* The front card's ring grows past the card into the list's side padding, and a scroller's overflow moves with it: its layers were made and
    dropped on every beat of the ring. The ring was already clipped there, so a list that cannot scroll sideways draws the same. */
 .deck-hail { position: relative; container-type: inline-size; }
+/* The ring's growth overflowed the list's scroller, which redid its overflow and repainted the whole window on every beat. Clipped one
+   --space-4 out, which is as far as the ring reaches, nothing it draws is lost. */
+.deck-hail { overflow: clip; overflow-clip-margin: var(--space-4); }
 .deck-hail[data-first]::after {
   content: "";
   position: absolute;
