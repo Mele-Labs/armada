@@ -2,7 +2,7 @@
    mono rows on the sunken glass, a divider eyebrow between blocks, the state carried by the row's edge and
    tint and never in a phrase. Tokens only. */
 
-.armada-view__timeline { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
+.armada-view__timeline { position: relative; display: flex; min-width: 0; min-height: 0; }
 .armada-view__timeline[data-recessed] { opacity: 0.4; }
 
 .armada-tl {
@@ -171,28 +171,32 @@ button.armada-tl__who:focus-visible, .armada-tl__subject:focus-visible, .armada-
 .armada-tl__tip { display: flex; width: max-content; flex-direction: column; gap: var(--space-1); min-width: calc(var(--space-12) * 3); max-width: calc(var(--space-12) * 7); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-overlay); box-shadow: var(--shadow-overlay); color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-xs); }
 .armada-tl__tip .armada-tl__detail { overflow-wrap: anywhere; white-space: normal; }
 
-/* ---- The graph: the deck's Activity, a column for each three minutes and no words ------------------------ */
+/* ---- The graph: the deck's Activity, a row for each Job or Session and a cell for each three minutes, no words ---------------- */
 
-/* The plot is the anchor every column's card hangs off, so a card stands beside the panel and never over the columns it is read against. */
+/* The plot is the anchor every cell's card hangs off, so a card stands beside the panel and never over the cells it is read against. */
 .armada-tl__graph { display: flex; flex-direction: column; padding: var(--space-2) var(--space-4) var(--space-4); }
-.armada-tl__plot { position: relative; display: grid; flex: 1 1 0; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: calc(var(--border-width) * 2); min-height: 0; border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-tl__plot { position: relative; display: grid; flex: 1 1 0; grid-template-columns: repeat(20, minmax(0, 1fr)); align-content: start; gap: calc(var(--border-width) * 2); min-height: 0; }
+/* A row is its own cells, laid on the plot's grid. */
+.armada-tl__row { display: contents; }
 
-.armada-tl__col { display: flex; align-items: flex-end; min-width: 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; }
-button.armada-tl__col { cursor: pointer; }
-button.armada-tl__col:hover { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
-button.armada-tl__col:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-tl__col[data-lit] { background: var(--accent-muted); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
-/* A span with nothing in it is a short stub on the baseline, so the hour still reads as twenty places. */
-.armada-tl__col[data-empty]::after { content: ""; width: 100%; height: calc(var(--border-width) * 2); background: var(--border-subtle); opacity: 0.6; }
-
-.armada-tl__bar { display: flex; flex-direction: column-reverse; gap: var(--border-width); width: 100%; height: calc(var(--share) * 100%); }
-.armada-tl__seg { flex: 1 1 0; min-height: calc(var(--border-width) * 2); border-radius: var(--radius-sm); background: var(--tone); }
-.armada-tl__seg[data-weight="quiet"] { opacity: 0.35; }
+.armada-tl__cell { display: block; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--fg-default) 6%, transparent); }
+/* One hue, from the glass to a pale blue, by how much happened in the cell. */
+.armada-tl__cell[data-level="1"] { background: color-mix(in srgb, var(--status-running) 22%, color-mix(in srgb, var(--fg-default) 6%, transparent)); }
+.armada-tl__cell[data-level="2"] { background: color-mix(in srgb, var(--status-running) 42%, color-mix(in srgb, var(--fg-default) 6%, transparent)); }
+.armada-tl__cell[data-level="3"] { background: color-mix(in srgb, var(--status-running) 65%, color-mix(in srgb, var(--fg-default) 6%, transparent)); }
+.armada-tl__cell[data-level="4"] { background: var(--status-running); }
+.armada-tl__cell[data-level="5"] { background: color-mix(in srgb, var(--status-running) 65%, var(--fg-default)); }
+/* What is owed him or failing keeps its own tone over the ramp. */
+.armada-tl__cell[data-owed] { background: var(--tone); }
+button.armada-tl__cell { cursor: pointer; }
+button.armada-tl__cell:hover { outline: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--fg-default) 55%, transparent); outline-offset: 0; }
+button.armada-tl__cell:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+button.armada-tl__cell[data-lit] { position: relative; z-index: 1; outline: calc(var(--border-width) * 2) solid var(--accent); outline-offset: var(--border-width); }
 
 /* Now: a faint tick under the right edge of the last column. */
 .armada-tl__now { position: absolute; top: 100%; right: 0; height: var(--space-2); border-right: var(--border-width) solid var(--fg-subtle); opacity: 0.6; pointer-events: none; }
 
-/* A column's card: the stacked row's look, each event's glyph in its own colour. It is a tooltip, and nothing in it is pressed. */
+/* A cell's card: the stacked row's look, each event's glyph in its own colour. It is a tooltip, and nothing in it is pressed. */
 .armada-tl__hour { gap: 0; width: calc(var(--space-12) * 6); max-width: none; padding: var(--space-1); font-family: var(--font-sans); }
 .armada-tl__moment { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border-bottom: var(--border-width) solid var(--border-subtle); }
 .armada-tl__moment:last-child { border-bottom-color: transparent; }
@@ -208,5 +212,5 @@ button.armada-tl__col:focus-visible { outline: var(--focus-ring); outline-offset
 
 @supports (anchor-name: --a) {
   .armada-tl__plot { anchor-name: --armada-tl-plot; }
-  .armada-tl__col > .armada-tooltip__bubble { position-anchor: --armada-tl-plot; }
+  .armada-tl__cell > .armada-tooltip__bubble { position-anchor: --armada-tl-plot; }
 }

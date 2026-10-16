@@ -611,27 +611,33 @@ export function ActivityFeed({
 /** How wide a column of the graph is, how many there are, and so how far back it reaches: twenty of three minutes, the last hour. */
 const SPAN = 3 * 60_000;
 const COLUMNS = 20;
-/** The newest events the graph counts. A bar needs no row of its own, so this reaches further than the feed's. */
+/** The newest events the graph counts. A cell needs no row of its own, so this reaches further than the feed's. */
 const MOST_GRAPH = 500;
-/** The newest events a column's card lists. A card cannot scroll, so a busier column is cut here. */
+/** The newest events a cell's card lists. A card cannot scroll, so a busier cell is cut here. */
 const MOST_CARD = 8;
-/** The tallest bar is at least this many events high, so one event beside none is a short mark and not the whole panel. */
-const FLOOR = 8;
-/** Bottom to top: what is owed him and what is failing sits on top, where it is read first. */
-const STACK: readonly EventTone[] = ["idle", "ok", "run", "bad", "ask"];
+/** How much a coalesced read, edit or command weighs beside a turn, a step or an ask. */
+const QUIET_WEIGHT = 0.4;
+/** The steps of the blue ramp, an empty cell being none of them. */
+const LEVELS = 5;
 
-/** Fleet's events in the last hour, newest first, in the column each falls in: the oldest column first, `now` at the right edge of the last. */
-function columnsOf(lanes: readonly Lane[], now: number): FleetEvent[][] {
-  const columns = Array.from({ length: COLUMNS }, () => [] as FleetEvent[]);
-  for (const event of lanes.flatMap((lane) => lane.events)) {
+/** `events` in the last hour, in the span each falls in: the oldest span first, `now` at the right edge of the last. Each is newest first. */
+function spansOf(events: readonly FleetEvent[], now: number): FleetEvent[][] {
+  const spans = Array.from({ length: COLUMNS }, () => [] as FleetEvent[]);
+  for (const event of events) {
     const back = Math.floor((now - Date.parse(event.at)) / SPAN);
-    if (back < COLUMNS) columns[COLUMNS - 1 - Math.max(0, back)]!.push(event);
+    if (back < COLUMNS) spans[COLUMNS - 1 - Math.max(0, back)]!.push(event);
   }
-  for (const column of columns) column.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  return columns;
+  for (const span of spans) span.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return spans;
 }
 
-/** What a column's card says: its newest events, each as the stacked row draws one, the glyph in the event's colour. Nothing in it can be pressed. */
+/** What a cell weighs: its events, the coalesced ones less. */
+const weighOf = (events: readonly FleetEvent[]): number => events.reduce((sum, event) => sum + (QUIET_KINDS.has(event.kind) ? QUIET_WEIGHT : 1), 0);
+
+/** The tone a cell takes over the blue ramp, where it holds what is owed him or failing. Failing first. */
+const owedOf = (events: readonly FleetEvent[]): EventTone | undefined => (events.some((event) => event.tone === "bad") ? "bad" : events.some((event) => event.tone === "ask") ? "ask" : undefined);
+
+/** What a cell's card says: its newest events, each as the stacked row draws one, the glyph in the event's colour. Nothing in it can be pressed. */
 function Hour({ events, now, lit }: { events: readonly FleetEvent[]; now: number; lit: string | undefined }) {
   return (
     <span className="armada-tl__tip armada-tl__hour">
@@ -658,10 +664,11 @@ function Hour({ events, now, lit }: { events: readonly FleetEvent[]; now: number
 }
 
 /**
- * The deck's Activity as a graph and no text: a column for each three minutes of the last hour, the newest at the right, each stacked
- * by the tone of its events, the quiet kinds fainter. A faint tick under the right edge is now. **Hovering or focusing a column
- * shows its events in a card, and pressing it picks its newest**: the card is a tooltip and holds nothing to press. Takes what the
- * feed takes, so the Job or Session open narrows it and the filters keep the same events.
+ * The deck's Activity as a heatmap and no text: a row for each Job or Session, the most recently active on top, and a cell for each
+ * three minutes of the last hour, the newest at the right. A cell is bluer the more happened in it, the quiet kinds counting less, and
+ * takes its tone where it holds an ask or a failure. A faint tick under the right edge is now. **Hovering or focusing a cell shows
+ * that subject's events in it, and pressing it picks the newest**: the card is a tooltip and holds nothing to press. Rows are cut at
+ * the panel's height. Takes what the feed takes, so the Job or Session open narrows it to one row.
  */
 export function ActivityGraph({
   now,
@@ -680,35 +687,65 @@ export function ActivityGraph({
   keep?: (subject: Subject) => boolean;
   /** Narrows the graph to this Job or Session alone: the one open on the flight deck's stage. */
   of?: Of;
-  /** A press on a column picks the newest event in it. */
+  /** A press on a cell picks the newest event in it. */
   onPick: (event: FleetEvent) => void;
-  /** The event held lit, by id: its column is marked. */
+  /** The event held lit, by id: its cell is ringed. */
   lit?: string;
 }) {
   const lanes = useLanes(now, jobs, views, filter, keep, of, MOST_GRAPH);
-  const columns = useMemo(() => columnsOf(lanes, now), [lanes, now]);
-  const tallest = Math.max(FLOOR, ...columns.map((column) => column.length));
+  const rows = useMemo(
+    () =>
+      lanes
+        .filter((lane) => lane.subject.kind !== "main")
+        .map((lane) => ({ lane, spans: spansOf(lane.events, now) }))
+        .filter((row) => row.spans.some((span) => span.length > 0))
+        .sort((a, b) => b.lane.last - a.lane.last),
+    [lanes, now],
+  );
+  const busiest = Math.max(1, ...rows.flatMap((row) => row.spans.map(weighOf)));
+  // The rows that fit: a cell is as wide as a column is, and square.
+  const plot = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<number>();
+  useLayoutEffect(() => {
+    const held = plot.current;
+    if (held === null || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const gap = Number.parseFloat(getComputedStyle(held).columnGap) || 0;
+      const cell = (held.clientWidth - gap * (COLUMNS - 1)) / COLUMNS;
+      if (cell > 0) setFit(Math.max(1, Math.floor((held.clientHeight + gap) / (cell + gap))));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(held);
+    return () => watch.disconnect();
+  }, []);
   return (
     <div className="armada-tl armada-tl__graph" role="group" aria-label="Last hour" data-take="graph">
-      <div className="armada-tl__plot">
-        {columns.map((events, index) => {
-          const newest = events[0];
-          if (newest === undefined) return <i key={index} className="armada-tl__col" data-empty aria-hidden="true" />;
-          return (
-            <Tooltip key={index} label={<Hour events={events} now={now} lit={lit} />} card beside asChild>
-              <button type="button" className="armada-tl__col" data-lit={events.some((event) => event.id === lit) || undefined} aria-label={`${titleOf(newest.subject)}: ${newest.says}`} onClick={() => onPick(newest)}>
-                <span className="armada-tl__bar" style={{ ["--share" as string]: events.length / tallest } as CSSProperties}>
-                  {STACK.flatMap((tone) =>
-                    [false, true].flatMap((quiet) => {
-                      const n = events.filter((event) => event.tone === tone && QUIET_KINDS.has(event.kind) === quiet).length;
-                      return n === 0 ? [] : [<i key={`${tone}:${quiet}`} className="armada-tl__seg" data-weight={quiet ? "quiet" : undefined} style={{ ...toneOf(tone), flexGrow: n }} />];
-                    }),
-                  )}
-                </span>
-              </button>
-            </Tooltip>
-          );
-        })}
+      <div className="armada-tl__plot" ref={plot}>
+        {rows.slice(0, fit).map(({ lane, spans }) => (
+          <div key={lane.key} className="armada-tl__row" role="group" aria-label={titleOf(lane.subject)}>
+            {spans.map((events, index) => {
+              const newest = events[0];
+              if (newest === undefined) return <i key={index} className="armada-tl__cell" data-level="0" aria-hidden="true" />;
+              const owed = owedOf(events);
+              const level = Math.min(LEVELS, Math.max(1, Math.ceil((weighOf(events) / busiest) * LEVELS)));
+              return (
+                <Tooltip key={index} label={<Hour events={events} now={now} lit={lit} />} card beside asChild>
+                  <button
+                    type="button"
+                    className="armada-tl__cell"
+                    data-level={level}
+                    data-owed={owed}
+                    data-lit={events.some((event) => event.id === lit) || undefined}
+                    style={owed === undefined ? undefined : toneOf(owed)}
+                    aria-label={`${titleOf(newest.subject)}: ${newest.says}`}
+                    onClick={() => onPick(newest)}
+                  />
+                </Tooltip>
+              );
+            })}
+          </div>
+        ))}
         <i className="armada-tl__now" aria-hidden="true" />
       </div>
     </div>
