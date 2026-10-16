@@ -674,9 +674,8 @@ where
         }
         self.rows_of(id).await.is_ok_and(|rows| {
             rows.iter().any(|row| match row {
+                // Fleet's own notes, a process that ended among them, are not the agent's.
                 SessionRow::Message { from, .. } => *from == ipc::SessionVoice::Agent,
-                // Fleet's own note that a process ended is not the agent's.
-                SessionRow::Tool { text, .. } => !text.starts_with("the session's process ended"),
                 // Fleet's word about a run, as its message was.
                 SessionRow::Ran { .. } => false,
                 _ => true,

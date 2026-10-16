@@ -379,6 +379,10 @@ impl Delivery for FakeVcs {
         self.main_ci.watched()
     }
 
+    fn forge_login(&self, _in_repo: &str) -> Option<String> {
+        self.main_ci.login()
+    }
+
     fn publish_status(&self, _: &str, status: &CommitStatus) -> Result<(), String> {
         self.main_ci.publish(status)
     }

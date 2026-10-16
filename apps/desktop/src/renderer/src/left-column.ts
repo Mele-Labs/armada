@@ -51,14 +51,31 @@ export function fleetPanelOf(
 }
 
 /**
+ * The same panel with its two time-bearing parts left to the panel: `reading` is asked at the clock
+ * where the panel draws, so a tick draws the panel and not the window holding it.
+ */
+export function fleetPanelClocked(
+  connection: Connection,
+  statement: Statement,
+  health: HealthRead,
+  readAt: number | null,
+): Omit<FleetPanelProps, "open" | "onOpenChange"> {
+  const { rows: _rows, detail: _detail, ...rest } = fleetPanelOf(connection, statement, health, 0, readAt);
+  const reading = (now: number) => {
+    const { rows, detail } = fleetPanelOf(connection, statement, health, now, readAt);
+    return { rows, detail };
+  };
+  return { ...rest, reading };
+}
+
+/**
  * pid, port, protocol and up, one row each — **only the ones this state has a
  * value for.** Settled 2026-09-17. A runtime file names pid and port, so a
  * Fleet being connected to or not answering has those two; protocol and uptime
  * are read only once a connection holds, as they were on the old meta line.
  *
- * **Ticks off the app's one `now`** (`App.tsx`'s `setInterval`, already
- * running for every other elapsed figure on screen) rather than a second
- * clock. The uptime is relative to `FleetIdentity.startedAt` — the instant
+ * **Ticks off the window's one clock** (`useNow`, which every other elapsed
+ * figure on screen reads) rather than a second one. The uptime is relative to `FleetIdentity.startedAt` — the instant
  * `ps -o lstart=` gave Fleet's own process, the spelling `crates/fleet`
  * chose specifically so Bridge could parse it too — not a static read taken
  * once at connect time. A `startedAt` that will not parse drops the row.

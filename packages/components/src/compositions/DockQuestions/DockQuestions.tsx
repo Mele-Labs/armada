@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Button, STILL_WAITING, useStillWaiting } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useNow } from "../../clock";
 
 /**
  * Every question waiting on a person, from every repository, in Helm's dock (#935). A card each.
@@ -47,8 +48,8 @@ export type DockQuestion = {
   asked: ReactNode;
   /** A line under it — for a Judge refusal, what the difference does, as `Prose`. */
   detail?: ReactNode;
-  /** How long it has waited, already rendered. */
-  waiting?: string;
+  /** How long it has waited, rendered, or how to render it at a time: the card then reads the clock where it draws it. */
+  waiting?: string | ((now: number) => string | undefined);
   /** In the order to draw them. */
   answers: readonly DockAnswer[];
   /** Send one answer, by its `id`. **Absent draws the answers off**, and `note` says why. */
@@ -112,8 +113,10 @@ function QuestionCard({
         <span className="armada-dock-question__place mono">
           {repository} · {job === undefined ? "helm" : `job ${job}`}
         </span>
-        {waiting === undefined ? null : (
+        {waiting === undefined ? null : typeof waiting === "string" ? (
           <span className="armada-dock-question__waiting mono">{waiting}</span>
+        ) : (
+          <Waited of={waiting} />
         )}
       </div>
       {title === undefined ? null : <p className="armada-dock-question__title">{title}</p>}
@@ -168,4 +171,10 @@ function QuestionCard({
       </div>
     </Card>
   );
+}
+
+/** The wait, read off the clock here so a tick draws this span and not the dock. */
+function Waited({ of }: { of: (now: number) => string | undefined }) {
+  const waited = of(useNow());
+  return waited === undefined ? null : <span className="armada-dock-question__waiting mono">{waited}</span>;
 }

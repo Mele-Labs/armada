@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -59,6 +59,11 @@ function world(
         return Promise.resolve(poll).then(text => ({ value: { status: 200, ok: true, headers: {}, text } }))
       }
       return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"gone"}' } }
+    }
+    // The session as Fleet holds it, or a Fleet that does not know it.
+    if (e.url.includes('/sessions/one?')) {
+      if (options.thread === undefined) return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(options.thread) } }
     }
     attempts.reports += 1
     // Fleet busy behind its store: the report is taken and not answered.
@@ -108,6 +113,8 @@ function world(
   })
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
+  on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
+  on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
   return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes }
 }
 
@@ -1230,4 +1237,165 @@ test('a permission answered in the terminal first tells Fleet it was settled', a
 
   expect(ran.text).toBe('built in the terminal')
   expect(questions).toContainEqual({ kind: 'settled', session_id: 'S1', answered: true })
+})
+
+const OWED = [
+  '**BLUF:** Built and tested.',
+  '',
+  '## Actions',
+  '',
+  '| # | Action | Owner | Status |',
+  '|---|---|---|---|',
+  '| 1 | Opened PR #2415 | Agent | Done |',
+  '| 2 | Approve PR #2415 | Nick | Not started |',
+  '| 3 | Restart Fleet after it merges | Nick | Not started |',
+].join('\n')
+
+const stop = (reply: string, more: Record<string, unknown> = {}) =>
+  ({ stop_hook_active: false, last_assistant_message: reply, ...more }) as never
+
+const waitingPosts = (posts: Posted[]) => posts.filter(one => one.url.endsWith('/sessions/waiting'))
+
+// What Fleet holds for the session: one item the agent set, one Fleet raised for a page it showed.
+const HELD = {
+  session: {
+    id: 'S1',
+    waiting_for: [
+      { id: 'pick', text: 'Pick the slot pool', since: '2026-10-16T10:00:00Z', source: 'agent', act: { kind: 'answer', target: '' } },
+      { id: 'walk:http://localhost:5173/', text: 'Walk the band', since: '2026-10-16T10:01:00Z', source: 'walk' },
+    ],
+  },
+  rows: [],
+}
+
+test('a reply that names what the owner owes outside waiting_for is sent back once, then put in the list', async ($, on) => {
+  const { posts, clock } = world(on, { thread: HELD })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'build the detector', origin: { kind: 'user' } } as never)
+  await clock.settle()
+
+  const first = await $.classic.Stop(stop(OWED))
+  expect(first.block).toBe(
+    [
+      'Your reply names what the owner owes, and the armada waiting_for list does not hold it:',
+      '- Approve PR #2415',
+      '- Restart Fleet after it merges',
+      'Put each in waiting_for with its own id, one short line and an act, passing session_id S1, then end the turn. Do not repeat them as a table.',
+    ].join('\n'),
+  )
+
+  // The session ignored it and wrote the table again: the stop stands, and Fleet gets the lines.
+  const second = await $.classic.Stop(stop(OWED, { stop_hook_active: true }))
+  await clock.settle()
+  expect(second.block).toBeUndefined()
+  // The agent's own item stays; the one Fleet raised is Fleet's to keep.
+  expect(waitingPosts(posts).map(one => one.body)).toEqual([
+    {
+      session_id: 'S1',
+      items: [
+        { id: 'pick', text: 'Pick the slot pool', act: { kind: 'answer', target: '' } },
+        { id: 'reply:1', text: 'From the reply: Approve PR #2415' },
+        { id: 'reply:2', text: 'From the reply: Restart Fleet after it merges' },
+      ],
+    },
+  ])
+
+  // Never again in the same turn.
+  expect((await $.classic.Stop(stop(OWED, { stop_hook_active: true }))).block).toBeUndefined()
+  await clock.settle()
+  expect(waitingPosts(posts)).toHaveLength(1)
+})
+
+test('a session that puts the lines in waiting_for after it is sent back stops, and nothing is posted for it', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'build the detector', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBeDefined()
+
+  await $.tool.call({
+    tool: 'mcp__armada-fleet__waiting_for',
+    body: { session_id: 'S1', waiting_for: [{ id: 'merge', text: 'Approve the detector', act: { kind: 'approve_pr', target: '#2415' } }] },
+  } as never)
+  const second = await $.classic.Stop(stop('Both are in Bridge now.', { stop_hook_active: true }))
+  await clock.settle()
+  expect(second.block).toBeUndefined()
+  expect(waitingPosts(posts)).toEqual([])
+})
+
+test('a list that already holds the lines, a question asked, or no lines at all lets the turn stop', async ($, on) => {
+  const { clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'one', origin: { kind: 'user' } } as never)
+  await $.tool.call({
+    tool: 'mcp__armada-fleet__waiting_for',
+    body: {
+      session_id: 'S1',
+      waiting_for: [
+        { id: 'merge', text: 'Approve PR #2415' },
+        { id: 'restart', text: 'Restart Fleet once merged', act: { kind: 'run', target: 'scripts/restart' } },
+      ],
+    },
+  } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBeUndefined()
+
+  await $.prompt.submit({ text: 'two', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop('Built it. Nothing is owed.'))).block).toBeUndefined()
+  await clock.settle()
+})
+
+test('each turn may be sent back once of its own', async ($, on) => {
+  world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'one', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop('QUESTION: Which slot pool?'))).block).toBeDefined()
+  expect((await $.classic.Stop(stop('QUESTION: Which slot pool?', { stop_hook_active: true }))).block).toBeUndefined()
+  await $.prompt.submit({ text: 'two', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop('QUESTION: Which branch?'))).block).toBeDefined()
+})
+
+test('a Drone stopping is never sent back', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  expect((await $.classic.Stop(stop(OWED))).block).toBeUndefined()
+})
+
+test('a subagent stopping is never sent back', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'one', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop(OWED, { agent_id: 'a1b2', agent_type: 'Explore' }))).block).toBeUndefined()
+  await clock.settle()
+  expect(waitingPosts(posts)).toEqual([])
+})
+
+test('a stop another hook already blocked keeps its reason', async ($, on) => {
+  const { posts, clock } = world(on, { stopBlock: 'Finish the tests first.' })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'one', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBe('Finish the tests first.')
+  await clock.settle()
+  expect(waitingPosts(posts)).toEqual([])
+})
+
+test('a list Fleet cannot be read for is posted only from a waiting_for call this load saw, and never from nothing', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'one', origin: { kind: 'user' } } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBeDefined()
+  await $.classic.Stop(stop(OWED, { stop_hook_active: true }))
+  await clock.settle()
+  // The agent may have set a list before this load: posting over it would drop its items.
+  expect(waitingPosts(posts)).toEqual([])
+
+  await $.prompt.submit({ text: 'two', origin: { kind: 'user' } } as never)
+  await $.tool.call({
+    tool: 'mcp__armada-fleet__waiting_for',
+    body: { session_id: 'S1', waiting_for: [{ id: 'pick', text: 'Pick the slot pool' }] },
+  } as never)
+  expect((await $.classic.Stop(stop(OWED))).block).toBeDefined()
+  await $.classic.Stop(stop(OWED, { stop_hook_active: true }))
+  await clock.settle()
+  expect(waitingPosts(posts).map(one => one.body.items.map((item: { id: string }) => item.id))).toEqual([
+    ['pick', 'reply:1', 'reply:2'],
+  ])
 })

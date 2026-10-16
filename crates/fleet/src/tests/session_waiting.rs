@@ -484,6 +484,28 @@ async fn an_answered_agent_item_leaves_the_list_at_once_and_stays_gone_when_rest
     assert_eq!(ids(&restated), ["b"]);
 }
 
+#[tokio::test]
+async fn an_answer_pressed_again_while_the_first_is_delivered_reaches_the_agent_once() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    let press = || {
+        let mut said = answer(&id, "a");
+        said.text = Some("fix all of these".into());
+        Arc::clone(&rig.fleet).answer_waiting(said)
+    };
+    // The store held while all three press, so each reads the item before the first has sent it.
+    let held = rig.fleet.store().lock().await;
+    let let_go = async move {
+        tokio::task::yield_now().await;
+        drop(held);
+    };
+    let (one, two, three, ()) = tokio::join!(press(), press(), press(), let_go);
+    let refused = [&one, &two, &three].into_iter().filter(|each| each.is_err()).count();
+    assert_eq!(refused, 2, "every press after the first is refused as settled already");
+    assert_eq!(said_by_the_person(&rig, &id).await.len(), 1);
+}
+
 /// What the person has said to the session so far, oldest first.
 async fn said_by_the_person(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
     rig.rows(id)

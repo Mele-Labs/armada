@@ -12,21 +12,24 @@ import type { NowActed } from "@armada/jobs";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { OverviewLists, overviewPanelId } from "@armada/overview";
+import { OverviewLists as Lists, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { Nows, type Hosts } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
+import { clocked } from "./clocked";
 import { proposeRequest } from "./dispatch";
 
 import { usePanelOpen } from "./panel-open";
+
+/** The lists draw ages to the second, so they read the clock themselves and the screen above them does not draw on a tick. */
+const OverviewLists = clocked(Lists);
 
 type StripSection = "needs-you" | "running" | "queued" | "recently-ended";
 
 export function Overview({
   state,
-  now,
   live,
   repositories,
   disconnected,
@@ -65,7 +68,6 @@ export function Overview({
   bring?: { key: string; at: number } | null;
   onBrought?: () => void;
   state: BridgeState;
-  now: number;
   live: boolean;
   /** Every repository Fleet serves. */
   repositories: readonly RepositorySummary[];
@@ -193,7 +195,6 @@ export function Overview({
           <OverviewLists
             jobs={state.jobs}
             stale={!live}
-            now={now}
             workflows={state.holds.workflows}
             repositories={repositories}
             picked={state.repository}
@@ -214,7 +215,6 @@ export function Overview({
         ) : (
           <CommandCentral
             state={state}
-            now={now}
             picked={pickedRepository}
             nowViews={nowViews}
             nows={nows}

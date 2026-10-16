@@ -23,7 +23,7 @@ import {
 import { ordered } from "@armada/screens/src/facts";
 
 import type { BridgeState } from "../../../shared/bridge";
-import { useNow } from "../app-effects";
+import { useNow } from "@armada/components";
 import { openArtifact, openPullRequest, openRemarkLink, readEvidence, readRemarks, useCommands } from "../commands";
 
 const NOTHING = (): void => undefined;

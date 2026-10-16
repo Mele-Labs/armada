@@ -99,7 +99,8 @@ fn pulls(before: &MergeLineHub, now: &MergeLineHub, at: &str, manifest: &Option<
             .in_repository(manifest.clone())
     };
     let mut facts = Vec::new();
-    for one in &now.pull_requests {
+    // Another author's pull request is not the person's to follow, in the queue or out of it.
+    for one in now.pull_requests.iter().filter(|one| one.mine) {
         let on = |kind, tone, says: &str| pull(one.number, &one.url, &one.title, at, kind, tone, says);
         let was = before.pull_requests.iter().find(|was| was.number == one.number);
         if was.is_none() {
