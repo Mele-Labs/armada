@@ -71,6 +71,7 @@ where
             };
             pulls
                 .iter()
+                .filter(|open| open.mine)
                 .filter_map(|open| {
                     let commit = open.pull.head.clone()?;
                     let branch = open.pull.branch.as_written();

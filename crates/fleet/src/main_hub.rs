@@ -60,6 +60,8 @@ pub(crate) struct OpenPulled {
     /// Who registered it in the central store. Absent where nobody did, the switch is off or
     /// the store did not answer. `crate::pull_registry`.
     pub(crate) owner: Option<PullOwner>,
+    /// Opened by the person using this Fleet, `crate::my_pulls`.
+    pub(crate) mine: bool,
 }
 
 /// A recently merged pull request as last read, with the Job of ours that
@@ -138,6 +140,7 @@ where
         let left = self.pulls_that_left(served.root(), &numbers).await;
         self.owners_deleted(served.root(), left).await;
         let mut owners = self.owners_read(served.root(), numbers).await;
+        let mine = self.mine_in(served.root()).await;
         let read: Vec<OpenPulled> = {
             let store = self.store().lock().await;
             listed
@@ -145,6 +148,7 @@ where
                 .map(|pull| OpenPulled {
                     job: self.job_of_pull(&store, served, pull.number),
                     owner: owners.remove(&pull.number),
+                    mine: mine.owns(pull.author.as_ref().map(|it| it.as_written())),
                     pull,
                 })
                 .collect()
@@ -755,6 +759,7 @@ fn request(
         deletions: pull.facts.deletions,
         owner: one.owner.as_ref().map(PullOwner::on_the_wire),
         merge_by_hand: false,
+        mine: one.mine,
     }
 }
 

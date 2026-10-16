@@ -43,6 +43,8 @@ pub struct WatchedPull {
     pub number: u64,
     pub branch: FromOutside,
     pub url: FromOutside,
+    /// The login of whoever opened it, where the forge named one.
+    pub author: Option<FromOutside>,
     /// The commit its branch is at, where the forge named one.
     pub head: Option<String>,
     /// The forge says it cannot merge into the base as it stands. An answer not yet computed is
