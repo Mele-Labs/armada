@@ -738,9 +738,13 @@ fn unquoted(line: &str) -> String {
     let mut escaped = false;
     line.chars()
         .map(|c| {
+            // `"a\|b"` is grep's alternation: an escaped `|` inside quotes is text as well.
             if escaped {
                 escaped = false;
-                return c;
+                return match quote {
+                    Some(_) if matches!(c, ';' | '|' | '&' | '<' | '>' | '\n') => ' ',
+                    _ => c,
+                };
             }
             match quote {
                 Some(q) if c == q => {

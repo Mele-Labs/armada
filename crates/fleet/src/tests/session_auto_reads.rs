@@ -255,10 +255,15 @@ fn a_subshell_is_read_by_what_it_runs() {
     refused(&["(cd /etc && rm hosts)", "(rm /repo/a)"], Because::Destructive);
 }
 
+/// Each put to the owner as a reach on 16 Oct 2026: an escaped `|` inside quotes cut the line
+/// into a second command, and a quoted path with a space was read as two words.
 #[test]
-fn a_path_inside_a_quoted_search_pattern_is_text() {
+fn an_escaped_pipe_and_a_quoted_path_with_a_space_are_text() {
     ran(&[
-        r#"grep -n "someone\|\.claude\|/Users/x" crates/fleet/src/tests/session_auto_reads.rs; echo ==main; git show origin/main:crates/fleet/src/tests/session_auto_reads.rs | grep -n "someone\|\.claude\|/Users/x""#,
-        r#"git show origin/main:crates/fleet/src/tests/session_auto_reads.rs | grep -n "someone\|\.claude\|/Users/x"; echo "-- main foundations run for comparison:"; gh run list --branch main --workflow ci --limit 3 --json databaseId,conclusion,headSha -q '.[] | "\(.databaseId) \(.conclusion) \(.headSha[0:9])"'"#,
+        r#"grep -n "a\|\.b\|/Users/user/x" f.rs; git show origin/main:f.rs | grep -n "a\|/Users/user/x""#,
+        r#"D="/Users/user/Library/Application Support/Armada/armada.db"; sqlite3 -readonly "$D" "select 1""#,
+        r#"cat "/Users/user/Library/Application Support/Tool/log.txt""#,
     ]);
+    refused(&[r#"cat "/Users/user/Documents/My Notes/a.txt""#], Because::ReachesOutside);
+    refused(&[r#"sqlite3 "/Users/user/Library/Application Support/Tool/x.db" "delete from t""#], Because::ReachesOutside);
 }
