@@ -440,6 +440,11 @@ describe("the start a Session sends", () => {
     expect(startOn(SET_UP, undefined, SET_UP.root)).toEqual({ manifest_id: "store-01" });
   });
 
+  it("carries the words the person dispatched as the request", () => {
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix the log reader")).toEqual({ manifest_id: "store-01", request: "fix the log reader" });
+    expect(startOn(SET_UP, "T", undefined, "fix it")).toEqual({ manifest_id: "store-01", title: "T", request: "fix it" });
+  });
+
   it("is Setup's, in the root, for a named repository with no Manifest, and none where no root is named", () => {
     expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
     expect(startOn(NOT_SET_UP, "T")).toBeNull();

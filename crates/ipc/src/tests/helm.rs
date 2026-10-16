@@ -153,6 +153,8 @@ fn a_helm_record() -> SessionRecord {
         helm: true,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
         plan: None,
         touches: Vec::new(),
     }

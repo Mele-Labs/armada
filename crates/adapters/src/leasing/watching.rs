@@ -12,6 +12,17 @@
 //! **Events are a hint, never the truth.** A holder that dies leaves no file
 //! behind to notice, and a stream restarts as a slot is added to it, so every
 //! reading is also read again when the reader says `full`.
+//!
+//! **A full read asks `git status` of a free slot only where the watch cannot
+//! vouch for the last answer.** `status` is the one expensive question (71% of
+//! a core each, in a large repository), and an edit to a free slot's work tree
+//! is what the watch reports. Everything else a reading holds (HEAD, the
+//! refs, the record) is in process and read every time. The answer is read
+//! again where the watch was not armed before this read, or heard that slot,
+//! or lost events (an error, or a rescan flag), or restarted its stream (a path
+//! added or removed: the events of that moment are the ones it drops), or
+//! heard an edit under a directory it ignores that git does not, or this
+//! adapter acted on the pool. See `Trust` below.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -21,6 +32,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use adapter_traits::{SlotHeld, SlotReading};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
+use super::record::Record;
 use super::Pool;
 use crate::worktree::CHANGES;
 
@@ -52,12 +64,22 @@ struct Moves {
     /// Something every slot is measured against moved, or events were lost.
     all: bool,
     slots: BTreeSet<usize>,
+    /// Paths changed under a directory this watch ignores (a build, an
+    /// install) in a free slot. Not an edit unless git says the path counts:
+    /// asked at the next read, in process.
+    unwatched: BTreeMap<usize, BTreeSet<PathBuf>>,
 }
+
+/// The most paths kept per slot under `Moves::unwatched`; past it the slot
+/// counts as touched, which costs one `git status` and not a list that grows
+/// with a build.
+const MOST_UNWATCHED: usize = 32;
 
 enum Touched {
     Nothing,
     All,
     Slot(usize),
+    Unwatched(usize, PathBuf),
 }
 
 impl State {
@@ -79,6 +101,8 @@ impl State {
             // deadline's.
             return match (parts.next(), parts.collect::<Vec<_>>().as_slice()) {
                 (Some("packed-refs"), _) => Touched::All,
+                // What every slot's `status` leaves out.
+                (Some("info"), ["exclude"]) => Touched::All,
                 (Some("refs"), ["heads", name @ ..]) if name.join("/") == base => Touched::All,
                 (Some("refs"), ["remotes", _, name @ ..]) if name.join("/") == base => {
                     Touched::All
@@ -99,9 +123,12 @@ impl State {
         let first = names.next();
         let build = first.is_some_and(|name| NOT_WORK.contains(&name));
         let installed = inside.components().any(|part| part.as_os_str() == "node_modules");
-        match self.free.contains(number) && !build && !installed {
-            true => Touched::Slot(*number),
-            false => Touched::Nothing,
+        if !self.free.contains(number) || first == Some(".git") {
+            return Touched::Nothing;
+        }
+        match build || installed {
+            false => Touched::Slot(*number),
+            true => Touched::Unwatched(*number, path.to_path_buf()),
         }
     }
 }
@@ -146,6 +173,15 @@ impl Shared {
                             state.moves.slots.insert(number);
                             touched = true;
                         }
+                        Touched::Unwatched(number, path) => {
+                            let paths = state.moves.unwatched.entry(number).or_default();
+                            paths.insert(path);
+                            if paths.len() > MOST_UNWATCHED {
+                                state.moves.unwatched.remove(&number);
+                                state.moves.slots.insert(number);
+                                touched = true;
+                            }
+                        }
                     }
                 }
             }
@@ -168,9 +204,16 @@ struct PoolWatch {
     watcher: Option<RecommendedWatcher>,
     armed: BTreeSet<usize>,
     kept: BTreeMap<usize, SlotReading>,
+    /// What `git status` said of each free slot when it was last asked.
+    statuses: BTreeMap<usize, Vec<String>>,
+    /// Slots whose `statuses` entry the watch cannot vouch for: the stream
+    /// restarted since it was read.
+    distrust: BTreeSet<usize>,
     acts: u64,
     /// The slots the last read went to git for.
     reread: Vec<usize>,
+    /// The slots the last read asked `git status` of.
+    status_asked: Vec<usize>,
 }
 
 /// One pool's watch, by the repository it is cut from.
@@ -213,8 +256,11 @@ impl PoolWatch {
             watcher,
             armed: BTreeSet::new(),
             kept: BTreeMap::new(),
+            statuses: BTreeMap::new(),
+            distrust: BTreeSet::new(),
             acts: ACTS.load(Ordering::Acquire),
             reread: Vec::new(),
+            status_asked: Vec::new(),
         }
     }
 
@@ -228,25 +274,81 @@ impl PoolWatch {
             .copied()
             .filter(|n| everything || moved.slots.contains(n) || !self.kept.contains_key(n))
             .collect();
+        let armed_before = self.armed.clone();
         // Watched before it is read, so an edit between the two is heard.
-        self.arm(pool, &todo);
-        for reading in pool.readings_of(&todo) {
-            self.kept.insert(reading.slot as usize, reading);
+        if self.arm(pool, &todo) {
+            self.distrust.extend(armed_before.iter().copied());
+        }
+        let trusted = self.trusted(pool, &moved, &bays, &armed_before, acts);
+        let mut asked = Vec::new();
+        for read in pool.readings_trusting(&todo, &trusted) {
+            let number = read.reading.slot as usize;
+            match &read.status {
+                Some(Ok(files)) => {
+                    self.statuses.insert(number, files.clone());
+                }
+                _ => {
+                    self.statuses.remove(&number);
+                }
+            }
+            if read.status.is_some() && read.asked_git {
+                asked.push(number);
+            }
+            if read.asked_git {
+                self.distrust.remove(&number);
+            }
+            self.kept.insert(number, read.reading);
         }
         self.acts = acts;
         self.kept.retain(|n, _| bays.contains(n));
-        self.settle(pool, &bays);
+        self.statuses.retain(|n, _| bays.contains(n));
+        if self.settle(pool, &bays) {
+            // The stream restarted after these were read.
+            self.distrust.extend(self.armed.iter().copied());
+        }
         self.reread = todo;
+        self.status_asked = asked;
         bays.iter().filter_map(|n| self.kept.get(n).cloned()).collect()
+    }
+
+    /// The slots whose last `git status` the watch vouches for, with it.
+    ///
+    /// **Every case that could let a missed edit stand past the deadline is a
+    /// reason to leave a slot out**: nothing lost or rescanned, the watch armed
+    /// since before the last read, no restart of the stream since, nothing
+    /// heard of the slot, no edit under an ignored directory that git counts,
+    /// and nothing this adapter did to the pool.
+    fn trusted(
+        &mut self,
+        pool: &Pool,
+        moved: &Moves,
+        bays: &[usize],
+        armed_before: &BTreeSet<usize>,
+        acts: u64,
+    ) -> BTreeMap<usize, Vec<String>> {
+        if moved.all || self.watcher.is_none() || acts != self.acts {
+            return BTreeMap::new();
+        }
+        let counted = counted_edits(pool, &moved.unwatched);
+        armed_before
+            .iter()
+            .filter(|n| bays.contains(n) && self.armed.contains(n))
+            .filter(|n| !moved.slots.contains(n) && !counted.contains(n) && !self.distrust.contains(n))
+            .filter_map(|n| Some((*n, self.statuses.get(n)?.clone())))
+            .collect()
     }
 
     /// **No call into the watcher is made with the state locked.** Adding or
     /// removing a path waits on the thread that delivers events, and that
     /// thread may be in `heard`, waiting for the lock: each waits on the other.
-    fn arm(&mut self, pool: &Pool, numbers: &[usize]) {
+    ///
+    /// True where a path was added: the stream is rebuilt, and an edit in the
+    /// moment it was is one it never reports.
+    fn arm(&mut self, pool: &Pool, numbers: &[usize]) -> bool {
         let Some(watcher) = self.watcher.as_mut() else {
-            return;
+            return false;
         };
+        let mut added = false;
         let mut found = Vec::new();
         for &number in numbers {
             let path = canonical(&pool.path_of(number));
@@ -262,7 +364,10 @@ impl PoolWatch {
             }
         }
         for (_, path, number) in found {
-            if self.armed.contains(&number) {
+            // A held slot's work tree is not watched, so it is not armed to be
+            // let go again at the end of this read: that would restart the
+            // stream twice for a slot nobody asked it about.
+            if self.armed.contains(&number) || held_now(pool, number) {
                 continue;
             }
             // Counted before it is watched, so an edit as it starts is heard.
@@ -271,6 +376,7 @@ impl PoolWatch {
                 state.trees.push((path.clone(), number));
                 state.free.insert(number);
             }
+            added = true;
             if watcher.watch(&path, RecursiveMode::Recursive).is_ok() {
                 self.armed.insert(number);
             } else {
@@ -279,13 +385,17 @@ impl PoolWatch {
                 state.free.remove(&number);
             }
         }
+        added
     }
 
     /// Stop watching the work tree of every slot the reading shows held.
-    fn settle(&mut self, pool: &Pool, bays: &[usize]) {
+    ///
+    /// True where one was: the stream restarts, as it does when one is added.
+    fn settle(&mut self, pool: &Pool, bays: &[usize]) -> bool {
         let Some(watcher) = self.watcher.as_mut() else {
-            return;
+            return false;
         };
+        let mut removed = false;
         for number in self.armed.clone() {
             let free = bays.contains(&number)
                 && self
@@ -295,13 +405,41 @@ impl PoolWatch {
             if free {
                 continue;
             }
+            removed = true;
             let _ = watcher.unwatch(&canonical(&pool.path_of(number)));
             self.armed.remove(&number);
             let mut state = self.shared.state();
             state.trees.retain(|(_, n)| *n != number);
             state.free.remove(&number);
         }
+        removed
     }
+}
+
+/// Whether something alive holds slot `number`, from its record alone.
+fn held_now(pool: &Pool, number: usize) -> bool {
+    Record::read(&pool.record_path(number)).is_some_and(|record| record.holder.alive())
+}
+
+/// The slots among `unwatched` with a path git does not ignore: an edit
+/// under `target` or `node_modules` that a repository without those in its
+/// `.gitignore` shows in `status`, and the watch does not report. A path git
+/// cannot be asked about counts.
+fn counted_edits(pool: &Pool, unwatched: &BTreeMap<usize, BTreeSet<PathBuf>>) -> BTreeSet<usize> {
+    unwatched
+        .iter()
+        .filter(|(number, paths)| {
+            let top = canonical(&pool.path_of(**number));
+            let Ok(repo) = git2::Repository::open(&top) else {
+                return true;
+            };
+            paths.iter().any(|path| {
+                let inside = path.strip_prefix(&top).unwrap_or(path);
+                !repo.is_path_ignored(inside).unwrap_or(false)
+            })
+        })
+        .map(|(number, _)| *number)
+        .collect()
 }
 
 /// The slots the last kept read of `root`'s pool went to git for.
@@ -309,6 +447,32 @@ impl PoolWatch {
 pub(crate) fn last_reread(root: &Path) -> Vec<usize> {
     let all = WATCHES.lock().unwrap_or_else(PoisonError::into_inner);
     all.get(&canonical(root)).map(|watch| watch.reread.clone()).unwrap_or_default()
+}
+
+/// Say `event` to `root`'s watch as the file system would.
+#[cfg(test)]
+pub(crate) fn heard_by(root: &Path, event: notify::Result<Event>) {
+    let all = WATCHES.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(watch) = all.get(&canonical(root)) {
+        watch.shared.heard(event);
+    }
+}
+
+/// Take the watcher from `root`'s pool, as a file system that would not be
+/// watched leaves it.
+#[cfg(test)]
+pub(crate) fn unwatched(root: &Path) {
+    let mut all = WATCHES.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(watch) = all.get_mut(&canonical(root)) {
+        watch.watcher = None;
+    }
+}
+
+/// The slots the last kept read of `root`'s pool asked `git status` of.
+#[cfg(test)]
+pub(crate) fn last_status_asked(root: &Path) -> Vec<usize> {
+    let all = WATCHES.lock().unwrap_or_else(PoisonError::into_inner);
+    all.get(&canonical(root)).map(|watch| watch.status_asked.clone()).unwrap_or_default()
 }
 
 /// What the file system has told `root`'s pool since it was last read: whether

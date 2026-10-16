@@ -122,6 +122,10 @@ The terminal mod tells the first five (`plugins/armada/hooks/facts.ts`, `artifac
 
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
+### Releasing what a Session holds
+
+**The person gives back everything a Session holds, or hands it to another, with `release_session_holds`** (`session_id`, optional `to_session_id`), from Release on the Session's flight controls ([Cockpit](cockpit.md)). The owner, 16 Oct 2026: "Give me a button in the flight control of a session that is gated by a confirmation dialog. This button will let me force release everything in the ledger of that session. Agents sometimes can't do this but from Bridge we should be able to make it happen. It would be cool if I could select another session to transfer what it holds to." It acts on the `standing` `slot`, `branch`, `pr`, `job` and `need` rows named in `rows`, each a `kind` and `target`, and on every one where `rows` is absent, and leaves the rest. **Bridge draws each as a checkbox, all ticked when the confirmation opens, and sends the ones ticked.** The owner, 16 Oct 2026: "If we're building this, I should be able to check what I want to release. By default everything is checked." A row the Session does not hold standing is refused and nothing moves. A slot takes the branch it has checked out with it. Where a slot is among the rows, a hosted Session's running turn is stopped first, as `stop_session` stops it, and the Session stays live. With no target each row is given back, and each slot the pool holds for the Session is released as Bridge's slot Release does it: its uncommitted files are committed to its branch, then the slot is freed. With a target each row is given back and written standing for it, `detail.handed` reading `session <id>` as `take_over` writes `job <id>`, and each slot's lease moves to it as it stands, held as a Job of its id as a hosted Session holds its own. A target that is the Session itself, has ended or works in another repository is refused and nothing moves. Nothing is deleted. A slot the pool would not move stays with its branch, a piloted Job's slot, branch and Job stay for the pilot's exit, and the answer names each that stayed and why. `agent_access` is `No`: it is the person's act. **Each held row of the Session's ledger also carries its own Release**, shown on hover or focus, which confirms the one row and sends it alone with no target; the row then reads given back, or says why Fleet kept it. The owner, 16 Oct 2026: "I should also be able to release items from the ledger panel one by one."
+
 ### Which machine owned a pull request
 
 **A registry names the Session or Job that claimed a pull request, so a second machine under the same GitHub account can tell who had it.** It is a small central store, set up by [signing in](account.md), and Fleet writes a row when a Session or Job claims a pull request. Nothing is written to the pull request or the repository, so a label, a comment and a body trailer are all refused.
@@ -191,7 +195,8 @@ engine with a note and a few more tools, one per repository.
 > (s-34c7f2c2, three times on 13 Oct 2026).
 
 ```
- start ─▶ a row: no process, no slot, no branch
+ start ─▶ a row: no process, no slot, no branch (a start with a `request` is read first;
+          its process starts when the reading lands, see *A Session's proposal*)
  message ─▶ a live process, `--session-id`, the message on its input
  first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
                 both on the ledger, refuses the write and the turn ends; the
@@ -784,7 +789,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 | Bridge draws | From |
 |---|---|
-| The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
+| The ledger's slot and branch as one pair | A branch row ends in the key chip of its slot, so a slot a branch is on has no section or row of its own. A slot no branch is on keeps a row under Branches, after the branches, with the key glyph. A press on either opens the slot on Cleanup. A `slot` of 0 on a branch is unknown and draws no chip |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
 | The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |
@@ -803,6 +808,29 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 **A Session's composer names the model it runs on.** Fleet launches `claude` with `--model` only where a person picked one, and the CLI's own default applies otherwise, so the pick alone says nothing. Fleet reads the model off each `init` line of the stream (`DroneEvent::Started`, one per turn) and carries it as `HostedFacts.resolved_model` (23.85): `claude-opus-5-5`, which Bridge names `Opus 5.5`. **It is cleared when the process is let go** and absent before the first turn, because the next process has not said. The composer's Model select reads it: the selected option, the picked alias or the default, is labelled `Opus 5.5` once the resolved model is of that option's family. Until it has, or after another model is picked, the select reads the alias or the default as it did, **never a guess**. The head draws no model. A terminal Session is named only where its mod reported a model.
 
 **Past 300k tokens of context or a day since it started, a quiet mark (`move-right`) sits after the context tank.** Hover or focus opens its card and a press keeps it open, as the context tank's does: `612k context`, `Started 3h ago`, and two acts. **Fork** forks the conversation at its latest row (`start_session` with `fork.at`, 23.79). **New Session** asks the old Session for its handoff, which is a message of the person's sent with `send_session_message`: the goal, where it stands, open pull requests and branches, and what is next. Its next reply, once the turn is over, is the handoff, and the new Session opens under the same title with `Handoff from <title>` and that reply as its first message, sent for the person. While the old Session writes it the mark pulses and New Session waits. **If it ended, the send was refused, or no reply came within 90 seconds**, the first message is the ledger's facts instead: the title, its slot, its branches and its open pull requests. Nothing is typed. Both are Bridge's alone (`session-handoff.ts`), over operations that already exist; the cost is one turn of the old Session, which re-reads its whole context once.
+
+## A Session's proposal
+
+**A Session started from the dispatch sheet is read once**, by the same model call that proposes a Job (`job-proposer.md`, *A Session's request*), and what the call settles is the Session's own. `StartSession.request` carries the words. The press never waits: the start answers at once with the row, `proposal.reading` true and no process, and **the process starts when the answer lands**, on the title, workflow, model and effort it settled. A first message sent meanwhile is written to the thread at once and its turn is held, in the order the messages came. A failed, late or unreadable call starts the Session on the machine's defaults.
+
+| On the record | Meaning |
+|---|---|
+| `workflow` | The one workflow the Session follows, or absent: **a custom Session**. Never a default |
+| `proposal.reading` | The call is still out |
+| `proposal.picked` | The fields the proposer filled (`title`, `workflow`, `model`, `effort`), each dropped when the person sets that field |
+
+**What a person sets wins, and an answer never overwrites it.** A field given on the start, or changed in a panel while the call was out, stays as set.
+
+**A change reaches the agent, because it cannot read the panel.**
+
+| Changed | What the agent is told | When | Timeline |
+|---|---|---|---|
+| The workflow (`set_session_workflow`) | A message from Fleet naming the workflow and its step labels, or saying it is now a custom Session | At once: mid-turn at the next tool call, and an idle Session wakes. A Session that has not run is told with its first turn | `workflow: <old> → <new>` |
+| The model or effort (`tune_session`) | A line ahead of the turn that starts on the new values: `from this turn your model is X, not Y` | On the next turn, with no wake | `model: <old> → <new>`, `effort: <old> → <new>`, entered when that turn starts |
+
+**An unchanged model tells nothing.** Fleet keeps the model and effort each turn ran on, and the first turn only sets the baseline, so a restart does not tell again. The three events are `session.workflow`, `session.model` and `session.effort` on the timeline, where committed and pushed rows come from.
+
+**Held turns are in memory.** A Fleet that restarts while a Session is still being read loses them; the message row stays on the thread.
 
 ## Stopping a turn
 

@@ -88,6 +88,27 @@ impl Priority {
     }
 }
 
+impl Priority {
+    /// A `std::process::Command` for `program` at this priority, for the caller
+    /// to add arguments, a directory and an environment to as it would to any
+    /// other: **the clamp is the program, the arguments follow it**.
+    ///
+    /// For a spawn that has no worktree to resolve against, which is every
+    /// background `git`, `gh` and `ps` Fleet runs for itself. A bare name is
+    /// looked up on this process's `PATH`.
+    pub fn spawning(self, program: &str) -> std::process::Command {
+        let (spawned, leading) = self.command(program.to_string(), Vec::new(), Path::new("/"));
+        let mut command = std::process::Command::new(spawned);
+        command.args(leading);
+        command
+    }
+
+    /// [`Priority::spawning`] for a spawn that is awaited.
+    pub fn spawning_async(self, program: &str) -> tokio::process::Command {
+        tokio::process::Command::from(self.spawning(program))
+    }
+}
+
 /// `program` as the spawn would find it: against `worktree` where it names a
 /// path, on `path` where it is a bare name.
 fn resolved(program: &str, worktree: &Path, path: Option<&OsStr>) -> Option<PathBuf> {

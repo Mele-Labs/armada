@@ -24,10 +24,10 @@ export function repositoryToStart(served: readonly RepositorySummary[], picked: 
  * The start a Session on `repository` sends, or `null` where it has no Manifest to start on. **A root
  * named for a repository with no Manifest is Setup's**: the Session runs in that root to write one.
  */
-export function startOn(repository: RepositorySummary, title?: string, root?: string): StartSession | null {
-  const titled = title === undefined ? {} : { title };
-  if (repository.manifest !== undefined) return { manifest_id: repository.manifest.id, ...titled };
-  return root === undefined ? null : { manifest_id: "", root: repository.root, ...titled };
+export function startOn(repository: RepositorySummary, title?: string, root?: string, request?: string): StartSession | null {
+  const given = { ...(title === undefined ? {} : { title }), ...(request === undefined ? {} : { request }) };
+  if (repository.manifest !== undefined) return { manifest_id: repository.manifest.id, ...given };
+  return root === undefined ? null : { manifest_id: "", root: repository.root, ...given };
 }
 
 export class Picked {

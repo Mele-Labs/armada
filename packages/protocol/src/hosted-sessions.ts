@@ -9,6 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
+import type { SlotReleased } from "./holding";
 import type { PlanChangeLine } from "./session-plan";
 import type { ThoughtTarget } from "./thought";
 import type { SessionRecord, WaitingOption, WalkStep, WindowPlace, WindowTake } from "./sessions";
@@ -43,6 +44,13 @@ export type StartSession = {
    * Manifest, and `manifest_id` is not read. A root that has one by now starts as a plain start on it.
    */
   root?: string;
+  /**
+   * The words the person dispatched. Since 23.91. Fleet reads them once with the Job proposer's model and
+   * fills in the title, workflow, model and effort this start leaves unset; the answer is not waited on.
+   * The session is answered at once with `proposal.reading` true, and its process starts on the answer.
+   * Not read with `pilot`, `fork` or `root`.
+   */
+  request?: string;
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
@@ -130,6 +138,36 @@ export type MoveSession = { session_id: string; manifest_id: string };
 
 /** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
 export type StopSession = { session_id: string };
+
+/**
+ * `POST /sessions/workflow`: the person picked the Session's workflow in a panel, or cleared it. Since 23.91.
+ * Answers the `SessionRecord`. A Session that has run is told at once; one that has not, with its first turn.
+ * 422 `fleet.session_workflow_not_held` for an id the Session's repository does not hold.
+ */
+export type SetSessionWorkflow = {
+  session_id: string;
+  /** Absent clears it: a custom Session. */
+  workflow?: string;
+};
+
+/** `POST /sessions/release_holds`: give back the slots, branches, pull requests, Jobs and needs a Session holds, or hand them to `to_session_id`. `rows` absent is every one. */
+export type ReleaseSessionHolds = { session_id: string; to_session_id?: string; rows?: ChosenHold[] };
+
+/** One row the person ticked: its kind and target as the ledger names them. */
+export type ChosenHold = { kind: string; target: string };
+
+/** What `release_session_holds` moved, and what stayed with why. */
+export type SessionHoldsReleased = {
+  to_session_id?: string;
+  moved: HoldMoved[];
+  kept: HoldKept[];
+};
+
+/** One row given back or handed over. `released` is a slot's branch and what was committed to it. */
+export type HoldMoved = { kind: string; target: string; released?: SlotReleased };
+
+/** One row that stayed the Session's. */
+export type HoldKept = { kind: string; target: string; why: string };
 
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */
 export type SessionTurn =

@@ -246,6 +246,7 @@ where
             root: None,
             pilot: None,
             fork: None,
+            request: None,
         };
         let whole = ForkFrom { session_id: moved.session_id, at: None };
         let moved = Moved {
@@ -333,6 +334,10 @@ where
                     // A fork of Helm is an ordinary Session: Helm's note is not in the copied conversation.
                     helm: false,
                     setup: false,
+                    workflow: None,
+                    proposed: String::new(),
+                    turn_model: None,
+                    turn_effort: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             // `spent`, not `standing`: the old session ending gives back what
