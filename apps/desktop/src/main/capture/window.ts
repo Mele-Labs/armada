@@ -25,7 +25,7 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onAnyOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
+import { isPinned, loopbackOrigin, offerable, onAnyOrigin, onNamedOrigin, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { FailedLoads, lookSource, looked } from "./failed";
@@ -34,6 +34,7 @@ import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { PageFinder } from "./finder";
+import { mayOpenPopup, openPopup, type Popup } from "./popup";
 import { beginsOn, StepWalk } from "./stepwalk";
 import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
@@ -170,6 +171,8 @@ export class CaptureWindow {
   private looking = false;
   /** Whether the Session's sign-in addresses are loading, which no failure is told to anyone for: their text is a secret. */
   private signingIn = false;
+  /** The popup the page opened, one at a time: a provider's sign-in window, on an origin the page may reach. */
+  private popup: Popup | null = null;
 
   constructor(
     pin: Pinned,
@@ -229,6 +232,7 @@ export class CaptureWindow {
         this.board.windowsChanged?.();
       }
       this.stopWatchingWalk();
+      this.popup?.close();
       this.stepwalk?.stop();
       clearInterval(this.lookTimer);
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
@@ -591,7 +595,7 @@ export class CaptureWindow {
   /** Whether the ring and caption of the steps Bridge plays are drawn over the page. Not once the walk is over, held on a step, or put away. */
   private guiding(): boolean {
     const guide = this.walk?.guide;
-    return guide !== undefined && !guide.folded && !this.walk?.done && guide.stopped === undefined;
+    return guide !== undefined && !guide.folded && !this.walk?.done && guide.stopped === undefined && guide.signingIn !== true;
   }
 
   /** Look for the question's place again once the page has settled from a wheel or a resize. */
@@ -706,20 +710,36 @@ export class CaptureWindow {
     const contents = this.page.webContents;
     const allowed = (address: string): boolean => this.serving && onAnyOrigin(this.pin, address);
 
+    // **A Session's page may open one popup, and only onto an origin the window may reach**: the shown
+    // one or one it named. Any other address, a second popup, and every popup of a Run's page or a Job's
+    // are refused, as every popup was.
     contents.setWindowOpenHandler(({ url }) => {
-      this.refuse(url, "window");
-      return { action: "deny" };
+      if (!mayOpenPopup({ session: "session" in this.landsOn, standing: this.popup !== null, allowed: allowed(url) })) {
+        this.refuse(url, "window");
+        return { action: "deny" };
+      }
+      return { action: "allow", createWindow: (options) => this.openPopup(allowed, options) };
     });
     contents.on("will-navigate", (event, url) => {
-      if (allowed(url)) return;
+      if (allowed(url)) {
+        this.watchSignIn(url);
+        return;
+      }
       event.preventDefault();
       this.refuse(url, "navigation");
     });
     contents.on("will-redirect", (event, url) => {
-      if (allowed(url)) return;
+      if (allowed(url)) {
+        if (event.isMainFrame) this.watchSignIn(url);
+        return;
+      }
       event.preventDefault();
       this.refuse(url, "redirect");
     });
+    // Where the page is, for the walk: on a provider's page it waits, and on the shown origin again it goes on.
+    contents.on("did-navigate", () => this.watchSignIn());
+    contents.on("did-navigate-in-page", () => this.watchSignIn());
+    contents.on("did-fail-load", () => this.watchSignIn());
     contents.on("will-frame-navigate", (event) => {
       if (event.isMainFrame || allowed(event.url)) return;
       event.preventDefault();
@@ -761,6 +781,40 @@ export class CaptureWindow {
     contents.on("render-process-gone", (_event, details) => {
       if (!this.signingIn) this.failures.gone(contents.getURL(), details.reason);
     });
+  }
+
+  /**
+   * The popup a provider's sign-in opens, as a child window of this one. **Held to the same origins
+   * as the page**, with no preload and the page's own session (`popup.ts`).
+   */
+  private openPopup(allowed: (address: string) => boolean, options: Electron.BrowserWindowConstructorOptions): Electron.WebContents {
+    const popup = openPopup(
+      {
+        parent: this.window,
+        allowed,
+        refuse: (address, what) => this.refuse(address, what),
+        closed: () => {
+          this.popup = null;
+          this.watchSignIn();
+        },
+      },
+      options,
+    );
+    // Electron wants the contents it made back whatever happened; a popup that was not built is closed already.
+    if (popup === null) return (options as { webContents: Electron.WebContents }).webContents;
+    this.popup = popup;
+    this.watchSignIn();
+    return popup.contents;
+  }
+
+  /**
+   * Tell the steps whether the page is being signed in: on a provider's page, heading to one (`heading`,
+   * a navigation allowed but not yet committed), or with its popup open. **The walk waits there and
+   * does not read the missing target as a fault**, and goes on once the page is back on the shown origin.
+   */
+  private watchSignIn(heading?: string): void {
+    if (this.stepwalk === null || this.page.webContents.isDestroyed()) return;
+    this.stepwalk.signIn(this.popup !== null || onNamedOrigin(this.pin, heading ?? this.page.webContents.getURL()));
   }
 
   /**
@@ -898,6 +952,7 @@ export class CaptureWindow {
         if ("session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
       },
       open: () => this.open && this.serving,
+      guarded: () => loopbackOrigin(this.pin.origin) === null,
     });
   }
 

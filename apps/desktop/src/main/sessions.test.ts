@@ -5,12 +5,12 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 
 import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
+import { REOPEN_WITHIN_MS, SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
 /** What the Fleet answers a take of a window's sign-in with. */
@@ -535,4 +535,68 @@ it("holds the twenty threads opened last, and reads one let go again when it is 
   await sessions.watch("s0");
   expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads + 1);
   expect(Object.keys(last("sessionThreads") as object)).toHaveLength(THREADS_HELD);
+});
+
+describe("a window shown while Bridge was away", () => {
+  const url = "https://staging.example.com/app";
+  const shownAt = Date.parse(AT);
+  const showing = (extra: Partial<SessionRecord> = {}) =>
+    record("a", {
+      attachments: [{ kind: "artifact", target: url, state: "standing", detail: { form: "window", title: "Staging" }, since: AT, changed_at: AT }],
+      ...extra,
+    });
+  const row = (change: Record<string, unknown> = {}) => ({ kind: "window", id: "w1", at: AT, title: "Staging", url, ...change }) as SessionRow;
+
+  async function reopened(age: number, rows: SessionRow[], session = showing()) {
+    // Several of these run in one test: the Fleet before is let go of, as `afterEach` lets go of the last.
+    const before = listening;
+    if (before !== null) await new Promise<void>((done) => before.close(() => done()));
+    const port = await fleet([], [session], { a: rows });
+    const opened: string[][] = [];
+    const sessions = new SessionsHost(() => {}, () => port, () => shownAt + age);
+    sessions.onWindow((id, title, address) => opened.push([id, title, address]));
+    await sessions.again(port);
+    return { sessions, port, opened };
+  }
+
+  it("opens when it was shown within fifteen minutes", async () => {
+    const { opened } = await reopened(REOPEN_WITHIN_MS - 1000, [row()]);
+    await vi.waitFor(() => expect(opened).toEqual([["a", "Staging", url]]));
+  });
+
+  it("opens at the edge of the quarter hour and not a moment after", async () => {
+    const edge = await reopened(REOPEN_WITHIN_MS, [row()]);
+    await vi.waitFor(() => expect(edge.opened).toHaveLength(1));
+    const past = await reopened(REOPEN_WITHIN_MS + 1, [row()]);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(past.opened).toEqual([]);
+  });
+
+  it("stays closed when it was shown longer ago, as a walk from before a restart", async () => {
+    const { opened } = await reopened(REOPEN_WITHIN_MS * 4, [row()]);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(opened).toEqual([]);
+  });
+
+  it("stays closed when the row has an end, or the session is not live", async () => {
+    const ended = await reopened(1000, [row({ ended_at: AT })]);
+    const gone = await reopened(1000, [row()], showing({ state: "ended" }));
+    await new Promise((done) => setTimeout(done, 40));
+    expect(ended.opened).toEqual([]);
+    expect(gone.opened).toEqual([]);
+  });
+
+  it("opens once in a process, however many times Bridge reconnects", async () => {
+    const { sessions, port, opened } = await reopened(1000, [row()]);
+    await vi.waitFor(() => expect(opened).toHaveLength(1));
+    await sessions.again(port);
+    await sessions.again(port);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(opened).toHaveLength(1);
+  });
+
+  it("opens the newest shown page and not the ones before it", async () => {
+    const { opened } = await reopened(1000, [row({ id: "w1", url: "https://old.example.com/" }), row({ id: "w2" })]);
+    await vi.waitFor(() => expect(opened).toEqual([["a", "Staging", url]]));
+  });
 });

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ServerState } from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../../shared/bridge";
-import { isPinned, loopbackOrigin, webOrigin, offerable, onAnyOrigin, onOrigin, partitionFor, passThrough, pinned, shown } from "./address";
+import { chromeAgent, isPinned, loopbackOrigin, onNamedOrigin, webOrigin, offerable, onAnyOrigin, onOrigin, partitionFor, passThrough, pinned, shown } from "./address";
 
 const SERVING: ServerState = {
   id: "01SERVER",
@@ -217,5 +217,41 @@ describe("the origins a Session lets its window pass through", () => {
         "",
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("the user agent a provider reads", () => {
+  const ELECTRON =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Armada/0.1.0 Chrome/144.0.7559.236 Electron/40.10.6 Safari/537.36";
+
+  it("is Electron's with its own two tokens taken out, and Chrome's left", () => {
+    expect(chromeAgent(ELECTRON)).toBe(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.7559.236 Safari/537.36",
+    );
+  });
+
+  it("takes out an app name of any spelling, and an Electron token wherever it sits", () => {
+    expect(chromeAgent(ELECTRON.replace("Armada/0.1.0", "Electron/1.0"))).not.toContain("Electron");
+    expect(chromeAgent(ELECTRON.replace("Armada/0.1.0", "Armada-Dev/9.9.9"))).not.toContain("Armada");
+  });
+
+  it("returns an agent that is already Chrome's as it came", () => {
+    const chrome = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.7559.236 Safari/537.36";
+    expect(chromeAgent(chrome)).toBe(chrome);
+  });
+});
+
+describe("a page on a provider the Session named", () => {
+  const pin = { run: "session:s", name: "Staging", origin: "https://app.example.com", url: "https://app.example.com/", manifestId: null, through: ["https://login.example.org"] };
+
+  it("is on a named origin and not on the shown one", () => {
+    expect(onNamedOrigin(pin, "https://login.example.org/authorize?x=1")).toBe(true);
+    expect(onNamedOrigin(pin, "https://app.example.com/callback")).toBe(false);
+  });
+
+  it("is on none for an address on neither, and for one that does not parse", () => {
+    expect(onNamedOrigin(pin, "https://login.example.org.evil.net/")).toBe(false);
+    expect(onNamedOrigin(pin, "http://login.example.org/")).toBe(false);
+    expect(onNamedOrigin(pin, "")).toBe(false);
   });
 });

@@ -222,6 +222,51 @@ async fn a_window_is_working_from_the_sessions_own_write_or_a_note_and_ready_whe
     assert!(working().await, "a message that is no note changes nothing");
 }
 
+/// The session hands a note to a subagent and ends its turn: the page is still changing, so the
+/// window stays working until a turn ends with none standing. A server left running holds nothing.
+#[tokio::test]
+async fn a_window_stays_working_through_a_turn_that_ends_with_a_subagent_standing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let working = || async {
+        let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.attachments;
+        let window = kept.iter().find(|one| one.detail.get("form").map(String::as_str) == Some("window")).expect("shown");
+        window.detail.get("working").map(String::as_str) == Some("true")
+    };
+    let told = |fact| async {
+        let report = SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact };
+        rig.fleet.report_session(report).await.expect("kept");
+    };
+    let attached = |kind: &str, target: &str| SessionFact::Attached {
+        attachment: ipc::AttachmentReport { kind: kind.into(), target: target.into(), detail: Default::default() },
+    };
+    let settled = |kind: &str, target: &str| SessionFact::Settled {
+        attachment: ipc::AttachmentNamed { kind: kind.into(), target: target.into() },
+        state: ipc::AttachmentState::Spent,
+    };
+    show(&rig, &id, ONE).await;
+
+    rig.send(&id, "Too slow\nOn header, top, at http://localhost:5173/one").await;
+    told(attached("subagent", "a1")).await;
+    told(SessionFact::TurnCompleted { said: None }).await;
+    assert!(working().await, "its turn ended, but the subagent is still changing the page");
+
+    told(settled("subagent", "a1")).await;
+    assert!(working().await, "the subagent stopping alone does not say the page is done");
+    told(SessionFact::TurnCompleted { said: None }).await;
+    assert!(!working().await, "the turn that took its report ended with none standing");
+
+    rig.send(&id, "Still off\nOn header, top, at http://localhost:5173/one").await;
+    told(attached("server", "5173")).await;
+    told(SessionFact::TurnCompleted { said: None }).await;
+    assert!(!working().await, "a dev server left running is no work on the page");
+
+    rig.send(&id, "Again\nOn header, top, at http://localhost:5173/one").await;
+    told(attached("subagent", "a2")).await;
+    show(&rig, &id, ONE).await;
+    assert!(!working().await, "showing the page again says it is ready, subagent or not");
+}
+
 #[tokio::test]
 async fn a_window_that_could_not_show_its_page_tells_the_session_in_fleets_voice_and_the_walk_stays() {
     let rig = rig_placing(None);
