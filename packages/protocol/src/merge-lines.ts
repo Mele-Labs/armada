@@ -125,6 +125,8 @@ export type CheckoutDiffAsk = {
 /** `checkout_diff`'s answer: the file's unified diff against HEAD in the served checkout. Empty where the file no longer differs. */
 export type CheckoutDiff = {
   diff: string;
+  /** Set where Fleet cut `diff` short of what git printed, at a line or byte bound. Absent otherwise. */
+  cut?: boolean;
 };
 
 /** `catch_up_checkout`'s answer. A pull git refused or left conflicted is still an answer, with a non-zero `code`. */
