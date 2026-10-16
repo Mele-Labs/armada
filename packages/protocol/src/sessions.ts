@@ -238,10 +238,34 @@ export type DismissWaiting = { session_id: string; item_id: string; reason?: str
 export type WindowTake = { name: string; url: string };
 
 /**
+ * Something on a page a walk's step aims at, found by role and accessible name or by the words it
+ * draws. `role` is `text` for the words an element draws, and then `name` is those words. `name` is a
+ * string inside the name in any case, or the whole of it with `exact`. `within` looks only inside another.
+ */
+export type WalkTarget = { role: string; name?: string; exact?: boolean; within?: WalkTarget };
+
+/**
+ * One step of a scripted walk: a `say` caption and exactly one verb, with the key that goes with it.
+ * The mock walks' own shape (`mock/walk.ts`), as JSON. Fleet refuses any other combination.
+ */
+export type WalkStep = { say: string } & (
+  | { press: WalkTarget }
+  | { look: WalkTarget }
+  | { hover: WalkTarget }
+  | { later: WalkTarget }
+  | { type: string; into: WalkTarget }
+  | { key: string; on: WalkTarget }
+  | { select: string; in: WalkTarget }
+  | { paste: WalkTarget }
+  | { drag: WalkTarget; by: { x: number; y: number } }
+);
+
+/**
  * `POST /sessions/window`, the agent's: a page to show. `variations` offers several takes of one
  * change in the one window, each a page of its own, and `url` is the first's. Absent: one page.
+ * `steps` is a scripted walk of the page that Bridge plays from outside it, on any page. Absent: none.
  */
-export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[] };
+export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[]; steps?: WalkStep[] };
 
 /**
  * `POST /sessions/sketch`, the agent's: a diagram to draw. `scene` is the format `parseScene` reads

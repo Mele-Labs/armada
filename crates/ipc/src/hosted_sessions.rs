@@ -369,6 +369,10 @@ pub enum SessionRow {
         /// ends**, so the row reopens the window with them.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         variations: Vec<crate::sessions::WindowTake>,
+        /// The scripted walk it carries, when it carries one. **Kept when the walk ends**, as the
+        /// takes are.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        steps: Vec<crate::WalkStep>,
         /// When the walk ended: the person approved the page or closed its window. Absent while
         /// it is open. **The row is replaced by id** when it is set.
         #[serde(default, skip_serializing_if = "Option::is_none")]

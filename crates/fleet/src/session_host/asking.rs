@@ -98,6 +98,7 @@ where
                         title: None,
                         session_id: Some(ipc::SessionId::carried(id)),
                         variations: Vec::new(),
+                        steps: Vec::new(),
                     };
                     let _ = self.show_window(None, show).await;
                 }

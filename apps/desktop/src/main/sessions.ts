@@ -44,6 +44,7 @@ import type {
   TuneSession,
   WindowClosed,
   WindowFailed,
+  WalkStep,
   WindowTake,
   WriteSessionRun,
 } from "@armada/protocol";
@@ -51,7 +52,7 @@ import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
-import { openSessionFile, readSessionArtifact, takesOfWindow, titleOfWindow } from "./session-file";
+import { openSessionFile, readSessionArtifact, readSteps, stepsOfWindow, takesOfWindow, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
 
@@ -90,7 +91,7 @@ export class SessionsHost {
   /** The ids of the threads held, least recently opened first. */
   private opening: string[] = [];
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
-  private shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[]) => void = () => {};
+  private shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[], steps: readonly WalkStep[]) => void = () => {};
   /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
   private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
@@ -193,7 +194,7 @@ export class SessionsHost {
   }
 
   /** Say what opens a window: main's, since a window is not a thing this host holds. */
-  onWindow(shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[]) => void): void {
+  onWindow(shown: (sessionId: string, title: string, url: string, takes: readonly WindowTake[], steps: readonly WalkStep[]) => void): void {
     this.shown = shown;
   }
 
@@ -210,7 +211,7 @@ export class SessionsHost {
     const record = this.sessions?.find((one) => one.id === sessionId);
     const title = titleOfWindow(record, url);
     if (title === null) return { ok: false, why: "no_manifest" };
-    this.shown(sessionId, title, url, takesOfWindow(record, url));
+    this.shown(sessionId, title, url, takesOfWindow(record, url), stepsOfWindow(record, url));
     return { ok: true };
   }
 
@@ -220,7 +221,7 @@ export class SessionsHost {
     // there, and none of those opens a window.
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
-      this.shown(change.session_id, change.row.title, change.row.url, change.row.variations ?? []);
+      this.shown(change.session_id, change.row.title, change.row.url, change.row.variations ?? [], readSteps(change.row.steps));
     }
     // A question asked in the walk takes the person there, once, when it is asked.
     if (change.row.kind === "window_ask" && change.row.answer === undefined && !this.opened.has(change.row.id)) {

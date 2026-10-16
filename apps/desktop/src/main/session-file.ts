@@ -5,7 +5,7 @@
 // make every capability the sandbox holds back reachable through one row; the record main already
 // holds is the set the string has to be a member of, as `open.ts` does for a Job's records.
 
-import type { Followed, SessionRecord, WindowTake } from "@armada/protocol";
+import type { Followed, SessionRecord, WalkStep, WalkTarget, WindowTake } from "@armada/protocol";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { extname } from "node:path";
 
@@ -40,6 +40,83 @@ export function takesOfWindow(record: SessionRecord | undefined, url: string): W
     return takes.every((one) => typeof one?.name === "string" && typeof one.url === "string" && /^https?:\/\//.test(one.url))
       ? (takes as WindowTake[])
       : [];
+  } catch {
+    return [];
+  }
+}
+
+const VERBS = ["press", "look", "hover", "later", "type", "key", "select", "paste", "drag"] as const;
+/** The most steps a window plays, and how deep a target may nest: Fleet's own bounds, held again here. */
+const MOST_STEPS = 200;
+const MOST_NESTING = 4;
+
+const record_ = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+
+function targetOf(value: unknown, depth: number): WalkTarget | null {
+  const read = record_(value);
+  if (read === null || typeof read["role"] !== "string" || read["role"] === "") return null;
+  const { name, exact, within } = read;
+  if ((name !== undefined && typeof name !== "string") || (exact !== undefined && typeof exact !== "boolean")) return null;
+  if (read["role"] === "text" && name === undefined) return null;
+  let inner: WalkTarget | undefined;
+  if (within !== undefined) {
+    if (depth >= MOST_NESTING) return null;
+    const found = targetOf(within, depth + 1);
+    if (found === null) return null;
+    inner = found;
+  }
+  return {
+    role: read["role"],
+    ...(name === undefined ? {} : { name: name as string }),
+    ...(exact === undefined ? {} : { exact: exact as boolean }),
+    ...(inner === undefined ? {} : { within: inner }),
+  };
+}
+
+/**
+ * The steps a window plays, from what Fleet kept, or none. **Anything that is not a list of steps
+ * as `show_window` takes them reads as none**: Fleet checked them, and a window plays what it reads,
+ * so each is held to the same shape here. A step is a `say` and exactly one verb with its target.
+ */
+export function readSteps(value: unknown): WalkStep[] {
+  if (!Array.isArray(value) || value.length > MOST_STEPS) return [];
+  const steps: WalkStep[] = [];
+  for (const one of value) {
+    const read = record_(one);
+    if (read === null || typeof read["say"] !== "string" || read["say"].trim() === "") return [];
+    const verbs = VERBS.filter((verb) => read[verb] !== undefined);
+    const verb = verbs[0];
+    if (verbs.length !== 1 || verb === undefined) return [];
+    const say = read["say"];
+    if (verb === "type" || verb === "key" || verb === "select") {
+      const words = read[verb];
+      const aimed = targetOf(read[verb === "type" ? "into" : verb === "key" ? "on" : "in"], 0);
+      if (typeof words !== "string" || words === "" || aimed === null) return [];
+      if (verb === "type") steps.push({ say, type: words, into: aimed });
+      else if (verb === "key") steps.push({ say, key: words, on: aimed });
+      else steps.push({ say, select: words, in: aimed });
+      continue;
+    }
+    const aimed = targetOf(read[verb], 0);
+    if (aimed === null) return [];
+    if (verb === "drag") {
+      const by = record_(read["by"]);
+      if (by === null || !Number.isFinite(by["x"]) || !Number.isFinite(by["y"])) return [];
+      steps.push({ say, drag: aimed, by: { x: by["x"] as number, y: by["y"] as number } });
+    } else steps.push({ say, [verb]: aimed } as WalkStep);
+  }
+  return steps;
+}
+
+/** The steps the Session showed at `url`, as its ledger keeps them in the window's `detail`, or none. */
+export function stepsOfWindow(record: SessionRecord | undefined, url: string): WalkStep[] {
+  const kept = record?.attachments.find(
+    (one) => one.kind === "artifact" && one.target === url && one.detail?.["form"] === "window",
+  )?.detail?.["steps"];
+  if (kept === undefined) return [];
+  try {
+    return readSteps(JSON.parse(kept));
   } catch {
     return [];
   }

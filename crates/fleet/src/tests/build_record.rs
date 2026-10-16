@@ -327,6 +327,7 @@ async fn a_terminal_sessions_build_is_kept_and_read_back_off_its_row() {
                 title: Some("The ring".to_string()),
                 session_id: Some(SessionId::carried("t1")),
                 variations: Vec::new(),
+                steps: Vec::new(),
             },
         )
         .await
