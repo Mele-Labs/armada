@@ -771,6 +771,13 @@ pub struct SessionRecord {
     /// nothing Fleet observed. `docs/concepts/session.md`, *The build record*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<crate::session_build::SessionBuild>,
+    /// The workflow id the Session runs under. Absent is a custom Session, which is not a default
+    /// workflow. Hosted Sessions only. Since 23.91. `docs/concepts/session.md`, *A Session's proposal*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
+    /// What the proposer did for this Session. Absent where it was never asked. Since 23.91.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<SessionProposal>,
     /// The plan the agent recorded, with what Fleet saw of it carried out. Absent until it records
     /// one. `docs/concepts/session.md`, *The plan*.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -779,6 +786,52 @@ pub struct SessionRecord {
     /// until one is seen.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub touches: Vec<crate::session_plan::FileTouch>,
+}
+
+/// A value of a Session the proposer can pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProposedField {
+    Title,
+    Workflow,
+    Model,
+    Effort,
+}
+
+impl ProposedField {
+    /// The spelling Fleet keeps a list of them under.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            ProposedField::Title => "title",
+            ProposedField::Workflow => "workflow",
+            ProposedField::Model => "model",
+            ProposedField::Effort => "effort",
+        }
+    }
+
+    pub fn from_wire(spelling: &str) -> Option<ProposedField> {
+        [
+            ProposedField::Title,
+            ProposedField::Workflow,
+            ProposedField::Model,
+            ProposedField::Effort,
+        ]
+        .into_iter()
+        .find(|field| field.as_wire() == spelling)
+    }
+}
+
+/// The proposer's part in a Session. **Per field, and cleared by the person's own change**: a
+/// field in `picked` is a value the proposer chose and nobody has touched since, so Bridge marks
+/// it "Picked by the proposer"; changing it in a panel takes it out of the list.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionProposal {
+    /// The call is out. The Session exists and its process has not started, and Fleet starts it on
+    /// the answer. Held in memory: a Fleet that restarts reads nothing as reading.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reading: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub picked: Vec<ProposedField>,
 }
 
 /// `list_sessions`: the most recently seen first.

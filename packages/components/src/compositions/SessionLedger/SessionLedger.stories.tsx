@@ -132,6 +132,27 @@ export const WaitingRemove: Story = {
   },
 };
 
+const releasing = fn();
+
+/** Release on a held row, shown on hover or focus; a row given back stays drawn with its mark, and a row Fleet kept says why. */
+export const ReleaseRow: Story = {
+  args: {
+    entries: [
+      { key: "s4", kind: "slot", name: "Worktree slot 4", text: "4", release: { name: "slot-4", onPress: releasing }, onOpen: open },
+      { key: "s7", kind: "slot", name: "Worktree slot 7", text: "7", released: { kept: "A piloted Job holds it, and the pilot's exit gives it back." }, release: { name: "slot-7", onPress: releasing }, onOpen: open },
+      { key: "b", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", released: {}, onOpen: open },
+    ],
+  },
+  play: async ({ canvas }) => {
+    releasing.mockClear();
+    await userEvent.click(canvas.getByRole("button", { name: "Release slot-4" }));
+    await expect(releasing).toHaveBeenCalledTimes(1);
+    await expect(canvas.getByRole("img", { name: "Given back" })).toBeInTheDocument();
+    await expect(canvas.getByText("A piloted Job holds it, and the pilot's exit gives it back.")).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Release fix/flaky-store" })).not.toBeInTheDocument();
+  },
+};
+
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
 export const Blank: Story = {
   args: { entries: [] },

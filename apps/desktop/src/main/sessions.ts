@@ -14,6 +14,8 @@
 import WebSocket from "ws";
 
 import type {
+  ReleaseSessionHolds,
+  SessionHoldsReleased,
   AnswerSessionAsk,
   AnswerWaiting,
   CatchUpCheckout,
@@ -475,6 +477,19 @@ export class SessionsHost {
 
   async stop(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/stop", { session_id: sessionId });
+  }
+
+  /** The Session's workflow, or none with no `workflow`. Fleet tells the agent; the record it answers is folded in. */
+  async setWorkflow(sessionId: string, workflow?: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/workflow", workflow === undefined ? { session_id: sessionId } : { session_id: sessionId, workflow });
+  }
+
+  /** Every slot, branch, pull request, Job and need the Session holds, given back or handed to `release.to_session_id`. Both rows change by `session.changed`. */
+  async releaseHolds(release: ReleaseSessionHolds): Promise<SessionActed<SessionHoldsReleased>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/release_holds", release);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionHoldsReleased } : { ok: false, outcome: answer.outcome };
   }
 
   /** The record Fleet answers is the new Session's, which is folded in; the old one's change arrives as `session.changed`. */

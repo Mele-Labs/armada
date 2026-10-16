@@ -174,10 +174,36 @@ impl Rig {
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await
             .expect("started")
             .id
+    }
+
+    /// A start carrying the words a person dispatched, which Fleet reads once. `set` fills in what
+    /// the person chose themselves.
+    pub(super) async fn start_requesting(
+        &self,
+        request: &str,
+        set: impl FnOnce(&mut StartSession),
+    ) -> ipc::SessionRecord {
+        let mut start = StartSession {
+            manifest_id: self.manifest.clone(),
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            root: None,
+            pilot: None,
+            fork: None,
+            request: Some(request.to_string()),
+        };
+        set(&mut start);
+        Arc::clone(&self.fleet)
+            .start_session_reading(start)
+            .await
+            .expect("started")
     }
 
     pub(super) async fn send(&self, id: &SessionId, text: &str) {
@@ -665,6 +691,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             root: None,
             pilot: None,
             fork: None,
+            request: None,
         })
         .await
         .unwrap()

@@ -31,6 +31,8 @@ One model call on the dispatch path. It reads the request a person dispatched �
 
 **It is called the Job proposer, always.** The classifier, the Job-shape classifier and the shape classifier are retired — see `../contracts/design-system.md` lexicon.
 
+**It also reads a Session's request, with a shorter answer.** See *A Session's request*, below. Same call, same Brief, same parsing and the same model (`models.proposer`); the answer asks for four things and none of them makes a Job.
+
 ## Why it exists
 
 **So that dispatching is describing the work, not filling in a form.** A request arrives as a prompt or a ticket link. Someone has to decide what kind of work it is, which workflow fits, and whether it is one Job or several.
@@ -130,6 +132,23 @@ Why: every extra token is money on a call that fires on every dispatch, and a ca
 **`for_requests` is how a request is matched to a workflow at all.** Labels are in the workflow's own vocabulary, so they cannot say whether a request is this kind of work: nothing in Epic's `Plan the wave` is a word somebody asking to finish a milestone uses. The line is written in a requester's words, rendered beside the labels rather than instead of them, and optional — a definition declaring none is shown by its id, name and labels alone. `crates/core-model/domain/workflowdef-fields.toml` holds the field.
 
 **Every workflow Armada ships declares one, read off its own Judge criteria.** Decided 1 Oct 2026, after a request to retire a guide was proposed as Refactor and Refactor's Judge refused the plan for changing what a person sees. The labels had not said that a refactor promises no visible change; the line now does, and each line names what separates it from its nearest neighbour. Fleet's `tests::proposing` refuses a shipped definition without one.
+
+## A Session's request
+
+**A Session dispatched from the sheet is read once, and the press does not wait for it.** `StartSession.request` is the words the person typed. Fleet makes the same call on them, against the same workflows and the models this machine runs, and the Session's process starts when the answer lands. `crates/fleet/src/session_host/proposing.rs`; the answer format is `SESSION_ANSWER_FORMAT` in `crates/fleet/src/proposing.rs`, beside `ANSWER_FORMAT`.
+
+| Line | Fills | Where it reads as none |
+| --- | --- | --- |
+| `workflow:` | The Session's `workflow`, one id from the catalogue | `none`, or an id the repository does not hold. **None is a custom Session, never a default workflow**: nothing in the catalogue fitting is an answer, and the format asks for it rather than the nearest fit |
+| `title:` | The Session's title, cut to 80 characters | Absent: the request's first line |
+| `settings:` `model=` | The Session's model | A name this machine does not run |
+| `settings:` `effort=` | The Session's effort | A level the CLI does not take (`low`, `medium`, `high`) |
+
+**What the person set wins.** A title, model or effort given on the start, or changed in a panel while the call was out, is left as it is. Each field the proposer did fill is listed in the record's `proposal.picked` until the person changes that field.
+
+**A failure starts the Session on the machine's defaults.** A call that fails, passes its budget or answers with no `workflow:` line is logged on Fleet's stderr and the Session starts as if no request had been given, with the first line of the request for a title. Nothing is refused, and there is no second try as the Job proposer's has: a Session is a person's own conversation, and a reading that lingers is worse than none.
+
+**The session prompt is a constant, not an editable `prompts.*` setting.** It is one fixed question with four lines of answer; the Job proposer's prompt is editable because it is tuned per repository. Revisit if one is wanted.
 
 ## It runs on every dispatch
 
