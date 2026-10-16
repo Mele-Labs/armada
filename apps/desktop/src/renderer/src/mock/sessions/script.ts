@@ -798,7 +798,7 @@ export function sessionsStore(
         rows,
         finished,
         ...(finished ? { report: script[script.length - 1]![1] } : {}),
-        model: "claude-opus-5-5",
+        model: "vendor-opus-5-5",
         context: { tokens, window: SUBAGENT_WINDOW },
       };
     },

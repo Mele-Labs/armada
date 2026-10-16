@@ -371,7 +371,7 @@ test("Sessions wired: a subagent's sheet is wide and states its type, its model 
   fleet.subagents["live1"] = {
     rows: [agent("a1", "Reading the runs.")],
     finished: false,
-    model: "claude-opus-5-5-20261001",
+    model: "vendor-opus-5-5",
     context_tokens: 142_000,
     context_window: 200_000,
   };

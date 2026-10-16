@@ -14,7 +14,7 @@ type Story = StoryObj<typeof SubagentMarks>;
 
 /** Both known: the type bare, and the model worded as the Session's composer words it. */
 export const TypeAndModel: Story = {
-  args: { type: "bridge-engineer", model: "claude-opus-5-5-20261001" },
+  args: { type: "bridge-engineer", model: "vendor-opus-5-5" },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("bridge-engineer")).toBeVisible();
     await expect(canvas.getByText("Opus 5.5")).toBeVisible();
