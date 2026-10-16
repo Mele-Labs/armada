@@ -113,6 +113,14 @@
   background: var(--bg-hover);
 }
 
+.armada-dropdown-menu__icon {
+  flex: none;
+}
+
+.armada-dropdown-menu__icon + .armada-dropdown-menu__text {
+  flex: 1;
+}
+
 .armada-dropdown-menu__text {
   min-width: 0;
   overflow: hidden;

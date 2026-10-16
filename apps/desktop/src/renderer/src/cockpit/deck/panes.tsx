@@ -22,6 +22,7 @@ import { ByHandActs } from "../../merge-by-hand";
 import type { CockpitProps } from "./props";
 import { viewsOf } from "../../merge-line";
 import { SessionView } from "../../sessions";
+import type { Hosts } from "../../session-view/SessionWorkspace";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import type { Acts } from "./acts";
 import { clockOf, heldFor, shortOf, spanOf, type BayView, type Holder as LedgerHolder, type Ledger } from "./bays";
@@ -207,11 +208,11 @@ export function JobPane({ subject, props, acts, onPr, call, mission }: { subject
 /**
  * A Session on the stage is the panel the Sessions window draws: its head with the state, the context figure and the rename, its
  * thread and its box. **Its ledger is drawn in the deck's right column**, in `ledger`, where the Bays were. The deck's own acts
- * (the pull request, Stop, Open the page, Back) ride in the head after the ones the window has, and the clash mark is the head's.
+ * (Open the page, Stop) lead the head's menu, Back is the head's far right item, and the pull request is the ledger's, not the head's.
  * `openSession` opens another Session where this one is, as the list does. No call strip: what the Session asks is in its own thread
  * and Needs you band.
  */
-export function SessionPane({ subject, props, acts, onPr, ledger, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; onPr: (pr: Pr) => void; ledger: HTMLElement | null; openSession: (id: string) => void }) {
+export function SessionPane({ subject, props, acts, ledger, hosts, openSession }: { subject: Subject; props: CockpitProps; acts: Acts; ledger: HTMLElement | null; hosts: Hosts | undefined; openSession: (id: string) => void }) {
   const session = useSessions().find((one) => one.id === subject.id);
   const draft = useSessionsDraft();
   // Open on the stage is being in it, as on the Sessions page: its reply is read, so its call does not come back.
@@ -232,12 +233,12 @@ export function SessionPane({ subject, props, acts, onPr, ledger, openSession }:
         repositories={state.holds.repositories ?? []}
         deck={{
           ledger,
-          acts: (
-            <>
-              <SubjectActs subject={subject} acts={acts} onPr={onPr} />
-              <BackAct />
-            </>
-          ),
+          ...(hosts === undefined ? {} : { hosts }),
+          acts: [
+            { id: "open", label: "Open the Session page", icon: ExternalLink, run: () => acts.open(subject) },
+            ...(subject.stoppable && acts.can.stop(subject) ? [{ id: "stop", label: "Stop", icon: Square, run: () => acts.stop(subject) }] : []),
+          ],
+          back: <BackAct />,
         }}
       />
     </section>

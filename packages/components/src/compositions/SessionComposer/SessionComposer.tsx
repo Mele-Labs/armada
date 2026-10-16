@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { Cpu, File, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
+import { Cpu, File, Lightbulb, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { useKept, writeKept } from "../../keep";
@@ -107,6 +107,8 @@ export type SessionComposerProps = {
   resolvedModel?: string;
   efforts: readonly string[];
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
+  /** A value the proposer picked and the person has not changed: a glyph beside it says so, and goes once he changes it. */
+  proposed?: { model?: boolean; effort?: boolean };
   /** What `/` offers. */
   commands: readonly { name: string; says: string }[];
   /** What `@` offers as chips, grouped by kind: other Sessions, then Jobs. */
@@ -258,6 +260,7 @@ export function SessionComposer({
   resolvedModel,
   efforts,
   onTune,
+  proposed,
   commands,
   taggable,
   searchFiles,
@@ -616,7 +619,7 @@ export function SessionComposer({
         )}
         {textOnly ? null : (
           <>
-            <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
+            <Pick Glyph={Cpu} compact={compact} proposed={proposed?.model === true} label="The model the next turn runs on">
               <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
                 <option value="">{defaultModel === undefined ? (compact ? "Auto" : "Model") : compact ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel) : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`}</option>
                 {models.map((one) => (
@@ -626,7 +629,7 @@ export function SessionComposer({
                 ))}
               </Select>
             </Pick>
-            <Pick Glyph={Zap} compact={compact} label="The effort the next turn takes">
+            <Pick Glyph={Zap} compact={compact} proposed={proposed?.effort === true} label="The effort the next turn takes">
               <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
                 <option value="">{compact ? "Auto" : "Effort"}</option>
                 {efforts.map((one) => (
@@ -705,12 +708,19 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
  * A select with its tooltip, and below the breakpoint a glyph in front of it
  * naming what it sets, so the row is a glyph and a value and not a label.
  */
-function Pick({ Glyph, compact, label, children }: { Glyph: LucideIcon; compact: boolean; label: string; children: ReactNode }) {
+function Pick({ Glyph, compact, label, proposed = false, children }: { Glyph: LucideIcon; compact: boolean; label: string; proposed?: boolean; children: ReactNode }) {
   return (
     <Tooltip label={label}>
       <span className="armada-session-composer__pick" data-compact={compact || undefined}>
         {compact ? <Glyph size={12} strokeWidth={2} aria-hidden className="armada-session-composer__pick-glyph" /> : null}
         {children}
+        {proposed ? (
+          <Tooltip label="Picked by the proposer">
+            <span className="armada-session-composer__proposed" role="img" aria-label="Picked by the proposer">
+              <Lightbulb size={12} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : null}
       </span>
     </Tooltip>
   );
