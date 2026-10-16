@@ -45,6 +45,11 @@ const DIFF: &str = "The work so far, as a diff against the branch it will land o
 
 const NO_DIFF: &str = "No file has changed yet.";
 
+/// What a Session's judge is told beside the answer format: its refusal is read in three short parts,
+/// by the person, and not as a report. A Job's judge is not told this.
+const BREVITY: &str = "Write each of the three lines as one short sentence. Do not restate the \
+task, the plan or the diff: say only what is missing or wrong.";
+
 impl Brief {
     /// Assemble the question for one criterion about a Session's work.
     pub fn about_work(
@@ -80,6 +85,8 @@ impl Brief {
         laid.loose(&criterion.question);
         laid.loose("\n\n");
         laid.loose(wording.get(JUDGE_ANSWER));
+        laid.loose("\n\n");
+        laid.loose(BREVITY);
         let (question, regions) = laid.done();
         Brief { criterion: criterion.criterion_id.clone(), question, regions, asks_risk: false }
     }

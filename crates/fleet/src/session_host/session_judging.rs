@@ -289,9 +289,9 @@ where
             }
             let part = |label: &str, said: Option<String>| said.map(|said| format!("{label}: {said}"));
             let text = [
-                part("Expected", judged.expected),
-                part("Produced", judged.produced),
-                part("Consequence", judged.consequence),
+                part("Expected", judged.expected.clone()),
+                part("Produced", judged.produced.clone()),
+                part("Consequence", judged.consequence.clone()),
             ]
             .into_iter()
             .flatten()
@@ -300,6 +300,9 @@ where
             concerns.push(KeptConcern {
                 n: 0,
                 text,
+                expected: judged.expected,
+                produced: judged.produced,
+                consequence: judged.consequence,
                 since: String::new(),
                 from_step: None,
                 cites,

@@ -107,6 +107,9 @@ export function concernsOf(items: readonly WaitingItem[] | undefined): WorkConce
       id: one.id,
       text: one.text,
       ...(one.concern?.from.kind === "step" ? { step: one.concern.from.label } : {}),
+      ...(one.concern?.expected === undefined ? {} : { expected: one.concern.expected }),
+      ...(one.concern?.produced === undefined ? {} : { produced: one.concern.produced }),
+      ...(one.concern?.consequence === undefined ? {} : { consequence: one.concern.consequence }),
       ...(one.cites === undefined || one.cites.length === 0 ? {} : { cites: one.cites.map((cite) => (cite.line === undefined ? cite.path : `${cite.path}:${cite.line}`)) }),
     }));
 }

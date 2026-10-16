@@ -15,6 +15,9 @@ fn concern(text: &str, step: Option<(u32, &str)>) -> KeptConcern {
             KeptCite { region: "diff".into(), path: Some("crates/store/src/lib.rs".into()), from_line: 12, to_line: 14 },
             KeptCite { region: "plan".into(), path: None, from_line: 3, to_line: 3 },
         ],
+        expected: Some("A diff touching dispatch-panel".into()),
+        produced: Some("No file has changed yet".into()),
+        consequence: None,
         settled: None,
     }
 }
@@ -47,6 +50,11 @@ fn a_concern_is_numbered_after_the_last_keeps_its_cites_and_settles_once() {
     assert_eq!(held[1].from_step, Some((1, "Implement".to_string())));
     assert_eq!(held[1].cites, concern("", None).cites, "the path and the lines come back as they went in");
     assert_eq!(held[0].settled, None);
+    assert_eq!(
+        (held[1].expected.as_deref(), held[1].produced.as_deref(), held[1].consequence.as_deref()),
+        (Some("A diff touching dispatch-panel"), Some("No file has changed yet"), None),
+        "the parts come back as they went in, and a part left out stays absent"
+    );
 
     assert!(store.settle_session_concern("s1", 1, "sent", "2026-10-16T09:05:00.000Z").unwrap());
     assert!(!store.settle_session_concern("s1", 1, "dismissed", "2026-10-16T09:06:00.000Z").unwrap(), "settled once");

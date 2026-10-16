@@ -56,6 +56,15 @@ pub struct JudgeConcern {
     /// Absent while the concern waits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settled: Option<ConcernSettled>,
+    /// The judge's refusal in its three parts, which `text` joins: what should be seen, what was seen
+    /// instead, and what the difference does. Each is one short sentence. Absent on a concern kept
+    /// before the parts were, which Bridge draws from `text`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub produced: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consequence: Option<String>,
 }
 
 /// The outcome of the last reading. **Zero concerns is how Bridge says "No concerns".**

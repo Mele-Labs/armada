@@ -13,7 +13,14 @@ export type ConcernFrom = { kind: "tile" } | { kind: "step"; index: number; labe
 export type ConcernHow = "sent" | "dismissed";
 
 /** What a `judge` waiting item carries beside its text. `settled` is absent while the concern waits. */
-export type JudgeConcern = { from: ConcernFrom; settled?: { how: ConcernHow; at: string } };
+export type JudgeConcern = {
+  from: ConcernFrom;
+  settled?: { how: ConcernHow; at: string };
+  /** The refusal in three short sentences, which `text` joins: what should be seen, what was seen instead, what the difference does. Absent on a concern kept before they were. */
+  expected?: string;
+  produced?: string;
+  consequence?: string;
+};
 
 /** A place a concern points at: a file and, where the quotation lands on a line of it, the line as the change leaves the file. */
 export type WaitingCite = { path: string; line?: number };

@@ -70,3 +70,10 @@ fn a_refusal_that_quotes_words_the_brief_never_held_is_unreadable_and_not_a_conc
     );
     assert!(matches!(judged, Err(Unreadable::RefusalQuotesWhatIsNotThere { .. })), "{judged:?}");
 }
+
+#[test]
+fn a_session_judge_is_asked_for_each_part_of_a_refusal_in_one_short_sentence() {
+    let text = brief("Fix the bound (open)", DIFF).question().to_string();
+    assert!(text.contains("one short sentence"), "{text}");
+    assert!(text.trim_end().ends_with("say only what is missing or wrong."), "{text}");
+}

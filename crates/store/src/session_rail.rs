@@ -40,6 +40,11 @@ pub struct KeptConcern {
     /// The step it came from, and its label as it read then. Absent for the tile.
     pub from_step: Option<(u32, String)>,
     pub cites: Vec<KeptCite>,
+    /// What the judge said should be seen, what it saw instead and what that does. `text` is these
+    /// joined, which is what the agent is sent. Absent on a concern kept before the parts were.
+    pub expected: Option<String>,
+    pub produced: Option<String>,
+    pub consequence: Option<String>,
     /// `sent` or `dismissed`, and when. Absent while it waits.
     pub settled: Option<(String, String)>,
 }
@@ -93,7 +98,11 @@ fn cites_of(text: &str) -> Vec<KeptCite> {
         .collect()
 }
 
-const CONCERN: &str = "n, text, since, from_step, from_label, cites, how, settled_at";
+const CONCERN: &str = "n, text, since, from_step, from_label, cites, how, settled_at, expected, produced, consequence";
+
+fn part(row: &rusqlite::Row<'_>, at: usize) -> rusqlite::Result<Option<String>> {
+    Ok(Some(row.get::<_, String>(at)?).filter(|said| !said.is_empty()))
+}
 
 fn concern(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptConcern> {
     let from: Option<u32> = row.get(3)?;
@@ -107,6 +116,9 @@ fn concern(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptConcern> {
         since: row.get(2)?,
         from_step: from.map(|step| (step, label)),
         cites: cites_of(&cites),
+        expected: part(row, 8)?,
+        produced: part(row, 9)?,
+        consequence: part(row, 10)?,
         settled: how.zip(at),
     })
 }
@@ -157,8 +169,8 @@ impl Store {
             .query_row("SELECT COALESCE(MAX(n), 0) + 1 FROM session_concerns WHERE session_id = ?1", [session_id], |row| row.get(0))
             .map_err(keeping)?;
         kept.execute(
-            "INSERT INTO session_concerns (session_id, n, text, since, from_step, from_label, cites)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO session_concerns (session_id, n, text, since, from_step, from_label, cites, expected, produced, consequence)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 session_id,
                 n,
@@ -166,7 +178,10 @@ impl Store {
                 new.since,
                 new.from_step.as_ref().map(|(step, _)| step),
                 new.from_step.as_ref().map(|(_, label)| label.as_str()).unwrap_or(""),
-                cites_text(&new.cites)
+                cites_text(&new.cites),
+                new.expected.as_deref().unwrap_or(""),
+                new.produced.as_deref().unwrap_or(""),
+                new.consequence.as_deref().unwrap_or("")
             ],
         )
         .map_err(keeping)?;

@@ -66,6 +66,9 @@ pub(crate) fn concern_item(session: &str, kept: &KeptConcern) -> WaitingItem {
                 how: if how == "sent" { ConcernHow::Sent } else { ConcernHow::Dismissed },
                 at: Instant::carried(at),
             }),
+            expected: kept.expected.clone(),
+            produced: kept.produced.clone(),
+            consequence: kept.consequence.clone(),
         }),
     }
 }

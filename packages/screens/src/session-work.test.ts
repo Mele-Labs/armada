@@ -169,6 +169,13 @@ describe("a judge's concerns", () => {
     expect(from({ from: { kind: "tile" } })?.step).toBeUndefined();
   });
 
+  it("carry the refusal's parts where the record has them, and none where it was kept as text alone", () => {
+    const parts = { from: { kind: "tile" } as const, expected: "A diff touching dispatch-panel", produced: "No file has changed yet", consequence: "Nothing reflects the feature" };
+    expect(concernsOf([item("c1", "judge", { concern: parts })])[0]).toMatchObject({ expected: "A diff touching dispatch-panel", produced: "No file has changed yet", consequence: "Nothing reflects the feature" });
+    const old = concernsOf([item("c2", "judge", { concern: { from: { kind: "tile" } } })])[0]!;
+    expect(["expected", "produced", "consequence"].filter((key) => key in old)).toEqual([]);
+  });
+
   it("show the tile working while Fleet says a judge is reading", () => {
     expect(workOf(record({ judging: true }), beside())?.judging).toBe(true);
     expect(workOf(record(), beside())?.judging).toBeUndefined();

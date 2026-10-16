@@ -154,7 +154,7 @@ export type WorkDrone = { id: string; agent?: string; task?: string; path: strin
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
 
 /** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
-export type WorkConcern = { id: string; /** The step it was raised after, where a boundary judge raised it; the Judge tile's carry none. */ step?: string; judge?: string; text: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
+export type WorkConcern = { id: string; /** The step it was raised after, where a boundary judge raised it; the Judge tile's carry none. */ step?: string; judge?: string; text: string; /** The refusal in its parts, which `text` joins: what should be seen, what was seen instead, and what the difference does. Absent on a concern kept before they were. */ expected?: string; produced?: string; consequence?: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
 
 /** A workflow a Session may follow: its steps in order. */
 export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };

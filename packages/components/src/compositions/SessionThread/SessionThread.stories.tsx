@@ -659,12 +659,13 @@ export const LivePlanKeepsTheLastMessageInView: Story = {
     await expect(view.height).toBeGreaterThan(60);
     await expect(row.top).toBeGreaterThanOrEqual(view.top - 1);
     await expect(row.bottom).toBeLessThanOrEqual(view.bottom + 1);
-    const calls = thread.nextElementSibling as HTMLElement;
+    const calls = canvas.getByRole("region", { name: "Pinned calls" });
+    const body = calls.querySelector<HTMLElement>(".armada-session-thread__calls-body")!;
     const whole = thread.parentElement!.getBoundingClientRect().height;
-    await expect(calls.getBoundingClientRect().height).toBeLessThanOrEqual(whole * 0.41);
+    await expect(body.getBoundingClientRect().height).toBeLessThanOrEqual(whole * 0.41);
     const plan = canvas.getByRole("article", { name: "Plan to approve" });
     await expect(plan.getBoundingClientRect().height).toBeLessThanOrEqual(240.5);
-    await expect(calls.scrollHeight).toBeGreaterThan(calls.clientHeight);
+    await expect(body.scrollHeight).toBeGreaterThan(body.clientHeight);
   },
 };
 
@@ -702,6 +703,58 @@ export const JudgeConcernSaysWhatItIs: Story = {
     await expect(within(canvas.getByRole("group", { name: "Judge: A queued Session that is taken off is not told." })).getByText("Judge tile")).toBeInTheDocument();
     await userEvent.hover(within(card).getByRole("button", { name: "Send to session" }));
     await expect((await canvas.findAllByText("Goes to the agent as your message")).length).toBeGreaterThan(0);
+  },
+};
+
+/**
+ * A concern with its parts is a claim: the consequence as the headline, then Expected and Found, each clamped to two lines with More
+ * for the rest, so a row that fits has no More. A concern kept as text alone is its lines, in the same prose.
+ */
+export const JudgeConcernIsAClaim: Story = {
+  args: {
+    rows: LIVE_ROWS,
+    concerns: [
+      {
+        id: "c1",
+        text: "Expected: x\nProduced: y\nConsequence: z",
+        consequence: "Nothing in the dispatch panel reflects the feature, so a person starting a Session from it cannot tell it exists.",
+        expected: "A diff touching dispatch-panel that adds the queue act and the keys that start it, with a test beside each change, the registry rows those keys read from, and the generated vocabulary rebuilt from them, so the panel offers Queue wherever it offers Start.",
+        produced: "No file has changed yet.",
+        cites: ["apps/desktop/src/renderer/src/dispatch-panel/dispatching.tsx"],
+      },
+    ],
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ display: "flex", height: "calc(var(--space-12) * 14)", width: "calc(var(--space-12) * 10)", background: "var(--bg-raised)" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("group", { name: /^Judge: / });
+    await expect(within(card).getByText(/^Nothing in the dispatch panel reflects the feature/)).toBeVisible();
+    await expect(within(card).getByText("Expected")).toBeVisible();
+    await expect(within(card).getByText("Found")).toBeVisible();
+    await expect(within(card).getByText("No file has changed yet.")).toBeVisible();
+    // Only the long row is clamped, and More opens it whole.
+    await expect(within(card).getAllByRole("button", { name: /^More of / })).toHaveLength(1);
+    const long = within(card).getByText(/^A diff touching dispatch-panel/);
+    const clamped = long.getBoundingClientRect().height;
+    await userEvent.click(within(card).getByRole("button", { name: "More of expected" }));
+    await expect(long.getBoundingClientRect().height).toBeGreaterThan(clamped);
+    await userEvent.click(within(card).getByRole("button", { name: "Less of expected" }));
+    await expect(long.getBoundingClientRect().height).toBe(clamped);
+  },
+};
+
+/** A concern kept before its parts were is its text, on its lines, in prose. */
+export const JudgeConcernWithoutPartsIsItsLines: Story = {
+  args: { rows: LIVE_ROWS, concerns: [{ id: "c1", text: "Expected: a test beside the change\nProduced: none\nConsequence: the change is unchecked" }] },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("group", { name: /^Judge: / });
+    await expect(within(card).getByText("Consequence: the change is unchecked")).toBeVisible();
+    await expect(within(card).queryByRole("button", { name: /^More of / })).toBeNull();
   },
 };
 
