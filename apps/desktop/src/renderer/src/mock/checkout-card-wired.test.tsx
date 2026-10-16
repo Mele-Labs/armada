@@ -62,3 +62,13 @@ test("a path in Uncommitted opens the change Fleet reads for it, and a second pr
   await expect.element(section.getByText("+auto_merge: checks-pass")).not.toBeInTheDocument();
   expect(read.mock.calls.length).toBeLessThanOrEqual(1);
 });
+
+test("a change Fleet cut is drawn with one line after it saying how much", async () => {
+  const { app, section } = await opened();
+  vi.spyOn(app.api, "readCheckoutDiff").mockResolvedValue({
+    ok: true,
+    value: { diff: "diff --git a/armada.yml b/armada.yml\n--- a/armada.yml\n+++ b/armada.yml\n@@ -1,1 +1,3 @@\n x: 1\n+y: 2\n+z: 3\n", cut: true },
+  });
+  await userEvent.click(section.getByRole("button", { name: "armada.yml" }));
+  await expect.element(section.getByRole("note")).toHaveTextContent("First 4 lines");
+});
