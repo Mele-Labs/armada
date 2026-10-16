@@ -3,10 +3,9 @@
 // plays it, and `session-check-live-log.test.tsx` holds that each button reaches its route.
 
 import type { Scenario } from "../moment";
+import { stopsAsked } from "../session-check-stops";
 import { s203SessionChecks } from "./session-checks";
 
-/** Each stop the panel asked, for the test to read. Emptied as the scenario starts. */
-export const stopsAsked: { run: number; force: boolean }[] = [];
 
 const FIRST = ["$ vitest run --project app_smoke", " RUN  v3.2.4"];
 const ARRIVING = [" ✓ src/renderer/src/mock/walks.test.tsx (12 tests)", " ✓ src/renderer/src/mock/sessions.test.tsx (4 tests)"];

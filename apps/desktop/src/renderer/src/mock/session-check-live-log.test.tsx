@@ -4,7 +4,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { stopsAsked } from "./scenarios/session-check-live-log";
+import { stopsAsked } from "./session-check-stops";
 import { mount, onScreen, toPlace, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
