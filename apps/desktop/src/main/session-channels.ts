@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissWaiting, RenameSession, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ApprovePlan, ChosenHold, ClaimPullRequest, DismissConcern, DismissWaiting, JudgeSession, RenameSession, SendConcern, SendPlanChanges, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { HELM_CALL_ANSWERS } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress, PullRequestWrite } from "../shared/api/sessions";
@@ -79,6 +79,18 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.sendPlanChanges, (_event, changes: SendPlanChanges) => {
     if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unread;
     return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.judgeSession, (_event, judge: JudgeSession) => {
+    if (!text(judge?.session_id)) return unread;
+    return connection()?.sessions.judgeSession({ session_id: judge.session_id }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.sendConcern, (_event, send: SendConcern) => {
+    if (!text(send?.session_id) || !text(send.item_id)) return unread;
+    return connection()?.sessions.sendConcern({ session_id: send.session_id, item_id: send.item_id }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.dismissConcern, (_event, dismiss: DismissConcern) => {
+    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unread;
+    return connection()?.sessions.dismissConcern({ session_id: dismiss.session_id, item_id: dismiss.item_id }) ?? unsent;
   });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unread;

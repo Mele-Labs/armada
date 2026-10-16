@@ -192,3 +192,36 @@ export const RedirectAlreadyWaiting: Story = {
     await expect(canvas.getByText(/Sent, waiting for the drone/)).toBeInTheDocument();
   },
 };
+
+const SENT = { id: "sending:1", at: "14:41:07", text: "Draw the empty list too." };
+
+/** The redirect just sent is the Session thread's own row above the field, and Fleet has not taken it yet. */
+export const RedirectSending: Story = {
+  args: { sent: { ...SENT, delivery: "sending" } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(SENT.text)).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Sending" })).toBeVisible();
+    await expect(canvas.getByRole("textbox")).toBeEnabled();
+  },
+};
+
+/** Fleet did not take it: the cross, and a Retry that sends the same words again. */
+export const RedirectNotSent: Story = {
+  args: { sent: { ...SENT, delivery: "failed" }, onRetry: fn() },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("img", { name: "Not sent" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Retry" }));
+    await expect(args.onRetry).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Fleet took it: the row stays, at rest, with no mark and no Retry, and the waiting sentence is not drawn beside it. */
+export const RedirectDelivered: Story = {
+  args: { sent: SENT, waiting: "Sent, waiting for the drone." },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(SENT.text)).toBeVisible();
+    await expect(canvas.queryByRole("img", { name: "Sending" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Retry" })).toBeNull();
+    await expect(canvas.queryByText(/waiting for the drone/)).toBeNull();
+  },
+};

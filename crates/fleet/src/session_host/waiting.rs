@@ -66,11 +66,15 @@ pub(crate) struct WaitingReads {
     turn_end: Option<(String, String)>,
     /// The version and recording time of the plan the person has not approved.
     plan: Option<(u32, String)>,
+    /// What the Session's judges raised, waiting and settled.
+    concerns: Vec<store::KeptConcern>,
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
 pub(crate) struct Waited {
     pub items: Vec<WaitingItem>,
+    /// The concerns the person has settled, which wait on nothing.
+    pub settled: Vec<WaitingItem>,
     pub standing: ipc::SessionStanding,
 }
 
@@ -88,6 +92,7 @@ pub(crate) fn waiting_reads(
             .session_plan(&session.id)?
             .filter(|plan| plan.approved_at.is_none())
             .map(|plan| (plan.version, plan.recorded_at)),
+        concerns: store.session_concerns(&session.id)?,
     })
 }
 
@@ -150,6 +155,8 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             },
             steps: Vec::new(),
             place: None,
+            concern: None,
+            cites: Vec::new(),
         };
     }
     WaitingItem {
@@ -170,6 +177,8 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             .collect(),
         steps: Vec::new(),
         place: None,
+        concern: None,
+        cites: Vec::new(),
     }
 }
 
@@ -205,6 +214,8 @@ pub(crate) fn merged(
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
+        concern: None,
+        cites: Vec::new(),
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -238,6 +249,8 @@ pub(crate) fn merged(
                 .collect(),
             steps: one.steps,
             place: None,
+            concern: None,
+            cites: Vec::new(),
         })
         .collect();
     items.extend(
@@ -266,7 +279,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, done, turn_end, plan } = reads;
+        let WaitingReads { kept, rows, dismissed, done, turn_end, plan, concerns } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -354,6 +367,8 @@ where
                     options: Vec::new(),
                     steps: Vec::new(),
                     place: None,
+                    concern: None,
+                    cites: Vec::new(),
                 });
             }
         }
@@ -407,6 +422,8 @@ where
                             options: Vec::new(),
                             steps: Vec::new(),
                             place: None,
+                            concern: None,
+                            cites: Vec::new(),
                         }),
                 );
             }
@@ -414,6 +431,12 @@ where
             items.extend(
                 plan.map(|(version, since)| super::planning::plan_item(&session.id, version, &since))
                     .filter(|item| !dismissed.contains(&item.id)),
+            );
+            items.extend(
+                concerns
+                    .iter()
+                    .filter(|one| one.settled.is_none())
+                    .map(|one| crate::rail_keeping::concern_item(&session.id, one)),
             );
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::WindowAsk {
@@ -438,6 +461,8 @@ where
                         options,
                         steps: Vec::new(),
                         place: Some(place),
+                        concern: None,
+                        cites: Vec::new(),
                     })
                 }
                 _ => None,
@@ -446,7 +471,12 @@ where
             // reaches the person. A reply is a standing, not an item.
             items.extend(super::standing::derived(&seen));
         }
-        Waited { items, standing }
+        let settled = concerns
+            .iter()
+            .filter(|one| one.settled.is_some())
+            .map(|one| crate::rail_keeping::concern_item(&session.id, one))
+            .collect();
+        Waited { items, settled, standing }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -732,6 +762,10 @@ where
                 SESSION_WAITING_EMPTY,
                 "a plan is approved, or sent changes, from its own card",
             )),
+            WaitingSource::Judge => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a concern is sent to the agent, or dismissed, from its own card",
+            )),
         };
         if let (Ok(record), false) = (
             &settled,
@@ -769,6 +803,12 @@ where
                 .find(|one| one.id == dismiss.item_id)
                 .ok_or_else(|| self.settled_already())?
         };
+        if item.source == WaitingSource::Judge {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a concern is dismissed from its own card, which keeps it on the record as settled",
+            ));
+        }
         let _settling = self
             .hosts()
             .settling(&id, &item.id)
@@ -786,7 +826,7 @@ where
     }
 
     /// An item no longer waiting, or one another answer or removal is being delivered for.
-    fn settled_already(&self) -> Refusal {
+    pub(crate) fn settled_already(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_WAITING_UNHELD,
             "nothing is waiting under that item. It was settled already, or the session stopped waiting",
