@@ -17,7 +17,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mount, unmountAfterEach } from "@armada/desktop/mock";
+import { mount, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
@@ -47,11 +47,13 @@ const INSET = 16;
  */
 const LEVEL = 2;
 
-/** The composer, opened the way a person opens it: the title row's one bar, and ⇧↵ for the full composer. */
+/**
+ * The composer, opened as a moment that has already begun a request opens it. The one bar no longer reaches it
+ * (`n` and New Job open the Dispatch sheet), so a Sketch, an issue reference and a moment's draft are the ways in.
+ */
 async function composing(): Promise<void> {
-  mount("every-state", SLICES);
-  await page.getByRole("button", { name: /^Search, or describe work/ }).click();
-  await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
+  const base = scenarioNamed("every-state")!;
+  mount({ ...base, draft: { ...base.draft, prompt: "" } }, SLICES);
   await expect.element(page.getByText(ASK)).toBeVisible();
 }
 

@@ -689,24 +689,6 @@
   .armada-call { animation: none; }
 }
 
-@keyframes armada-compose-grow {
-  from {
-    opacity: 0;
-    transform: scaleY(0.6);
-  }
-}
-
-.armada-screen__pane--grown {
-  transform-origin: top;
-  animation: armada-compose-grow var(--duration-sheet) var(--ease);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-screen__pane--grown {
-    animation: none;
-  }
-}
-
 /* ---- job detail --------------------------------------------------------- */
 
 /* Mounted in the shell, the mount already keeps the gap under the title bar

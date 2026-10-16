@@ -323,7 +323,7 @@ shortcut = "n"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row. From 8 Oct 2026 `n`, and `⌘N` from inside a field, open the title bar's one bar with the dispatch row leading from every surface, where a Job, a Session or an Autopilot is chosen; the panel grows down from the bar's field once the row is taken. The Cockpit's own dispatch bar was removed on 13 Oct 2026."
+notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row. From 15 Oct 2026 `n`, and `⌘N` from inside a field, open the Dispatch panel directly from every surface, a centred sheet over the window with the caret in the request, where a Job, a Session or an Autopilot is chosen; the palette is search only. The Cockpit's Dispatch tile and every New job entry open the same sheet. The Cockpit's own dispatch bar was removed on 13 Oct 2026."
 
 [actions.observe]
 kind = "Action"
@@ -625,11 +625,11 @@ tier = "Contextual"
 verb = "Go to a panel"
 icon = ""
 icon_absent = "undecided"
-shortcut = "l b c q f a"
+shortcut = "l b c q f a d"
 scope = "deck"
 destructive = false
 confirms = false
-notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot. Six letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
+notes = "Moves focus to a panel of the flight deck: `l` the list of Jobs and Sessions, `b` the bays, `c` the incoming calls, `q` the merge queue, `f` the flight controls, `a` Autopilot, `d` the Dispatch tile. Seven letters in one row because they are one act with a target, as `bridge_surfaces` is one row for a rail. The deck's own scope, `deck`, is where it listens: `l` and `b` are also `call_later` and `call_best`, which hold their keys only while a call pane is in front, and the deck stands down for it; `c` is `copy_debug_info` on a list, and the deck is not one. A panel's key is its slot in this row, so Settings → Keyboard moves the key and the deck follows. The map is not here: it is `dashboard_view`'s `m`, which the deck reads as the map."
 
 [actions.deck_tile]
 kind = "Action"
@@ -711,7 +711,19 @@ shortcut = "⌘N"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "The same act as `n`, from inside a field where `n` would type: it opens the title bar's one bar with the dispatch row leading. A modifier means this tier, so `n` alone stays suppressed in a field."
+notes = "The same act as `n`, from inside a field where `n` would type: it opens the Dispatch panel. A modifier means this tier, so `n` alone stays suppressed in a field."
+
+[actions.dispatch_repository]
+kind = "Action"
+tier = "Global"
+verb = "Choose a repository to dispatch to"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥1–⌥9"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "In the Dispatch panel, chooses the repository whose chip carries that number: the first nine of the row, the rail's repository first, then the one the words name, then the ones picked last. Where none is chosen yet it also sends, as a press on the chip does. One row over the digits because the rule is the chip's place in the row. A modifier means this tier, so it works from inside the request. Read by the key's place on the keyboard, since Option changes the character a digit types. Added 15 Oct 2026 with the one Dispatch panel."
 
 [actions.call_reply]
 kind = "Action"
