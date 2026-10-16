@@ -679,6 +679,78 @@ destructive = false
 confirms = false
 notes = "The first key of a two key chord: `g` and then `c` the Cockpit, `j` Jobs, `s` Sessions or `y` System. The second key is read only for the moment after `g` and is not a binding of its own, which is why the row is `g` and not four keys: the keymap holds a key and not a sequence. Not on a Job's page, where `g` is `open_stage`. `g` is `call_quick` while a call is in front."
 
+[actions.review_panel]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to a part of Reviews"
+icon = ""
+icon_absent = "undecided"
+shortcut = "l r f"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Moves focus to a part of the Reviews tab: `l` the list of pull requests, `r` the pull request open in the reader, `f` the review tools at its foot. The deck's own letters for the same places (`l` and `f` of `deck_panel`), in the scope of the tab that has the same three parts. Three letters in one row because they are one act with a target; a part's key is its slot in this row, so Settings → Keyboard moves the key and the tab follows."
+
+[actions.review_lists]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the lists"
+icon = ""
+icon_absent = "undecided"
+shortcut = "L"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Opens the dropdown that chooses the list: Requested for Review, Team, Assigned, My PRs and the finds he saved."
+
+[actions.review_search]
+kind = "Action"
+tier = "Contextual"
+verb = "Natural Search"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Puts up the box a find is written in, in place of the list. Mock-backed until agent runs land: nothing is searched on the forge."
+
+[actions.review_quick]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to the quick actions"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Q"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Moves focus to the bar of explanations above the description, for the pull request that is open. Mock-backed until agent runs land."
+
+[actions.review_ask]
+kind = "Action"
+tier = "Contextual"
+verb = "Ask about the pull request"
+icon = ""
+icon_absent = "undecided"
+shortcut = "A"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Moves focus to the box at the foot of the reader where a question about the open pull request is written. Mock-backed until agent runs land."
+
+[actions.review_description]
+kind = "Action"
+tier = "Contextual"
+verb = "Show the description"
+icon = ""
+icon_absent = "undecided"
+shortcut = "D"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Shows or hides the description of the open pull request, which tucks away once an explanation is chosen."
+
 [actions.deck_tabs]
 kind = "Action"
 tier = "Global"

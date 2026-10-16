@@ -1468,6 +1468,12 @@ l b c q f a d  go to a panel: list, bays, calls, queue, flight controls, Autopil
 v              switch a Job between mission and canvas   (deck only)
 t              show the timeline   (deck only)
 g              go to a page, then c, j, s or y   (deck only)
+l r f          go to a part of Reviews: the list, the reader, the review tools   (review only)
+L              open the lists   (review only)
+/              Natural Search   (review only)
+Q              go to the quick actions   (review only)
+A              ask about the pull request   (review only)
+D              show the description   (review only)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
@@ -1487,6 +1493,11 @@ never on a call Fleet raises about a state. On a Job's question they answer with
 `mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told.
 `m` shows the map, `w` brings a waiting call back and `?` lists the keys. None is
 a palette row yet: each is read from the Cockpit's own sheet.
+
+**The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
+any list does; the rest are its own: `l r f` go to the list, the reader and the review tools,
+`L` opens the lists, `/` is Natural Search, `Q` the quick actions, `A` the question box and `D` the
+description. They stand down in a text field and while a dialog is up.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a Job in
