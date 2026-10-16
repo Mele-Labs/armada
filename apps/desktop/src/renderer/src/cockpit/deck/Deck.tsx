@@ -155,8 +155,8 @@ function List({ subjects, banding, selected, builds, jobs, onPick }: { subjects:
 }
 
 /**
- * What Fleet has been doing over the last hour, as a graph with no words. **Hovering a column shows its events and pressing it picks
- * the newest**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
+ * What Fleet has been doing over the last hour, as a beeswarm with no words: a dot for each event. **Hovering a dot shows the events
+ * near it and pressing it picks its event**, and the map shows what moved: the drone it is about, ringed, and the rest dimmed.
  */
 function Activity({ props, listed, ship }: { props: CockpitProps; listed: readonly Subject[]; ship: Ship }) {
   const only = useDeck((deck) => deck.only);

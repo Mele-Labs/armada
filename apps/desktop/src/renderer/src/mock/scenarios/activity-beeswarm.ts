@@ -1,8 +1,7 @@
-// The flight deck's Activity chart: the whole ship at rest, with the last hour filled in. Nine Jobs and Sessions work through it in
+// The flight deck's Activity beeswarm: the whole ship at rest, with the last hour filled in. Nine Jobs and Sessions work through it in
 // stretches, some loud (turns and steps) and some quiet (reads, edits and commands), a single event lands in every minute so any
 // point of the hour has something near it, and the ship's own events add what needs him and what failed. Ages are fixed when the page
-// loads and the chart slides on from there, so the walks point at the newest event and not at a named one. Three scenarios
-// share it, one for each take of the chart, and the walk of the same name plays each.
+// loads and the chart slides on from there, so the walks point at the newest event and not at a named one. The walk `activity-beeswarm` plays it.
 
 import type { TimelineEvent, TimelineSubject } from "@armada/protocol";
 
@@ -91,13 +90,9 @@ const EVERY = [clock, notes, gate, fix, cacheKey, audit, cache, reconnect, pause
 // One event in each minute of the hour, so a point of the chart is never empty.
 for (let minute = 0; minute < 60; minute += 1) MORE.push(...stretch(EVERY[minute % EVERY.length]!, minute, minute + 1, 1, minute % 3 === 0 ? 1 : 0));
 
-const chart = (take: "stream" | "beeswarm" | "radial"): Scenario => ({
+export const s252ActivityBeeswarm: Scenario = {
   ...base,
-  name: `activity-${take}`,
-  says: `The flight deck with the last hour of events across nine Jobs and Sessions, the Activity chart as a ${take}`,
+  name: "activity-beeswarm",
+  says: "The flight deck with the last hour of events across nine Jobs and Sessions, for the Activity beeswarm",
   draft: { ...base.draft, events: [...held, ...MORE] },
-});
-
-export const s252ActivityStream = chart("stream");
-export const s252ActivityBeeswarm = chart("beeswarm");
-export const s252ActivityRadial = chart("radial");
+};
