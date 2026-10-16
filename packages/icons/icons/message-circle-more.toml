@@ -19,3 +19,10 @@
     size = "16px"
     status = "Proposed"
     notes = "The message is sent to the Session, or to the Job's Commander. The glyph is the same before and after a press; a sent press takes the accent."
+
+  [[icons.message-circle-more.usage]]
+    means = "Ask for an update: the Plan panel's header band, while the Session has a plan"
+    group = "Session build"
+    size = "16px"
+    status = "Proposed"
+    notes = "The same act and message as the ring's button, `AskUpdate` over `session:<id>`. A press does not fold the panel."

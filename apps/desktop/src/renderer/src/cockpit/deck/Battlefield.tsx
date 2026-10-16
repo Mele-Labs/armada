@@ -19,7 +19,7 @@ import { Doings } from "./Doings";
 import { Drone } from "./Drone";
 import { Lifted } from "./Lifted";
 import { Pins, RouteLegs, tipOf } from "./Route";
-import { Base, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
+import { Base, FileBar, Goal, Hangar, Pad, Payload, Slab } from "./Scene";
 import { onPlane, px, vars } from "./bf-parts";
 import { LOCK_EYE, MISSION_EYE, READABLE, WORLD, ZOOM_STEP, edgeOf, held as limited, homeOf, limitsOf, lookingAt, marksOf, reachOf, type Cam } from "./camera";
 import { loopsOf, type CallTone } from "./field";
@@ -385,6 +385,10 @@ export function Battlefield({ repos, drones, pads, goals, prs, trails, plays, fa
                 );
               }),
             )}
+
+            {[...layout.bars.values()].map((bar) => (
+              <FileBar key={bar.path} bar={bar} height={heights.get(bar.tile.path) ?? 0} onTip={showTip} />
+            ))}
 
             <Doings layout={layout} frame={frame} plays={plays} droneBy={droneBy} loops={loops} focus={focus} />
 

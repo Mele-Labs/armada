@@ -268,3 +268,6 @@ a.armada-inline-tag--link:hover {
 a.armada-inline-tag--link > svg {
   color: inherit;
 }
+
+/* A value the proposer picked, until the person changes it. */
+.armada-session-composer__proposed { display: inline-flex; flex: none; align-self: center; margin-left: var(--space-1); color: var(--accent); }

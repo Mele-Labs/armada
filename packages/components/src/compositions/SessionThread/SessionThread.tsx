@@ -1,6 +1,6 @@
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode, Ref, RefObject } from "react";
-import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, LoaderCircle, Play, Reply, Server, Smartphone, SquareTerminal, Wrench, X } from "lucide-react";
+import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref, RefObject } from "react";
+import { AppWindow, ArrowRight, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, ListChecks, LoaderCircle, MessageCircleQuestion, MessageSquare, MoveRight, Pencil, Play, Plus, Reply, Scale, Server, Smartphone, SquareTerminal, Trash2, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -17,7 +17,7 @@ import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
-import { TASK_GLYPH, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
+import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
@@ -86,6 +86,12 @@ export type SessionThreadRow =
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
   | { id: string; at: string; kind: "compaction"; text: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** A value the person changed through a panel, which the agent was told of: an event row in his colour. */
+  | { id: string; at: string; kind: "change"; what: string; from: string; to: string }
+  /** A judge's concern the person dismissed: a settled line, the agent told nothing. */
+  | { id: string; at: string; kind: "concern"; step: string; text: string }
+  /** The changes and notes the person sent on the plan, his message: a line for each, against its group or task. */
+  | { id: string; at: string; kind: "suggest"; lines: readonly { verb: "Renamed" | "Removed" | "Added" | "Moved" | "Subagent" | "Note"; where: string; text?: string; from?: string }[] }
   /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** A command the person ran, which the Session was told: the mark of how it ended, the command, and a fold with the lines the Session was sent. `code` is null where it was stopped. */
@@ -143,8 +149,47 @@ export type AskedQuestion = {
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
 export type QuestionAnswer = { question: string; chosen: string[] };
 
+/**
+ * The plan the agent recorded, drawn as the thread draws a question: a card for the person's press while it waits, and once
+ * approved a record in the line of the thread, after the row `after` that recorded it, with no press left on it.
+ */
+export type PlanApproval = {
+  /** The version the agent recorded, named on the folded line. */
+  version?: number;
+  groups: readonly { id: string; agent: string; title: string; tasks: readonly { id: string; text: string }[] }[];
+  approved: boolean;
+  after?: string;
+  /** What the agent changed since the plan before this one: what is added, renamed (and what it was) and removed. */
+  changes?: readonly { kind: "added" | "renamed" | "removed"; text: string; from?: string }[];
+  /** A sketch drawn with the plan, shown under the groups as a sketch card is and opened as one is. */
+  sketch?: { id: string; title: string; scene: Scene };
+  onApprove: () => void;
+  /** Opens the plan to read in full: a press on the card anywhere but Approve, and on its sketch. Absent leaves the card plain. */
+  onReview?: () => void;
+};
+
+/** A concern a judge raised at a step, waiting on the person: drawn as a card the way a question is. */
+export type ThreadConcern = {
+  id: string;
+  step?: string;
+  judge?: string;
+  /** The refusal as one string, which is what the agent is sent. Drawn on its lines where the parts below are absent. */
+  text: string;
+  /** The refusal in its parts: what should be seen, what was seen instead, and what the difference does. */
+  expected?: string;
+  produced?: string;
+  consequence?: string;
+  cites?: readonly string[];
+};
+
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
+  /** The judge's concerns waiting on the person. Nothing reaches the agent until Send to session; a judge never blocks. */
+  concerns?: readonly ThreadConcern[];
+  onSendConcern?: (id: string) => void;
+  onDismissConcern?: (id: string) => void;
+  /** A plan waiting on the person, or settled. Absent draws none. */
+  approval?: PlanApproval;
   /** Sends a message that did not go again, by its row's id. Absent, a message that did not go draws without the press. */
   onRetry?: (rowId: string) => void;
   /**
@@ -681,6 +726,60 @@ function Row({
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "started") return <StartedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "moved") return <MovedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "change") {
+    return (
+      <li className="armada-session-change" role="region" aria-label={`${row.what} changed`}>
+        <span className="armada-session-lease__eyebrow">{row.what}</span>
+        <span className="armada-session-change__facts">
+          {row.from}
+          <ArrowRight size={12} strokeWidth={2} aria-hidden />
+          {row.to}
+        </span>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </li>
+    );
+  }
+  if (row.kind === "concern") {
+    return (
+      <li className="armada-session-concern-settled" role="region" aria-label="Concern dismissed">
+        <Tooltip label="Judge concern, dismissed">
+          <span role="img" aria-label="Judge concern, dismissed" className="armada-session-concern-settled__mark">
+            <Scale size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <code>{row.step}</code>
+        <span className="armada-session-concern-settled__text">{row.text}</span>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </li>
+    );
+  }
+  if (row.kind === "suggest") {
+    const glyphs = { Renamed: Pencil, Removed: Trash2, Added: Plus, Moved: MoveRight, Subagent: Bot, Note: MessageSquare } as const;
+    return (
+      <li className="armada-session-suggest" role="region" aria-label="Changes to the plan">
+        <span className="armada-session-lease__eyebrow">Plan changes</span>
+        <ul className="armada-session-suggest__lines">
+          {row.lines.map((line, at) => {
+            const Glyph = glyphs[line.verb];
+            return (
+              <li key={at} className="armada-session-suggest__line">
+                <Tooltip label={line.verb}>
+                  <span role="img" aria-label={line.verb} className="armada-session-suggest__verb">
+                    <Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+                <span className="armada-session-suggest__where">{line.where}</span>
+                {line.from === undefined ? null : <s>{line.from}</s>}
+                {line.from !== undefined && line.text !== undefined ? <ArrowRight size={12} strokeWidth={2} aria-hidden /> : null}
+                {line.text === undefined ? null : <span className="armada-session-suggest__text">{line.text}</span>}
+              </li>
+            );
+          })}
+        </ul>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </li>
+    );
+  }
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">
@@ -858,9 +957,308 @@ function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: 
 }
 
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
+/**
+ * The plan as a compact card: each group a closed row (its subagent type, its title and a mark for each task), a small thumbnail of
+ * the sketch drawn with it, and Approve. **A press anywhere on it but Approve opens the plan in full** (`onReview`), where every group is
+ * open and the sketch is large. Short enough that the thread never has to scroll it under the box.
+ */
+function PlanCard({ approval }: { approval: PlanApproval }) {
+  const { approved, onReview } = approval;
+  const [folded, setFolded] = useState(false);
+  const Fold = folded ? ChevronRight : ChevronDown;
+  const stateSaid = approved ? "Plan approved" : "Plan waiting for approval";
+  const StateGlyph = approved ? BadgeCheck : BellRing;
+  const review = onReview === undefined || folded ? undefined : { tabIndex: 0, "data-reviewable": "", onClick: (event: ReactMouseEvent<HTMLElement>) => { if ((event.target as Element).closest("button") === null) onReview(); }, onKeyDown: (event: KeyboardEvent<HTMLElement>) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onReview(); } } };
+  return (
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined} data-folded={folded || undefined} {...review}>
+      <div className="armada-session-thread__plan-head">
+        <button type="button" className="armada-session-thread__plan-band" aria-expanded={!folded} aria-label="Plan" onClick={() => setFolded(!folded)}>
+          <ListChecks size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-session-thread__eyebrow">Plan</span>
+          {approval.version === undefined ? null : <span className="armada-session-thread__plan-version">v{approval.version}</span>}
+          <Tooltip label={stateSaid}>
+            <span className="armada-session-thread__settled" role="img" aria-label={stateSaid} data-state={approved ? "approved" : "waiting"}>
+              <StateGlyph size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+          <Fold className="armada-session-thread__plan-fold" size={12} strokeWidth={2} aria-hidden />
+        </button>
+        {approved || !folded ? null : (
+          <Button size="sm" variant="primary" onClick={approval.onApprove}>
+            Approve
+          </Button>
+        )}
+      </div>
+      {folded ? null : (
+        <>
+      {approval.changes === undefined || approval.changes.length === 0 ? null : (
+        <ul className="armada-session-thread__changes" aria-label="Changed since the last plan">
+          {approval.changes.map((one, at) => (
+            <li key={at} data-kind={one.kind}>
+              <Tooltip label={one.kind === "added" ? "Added" : one.kind === "renamed" ? "Renamed" : "Removed"}>
+                <span role="img" aria-label={one.kind === "added" ? "Added" : one.kind === "renamed" ? "Renamed" : "Removed"}>
+                  {one.kind === "added" ? <Plus size={12} strokeWidth={2} aria-hidden /> : one.kind === "renamed" ? <Pencil size={12} strokeWidth={2} aria-hidden /> : <Trash2 size={12} strokeWidth={2} aria-hidden />}
+                </span>
+              </Tooltip>
+              <span className="armada-session-thread__change-text">
+                {one.from === undefined ? null : <s>{one.from}</s>}
+                {one.kind === "removed" ? <s>{one.text}</s> : <span>{one.text}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="armada-session-thread__plan-body">
+        <ul className="armada-session-thread__groups">
+          {approval.groups.map((group) => (
+            <li key={group.id} className="armada-session-thread__group">
+              <span className="armada-session-thread__group-title">{group.title}</span>
+              {approved ? null : (
+                <span className="armada-session-thread__marks">
+                  {group.tasks.map((task) => (
+                    <TaskMark key={task.id} state="open" />
+                  ))}
+                </span>
+              )}
+              <Tooltip label="Subagent type">
+                <span className="armada-session-thread__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
+                  <Bot size={12} strokeWidth={2} aria-hidden />
+                  <code>{group.agent}</code>
+                </span>
+              </Tooltip>
+            </li>
+          ))}
+        </ul>
+        {approval.sketch === undefined ? null : (
+          <ul className="armada-session-thread__sketch">
+            <SketchRow row={{ id: approval.sketch.id, at: "", kind: "sketch", sketch: approval.sketch.id, title: approval.sketch.title, drawing: approval.sketch.scene }} onOpen={() => onReview?.()} />
+          </ul>
+        )}
+      </div>
+      {approved ? null : (
+        <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+          <Button size="sm" variant="primary" onClick={approval.onApprove}>
+            Approve
+          </Button>
+        </div>
+      )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+/** One thing the Session waits on him for, as the band over the pinned region names it. */
+type PinnedCall = { key: string; name: string; Glyph: LucideIcon };
+
+/** A token's milliseconds, 0 where motion is reduced (`--duration-*` is 0ms then). */
+const msOf = (token: string): number => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
+
+/**
+ * What the Session waits on him for, pinned over the foot of the thread under one band. **The region shrinks as he scrolls up, a pixel
+ * of its height for a pixel of scroll, until only the band is left**, and grows back as he scrolls down to the end. The scroller keeps
+ * its size and ends in padding the region's height; the region is laid over that padding and slid down by how far the thread stands from
+ * its end, so the last row rides on the region's top edge and nothing in the thread moves when the region does. The slide is a CSS scroll
+ * timeline (`SessionThread.css`), run with the scroll on the compositor rather than a frame behind it from a handler. This component only
+ * measures the region's natural height, and marks it `open`, `shrinking` or `collapsed` for what a timeline cannot do (the reduced-motion
+ * snap, and keeping a folded-away card out of the tab order).
+ *
+ * A press on the band opens the region over the whole thread, to scroll inside; a second press, or Esc, puts it back with the thread
+ * where he left it.
+ */
+function PinnedCalls({ calls, scroller, atEnd, children }: { calls: readonly PinnedCall[]; scroller: RefObject<HTMLDivElement | null>; atEnd: RefObject<boolean>; children: ReactNode }) {
+  const region = useRef<HTMLElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const natural = useRef(0);
+  const [open, setOpen] = useState(false);
+  const opened = useRef({ top: 0, box: null as DOMRect | null });
+  const shown = useRef(false);
+  const bodyId = useId();
+  const [head, ...rest] = calls;
+  const names = calls.map((one) => one.name).join(", ");
+
+  /** How far the thread stands from its end, and what the region does about it. */
+  const sync = () => {
+    const one = scroller.current;
+    const here = region.current;
+    if (one === null || here === null) return;
+    const away = one.scrollHeight - one.clientHeight - one.scrollTop;
+    const state = away <= NEAR_END ? "open" : away >= natural.current - 1 ? "collapsed" : "shrinking";
+    if (here.dataset.shrink !== state) here.dataset.shrink = state;
+    if (body.current !== null) body.current.inert = state === "collapsed" && !here.hasAttribute("data-open");
+  };
+
+  /** The region's height with all its cards, up to two fifths of the stage. A thread at its end stays there as the region changes. */
+  const measure = () => {
+    const host = region.current?.parentElement;
+    const one = scroller.current;
+    const inner = list.current;
+    if (host === undefined || host === null || one === null || inner === null) return;
+    const next = Math.round(Math.min(inner.offsetHeight, host.clientHeight * 0.4, window.innerHeight * 0.4));
+    if (next !== natural.current) {
+      natural.current = next;
+      host.style.setProperty("--calls-body", `${next}px`);
+    }
+    // The thread's own memory of being at its end: the region taking its band's row from the thread is not him scrolling away.
+    if (atEnd.current) one.scrollTop = one.scrollHeight;
+    sync();
+  };
+
+  useLayoutEffect(() => {
+    const host = region.current?.parentElement;
+    const one = scroller.current;
+    const inner = list.current;
+    if (host === undefined || host === null || one === null || inner === null) return;
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(host);
+    watch.observe(inner);
+    watch.observe(one);
+    let frame = 0;
+    const onScroll = () => {
+      if (frame === 0) frame = requestAnimationFrame(() => ((frame = 0), sync()));
+    };
+    one.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      watch.disconnect();
+      one.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+      host.style.removeProperty("--calls-body");
+      natural.current = 0;
+    };
+  }, []);
+
+  // **The thread is where he left it**: opened over, it is not resized, and closed it is put back to the offset it had.
+  useLayoutEffect(() => {
+    if (shown.current === open) return;
+    shown.current = open;
+    const one = scroller.current;
+    const here = region.current;
+    const host = here?.parentElement;
+    if (one === null || here === null || host === undefined || host === null) return;
+    if (!open) one.scrollTop = opened.current.top;
+    sync();
+    const span = msOf("--duration-sheet") * 1.6;
+    if (span === 0) return;
+    const easing = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease";
+    const full = host.clientHeight;
+    if (open) {
+      const was = opened.current.box;
+      if (was === null) return;
+      const hostBox = host.getBoundingClientRect();
+      here.animate([{ height: `${was.height}px`, transform: `translateY(${Math.max(0, was.bottom - hostBox.bottom)}px)` }, { height: `${full}px`, transform: "translateY(0px)" }], { duration: span, easing });
+    } else {
+      const away = one.scrollHeight - one.clientHeight - one.scrollTop;
+      here.animate([{ height: `${full}px`, transform: "translateY(0px)" }, { height: `${here.offsetHeight}px`, transform: `translateY(${Math.min(Math.max(away, 0), natural.current)}px)` }], { duration: span, easing });
+    }
+  }, [open]);
+
+  // Esc puts it back, unless something laid over the thread has the focus.
+  useEffect(() => {
+    if (!open) return;
+    const down = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const active = document.activeElement;
+      if (active !== null && active !== document.body && region.current?.contains(active) !== true) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    };
+    window.addEventListener("keydown", down, true);
+    return () => window.removeEventListener("keydown", down, true);
+  }, [open]);
+
+  const toggle = () => {
+    const one = scroller.current;
+    const here = region.current;
+    if (one === null || here === null) return;
+    if (!open) opened.current = { top: one.scrollTop, box: here.getBoundingClientRect() };
+    setOpen(!open);
+  };
+  const Fold = open ? ChevronDown : ChevronUp;
+  if (head === undefined) return null;
+  return (
+    <section ref={region} className="armada-session-thread__calls" aria-label="Pinned calls" data-open={open || undefined} data-keeps-escape={open || undefined}>
+      <Tooltip label={open ? "Close" : "Open"} {...(open ? { shortcut: "Esc" } : {})} asChild>
+        <button type="button" className="armada-session-thread__calls-band" aria-expanded={open} aria-controls={bodyId} aria-label={names} onClick={toggle}>
+          <span className="armada-session-thread__calls-head">
+            <head.Glyph size={16} strokeWidth={2} aria-hidden />
+            <span>{head.name}</span>
+          </span>
+          {rest.map((one) => (
+            <span key={one.key} className="armada-session-thread__calls-chip">
+              <one.Glyph size={12} strokeWidth={2} aria-hidden />
+              <span>{one.name}</span>
+            </span>
+          ))}
+          <Fold className="armada-session-thread__calls-fold" size={12} strokeWidth={2} aria-hidden />
+        </button>
+      </Tooltip>
+      <div ref={body} id={bodyId} className="armada-session-thread__calls-body">
+        <div ref={list} className="armada-session-thread__calls-list">
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A judge's concern as a claim to read: the consequence over everything, then what was expected and what was found, each a label and a
+ * sentence clamped to two lines with a More press for the rest. A concern kept without its parts is its `text`, a line to a paragraph.
+ */
+function ConcernClaim({ concern }: { concern: ThreadConcern }) {
+  const { expected, produced, consequence } = concern;
+  if (expected === undefined && produced === undefined && consequence === undefined) {
+    return (
+      <div className="armada-session-thread__claim">
+        {concern.text.split("\n").filter((line) => line.trim() !== "").map((line, at) => (
+          <p key={at} className="armada-session-thread__claim-text">{line}</p>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="armada-session-thread__claim">
+      {consequence === undefined ? null : <p className="armada-session-thread__claim-head">{consequence}</p>}
+      {expected === undefined ? null : <ClaimRow label="Expected" text={expected} />}
+      {produced === undefined ? null : <ClaimRow label="Found" text={produced} />}
+    </div>
+  );
+}
+
+function ClaimRow({ label, text }: { label: string; text: string }) {
+  const value = useRef<HTMLParagraphElement>(null);
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const id = useId();
+  // More is offered only where the two lines leave words out: measured while it is closed, kept while it is open.
+  useLayoutEffect(() => {
+    const one = value.current;
+    if (one === null || open) return;
+    const measure = () => setClamped(one.scrollHeight > one.clientHeight + 1);
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(one);
+    return () => watch.disconnect();
+  }, [text, open]);
+  return (
+    <div className="armada-session-thread__claim-row">
+      <span className="armada-session-thread__eyebrow">{label}</span>
+      <p ref={value} id={id} className="armada-session-thread__claim-text" data-open={open || undefined}>{text}</p>
+      {clamped || open ? (
+        <Button size="sm" variant="ghost" aria-expanded={open} aria-controls={id} aria-label={`${open ? "Less" : "More"} of ${label.toLowerCase()}`} onClick={() => setOpen(!open)}>
+          {open ? "Less" : "More"}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, onRetry, concerns, onSendConcern, onDismissConcern, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -874,17 +1272,33 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId, working]);
+  }, [rows, sessionId, working, approval === undefined ? 0 : approval.approved ? 2 : 1]);
   const items = itemsOf(rows);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
+  const pinnedCalls: PinnedCall[] = [
+    ...(approval === undefined || approval.approved ? [] : [{ key: "plan", name: "Plan to approve", Glyph: ListChecks }]),
+    ...(concerns ?? []).map((one) => ({ key: `judge-${one.id}`, name: "Judge", Glyph: Scale })),
+    ...(asked !== undefined ? [{ key: "asked", name: (asked.questions?.length ?? 0) > 0 ? "Question" : "Permission", Glyph: (asked.questions?.length ?? 0) > 0 ? MessageCircleQuestion : KeyRound }] : lapsed !== undefined ? [{ key: "lapsed", name: "Unanswered", Glyph: MessageCircleQuestion }] : []),
+  ];
   return (
     <div className="armada-session-thread" ref={whole}>
       {onForkAt === undefined ? null : <ForkFromSelection scope={whole} onFork={onForkAt} />}
+      <div className="armada-session-thread__stage">
       <div
         ref={scroller}
         className="armada-session-thread__rows"
         role="region"
         aria-label="Thread"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          // The thread scrolls from the keyboard when it has the focus, smoothly unless motion is reduced, so the pinned region is seen to follow.
+          const one = event.currentTarget;
+          if (event.target !== one || event.metaKey || event.ctrlKey || event.altKey) return;
+          const by = event.key === "PageUp" ? -one.clientHeight * 0.9 : event.key === "PageDown" ? one.clientHeight * 0.9 : event.key === "Home" ? -one.scrollTop : event.key === "End" ? one.scrollHeight : 0;
+          if (by === 0) return;
+          event.preventDefault();
+          one.scrollBy({ top: by, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        }}
         onScroll={(event) => {
           const one = event.currentTarget;
           pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
@@ -894,7 +1308,7 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
-          {items.map((item, at) =>
+          {items.flatMap((item, at) => [
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "checks" ? (
@@ -902,7 +1316,8 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
             ) : (
               <Row key={"stableKey" in item.row && item.row.stableKey !== undefined ? item.row.stableKey : item.row.id} row={item.row} {...(onRetry === undefined ? {} : { onRetry })} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
-          )}
+            approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
+          ])}
           {working === true && !endsInCalls ? (
             <li className="armada-session-thread__working">
               <SessionMark state="working" said="Working" />
@@ -914,6 +1329,42 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
         </ProseRunner.Provider>
         </ProseWalk.Provider>
       </div>
+      {pinnedCalls.length === 0 ? null : (
+      <PinnedCalls key={sessionId} calls={pinnedCalls} scroller={scroller} atEnd={pinned}>
+      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
+      {(concerns ?? []).map((one) => (
+        <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={`Judge: ${one.text}`}>
+          <div className="armada-session-thread__concern-band">
+            <Tooltip label="Judge">
+              <span role="img" aria-label="Judge" className="armada-session-thread__concern-judge">
+                <Scale size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+            <span className="armada-session-thread__eyebrow">Judge</span>
+            <span className="armada-session-thread__concern-from">{one.step ?? "Judge tile"}</span>
+          </div>
+          <ConcernClaim concern={one} />
+          {one.cites === undefined || one.cites.length === 0 ? null : (
+            <ul className="armada-session-thread__cites" aria-label="Cites">
+              {one.cites.map((path) => (
+                <li key={path}>
+                  <code>{path}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+            <Tooltip label="Goes to the agent as your message">
+              <Button size="sm" variant="secondary" onClick={() => onSendConcern?.(one.id)}>
+                Send to session
+              </Button>
+            </Tooltip>
+            <Button size="sm" variant="ghost" onClick={() => onDismissConcern?.(one.id)}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      ))}
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}
@@ -982,6 +1433,10 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
           />
         </Card>
       )}
+      </PinnedCalls>
+      )}
+      </div>
+      <div className="armada-session-thread__footer">
       {done !== undefined || workingOn === undefined || workingOn.todos.length === 0 ? null : <WorkingOn todos={workingOn.todos} />}
       {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
@@ -1030,6 +1485,7 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
