@@ -7,26 +7,39 @@
 // is held here and goes with that message (`AskHelm.model` and `effort`). What a message carried is a
 // Session's own: a file is sent as an upload, a sketch as the picture it renders to.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { HelmBox } from "@armada/components";
-import type { ThoughtCarry } from "@armada/helm";
+import type { HelmOutgoing, ThoughtCarry } from "@armada/helm";
 import type { HelmContext, Outcome, SessionUpload } from "@armada/protocol";
 import type { HelmCarry } from "../../shared/api/helm";
 import type { DrawnSketch, SessionTag } from "@armada/screens/src/draft/sessions";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../shared/bridge";
 import { useHelmSession } from "./helm-session";
 import { searchFiles } from "./commands";
 import { useNumbered } from "./numbered";
+import { outgoing } from "./outgoing";
+import type { Outgoing } from "./outgoing";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SketchSheet } from "./sessions";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
+import { askToTell } from "./tell";
 
 type Tuning = { model: string | null; effort: string | null };
 
 const AUTO: Tuning = { model: null, effort: null };
+
+/** The words held in Helm's thread while they go, and the thread they are laid over. */
+export type HelmWords = {
+  engine: Outgoing;
+  /** The thread's key in the engine: one per repository, because the first message has no Session to name it by. */
+  key: string;
+  /** Sends words that were not taken again, by their row's id. */
+  retry: (rowId: string) => void;
+};
 
 export type HelmBoxHost = {
   /** The box's parts. Absent where Sessions are not served, and the box then offers only what is typed. */
@@ -39,6 +52,11 @@ export type HelmBoxHost = {
   carryOf: (carry: ThoughtCarry) => Promise<HelmCarry>;
   /** Words for Helm with what went with them. Uploads are read here; the answer is main's. */
   ask: (text: string, context: HelmContext, carry?: ThoughtCarry) => Promise<Outcome>;
+  /** `ask`, answered as the dock wants it: whether Fleet took the words, with a refusal told in Fleet's words. */
+  asked: (text: string, context: HelmContext, carry?: ThoughtCarry) => Promise<boolean>;
+  /** Puts words in Helm's thread the moment they are sent, to be shown going until Fleet takes them. */
+  outgoing: HelmOutgoing;
+  words: HelmWords;
 };
 
 export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
@@ -52,6 +70,13 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
   const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
   const [padOpen, setPadOpen] = useState(false);
   const known = useRef(new Map<string, DrawnSketch>());
+  const engine = useMemo(outgoing, []);
+  const key = `helm:${manifestId ?? ""}`;
+  // The rows Helm's thread holds now, so words held are never taken for a row that was already there.
+  const rows = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    rows.current = new Set(session?.rows.map((one) => one.id));
+  }, [session]);
   const before = chosen !== undefined && chosen.manifestId === manifestId ? chosen.tuning : undefined;
   const tuning: Tuning = session !== undefined ? { model: session.model ?? null, effort: session.effort ?? null } : (before ?? AUTO);
 
@@ -115,10 +140,33 @@ export function useHelmBox(helm: BridgeState["helm"]): HelmBoxHost {
     [carryOf, before, session],
   );
 
+  const asked = useCallback(
+    async (text: string, context: HelmContext, carry?: ThoughtCarry): Promise<boolean> => {
+      const outcome = await ask(text, context, carry);
+      if (!outcome.ok) askToTell(`Message to Helm not sent. ${refusalWords(outcome) || "Fleet did not take it"}`);
+      return outcome.ok;
+    },
+    [ask],
+  );
+
+  const holding = useMemo(
+    (): HelmOutgoing => ({
+      hold: (text, carry) => {
+        const held = engine.hold(key, { text, files: carry.files, sketches: sketchesOf(carry.sketches.map((one) => one.id)), tags: carry.tags as readonly SessionTag[] }, rows.current);
+        return { deliver: held.deliver, drop: held.drop };
+      },
+    }),
+    [engine, key, sketchesOf],
+  );
+  const words = useMemo((): HelmWords => ({ engine, key, retry: (rowId) => engine.retry(key, rowId, rows.current) }), [engine, key]);
+
   return {
     box,
     carryOf,
     ask,
+    asked,
+    outgoing: holding,
+    words,
     pad: (
       <SketchSheet
         open={padOpen}

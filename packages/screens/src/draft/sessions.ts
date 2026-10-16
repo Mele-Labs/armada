@@ -177,6 +177,8 @@ export type SessionRow =
       files?: readonly SentFile[];
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly SessionTag[];
+      /** What the row is drawn under in place of the words Bridge held while they went, so it does not draw again. */
+      stableKey?: string;
     }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }

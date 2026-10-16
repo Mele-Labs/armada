@@ -2,6 +2,7 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { SendKbd, sendsOn } from "../../send-message";
+import { YourMessage } from "../SessionThread/SessionThread";
 
 /**
  * The message box fixed under an activity log — #1154. Sending it is a
@@ -25,9 +26,20 @@ export type DroneMessageBoxProps = {
   /** Said in the field's place while `disabled` — why, in one line. */
   disabledReason?: string;
   /**
-   * A redirect already out and unanswered, in `steering.ts`'s own words —
-   * `waiting()`'s sentence. Shown above the field, which stays open: sending
-   * again is legal and replaces what is outstanding, as it does today.
+   * The redirect just sent, drawn above the field as the message it is: the
+   * row a Session's thread draws for the person's own words, with the same
+   * mark while Fleet has not taken it (`sending`) and the same Retry where it
+   * did not go (`failed`). **Absent `delivery` is delivered**: the row stays,
+   * at rest. The field stays open: sending again is legal and replaces what
+   * is outstanding, as it does today.
+   */
+  sent?: { id: string; at: string; text: string; delivery?: "sending" | "failed" };
+  /** Sends the redirect that did not go again. */
+  onRetry?: () => void;
+  /**
+   * A redirect Fleet reports outstanding that this window did not send, so
+   * there are no words to draw: `steering.ts`'s own sentence. Shown above the
+   * field, and never beside `sent`, which says the same and more.
    */
   waiting?: string;
   placeholder?: string;
@@ -39,6 +51,8 @@ export function DroneMessageBox({
   onSend,
   disabled = false,
   disabledReason,
+  sent,
+  onRetry,
   waiting,
   placeholder = "Message the drone",
 }: DroneMessageBoxProps) {
@@ -60,6 +74,11 @@ export function DroneMessageBox({
 
   return (
     <form className="armada-drone-message-box" onSubmit={submit}>
+      {sent === undefined ? null : (
+        <ol className="armada-helm-thread__rows">
+          <YourMessage row={{ id: sent.id, at: sent.at, text: sent.text, ...(sent.delivery === undefined ? {} : { delivery: sent.delivery }) }} {...(onRetry === undefined ? {} : { onRetry: () => onRetry() })} />
+        </ol>
+      )}
       {disabled
         ? disabledReason === undefined
           ? null
@@ -68,7 +87,7 @@ export function DroneMessageBox({
               {disabledReason}
             </p>
           )
-        : waiting === undefined
+        : waiting === undefined || sent !== undefined
           ? null
           : (
             <p className="armada-drone-message-box__said" role="status">
