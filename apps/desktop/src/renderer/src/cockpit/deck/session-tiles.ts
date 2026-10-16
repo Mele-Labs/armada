@@ -10,7 +10,7 @@
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "release";
+export type SessionTileId = "ask" | "land" | "compact" | "report" | "map" | "judge" | "release";
 
 const ARMADA = "armada";
 
@@ -24,13 +24,14 @@ export function reportRoot(repositories: readonly RepositorySummary[], reported:
   return armada?.root ?? reported;
 }
 
-/** In the order their keys, `1` to `5`, press them. `label` is the accessible name, `text` the word under the glyph. */
+/** In the order their keys, `1` to `7`, press them. `label` is the accessible name, `text` the word under the glyph. */
 export const SESSION_TILES: readonly { id: SessionTileId; label: string; text: string }[] = [
   { id: "ask", label: "Ask for update", text: "Update" },
   { id: "land", label: "Auto land", text: "Auto land" },
   { id: "compact", label: "Compact session context", text: "Compact" },
   { id: "report", label: "Report issue with session", text: "Report" },
   { id: "map", label: "Map", text: "Map" },
+  { id: "judge", label: "Judge", text: "Judge" },
   { id: "release", label: "Release everything the Session holds", text: "Release" },
 ];
 
@@ -111,10 +112,13 @@ export const releaseKeyOf = (to: Session | undefined, all = true): string => (to
 /** `root` is the repository the Session works in, where Bridge knows it: a report starts its new Session there. A Session that is ended or quiet can still be reported. */
 export function offeredOf(session: Session, draft: SessionsDraft, root: string | undefined): Offered {
   const off: Offered["off"] = root === undefined ? { report: "The repository is not known" } : {};
+  // A judge reads the work against its plan, so it needs a plan to read and a way to be sent.
+  if (draft.work?.judge === undefined || session.work?.plan === undefined) off.judge = "No plan to judge against";
   if (draft.releaseHolds === undefined) off.release = "Fleet does not offer this";
   else if (heldOf(session).length === 0) off.release = "The Session holds nothing";
   const silent = mute(session);
   if (silent !== undefined) {
+    off.judge = silent;
     off.ask = silent;
     off.land = silent;
     off.compact = silent;

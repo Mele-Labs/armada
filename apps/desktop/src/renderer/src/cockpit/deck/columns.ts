@@ -37,9 +37,11 @@ export function settle(kept: Kept, room: number, unit: number): Columns {
   return { left, right, range: { left: { min: floor.left, max: leftMax }, right: { min: floor.right, max: Math.max(floor.right, room - left - centre) } } };
 }
 
-function read(): Kept {
+const keyFor = (layout: string) => (layout === "" ? KEY : `${KEY}.${layout}`);
+
+function read(layout: string): Kept {
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? "{}");
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(keyFor(layout)) ?? "{}");
     if (typeof parsed !== "object" || parsed === null) return {};
     const { left, right } = parsed as Record<string, unknown>;
     return { ...(typeof left === "number" && Number.isFinite(left) ? { left } : {}), ...(typeof right === "number" && Number.isFinite(right) ? { right } : {}) };
@@ -48,9 +50,9 @@ function read(): Kept {
   }
 }
 
-function write(next: Kept): void {
+function write(layout: string, next: Kept): void {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(next));
+    window.localStorage.setItem(keyFor(layout), JSON.stringify(next));
   } catch {
     // A failed write leaves the widths unremembered past this window.
   }
@@ -60,8 +62,10 @@ function write(next: Kept): void {
  * The columns' widths for the grid in `grid`, and how to move or reset one. `undefined` until the grid has been measured,
  * when the stylesheet's own resting widths hold and no handle is drawn.
  */
-export function useColumns(grid: RefObject<HTMLElement | null>) {
-  const [kept, setKept] = useState<Kept>(read);
+export function useColumns(grid: RefObject<HTMLElement | null>, layout = "") {
+  // Kept for each layout (nothing selected, a Session open), each read from the store the first time it is drawn.
+  const [all, setAll] = useState<Record<string, Kept>>({});
+  const kept = all[layout] ?? read(layout);
   const [room, setRoom] = useState<number | undefined>(undefined);
   useLayoutEffect(() => {
     const element = grid.current;
@@ -78,18 +82,18 @@ export function useColumns(grid: RefObject<HTMLElement | null>) {
     return room === undefined || !Number.isFinite(room) || !Number.isFinite(unit) ? undefined : settle(kept, room, unit);
   }, [kept, room]);
   const resize = useCallback((side: Side, width: number) => {
-    setKept((was) => {
-      const next = { ...was, [side]: Math.round(width) };
-      write(next);
-      return next;
+    setAll((was) => {
+      const next = { ...(was[layout] ?? read(layout)), [side]: Math.round(width) };
+      write(layout, next);
+      return { ...was, [layout]: next };
     });
-  }, []);
+  }, [layout]);
   const reset = useCallback((side: Side) => {
-    setKept((was) => {
-      const { [side]: _gone, ...next } = was;
-      write(next);
-      return next;
+    setAll((was) => {
+      const { [side]: _gone, ...next } = was[layout] ?? read(layout);
+      write(layout, next);
+      return { ...was, [layout]: next };
     });
-  }, []);
+  }, [layout]);
   return { columns, resize, reset };
 }

@@ -37,6 +37,8 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         options: Vec::new(),
         steps: Vec::new(),
         place,
+        concern: None,
+        cites: Vec::new(),
     }
 }
 
@@ -100,6 +102,10 @@ fn long_lived() -> SessionRecord {
         proposal: None,
         plan: None,
         touches: Vec::new(),
+        workflow_step: None,
+        judging: false,
+        judge: None,
+        settled: Vec::new(),
     }
 }
 

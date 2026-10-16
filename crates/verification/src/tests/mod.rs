@@ -36,6 +36,7 @@ mod quoted;
 mod request;
 mod review;
 mod second_opinion;
+mod session_work;
 mod shown;
 mod standing;
 mod submission;
