@@ -77,7 +77,8 @@
   align-items: center;
   gap: var(--space-3);
   min-height: var(--h-row-header);
-  padding: var(--space-2) var(--space-4) var(--space-1);
+  /* No padding above or below: the band's own height centres the line, so there is as much space over the title as under it. */
+  padding: 0 var(--space-4);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
