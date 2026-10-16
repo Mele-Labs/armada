@@ -357,13 +357,18 @@ export class StepWalk {
     }, DWELL_MS);
   }
 
+  /** Whether nothing but a press of Next runs this step: it acts, on a page off this machine. */
+  private guards(step: WalkStep): boolean {
+    return acts(step) && this.host.guarded?.() === true;
+  }
+
   /**
    * Autoplay stops before a step that acts on a page off this machine, and goes off. Next runs the
    * step, and Autoplay pressed again goes on to the next one that acts.
    */
   private holdsAutoplay(): boolean {
     const step = this.steps[this.at];
-    if (step === undefined || !acts(step) || this.host.guarded?.() !== true) return false;
+    if (step === undefined || !this.guards(step)) return false;
     this.autoplaying = false;
     this.waiting = true;
     this.host.changed();
@@ -412,9 +417,14 @@ export class StepWalk {
       }
       this.told.delete(at);
       if (at < this.from) {
-        if (!(await this.perform(step, box, round))) return;
-        this.at += 1;
-        continue;
+        // Back and Replay run the steps before the target straight through, but not one that acts on a page off this machine.
+        if (!this.guards(step)) {
+          if (!(await this.perform(step, box, round))) return;
+          this.at += 1;
+          continue;
+        }
+        this.from = at;
+        this.waiting = true;
       }
       // A hover is shown with what it opens already open.
       if ("hover" in step) for (const event of hoverEvents(box)) this.host.send(event);

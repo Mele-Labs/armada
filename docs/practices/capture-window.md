@@ -84,12 +84,13 @@ around `nodeIntegration: false`.
 > only until its session ends is no wider a thing to keep.
 
 > **Rule.** A Bridge that connects opens the window of each live Session whose
-> newest shown page has not ended and was not opened by this Bridge, and takes
-> the Session's sign-in then. A window the person closed has ended, and is not
+> newest shown page has not ended, was not opened by this Bridge and was shown
+> in the last 15 minutes (`REOPEN_WITHIN_MS`, `sessions.ts`), and takes the
+> Session's sign-in then. A window the person closed has ended, and is not
 > opened again.
-> Why: a page shown while Bridge was not running had no window to open and no
-> way to ask for its sign-in, and the Session was left waiting on a walk nobody
-> could see.
+> Why: a page shown while Bridge was offline for a few minutes had no window to
+> open and no way to ask for its sign-in. A walk from before a restart is stale,
+> and opening it on every launch would put old windows on the screen.
 
 > **Rule.** A Session may show several takes of one change in its window
 > (`variations`). The window is pinned to the origin of the take on screen, and
@@ -522,6 +523,8 @@ this window, and what it adds is below.
 > plays `look`, `hover` and `later` steps and stops before one that acts: `press`, `type`, `key`,
 > `paste`, `drag` or `select`. Autoplay goes off there, the bar shows the Next key waiting, and the
 > person presses Next to run the step. Autoplay pressed again goes on to the next step that acts.
+> Back and Replay stop the same way: the steps before their target run straight
+> through until one that acts, which waits for Next with the Next key waiting.
 > Where the origin is loopback, Autoplay plays every step.
 > Why: a deployed staging app has real buttons, and a Session's steps would press whichever one they
 > name with nobody there. A local or mock walk has nothing to lose, so it feels as it did.
