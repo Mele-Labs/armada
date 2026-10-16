@@ -15,7 +15,7 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { DispatchSettings, REQUEST_PLACEHOLDER, forgetKept, readKept, useKept, writeKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
+import { DispatchSettings, REQUEST_PLACEHOLDER, forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
 import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 
@@ -38,8 +38,8 @@ type Tuning = { model?: string; effort?: string };
 const wordsNow = () => readKept<string>(REQUEST) ?? "";
 const tuningNow = () => readKept<Tuning>(TUNING) ?? {};
 
-/** ⌘⇧↵ in the request: Queue for later. Control answers as ⌘ does everywhere in Bridge. */
-const queuesOn = (event: KeyboardEvent<HTMLElement>) => event.key === "Enter" && event.shiftKey && (event.metaKey || event.ctrlKey) && !event.altKey;
+/** `queue_session`'s key in the request, rebindable: ⇧⌘Enter, with Control answering as ⌘ does everywhere in Bridge. */
+const queuesOn = (event: KeyboardEvent<HTMLElement>) => isPressed("queue_session", event);
 
 type Host = {
   state: BridgeState;

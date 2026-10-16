@@ -12,7 +12,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
-import { Button, DropdownMenu, Kbd, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { Button, DropdownMenu, Kbd, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -63,13 +63,16 @@ export type PanelTuning = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
 };
 
-/** The binding drawn in Queue for later while ⌘ is held, as Start's is. Not in the registry yet: the mock settles the key first. */
+/** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
 function QueueKbd({ available }: { available: boolean }) {
   const revealing = useShortcutReveal();
-  if (!revealing || !available) return null;
+  const bound = boundKeyFor("queue_session");
+  if (!revealing || !available || bound === "") return null;
+  const mods = [...bound].filter((one, at) => "⌃⌥⇧⌘".includes(one) && at < 4);
+  const key = bound.slice(mods.length);
   return (
     <span aria-hidden>
-      <KbdChord keys={["⌘", "⇧", "↵"]} />
+      <KbdChord keys={[...mods, key === "Enter" ? "↵" : key]} />
     </span>
   );
 }

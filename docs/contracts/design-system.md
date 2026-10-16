@@ -1398,6 +1398,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
+⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch from a field, where n would type
 ⌥1–⌥9    choose a repository to dispatch to
 ⌘1–⌘6    go to a tab: Cockpit, Jobs, Sessions, Studios, Retros or System
@@ -1409,7 +1410,8 @@ Esc      close an overlay, or return to the list from a detail route
 
 **`⌘Enter` is the one Global binding that needs a focused field**, and it is
 in this tier because it is modified rather than because it fires from
-nowhere. Plain `Enter` in the drone message box is a new line — a redirect to a
+nowhere. `⇧⌘Enter` is its twin in the Dispatch panel's request: it saves a
+Session's idea for later where `⌘Enter` starts one. Plain `Enter` in the drone message box is a new line — a redirect to a
 drone is prose — so the key that sends there has to carry a modifier, and a
 single-key binding would be suppressed inside a field anyway by the rule below.
 It is drawn on that Send button only while `⌘` is held, per `kbd` below.
