@@ -67,7 +67,7 @@ import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { SubagentThread } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
-import { helmOfferedOf } from "@armada/screens/src/copy";
+import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
@@ -1115,10 +1115,11 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                     ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
                     ...(session.asked.offers === undefined
                       ? {}
-                      : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                      : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                    ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
                   },
                 })}
-            onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+            onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
             {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
               ? {}
               : {
@@ -1300,10 +1301,11 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
                   ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
                   ...(session.asked.offers === undefined
                     ? {}
-                    : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                    : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                  ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
                 },
               })}
-          onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+          onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
           onOpenSession={onOpen}
         />
       </div>
