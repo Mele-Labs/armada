@@ -1,15 +1,16 @@
 // A Session's view: its thread and composer in the middle and its panels in the places round them, the same on the Cockpit and on
 // the Sessions page. A Session with no `work` is drawn as it was, the thread alone with its ledger beside it.
 //
-// **The places.** The Status area, the Ledger and the calls keep theirs. Three places are given to the Session's own panels in
-// place of what stands there with nothing selected: Activity's (left, under the list), Bays' (right) and Autopilot's (the foot).
-// On the Cockpit those are real places of the deck and the panels are drawn into them (`hosts`). On the Sessions page there is
-// no deck, so the same places are drawn round the thread: left of it, in the right column, and under it.
+// **The places.** The Status area, the Ledger and Incoming calls keep theirs, and the Ledger keeps the size it has with nothing
+// selected. Two places are given to the Session's own panels in place of what stands there with nothing selected: Activity's (left,
+// under the list) and Autopilot's (the foot, where Dispatch controls also give way). The proposal is a card in the thread itself
+// (`ProposalCard`). On the Cockpit those places are the deck's own and the panels are drawn into them (`hosts`). On the Sessions
+// page there is no deck, so the same places are drawn round the thread: left of it, in the right column, and under it.
 //
-// **Two takes** (`take.ts`) differ in which panel goes to which place and in how the Status area draws the plan.
-// A: Field left, Concerns right, and the steps a strip over the plan.
-// B: Concerns left, Field right, and one outline with the plan hung under its step.
-// The Proposal is in the foot in both: the foot has room for one compact row and nothing taller, and it is empty once the work starts.
+// **Two takes** (`take.ts`) differ in where Concerns stand and in how the Status area draws the plan.
+// A: Concerns as cards in Incoming calls, and the steps in a list of their own with the plan a section under it.
+// B: Concerns in the foot, in Autopilot's place, and one outline with the plan hung under its step.
+// The Field is on the left in both. The Sessions page has no Incoming calls, so A draws its Concerns in the foot there too.
 
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
@@ -21,13 +22,12 @@ import { useSessionsDraft } from "../sessions-draft";
 import { ConcernsPanel } from "./ConcernsPanel";
 import { FieldPanel } from "./FieldPanel";
 import { LedgerPanel } from "./LedgerPanel";
-import { ProposalPanel } from "./ProposalPanel";
 import { StatusPanel } from "./StatusPanel";
 import { takeOf } from "./take";
 import "./session-view.css";
 
 /** The deck's own places, as elements: `null` before the deck has drawn one. */
-export type Hosts = { left: HTMLElement | null; side: HTMLElement | null; foot: HTMLElement | null };
+export type Hosts = { left: HTMLElement | null; side: HTMLElement | null; foot: HTMLElement | null; calls: HTMLElement | null };
 
 export function SessionWorkspace({ session, entries, repositories, hosts, children }: { session: Session; entries: readonly LedgerEntry[]; repositories: readonly RepositorySummary[]; hosts?: Hosts | undefined; children: ReactNode }) {
   const draft = useSessionsDraft();
@@ -36,19 +36,15 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
   const take = takeOf();
   const acts = draft.work;
   const { id } = session;
-  const field = work.field === undefined || work.field.length === 0 ? null : <FieldPanel session={session} repositories={repositories} place={take === "a" ? "left" : "side"} />;
-  const concerns =
+  const field = work.field === undefined || work.field.length === 0 ? null : <FieldPanel session={session} repositories={repositories} place="left" />;
+  const concern = (place: "calls" | "foot") =>
     work.concerns === undefined || work.concerns.length === 0 ? null : (
-      <ConcernsPanel concerns={work.concerns} place={take === "a" ? "side" : "left"} onSend={(concern) => acts?.sendConcern(id, concern)} onDismiss={(concern) => acts?.dismissConcern(id, concern)} />
+      <ConcernsPanel concerns={work.concerns} place={place} onSend={(one) => acts?.sendConcern(id, one)} onDismiss={(one) => acts?.dismissConcern(id, one)} />
     );
-  const proposal = work.proposal === undefined ? null : <ProposalPanel session={session} draft={draft} place="foot" />;
-  const left = take === "a" ? field : concerns;
-  const side = take === "a" ? concerns : field;
-  const foot = proposal;
+  const foot = concern("foot");
   const right = (
     <>
       <StatusPanel work={work} take={take} place="side" onApprove={() => acts?.approve(id)} />
-      {side}
       <LedgerPanel session={session} entries={entries} place="side" />
     </>
   );
@@ -56,15 +52,15 @@ export function SessionWorkspace({ session, entries, repositories, hosts, childr
     return (
       <>
         {children}
-        {hosts.left === null || left === null ? null : createPortal(left, hosts.left)}
+        {hosts.left === null || field === null ? null : createPortal(field, hosts.left)}
         {hosts.side === null ? null : createPortal(right, hosts.side)}
-        {hosts.foot === null || foot === null ? null : createPortal(foot, hosts.foot)}
+        {take === "a" ? (hosts.calls === null ? null : createPortal(concern("calls"), hosts.calls)) : hosts.foot === null ? null : createPortal(concern("foot"), hosts.foot)}
       </>
     );
   }
   return (
     <div className="sv" data-take={take}>
-      {left === null ? null : <div className="sv__left">{left}</div>}
+      {field === null ? null : <div className="sv__left">{field}</div>}
       <div className="sv__centre">
         <div className="sv__thread">{children}</div>
         {foot === null ? null : <div className="sv__foot">{foot}</div>}

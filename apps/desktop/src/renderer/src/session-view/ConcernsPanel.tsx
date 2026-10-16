@@ -8,9 +8,8 @@ import type { WorkConcern } from "@armada/screens/src/draft/sessions";
 import { SvPanel, type Place } from "./SvPanel";
 
 export function ConcernsPanel({ concerns, place, onSend, onDismiss }: { concerns: readonly WorkConcern[]; place: Place; onSend: (id: string) => void; onDismiss: (id: string) => void }) {
-  return (
-    <SvPanel label="Concerns" area="concerns" place={place} state="asks">
-      <ul className="sv-concerns">
+  const cards = (
+    <ul className="sv-concerns" aria-label={place === "calls" ? "Concerns" : undefined}>
         {concerns.map((one) => (
           <li key={one.id} className="sv-concern" role="group" aria-label={one.text}>
             <header className="sv-concern__head">
@@ -32,7 +31,12 @@ export function ConcernsPanel({ concerns, place, onSend, onDismiss }: { concerns
             </div>
           </li>
         ))}
-      </ul>
+    </ul>
+  );
+  // In Incoming calls the cards stand among the calls already waiting on him, with no panel round them.
+  return place === "calls" ? cards : (
+    <SvPanel label="Concerns" area="concerns" place={place} state="asks">
+      {cards}
     </SvPanel>
   );
 }

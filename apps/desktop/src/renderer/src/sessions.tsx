@@ -105,6 +105,7 @@ import { nowOf, todosOf } from "./session-activity";
 import { useViewedVersion, useViewing } from "./cockpit/viewed";
 import { dismissWaiting } from "./cockpit/dismissed";
 import { stateOf } from "./session-state";
+import { ProposalCard } from "./session-view/ProposalCard";
 import { SessionWorkspace, type Hosts } from "./session-view/SessionWorkspace";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -1067,6 +1068,7 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             </ForkedFrom>
           )}
           {startedBy}
+          {session.work?.proposal === undefined ? null : <ProposalCard session={session} draft={draft} />}
           <SessionThread
             sessionId={session.id}
             rows={shown}

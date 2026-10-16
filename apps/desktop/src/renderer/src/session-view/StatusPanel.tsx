@@ -2,8 +2,11 @@
 // one the Session is at lit, the scope as paths, and the task groups with the type of subagent that takes each. The agent records
 // the plan after planning with the person and it arrives with Approve; he can answer in the thread to change it.
 // Edits Fleet saw are marked on the group. Soft: the steps show where the Session is and block nothing.
-// Take A draws the steps as a strip over the plan. Take B draws one outline, the plan hung under the step that builds it.
+// Both draw the steps down a column, so a workflow of twelve reads as well as one of four, and the one the Session is at is kept in
+// view. Take A keeps the steps in a list of their own with the plan as a section under it. Take B draws one outline, the plan hung
+// under the step that builds it.
 
+import { useEffect, useRef } from "react";
 import { BadgeCheck, Bot, CircleCheck, CircleDashed, CircleDot, PencilLine } from "lucide-react";
 import { Button, TaskMark, Tooltip } from "@armada/components";
 import type { SessionWork, WorkPlan } from "@armada/screens/src/draft/sessions";
@@ -30,20 +33,37 @@ function StepMark({ state }: { state: keyof typeof MARK }) {
   );
 }
 
-/** Take A: the steps as a strip, each a mark over its name, joined by a line. */
-function Strip({ steps, at }: { steps: readonly string[]; at: number }) {
+/** Keeps the step the Session is at in view: a long workflow scrolls to it and the steps far from it stay out of sight. */
+function useKeepNow(at: number) {
+  const list = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    const now = list.current?.querySelector<HTMLElement>('[data-state="now"]');
+    const scroller = now?.closest<HTMLElement>(".sv-steps, .sv-panel__body");
+    if (now === null || now === undefined || scroller === null || scroller === undefined) return;
+    scroller.scrollTop += now.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (scroller.clientHeight - now.clientHeight) / 2;
+  }, [at]);
+  return list;
+}
+
+/** Take A: the steps as a list of their own, scrolling to the lit one. The plan is a section under it. */
+function Steps({ steps, at }: { steps: readonly string[]; at: number }) {
+  const list = useKeepNow(at);
   return (
-    <ol className="sv-strip" aria-label="Workflow">
-      {steps.map((step, i) => {
-        const state = stateOf(i, at);
-        return (
-          <li key={step} className="sv-step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
-            <StepMark state={state} />
-            <span className="sv-step__name">{step}</span>
-          </li>
-        );
-      })}
-    </ol>
+    <div className="sv-steps">
+      <ol ref={list} className="sv-outline" aria-label="Workflow">
+        {steps.map((step, i) => {
+          const state = stateOf(i, at);
+          return (
+            <li key={step} className="sv-step" data-state={state} aria-current={state === "now" ? "step" : undefined}>
+              <div className="sv-step__row">
+                <StepMark state={state} />
+                <span className="sv-step__name">{step}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
@@ -102,8 +122,9 @@ function Groups({ plan }: { plan: WorkPlan }) {
 function Outline({ work, plan }: { work: SessionWork; plan: WorkPlan | undefined }) {
   const flow = work.workflow!;
   const builds = Math.max(flow.steps.indexOf("Build"), 0);
+  const list = useKeepNow(flow.at);
   return (
-    <ol className="sv-outline" aria-label="Workflow">
+    <ol ref={list} className="sv-outline" aria-label="Workflow">
       {flow.steps.map((step, i) => {
         const state = stateOf(i, flow.at);
         return (
@@ -147,12 +168,12 @@ export function StatusPanel({ work, take, place, onApprove }: { work: SessionWor
         <Outline work={work} plan={plan} />
       ) : (
         <>
-          {work.workflow === undefined ? null : <Strip steps={work.workflow.steps} at={work.workflow.at} />}
+          {work.workflow === undefined ? null : <Steps steps={work.workflow.steps} at={work.workflow.at} />}
           {plan === undefined ? null : (
-            <>
+            <section className="sv-plan" aria-label="Plan">
               <Scope plan={plan} />
               <Groups plan={plan} />
-            </>
+            </section>
           )}
         </>
       )}

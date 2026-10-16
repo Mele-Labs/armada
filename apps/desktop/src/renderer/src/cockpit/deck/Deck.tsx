@@ -575,7 +575,7 @@ function AutopilotPane({ props, autopilot }: { props: CockpitProps; autopilot: R
   );
 }
 
-function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession"> }) {
+function Incoming({ calls, now, ship, hosts, host }: { calls: readonly Item[]; now: number; ship: Ship; hosts: Pick<CockpitProps, "onOpen" | "onOpenSession">; host?: (element: HTMLElement | null) => void }) {
   return (
     <section className="deck-panel deck-incoming" aria-label="Incoming calls" tabIndex={-1}>
       <header className="deck-band">
@@ -599,6 +599,7 @@ function Incoming({ calls, now, ship, hosts }: { calls: readonly Item[]; now: nu
             </li>
           );
         })}
+        {host === undefined ? null : <li className="sv-calls" ref={host} />}
       </ul>
     </section>
   );
@@ -699,7 +700,8 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const [leftHost, setLeftHost] = useState<HTMLElement | null>(null);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   const [footHost, setFootHost] = useState<HTMLElement | null>(null);
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { left: leftHost, side: sideHost, foot: footHost } : undefined), [unified, leftHost, sideHost, footHost]);
+  const [callsHost, setCallsHost] = useState<HTMLElement | null>(null);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { left: leftHost, side: sideHost, foot: footHost, calls: callsHost } : undefined), [unified, leftHost, sideHost, footHost, callsHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
@@ -727,7 +729,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           </div>
           <div className="deck-foot">
             <FlightControl ship={ship} props={props} />
-            <DispatchDeck />
+            {unified ? null : <DispatchDeck />}
             {unified ? <div className="sv-slot" data-place="foot" ref={setFootHost} /> : <AutopilotPanel props={props} autopilot={autopilot} />}
           </div>
         </div>
@@ -741,7 +743,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               <LedgerPanel host={setLedgerHost} />
             </>
           ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} />
+          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} {...(unified ? { host: setCallsHost } : {})} />
         </div>
       </div>
     </div>

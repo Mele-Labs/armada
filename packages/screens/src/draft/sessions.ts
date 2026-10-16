@@ -135,8 +135,8 @@ export type WorkConcern = { id: string; step: string; judge: string; text: strin
 export type WorkflowChoice = { name: string; steps: readonly string[] };
 
 export type SessionWork = {
-  /** Set until the person starts the work: what the proposer read the request to be. Absent once started. */
-  proposal?: { workflow: string | null };
+  /** What the proposer read the request to be. Changeable until `started`, a settled record in the thread after. */
+  proposal?: { workflow: string | null; started?: boolean };
   /** The workflow's steps and the index of the one the Session is at. Absent is a custom Session, which has no rail. */
   workflow?: { name: string; steps: readonly string[]; at: number };
   /** Absent until the agent records its plan after planning with the person. */

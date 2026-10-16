@@ -24,10 +24,14 @@ const QUIET = "one-view-2";
 const BUSY = "one-view-3";
 const BRANCH = "armada/lease-retry";
 
+/** A long workflow, to see how twelve steps read in the Status area. */
+const RELEASE: WorkflowChoice = { name: "Release", steps: ["Branch", "Changelog", "Version", "Build", "Sign", "Notarize", "Smoke", "Verify", "Tag", "Publish", "Announce", "Pull request"] };
+
 const WORKFLOWS: readonly WorkflowChoice[] = [
   { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
   { name: "Bug fix", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
   { name: "Code review", steps: ["Read", "Review", "Report"] },
+  RELEASE,
 ];
 const FEATURE = WORKFLOWS[0]!;
 
@@ -78,6 +82,18 @@ const busy: Session = {
   standing: "working",
   rows: [you("b-1", "13:50:00", "Rotate the audit log at midnight."), { id: "b-2", at: "14:00:05", kind: "tool", text: "Edit crates/store/src/audit.rs" }],
   attachments: [{ kind: "branch", name: "armada/audit-rotation", slot: 1 }],
+  // The long workflow with the Session at Smoke, six steps done.
+  work: {
+    workflow: { ...RELEASE, at: 6 },
+    plan: {
+      scope: ["crates/store", "apps/desktop"],
+      approved: true,
+      groups: [
+        { id: "a1", agent: "rust-engineer", title: "Rotate at midnight", tasks: [{ id: "A1", text: "Rotate the log file at midnight", state: "done", seen: true }, { id: "A2", text: "Keep seven files", state: "done", seen: true }] },
+        { id: "a2", agent: "bridge-engineer", title: "Show the rotation", tasks: [{ id: "A3", text: "List rotated files in System", state: "working", seen: true }] },
+      ],
+    },
+  },
 };
 
 // ---- What the Session records as it goes ------------------------------------------------------------------
@@ -201,9 +217,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       // Start begins the work: the first step, and the agent reads and asks before it plans.
       start: () => {
         works((work) => {
-          const { proposal, ...rest } = work;
-          void proposal;
-          return { ...rest, ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: 0 } }), field: field(0) };
+          return { ...work, ...(work.proposal === undefined ? {} : { proposal: { ...work.proposal, started: true } }), ...(work.workflow === undefined ? {} : { workflow: { ...work.workflow, at: 0 } }), field: field(0) };
         });
         push([tool("Read crates/fleet/src/lease.rs"), said("Two Sessions can ask for the same bay between the read and the write. One question before I plan.")], {
           asked: { command: QUESTIONS[0]!.question, call: "v-q1", offers: ["allow_once", "refuse"], questions: QUESTIONS },

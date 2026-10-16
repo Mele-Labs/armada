@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 
 export type PanelState = "asks" | "live" | "done";
-export type Place = "left" | "side" | "foot";
+export type Place = "left" | "side" | "foot" | "thread" | "calls";
 
 export function SvPanel({ label, state, acts, place, area, children }: { label: string; state?: PanelState | undefined; acts?: ReactNode; place: Place; area: string; children?: ReactNode }) {
   return (
