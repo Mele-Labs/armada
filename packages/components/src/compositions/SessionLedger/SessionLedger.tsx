@@ -271,30 +271,6 @@ const BAR: { kind: LedgerKind; said: string; Glyph: LucideIcon }[] = [
 /** What a Session's Search draft is kept under, so it survives leaving the panel. */
 const searchKeep = (keepKey: string | undefined) => (keepKey === undefined ? false : `session-ledger-search:${keepKey}`);
 
-/** Which kind the bar narrows to, kept like a section's view. A viewer's convenience, so a blocked store only forgets it. */
-function useOnly(): [LedgerKind | undefined, (next: LedgerKind | undefined) => void] {
-  const key = "armada.session-ledger.only";
-  const [only, set] = useState<LedgerKind | undefined>(() => {
-    try {
-      return BAR.find((one) => one.kind === localStorage.getItem(key))?.kind;
-    } catch {
-      return undefined;
-    }
-  });
-  return [
-    only,
-    (next) => {
-      set(next);
-      try {
-        if (next === undefined) localStorage.removeItem(key);
-        else localStorage.setItem(key, next);
-      } catch {
-        // Not kept: the bar is as it was left until the window closes.
-      }
-    },
-  ];
-}
-
 /** The words a node draws, for matching a search against a row's text. */
 function plain(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -303,11 +279,11 @@ function plain(node: ReactNode): string {
 }
 
 export function SessionLedger({ entries, folded = false, keepKey }: { entries: readonly LedgerEntry[]; folded?: boolean; keepKey?: string }) {
-  const [only, setOnly] = useOnly();
+  const [only, setOnly] = useState<LedgerKind>();
   const keep = searchKeep(keepKey);
   const [query, setQuery] = useState(() => (keep === false ? "" : (readKept<string>(keep) ?? "")));
   const [finding, setFinding] = useState(query !== "");
-  // A kind the Session holds no row of cannot narrow anything, so a choice kept from another Session is not applied.
+  // The choice lasts as long as this ledger does. A kind that has lost its last row cannot narrow anything, so it is not applied.
   const chosen = only !== undefined && rowsOf(entries, only).length > 0 ? only : undefined;
   const asked = query.trim().toLowerCase();
   const sections = SECTIONS.filter(({ kind }) => chosen === undefined || kind === chosen).map((section) => ({
