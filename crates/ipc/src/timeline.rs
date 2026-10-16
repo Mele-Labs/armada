@@ -108,6 +108,15 @@ pub enum TimelineKind {
     /// A Session ran a `git push` that updated a ref. `detail` is the branch.
     #[serde(rename = "session.pushed")]
     SessionPushed,
+    /// A person changed a Session's workflow in a panel. `says` is `workflow: old → new`.
+    #[serde(rename = "session.workflow")]
+    SessionWorkflow,
+    /// A Session's turn started on a different model than the turn before. `says` is `model: old → new`.
+    #[serde(rename = "session.model")]
+    SessionModel,
+    /// A Session's turn started on a different effort than the turn before. `says` is `effort: old → new`.
+    #[serde(rename = "session.effort")]
+    SessionEffort,
     /// A Session went from live to ended.
     #[serde(rename = "session.ended")]
     SessionEnded,

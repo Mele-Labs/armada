@@ -19,7 +19,7 @@ pub(crate) async fn start_session<D: HostedSessions>(
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().start_session(start).await {
+    match served.shared().start_session_reading(start).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -247,6 +247,36 @@ pub(crate) async fn stop_session<D: HostedSessions>(
     };
     match served.daemon().stop_session(stopped).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn set_session_workflow<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let set: ipc::SetSessionWorkflow = match ipc::decode("a workflow for a session", &body) {
+        Ok(set) => set,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_session_workflow(set).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// What a Session held, given back or handed over. 200 with what moved and what stayed; 422 for a
+/// Session Fleet has no row for, 409 for a target that cannot take them.
+pub(crate) async fn release_session_holds<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let release: ipc::ReleaseSessionHolds = match ipc::decode("a session's holds to release", &body) {
+        Ok(release) => release,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().release_session_holds(release).await {
+        Ok(released) => answer(StatusCode::OK, &released, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

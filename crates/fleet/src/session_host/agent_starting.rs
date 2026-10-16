@@ -85,6 +85,7 @@ where
                 root: None,
                 pilot: None,
                 fork: None,
+                request: None,
             })
             .await?;
         self.held_for_person(&me, made, words, false).await
@@ -117,6 +118,7 @@ where
                     session_id: ipc::SessionId::carried(&me),
                     at: Some(at),
                 }),
+                request: None,
             })
             .await?;
         self.held_for_person(&me, made, words, true).await

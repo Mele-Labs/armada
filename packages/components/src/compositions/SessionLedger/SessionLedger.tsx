@@ -1,5 +1,5 @@
 import { Children, isValidElement, useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2 } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, ListChecks, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, RotateCw, ShieldCheck, ShieldEllipsis, ShieldX, Split, Trash2, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept, readKept } from "../../keep";
@@ -126,6 +126,10 @@ export type LedgerEntry = {
   onRemove?: (reason: string) => void;
   /** What the reason box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   removeKeep?: string;
+  /** Release at the row's end, shown on hover or focus, `name` what its tooltip names. Its press is the host's, which confirms first. */
+  release?: { name: string; onPress: () => void };
+  /** Released from here: given back, or kept by Fleet with `kept` saying why. */
+  released?: { kept?: string };
   onOpen: () => void;
 };
 
@@ -518,6 +522,13 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               </Tooltip>
             )}
             <span className="armada-session-ledger__text">{row.text}</span>
+            {row.released === undefined || row.released.kept !== undefined ? null : (
+              <Tooltip label="Given back">
+                <span className="armada-session-mark" role="img" aria-label="Given back">
+                  <Unplug size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
             {row.handed === undefined ? null : (
               <Tooltip label={row.handed}>
                 <span className="armada-session-mark" role="img" aria-label={row.handed}>
@@ -556,7 +567,13 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
           </button>
         );
         return (
-          <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
+          <li
+            key={row.key}
+            className="armada-session-ledger__row"
+            aria-label={row.name}
+            data-mark={row.mark?.glyph}
+            data-given={(row.released !== undefined && row.released.kept === undefined) || undefined}
+          >
             {row.card === undefined ? (
               opener
             ) : (
@@ -565,6 +582,8 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
               </Tooltip>
             )}
             {removal(row)}
+            {row.release === undefined ? null : <ReleaseAct name={row.release.name} onPress={row.release.onPress} />}
+            {row.released?.kept === undefined ? null : <span className="armada-session-ledger__kept">{row.released.kept}</span>}
             {row.exits}
             {replies && replying === row.key && row.onReply !== undefined ? (
               <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
@@ -677,6 +696,19 @@ export function RemoveAct({ name, open, onPress }: { name: string; open: boolean
         <Trash2 size={12} strokeWidth={2} aria-hidden />
       </Button>
     </Tooltip>
+  );
+}
+
+/** Gives one row back. The row's hover or focus shows it; its tooltip names the row. */
+function ReleaseAct({ name, onPress }: { name: string; onPress: () => void }) {
+  return (
+    <span className="armada-session-ledger__release">
+      <Tooltip label={`Release ${name}`}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={`Release ${name}`} onClick={onPress}>
+          <Unplug size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
   );
 }
 

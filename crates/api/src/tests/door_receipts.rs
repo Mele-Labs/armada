@@ -96,6 +96,8 @@ fn long_lived() -> SessionRecord {
         helm: false,
         activity: None,
         build: None,
+        workflow: None,
+        proposal: None,
         plan: None,
         touches: Vec::new(),
     }

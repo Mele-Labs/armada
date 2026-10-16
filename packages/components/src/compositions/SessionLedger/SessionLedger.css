@@ -407,3 +407,26 @@ path.armada-session-ledger__picture-later {
     animation: none;
   }
 }
+
+/* A row's Release sits at its end and shows only while the row is hovered or holds focus, so Tab still reaches it. */
+.armada-session-ledger__release {
+  display: inline-flex;
+  align-self: center;
+  padding-inline-end: var(--space-1);
+}
+
+.armada-session-ledger__row:not(:hover, :focus-within) > .armada-session-ledger__release {
+  opacity: 0;
+}
+
+/* Given back from here: still drawn, so the person sees what went, in the muted ink of a row no longer held. */
+.armada-session-ledger__row[data-given] {
+  color: var(--fg-muted);
+}
+
+/* Why Fleet kept a row a release named, under it as the tile's result says it. */
+.armada-session-ledger__kept {
+  flex-basis: 100%;
+  padding: 0 var(--space-3) var(--space-2);
+  color: var(--fg-muted);
+}
