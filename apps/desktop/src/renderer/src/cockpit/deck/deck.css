@@ -133,7 +133,7 @@
 
 /* ---- Activity: the Feed take, in the narrow column under the list ---------------------------------------- */
 
-.deck-activity { flex: none; height: calc(var(--space-12) * 6); }
+.deck-activity { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 .deck-activity .armada-tl { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 .deck-activity .armada-tl__body { flex: 1 1 0; min-height: 0; }
 .deck-activity .armada-tl__block { padding: 0 var(--space-2) var(--space-1); }

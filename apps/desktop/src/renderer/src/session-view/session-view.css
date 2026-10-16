@@ -4,49 +4,20 @@
 
 /* ---- Where the panels stand ----------------------------------------------------------------------------- */
 
-/* On the Cockpit: the two places the deck gives up, empty until a Session's panel is drawn into one. */
+/* On the Cockpit: the place the deck gives up, empty until a Session's panel is drawn into one. */
 .sv-slot { display: flex; min-width: 0; min-height: 0; }
 .sv-slot:empty { display: none; }
-.sv-slot[data-place="left"] { flex: 0 0 calc(var(--space-12) * 8); flex-direction: column; transition: flex-basis calc(var(--duration-sheet) * 1.6) var(--ease), flex-grow calc(var(--duration-sheet) * 1.6) var(--ease); }
-/* A panel folded to its band leaves the left column's room to the list; the list folded leaves its room to this one. */
-.sv-slot[data-place="left"]:has(> .sv-panel[data-collapsed]) { flex-basis: calc(var(--h-row) * 1.25 + var(--border-width) * 2); }
-.deck-left:has(> .deck-list[data-collapsed]) > .sv-slot[data-place="left"]:not(:has(> .sv-panel[data-collapsed])) { flex: 1 1 0; }
 .sv-slot[data-place="foot"] { flex: 1 1 calc(var(--space-12) * 7); flex-direction: column; min-width: calc(var(--space-12) * 7); }
 /* The right column's own children: Status, the Ledger at the size it has with a Session open and no workspace, then Incoming calls. */
 .sv-side { display: contents; }
 .sv-calls { display: flex; flex-direction: column; min-width: 0; }
 .sv-calls:empty { display: none; }
 
-/* On the Sessions page: the same places round the thread, left of it, under it, and in a column to its right. */
-.sv {
-  display: flex;
-  flex: 1 1 0;
-  gap: var(--space-3);
-  min-width: 0;
-  min-height: 0;
-}
-.sv__left { display: flex; flex: none; flex-direction: column; width: calc(var(--space-12) * 6); min-height: 0; }
-.sv__centre { display: flex; flex: 1 1 0; flex-direction: column; gap: var(--space-3); min-width: 0; min-height: 0; }
-.sv__thread { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
-.sv__thread > .armada-session-panels { flex: 1 1 0; }
-.sv__foot { display: flex; flex: none; flex-direction: column; }
-.sv__right {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: calc(var(--space-12) * 5.75);
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
 /* Status takes what its content needs up to a cap and scrolls past it. The Ledger is a kept panel and does not shrink for it. */
-.sv-side > .sv-panel[data-area="status"],
-.sv__right > .sv-panel[data-area="status"] { flex: 0 1 auto; max-height: calc(var(--space-12) * 6.5); min-height: calc(var(--space-12) * 2.5); }
+.sv-side > .sv-panel[data-area="status"] { flex: 0 1 auto; max-height: calc(var(--space-12) * 6.5); min-height: calc(var(--space-12) * 2.5); }
 .sv-side > .sv-panel[data-area="ledger"] { flex: 3 1 0; min-height: calc(var(--space-12) * 5); }
-.sv__right > .sv-panel[data-area="ledger"] { flex: 1 1 0; min-height: calc(var(--space-12) * 10); }
-.sv-slot[data-place="left"] > .sv-panel { flex: 1 1 auto; min-height: 0; }
+/* The Plan stands in the right column where Incoming calls did, under the Ledger. */
+.sv-side > .sv-panel[data-area="plan"] { flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
 
 /* ---- A panel -------------------------------------------------------------------------------------------- */
 
@@ -144,18 +115,23 @@
 .sv-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
 }
 .sv-group[data-state="live"] { border-color: color-mix(in srgb, var(--step-running) 55%, var(--border-subtle)); }
 .sv-group[data-state="done"] { border-color: color-mix(in srgb, var(--step-advanced) 45%, var(--border-subtle)); }
+.sv-group__row { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; padding: var(--space-2) var(--space-3); border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sv-group__row:hover { background: color-mix(in srgb, var(--fg-default) 5%, transparent); }
+.sv-group__row:focus-visible { outline: var(--border-width) solid var(--accent); outline-offset: calc(var(--border-width) * -1); }
 .sv-group__head { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
 .sv-group__agent { display: inline-flex; align-items: center; gap: var(--space-1); font-weight: var(--weight-heading); color: var(--fg-default); }
-.sv-group__seen { display: inline-flex; margin-left: auto; color: var(--fg-muted); }
-.sv-group__title { margin: 0; color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
+.sv-group__seen { display: inline-flex; color: var(--fg-muted); }
+.sv-group__chevron { margin-left: auto; transition: rotate calc(var(--duration-sheet)) var(--ease); }
+.sv-group[data-open] .sv-group__chevron { rotate: 180deg; }
+.sv-group__title { color: var(--fg-muted); font-family: var(--font-sans); font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); }
+.sv-group__marks { display: flex; gap: var(--space-1); }
+.sv-group__body { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 .sv-tasks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .sv-task { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); font-family: var(--font-sans); }
 .sv-task > .armada-task-mark { margin-top: var(--space-1); }
@@ -182,15 +158,8 @@
 
 .sv-plan { display: flex; flex-direction: column; gap: var(--space-3); }
 .sv-plan__groups { display: flex; flex-direction: column; gap: var(--space-3); }
-/* In the foot, a wide place, the Plan lies across: the scope in a column, then each group as a card, scrolling across. The Field there
-   has a height of its own, so the foot is as tall as the Flight control beside it needs and no taller than this. */
-.sv-slot[data-place="foot"] > .sv-panel[data-area="plan"],
+/* The Field in the foot has a height of its own, so the foot is as tall as the Flight control beside it needs and no taller than this. */
 .sv-slot[data-place="foot"] > .sv-panel[data-area="field"] { flex: 0 0 calc(var(--space-12) * 4.5); }
-.sv-panel[data-place="foot"][data-area="plan"] > .sv-panel__body { overflow-x: auto; }
-.sv-panel[data-place="foot"] .sv-plan { flex-direction: row; align-items: flex-start; }
-.sv-panel[data-place="foot"] .sv-scope { flex: 0 0 calc(var(--space-12) * 2.5); flex-direction: column; flex-wrap: nowrap; }
-.sv-panel[data-place="foot"] .sv-plan__groups { flex-direction: row; }
-.sv-panel[data-place="foot"] .sv-group { flex: 0 0 calc(var(--space-12) * 4.5); }
 
 /* The workflow's name over its steps: a picker until the work starts, then its name. */
 .sv-flow { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-sans); }
@@ -200,12 +169,13 @@
 
 /* ---- Incoming calls with a Session open ----------------------------------------------------------------------- */
 
-/* With no call it is folded to its band. A call arriving opens it, and the Ledger, which keeps a minimum, gives way. */
-.deck-right:has(.sv-panel) > .deck-incoming { position: relative; flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
-.deck-right:has(.sv-panel) > .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty))) { flex: 0 0 var(--folded); min-height: 0; max-height: var(--folded); }
-/* Focused, by its key or by a press inside it, it opens further and lies over the Ledger, and settles back when focus goes. Its extra
-   size is taken from the margin above it, so the Ledger is not pushed and only covered. */
-.deck-right:has(.sv-panel) > .deck-incoming:not([data-collapsed]):has(.deck-incoming__cards > li:not(:empty)):focus-within {
+/* Incoming calls stands on the left under the list. With no call it is folded to its band. A call arriving opens it, and the list, which keeps a minimum, gives way. */
+.deck-left > .deck-list { min-height: calc(var(--space-12) * 3); }
+.deck-left > .deck-incoming { position: relative; flex: 2 1 0; min-height: calc(var(--space-12) * 3); }
+.deck-left > .deck-incoming:not(:has(.deck-incoming__cards > li:not(:empty))) { flex: 0 0 var(--folded); min-height: 0; max-height: var(--folded); }
+/* Focused, by its key or by a press inside it, it opens further and lies over the Jobs and Sessions list, and settles back when focus
+   goes. Its extra size is taken from the margin above it, so the list is not pushed and only covered. */
+.deck-left > .deck-incoming:not([data-collapsed]):has(.deck-incoming__cards > li:not(:empty)):focus-within {
   z-index: 3;
   flex: 2 1 calc(var(--space-12) * 4.5);
   margin-top: calc(var(--space-12) * -4.5);

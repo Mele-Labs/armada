@@ -120,7 +120,7 @@ export type WorkTaskState = "open" | "working" | "done";
 export type WorkTask = { id: string; text: string; state: WorkTaskState; seen?: boolean };
 
 /** Tasks one subagent takes, by the type of subagent. */
-export type WorkGroup = { id: string; agent: string; title: string; tasks: readonly WorkTask[] };
+export type WorkGroup = { id: string; agent: string; title: string; /** The paths this group works in. */ paths: readonly string[]; tasks: readonly WorkTask[] };
 
 /** The scope as paths, the groups, and whether the person has approved it. */
 export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean };

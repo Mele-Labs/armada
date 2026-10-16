@@ -6,7 +6,7 @@
 
 import { useMemo } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import type { Session } from "@armada/screens/src/draft/sessions";
+import type { Session, WorkDrone } from "@armada/screens/src/draft/sessions";
 
 import { Battlefield } from "../cockpit/deck/Battlefield";
 import { useAreas } from "../cockpit/deck/areas-source";
@@ -15,6 +15,7 @@ import type { DroneIn, RepoIn } from "../cockpit/deck/layout";
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
 
 const NONE = new Map();
+const RESTING: readonly WorkDrone[] = [{ id: "main", path: "", doing: "read" }];
 const NO_LIST: never[] = [];
 const nothing = () => undefined;
 
@@ -29,14 +30,15 @@ function narrowed(areas: Areas, paths: ReadonlySet<string>): Areas {
 export function FieldPanel({ session, repositories, place }: { session: Session; repositories: readonly RepositorySummary[]; place: Place }) {
   const source = useAreas();
   const work = session.work;
-  const drones = work?.field ?? NO_LIST;
+  // Before any drone has work the floor has the Session's own drone alone, at rest.
+  const drones = work?.field === undefined || work.field.length === 0 ? RESTING : work.field;
   const repository = repositories.find((one) => one.manifest?.id === session.manifestId);
   const root = repository?.root ?? session.manifestId ?? "";
   const name = repository?.manifest?.repository ?? root;
   const scope = work?.plan?.scope;
-  const paths = useMemo(() => new Set([...(scope ?? []), ...drones.map((one) => one.path)]), [scope, drones]);
+  const paths = useMemo(() => new Set([...(scope ?? []), ...drones.map((one) => one.path)].filter((one) => one !== "")), [scope, drones]);
   const files = work?.files;
-  const repos = useMemo<RepoIn[]>(() => [{ root, name, pads: [], goal: false, areas: narrowed(source(root), paths), ...(files === undefined ? {} : { files }) }], [root, name, source, paths, files]);
+  const repos = useMemo<RepoIn[]>(() => [{ root, name, pads: [], goal: false, areas: paths.size === 0 ? source(root) : narrowed(source(root), paths), ...(files === undefined ? {} : { files }) }], [root, name, source, paths, files]);
   const own = `session:${session.id}`;
   const flying = useMemo<DroneIn[]>(
     () =>
@@ -47,26 +49,24 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
         root,
         said: one.task ?? "Working",
         hue: "calm",
-        spin: true,
+        spin: one.path !== "",
         hover: true,
         ping: false,
         stuck: false,
         flare: false,
-        working: true,
-        doing: one.doing,
-        via: one.path,
+        working: one.path !== "",
+        ...(one.path === "" ? {} : { doing: one.doing, via: one.path }),
         ...(one.agent === undefined ? {} : { parent: own }),
         ...(one.file === undefined ? {} : { file: one.file }),
-        touches: [{ path: one.file ?? one.path, w: 4 }],
+        touches: one.path === "" ? [] : [{ path: one.file ?? one.path, w: 4 }],
         shown: true,
       })),
     [drones, own, root, session.title, session.id],
   );
-  const state: PanelState | undefined = flying.length === 0 ? undefined : "live";
+  const state: PanelState | undefined = drones === RESTING ? undefined : "live";
   return (
     <SvPanel label="Field" area="field" place={place} state={state}>
-      {flying.length === 0 ? null : (
-        <div className="sv-field">
+      <div className="sv-field">
           <Battlefield
             repos={repos}
             drones={flying}
@@ -85,7 +85,6 @@ export function FieldPanel({ session, repositories, place }: { session: Session;
             onPr={nothing}
           />
         </div>
-      )}
     </SvPanel>
   );
 }

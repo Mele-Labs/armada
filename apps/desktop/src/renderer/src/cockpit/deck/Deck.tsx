@@ -701,11 +701,10 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   // A Session with `work` draws its own panels in the places of Activity, Bays and Autopilot, and its status in the ring's.
   const sessions = useSessions();
   const unified = reading && sessions.some((one) => `session:${one.id}` === sel?.key && one.work !== undefined);
-  const [leftHost, setLeftHost] = useState<HTMLElement | null>(null);
   const [sideHost, setSideHost] = useState<HTMLElement | null>(null);
   const [footHost, setFootHost] = useState<HTMLElement | null>(null);
   const [callsHost, setCallsHost] = useState<HTMLElement | null>(null);
-  const hosts = useMemo<Hosts | undefined>(() => (unified ? { left: leftHost, side: sideHost, foot: footHost, calls: callsHost } : undefined), [unified, leftHost, sideHost, footHost, callsHost]);
+  const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost, calls: callsHost } : undefined), [unified, sideHost, footHost, callsHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
   const { columns, resize, reset } = useColumns(grid);
@@ -723,7 +722,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
         <div className="deck-left">
           <RepositoryScope props={props} />
           <List subjects={listed} banding={banding} selected={sel?.kind === "job" || sel?.kind === "session" ? selected : undefined} builds={builds} jobs={props.state.jobs} onPick={(one) => select(selOfSubject(one))} />
-          {unified ? <div className="sv-slot" data-place="left" ref={setLeftHost} /> : <Activity props={props} listed={listed} ship={ship} />}
+          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} {...(unified ? { host: setCallsHost } : {})} />
           {columns === undefined ? null : <DockHandle quiet className="deck-handle" grows="right" label="the left column" width={columns.left} {...columns.range.left} onResize={(width) => resize("left", width)} onReset={() => reset("left")} />}
         </div>
         <div className="deck-centre">
@@ -747,7 +746,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
               <LedgerPanel host={setLedgerHost} />
             </>
           ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
-          <Incoming calls={incoming} now={props.now} ship={ship} hosts={props} {...(unified ? { host: setCallsHost } : {})} />
+          {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
         </div>
       </div>
     </div>

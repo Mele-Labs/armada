@@ -89,8 +89,8 @@ const busy: Session = {
       scope: ["crates/store", "apps/desktop"],
       approved: true,
       groups: [
-        { id: "a1", agent: "rust-engineer", title: "Rotate at midnight", tasks: [{ id: "A1", text: "Rotate the log file at midnight", state: "done", seen: true }, { id: "A2", text: "Keep seven files", state: "done", seen: true }] },
-        { id: "a2", agent: "bridge-engineer", title: "Show the rotation", tasks: [{ id: "A3", text: "List rotated files in System", state: "working", seen: true }] },
+        { id: "a1", agent: "rust-engineer", title: "Rotate at midnight", paths: ["crates/store"], tasks: [{ id: "A1", text: "Rotate the log file at midnight", state: "done", seen: true }, { id: "A2", text: "Keep seven files", state: "done", seen: true }] },
+        { id: "a2", agent: "bridge-engineer", title: "Show the rotation", paths: ["apps/desktop"], tasks: [{ id: "A3", text: "List rotated files in System", state: "working", seen: true }] },
       ],
     },
   },
@@ -106,9 +106,9 @@ const task = (id: string, text: string, state: WorkTaskState): WorkTask => ({ id
 function groups(stage: number): WorkGroup[] {
   const at = (from: number, done: number): WorkTaskState => (stage >= done ? "done" : stage >= from ? "working" : "open");
   return [
-    { id: "g1", agent: "rust-engineer", title: "Lease retry in Fleet", tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), task("T2", "Back off between attempts", at(2, 3))] },
-    { id: "g2", agent: "protocol-engineer", title: "Attempt count on the wire", tasks: [task("T3", "Add attempts to the lease reply", at(1, 2))] },
-    { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", tasks: [task("T4", "Show the attempt on the bay tile", at(2, 4))] },
+    { id: "g1", agent: "rust-engineer", title: "Lease retry in Fleet", paths: ["crates/fleet"], tasks: [task("T1", "Retry the lease when the pool is contended", at(1, 2)), task("T2", "Back off between attempts", at(2, 3))] },
+    { id: "g2", agent: "protocol-engineer", title: "Attempt count on the wire", paths: ["crates/ipc", "packages/protocol"], tasks: [task("T3", "Add attempts to the lease reply", at(1, 2))] },
+    { id: "g3", agent: "bridge-engineer", title: "Attempt on the bay", paths: ["apps/desktop"], tasks: [task("T4", "Show the attempt on the bay tile", at(2, 4))] },
   ];
 }
 
