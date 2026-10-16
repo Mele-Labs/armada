@@ -4,7 +4,7 @@
 // this, the body and the keys are one thing and a body that unmounts while a page is open comes back exact. #2301.
 
 import { useEffect, useMemo, useState } from "react";
-import { isPressed, pressedDigit, pressedSlot } from "@armada/components";
+import { isPressed, pressedDigit, pressedSlot, useNow } from "@armada/components";
 import { DECK_TABS, SURFACE, deckTabOf, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
@@ -15,7 +15,6 @@ import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
-import { quantized } from "./field";
 import { holdFor } from "./props";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
@@ -31,7 +30,6 @@ const NO_HOSTS: Hosts = { onOpen: () => {}, onOpenSession: () => {}, onOpenLink:
 
 type Where = {
   state: BridgeState;
-  now: number;
   picked: RepositorySummary | null;
   nowViews: Readonly<Record<string, CallView>> | undefined;
   nows: Readonly<Record<string, NowView>> | undefined;
@@ -81,7 +79,7 @@ export function DeckSystem({ showing, hidden, warned, onGoTo }: { showing: strin
  * The deck's keys and housekeeping, drawn as nothing but the key sheet. Every key is asked of the keymap (`isPressed`,
  * `pressedSlot`, `pressedDigit`) and none is spelled here.
  */
-export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
+export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidden, onGoTo, onOpen, onOpenSession }: Where & {
   /** Surfaces nothing serves yet, left off the places beside what a layout hides. */
   hidden: readonly string[];
   /** The Cockpit is what is on screen, with no page over it. */
@@ -92,7 +90,7 @@ export function DeckHost({ state, now, picked, nowViews, nows, here, openJobId, 
   onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
 }) {
-  const ship = useShip({ ...NO_HOSTS, state, now: quantized(now, AGE_MS), picked, nowViews, nows }, false);
+  const ship = useShip({ ...NO_HOSTS, state, now: useNow(AGE_MS), picked, nowViews, nows }, false);
   const only = useDeck((deck) => deck.only);
   const needs = useDeck((deck) => deck.needs);
   const checks = useDeck((deck) => deck.checks);

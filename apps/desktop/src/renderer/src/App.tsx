@@ -23,7 +23,7 @@ import type { HelmContext, LandCheckAt } from "@armada/protocol";
 import { useDockCards } from "./dock-answering";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, NO_CHIP, opened, screenOf } from "@armada/helm";
 import type { ChipState } from "@armada/helm";
-import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
+import { AccountPage, Button, GuidanceProvider, GuideCatalogue, ProseLinks, useNowWhile } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -39,14 +39,15 @@ import { ModsSurface, openSettingsAt } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
-import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } from "./app-effects";
+import { useEscapeLeavesJob, useLandings, useReturnToRow, useSummoned } from "./app-effects";
+import { Overview } from "./Overview"; import { DoctorSurfaceNow, JobDetailNow, JobsSurfaceNow, ManifestNow, SetupNow, StudiosSurfaceNow, WorktreesNow } from "./clocked-screens";
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DeckHost, DeckPlaces, DeckSystem } from "./cockpit/deck/DeckHost";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview } from "./Overview"; import { useOneBar } from "./one-bar";
+import { useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { optionsFor } from "./dispatch-panel/reading";
 import { useHelmBox } from "./helm-box";
@@ -57,16 +58,14 @@ import { useSessions } from "./sessions-draft";
 import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
-import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
 import { nodeNamed, studioName } from "@armada/screens";
 import type { OpenStudio } from "@armada/studios";
-import { Worktrees } from "@armada/cleanup";
-import { Manifest, useManifestEditing, useManifestForm } from "@armada/manifest";
-import { Setup, startSetupSession, useSetup } from "@armada/setup";
+import { useManifestEditing, useManifestForm } from "@armada/manifest";
+import { startSetupSession, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
 import { said } from "@armada/screens/src/copy";
-import { JobDetail, LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
+import { LandCheckLogSheet, sessionCheckId } from "@armada/jobs";
 import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
@@ -158,7 +157,7 @@ import { LessonsSurface } from "./lessons";
 import { useTitleRow } from "./title-row";
 import { DownshiftAlert } from "./downshift";
 import { ChecksSurface, useAsked } from "./checks-surface";
-import { JobsSurface } from "./jobs-surface"; import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
+import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
@@ -166,8 +165,7 @@ import { useWhereOpen } from "./where-open";
 import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { fleetPanelOf } from "./left-column";
-import { DoctorSurface } from "./doctor/Doctor";
+import { fleetPanelClocked } from "./left-column";
 import { firstContactOf, machineOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
@@ -190,7 +188,6 @@ export function App({ draft }: AppProps = {}) {
   // What has been read and acknowledged. The count itself belongs to the
   // connection and is never reset from here — a drop that happened, happened.
   const [acknowledged, setAcknowledged] = useState(0);
-  const now = useNow();
   const [copied, setCopied] = useCopied();
   // What the app is telling somebody, as a sentence it already wrote. Today
   // that is only an open that did not happen; a click ending in nothing on
@@ -470,13 +467,15 @@ export function App({ draft }: AppProps = {}) {
   const { raised, lower, tell } = useRaised(commands.outcome);
   const dispatchFailure = useDispatchFailure(repositories, openSession);
   useTellAsked(tell); const commandering = useCommanderActs(tell); // The annotation layer's send that failed; the owner's words to a Commander and his pick on its card.
+  // The only reading of the time App makes: how long an unreachable Fleet has been silent, in its failure.
+  const silentFor = useNowWhile(state.connection.state === "unreachable");
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
     readAt: state.readAt,
     outcome: commands.outcome,
     raised: raised.flatMap((one) => raisedFailure(one, state.bridge) ?? []),
-    now,
+    now: silentFor,
   });
   const guarded = { bridge: state.bridge, onCopied: setCopied };
   function close(): void {
@@ -628,7 +627,7 @@ export function App({ draft }: AppProps = {}) {
     setCaptureAim(continued);
   }
   // Helm's dock lists every repository's questions, whatever the pick. `questions` is the dock's own block; `asks` is Helm's.
-  const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, now, commands);
+  const { questions, asks } = useDockCards(state.questions, state.jobs, repositories, commands);
   const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting }) === SURFACE.overview; // Its call is already in front.
   const showingNow = showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, jobbing, doctoring, accounting });
   // Back and forward are keys and nothing on screen — `history.ts`.
@@ -701,10 +700,7 @@ export function App({ draft }: AppProps = {}) {
                   ? undefined
                   : {
                       name: studioName(shownStudio),
-                      ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, state.jobs, {
-                            servers: state.servers.servers,
-                            now,
-                          }) }),
+                      ...(studioNode === null ? {} : { node: nodeNamed(shownStudio, studioNode, state.jobs, { servers: state.servers.servers }) }),
                     }
               }
               onSwitch={(manifestId) => pointHelm(manifestId)}
@@ -732,7 +728,7 @@ export function App({ draft }: AppProps = {}) {
             </Button>
           }
           fleet={{
-            ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
+            ...fleetPanelClocked(state.connection, statement, state.health, state.readAt),
             ...(fleetBuild === undefined ? {} : { build: fleetBuild }), onOpenDoctor: () => goTo(SURFACE.doctor),
             open: fleetOpen,
             onOpenChange: setFleetOpen,
@@ -772,7 +768,7 @@ export function App({ draft }: AppProps = {}) {
               // Keyed by the Job, so a render that threw on one Job is not the
               // failure notice drawn over the next one opened.
               <Boundary key={reading.id} region="the job detail" {...guarded}>
-                <JobDetail
+                <JobDetailNow
                   job={reading}
                   {...(added === undefined ? {} : { added })}
                   {...(asked.opening?.jobId === reading.id ? { opening: asked.opening.to } : {})}
@@ -818,7 +814,6 @@ export function App({ draft }: AppProps = {}) {
                   questions={state.questions}
                   repositories={repositories}
                   stale={!live}
-                  now={now}
                   acting={commands.acting === reading.id}
                   actingAct={commands.acting === reading.id ? (commands.actingAct ?? undefined) : undefined}
                   rerunningChecks={commands.rerunningChecks === reading.id}
@@ -956,7 +951,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : jobbing ? (<JobsSurface state={state} now={now} repositories={repositories} disconnected={live ? null : statement.headline} nows={draft?.now} onOpen={setOpenJob} onKill={(jobId) => setConfirming({ act: "kill_job", jobId })} onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })} onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })} onPausing={(act, jobId) => setConfirming({ act, jobId })} onCompose={() => newJob()} onCopied={setCopied} onCursor={setCursor} />) : sessioning ? (<><RefsHost.Provider value={refsHost}><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} repositories={repositories} /></RefsHost.Provider>{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
+            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurfaceNow health={state.health} connection={state.connection} said={statement.headline}  onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onOpenSession={openSession} onFix={(fix) => commands.fixMain(fix)} onSendToSession={(id, text) => void commands.sendToSession(id, text)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface key={state.repository ?? ""} state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : jobbing ? (<JobsSurfaceNow state={state}  repositories={repositories} disconnected={live ? null : statement.headline} nows={draft?.now} onOpen={setOpenJob} onKill={(jobId) => setConfirming({ act: "kill_job", jobId })} onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })} onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })} onPausing={(act, jobId) => setConfirming({ act, jobId })} onCompose={() => newJob()} onCopied={setCopied} onCursor={setCursor} />) : sessioning ? (<><RefsHost.Provider value={refsHost}><SessionsSurface openId={sessionOpen} onOpen={openSession} lines={state.mergeLines} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} board={state.jobs} settings={state.settings} {...(startIn === undefined ? {} : { startIn })} {...(bandsBy === undefined ? {} : { bandsBy })} repositories={repositories} /></RefsHost.Provider>{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -964,14 +959,12 @@ export function App({ draft }: AppProps = {}) {
                  already taken back everything it could prove nobody needs, and
                  this is where the rest is given back, one tile at a time. */
               <Boundary region="Cleanup" {...guarded}>
-                <Worktrees
+                <WorktreesNow
                   held={pickedHeld}
                   // Read for the handle that names a worktree outside the
                   // pool, and a `depended_on` reason's blocker.
                   jobs={state.jobs}
                   onWant={readHeld}
-                  // The app's one `now`, because two clocks in one window drift.
-                  now={now}
                   onClose={() => setClearing(false)}
                   onCopied={setCopied}
                   // A slot's Job opens over Cleanup, and Escape comes back here.
@@ -995,13 +988,12 @@ export function App({ draft }: AppProps = {}) {
                  exists and none is created: the whole point of the surface is
                  that a person can run this project's lint without one. */
               <Boundary region="the manifest" {...guarded}>
-                <Manifest
+                <ManifestNow
                   // Another repository is another page: its runs, its allows and a dismissed Verify are not this one's.
                   key={state.repository ?? ""}
                   sheet={state.checkoutRunSheet}
                   followed={state.checkoutRunFollowed}
                   picked={picked}
-                  now={now}
                   onSaid={setTelling}
                   editing={editing}
                   form={form}
@@ -1030,9 +1022,8 @@ export function App({ draft }: AppProps = {}) {
                     ? {}
                     : { onSetUpWithSession: () => setUpWithSession(setting.held, repository) })}
                   setup={
-                    <Setup
+                    <SetupNow
                       setting={setting}
-                      now={now}
                       sheet={state.checkoutRunSheet}
                       onStartVerify={startCheckoutVerify}
                       onStopRun={stopCheckoutRun}
@@ -1060,7 +1051,7 @@ export function App({ draft }: AppProps = {}) {
                 sketch={composedFrom}
               />
             ) : studying ? (
-              <StudiosSurface
+              <StudiosSurfaceNow
                 state={state}
                 live={live}
                 repositories={repositories}
@@ -1082,8 +1073,7 @@ export function App({ draft }: AppProps = {}) {
                 onOpenJob={setOpenJob}
                 onDispatchSketch={(from, drawn) => (setComposedFrom({ said: "", produced_by: from, drawn }), setComposing(true))}
                 // A server node reads the live holder and counts its uptime on
-                // the clock the rest of the app already ticks on — #1345.
-                now={now}
+                // the window's one clock — #1345.
                 onCopied={setCopied}
               />
             ) : kitting ? (
@@ -1139,7 +1129,6 @@ export function App({ draft }: AppProps = {}) {
               <>
                 <Overview
                   state={state}
-                  now={now}
                   live={live}
                   repositories={repositories}
                   disconnected={live ? null : statement.headline}
@@ -1274,7 +1263,7 @@ export function App({ draft }: AppProps = {}) {
           onDispatchSession={dispatchFailure}
         >
           <DownshiftAlert choose={openModelSetting} />
-          <DeckHost state={state} now={now} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
+          <DeckHost state={state} picked={pickedRepository} nowViews={nowing.feed.calls} nows={nowing.feed.nows} here={atCockpit} openJobId={openJob} hidden={hidden} onGoTo={goTo} onOpen={(jobId) => (goTo(SURFACE.overview), setOpenJob(jobId))} onOpenSession={openSession} />
           <CallAlerts state={state} picked={pickedRepository} nowViews={nowing.feed.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
         </Toasts>
         </DispatchingProvider>

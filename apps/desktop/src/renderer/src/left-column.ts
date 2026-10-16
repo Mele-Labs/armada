@@ -51,6 +51,24 @@ export function fleetPanelOf(
 }
 
 /**
+ * The same panel with its two time-bearing parts left to the panel: `reading` is asked at the clock
+ * where the panel draws, so a tick draws the panel and not the window holding it.
+ */
+export function fleetPanelClocked(
+  connection: Connection,
+  statement: Statement,
+  health: HealthRead,
+  readAt: number | null,
+): Omit<FleetPanelProps, "open" | "onOpenChange"> {
+  const { rows: _rows, detail: _detail, ...rest } = fleetPanelOf(connection, statement, health, 0, readAt);
+  const reading = (now: number) => {
+    const { rows, detail } = fleetPanelOf(connection, statement, health, now, readAt);
+    return { rows, detail };
+  };
+  return { ...rest, reading };
+}
+
+/**
  * pid, port, protocol and up, one row each — **only the ones this state has a
  * value for.** Settled 2026-09-17. A runtime file names pid and port, so a
  * Fleet being connected to or not answering has those two; protocol and uptime
