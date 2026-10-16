@@ -934,7 +934,8 @@ export const register: Register = on => {
     if (one !== undefined) one.turn = freshTurn()
     void titled($, e.text).catch(() => undefined)
     void turnBegan($, e.text).catch(() => undefined)
-    const ended = e.origin?.kind === 'task-notification' ? backgroundEndOf(e.text) : undefined
+    // Whatever the origin: the notice can arrive inside a system-reminder, and only a task this load saw start is settled.
+    const ended = backgroundEndOf(e.text)
     if (ended !== undefined) void backgroundEnded($, ended.target, ended.status, ended.exit, ended.output).catch(() => undefined)
     return out
   })

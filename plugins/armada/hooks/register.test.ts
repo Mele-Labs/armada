@@ -586,8 +586,10 @@ test('a command run in the background and a Monitor are told, and settled on the
   await $.tool.call({ tool: 'Bash', command: 'pnpm dev', description: 'Serve it', run_in_background: true })
   await clock.settle()
   const ended = (text: string) => $.prompt.submit({ text, origin: { kind: 'task-notification' } } as never)
-  await ended(NOTICE_COMPLETED.replace('byry3zett', 'b1wd556q5'))
+  // Inside a system-reminder, under an origin that is not a task notification's.
+  await $.prompt.submit({ text: NOTICE_COMPLETED.replace('byry3zett', 'b1wd556q5'), origin: { kind: 'unclassified' } } as never)
   await ended(NOTICE_SUBAGENT)
+  await $.prompt.submit({ text: 'hello', origin: { kind: 'user' } } as never)
   await ended(NOTICE_KILLED.replace('bdjviwn7c', 'b2wd556q5'))
   await $.tool.call({ tool: 'TaskStop', task_id: 'mon42' })
   await clock.settle()
