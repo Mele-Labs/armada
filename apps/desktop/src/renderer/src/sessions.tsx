@@ -11,6 +11,7 @@ import {
   Alert,
   Button,
   ChipOwnership,
+  ContextFigure,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -30,6 +31,7 @@ import {
   SketchPreview,
   SketchReading,
   StepsPanel,
+  SubagentMarks,
   TileSheet,
   pressedSlot,
   useCodeRun,
@@ -65,7 +67,7 @@ import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
-import { SubagentThread } from "./session-subagent";
+import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
@@ -548,6 +550,8 @@ export function ReadingSheet({
       .finally(() => setPressed(undefined));
   };
   const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
+  const subagent = one?.kind === "subagent" ? one : undefined;
+  const subagentThread = useSubagentRead(sessionId, subagent, readSubagent);
   if (one?.kind === "pull_request") {
     return (
       <SessionPullRequest
@@ -591,9 +595,11 @@ export function ReadingSheet({
       floating
       floor={floor}
       title={title}
-      {...(drawnByAgent ? { size: "wide" as const } : {})}
+      {...(drawnByAgent || subagent !== undefined ? { size: "wide" as const } : {})}
+      {...(subagent?.agentType === undefined && subagentThread?.model === undefined ? {} : { subtitle: <SubagentMarks type={subagent?.agentType} model={subagentThread?.model} /> })}
       bleed={artifact !== undefined || one?.kind === "subagent" || drawnByAgent}
       {...(Glyph === undefined ? {} : { leading: <Glyph size={16} strokeWidth={2} aria-hidden /> })}
+      {...(subagentThread?.context === undefined ? {} : { controls: <ContextFigure fill={subagentThread.context} /> })}
       {...(artifact !== undefined && isAddress(artifact.form)
         ? {
             controls: (
@@ -619,7 +625,7 @@ export function ReadingSheet({
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )
       ) : one?.kind === "subagent" ? (
-        <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
+        <SubagentThread sessionId={sessionId} one={one} thread={subagentThread} />
       ) : one?.kind === "artifact" ? (
         <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}

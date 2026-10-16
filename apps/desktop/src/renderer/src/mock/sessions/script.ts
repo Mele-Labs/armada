@@ -121,6 +121,12 @@ export function others(): Session[] {
 /** How long the mock's pull request act takes to come back from the forge. */
 const ACT_MS = 1500;
 
+/** What a subagent's window holds: a running one starts at the first and takes in the second with each row it has drawn. */
+const SUBAGENT_TOKENS_FROM = 18_000;
+const SUBAGENT_TOKENS_PER_READ = 9_000;
+const SUBAGENT_TOKENS_DONE = 142_000;
+const SUBAGENT_WINDOW = 200_000;
+
 /** What every subagent the mock holds does, in order: the brief, its calls, and the report it ends on. */
 const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
   ["message", "Read the CI history of store_flaky and say when it fails."],
@@ -786,7 +792,15 @@ export function sessionsStore(
           : { id, at: stamp, kind: "message", from: { kind: index === 0 ? "you" : "agent" }, text };
       });
       const finished = seen === script.length;
-      return { rows, finished, ...(finished ? { report: script[script.length - 1]![1] } : {}) };
+      // Its window fills as it is read: each read of a running one has taken in more.
+      const tokens = held.state === "done" ? SUBAGENT_TOKENS_DONE : SUBAGENT_TOKENS_FROM + SUBAGENT_TOKENS_PER_READ * seen;
+      return {
+        rows,
+        finished,
+        ...(finished ? { report: script[script.length - 1]![1] } : {}),
+        model: "claude-opus-5-5",
+        context: { tokens, window: SUBAGENT_WINDOW },
+      };
     },
     later() {
       const arrival = arrivals[arrived];

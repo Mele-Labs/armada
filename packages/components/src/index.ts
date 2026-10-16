@@ -494,3 +494,4 @@ export * from "./compositions/ThoughtCard/ThoughtCard";
 export * from "./compositions/ClashMark/ClashMark";
 export * from "./compositions/StopCard/StopCard";
 export * from "./clock";
+export * from "./compositions/SubagentMarks/SubagentMarks";

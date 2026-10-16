@@ -70,7 +70,8 @@ export type SessionAttachment =
    * `against` is the sketch it is read as a change to, held whole so a later replacement does not move it.
    */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
+  /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string }
   /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
@@ -362,7 +363,15 @@ export type SessionQuestion = {
 export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
 /** A subagent's thread, drawn as a Session's is. */
-export type SubagentThread = { rows: SessionRow[]; finished: boolean; report?: string };
+export type SubagentThread = {
+  rows: SessionRow[];
+  finished: boolean;
+  report?: string;
+  /** The model id it runs on, as Fleet read it. Absent until it has answered. */
+  model?: string;
+  /** What its last answer had in its window. Absent until it has answered. */
+  context?: { tokens: number; window: number };
+};
 
 /** A file the panel read: its bytes and kind, or why it could not be shown. */
 export type ArtifactRead =
