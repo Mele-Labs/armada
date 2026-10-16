@@ -99,7 +99,11 @@ export function DockHandle({ width, min, max, label, grows = "left", onResize, o
 
   function pointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer sent by a script has nothing to capture; its moves are sent to the handle as well.
+    }
     drag.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
     setDragging(true);
     document.body.style.cursor = "col-resize";

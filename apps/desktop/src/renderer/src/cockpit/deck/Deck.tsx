@@ -19,6 +19,7 @@ import { viewsOf } from "../../merge-line";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useAutopilotLane } from "../AutopilotLane";
 import { useColumns } from "./columns";
+import { useSplits } from "./splits";
 import { dotsOf } from "../horizon";
 import { useFleetEvents } from "../fleet-events";
 import { bandingOf, bandsOf, type Banding } from "./bands";
@@ -707,7 +708,9 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
   const hosts = useMemo<Hosts | undefined>(() => (unified ? { side: sideHost, foot: footHost, calls: callsHost } : undefined), [unified, sideHost, footHost, callsHost]);
   const selected = sel?.key;
   const grid = useRef<HTMLDivElement>(null);
-  const { columns, resize, reset } = useColumns(grid);
+  const layout = unified ? "session" : reading ? "reading" : "idle";
+  const { columns, resize, reset } = useColumns(grid, layout);
+  const splits = useSplits(grid, layout);
   // While a Session that has built something is open, its ring stands above the ledger, where the Bays are otherwise.
   const builds = useBuilds(props.now);
   const building = reading && selected !== undefined ? builds.get(selected) : undefined;
@@ -748,6 +751,7 @@ export const DeckBody = memo(function DeckBody(props: CockpitProps) {
           ) : <BaysPanel props={props} ship={ship} selected={sel?.kind === "slot" ? selected : undefined} />}
           {unified ? null : <Activity props={props} listed={listed} ship={ship} />}
         </div>
+        {splits}
       </div>
     </div>
     </ClashesOpenHere>
