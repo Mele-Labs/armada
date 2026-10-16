@@ -27,5 +27,16 @@ progress. The proposer runs on Session dispatch and fills in the title, the
 workflow (none where nothing fits, which is a custom Session as today), the
 model by difficulty, and the effort.
 
+## Walk notes, 15 Oct 2026
+
+| He said | Settled |
+|---|---|
+| *"I really dont see a purpose in having a separate sessions page. I think its too much to maintain. We have everything in the cockpit."* | The Sessions page goes. A Session is viewed in the Cockpit only; what the page alone offers moves to the Cockpit first |
+| The Cockpit's panels: keep Incoming calls, Flight control, Merge line, Status, the Ledger and the Jobs and Sessions list; Activity, Bays and Autopilot may give way | A selected Session fills the middle with its thread and composer, and its own panels take the three places that give way |
+| *"I should be able to collapse any of these panels by clicking their headers"* | Every panel folds to its band. Incoming calls is folded with no calls, opens when one arrives, and lifts over the Ledger when focused |
+| The proposal card duplicated the composer's model and effort | No proposal card. The title is the Session's name, model and effort preset the composer's own controls, the workflow is picked above the steps in Status |
+| A horizontal strip cannot hold a long workflow | Steps are drawn vertically |
+| The Field should be the repository's floorplan | A treemap of the directories with files as bars; drones fly to the file they touch |
+
 **Why the ring had no pieces.** A Bridge-hosted Session was started without
 `CLAUDE_CODE_ENABLE_TODO_TOOLS`, so its agent had no task tools (#2385).
