@@ -24,8 +24,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use adapter_traits::{
-    FileRead, HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable,
-    WhatWasRead,
+    FileRead, HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, StyleApplied,
+    StyleFacts, StyleFrom, Unreadable, WhatWasRead,
 };
 use serde::de::IgnoredAny;
 use serde::Deserialize;
@@ -52,6 +52,35 @@ const SUB_AGENTS: &str = ".claude/agents";
 const COMMANDS: &str = ".claude/commands";
 const AGENT_FILE: &str = ".claude/CLAUDE.md";
 const PLUGINS: &str = ".claude/plugins/installed_plugins.json";
+const OUTPUT_STYLES: &str = ".claude/output-styles";
+/// A plugin's own folder of styles, under where it is installed.
+const PLUGIN_STYLES: &str = "output-styles";
+/// The settings files that can name the active style, **user first**. A
+/// repository has the other two under its own `.claude`, and the order of
+/// precedence is the harness's own: local over project over user.
+const SETTINGS: &str = ".claude/settings.json";
+const LOCAL_SETTINGS: &str = ".claude/settings.local.json";
+
+/// The styles the harness carries with no file behind them, and the line each
+/// says for itself.
+const BUILT_IN_STYLES: [(&str, &str); 3] = [
+    (
+        "default",
+        "Completes coding tasks efficiently and answers concisely.",
+    ),
+    (
+        "Explanatory",
+        "Explains its implementation choices and the patterns it finds in the codebase.",
+    ),
+    (
+        "Learning",
+        "Pauses and asks the person to write small pieces of the code themselves.",
+    ),
+];
+
+/// Opens one repository's files, rooted at it. Supplied by whoever builds the
+/// reader, because where a checkout is is no business of this module.
+type Opener = Box<dyn Fn(&str) -> Box<dyn SetupFiles + Send + Sync> + Send + Sync>;
 
 /// How far under `skills/` a skill may sit. One level is a skill a person
 /// wrote. **Three is measured, not guessed**: a synced set lands under a folder
@@ -73,6 +102,9 @@ pub struct ExistingSetup<F> {
     /// As a person would type it, for what the answer says about where each
     /// item came from.
     home: String,
+    /// How a repository is opened, where the output styles of repositories are
+    /// to be read. `None` reads the home alone.
+    repositories: Option<Opener>,
 }
 
 impl<F: SetupFiles> ExistingSetup<F> {
@@ -82,7 +114,18 @@ impl<F: SetupFiles> ExistingSetup<F> {
         ExistingSetup {
             files,
             home: home.trim_end_matches('/').to_string(),
+            repositories: None,
         }
+    }
+
+    /// Read each repository's own output styles and settings too, through
+    /// `open`, which roots the files it returns at the repository.
+    pub fn in_repositories(
+        mut self,
+        open: impl Fn(&str) -> Box<dyn SetupFiles + Send + Sync> + Send + Sync + 'static,
+    ) -> ExistingSetup<F> {
+        self.repositories = Some(Box::new(open));
+        self
     }
 
     /// A path under the home, as a person reads it.
@@ -117,6 +160,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         name: front.name.unwrap_or_else(|| entry.name.clone()),
                         says: front.description.map(|said| shortened(&said)),
                         source: self.at(&here),
+                        style: None,
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&file),
@@ -175,6 +219,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         name: front.name.unwrap_or(named),
                         says: front.description.map(|said| shortened(&said)),
                         source: self.at(&here),
+                        style: None,
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&here),
@@ -207,6 +252,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         None => format!("{lines} lines"),
                     }),
                     source: self.at(AGENT_FILE),
+                    style: None,
                 });
             }
             FileRead::Unreadable(why) => unreadable.push(Unreadable {
@@ -235,6 +281,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                             source: first
                                 .and_then(|held| held.install_path.clone())
                                 .unwrap_or_else(|| self.at(PLUGINS)),
+                            style: None,
                         });
                     }
                 }
@@ -248,6 +295,109 @@ impl<F: SetupFiles> ExistingSetup<F> {
                 why,
             }),
             FileRead::Absent => {}
+        }
+        WhatWasRead::Read { items, unreadable }
+    }
+
+    /// Output styles: the person's, each repository's and each installed
+    /// plugin's, and which is in force. **Read only, and never a body**: a
+    /// style is a person's own writing and a row is not where it is read.
+    fn output_styles(&self, repositories: &[String]) -> WhatWasRead {
+        let mut found: Vec<Found> = Vec::new();
+        let mut unreadable = Vec::new();
+        let at = |path: &str| self.at(path);
+        let mut chosen: Vec<String> = Vec::new();
+
+        let user = setting(&self.files, SETTINGS, &at, &mut unreadable);
+        chosen.extend(user.clone());
+        styles_in(
+            &self.files,
+            OUTPUT_STYLES,
+            &at,
+            StyleFrom::Person,
+            None,
+            &mut found,
+            &mut unreadable,
+        );
+
+        if let Some(open) = &self.repositories {
+            for root in repositories {
+                let files = open(root);
+                let root = root.trim_end_matches('/');
+                let there = |path: &str| format!("{root}/{path}");
+                let project = setting(&*files, SETTINGS, &there, &mut unreadable);
+                let local = setting(&*files, LOCAL_SETTINGS, &there, &mut unreadable);
+                chosen.extend(local.or(project).or_else(|| user.clone()));
+                styles_in(
+                    &*files,
+                    OUTPUT_STYLES,
+                    &there,
+                    StyleFrom::Repository,
+                    None,
+                    &mut found,
+                    &mut unreadable,
+                );
+            }
+        }
+
+        if let FileRead::Bytes(bytes) = self.files.read(PLUGINS) {
+            if let Ok(installed) = ipc::decode::<Installed>("installed plugins", &bytes) {
+                let under = format!("{}/", self.home);
+                for (name, versions) in installed.plugins {
+                    let Some(path) = versions.first().and_then(|held| held.install_path.as_ref())
+                    else {
+                        continue;
+                    };
+                    // Only a plugin installed under the home is reachable here.
+                    let Some(relative) = path.strip_prefix(&under) else {
+                        continue;
+                    };
+                    let plugin = name.split('@').next().unwrap_or(&name).to_string();
+                    styles_in(
+                        &self.files,
+                        &format!("{relative}/{PLUGIN_STYLES}"),
+                        &at,
+                        StyleFrom::Plugin,
+                        Some(&plugin),
+                        &mut found,
+                        &mut unreadable,
+                    );
+                }
+            }
+        }
+
+        let mut items: Vec<SetupItem> = found
+            .iter()
+            .map(|style| {
+                let on = chosen.iter().any(|pick| style.is_named(pick));
+                SetupItem {
+                    name: style.name.clone(),
+                    says: style.says.clone(),
+                    source: style.source.clone(),
+                    style: Some(StyleFacts {
+                        from: style.from,
+                        applied: if on {
+                            StyleApplied::Active
+                        } else {
+                            StyleApplied::Available
+                        },
+                    }),
+                }
+            })
+            .collect();
+        for (name, says) in BUILT_IN_STYLES {
+            let named = chosen.iter().any(|pick| pick == name);
+            if named && !found.iter().any(|style| style.name == name) {
+                items.push(SetupItem {
+                    name: name.to_string(),
+                    says: Some(says.to_string()),
+                    source: format!("built in to {HARNESS}"),
+                    style: Some(StyleFacts {
+                        from: StyleFrom::BuiltIn,
+                        applied: StyleApplied::Active,
+                    }),
+                });
+            }
         }
         WhatWasRead::Read { items, unreadable }
     }
@@ -270,6 +420,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                                 says: (shown != name).then_some(shown),
                                 name,
                                 source: self.at(CONNECTED),
+                                style: None,
                             });
                         }
                     }
@@ -291,6 +442,10 @@ impl<F: SetupFiles> ExistingSetup<F> {
 
 impl<F: SetupFiles> HarnessSetup for ExistingSetup<F> {
     fn read(&self) -> Inventory {
+        self.read_across(&[])
+    }
+
+    fn read_across(&self, repositories: &[String]) -> Inventory {
         let present = self.files.entries(HOME).is_ok();
         let kinds = SetupKind::ALL
             .iter()
@@ -300,6 +455,7 @@ impl<F: SetupFiles> HarnessSetup for ExistingSetup<F> {
                     SetupKind::Skills => self.skills(),
                     SetupKind::Plugins => self.plugins(),
                     SetupKind::AgentFile => self.agent_file(),
+                    SetupKind::OutputStyles => self.output_styles(repositories),
                     SetupKind::SubAgents => self.markdown_in(SUB_AGENTS, 1),
                     SetupKind::Commands => self.markdown_in(COMMANDS, COMMAND_DEPTH),
                     SetupKind::McpServers => self.connected(),
@@ -357,6 +513,104 @@ fn front_matter(bytes: &[u8]) -> Result<Front, String> {
         return Err("front matter opens and never closes".to_string());
     };
     serde_yaml_ng::from_str::<Front>(&rest[..end]).map_err(|why| why.to_string())
+}
+
+/// One output style found in a folder, before it is known whether it is chosen.
+struct Found {
+    name: String,
+    says: Option<String>,
+    source: String,
+    from: StyleFrom,
+    /// `plugin:name`, which is how a setting names a plugin's style.
+    qualified: Option<String>,
+}
+
+impl Found {
+    fn is_named(&self, pick: &str) -> bool {
+        self.name == pick || self.qualified.as_deref() == Some(pick)
+    }
+}
+
+/// What a settings file says about the style, and nothing else it holds: the
+/// file also carries permissions and environment, none of which is read.
+#[derive(Deserialize)]
+struct Settings {
+    #[serde(default, rename = "outputStyle")]
+    output_style: Option<String>,
+}
+
+/// The `outputStyle` one settings file names. A file that is there and will
+/// not read is named, and it is no pick.
+fn setting(
+    files: &dyn SetupFiles,
+    path: &str,
+    shown: &dyn Fn(&str) -> String,
+    unreadable: &mut Vec<Unreadable>,
+) -> Option<String> {
+    match files.read(path) {
+        FileRead::Bytes(bytes) => match ipc::decode::<Settings>("settings", &bytes) {
+            Ok(settings) => settings.output_style,
+            Err(why) => {
+                unreadable.push(Unreadable {
+                    source: shown(path),
+                    why: why.to_string(),
+                });
+                None
+            }
+        },
+        FileRead::Unreadable(why) => {
+            unreadable.push(Unreadable {
+                source: shown(path),
+                why,
+            });
+            None
+        }
+        FileRead::Absent => None,
+    }
+}
+
+/// Every `.md` directly in `dir`, as a style. The body is never kept.
+fn styles_in(
+    files: &dyn SetupFiles,
+    dir: &str,
+    shown: &dyn Fn(&str) -> String,
+    from: StyleFrom,
+    plugin: Option<&str>,
+    found: &mut Vec<Found>,
+    unreadable: &mut Vec<Unreadable>,
+) {
+    let Ok(entries) = files.entries(dir) else {
+        return;
+    };
+    for entry in entries.iter().filter(|entry| !entry.is_dir) {
+        let Some(stem) = entry.name.strip_suffix(".md") else {
+            continue;
+        };
+        let path = format!("{dir}/{}", entry.name);
+        match files.read(&path) {
+            FileRead::Bytes(bytes) => match front_matter(&bytes) {
+                Ok(front) => {
+                    let name = front.name.unwrap_or_else(|| stem.to_string());
+                    found.push(Found {
+                        qualified: plugin.map(|plugin| format!("{plugin}:{name}")),
+                        name,
+                        says: front.description.map(|said| shortened(&said)),
+                        source: shown(&path),
+                        from,
+                    });
+                }
+                Err(why) => unreadable.push(Unreadable {
+                    source: shown(&path),
+                    why,
+                }),
+            },
+            FileRead::Unreadable(why) => unreadable.push(Unreadable {
+                source: shown(&path),
+                why,
+            }),
+            FileRead::Absent => {}
+        }
+    }
 }
 
 /// One paragraph of an item's own description, on one line.

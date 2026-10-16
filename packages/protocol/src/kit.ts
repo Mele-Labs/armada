@@ -76,7 +76,7 @@ export type SetManifestServerReach = {
 };
 
 // The setup a person already works with, read from their agent harness's own
-// home and shown by kind. Since protocol 17.2. `crates/ipc/src/kit.rs`, #1491.
+// home and shown by kind. Since protocol 17.2; `output_styles` and `style` added with #2413. `crates/ipc/src/kit.rs`, #1491.
 //
 // **No credential on any of it.** A connected server crosses as the program's
 // own file name or the host it is at, and never as what follows either — no
@@ -91,6 +91,23 @@ export type SetupItem = {
   says?: string;
   /** Where it came from, as a person would type it. */
   source: string;
+  /** Output styles only. Absent on every other kind's rows. */
+  style?: OutputStyleFacts;
+};
+
+/** Where an output style came from. Armada's word, never a harness's. */
+export type OutputStyleFrom = "person" | "repository" | "plugin" | "built_in" | "armada";
+
+/**
+ * Whether an output style is in force. `active` is chosen in the settings
+ * files; `always` is on top of the active one, whichever it is.
+ */
+export type OutputStyleApplied = "active" | "available" | "always";
+
+/** An output style's own facts. **Never its body.** */
+export type OutputStyleFacts = {
+  from: OutputStyleFrom;
+  applied: OutputStyleApplied;
 };
 
 /** Something of the right shape in the right place that would not read. */
@@ -112,6 +129,7 @@ export type SetupKind =
   | "skills"
   | "plugins"
   | "agent_file"
+  | "output_styles"
   | "sub_agents"
   | "commands"
   | "mcp_servers"

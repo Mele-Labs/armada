@@ -51,6 +51,7 @@ export type KitSetupKindWord =
   | "skills"
   | "plugins"
   | "agent_file"
+  | "output_styles"
   | "sub_agents"
   | "commands"
   | "mcp_servers"
@@ -85,6 +86,7 @@ const KIND_LABEL: Record<KitSetupKindWord, string> = {
   skills: "Skills",
   plugins: "Plugins",
   agent_file: "Agent file",
+  output_styles: "Output styles",
   sub_agents: "Sub agents",
   commands: "Commands",
   mcp_servers: "MCP servers",
@@ -110,6 +112,7 @@ const KIND_NONE: Record<KitSetupKindWord, string> = {
   skills: "No skills",
   plugins: "No plugins",
   agent_file: "No agent file",
+  output_styles: "No output styles",
   sub_agents: "No sub agents",
   commands: "No commands",
   mcp_servers: "No servers connected",

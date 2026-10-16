@@ -55,6 +55,9 @@ pub enum SetupKind {
     Plugins,
     /// The global "how I work" file. Kit-only: a Manifest has no counterpart.
     AgentFile,
+    /// How a harness is told to answer: the person's, the repository's and a
+    /// plugin's, and which one is in force. Read only.
+    OutputStyles,
     SubAgents,
     Commands,
     /// Servers the person connected **outside Armada**. Seen, never handed on.
@@ -70,6 +73,7 @@ impl SetupKind {
         SetupKind::Skills,
         SetupKind::Plugins,
         SetupKind::AgentFile,
+        SetupKind::OutputStyles,
         SetupKind::SubAgents,
         SetupKind::Commands,
         SetupKind::McpServers,
@@ -85,6 +89,7 @@ impl SetupKind {
             SetupKind::Skills => "skills",
             SetupKind::Plugins => "plugins",
             SetupKind::AgentFile => "agent_file",
+            SetupKind::OutputStyles => "output_styles",
             SetupKind::SubAgents => "sub_agents",
             SetupKind::Commands => "commands",
             SetupKind::McpServers => "mcp_servers",
@@ -107,6 +112,64 @@ pub struct SetupItem {
     /// Where it came from, as a person would type it. **The only path here**,
     /// and it names a file rather than carrying one.
     pub source: String,
+    /// What only an output style has. `None` on every other kind.
+    pub style: Option<StyleFacts>,
+}
+
+/// Where an output style came from, as Armada spells it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StyleFrom {
+    /// The person's own, under their home.
+    Person,
+    /// The repository's, under its own copy of the harness folder.
+    Repository,
+    /// Shipped by an installed plugin.
+    Plugin,
+    /// One the harness carries and no file holds.
+    BuiltIn,
+    /// Armada's, which no harness holds.
+    Armada,
+}
+
+impl StyleFrom {
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            StyleFrom::Person => "person",
+            StyleFrom::Repository => "repository",
+            StyleFrom::Plugin => "plugin",
+            StyleFrom::BuiltIn => "built_in",
+            StyleFrom::Armada => "armada",
+        }
+    }
+}
+
+/// Whether an output style is in force.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StyleApplied {
+    /// Chosen in the settings files, local over project over user.
+    Active,
+    /// Present and not chosen.
+    Available,
+    /// On top of whichever one is active, whatever is chosen.
+    Always,
+}
+
+impl StyleApplied {
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            StyleApplied::Active => "active",
+            StyleApplied::Available => "available",
+            StyleApplied::Always => "always",
+        }
+    }
+}
+
+/// An output style's own facts. **Never its body**, which is the person's
+/// writing, or Armada's rules, and a row is not where either is read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StyleFacts {
+    pub from: StyleFrom,
+    pub applied: StyleApplied,
 }
 
 /// Something of the right shape in the right place that would not read.
@@ -179,4 +242,12 @@ impl Inventory {
 /// see for it is the empty Kit again.
 pub trait HarnessSetup {
     fn read(&self) -> Inventory;
+
+    /// The same read, and the output styles and settings of each repository
+    /// root too. **A default that ignores them**, so a harness with no
+    /// per-repository setup needs nothing here.
+    fn read_across(&self, repositories: &[String]) -> Inventory {
+        let _ = repositories;
+        self.read()
+    }
 }

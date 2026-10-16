@@ -149,9 +149,19 @@ where
     /// carries no address to write even if it did.
     pub async fn kit_inventory(&self) -> ipc::KitInventory {
         let setup = self.setup();
-        let read = tokio::task::spawn_blocking(move || setup.read()).await;
+        // Each repository's own styles and settings, read beside the home's.
+        let roots: Vec<String> = self
+            .repositories()
+            .served()
+            .iter()
+            .map(|one| one.root().to_string())
+            .collect();
+        let read = tokio::task::spawn_blocking(move || setup.read_across(&roots)).await;
         match read {
-            Ok(read) => self.with_kits_allowlist(inventory(read)).await,
+            Ok(read) => {
+                let seen = self.with_kits_allowlist(inventory(read)).await;
+                with_armadas_session_rules(seen)
+            }
             // A panicked read is a bug in an adapter, and the answer a person
             // gets for it says the home was not read rather than that it holds
             // nothing.
@@ -178,6 +188,7 @@ where
                         name: command.run.clone(),
                         says: None,
                         source: crate::kit_allowlist::said_source(&command.from),
+                        style: None,
                     })
                     .collect(),
                 unreadable: Vec::new(),
@@ -312,6 +323,33 @@ where
     }
 }
 
+/// Armada's own session rules, as a row of the output styles beside the
+/// harness's. **A row and nothing else**: the rules are written where sessions
+/// are hosted, and this carries no word of them. Applied on top of whichever
+/// style is active, in the sessions Bridge hosts.
+fn with_armadas_session_rules(mut seen: ipc::KitInventory) -> ipc::KitInventory {
+    let rules = ipc::SetupItem {
+        name: String::from("Armada session rules"),
+        says: Some(String::from(
+            "Armada's rules for the sessions Bridge hosts, applied on top of the active style.",
+        )),
+        source: String::from("Armada"),
+        style: Some(ipc::OutputStyleFacts {
+            from: adapter_traits::StyleFrom::Armada.as_wire().to_string(),
+            applied: adapter_traits::StyleApplied::Always.as_wire().to_string(),
+        }),
+    };
+    if let Some(ipc::WhatWasRead::Read { items, .. }) = seen
+        .kinds
+        .iter_mut()
+        .find(|row| row.kind == "output_styles")
+        .map(|row| &mut row.read)
+    {
+        items.push(rules);
+    }
+    seen
+}
+
 /// The reading, on the wire. **Here and not in `ipc`**, which knows nothing of
 /// the adapter seam and is not going to start.
 fn inventory(read: adapter_traits::Inventory) -> ipc::KitInventory {
@@ -339,6 +377,10 @@ fn what_was_read(what: adapter_traits::WhatWasRead) -> ipc::WhatWasRead {
                     name: item.name,
                     says: item.says,
                     source: item.source,
+                    style: item.style.map(|style| ipc::OutputStyleFacts {
+                        from: style.from.as_wire().to_string(),
+                        applied: style.applied.as_wire().to_string(),
+                    }),
                 })
                 .collect(),
             unreadable: unreadable

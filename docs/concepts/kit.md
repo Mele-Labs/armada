@@ -47,13 +47,19 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **An adapter per harness**, decided with the owner on 18 Sep. Which folder, which file and how one harness spells a skill are `crates/adapters`' to know, and a second harness is a second adapter with nothing above it moving. `get_kit_inventory` is the read and `adapter_traits::HarnessSetup` is the seam.
 
-**Seven kinds of the eight are read**: Skills, Plugins, Agent file, Sub agents, Commands, the servers a person connected, and — since 5 Oct 2026 — the allowlist, read from `~/.armada` rather than from the harness's home ([Kit's allowlist](#kits-allowlist)). The models list answers *not read yet, and why*: it has no stored tier to read. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along. An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
+**Every kind but one is read**: Skills, Plugins, Agent file, Output styles, Sub agents, Commands, the servers a person connected, and, since 5 Oct 2026, the allowlist, read from `~/.armada` rather than from the harness's home ([Kit's allowlist](#kits-allowlist)). The models list answers *not read yet, and why*: it has no stored tier to read. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along. An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
 
 **Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from. A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong. What follows either is where a key sits and is never carried: no argument list, no query string, no userinfo, no environment. So what is on the screen could not start the server it names, and a server connected outside Armada is visible here while reaching no Drone — adding one to Kit and then allowing it are the two acts they were. That is `../scope.md`'s one confinement, kept where an import would have broken it.
 
 **The adapter cannot hold a credential rather than being careful not to draw one.** A program is kept as its file name and a URL as its host, by a reader that allocates only that much; the argument list and the environment are read into a type that keeps nothing at all. A `Vec<String>` of arguments a screen happened not to draw is the thing this shape exists to avoid.
 
 **A file that will not read is named, with its reason, under the kind it belongs to.** It costs that kind and nothing else, and nothing offers to repair it: the reader has no write to reach for.
+
+**Output styles are read from four places**, #2413. The person's own are the `.md` files in the harness home's `output-styles` folder, a repository's are the same folder under its own `.claude`, and an installed plugin's are the `output-styles` folder under where it is installed. The fourth is the harness's built-in styles, which have no file: one is a row only when the settings name it.
+
+**Which one is active comes from `outputStyle` in the settings files, in the harness's own order: local over project over user.** A repository's project and local files decide for that repository, and the user file decides everywhere else, so a row is `active` when any of those resolutions names it. A row carries its name and description from the front matter (the file name where it has none), where it came from (`person`, `repository`, `plugin`, `built_in` or `armada`), and whether it is `active`, `available` or `always`. **The body is never carried**, and nothing else in a settings file is read. A style or settings file that will not read is named with its reason, as the Agent file is.
+
+**Armada's session rules are a row of their own**, named *Armada session rules*, from `armada` and applied `always`. They sit on top of whichever style is active in the sessions Bridge hosts, so Kit labels them as Armada's and never as a style the person chose. The row carries a name and one line, and none of the rules.
 
 **Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Drone ran against. The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
 
@@ -65,10 +71,11 @@ The original four groups split across the two concepts: AI Behavior and the tool
 
 | Group | Contents |
 | --- | --- |
-| AI Behavior | Skills, MCP, Agent files, Plugins, Way I work, Expectations, Workflows, Sub agents, Models, AI-assisted prompt |
+| AI Behavior | Skills, MCP, Agent files, Output styles, Plugins, Way I work, Expectations, Workflows, Sub agents, Models, AI-assisted prompt |
 | Safety — the tooling half | Allowlist defaults, destructive-op list defaults |
 
 - Agent files are the global "how I work" file — Kit-only, no Manifest-level counterpart, see [Manifest](manifest.md).
+- Output styles are how the harness is told to answer, and sit beside Agent files in AI Behavior. They are read only: Kit shows them and writes none.
 - Sub agents are global; a Manifest can layer project-specific ones on top.
 - Helm action authority is not here. It is [Machine](machine.md), and was mis-tagged with a Manifest tier before the split.
 

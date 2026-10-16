@@ -133,6 +133,22 @@ pub struct SetupItem {
     pub says: Option<String>,
     /// Where it came from, as a person would type it.
     pub source: String,
+    /// What only an output style has, left out of every other kind's rows.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<OutputStyleFacts>,
+}
+
+/// An output style's own facts: where it came from and whether it is in force.
+/// **Never its body.** Both are Armada's words, spelled as `kind` is, so a
+/// second harness's styles draw on the same row.
+///
+/// `from` is `person`, `repository`, `plugin`, `built_in` or `armada`.
+/// `applied` is `active` (chosen in the settings files), `available`, or
+/// `always` (on top of the active one, whichever it is).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutputStyleFacts {
+    pub from: String,
+    pub applied: String,
 }
 
 /// Something of the right shape in the right place that would not read.
@@ -159,7 +175,7 @@ pub enum WhatWasRead {
 }
 
 /// One kind of thing, and what became of it. `kind` is Armada's word for it —
-/// `skills`, `plugins`, `agent_file`, `sub_agents`, `commands`, `mcp_servers`,
+/// `skills`, `plugins`, `agent_file`, `output_styles`, `sub_agents`, `commands`, `mcp_servers`,
 /// `allowlist`, `models` — and never a harness's.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetupKindRow {

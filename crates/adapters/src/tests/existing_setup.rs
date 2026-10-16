@@ -7,7 +7,8 @@
 use std::collections::BTreeMap;
 
 use adapter_traits::{
-    FileEntry, FileRead, HarnessSetup, SetupFiles, SetupItem, SetupKind, WhatWasRead,
+    FileEntry, FileRead, HarnessSetup, SetupFiles, SetupItem, SetupKind, StyleApplied, StyleFrom,
+    WhatWasRead,
 };
 
 use crate::{ExistingSetup, Home};
@@ -309,4 +310,159 @@ fn a_server_named_for_its_own_program_does_not_say_it_twice() {
     );
     assert_eq!(read[0].name, "gitnexus");
     assert_eq!(read[0].says, None);
+}
+
+// Output styles.
+
+const USER_STYLE: &str = "---\nname: bluf\ndescription: Bottom line first\n---\n\nSECRET BODY the person wrote.\n";
+
+fn styles(files: &[(&str, &str)], repository: &[(&str, &str)]) -> adapter_traits::Inventory {
+    let repository: Vec<(String, String)> = repository
+        .iter()
+        .map(|(path, text)| (path.to_string(), text.to_string()))
+        .collect();
+    ExistingSetup::over(Held::of(files), "/home/user")
+        .in_repositories(move |_| {
+            let held: Vec<(&str, &str)> = repository
+                .iter()
+                .map(|(path, text)| (path.as_str(), text.as_str()))
+                .collect();
+            Box::new(Held::of(&held))
+        })
+        .read_across(&["/work/armada".to_string()])
+}
+
+fn style_items(read: &adapter_traits::Inventory) -> Vec<SetupItem> {
+    match read.kind(SetupKind::OutputStyles).cloned() {
+        Some(WhatWasRead::Read { items, .. }) => items,
+        other => panic!("output styles were {other:?}"),
+    }
+}
+
+fn applied(items: &[SetupItem], name: &str) -> (StyleFrom, StyleApplied) {
+    let facts = items
+        .iter()
+        .find(|item| item.name == name)
+        .unwrap_or_else(|| panic!("no style {name} in {items:?}"))
+        .style
+        .expect("a style row carries its facts");
+    (facts.from, facts.applied)
+}
+
+#[test]
+fn styles_are_read_from_the_person_the_repository_and_a_plugin() {
+    let read = styles(
+        &[
+            (".claude/output-styles/bluf.md", USER_STYLE),
+            (
+                ".claude/plugins/installed_plugins.json",
+                r#"{"plugins":{"armada@mods":[{"installPath":"/home/user/.claude/plugins/cache/armada"}]}}"#,
+            ),
+            (
+                ".claude/plugins/cache/armada/output-styles/Armada.md",
+                "---\nname: Armada\ndescription: Facts only\n---\nbody\n",
+            ),
+        ],
+        &[(
+            ".claude/output-styles/terse.md",
+            "---\ndescription: One line each\n---\nbody\n",
+        )],
+    );
+    let items = style_items(&read);
+    assert_eq!(applied(&items, "bluf").0, StyleFrom::Person);
+    assert_eq!(applied(&items, "Armada").0, StyleFrom::Plugin);
+    // No name in the front matter: the file's own name.
+    assert_eq!(applied(&items, "terse").0, StyleFrom::Repository);
+    let bluf = items.iter().find(|item| item.name == "bluf").unwrap();
+    assert_eq!(bluf.says.as_deref(), Some("Bottom line first"));
+    assert_eq!(bluf.source, "/home/user/.claude/output-styles/bluf.md");
+    let terse = items.iter().find(|item| item.name == "terse").unwrap();
+    assert_eq!(terse.source, "/work/armada/.claude/output-styles/terse.md");
+    assert!(items
+        .iter()
+        .all(|item| item.style.unwrap().applied == StyleApplied::Available));
+}
+
+#[test]
+fn local_settings_win_over_project_and_project_over_user() {
+    let both = [
+        (".claude/output-styles/a.md", "---\nname: a\n---\n"),
+        (".claude/output-styles/b.md", "---\nname: b\n---\n"),
+        (".claude/output-styles/c.md", "---\nname: c\n---\n"),
+    ];
+    let user = |files: &mut Vec<(&'static str, &'static str)>| {
+        files.push((".claude/settings.json", r#"{"outputStyle":"a","env":{"K":"v"}}"#));
+    };
+    let mut files = both.to_vec();
+    user(&mut files);
+
+    let alone = styles(&files, &[]);
+    assert_eq!(applied(&style_items(&alone), "a").1, StyleApplied::Active);
+
+    let project = styles(&files, &[(".claude/settings.json", r#"{"outputStyle":"b"}"#)]);
+    let items = style_items(&project);
+    assert_eq!(applied(&items, "b").1, StyleApplied::Active);
+
+    let local = styles(
+        &files,
+        &[
+            (".claude/settings.json", r#"{"outputStyle":"b"}"#),
+            (".claude/settings.local.json", r#"{"outputStyle":"c"}"#),
+        ],
+    );
+    let items = style_items(&local);
+    assert_eq!(applied(&items, "c").1, StyleApplied::Active);
+    // The repository's pick replaces the user's there, and the user's still
+    // stands for everywhere else.
+    assert_eq!(applied(&items, "a").1, StyleApplied::Active);
+    assert_eq!(applied(&items, "b").1, StyleApplied::Available);
+}
+
+#[test]
+fn a_built_in_style_is_a_row_only_when_it_is_the_one_set() {
+    let none = styles(&[], &[]);
+    assert!(style_items(&none).is_empty());
+
+    let set = styles(&[(".claude/settings.json", r#"{"outputStyle":"Explanatory"}"#)], &[]);
+    let items = style_items(&set);
+    assert_eq!(items.len(), 1);
+    assert_eq!(
+        applied(&items, "Explanatory"),
+        (StyleFrom::BuiltIn, StyleApplied::Active)
+    );
+}
+
+#[test]
+fn an_unreadable_style_or_settings_file_is_named_with_its_reason() {
+    let read = styles(
+        &[
+            (".claude/output-styles/half.md", "---\nname: half\n"),
+            (".claude/settings.json", "{not json"),
+        ],
+        &[],
+    );
+    match read.kind(SetupKind::OutputStyles).cloned() {
+        Some(WhatWasRead::Read { items, unreadable }) => {
+            assert!(items.is_empty());
+            let sources: Vec<_> = unreadable.iter().map(|one| one.source.as_str()).collect();
+            assert!(sources.contains(&"/home/user/.claude/output-styles/half.md"));
+            assert!(sources.contains(&"/home/user/.claude/settings.json"));
+            assert!(unreadable.iter().all(|one| !one.why.is_empty()));
+        }
+        other => panic!("output styles were {other:?}"),
+    }
+}
+
+#[test]
+fn a_style_is_never_carried_as_its_body() {
+    let read = styles(
+        &[
+            (".claude/output-styles/bluf.md", USER_STYLE),
+            (".claude/settings.json", r#"{"outputStyle":"bluf","env":{"TOKEN":"hunter2"}}"#),
+        ],
+        &[],
+    );
+    let text = format!("{read:?}");
+    assert!(!text.contains("SECRET BODY"));
+    assert!(!text.contains("hunter2"));
 }

@@ -101,6 +101,39 @@ export const KIT_INVENTORY: KitInventory = {
         unreadable: [],
       },
     },
+    {
+      kind: "output_styles",
+      read: {
+        what: "read",
+        items: [
+          {
+            name: "bluf",
+            says: "Bottom line first, then only what the reader needs to act on it.",
+            source: "/Users/user/.agent/output-styles/bluf.md",
+            style: { from: "person", applied: "active" },
+          },
+          {
+            name: "Armada",
+            says: "Answers the way Armada's own sessions do: facts, no filler.",
+            source: "/Users/user/.agent/plugins/cache/armada/1.0.0/output-styles/Armada.md",
+            style: { from: "plugin", applied: "available" },
+          },
+          {
+            name: "terse-review",
+            says: "Short findings for reading a diff, one line each.",
+            source: "/Users/user/develop/armada/.agent/output-styles/terse-review.md",
+            style: { from: "repository", applied: "available" },
+          },
+          {
+            name: "Armada session rules",
+            says: "Armada's rules for the sessions Bridge hosts, applied on top of the active style.",
+            source: "Armada",
+            style: { from: "armada", applied: "always" },
+          },
+        ],
+        unreadable: [],
+      },
+    },
     { kind: "sub_agents", read: { what: "read", items: [], unreadable: [] } },
     { kind: "commands", read: { what: "read", items: [], unreadable: [] } },
     {
