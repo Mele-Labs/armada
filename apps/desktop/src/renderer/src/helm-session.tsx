@@ -80,7 +80,7 @@ export function useHelmHosted({ manifestId, goes, held, board, workflows, onAppr
     return () => onWant(false);
   }, [holdsSlot, onWant]);
   // Words the person sent are in the thread from the press, going, and Fleet's row takes their place when it arrives.
-  const version = useSyncExternalStore(words.engine.subscribe, () => words.engine.version(words.key));
+  const version = useSyncExternalStore(words.engine.subscribe, () => words.engine.version(words.key), () => 0);
   const rows = useMemo(() => words.engine.overlay(words.key, session?.rows ?? NO_SESSION_ROWS), [words, session?.rows, version]);
   const waiting = session === undefined && rows.length > 0;
   const thread = useBackfilled(session === undefined && !waiting ? NO_ROWS : threadRowsFrom(rows, session?.attachments), id ?? words.key);
