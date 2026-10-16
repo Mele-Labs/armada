@@ -60,6 +60,7 @@ export function MapView({ props, ship, listed }: { props: CockpitProps; ship: Sh
           focus={replay === undefined ? focusKey : undefined}
           builds={builds}
           selected={cursor}
+          scope={props.picked?.root}
           onSelect={(key) => {
             const subject = ship.subjects.find((one) => one.key === key);
             if (subject !== undefined) select(selOfSubject(subject));
