@@ -308,11 +308,14 @@ branch and the branches of slots it holds, once the base holds every commit on t
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slots and `/tmp` it runs, rewrites its own branch, pushes and reaches
-off the machine unasked. A call that reaches into the owner's own files, or
+off the machine unasked. A call that writes into the owner's own files, or
 removes or overwrites something outside its slots and `/tmp`, is refused with a
-reason the agent reads and works around. **A line that only reads is not that**: `launchctl print`,
-`diskutil list`, an awk script's `~` and `$5`, a read of `~/.cargo` or `~/.rustup` (his credentials
-and folders stay refused), and a read of another session's slot all run. `chmod` and `chown` in a
+reason the agent reads and works around. **A read anywhere runs** (the owner, 16 Oct 2026),
+except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads, Pictures,
+Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`, `~/.config/gh`),
+another volume, or a search from `/`, `/Users` or his home (`fleet::helm::deciding::GUARDED`).
+`launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
+session's slot all run. `chmod` and `chown` in a
 held slot are the session's work as `rm` is, and a redirect into `/tmp` runs however `$$` or a
 variable the line set spells it. Writing another session's slot stays refused. Only a question (`AskUserQuestion`)
 is put to the person; `ask` and `acceptEdits` still put calls to him.
