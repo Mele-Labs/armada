@@ -131,6 +131,8 @@
 
 /* A word at the row's start, standing for the lockup: the Cockpit's own mark, mono capitals. */
 .armada-title-bar__wordmark {
+  /* Never shrinks, so what sits beside the word inside it stays on its line; the repository's name gives way first. */
+  flex: none;
   color: var(--fg-default);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
