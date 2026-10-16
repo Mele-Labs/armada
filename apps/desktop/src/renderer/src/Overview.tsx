@@ -63,6 +63,7 @@ export function Overview({
   onPickRepository,
   onAddRepository,
   onGoTo,
+  onOpenCheck,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
   bring?: { key: string; at: number } | null;
@@ -124,6 +125,7 @@ export function Overview({
   onPickRepository?: Hosts["onPickRepository"];
   onAddRepository?: Hosts["onAddRepository"];
   onGoTo?: Hosts["onGoTo"];
+  onOpenCheck?: Hosts["onOpenCheck"];
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -226,6 +228,7 @@ export function Overview({
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
+            onOpenCheck={onOpenCheck}
             onFix={onFix}
             onSendToSession={onSendToSession}
             onPropose={propose}

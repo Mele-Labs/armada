@@ -852,6 +852,14 @@ where
         self.session_check_output(run).await
     }
 
+    async fn observe_session_check(&self, run: u64) -> Result<api::SessionCheckLive, Refusal> {
+        self.session_check_observed(run).await
+    }
+
+    async fn stop_session_check(&self, run: u64, force: bool) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        self.session_check_stopped(run, force).await
+    }
+
     async fn show_window(
         &self,
         caller: Option<api::Caller>,

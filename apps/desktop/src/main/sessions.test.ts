@@ -104,6 +104,27 @@ it("says a Fleet that does not serve sessions answered nothing, so the surface s
   expect(last("sessions")).toMatchObject({ state: "failed" });
 });
 
+it("keeps the sessions it holds when a later read fails, and publishes nothing for it", async () => {
+  let failing = false;
+  const server = createServer((request, response) => {
+    request.resume();
+    request.on("end", () => {
+      response.writeHead(failing ? 500 : 200, { "content-type": "application/json" });
+      response.end(JSON.stringify(failing ? { code: "fleet.busy", message: "busy" } : { sessions: [record("a"), record("b")] }));
+    });
+  });
+  listening = server;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  const port = (server.address() as AddressInfo).port;
+  const { sessions, published, last } = host(port);
+  await sessions.again(port);
+  const before = published.length;
+  failing = true;
+  await sessions.again(port);
+  expect(published.length).toBe(before);
+  expect(last("sessions")).toMatchObject({ state: "read", sessions: [{ id: "a" }, { id: "b" }] });
+});
+
 it("drops a row for a thread nobody opened, and follows one that was", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a")], { a: [said("r1", "first")] });

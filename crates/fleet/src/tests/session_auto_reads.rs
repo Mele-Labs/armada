@@ -46,7 +46,7 @@ fn a_tilde_or_dollar_inside_an_awk_script_is_not_a_path() {
         r#"grep -c "~" notes.txt"#,
     ]);
     refused(
-        &["ls ~", "ls ~/Documents", "cat \"$HOME/Desktop/a.txt\"", "ls ~ | head"],
+        &["ls ~/Documents", "cat \"$HOME/Desktop/a.txt\"", "find ~ -name x"],
         Because::ReachesOutside,
     );
 }
@@ -94,7 +94,7 @@ fn a_write_under_tmp_is_scratch_however_the_path_is_spelled() {
 }
 
 #[test]
-fn the_owners_toolchain_config_is_read_but_his_files_are_not() {
+fn the_owners_toolchain_config_is_read_but_his_credentials_are_not() {
     ran(&[
         "cat ~/.cargo/config.toml ~/.cargo/config 2>/dev/null; command -v sccache",
         "ls $HOME/.cargo/bin",
@@ -193,6 +193,56 @@ fn a_write_outside_the_slots_and_tmp_is_still_refused() {
             "do rm /repo/a",
             "for f in a b; do rm /repo/$f; done",
             "if true; then rm /repo/a; fi",
+        ],
+        Because::Destructive,
+    );
+}
+
+#[test]
+fn a_read_outside_the_slots_runs_unless_macos_or_credentials_guard_it() {
+    // Each one refused a session on 15 or 16 Oct 2026.
+    ran(&[
+        "cd ~/develop && grep -rl \"now run the preview at\" --include=*.ts . 2>/dev/null | head; ls ~/develop | head -50",
+        "F=~/.claude/projects/-Users-someone-develop-other/c42b7404.jsonl; grep -c 'run the preview at' $F",
+        "ls ~/.claude/projects/ | grep -i other",
+        "cat /Users/someone/develop/other/.claude/worktrees/cm/.scratch/HANDOFF.md",
+        "jq -r 'select(.a // \"\") | .b' /tmp/x.jsonl",
+        "ls ~",
+        "ls ~ | head",
+        "cat ~/Library/Logs/x.log",
+    ]);
+    refused(
+        &[
+            "find / -name pnpm",
+            "grep -r token ~",
+            "ls ~/Downloads",
+            "cat ~/Library/Mobile\\ Documents/x",
+            "cat ~/.ssh/config",
+            "cat ~/.config/gh/hosts.yml",
+            "ls /Volumes/Backup",
+            "cp ~/notes.txt /tmp/notes.txt",
+        ],
+        Because::ReachesOutside,
+    );
+}
+
+#[test]
+fn git_pointed_at_a_held_slot_is_its_own_and_cd_out_of_it_is_not() {
+    ran(&[
+        "git -C /repo/.armada/slots/slot-3 reset -q --keep HEAD~1",
+        "git -C /repo/.armada/slots/slot-3 checkout -- src/lib.rs",
+        "cd /repo/.armada/slots/slot-3 && git rebase origin/main",
+        "git reset --hard HEAD~1",
+    ]);
+    refused(
+        &[
+            "git -C /repo reset --hard",
+            "git -C /repo/.armada/slots/slot-3/../../.. reset --hard",
+            "git -C $SLOT reset --hard",
+            "cd /repo && git reset --hard",
+            "cd /repo && git checkout main",
+            "git -C /repo/.armada/slots/slot-3 --work-tree=/repo reset --hard",
+            "git -C /repo/.armada/slots/slot-3 stash",
         ],
         Because::Destructive,
     );

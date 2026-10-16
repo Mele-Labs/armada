@@ -512,7 +512,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use session_checks::{
-    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState,
+    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckOutputMessage,
+    SessionCheckOutputOpened, SessionCheckState, SessionCheckStop,
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use sketch::{RawScene, ShowSketch, Sketch};
@@ -536,6 +537,7 @@ pub use session_plan::{
     ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark, PlanMoved,
     PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput, PlanTaskState, RecordPlan,
     SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask, TouchAct, TouchBy, MOST_MARKS,
+    TASK_LIST_IS_THE_PLAN,
 };
 pub use session_build::{
     BuildPhase, BuildPiece, BuildPieceKind, BuildStop, BuildStopId, ReportedTask, ReportedTaskStatus, SessionBuild,

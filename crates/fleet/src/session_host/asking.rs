@@ -148,7 +148,7 @@ where
                         Some(Because::ReachesOutside) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(
-                                    "Refused: that reaches into the owner's own files outside your slots. Work inside a slot you hold, /tmp, or a path under Armada's own folders.",
+                                    "Refused: that writes to the owner's own files outside your slots, or reads a folder macOS guards (Desktop, Documents, Downloads, another volume), his credentials, or the whole disk. Reading anywhere else runs; write inside a slot you hold or /tmp.",
                                 ),
                             });
                         }

@@ -123,7 +123,7 @@ where
         let plan = self.plan_at(&id, approve.version).await?;
         if plan.approved_at.is_none() {
             // Told before it is settled, so a send that fails leaves the plan to approve again.
-            self.told_by_fleet(&id, &plan_marks::approved_message(plan.version)).await?;
+            self.told_by_fleet(&id, &plan_marks::approved_message(&plan)).await?;
             let now = self.now().as_str().to_string();
             self.store()
                 .lock()
@@ -140,7 +140,7 @@ where
         let said = plan_marks::checked(&plan, &sent.marks, sent.approve)
             .map_err(|why| self.hosted_refusal(PLAN_MARK_REFUSED, &why))?;
         let approving = sent.approve && plan.approved_at.is_none();
-        let text = plan_marks::message(plan.version, approving, &said);
+        let text = plan_marks::message(&plan, approving, &said);
         let row = SessionRow::PlanChanges {
             id: self.row_id(&id),
             at: self.instant(),

@@ -648,6 +648,10 @@ export class FleetConnection {
     return await this.jobReads.readSessionCheckOutput(run);
   }
 
+  async stopSessionCheck(run: number, force: boolean): Promise<Outcome> {
+    return await this.jobReads.stopSessionCheck(run, force);
+  }
+
   async readBrief(jobId: string, name: string): Promise<BriefRead> {
     return await this.jobReads.readBrief(jobId, name);
   }

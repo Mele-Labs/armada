@@ -596,6 +596,11 @@ export type JobsApi = {
    * shape. A Session's run has no Job and no log file Fleet resolved against one, so it is read by the run.
    */
   readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
+  /**
+   * Ask a Session's running Check to stop: `POST /sessions/checks/:run/stop` (`SIGTERM` to its group,
+   * then `SIGKILL` after a grace period) or `/force_stop` (`SIGKILL`) where `force`. The run ends as any does.
+   */
+  stopSessionCheck: (run: number, force: boolean) => Promise<Outcome>;
   /** One kept brief a Judge or a gaming check was asked, by its file name. `readCheckOutput`'s shape. */
   readBrief: (jobId: string, name: string) => Promise<BriefRead>;
   /**
@@ -1031,6 +1036,7 @@ export const JOBS_CHANNELS = {
   readRemarks: "bridge:read-remarks",
   readCheckOutput: "bridge:read-check-output",
   readSessionCheckOutput: "bridge:read-session-check-output",
+  stopSessionCheck: "bridge:stop-session-check",
   readBrief: "bridge:read-brief",
   readRetro: "bridge:read-retro",
   readLessons: "bridge:read-lessons",

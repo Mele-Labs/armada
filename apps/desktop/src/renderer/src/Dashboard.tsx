@@ -179,6 +179,8 @@ export type Hosts = {
   onOpen: (jobId: string) => void;
   onOpenSession: (sessionId: string) => void;
   onOpenLink: (address: string) => void;
+  /** Opens a Session's Check run in its panel, where the page stands. Absent, a press opens the Session. */
+  onOpenCheck?: ((sessionId: string, run: number) => void) | undefined;
   /** Hands main's red to a Job, as the merge line's band does. */
   onFix?: ((fix: FixMain) => void | Promise<FixRefusal | undefined | void>) | undefined;
   /** Sends main's red to a Session as a message, as the merge line's band does. */

@@ -37,11 +37,16 @@ fn take(slots: &BuildSlots, count: usize) {
 }
 
 #[test]
-fn a_pool_holds_one_fewer_than_the_cores_so_a_lone_build_gets_them_all() {
+fn a_pool_holds_four_fewer_than_the_cores_so_several_builds_stay_near_them() {
     let mut slots = BuildSlots::open(&fifo_for("size"), 12).expect("opens");
-    // The build's own implicit job is the twelfth.
-    assert_eq!(slots.size(), 11);
-    assert_eq!(slots.settle(|| true).expect("settles").free, 11);
+    // Five builds at once peak at 8 + 5, a lone one at 9.
+    assert_eq!(slots.size(), 8);
+    assert_eq!(slots.settle(|| true).expect("settles").free, 8);
+}
+
+#[test]
+fn a_pool_on_a_small_machine_still_holds_one() {
+    assert_eq!(BuildSlots::open(&fifo_for("small"), 2).expect("opens").size(), 1);
 }
 
 #[test]
@@ -63,12 +68,12 @@ fn a_path_with_a_space_is_refused_because_makeflags_splits_on_it() {
 #[test]
 fn a_fifo_left_by_a_fleet_that_crashed_is_kept_while_builds_still_hold_tokens() {
     let path = fifo_for("crash");
-    let first = BuildSlots::open(&path, 12).expect("opens");
+    let first = BuildSlots::open(&path, 15).expect("opens");
     take(&first, 4);
     // A running build's open descriptor is what keeps the fifo's contents.
     let _build = OpenOptions::new().read(true).write(true).open(&path).expect("opens");
     drop(first);
-    let mut again = BuildSlots::open_asking(&path, 12, || true).expect("opens again");
+    let mut again = BuildSlots::open_asking(&path, 15, || true).expect("opens again");
     // Four are held by builds this Fleet did not start: handing them out again
     // would put 15 jobs on 12 cores.
     assert_eq!(again.settle(|| true).expect("settles").free, 7);
@@ -77,16 +82,16 @@ fn a_fifo_left_by_a_fleet_that_crashed_is_kept_while_builds_still_hold_tokens() 
 #[test]
 fn a_fifo_found_with_no_build_running_is_filled_whatever_it_held() {
     let path = fifo_for("quiet");
-    let first = BuildSlots::open(&path, 12).expect("opens");
+    let first = BuildSlots::open(&path, 15).expect("opens");
     take(&first, 4);
     drop(first);
-    let mut again = BuildSlots::open_asking(&path, 12, || false).expect("opens again");
+    let mut again = BuildSlots::open_asking(&path, 15, || false).expect("opens again");
     assert_eq!(again.settle(|| true).expect("settles").free, 11);
 }
 
 #[test]
 fn tokens_a_killed_build_took_stay_out_while_a_compiler_runs() {
-    let mut slots = BuildSlots::open(&fifo_for("busy"), 12).expect("opens");
+    let mut slots = BuildSlots::open(&fifo_for("busy"), 15).expect("opens");
     take(&slots, 3);
     for _ in 0..5 {
         let looked = slots.settle(|| true).expect("settles");
@@ -96,7 +101,7 @@ fn tokens_a_killed_build_took_stay_out_while_a_compiler_runs() {
 
 #[test]
 fn tokens_lost_to_a_killed_build_come_back_after_two_quiet_looks() {
-    let mut slots = BuildSlots::open(&fifo_for("lost"), 12).expect("opens");
+    let mut slots = BuildSlots::open(&fifo_for("lost"), 15).expect("opens");
     take(&slots, 3);
     // One quiet look could be the gap between a cargo exiting and its tokens
     // landing in the fifo.
@@ -108,7 +113,7 @@ fn tokens_lost_to_a_killed_build_come_back_after_two_quiet_looks() {
 
 #[test]
 fn a_compiler_seen_between_two_quiet_looks_starts_the_count_again() {
-    let mut slots = BuildSlots::open(&fifo_for("again"), 12).expect("opens");
+    let mut slots = BuildSlots::open(&fifo_for("again"), 15).expect("opens");
     take(&slots, 3);
     slots.settle(|| false).expect("settles");
     slots.settle(|| true).expect("settles");
@@ -117,7 +122,7 @@ fn a_compiler_seen_between_two_quiet_looks_starts_the_count_again() {
 
 #[test]
 fn a_full_pool_does_not_ask_whether_a_compiler_runs() {
-    let mut slots = BuildSlots::open(&fifo_for("full"), 12).expect("opens");
+    let mut slots = BuildSlots::open(&fifo_for("full"), 15).expect("opens");
     let looked = slots
         .settle(|| panic!("a full pool has nothing to explain"))
         .expect("settles");
@@ -127,7 +132,7 @@ fn a_full_pool_does_not_ask_whether_a_compiler_runs() {
 #[test]
 fn a_late_return_that_overfills_the_pool_is_trimmed() {
     let path = fifo_for("over");
-    let mut slots = BuildSlots::open(&path, 12).expect("opens");
+    let mut slots = BuildSlots::open(&path, 15).expect("opens");
     // A build that outlived the fifo it took from writing back to this one.
     let mut writer = OpenOptions::new()
         .write(true)
@@ -143,7 +148,7 @@ fn a_late_return_that_overfills_the_pool_is_trimmed() {
 #[test]
 fn a_fifo_that_was_deleted_is_made_again_and_filled() {
     let path = fifo_for("gone");
-    let mut slots = BuildSlots::open(&path, 12).expect("opens");
+    let mut slots = BuildSlots::open(&path, 15).expect("opens");
     std::fs::remove_file(&path).expect("deleted");
     let looked = slots.settle(|| true).expect("settles");
     assert!(looked.recreated);
@@ -167,7 +172,7 @@ async fn makeflags_seen_by_a_check(env: &[(String, String)]) -> String {
 
 #[tokio::test]
 async fn a_check_is_handed_the_pool_it_was_offered() {
-    let slots = BuildSlots::open(&fifo_for("offered"), 12).expect("opens");
+    let slots = BuildSlots::open(&fifo_for("offered"), 15).expect("opens");
     crate::offer(slots.flags());
     assert_eq!(makeflags_seen_by_a_check(&[]).await, slots.flags());
 }
