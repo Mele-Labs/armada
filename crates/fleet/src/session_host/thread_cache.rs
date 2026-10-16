@@ -55,6 +55,7 @@ impl ThreadCache {
                 rows: one.rows().to_vec(),
                 finished,
                 report,
+                gauge: one.gauge().clone(),
             }
         })
     }

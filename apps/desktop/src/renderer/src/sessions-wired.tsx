@@ -490,8 +490,14 @@ export class WiredStore {
     subagent: async (id, subagentId) => {
       const read = await this.api.readSessionSubagent(id, subagentId);
       if (!read.ok) return undefined;
-      const { rows, finished, report } = read.value;
-      return { rows: rowsOfThread(id, rows, () => undefined), finished, ...(report === undefined ? {} : { report }) };
+      const { rows, finished, report, model, context_tokens, context_window } = read.value;
+      return {
+        rows: rowsOfThread(id, rows, () => undefined),
+        finished,
+        ...(report === undefined ? {} : { report }),
+        ...(model === undefined ? {} : { model }),
+        ...(context_tokens === undefined || context_window === undefined ? {} : { context: { tokens: context_tokens, window: context_window } }),
+      };
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),

@@ -459,5 +459,6 @@
 @import "./compositions/Account/ForgeMark.css";
 @import "./compositions/TitleBar/TitleMenu.css";
 @import "./primitives/TerminalPane/TerminalPane.css";
+@import "./compositions/SubagentMarks/SubagentMarks.css";
 @import "./primitives/PathPicker/PathPicker.css";
 @import "./compositions/ReachFolderList/ReachFolderList.css";

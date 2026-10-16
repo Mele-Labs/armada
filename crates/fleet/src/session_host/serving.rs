@@ -93,6 +93,24 @@ pub(super) fn title_of(text: &str) -> Option<String> {
     Some(line.chars().take(60).collect())
 }
 
+/// A subagent's transcript as the wire has it. `parent` is the Session's resolved model and the
+/// window it reported, which the subagent shares when it runs on the same model id.
+fn subagent_read(thread: adapters::terminal_thread::Subagent, parent: Option<(String, u64)>) -> SessionSubagent {
+    let parent = parent.as_ref().map(|(model, window)| (model.as_str(), *window));
+    let model = thread.gauge.model;
+    SessionSubagent {
+        rows: thread.rows,
+        finished: thread.finished,
+        report: thread.report,
+        context_tokens: thread.gauge.tokens,
+        context_window: thread
+            .gauge
+            .tokens
+            .map(|tokens| adapters::terminal_thread::window_for(tokens, model.as_deref(), parent)),
+        model,
+    }
+}
+
 impl<H, V, W> HostedSessions for Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -446,6 +464,7 @@ where
         let session = id.as_str().to_string();
         let subagent_id = subagent.clone();
         let threads = self.hosts().terminals().threads();
+        let parent = self.parent_window(id.as_str()).await;
         let read = tokio::task::spawn_blocking(move || {
             adapters::terminal_thread::find_subagent(&home, &session, &subagent)
                 .map(|file| threads.subagent(&file, &session, &subagent))
@@ -468,17 +487,9 @@ where
                         },
                     })
                     .await;
-                Ok(SessionSubagent {
-                    rows: thread.rows,
-                    finished: true,
-                    report: thread.report,
-                })
+                Ok(subagent_read(thread, parent))
             }
-            Some(Ok(thread)) => Ok(SessionSubagent {
-                rows: thread.rows,
-                finished: thread.finished,
-                report: thread.report,
-            }),
+            Some(Ok(thread)) => Ok(subagent_read(thread, parent)),
             Some(Err(why)) => Err(self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string())),
             None => {
                 Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent"))
@@ -546,6 +557,15 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The model the session runs on, as its process or its mod named it, and the window it last
+    /// reported: what a subagent on the same model id is measured against. `None` unless both are known.
+    async fn parent_window(&self, id: &str) -> Option<(String, u64)> {
+        let window = self.store().lock().await.session(id).ok().flatten()?.figures.context_window?;
+        let model = self.hosts().of(id).state().resolved_model.clone();
+        let model = model.or_else(|| self.hosts().terminals().facts_of(id).and_then(|facts| facts.model))?;
+        Some((model, window))
+    }
+
     /// A plain hosted session's ledger row and its hosting. `helm` marks it as a repository's Helm
     /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
     pub(crate) async fn started_hosted(

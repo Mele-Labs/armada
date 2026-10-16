@@ -25,7 +25,12 @@ const NONE = () => undefined;
 /** What the message box under a Job's Drone is given for the redirect sent: the row, and the Retry on it. */
 export function useSentRedirect(jobId: string): { sent?: SentRedirect; onRetry?: () => void } {
   const held = useContext(SentRedirectsContext);
-  const sent = useSyncExternalStore(held?.subscribe ?? NEVER, held === undefined ? NONE : () => held.get(jobId));
+  const sent = useSyncExternalStore(
+    held?.subscribe ?? NEVER,
+    held === undefined ? NONE : () => held.get(jobId),
+    // Drawn on a server, as the fixtures' test does, nothing has been sent.
+    NONE,
+  );
   if (held === undefined || sent === undefined) return {};
   return { sent, onRetry: () => held.retry(jobId) };
 }
