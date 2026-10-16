@@ -22,6 +22,21 @@ export type ThoughtCarry = {
   sketches: readonly { id: string; title: string }[];
 };
 
+/**
+ * Words held in Helm's thread from the press, while they go. **They are shown going** (the same pulse and
+ * Sending mark a Session's message has), so nothing is shown as sent that Fleet has not taken. Where they end
+ * up is the thread's own row: Helm's message, or the line that says where they went.
+ */
+export type HeldWords = {
+  /** Delivers the words, and settles them by whether they were taken. A refusal leaves them in the thread, marked, with a Retry. */
+  deliver: (how: () => void | boolean | Promise<boolean>) => Promise<boolean>;
+  /** The words went nowhere (dismissed, or taken to the Dispatch panel): out of the thread. */
+  drop: () => void;
+};
+
+/** Where Helm's box puts words the moment they are sent. */
+export type HelmOutgoing = { hold: (text: string, carry: ThoughtCarry) => HeldWords };
+
 export type ThoughtRouting = {
   /** Fleet's reading of the words. **A read that failed is a question**, so the words are never lost. */
   read: (text: string) => Promise<ThoughtReading>;

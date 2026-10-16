@@ -29,16 +29,6 @@ const onSession = fn();
 const onJob = fn();
 const onDismiss = fn();
 
-/** Helm is finding where the words belong: the words, and a mark turning. No act is offered yet. */
-export const Routing: Story = {
-  args: { stage: "routing", words: WORDS },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("status", { name: "Finding where this goes" })).toBeVisible();
-    await expect(canvas.getByText(WORDS)).toBeVisible();
-    await expect(canvas.queryByRole("button")).toBeNull();
-  },
-};
-
 /** A Session that holds a slot: its name draws the Session's card, and Send, No and Ask Helm each carry their key. */
 export const MatchSession: Story = {
   args: {

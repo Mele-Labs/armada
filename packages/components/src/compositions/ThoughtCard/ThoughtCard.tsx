@@ -1,4 +1,4 @@
-import { Box, LoaderCircle, SquareTerminal, X } from "lucide-react";
+import { Box, SquareTerminal, X } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
@@ -10,8 +10,8 @@ import { OwnerChip } from "../OwnerChip/OwnerChip";
  * A thought typed into Helm's dock, on its way to running work. Drawn at the end of the thread, over
  * the message box, where the dock's other asks are.
  *
- * **Three stages, one card.** While Helm reads where the words belong there is only a mark turning.
- * A match names the Session or Job and offers Send. Nothing matched, or No pressed, offers to start
+ * **Two stages, one card.** While Helm reads where the words belong there is no card: the words are in
+ * the thread, going. A match names the Session or Job and offers Send. Nothing matched, or No pressed, offers to start
  * a Session or a Job with the words. Every act is a button with its key on it, and the dock binds
  * the keys while the message box is empty.
  */
@@ -28,7 +28,6 @@ export type ThoughtCardProps = {
   /** The owner's words, as typed. */
   words: string;
 } & (
-  | { stage: "routing" }
   | { stage: "match"; target: ThoughtTarget; onSend: () => void; onNo: () => void; onAskHelm: () => void }
   | { stage: "new"; onSession: () => void; onJob: () => void; onAskHelm: () => void; onDismiss: () => void }
 );
@@ -82,18 +81,6 @@ function Act({ label, keys, onPress, tooltip }: { label: string; keys: string[];
 
 export function ThoughtCard(props: ThoughtCardProps) {
   const quote = <p className="armada-thought-card__words">{props.words}</p>;
-  if (props.stage === "routing") {
-    return (
-      <Card className="armada-thought-card" flat role="status" aria-label="Finding where this goes" data-stage="routing">
-        <Tooltip label="Finding where this goes">
-          <span className="armada-thought-card__finding" aria-hidden>
-            <LoaderCircle size={16} strokeWidth={2} />
-          </span>
-        </Tooltip>
-        {quote}
-      </Card>
-    );
-  }
   if (props.stage === "match") {
     return (
       <Card className="armada-thought-card" flat role="group" aria-label="Send to" data-stage="match">

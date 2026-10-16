@@ -21,31 +21,6 @@
   overflow: hidden;
 }
 
-.armada-thought-card[data-stage="routing"] {
-  flex-direction: row;
-  align-items: center;
-}
-
-.armada-thought-card__finding {
-  display: inline-flex;
-  flex: none;
-  color: var(--helm);
-}
-
-.armada-thought-card__finding > svg {
-  animation: armada-thought-card-turn var(--duration-pulse) linear infinite;
-}
-
-@keyframes armada-thought-card-turn {
-  to { transform: rotate(1turn); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-thought-card__finding > svg {
-    animation: none;
-  }
-}
-
 .armada-thought-card__head {
   display: flex;
   align-items: center;

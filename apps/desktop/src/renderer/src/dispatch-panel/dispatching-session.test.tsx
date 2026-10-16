@@ -18,10 +18,10 @@ let held: Dispatching | undefined;
 let mounted: { root: Root; host: HTMLElement } | undefined;
 const state = connected([], [], []);
 const armada = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
-const start = vi.fn(async (_tag?: unknown, _root?: string, _request?: string) => "01SESSION");
+const start = vi.fn(async (_tag?: unknown, _root?: string, _request?: string, _tuning?: unknown) => "01SESSION");
 const send = vi.fn();
 const opened = vi.fn();
-const draft = { get: () => [], subscribe: () => () => undefined, start, send } as unknown as SessionsDraft;
+const draft = { get: () => [], subscribe: () => () => undefined, start, send, models: [], efforts: [] } as unknown as SessionsDraft;
 
 function Outside() {
   held = useDispatching();
@@ -82,7 +82,7 @@ test("starting a Session from the sheet passes the typed words as the request an
   await expect.element(request).toHaveValue("Fix the login page");
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => start.mock.calls.length).toBe(1);
-  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Fix the login page");
+  expect(start).toHaveBeenCalledWith(undefined, armada.root, "Fix the login page", {});
   await expect.poll(() => send.mock.calls.length).toBe(1);
   expect(send).toHaveBeenCalledWith("01SESSION", expect.objectContaining({ text: "Fix the login page" }));
   expect(opened).toHaveBeenCalledWith("01SESSION");

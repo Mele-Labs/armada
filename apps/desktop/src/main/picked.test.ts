@@ -445,6 +445,12 @@ describe("the start a Session sends", () => {
     expect(startOn(SET_UP, "T", undefined, "fix it")).toEqual({ manifest_id: "store-01", title: "T", request: "fix it" });
   });
 
+  it("carries the model and the effort only where the person picked them, so Fleet's proposer fills in the rest", () => {
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", {})).toEqual({ manifest_id: "store-01", request: "fix it" });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", { model: "opus" })).toEqual({ manifest_id: "store-01", request: "fix it", model: "opus" });
+    expect(startOn(SET_UP, undefined, SET_UP.root, "fix it", { model: "opus", effort: "high" })).toEqual({ manifest_id: "store-01", request: "fix it", model: "opus", effort: "high" });
+  });
+
   it("is Setup's, in the root, for a named repository with no Manifest, and none where no root is named", () => {
     expect(startOn(NOT_SET_UP, "Set up scratch", NOT_SET_UP.root)).toEqual({ manifest_id: "", root: "/Users/user/scratch", title: "Set up scratch" });
     expect(startOn(NOT_SET_UP, "T")).toBeNull();

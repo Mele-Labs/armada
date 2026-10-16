@@ -1,4 +1,4 @@
-// Helm routes a thought into running work. Every message typed in the dock is read first: a question
+// Helm routes a thought into running work. Every message typed in the dock is in the thread at once and read: a question
 // gets Helm's reply, and a thought meant for other work gets a card. A match offers Send (↵), No
 // (N) and Ask Helm (H); nothing matched, or No, offers a new Session (S) or Job (J) in the Dispatch
 // panel, holding the words. Sessions and Jobs of every repository are searched. Thoughts sent while
@@ -17,7 +17,7 @@ const routeAThought = walk("route-a-thought", [
   // (a) A thought with a match: the Session doing the Sessions page.
   { type: "I wish that the sessions page would move sessions into a new status that says they are just waiting for work to land", into: box, say: "A thought, typed like any other message" },
   { key: "Enter", on: box, say: "Sent with ↵. Helm reads it before it answers" },
-  { look: inside(helm, role("status", "Finding where this goes")), say: "Helm is finding where it belongs" },
+  { look: inside(helm, role("img", "Sending")), say: "The words are in the thread at once, going, while Helm finds where they belong" },
   { look: card("Send to"), say: "A running Session fits. Send is ↵, No is N, Ask Helm is H" },
   { hover: inside(card("Send to"), role("img", "Session")), say: "The kind, named on hover" },
   { key: "Enter", on: box, say: "Press ↵" },
