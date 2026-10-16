@@ -1,6 +1,6 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useId, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { SquareTerminal, Swords, Workflow } from "lucide-react";
+import { ChevronDown, ChevronRight, SquareTerminal, Swords, Workflow } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PathChip } from "../PathChip/PathChip";
@@ -14,7 +14,7 @@ import { PathChip } from "../PathChip/PathChip";
  *
  * Fleet tells the agents; this only draws what it says. A pair that touches
  * one file without a conflict is not in the list, so nothing is drawn.
- * **No count is drawn** beside any of it.
+ * **No count is drawn** beside any of it; the one figure is the `N more` on a folded list of paths.
  *
  * The rows ask for their own marks (`ClashMark kind id`), so a list does not
  * carry clashes through its props: the host provides what is known once.
@@ -92,48 +92,75 @@ export function ClashMark({ kind, id, size = 12 }: { kind: "job" | "session"; id
   );
 }
 
+/** Paths drawn while a long list is folded. A list of one more than this is drawn whole: "1 more" saves nothing. */
+const SHOWN = 3;
+
 /**
  * The clash in an open Job or Session: the other holder, linked, and the paths that conflict.
- * Nothing where there is none.
+ * A long list folds to its first few paths and one chip to open the rest. Nothing where there is none.
  */
 export function ClashNotice({ kind, id }: { kind: "job" | "session"; id: string | undefined }) {
-  const held = useContext(Held);
   const clashes = useClashesOf(kind, id);
   if (clashes.length === 0) return null;
   return (
     <section className="armada-clash-notice" aria-label="Write clash">
-      {clashes.map((clash) => {
-        const Glyph = clash.with.kind === "job" ? Workflow : SquareTerminal;
-        return (
-          <div className="armada-clash-notice__row" key={`${clash.with.kind}:${clash.with.id}`}>
-            <Tooltip label="Write clash">
-              <span className="armada-clash-mark" role="img" aria-label="Write clash">
-                <Swords size={16} strokeWidth={2} aria-hidden="true" />
-              </span>
-            </Tooltip>
-            {clash.with.kind === "main" ? (
-              <span className="armada-clash-notice__with" data-main>
-                {clash.with.label}
-              </span>
-            ) : (
-              <button type="button" className="armada-clash-notice__with" aria-label={`Open ${clash.with.label}`} onClick={() => held?.open(clash.with)}>
-                <Glyph size={14} strokeWidth={2} aria-hidden="true" />
-                {clash.with.label}
-              </button>
-            )}
-            <ul className="armada-clash-notice__paths" aria-label="Conflicting files">
-              {clash.paths.map((path) => {
-                const cut = path.lastIndexOf("/") + 1;
-                return (
-                  <li key={path}>
-                    <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
+      {clashes.map((clash) => (
+        <ClashRow key={`${clash.with.kind}:${clash.with.id}`} clash={clash} />
+      ))}
     </section>
+  );
+}
+
+function ClashRow({ clash }: { clash: ClashView }) {
+  const held = useContext(Held);
+  const [shown, setShown] = useState(true);
+  const [all, setAll] = useState(false);
+  const listId = useId();
+  const Glyph = clash.with.kind === "job" ? Workflow : SquareTerminal;
+  const folds = clash.paths.length > SHOWN + 1;
+  const drawn = folds && !all ? clash.paths.slice(0, SHOWN) : clash.paths;
+  const Fold = shown ? ChevronDown : ChevronRight;
+  const holder = clash.with.kind === "main" ? (
+    <span className="armada-clash-notice__with" data-main>
+      {clash.with.label}
+    </span>
+  ) : (
+    // Beside the toggle and not in it: a press opens the holder and leaves the panel as it is.
+    <button type="button" className="armada-clash-notice__with" aria-label={`Open ${clash.with.label}`} onClick={() => held?.open(clash.with)}>
+      <Glyph size={14} strokeWidth={2} aria-hidden="true" />
+      {clash.with.label}
+    </button>
+  );
+  return (
+    <div className="armada-clash-notice__row">
+      <div className="armada-clash-notice__head">
+        <button type="button" className="armada-clash-notice__toggle" aria-expanded={shown} aria-controls={listId} onClick={() => setShown(!shown)}>
+          <Fold size={12} strokeWidth={2} aria-hidden="true" />
+          <span className="armada-clash-mark" aria-hidden="true">
+            <Swords size={16} strokeWidth={2} />
+          </span>
+          Conflicts with
+          {clash.with.kind === "main" ? <> {holder}</> : null}
+        </button>
+        {clash.with.kind === "main" ? null : holder}
+      </div>
+      <ul className="armada-clash-notice__paths" id={listId} aria-label="Conflicting files" hidden={!shown}>
+        {drawn.map((path) => {
+          const cut = path.lastIndexOf("/") + 1;
+          return (
+            <li key={path}>
+              <PathChip directory={path.slice(0, cut)} basename={path.slice(cut)} title={path} />
+            </li>
+          );
+        })}
+        {folds ? (
+          <li>
+            <button type="button" className="armada-path armada-clash-notice__fold" aria-expanded={all} onClick={() => setAll(!all)}>
+              <span className="armada-path__base">{all ? "Fewer" : `${clash.paths.length - SHOWN} more`}</span>
+            </button>
+          </li>
+        ) : null}
+      </ul>
+    </div>
   );
 }
