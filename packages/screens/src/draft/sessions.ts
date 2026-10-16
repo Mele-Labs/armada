@@ -375,6 +375,9 @@ export type PullRequestPageRead = { ok: true; page: PullRequestPage } | { ok: fa
 /** One file of a pull request as read, or why it was not: Fleet's words for a refusal. */
 export type PullRequestFileRead = { ok: true; file: PullRequestFilePatch } | { ok: false; said: string };
 
+/** One uncommitted file of a held checkout as a unified diff against HEAD, or why it was not read: Fleet's words for a refusal. `cut` is set where Fleet sent only the start of a long change. */
+export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: false; said: string };
+
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
 
@@ -527,6 +530,18 @@ export type SessionsDraft = {
    * opposed to lines of output under the block. Set where `run` answers with the terminal's bytes.
    */
   terminalRuns?: true;
+  /**
+   * As `run`, for a call about a repository's served checkout, which has no Session: the command runs in
+   * the repository at `root`. A real Fleet is asked by the repository's Manifest (`catch_up_checkout`) and
+   * runs the one pull it knows after reading the hold again, so `command` is what the card showed and is not
+   * sent. Absent where nothing serves it, and the card offers Copy alone.
+   */
+  runInRepository?: (root: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  /**
+   * One uncommitted file of a repository's held checkout, read by Fleet when a person opens it from "Your checkout".
+   * Fleet refuses a path the hold does not list. Absent where nothing serves it, and the lines are plain text.
+   */
+  diffInRepository?: (root: string, path: string) => Promise<CheckoutDiffRead>;
   /**
    * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
    * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,

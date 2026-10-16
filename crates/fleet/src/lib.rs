@@ -376,6 +376,7 @@ pub mod session_host;
 mod session_checking;
 mod session_running;
 mod sessioning;
+mod window_sign_in;
 mod slot_holders;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.

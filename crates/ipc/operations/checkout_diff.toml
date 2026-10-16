@@ -1,0 +1,14 @@
+[operations.checkout_diff]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "One uncommitted file of a held checkout, as a unified diff against HEAD"
+notes = """
+`GET /merge_lines/checkout_diff?manifest_id=&path=`, both asked for. Answers `CheckoutDiff`: `diff`, the text `git diff HEAD` prints for that one tracked file in the served checkout, empty where the file no longer differs. It is what "Your checkout" draws under a path in its Uncommitted row. `docs/concepts/fleet.md`, *What Fleet knows after the merge, and what it does not*, has the model.
+
+**Only a path the hold lists is read.** Fleet checks `path` against the `uncommitted` list it kept at its last reading of main, the list the card was drawn from, so a path outside it is refused whatever it says and git is not asked. The path is also taken literally by git, never as a pathspec. The press costs no fetch.
+
+Refused with a 409: `fleet.checkout_path_not_held` for a path the hold does not list, `fleet.checkout_not_held` where Fleet keeps no hold for the repository. 422 `fleet.repository_not_served` on a `manifest_id` this Fleet does not serve. 500 `fleet.checkout_diff_unread` where git would not print the change, with git's words.
+
+`Bridge only`: it reads files in the checkout a person is standing in.
+"""

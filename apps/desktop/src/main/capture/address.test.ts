@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ServerState } from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../../shared/bridge";
-import { isPinned, loopbackOrigin, webOrigin, offerable, onOrigin, partitionFor, pinned, shown } from "./address";
+import { isPinned, loopbackOrigin, webOrigin, offerable, onAnyOrigin, onOrigin, partitionFor, passThrough, pinned, shown } from "./address";
 
 const SERVING: ServerState = {
   id: "01SERVER",
@@ -155,7 +155,7 @@ describe("a web origin", () => {
 });
 
 describe("what the bar says of a page", () => {
-  const page = { run: "session:s1", origin: "http://localhost:47342", url: "http://localhost:47342/?walk=a", manifestId: null };
+  const page = { run: "session:s1", origin: "http://localhost:47342", url: "http://localhost:47342/?walk=a", manifestId: null, through: [] };
 
   it("names the page by its title and the origin it is pinned to", () => {
     expect(shown({ ...page, name: "Store clock report" })).toEqual({ name: "Store clock report", address: "http://localhost:47342" });
@@ -163,5 +163,59 @@ describe("what the bar says of a page", () => {
 
   it("drops the name where the window was titled by its address, and draws the address whole", () => {
     expect(shown({ ...page, name: page.url })).toEqual({ name: null, address: page.url });
+  });
+});
+
+describe("the origins a Session lets its window pass through", () => {
+  const page = {
+    run: "session:s1",
+    name: "Staging",
+    origin: "https://staging.example.com",
+    url: "https://staging.example.com/app",
+    manifestId: "01MANIFEST",
+    through: ["https://login.example.org", "http://localhost:8443"],
+  };
+
+  it("allows the shown origin and each named one, whole, and refuses every other", () => {
+    for (const address of ["https://staging.example.com/x", "https://login.example.org/sso?next=%2F", "http://localhost:8443/cb"]) {
+      expect(onAnyOrigin(page, address), address).toBe(true);
+    }
+    for (const address of [
+      "https://login.example.org.evil.example.net/sso",
+      "https://evil.example.net/login.example.org",
+      "http://login.example.org/sso",
+      "https://login.example.org:8443/sso",
+      "https://example.org/",
+      "javascript:alert(1)",
+      "about:blank",
+      "not an address",
+    ]) {
+      expect(onAnyOrigin(page, address), address).toBe(false);
+    }
+  });
+
+  it("allows only the shown origin where none are named", () => {
+    expect(onAnyOrigin({ ...page, through: [] }, "https://login.example.org/sso")).toBe(false);
+    expect(onAnyOrigin({ ...page, through: [] }, "https://staging.example.com/x")).toBe(true);
+  });
+
+  it("keeps an entry only if it is a bare http or https origin, and reads it as the engine does", () => {
+    expect(passThrough(["https://login.example.org", "HTTP://Localhost:8443/", "https://sso.example.net:443"])).toEqual([
+      "https://login.example.org",
+      "http://localhost:8443",
+      "https://sso.example.net",
+    ]);
+    expect(
+      passThrough([
+        "https://login.example.org/sso",
+        "https://login.example.org?next=1",
+        "https://login.example.org#x",
+        "https://user:pass@login.example.org",
+        "ftp://login.example.org",
+        "file:///etc/passwd",
+        "login.example.org",
+        "",
+      ]),
+    ).toEqual([]);
   });
 });

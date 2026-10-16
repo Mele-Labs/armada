@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId};
+use crate::ids::{Instant, JobId, ManifestId};
 
 /// One repository's main and open pull requests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +65,48 @@ pub struct HeldCheckout {
     pub behind: u32,
     /// Commits the checkout has that main does not. Above zero is diverged.
     pub ahead: u32,
+}
+
+/// `catch_up_checkout`'s body: pull a held checkout level with its base, the one
+/// way that cannot lose a person's files. **Names a repository and nothing more.**
+/// There is no command in it: Fleet reads the hold again and runs the pull it
+/// knows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CatchUpCheckout {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+}
+
+/// `catch_up_checkout`'s answer: what the pull came to. **A pull git refused or
+/// left conflicted is still an answer**, with a non-zero `code`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutCaughtUp {
+    /// git's exit code. `1` where git exited clean and the stashed work would not
+    /// go back on; the work is in git's stash and nothing dropped it.
+    pub code: i32,
+    /// What git printed, for the person to read as it came.
+    pub output: String,
+}
+
+/// `checkout_diff`'s query: one uncommitted file of a held checkout. **Only a path
+/// the hold lists** is answered; any other is refused.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutDiffAsk {
+    /// The repository, by its Manifest.
+    pub manifest_id: ManifestId,
+    /// The file, as the hold's `uncommitted` names it: from the repository's root.
+    pub path: String,
+}
+
+/// `checkout_diff`'s answer: the file's change against `HEAD`, as git prints a
+/// unified diff. Empty where the file no longer differs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutDiff {
+    pub diff: String,
+    /// Set where Fleet cut `diff` short of what git printed, at a line or byte
+    /// bound. The text is still whole lines of the start of the change.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cut: bool,
 }
 
 /// Who holds main's red on another machine. **No title and no work**: the store

@@ -1,5 +1,5 @@
 use crate::{
-    decode, encode, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
+    decode, encode, CatchUpCheckout, CheckoutCaughtUp, CheckoutDiff, CheckoutDiffAsk, ClaimHolder, FixMain, FixesMain, FixesMainState, FixingElsewhere, HeldCheckout, HolderKind, HubJob, HubMergeable, HubMerged,
     HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubReview, HubSession, Instant, JobId, MainChecking, MainCiState,
     MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
@@ -291,4 +291,49 @@ fn a_held_checkout_is_spelled_with_what_holds_it_and_survives_the_wire() {
     );
     let read: MergeLine = decode("a merge line", spelled.as_bytes()).expect("reads");
     assert_eq!(read, line);
+}
+
+#[test]
+fn a_catch_up_names_a_repository_and_carries_no_command() {
+    let asked = CatchUpCheckout { manifest_id: crate::ManifestId::carried("shop") };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop"}"#);
+    let read: CatchUpCheckout = decode("a catch-up", br#"{"manifest_id":"shop"}"#).expect("reads");
+    assert_eq!(read, asked);
+    // The type has nowhere to put a command, so one sent anyway is not read.
+    let smuggled: CatchUpCheckout = decode("a catch-up", br#"{"manifest_id":"shop","command":"rm -rf /"}"#).expect("reads");
+    assert_eq!(smuggled, asked);
+}
+
+#[test]
+fn what_a_pull_came_to_survives_the_wire_with_its_code_and_words() {
+    for answer in [
+        CheckoutCaughtUp { code: 0, output: "Fast-forward".to_string() },
+        CheckoutCaughtUp { code: 1, output: "Your local changes are stashed".to_string() },
+    ] {
+        let spelled = encode(&answer).expect("plain data");
+        let read: CheckoutCaughtUp = decode("a pull", spelled.as_bytes()).expect("reads");
+        assert_eq!(read, answer);
+    }
+    assert_eq!(
+        encode(&CheckoutCaughtUp { code: 0, output: "ok".to_string() }).unwrap(),
+        r#"{"code":0,"output":"ok"}"#
+    );
+}
+
+#[test]
+fn a_checkout_diff_is_asked_by_manifest_and_path_and_answers_with_the_text_unchanged() {
+    let asked = CheckoutDiffAsk { manifest_id: crate::ManifestId::carried("shop"), path: "src/a b.rs".to_string() };
+    assert_eq!(encode(&asked).unwrap(), r#"{"manifest_id":"shop","path":"src/a b.rs"}"#);
+    let read: CheckoutDiffAsk = decode("a diff ask", encode(&asked).unwrap().as_bytes()).expect("reads");
+    assert_eq!(read, asked);
+
+    let answer = CheckoutDiff { diff: "diff --git a/f b/f\n@@ -1 +1 @@\n-a\n+b \"quoted\"\n".to_string(), cut: false };
+    assert!(!encode(&answer).unwrap().contains("cut"), "a whole diff says nothing of a cut");
+    let back: CheckoutDiff = decode("a diff", encode(&answer).unwrap().as_bytes()).expect("reads");
+    assert_eq!(back, answer);
+
+    let short = CheckoutDiff { diff: "diff --git a/f b/f\n".to_string(), cut: true };
+    assert_eq!(encode(&short).unwrap(), r#"{"diff":"diff --git a/f b/f\n","cut":true}"#);
+    let back: CheckoutDiff = decode("a cut diff", encode(&short).unwrap().as_bytes()).expect("reads");
+    assert_eq!(back, short);
 }

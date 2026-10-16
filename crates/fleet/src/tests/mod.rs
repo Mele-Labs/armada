@@ -271,6 +271,7 @@ mod signing_in_serving;
 mod settling;
 mod terminal_session;
 mod walk_question;
+mod window_sign_in;
 mod showing;
 mod showing_again;
 mod silence;

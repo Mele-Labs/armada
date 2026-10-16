@@ -355,7 +355,7 @@ where
 }
 
 /// `show_window`: a session shows the person a web page in a window of Bridge's own.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShowWindow {
     /// `http` or `https`; anything else is refused.
     pub url: String,
@@ -370,6 +370,46 @@ pub struct ShowWindow {
     /// present, `url` is the first take's.** Each is `http` or `https` as `url` is.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variations: Vec<WindowTake>,
+    /// Other web origins the window may pass through, such as a single sign-on provider: `https://host`
+    /// and an optional port, with no path. The page stays pinned to the shown origin and these.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub origins: Vec<String>,
+    /// Addresses the window loads in order before the shown page, to sign in. **A secret**: held in
+    /// memory until Bridge opens the window and written nowhere. Each is on the shown origin or one of `origins`.
+    #[serde(default, skip_serializing_if = "SignIn::is_empty")]
+    pub sign_in: SignIn,
+}
+
+/// The addresses a session signs in with. **Its `Debug` says how many and nothing else**, so a
+/// log line that prints a request cannot print one.
+#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SignIn(pub Vec<String>);
+
+impl SignIn {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl std::fmt::Debug for SignIn {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(out, "SignIn({} held back)", self.0.len())
+    }
+}
+
+/// `take_window_sign_in`: Bridge asks for the sign-in addresses held for the window it is opening.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TakeWindowSignIn {
+    pub session_id: SessionId,
+    /// The address the window is opened on, as `show_window` named it.
+    pub url: String,
+}
+
+/// What `take_window_sign_in` answers: the addresses to load, once. Empty where none are held.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowSignIn {
+    pub sign_in: SignIn,
 }
 
 /// One take of a change the session shows in its window.
@@ -387,6 +427,12 @@ impl WindowTake {
     pub fn as_detail(takes: &[WindowTake]) -> String {
         serde_json::to_string(takes).unwrap_or_default()
     }
+}
+
+/// The origins a window may pass through as the window's artifact on the ledger keeps them, one
+/// string in its `detail`. Bridge reads it back to reopen the window with them.
+pub fn origins_as_detail(origins: &[String]) -> String {
+    serde_json::to_string(origins).unwrap_or_default()
 }
 
 /// `window_closed`: the person closed the window a session showed. Bridge tells it; nothing is
