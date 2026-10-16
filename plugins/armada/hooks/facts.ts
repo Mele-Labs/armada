@@ -492,3 +492,202 @@ export function pushIn(command: string, output: string): { branch?: string } | u
   const sent = /^\s*(?:[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}|\*\s+\[new (?:branch|tag)\]|\+\s+[0-9a-f]{7,40}\.\.\.[0-9a-f]{7,40})\s+\S+\s+->\s+(\S+)/m.exec(output)
   return sent === null ? undefined : { branch: sent[1] }
 }
+
+/** One item of a session's `waiting_for` list, as the agent stated it (`WaitingInput`, `crates/ipc/src/sessions.rs`). */
+export type WaitingItem = { id: string; text: string; act?: unknown; options?: unknown; steps?: unknown }
+
+const NEED_MOST = 200
+const NEEDS_MOST = 10
+const FENCE = /^\s*(```|~~~)/
+const HEADING = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/
+const BOLD_LINE = /^\s*\*\*([^*]+?)\*\*:?\s*$/
+const DIVIDER = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/
+const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+(.*)$/
+const OWNER_HEAD = /^(owner|owned by)$/
+// Read as an owner column only under an Actions heading, where the table is the owner's list of acts.
+const WHO_HEAD = /^(who|assignee|assigned to)$/
+const STATUS_HEAD = /^(status|state)$/
+const ACT_HEAD = /^(action|what|item|task|step|next step|to ?do|ask|need)s?$/
+const INDEX_HEAD = /^(#|no\.?|n)?$/
+// What owns a row that asks nothing of a person. `me`, `we` and `us` are the agent writing; a
+// kebab-case owner is a subagent type (`rust-engineer`).
+const NOT_A_PERSON = /\b(agent|agents|subagents?|claude|assistant|ai|bot|ci|fleet|drone|judge|helm|armada|bridge|github|automation|system|explore|plan|reviewer|engineer|me|we|us)\b|\w-\w|^(-|—|–|n\/a|none|tbd)?$/
+const DONE = /^(✅|✔|✓|☑)|\b(done|completed?|merged|closed|resolved|shipped|landed|finished)\b/
+const NOT_DONE = /\b(not|pending|blocked|waiting|open|todo|to do)\b|❌|⏳/
+const NO_QUESTIONS = /^(none|nothing|no (open )?questions?)\b/
+// The marker is upper case, or bold: a lower-case `question:` is prose.
+const QUESTION_LINE = /^\s*(?:[-*+]\s+)?QUESTION:\s*(.+)$/
+const BOLD_QUESTION = /^\s*(?:[-*+]\s+)?\*\*question:\*\*\s*(.+)$/i
+
+function plain(text: string): string {
+  return text.replace(/[*_`~]/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim()
+}
+
+function needLine(text: string): string {
+  const flat = plain(text)
+  return flat.length > NEED_MOST ? `${flat.slice(0, NEED_MOST - 1)}…` : flat
+}
+
+function cellsOf(row: string): string[] {
+  const inner = row.trim().replace(/^\|/, '').replace(/\|$/, '')
+  return inner.split(/(?<!\\)\|/).map(cell => cell.replace(/\\\|/g, '|').trim())
+}
+
+function isPerson(owner: string): boolean {
+  return plain(owner)
+    .toLowerCase()
+    .split(/\s*(?:\/|,|&|\+|\band\b)\s*/)
+    .some(part => part !== '' && !NOT_A_PERSON.test(part))
+}
+
+function isDone(status: string): boolean {
+  const said = plain(status).toLowerCase()
+  return DONE.test(said) && !NOT_DONE.test(said)
+}
+
+/** The rows of one table a person owns and has not done, each as the act it names. */
+function tableNeeds(rows: string[], underActions: boolean): string[] {
+  const head = cellsOf(rows[0] ?? '').map(cell => plain(cell).toLowerCase())
+  const owner = head.findIndex(cell => OWNER_HEAD.test(cell) || (underActions && WHO_HEAD.test(cell)))
+  if (owner < 0) return []
+  const status = head.findIndex(cell => STATUS_HEAD.test(cell))
+  const named = head.findIndex(cell => ACT_HEAD.test(cell))
+  const found: string[] = []
+  for (const row of rows.slice(2)) {
+    const cells = cellsOf(row)
+    if (cells.every(cell => cell === '') || /^\s*~~/.test(cells.join(''))) continue
+    if (!isPerson(cells[owner] ?? '')) continue
+    if (status >= 0 && isDone(cells[status] ?? '')) continue
+    const act =
+      named >= 0
+        ? cells[named]
+        : cells.find((cell, at) => at !== owner && at !== status && !INDEX_HEAD.test(head[at] ?? '') && plain(cell) !== '')
+    if (act !== undefined && plain(act) !== '') found.push(needLine(act))
+  }
+  return found
+}
+
+/**
+ * What a reply says the person owes, one line each: a row a person owns in a table with an Owner
+ * column (an Actions table may name it Who), that is not marked done; an item under a Questions
+ * heading; a `QUESTION:` line. **Conservative**, as a line found sends the session back for a turn:
+ * a fenced block is never read, and a table with no owner column names nobody.
+ */
+export function needsSaidIn(answer: string): string[] {
+  const lines = answer.split('\n')
+  const found: string[] = []
+  let fenced = false
+  let section = ''
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at] ?? ''
+    if (FENCE.test(line)) {
+      fenced = !fenced
+      continue
+    }
+    if (fenced) continue
+    const heading = HEADING.exec(line) ?? BOLD_LINE.exec(line)
+    if (heading !== null) {
+      section = plain(heading[1] ?? '').replace(/:$/, '').toLowerCase()
+      continue
+    }
+    const asked = QUESTION_LINE.exec(line) ?? BOLD_QUESTION.exec(line)
+    if (asked !== null) {
+      found.push(needLine(asked[1] ?? ''))
+      continue
+    }
+    if (line.trim().startsWith('|') && DIVIDER.test(lines[at + 1] ?? '')) {
+      const rows: string[] = []
+      while ((lines[at] ?? '').trim().startsWith('|')) rows.push(lines[at++] ?? '')
+      at -= 1
+      found.push(...tableNeeds(rows, /\bactions?\b/.test(section)))
+      continue
+    }
+    if (/^(open )?questions?\b/.test(section)) {
+      const item = LIST_ITEM.exec(line)
+      const text = item?.[1] ?? (line.trim().endsWith('?') ? line : undefined)
+      if (text !== undefined && !NO_QUESTIONS.test(plain(text).toLowerCase())) found.push(needLine(text))
+    }
+  }
+  return [...new Set(found)].slice(0, NEEDS_MOST)
+}
+
+/** The list a `waiting_for` call set, from the tool's input (`{ body: { session_id, waiting_for } }`). */
+export function waitingItemsOf(input: Record<string, unknown>): WaitingItem[] | undefined {
+  let body: unknown = input.body ?? input
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body)
+    } catch {
+      return undefined
+    }
+  }
+  const list = (body as { waiting_for?: unknown; items?: unknown } | null)?.waiting_for ?? (body as { items?: unknown } | null)?.items
+  if (!Array.isArray(list)) return undefined
+  return list.filter(
+    (item): item is WaitingItem => typeof item?.id === 'string' && typeof item?.text === 'string',
+  )
+}
+
+function keyWords(text: string): Set<string> {
+  return new Set(
+    plain(text)
+      .toLowerCase()
+      .split(/[^a-z0-9#]+/)
+      .filter(word => word.length >= 4 || /\d/.test(word)),
+  )
+}
+
+/**
+ * Whether the list holds each line: an item shares two of its words, or all where it has fewer. Loose
+ * on purpose, as an item is the line said shorter and a miss costs the session a turn.
+ */
+export function isCovered(needs: string[], items: WaitingItem[]): boolean {
+  const held = items.map(item => keyWords(item.text))
+  return needs.every(need => {
+    const words = [...keyWords(need)]
+    const enough = Math.min(2, words.length)
+    return enough === 0 || held.some(item => words.filter(word => item.has(word)).length >= enough)
+  })
+}
+
+/** What sends a session back to put what its reply named in `waiting_for`. Read by the agent. */
+export function sentBackReason(needs: string[], sessionId: string): string {
+  return [
+    'Your reply names what the owner owes, and the armada waiting_for list does not hold it:',
+    ...needs.map(need => `- ${need}`),
+    `Put each in waiting_for with its own id, one short line and an act, passing session_id ${sessionId}, then end the turn. Do not repeat them as a table.`,
+  ].join('\n')
+}
+
+const FROM_REPLY = 'From the reply: '
+
+/** The list with what the reply named and the agent left out, each marked as read from the reply. */
+export function withReplyNeeds(items: WaitingItem[], needs: string[]): WaitingItem[] {
+  const missing = needs.filter(need => !isCovered([need], items))
+  return [...items, ...missing.map((need, at) => ({ id: `reply:${at + 1}`, text: `${FROM_REPLY}${need}` }))]
+}
+
+/**
+ * The agent's own items in the list Fleet holds, from `GET /sessions/one` (`SessionThread`). Items Fleet
+ * raised itself (a walk, a question card, a permission) are left out: Fleet keeps those apart and would
+ * read them posted back as the agent's. Nothing where the answer is not a session.
+ */
+export function agentItemsIn(thread: string): WaitingItem[] | undefined {
+  let read: unknown
+  try {
+    read = JSON.parse(thread)
+  } catch {
+    return undefined
+  }
+  const list = (read as { session?: { waiting_for?: unknown } } | null)?.session?.waiting_for
+  if (!Array.isArray(list)) return undefined
+  return list
+    .filter(item => item?.source === 'agent' && typeof item.id === 'string' && typeof item.text === 'string')
+    .map(({ id, text, act, options, steps }) => ({
+      id,
+      text,
+      ...(act === undefined ? {} : { act }),
+      ...(options === undefined ? {} : { options }),
+      ...(steps === undefined ? {} : { steps }),
+    }))
+}

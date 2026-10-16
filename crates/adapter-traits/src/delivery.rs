@@ -862,6 +862,11 @@ pub trait Delivery {
     /// forge call for all of them.** `None` is the forge's silence.
     fn pull_watch(&self, in_repo: &str, gate: &str) -> Option<crate::WatchedPulls>;
 
+    /// The login the forge's own command line is signed in as on this machine, the person whose
+    /// pull requests are "mine" beside the account Armada is signed in as. `None` is a forge
+    /// that would not say, or no login. It does not change under a run, so a caller keeps it.
+    fn forge_login(&self, in_repo: &str) -> Option<String>;
+
     /// Put a commit status under `context` on `commit`, replacing the one
     /// there. **A write to the forge, and the one Fleet makes unprompted**: it
     /// says whether a pull request's turn has come, `needs`. `Err` is the

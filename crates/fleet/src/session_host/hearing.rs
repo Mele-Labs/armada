@@ -77,15 +77,8 @@ where
                 }
                 // A death that said something is shown even between turns.
                 if working || !complaint.is_empty() {
-                    self.row_put(
-                        id,
-                        SessionRow::Tool {
-                            id: self.row_id(id),
-                            at: self.instant(),
-                            text: format!("the session's process ended{complaint}"),
-                        },
-                    )
-                    .await;
+                    self.fleet_note(id, format!("The session's process ended{complaint}"))
+                        .await;
                 }
                 if !lost.is_empty() {
                     self.send_again(id, &runtime, lost).await;
@@ -161,15 +154,8 @@ where
                 }
             }
             Err(why) => {
-                self.row_put(
-                    id,
-                    SessionRow::Tool {
-                        id: self.row_id(id),
-                        at: self.instant(),
-                        text: format!("the session's process would not start again: {why}"),
-                    },
-                )
-                .await;
+                self.fleet_note(id, format!("The session's process would not start again: {why}"))
+                    .await;
             }
         }
     }
@@ -440,16 +426,12 @@ where
             }
             (started, _) => {
                 runtime.state().turn = SessionTurn::Idle;
-                self.row_put(
+                self.fleet_note(
                     id,
-                    SessionRow::Tool {
-                        id: self.row_id(id),
-                        at: self.instant(),
-                        text: format!(
-                            "could not move the session into its slot: {}",
-                            started.err().unwrap_or_default()
-                        ),
-                    },
+                    format!(
+                        "Could not move the session into its slot: {}",
+                        started.err().unwrap_or_default()
+                    ),
                 )
                 .await;
             }

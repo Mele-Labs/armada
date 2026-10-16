@@ -142,7 +142,7 @@ pub use harness::{
     ask_tool, checks_tool, dispatch_tool, evidence_server, evidence_tool, fix_tool, note_tool,
     permission_tool, scope_tool, server_tool, widen_tool, HarnessRefused, HeadlessAgent,
 };
-pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
+pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
 pub use issue_lookup::IssueLookup;
 pub use issue_tracker::IssueTracker;
 pub use tracker_providers::TrackersByProvider;

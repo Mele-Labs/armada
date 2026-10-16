@@ -245,6 +245,10 @@ impl Delivery for GitVcs {
         crate::pull_watch::read(in_repo, gate)
     }
 
+    fn forge_login(&self, in_repo: &str) -> Option<String> {
+        crate::main_ci::forge_login(in_repo)
+    }
+
     fn publish_status(
         &self,
         in_repo: &str,
