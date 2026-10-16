@@ -74,9 +74,8 @@ export function fleetPanelClocked(
  * Fleet being connected to or not answering has those two; protocol and uptime
  * are read only once a connection holds, as they were on the old meta line.
  *
- * **Ticks off the app's one `now`** (`App.tsx`'s `setInterval`, already
- * running for every other elapsed figure on screen) rather than a second
- * clock. The uptime is relative to `FleetIdentity.startedAt` — the instant
+ * **Ticks off the window's one clock** (`useNow`, which every other elapsed
+ * figure on screen reads) rather than a second one. The uptime is relative to `FleetIdentity.startedAt` — the instant
  * `ps -o lstart=` gave Fleet's own process, the spelling `crates/fleet`
  * chose specifically so Bridge could parse it too — not a static read taken
  * once at connect time. A `startedAt` that will not parse drops the row.
