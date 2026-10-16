@@ -1,10 +1,10 @@
 // The Plan: what the agent recorded after planning with the person, in a panel of its own. The task groups each
-// naming the type of subagent that takes it, each opening to its own paths and its tasks. The plan lists no paths of its own. It arrives with Approve in its band, framed in amber
-// until he decides; he can answer in the thread to change it. Edits Fleet saw are marked on the group. Nothing here blocks.
+// naming the type of subagent that takes it, each opening to its own paths and its tasks. The plan lists no paths of its own. Its approval is a card in the thread, so while it waits the
+// panel shows the plan with no band of its own; once approved the panel carries the plan for the rest of the Session. Edits Fleet saw are marked on the group. Nothing here blocks.
 
 import { useState } from "react";
 import { BadgeCheck, Bot, ChevronDown, PencilLine } from "lucide-react";
-import { Button, TaskMark, Tooltip } from "@armada/components";
+import { TaskMark, Tooltip } from "@armada/components";
 import type { WorkGroup, WorkPlan } from "@armada/screens/src/draft/sessions";
 
 import { SvPanel, type PanelState, type Place } from "./SvPanel";
@@ -65,20 +65,16 @@ function Group({ group }: { group: WorkGroup }) {
   );
 }
 
-export function PlanPanel({ plan, place, onApprove }: { plan: WorkPlan; place: Place; onApprove: () => void }) {
+export function PlanPanel({ plan, place }: { plan: WorkPlan; place: Place }) {
   const finished = plan.approved && plan.groups.every((group) => group.tasks.every((task) => task.state === "done"));
-  const state: PanelState = !plan.approved ? "asks" : finished ? "done" : "live";
+  const state: PanelState | undefined = !plan.approved ? undefined : finished ? "done" : "live";
   const acts = plan.approved ? (
     <Tooltip label="Plan approved">
       <span className="sv-panel__mark" role="img" aria-label="Plan approved">
         <BadgeCheck size={16} strokeWidth={2} aria-hidden />
       </span>
     </Tooltip>
-  ) : (
-    <Button variant="primary" size="sm" onClick={onApprove}>
-      Approve
-    </Button>
-  );
+  ) : undefined;
   return (
     <SvPanel label="Plan" area="plan" place={place} state={state} acts={acts}>
       <div className="sv-plan">

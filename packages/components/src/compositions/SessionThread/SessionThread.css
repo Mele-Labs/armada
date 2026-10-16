@@ -145,6 +145,19 @@
   box-shadow: none;
 }
 
+/* The plan: its groups under an eyebrow, each the subagent type and the title over its tasks, as a question's card holds its choices. */
+.armada-session-thread__plan .armada-session-thread__eyebrow { display: flex; align-items: center; gap: var(--space-2); }
+.armada-session-thread__settled { display: inline-flex; color: var(--step-advanced); }
+.armada-session-thread__groups,
+.armada-session-thread__tasks { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.armada-session-thread__groups { gap: var(--space-3); }
+.armada-session-thread__tasks { gap: var(--space-1); padding-inline-start: var(--space-4); }
+.armada-session-thread__group { display: flex; flex-direction: column; gap: var(--space-1); }
+.armada-session-thread__group-head { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-heading); }
+.armada-session-thread__agent { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); color: var(--fg-muted); font-weight: var(--weight-body); }
+.armada-session-thread__tasks > li { display: flex; align-items: center; gap: var(--space-2); color: var(--fg-muted); }
+.armada-session-thread__record { list-style: none; }
+
 /* The agent's last word: a band in the done hue over its two ways on, set under the thread as the ask is. */
 .armada-session-done {
   display: flex;

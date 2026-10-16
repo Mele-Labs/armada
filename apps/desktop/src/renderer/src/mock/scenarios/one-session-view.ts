@@ -346,8 +346,9 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       const plan = now.work?.plan;
       if (plan === undefined) {
         // The agent records its plan after planning with him, and it arrives for his approval.
-        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false } }));
-        push([said("The plan is recorded: four tasks in three groups. Approve it, or tell me what to change.")], idle());
+        const note = said("The plan is recorded: four tasks in three groups. Approve it, or tell me what to change.");
+        works((work) => ({ ...work, plan: { scope: SCOPE, groups: groups(0), approved: false, after: note.id } }));
+        push([note], idle());
         return;
       }
       if (!plan.approved) return;

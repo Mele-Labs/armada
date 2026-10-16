@@ -1073,6 +1073,9 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
             onOpenRetro={openRetro}
             {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
+            {...(session.work?.plan === undefined
+              ? {}
+              : { approval: { groups: session.work.plan.groups.map((one) => ({ id: one.id, agent: one.agent, title: one.title, tasks: one.tasks.map((task) => ({ id: task.id, text: task.text })) })), approved: session.work.plan.approved, ...(session.work.plan.after === undefined ? {} : { after: session.work.plan.after }), onApprove: () => draft.work?.approve(session.id) } })}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenSketch={(sketch) => read({ kind: "sketch", id: sketch })}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}

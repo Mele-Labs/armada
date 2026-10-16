@@ -1,6 +1,6 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref, RefObject } from "react";
-import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, BadgeCheck, BellRing, Bot, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Play, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -16,7 +16,7 @@ import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { SessionStop } from "./SessionStop";
-import { TASK_GLYPH, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
+import { TASK_GLYPH, TaskMark, taskMarkSaid, type TaskMarkState } from "../TaskMark/TaskMark";
 import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
@@ -137,8 +137,21 @@ export type AskedQuestion = {
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
 export type QuestionAnswer = { question: string; chosen: string[] };
 
+/**
+ * The plan the agent recorded, drawn as the thread draws a question: a card for the person's press while it waits, and once
+ * approved a record in the line of the thread, after the row `after` that recorded it, with no press left on it.
+ */
+export type PlanApproval = {
+  groups: readonly { id: string; agent: string; title: string; tasks: readonly { id: string; text: string }[] }[];
+  approved: boolean;
+  after?: string;
+  onApprove: () => void;
+};
+
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
+  /** A plan waiting on the person, or settled. Absent draws none. */
+  approval?: PlanApproval;
   /**
    * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
    * order; absent, the card offers Allow once and Deny and names neither.
@@ -768,9 +781,60 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
 }
 
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
+/** The plan's groups, each the type of subagent that takes it and its title, with its tasks while the plan waits, and Approve. */
+function PlanCard({ approval }: { approval: PlanApproval }) {
+  const { approved } = approval;
+  return (
+    <Card flat className="armada-session-thread__ask armada-session-thread__plan" role="article" aria-label={approved ? "Plan approved" : "Plan to approve"} data-approved={approved || undefined}>
+      <span className="armada-session-thread__eyebrow">
+        Plan
+        {approved ? (
+          <Tooltip label="Plan approved">
+            <span className="armada-session-thread__settled" role="img" aria-label="Plan approved">
+              <BadgeCheck size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : null}
+      </span>
+      <ul className="armada-session-thread__groups">
+        {approval.groups.map((group) => (
+          <li key={group.id} className="armada-session-thread__group">
+            <span className="armada-session-thread__group-head">
+              <Tooltip label="Subagent type">
+                <span className="armada-session-thread__agent" role="img" aria-label={`Subagent type ${group.agent}`}>
+                  <Bot size={12} strokeWidth={2} aria-hidden />
+                  <code>{group.agent}</code>
+                </span>
+              </Tooltip>
+              <span>{group.title}</span>
+            </span>
+            {approved ? null : (
+              <ul className="armada-session-thread__tasks">
+                {group.tasks.map((task) => (
+                  <li key={task.id}>
+                    <TaskMark state="open" />
+                    <span>{task.text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+      {approved ? null : (
+        <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+          <Button size="sm" variant="primary" onClick={approval.onApprove}>
+            Approve
+          </Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 const allowsOnce = (asked: NonNullable<SessionThreadProps["asked"]>) => asked.offers?.some((offer) => offer.id === "allow_once") === true;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, approval, asked, askRef, onAnswer, lapsed, done, waiting, workingOn, onOpenSession, onOpenWindow, onOpenSketch, onOpenCheck, onOpenRetro, onOpenSent, sessionId, working, onStop, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
@@ -804,7 +868,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
         <ProseRunner.Provider value={runner ?? null}>
         <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
-          {items.map((item, at) =>
+          {items.flatMap((item, at) => [
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} {...(onStop === undefined ? {} : { onStop })} />
             ) : item.kind === "checks" ? (
@@ -812,7 +876,8 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
             ) : (
               <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenSketch={onOpenSketch} onOpenRetro={onOpenRetro} onOpenSent={onOpenSent} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
-          )}
+            approval?.approved === true && item.kind === "row" && item.row.id === approval.after ? <li key="plan-approved" className="armada-session-thread__record"><PlanCard approval={approval} /></li> : null,
+          ])}
           {working === true && !endsInCalls ? (
             <li className="armada-session-thread__working">
               <SessionMark state="working" said="Working" />
@@ -824,6 +889,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, lapsed, done, wai
         </ProseRunner.Provider>
         </ProseWalk.Provider>
       </div>
+      {approval === undefined || approval.approved ? null : <PlanCard approval={approval} />}
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}
