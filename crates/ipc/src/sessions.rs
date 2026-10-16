@@ -370,6 +370,11 @@ pub struct ShowWindow {
     /// present, `url` is the first take's.** Each is `http` or `https` as `url` is.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variations: Vec<WindowTake>,
+    /// A scripted walk of the page, played by Bridge from outside it: a ring, a caption and the
+    /// acts, on any page. **The same steps the mock walks use**, `crate::WalkStep`. Absent: the
+    /// page is shown as it is, and a mock that plays its own walk keeps doing so.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<crate::WalkStep>,
     /// Other web origins the window may pass through, such as a single sign-on provider: `https://host`
     /// and an optional port, with no path. The page stays pinned to the shown origin and these.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

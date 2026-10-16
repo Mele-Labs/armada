@@ -193,6 +193,8 @@ export type StudiosApi = {
     walkBack: () => Promise<void>;
     walkAutoplay: (on: boolean) => Promise<void>;
     walkReplay: () => Promise<void>;
+    /** Draw the ring and caption of the steps Bridge plays over the page, or put them away so the page takes presses. Main refuses it where the page plays its own walk. */
+    walkGuide: (shown: boolean) => Promise<void>;
   };
   /**
    * What the panel beside a walk window's page may ask that Bridge's own window does not. **Answered for
@@ -275,5 +277,6 @@ export const STUDIOS_CHANNELS = {
   captureWindowWalkBack: "bridge:capture-window-walk-back",
   captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
   captureWindowWalkReplay: "bridge:capture-window-walk-replay",
+  captureWindowWalkGuide: "bridge:capture-window-walk-guide",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
 } as const;

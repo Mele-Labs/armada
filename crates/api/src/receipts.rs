@@ -27,6 +27,8 @@ enum Set<'a> {
         title: Option<&'a str>,
         #[serde(skip_serializing_if = "Vec::is_empty")]
         takes: Vec<&'a str>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        steps: Vec<&'a str>,
     },
     Sketch {
         sketch: &'a str,
@@ -73,6 +75,7 @@ impl<'a> Receipt<'a> {
                 .iter()
                 .map(|take| take.name.as_str())
                 .collect(),
+            steps: show.steps.iter().map(|step| step.say.as_str()).collect(),
         };
         Receipt::of(record, set)
     }

@@ -349,6 +349,7 @@ export * from "./compositions/GraphCanvas/GraphCanvasRail";
 // A Studio's nodes, and the whiteboard React Flow draws them on. #1286.
 export * from "./compositions/StudioCapture/StudioCapture";
 export * from "./compositions/CaptureBar/CaptureBar";
+export * from "./compositions/WalkGuide/WalkGuide";
 export * from "./compositions/WindowQuestion/WindowQuestion";
 export * from "./compositions/StudioAddNode/StudioAddNode";
 export * from "./compositions/StudioName/StudioName";

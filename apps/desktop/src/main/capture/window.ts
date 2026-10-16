@@ -12,7 +12,7 @@
 
 import { BaseWindow, screen, shell, type WebContentsView } from "electron";
 
-import type { Outcome, StagedFrame, StudioCapture, WindowPlace, WindowTake } from "@armada/protocol";
+import type { Outcome, StagedFrame, StudioCapture, WalkStep, WindowPlace, WindowTake } from "@armada/protocol";
 import type {
   CaptureAimed,
   CaptureAnswer,
@@ -33,6 +33,8 @@ import { followedBy } from "./follow";
 import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
+import { PageFinder } from "./finder";
+import { beginsOn, StepWalk } from "./stepwalk";
 import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
 
@@ -97,6 +99,8 @@ const WALK_FIND_TRIES = 50;
 const WALK_ASK_MS = 1000;
 /** How often a loaded page is looked at for an error overlay or nothing drawn. */
 const LOOK_MS = 2000;
+/** The longest a reload for a replayed walk waits for the page to load. */
+const RELOAD_MS = 15_000;
 /** The longest one sign-in address is waited on before the next. */
 const SIGN_IN_MS = 15000;
 
@@ -117,6 +121,8 @@ export class CaptureWindow {
   private readonly opened: string;
   /** The takes the Session declared, the first the one opened on. Empty: one page. */
   private readonly takes: readonly WindowTake[];
+  /** The steps the Session passed with them, empty for a page that plays its own walk or none. */
+  private readonly steps: readonly WalkStep[];
   private at = 0;
   private readiness: CaptureReadiness | undefined = undefined;
   private readonly landsOn: LandsOn;
@@ -150,6 +156,12 @@ export class CaptureWindow {
   /** Whether this document has been told to leave its card to the bar. */
   private walkHosted = false;
   private walkReading = false;
+  /**
+   * The steps a Session passed, played from here. **Present: the page's own `__armadaWalk` is not
+   * looked for**, since the walk is Bridge's and the page draws nothing of it.
+   */
+  private readonly stepwalk: StepWalk | null;
+  private stepsBegun = false;
   /** Which load's looking is current, so an answer that lands after another load began is let go. */
   private walkRound = 0;
   /** A page that cannot be shown, told to whoever opened the walk. */
@@ -167,10 +179,12 @@ export class CaptureWindow {
     kept: PanelKept | null,
     takes: readonly WindowTake[] = [],
     signIn: readonly string[] = [],
+    steps: readonly WalkStep[] = [],
   ) {
     this.pin = pin;
     this.opened = pin.url;
     this.takes = takes;
+    this.steps = steps;
     this.landsOn = landsOn;
     this.board = board;
     this.sizes = sizes;
@@ -192,6 +206,9 @@ export class CaptureWindow {
     this.subject = panelFor(landsOn);
     this.panel = this.subject === null ? null : panelView(this.subject);
     this.panelOpen = kept?.open ?? false;
+    this.stepwalk = steps.length === 0 ? null : this.playing(pin.name, steps);
+    // The walk's row is drawn from the first frame, so the page does not move down when it begins.
+    if (this.stepwalk !== null) this.walk = this.stepwalk.state();
 
     this.window.contentView.addChildView(this.page);
     this.window.contentView.addChildView(this.bar);
@@ -212,6 +229,7 @@ export class CaptureWindow {
         this.board.windowsChanged?.();
       }
       this.stopWatchingWalk();
+      this.stepwalk?.stop();
       clearInterval(this.lookTimer);
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
       for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
@@ -277,9 +295,13 @@ export class CaptureWindow {
     return through.length === this.pin.through.length && through.every((one, at) => one === this.pin.through[at]);
   }
 
-  /** Whether this window shows exactly these takes, so a Session that shows them again is raising it. */
-  showing(takes: readonly WindowTake[]): boolean {
-    return takes.length === this.takes.length && takes.every((one, at) => one.url === this.takes[at]?.url && one.name === this.takes[at]?.name);
+  /** Whether this window shows exactly these takes and steps, so a Session that shows them again is raising it. */
+  showing(takes: readonly WindowTake[], steps: readonly WalkStep[] = []): boolean {
+    return (
+      takes.length === this.takes.length &&
+      takes.every((one, at) => one.url === this.takes[at]?.url && one.name === this.takes[at]?.name) &&
+      JSON.stringify(steps) === JSON.stringify(this.steps)
+    );
   }
 
   /**
@@ -299,7 +321,9 @@ export class CaptureWindow {
     this.framesRefused = 0;
     this.window.setTitle(titled(this.pin));
     this.tell();
-    void this.page.webContents.loadURL(take.url);
+    // The steps are the window's and not a take's: another take starts them over.
+    if (this.stepwalk !== null) this.stepwalk.act("replay");
+    else void this.page.webContents.loadURL(take.url);
   }
 
   /** What the Session or the Job says of the page: ready, or still being changed. The bar draws it and Approve waits on it. */
@@ -526,10 +550,11 @@ export class CaptureWindow {
     return { ok: false, why: "no_owner" };
   }
 
-  /** Reload the pinned origin. There is no Back, no Forward and no history. */
+  /** Reload the pinned origin. There is no Back, no Forward and no history. A page that has lost its place starts its steps over. */
   reload(): void {
     if (!this.serving || this.page.webContents.isDestroyed()) return;
-    void this.page.webContents.loadURL(this.pin.url);
+    if (this.stepwalk !== null) this.stepwalk.act("replay");
+    else void this.page.webContents.loadURL(this.pin.url);
   }
 
   /**
@@ -558,9 +583,15 @@ export class CaptureWindow {
     this.relocateSoon();
   }
 
-  /** Whether the bar covers the whole frame: capture is armed, or a question is drawn over the page. */
+  /** Whether the bar covers the whole frame: capture is armed, a question is drawn over the page, or a walk Bridge plays has its ring up. */
   private covered(): boolean {
-    return this.armed || (this.asked !== null && this.askShown);
+    return this.armed || (this.asked !== null && this.askShown) || this.guiding();
+  }
+
+  /** Whether the ring and caption of the steps Bridge plays are drawn over the page. Not once the walk is over, held on a step, or put away. */
+  private guiding(): boolean {
+    const guide = this.walk?.guide;
+    return guide !== undefined && !guide.folded && !this.walk?.done && guide.stopped === undefined;
   }
 
   /** Look for the question's place again once the page has settled from a wheel or a resize. */
@@ -713,6 +744,14 @@ export class CaptureWindow {
     // `dom-ready` is the new document's, so it is told to leave its card again; the walk itself mounts after it.
     contents.on("dom-ready", () => this.findWalk());
     contents.on("did-finish-load", () => this.findWalk());
+    // The steps Bridge plays begin on the first load of the shown page: not a sign-in address, and not
+    // a provider's page the window passed through, whose words the steps were not written for.
+    contents.on("did-finish-load", () => {
+      const onShownOrigin = onOrigin(this.pin.origin, contents.getURL());
+      if (this.stepwalk === null || !beginsOn({ begun: this.stepsBegun, signingIn: this.signingIn, onShownOrigin })) return;
+      this.stepsBegun = true;
+      this.stepwalk.begin();
+    });
     contents.on("did-fail-load", (_event, code, description, address, mainFrame) => {
       if (!this.signingIn) this.failures.failedLoad(code, description, address, mainFrame);
     });
@@ -754,6 +793,8 @@ export class CaptureWindow {
    * as long as it answers. The row stays through a reload, so Back does not flicker the layout.
    */
   private findWalk(): void {
+    // Steps Bridge plays are the walk; the page's own handle is not looked for.
+    if (this.stepwalk !== null) return;
     this.stopWatchingWalk();
     this.walkHosted = false;
     const round = this.walkRound;
@@ -819,11 +860,76 @@ export class CaptureWindow {
     this.tell();
   }
 
+  /** Draw the ring and caption of the steps Bridge plays over the page, or leave the page to take presses. */
+  walkGuide(shown: boolean): void {
+    this.stepwalk?.guide(shown);
+  }
+
+  /**
+   * The steps a Session passed, played here. **Bridge's side of every act**: the target is found by
+   * `finder.ts` in an isolated world, and what it is told to do is real input to the page's contents,
+   * so the page hears a pointer and a keyboard and is handed nothing.
+   */
+  private playing(name: string, steps: readonly WalkStep[]): StepWalk {
+    const contents = this.page.webContents;
+    return new StepWalk(name, steps, {
+      finder: new PageFinder(
+        () => (this.serving && !contents.isDestroyed() && onOrigin(this.pin.origin, contents.getURL()) ? contents : null),
+        () => this.viewport(),
+      ),
+      send: (sent) => {
+        if (contents.isDestroyed()) return;
+        if ("insert" in sent) void contents.insertText(sent.insert);
+        else contents.sendInputEvent(sent);
+      },
+      command: (which) => {
+        if (contents.isDestroyed()) return;
+        if (which === "paste") contents.paste();
+        else contents.selectAll();
+      },
+      // Keys reach the focused view, so the page takes the keyboard for a field and gives it back to the bar's own.
+      keyboard: (page) => {
+        const view = page ? this.page : this.bar;
+        if (!view.webContents.isDestroyed()) view.webContents.focus();
+      },
+      reload: () => this.reloadPage(),
+      changed: () => this.setWalk(this.stepwalk?.state() ?? null),
+      stuck: (why) => {
+        if ("session" in this.landsOn) this.board.sessionFailed(this.landsOn.session.id, this.pin.url, why);
+      },
+      open: () => this.open && this.serving,
+    });
+  }
+
+  /** The pinned address loaded again, resolving once it has loaded or failed to. */
+  private reloadPage(): Promise<void> {
+    const contents = this.page.webContents;
+    if (!this.serving || contents.isDestroyed()) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const done = (): void => {
+        clearTimeout(giveUp);
+        if (!contents.isDestroyed()) {
+          contents.off("did-finish-load", done);
+          contents.off("did-fail-load", done);
+        }
+        resolve();
+      };
+      const giveUp = setTimeout(done, RELOAD_MS);
+      contents.on("did-finish-load", done);
+      contents.on("did-fail-load", done);
+      void contents.loadURL(this.pin.url).catch(() => undefined);
+    });
+  }
+
   /**
    * One of the walk's five acts, called in the page. **The bar names the act and nothing else**: the
    * source is fixed text per act, and it is refused where the page has no walk.
    */
   async walkAct(act: WalkAct): Promise<void> {
+    if (this.stepwalk !== null) {
+      this.stepwalk.act(act);
+      return;
+    }
     if (this.walk === null) return;
     await this.inPage(actSource(act));
     // The bar is told what the act did without waiting for the next beat.
