@@ -29,6 +29,7 @@ import type { CockpitProps } from "./props";
 import { useShipActs } from "./acts";
 import { Bays } from "./BayRows";
 import { BuildColumn } from "./BuildColumn";
+import { chipPreview } from "./chip-card";
 import { PHASE_GLYPH, PHASE_WORD, glyphOf, jobPhaseOf, wordOf, type BuildIn } from "./build";
 import { useBuilds } from "./useBuilds";
 import { DECK_LINK } from "./links";
@@ -328,7 +329,7 @@ function MergeQueue({ props, ship, selected }: { props: CockpitProps; ship: Ship
     );
     return (
       <li key={`${view.root}:${dot.key}`}>
-        <Tooltip label={dot.tip} asChild>
+        <Tooltip label={chipPreview(dot)} card asChild>
           {pr === undefined ? (
             <span className="deck-chip" role="img" aria-label={dot.tip}>
               {inside}

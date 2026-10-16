@@ -90,6 +90,8 @@ export type PullBlock = PullFacts & {
   owner: Owner | undefined;
   /** What the forge calls it. Absent where the wire carries none. */
   title: string | undefined;
+  /** Who opened it, as the forge names them. Absent where the wire carries none. */
+  author: string | undefined;
   /** The queue's place, 1 being next to merge. */
   place: number | undefined;
   /** What the forge's checks say, where the queue's own word stands for the state. */
@@ -130,6 +132,7 @@ export function pullBlocks(
       mark: MARK[state],
       owner,
       title: title === undefined || title === "" ? undefined : title,
+      author: pull.author,
       place: position,
       check: pull.queue !== undefined && pull.ci !== undefined ? CI[pull.ci]?.says : undefined,
       says: reading?.says ?? "Open",
@@ -149,6 +152,8 @@ export type DotCard = PullFacts & {
   heading: string;
   /** A pull request's title as the forge holds it. */
   title: string | undefined;
+  /** Who opened the pull request. Absent for a landing and where the wire names none. */
+  author?: string;
   branch: string;
   /** The state in words: the queue's or the ci's for a pull request, the registry's stage for a landing. */
   says: string;
@@ -228,7 +233,7 @@ export function dotsOf(
         queued: pull.queued,
         icon: pull.mark?.icon ?? null,
         tip: pull.tip,
-        card: { heading: `#${pull.number}`, title: pull.title, branch: pull.branch, says: pull.says, check: pull.check, place: pull.place, owner: pull.owner, ...keep(pull) },
+        card: { heading: `#${pull.number}`, title: pull.title, branch: pull.branch, says: pull.says, check: pull.check, place: pull.place, owner: pull.owner, ...(pull.author === undefined ? {} : { author: pull.author }), ...keep(pull) },
         act: { kind: "link", url: pull.url },
       }),
     ),
