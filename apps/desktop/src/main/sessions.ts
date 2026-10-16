@@ -65,6 +65,9 @@ type Publish = (change: Partial<BridgeState>) => void;
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
+/** A Bridge offline a few minutes still opens the page shown meanwhile, and a walk from before a restart stays closed. */
+export const REOPEN_WITHIN_MS = 15 * 60 * 1000;
+
 /** Where each press on a pull request is served. `crates/ipc/operations/` is the authority. */
 const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = {
   ready: "ready",
@@ -118,9 +121,12 @@ export class SessionsHost {
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
 
-  constructor(publish: Publish, port: () => number | null) {
+  private readonly now: () => number;
+
+  constructor(publish: Publish, port: () => number | null, now: () => number = Date.now) {
     this.publish = publish;
     this.port = port;
+    this.now = now;
   }
 
   /** Read every session, and every thread a window holds again. Once per connection, and on a refresh. */
@@ -133,7 +139,41 @@ export class SessionsHost {
     }
     this.sessions = (answer.body as SessionList).sessions;
     this.publish({ sessions: { state: "read", sessions: this.sessions } });
+    // Before the threads are read, since a thread read marks its window rows as met.
+    await this.reopen(port);
     await Promise.all(Object.keys(this.threads).map((id) => this.read(port, id)));
+  }
+
+  /**
+   * Opens the window of each live Session whose newest shown page never opened here, because Bridge was
+   * not connected when it was shown. **One that has ended, that this process already opened, or that was
+   * shown more than `REOPEN_WITHIN_MS` ago is left**. Fleet holds the Session's sign-in for one that
+   * opens, and it is taken now.
+   */
+  private async reopen(port: number): Promise<void> {
+    const showing = (this.sessions ?? []).filter(
+      (one) => one.state === "live" && one.attachments.some((held) => held.kind === "artifact" && held.detail?.["form"] === "window"),
+    );
+    await Promise.all(
+      showing.map(async (record) => {
+        const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(record.id)}`);
+        if (answer.ok !== true) return;
+        const row = (answer.body as SessionThread).rows.findLast((one) => one.kind === "window");
+        if (row === undefined || row.kind !== "window" || row.ended_at !== undefined || this.opened.has(row.id)) return;
+        if (!(this.now() - Date.parse(row.at) <= REOPEN_WITHIN_MS)) return;
+        this.opened.add(row.id);
+        this.showWindow(record.id, row);
+      }),
+    );
+  }
+
+  /** Opens the window a `window` row names, with the sign-in Fleet holds for it, in the order the rows came. */
+  private showWindow(sessionId: string, row: Extract<SessionRow, { kind: "window" }>): void {
+    const { title, url, variations, steps, origins } = row;
+    this.inOrder(async () => {
+      const signIn = await this.signInFor(sessionId, url);
+      this.shown(sessionId, title, url, variations ?? [], origins ?? [], signIn, readSteps(steps));
+    });
   }
 
   /** `session.changed`: the session, whole. */
@@ -280,11 +320,7 @@ export class SessionsHost {
     // there, and none of those opens a window.
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
-      const { title, url, variations, steps, origins } = change.row;
-      this.inOrder(async () => {
-        const signIn = await this.signInFor(change.session_id, url);
-        this.shown(change.session_id, title, url, variations ?? [], origins ?? [], signIn, readSteps(steps));
-      });
+      this.showWindow(change.session_id, change.row);
     }
     // A question asked in the walk takes the person there, once, when it is asked.
     if (change.row.kind === "window_ask" && change.row.answer === undefined && !this.opened.has(change.row.id)) {

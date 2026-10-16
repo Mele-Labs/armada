@@ -147,3 +147,23 @@ fn a_sign_in_printed_for_debugging_says_how_many_and_nothing_else() {
     let held = show(&[], &["https://staging.example.com/dev/login?token=s3cr3t-t0k3n"]);
     assert!(!format!("{held:?}").contains(TOKEN));
 }
+
+#[tokio::test]
+async fn a_sign_in_nobody_took_is_gone_once_its_session_ends() {
+    let home = TempDir::new();
+    let (fleet, _) = kept(&home);
+    started(&fleet).await;
+    let link = format!("https://staging.example.com/dev/login?token={TOKEN}");
+    let take = || TakeWindowSignIn { session_id: id(), url: PAGE.to_string() };
+
+    fleet.show_window(None, show(&[], &[&link])).await.expect("shown");
+    fleet
+        .report_session(SessionReport {
+            harness: "a-harness".to_string(),
+            session_id: id(),
+            fact: SessionFact::Ended { reason: "exit".to_string() },
+        })
+        .await
+        .expect("ended");
+    assert!(fleet.take_window_sign_in(take()).await.expect("taken").sign_in.0.is_empty());
+}

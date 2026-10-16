@@ -96,7 +96,7 @@ function sameGuide(a: CaptureWalk["guide"], b: CaptureWalk["guide"]): boolean {
   const at = a.box;
   const to = b.box;
   const same = at === null || to === null ? at === to : at.x === to.x && at.y === to.y && at.width === to.width && at.height === to.height;
-  return same && a.folded === b.folded && a.stopped === b.stopped;
+  return same && a.folded === b.folded && a.stopped === b.stopped && a.signingIn === b.signingIn && a.waiting === b.waiting;
 }
 
 /** Whether two states draw the same, so the bar is told only of a change. */

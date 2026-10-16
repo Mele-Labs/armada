@@ -153,6 +153,25 @@ export function onAnyOrigin(pin: Pinned, address: string): boolean {
 }
 
 /**
+ * Whether an address is on a provider the Session named and not on the page it showed. **A page on
+ * one is a page being signed in on**, which the walk waits out rather than reading as a page that
+ * lacks its target.
+ */
+export function onNamedOrigin(pin: Pinned, address: string): boolean {
+  return !onOrigin(pin.origin, address) && pin.through.some((origin) => onOrigin(origin, address));
+}
+
+/**
+ * The user agent Electron carries, less the two tokens that name it: `Electron/x.y.z` and the app's
+ * own `Name/x.y.z`, which sits between `like Gecko)` and `Chrome/`. **What is left is the Chrome one**,
+ * since a provider that refuses a browser it cannot place refuses the first two tokens and reads the
+ * rest. Anything the fallback does not spell like Electron's is returned as it came.
+ */
+export function chromeAgent(fallback: string): string {
+  return fallback.replace(/\s+Electron\/\S+/g, "").replace(/(like Gecko\))\s+\S+\/\S+(\s+Chrome\/)/, "$1$2");
+}
+
+/**
  * Whether a refused address is one the system browser would take. **`http:`
  * and `https:` only** — a refusal offers the browser a person already uses
  * rather than a second browser inside Armada, and it offers nothing for a
