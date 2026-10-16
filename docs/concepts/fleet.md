@@ -469,6 +469,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
 
+**A held pull request is read by its number when the list leaves it out (decided for #2459, 16 Oct 2026).** Each list stops at 100 (the watch's the 100 updated last, the hub's the 100 created last), and a repository can have more open. So after each list Fleet reads, by number and one call each, every pull request that has a standing claim in the repository and is not in it: a standing `pr` row of a Session or a Job, or the pull request of a Job not yet settled. It is added to the list as one entry, so a pull request in both is told once, and the hub shows it in Bridge. A pull request nobody holds is never read by number: paging every open one costs two or three calls a round to watch pull requests nobody owns.
+
 **A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said. Hung again, it is told like any failure.
 
 **Each notice is told once, and a restart does not repeat it.** The store keeps (pull request, commit, cause, recipient) and the merge queue's last reading. A new commit that fails is news; the same one read again is not. **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Session whose mod is not asking, a Job still working.
