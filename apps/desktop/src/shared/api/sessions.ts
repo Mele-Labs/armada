@@ -5,6 +5,7 @@ import type {
   AnswerSessionAsk,
   AnswerWaiting,
   ApprovePlan,
+  JudgeRead,
   CheckoutCaughtUp,
   CheckoutDiff,
   CheckoutSentAsPullRequest,
@@ -86,6 +87,10 @@ export type SessionsApi = {
   approvePlan: (approve: ApprovePlan) => Promise<SessionActed>;
   /** Sends the marks he made on a plan to the agent as one message. The plan stays until the agent records it again. */
   sendPlanChanges: (changes: SendPlanChanges) => Promise<SessionActed>;
+  /** Sends a judge to read the Session's work so far. What it raises arrives as `judge` waiting items on the record. */
+  judgeSession: (sessionId: string) => Promise<SessionActed<JudgeRead>>;
+  /** Sends a judge's concern to the agent, or drops it and tells the agent nothing. */
+  actOnConcern: (act: "send" | "dismiss", sessionId: string, itemId: string) => Promise<SessionActed<SessionRecord | null>>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
@@ -219,6 +224,8 @@ export const SESSIONS_CHANNELS = {
   dismissWaiting: "bridge:dismiss-waiting",
   approvePlan: "bridge:approve-plan",
   sendPlanChanges: "bridge:send-plan-changes",
+  judgeSession: "bridge:judge-session",
+  actOnConcern: "bridge:act-on-concern",
   tuneSession: "bridge:tune-session",
   runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",

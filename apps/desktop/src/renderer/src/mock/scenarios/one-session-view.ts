@@ -28,12 +28,12 @@ const BIG = "one-view-4";
 const BRANCH = "armada/lease-retry";
 
 /** A long workflow, to see how twelve steps read in the Status area. */
-const RELEASE: WorkflowChoice = { name: "Release", steps: ["Branch", "Changelog", "Version", "Build", "Sign", "Notarize", "Smoke", "Verify", "Tag", "Publish", "Announce", "Pull request"] };
+const RELEASE: WorkflowChoice = { id: "Release", name: "Release", steps: ["Branch", "Changelog", "Version", "Build", "Sign", "Notarize", "Smoke", "Verify", "Tag", "Publish", "Announce", "Pull request"] };
 
 const WORKFLOWS: readonly WorkflowChoice[] = [
-  { name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
-  { name: "Bug fix", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
-  { name: "Code review", steps: ["Read", "Review", "Report"] },
+  { id: "Feature", name: "Feature", steps: ["Plan", "Build", "Verify", "Pull request"] },
+  { id: "Bug fix", name: "Bug fix", steps: ["Reproduce", "Fix", "Verify", "Pull request"] },
+  { id: "Code review", name: "Code review", steps: ["Read", "Review", "Report"] },
   RELEASE,
 ];
 const FEATURE = WORKFLOWS[0]!;
@@ -491,12 +491,11 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
       }
       return only;
     },
-    cockpitOnly: true,
     work: {
       workflows: WORKFLOWS,
       // The proposal is read again: a different workflow draws a different rail, and none draws no rail at all.
       choose: (_id, name) => {
-        const chosen = WORKFLOWS.find((one) => one.name === name);
+        const chosen = WORKFLOWS.find((one) => one.id === name);
         const was = mine()?.work?.proposal?.workflow ?? null;
         works((work) => {
           const { workflow, ...rest } = work;
@@ -567,7 +566,7 @@ function sessions(control: Parameters<typeof sessionsStore>[3]): SessionsStore {
         if (one === undefined) return;
         // Folded to a settled line in the thread. The agent is told nothing.
         works((work) => ({ ...work, concerns: (work.concerns ?? []).filter((it) => it.id !== concern) }));
-        push([next((id, at): SessionRow => ({ id, at, kind: "concern", step: one.step, text: one.text }))]);
+        push([next((id, at): SessionRow => ({ id, at, kind: "concern", step: one.step ?? "Judge", text: one.text }))]);
       },
     },
     // The question the agent asked is answered, and it goes on to record the plan.

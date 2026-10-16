@@ -26,6 +26,9 @@ import type {
   DismissWaiting,
   Followed,
   FrameRead,
+  JudgeConcernAct,
+  JudgeRead,
+  JudgeSession,
   Outcome,
   PullRequestClaimed,
   PullRequestFilePatch,
@@ -439,6 +442,30 @@ export class SessionsHost {
   /** The marks he made on a plan, sent to the agent as one message. */
   async sendPlanChanges(changes: SendPlanChanges): Promise<SessionActed> {
     return await this.act("POST", "/sessions/plan/changes", changes);
+  }
+
+  /** A judge sent to read the Session's work. Fleet answers `JudgeRead`, and the concerns it raised arrive as waiting items on the record. */
+  async judge(judge: JudgeSession): Promise<SessionActed<JudgeRead>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/judge", judge);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const raised = (answer.body as Partial<JudgeRead> | null)?.raised;
+    return { ok: true, value: { raised: typeof raised === "number" ? raised : 0 } };
+  }
+
+  /** A judge's concern sent to the agent, or dropped with the agent told nothing. A record in the answer is folded; the item leaves the list either way. */
+  async actOnConcern(act: "send" | "dismiss", concern: JudgeConcernAct): Promise<SessionActed<SessionRecord | null>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", `/sessions/judge/${act}`, concern);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const body = answer.body as Partial<SessionRecord> | null;
+    if (body !== null && typeof body === "object" && typeof body.id === "string" && typeof body.state === "string") {
+      this.fold(body as SessionRecord);
+      return { ok: true, value: body as SessionRecord };
+    }
+    return { ok: true, value: null };
   }
 
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */

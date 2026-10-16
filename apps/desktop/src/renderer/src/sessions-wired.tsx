@@ -16,8 +16,9 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { SessionRunMessage } from "@armada/protocol";
-import type { SessionCommand } from "@armada/screens/src/draft/sessions";
+import type { ProposedField, SessionRunMessage, TimelineEvent, WorkflowSummary } from "@armada/protocol";
+import { choicesOf, wireMarksOf } from "@armada/screens/src/session-work";
+import type { SessionCommand, WorkflowChoice } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
 import { moveRefusalWords } from "./session-moved";
@@ -42,6 +43,7 @@ import { buildChangeOf, type BuildChange } from "./build-change";
 import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
+import type { TimelineSource } from "./fleet-timeline";
 import { markViewed } from "./cockpit/viewed";
 
 const NONE: readonly never[] = [];
@@ -74,6 +76,11 @@ export class WiredStore {
   private readonly sketches = new Map<string, readonly Sketch[]>();
   private readonly pictures = new Map<string, string>();
   private readonly fetching = new Set<string>();
+  /** What changed a Session's workflow, model or effort, from the timeline. */
+  private events: readonly TimelineEvent[] = NONE;
+  /** Picks of the proposer he changed here, until the record says so too. */
+  private readonly unpicked = new Map<string, ReadonlySet<ProposedField>>();
+  private choices: { from: readonly WorkflowSummary[]; are: readonly WorkflowChoice[] } = { from: NONE, are: NONE };
 
   constructor(api: BridgeApi) {
     this.api = api;
@@ -115,7 +122,31 @@ export class WiredStore {
     sketches: this.sketches.get(id) ?? NONE,
     pending: this.pending.get(id) ?? NONE,
     repository: (manifestId) => this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "",
+    workflows: this.inputs?.holds.workflows ?? NONE,
+    events: this.events,
+    ...(this.unpicked.has(id) ? { unpicked: this.unpicked.get(id)! } : {}),
   });
+
+  /** The timeline's entries, of which only a value he changed in a panel is a row of a thread. Drawn again only when one of those changed. */
+  readonly setEvents = (events: readonly TimelineEvent[]): void => {
+    const changes = events.filter((one) => one.kind === "session.workflow" || one.kind === "session.model" || one.kind === "session.effort");
+    if (changes.length === this.events.length && changes.every((one, at) => one.id === this.events[at]?.id)) return;
+    this.events = changes;
+    this.recompute();
+  };
+
+  /** The workflows Fleet holds as the picker lists them, the same array until Fleet's list changes. */
+  private workflowChoices(): readonly WorkflowChoice[] {
+    const held = this.inputs?.holds.workflows ?? NONE;
+    if (held !== this.choices.from) this.choices = { from: held, are: choicesOf(held) };
+    return this.choices.are;
+  }
+
+  /** The proposer's pick of a value is no longer his once the person has changed it: drawn so at once, and Fleet says so on the record. */
+  private unpick(id: string, value: ProposedField): void {
+    this.unpicked.set(id, new Set([...(this.unpicked.get(id) ?? []), value]));
+    this.recompute();
+  }
 
   /** A picture a message carried, once read. Read on first ask and drawn from then on. */
   private picture(sessionId: string, fileId: string): string | undefined {
@@ -470,6 +501,36 @@ export class WiredStore {
       return store.inputs?.holds.models?.session;
     },
     efforts: EFFORTS,
+    work: {
+      get workflows() {
+        return store.workflowChoices();
+      },
+      choose: (id, workflow) => {
+        store.unpick(id, "workflow");
+        void this.plain(this.api.setSessionWorkflow(id, workflow ?? undefined));
+      },
+      unpick: (id, value) => this.unpick(id, value),
+      approve: (id) => {
+        const version = this.lookup(id)?.work?.plan?.version;
+        if (version !== undefined) void this.plain(this.api.approvePlan({ session_id: id, version }));
+      },
+      suggest: (id, marks, approving) => {
+        const version = this.lookup(id)?.work?.plan?.version;
+        if (version === undefined) return;
+        void this.plain(this.api.sendPlanChanges({ session_id: id, version, marks: wireMarksOf(marks), ...(approving === true ? { approve: true } : {}) }));
+      },
+      sendConcern: (id, concern) => void this.plain(this.api.actOnConcern("send", id, concern)),
+      dismissConcern: (id, concern) => void this.plain(this.api.actOnConcern("dismiss", id, concern)),
+      judge: async (id) => {
+        this.say(undefined);
+        const done = await this.api.judgeSession(id);
+        if (!done.ok) {
+          this.tell(done.outcome);
+          return false;
+        }
+        return done.value.raised > 0;
+      },
+    },
     get commands() {
       return store.commandsRead();
     },
@@ -492,9 +553,14 @@ export class WiredStore {
 }
 
 /** Sessions over a real Fleet, or over a fake one answering the same capabilities. */
-export function WiredSessions({ children }: { children: ReactNode }) {
+export function WiredSessions({ events, children }: { events?: TimelineSource; children: ReactNode }) {
   const store = useMemo(() => new WiredStore(window.armada), []);
   useEffect(() => store.attach(), [store]);
+  useEffect(() => {
+    if (events === undefined) return;
+    store.setEvents(events.get());
+    return events.subscribe(() => store.setEvents(events.get()));
+  }, [store, events]);
   const served = useSyncExternalStore(store.subscribe, store.served);
   const { runInRepository, diffInRepository, actInRepository, sendCheckoutAsPullRequest } = store.draft;
   const acts = useMemo(

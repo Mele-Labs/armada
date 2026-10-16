@@ -14,7 +14,7 @@ const ask = role("article", "Waiting on you");
 const concern = (words: RegExp) => role("group", words);
 
 export const oneSessionView = walk("one-session-view", [
-  { look: places, say: "The top nav has no Sessions tab. A Session opens on the Cockpit from anywhere" },
+  { look: places, say: "A Session is viewed on the Cockpit, selected from its list" },
   { look: region("Incoming calls"), say: "The Cockpit with no Session selected. Incoming calls stands on the left under the list, folded to its header while nothing is calling" },
   { look: region("Activity"), say: "Activity stands on the right, in the place Incoming calls had" },
   { look: region("Bays"), say: "Bays, above it" },

@@ -161,7 +161,7 @@ export type PlanApproval = {
 };
 
 /** A concern a judge raised at a step, waiting on the person: drawn as a card the way a question is. */
-export type ThreadConcern = { id: string; step: string; judge: string; text: string; cites?: readonly string[] };
+export type ThreadConcern = { id: string; step?: string; judge?: string; text: string; cites?: readonly string[] };
 
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
@@ -989,11 +989,11 @@ export function SessionThread({ rows, concerns, onSendConcern, onDismissConcern,
         <Card key={one.id} flat className="armada-session-thread__ask armada-session-thread__concern" role="group" aria-label={one.text}>
           <span className="armada-session-thread__eyebrow armada-session-thread__concern-head">
             <Tooltip label="Judge">
-              <span role="img" aria-label={`Judge on ${one.step}`} className="armada-session-thread__concern-judge">
+              <span role="img" aria-label={one.step === undefined ? "Judge" : `Judge on ${one.step}`} className="armada-session-thread__concern-judge">
                 <Scale size={12} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>
-            {one.step}
+            {one.step ?? "Judge"}
           </span>
           <p className="armada-session-thread__command">{one.text}</p>
           {one.cites === undefined || one.cites.length === 0 ? null : (

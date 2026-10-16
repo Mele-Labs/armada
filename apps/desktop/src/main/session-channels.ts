@@ -72,6 +72,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(changes?.session_id) || !Number.isInteger(changes.version) || changes.version < 1 || !Array.isArray(changes.marks)) return unsent;
     return connection()?.sessions.sendPlanChanges({ session_id: changes.session_id, version: changes.version, marks: changes.marks, approve: changes.approve === true }) ?? unsent;
   });
+  ipc.handle(CHANNELS.judgeSession, (_event, sessionId: string) => (text(sessionId) ? (connection()?.sessions.judge({ session_id: sessionId }) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.actOnConcern, (_event, act: string, sessionId: string, itemId: string) =>
+    (act === "send" || act === "dismiss") && text(sessionId) && text(itemId) ? (connection()?.sessions.actOnConcern(act, { session_id: sessionId, item_id: itemId }) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;
     return connection()?.sessions.rename({ session_id: rename.session_id, title: rename.title.trim() }) ?? unsent;

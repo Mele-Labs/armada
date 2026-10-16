@@ -694,7 +694,8 @@ export function entriesOf(
   removeWaiting?: (itemId: string, reason: string) => void,
 ): LedgerEntry[] {
   // An ended Session waits on nobody: its ledger is what it made, to be read.
-  const waiting = (session.dead === "ended" ? [] : owesOf(session)).map((one): LedgerEntry => {
+  // A recorded plan and a judge's concern are cards in the thread, so the ledger does not list them again.
+  const waiting = (session.dead === "ended" ? [] : owesOf(session).filter((one) => one.source !== "plan" && one.source !== "judge")).map((one): LedgerEntry => {
     if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;

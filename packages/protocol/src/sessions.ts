@@ -117,6 +117,11 @@ export type SessionRecord = {
    * Hosted Sessions only. Since 23.91.
    */
   workflow?: string;
+  /**
+   * The id of the workflow step Fleet detected the Session at. Absent where Fleet sends none, and Bridge then draws the
+   * steps unlit. Written ahead of the detector that sets it.
+   */
+  workflow_step?: string;
   /** What the proposer did for this Session. Absent where it was never asked. Since 23.91. */
   proposal?: SessionProposal;
   /** The plan the Session recorded. Absent until it records one. See `session-plan.ts`. */
@@ -150,9 +155,23 @@ export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "mes
  * `done` (id `done:<done_since>`, text `Done`) from the turn, so a Session that said it was done is on
  * the list whether or not the agent called a tool. `plan` (id `plan:<version>`) is a recorded plan the
  * person has not approved; it is approved, or sent changes, from its own card. `replied` is no longer served: a reply is the
- * Session's `standing`, not an item.
+ * Session's `standing`, not an item. `judge` is a concern a judge raised about the Session's work, which carries
+ * `cites`; the person sends it to the agent or dismisses it, and nothing reaches the agent otherwise. Bridge's side
+ * of that contract is written ahead of Fleet's: see `JudgeConcernAct`.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message" | "replied" | "done" | "plan" | "judge";
+
+/** Where a judge's concern points: a file of the repository and, where it names one, the line. */
+export type JudgeCite = { path: string; line?: number };
+
+/** `POST /sessions/judge`: send a judge to read the Session's work so far. Answers `JudgeRead`. */
+export type JudgeSession = { session_id: string };
+
+/** What a judge's reading raised: `raised` concerns, each a `judge` waiting item on the Session. Zero is an answer. */
+export type JudgeRead = { raised: number };
+
+/** `POST /sessions/judge/send` sends the concern to the agent as a message, and `/sessions/judge/dismiss` drops it and tells the agent nothing. */
+export type JudgeConcernAct = { session_id: string; item_id: string };
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -200,6 +219,8 @@ export type WaitingItem = {
   /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
   steps?: string[];
   place?: WindowPlace;
+  /** What a `judge` concern cites. Absent on every other item. */
+  cites?: JudgeCite[];
 };
 
 /**

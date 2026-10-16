@@ -15,7 +15,8 @@ const MARK = {
   next: { Glyph: CircleDashed, said: "Next" },
 } as const;
 
-const stateOf = (i: number, at: number) => (i < at ? "done" : i === at ? "now" : "next");
+// With no step named every step is a step to come: none is lit.
+const stateOf = (i: number, at: number | undefined) => (at === undefined || i > at ? "next" : i < at ? "done" : "now");
 
 function StepMark({ state }: { state: keyof typeof MARK }) {
   const { Glyph, said } = MARK[state];
@@ -29,7 +30,7 @@ function StepMark({ state }: { state: keyof typeof MARK }) {
 }
 
 /** Keeps the step the Session is at in view: a long workflow scrolls to it and the steps far from it stay out of sight. */
-function useKeepNow(at: number) {
+function useKeepNow(at: number | undefined) {
   const list = useRef<HTMLOListElement>(null);
   useEffect(() => {
     const now = list.current?.querySelector<HTMLElement>('[data-state="now"]');
@@ -43,7 +44,7 @@ function useKeepNow(at: number) {
 }
 
 /** The steps as a list, scrolling to the lit one. */
-function Steps({ steps, at }: { steps: readonly string[]; at: number }) {
+function Steps({ steps, at }: { steps: readonly string[]; at: number | undefined }) {
   const list = useKeepNow(at);
   return (
     <div className="sv-steps">
@@ -67,7 +68,7 @@ function Steps({ steps, at }: { steps: readonly string[]; at: number }) {
 const NONE = "none";
 
 /** The workflow as a picker, and None is a custom Session with no steps. A change applies from the next turn. */
-function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string }) {
+function Flow({ work, acts, id, manifestId }: { work: SessionWork; acts: SessionWorkActs | undefined; id: string; manifestId: string | undefined }) {
   const proposal = work.proposal;
   if (proposal === undefined || acts === undefined) {
     return work.workflow === undefined ? null : <h4 className="sv-flow__name">{work.workflow.name}</h4>;
@@ -76,8 +77,10 @@ function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | u
     <div className="sv-flow">
       <Select aria-label="Workflow" value={proposal.workflow ?? NONE} onChange={(event) => acts.choose(id, event.target.value === NONE ? null : event.target.value)}>
         <option value={NONE}>None</option>
-        {acts.workflows.map((one) => (
-          <option key={one.name} value={one.name}>
+        {acts.workflows
+          .filter((one) => one.manifestId === undefined || manifestId === undefined || one.manifestId === manifestId)
+          .map((one) => (
+          <option key={one.id} value={one.id}>
             {one.name}
           </option>
         ))}
@@ -93,10 +96,10 @@ function Flow({ work, acts, id }: { work: SessionWork; acts: SessionWorkActs | u
   );
 }
 
-export function StatusPanel({ work, place, id, acts }: { work: SessionWork; place: "side" | "left"; id: string; acts: SessionWorkActs | undefined }) {
+export function StatusPanel({ work, place, id, manifestId, acts }: { work: SessionWork; place: "side" | "left"; id: string; manifestId?: string | undefined; acts: SessionWorkActs | undefined }) {
   return (
     <SvPanel label="Status" area="status" place={place}>
-      <Flow work={work} acts={acts} id={id} />
+      <Flow work={work} acts={acts} id={id} manifestId={manifestId} />
       {work.workflow === undefined ? null : <Steps steps={work.workflow.steps} at={work.workflow.at} />}
     </SvPanel>
   );

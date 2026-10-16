@@ -111,7 +111,7 @@ export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 
 // ---- What a Session works to ---------------------------------------------------------------------------
 // The plan, the workflow, the subagents on the field and the judges' concerns, drawn in the Session's own view on
-// the Cockpit and on the Sessions page alike. Mock only: Fleet serves none of it yet. Progress is the agent's
+// the Cockpit and on the Sessions page alike, from the record's plan, workflow, proposal and touches (`session-work.ts`). Progress is the agent's
 // task states with what Fleet observed beside them (`seen`), and a status ring no longer stands for it.
 
 export type WorkTaskState = "open" | "working" | "handed_in" | "done" | "failed";
@@ -145,7 +145,7 @@ export type SuggestLine = { verb: "Renamed" | "Removed" | "Added" | "Moved" | "S
 /** What the agent changed in the plan it recorded again: ids of what is new, what was renamed and what it was, and what is gone. */
 export type PlanChanges = { added: readonly string[]; renamed: readonly { id: string; from: string }[]; removed: readonly { group: string; text: string }[] };
 
-export type WorkPlan = { scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
+export type WorkPlan = { /** The version the agent recorded, which approving and sending changes name. */ version?: number; scope: readonly string[]; groups: readonly WorkGroup[]; approved: boolean; /** What changed since the plan before this one. */ changes?: PlanChanges; /** The sketch drawn with the plan, if the agent drew one. */ sketch?: WorkSketch; /** The thread row that recorded it, which the approved plan settles after. */ after?: string };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */
 export type WorkDrone = { id: string; agent?: string; task?: string; path: string; doing: "read" | "write" | "run"; /** The file it is over, which the Field draws as a bar. */ file?: string };
@@ -154,16 +154,16 @@ export type WorkDrone = { id: string; agent?: string; task?: string; path: strin
 export type WorkFile = { path: string; act?: "write" | "edit" | "remove" };
 
 /** A concern a judge raised at a step. It waits on the person; a judge never blocks. */
-export type WorkConcern = { id: string; step: string; judge: string; text: string; /** What it cites: the files it is about. */ cites?: readonly string[] };
+export type WorkConcern = { id: string; step?: string; judge?: string; text: string; /** What it cites: a file, and `:line` where it names one. */ cites?: readonly string[] };
 
 /** A workflow a Session may follow: its steps in order. */
-export type WorkflowChoice = { name: string; steps: readonly string[] };
+export type WorkflowChoice = { id: string; name: string; steps: readonly string[]; /** The repository that holds it. Absent is any. */ manifestId?: string };
 
 export type SessionWork = {
   /** What the proposer read the request to be. Changeable at any time; a change applies from the next turn. */
-  proposal?: { workflow: string | null; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
-  /** The workflow's steps and the index of the one the Session is at. Absent is a custom Session, which has no rail. */
-  workflow?: { name: string; steps: readonly string[]; at: number };
+  proposal?: { /** The id of the workflow chosen. */ workflow: string | null; /** The proposer's call is out: the Session starts on its answer. */ reading?: boolean; /** What the proposer picked and the person has not changed: each is marked where it lives. */ picked?: readonly ("workflow" | "model" | "effort")[] };
+  /** The workflow's steps and the index of the one the Session is at, where Fleet says. Absent is a custom Session, which has no rail; `at` absent draws the steps unlit. */
+  workflow?: { name: string; steps: readonly string[]; at?: number };
   /** Absent until the agent records its plan after planning with the person. */
   plan?: WorkPlan;
   field?: readonly WorkDrone[];
@@ -654,8 +654,6 @@ export type SessionsDraft = {
   command?: (id: string, text: string) => void;
   /** The acts on a Session's `work`. */
   work?: SessionWorkActs;
-  /** Mock only: there is no Sessions page, so the tab is left off and a Session is opened on the Cockpit. */
-  cockpitOnly?: boolean;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };
