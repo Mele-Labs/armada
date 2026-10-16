@@ -68,6 +68,8 @@ pub struct Delivering {
     pub checkout: Option<String>,
     /// Why the served repository could not be caught up, when asked.
     pub held_back: Option<HeldBack>,
+    /// Whether the local base branch fast-forwards while another is checked out.
+    pub base_fast_forwards: bool,
     /// What merging one local branch into another comes to.
     pub branch_merge: BranchMerged,
 }
@@ -110,6 +112,7 @@ impl Default for Delivering {
             branch_merge: BranchMerged::Merged,
             checkout: None,
             held_back: None,
+            base_fast_forwards: true,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
                 // A commit-shaped string, because `#474` keys a proof by it and

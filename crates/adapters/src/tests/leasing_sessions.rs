@@ -93,38 +93,46 @@ fn a_session_that_switched_branch_in_its_slot_parks_on_the_branch_it_is_on() {
 }
 
 #[test]
-fn a_job_that_switched_branch_is_still_refused_and_keeps_its_slot() {
+fn a_job_that_switched_branch_parks_on_the_branch_it_is_on() {
     let repo = a_repository();
     let pool = slots(&repo, 1);
     let (slot, path) = leased(&repo, &pool, "1-a-job", "01JOB");
     git(&path, &["switch", "--quiet", "-c", "elsewhere"]);
     std::fs::write(path.join("wip.txt"), "x").unwrap();
 
-    let refused = GitVcs.park_slot(&pool, slot, "01JOB").expect_err("a Job keeps to its branch");
+    let parked = GitVcs.park_slot(&pool, slot, "01JOB").expect("it parks where it is");
 
-    assert!(matches!(refused, SlotParkRefused::OnAnotherBranch { .. }), "{refused:?}");
-    assert!(path.join("wip.txt").exists());
+    assert_eq!(parked.branch, "elsewhere");
+    assert_eq!(repo.git(&["show", "elsewhere:wip.txt"]).trim(), "x");
 }
 
 #[test]
-fn a_session_on_the_base_or_detached_is_still_refused() {
+fn a_session_on_the_base_keeps_its_files_on_a_new_branch() {
     let repo = a_repository();
     repo.git(&["checkout", "-q", "-b", "elsewhere"]);
     let pool = slots(&repo, 1);
     let (slot, path) = leased(&repo, &pool, "session-7", "S7");
     std::fs::write(path.join("wip.txt"), "x").unwrap();
-
     git(&path, &["switch", "--quiet", "main"]);
-    assert!(matches!(
-        GitVcs.park_hosted_slot(&pool, slot, "S7"),
-        Err(SlotParkRefused::OnTheBase(_))
-    ));
+
+    let parked = GitVcs.park_hosted_slot(&pool, slot, "S7").expect("it gets a branch");
+
+    assert_eq!(parked.branch, "kept/slot-1-S7");
+    assert_eq!(repo.git(&["show", "kept/slot-1-S7:wip.txt"]).trim(), "x");
+}
+
+#[test]
+fn a_detached_session_keeps_its_files_on_a_new_branch() {
+    let repo = a_repository();
+    let pool = slots(&repo, 1);
+    let (slot, path) = leased(&repo, &pool, "session-7", "S7");
+    std::fs::write(path.join("wip.txt"), "x").unwrap();
     git(&path, &["switch", "--quiet", "--detach"]);
-    assert!(matches!(
-        GitVcs.park_hosted_slot(&pool, slot, "S7"),
-        Err(SlotParkRefused::OnNoBranch)
-    ));
-    assert_eq!(git(&path, &["status", "--porcelain"]), "?? wip.txt");
+
+    let parked = GitVcs.park_hosted_slot(&pool, slot, "S7").expect("it gets a branch");
+
+    assert_eq!(parked.branch, "kept/slot-1-S7");
+    assert_eq!(repo.git(&["show", "kept/slot-1-S7:wip.txt"]).trim(), "x");
 }
 
 #[test]
@@ -160,13 +168,11 @@ fn parking_a_sessions_slot_ends_what_still_runs_in_it_and_nothing_outside_it() {
 #[test]
 fn a_refused_park_ends_nothing_that_was_running() {
     let repo = a_repository();
-    repo.git(&["checkout", "-q", "-b", "elsewhere"]);
     let pool = slots(&repo, 1);
     let (slot, path) = leased(&repo, &pool, "session-8", "S8");
-    git(&path, &["switch", "--quiet", "--detach"]);
     let mut mock = idling_in(&path);
 
-    assert!(GitVcs.park_hosted_slot(&pool, slot, "S8").is_err());
+    assert!(GitVcs.park_hosted_slot(&pool, slot, "NOT-S8").is_err());
 
     let ran = running(&mut mock);
     let _ = mock.kill();

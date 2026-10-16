@@ -110,8 +110,68 @@ fn a_park_of_a_clean_slot_only_releases_it() {
     assert_eq!(pool.state(1), SlotState::Free);
 }
 
+/// Where `here()`'s work goes when its slot is on no branch or on the base.
+fn kept_name(number: usize) -> String {
+    format!("kept/slot-{number}-pid{}", std::process::id())
+}
+
+fn kept_branches(repo: &TempRepo) -> String {
+    repo.git(&["branch", "--list", "kept/*"]).trim().to_string()
+}
+
 #[test]
-fn a_park_refuses_on_the_base_and_on_a_detached_head_and_changes_nothing() {
+fn a_clean_detached_slot_is_released_and_no_branch_is_cut() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "idle", &here());
+    git(&slot, &["switch", "--quiet", "--detach", "origin/main"]);
+
+    let parked = pool.park(1, &here()).expect("nothing to lose, so nothing to refuse");
+
+    assert!(parked.committed.is_none());
+    assert_eq!(parked.branch, "idle");
+    assert_eq!(pool.state(1), SlotState::Free);
+    assert_eq!(kept_branches(&repo), "");
+}
+
+#[test]
+fn a_dirty_detached_slot_keeps_its_files_on_a_new_branch() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "wrong", &here());
+    std::fs::write(slot.join("work.rs"), "x").unwrap();
+    git(&slot, &["switch", "--quiet", "--detach", "origin/main"]);
+
+    let parked = pool.park(1, &here()).expect("the files get a branch of their own");
+
+    assert_eq!(parked.branch, kept_name(1));
+    let committed = parked.committed.expect("the files were committed");
+    assert_eq!(committed.files, vec!["work.rs"]);
+    assert_eq!(repo.git(&["show", &format!("{}:work.rs", parked.branch)]).trim(), "x");
+    assert_eq!(pool.state(1), SlotState::Free);
+}
+
+#[test]
+fn a_clean_detached_slot_holding_a_commit_on_no_branch_keeps_it_on_a_new_branch() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "wrong", &here());
+    git(&slot, &["switch", "--quiet", "--detach", "origin/main"]);
+    std::fs::write(slot.join("stray.rs"), "x").unwrap();
+    git(&slot, &["add", "stray.rs"]);
+    git(&slot, &["commit", "--quiet", "-m", "a commit nothing holds"]);
+    let tip = git(&slot, &["rev-parse", "HEAD"]);
+
+    let parked = pool.park(1, &here()).expect("the commit gets a branch of its own");
+
+    assert_eq!(parked.branch, kept_name(1));
+    assert!(parked.committed.is_none(), "nothing was uncommitted");
+    assert_eq!(repo.git(&["rev-parse", &parked.branch]).trim(), tip);
+    assert_eq!(pool.state(1), SlotState::Free);
+}
+
+#[test]
+fn a_dirty_slot_on_the_base_keeps_its_files_on_a_new_branch_and_leaves_the_base_alone() {
     let repo = a_repository();
     // The base is free to be checked out in a slot only where the repository's
     // own checkout is elsewhere.
@@ -119,23 +179,45 @@ fn a_park_refuses_on_the_base_and_on_a_detached_head_and_changes_nothing() {
     let pool = pool(&repo, 1);
     let slot = take(&pool, "wrong", &here());
     std::fs::write(slot.join("work.rs"), "x").unwrap();
-
     git(&slot, &["switch", "--quiet", "main"]);
-    assert!(matches!(
-        pool.park(1, &here()),
-        Err(ParkRefused::OnTheBase(_))
-    ));
-    git(&slot, &["switch", "--quiet", "--detach"]);
-    assert!(matches!(
-        pool.park(1, &here()),
-        Err(ParkRefused::OnNoBranch)
-    ));
-    assert!(
-        slot.join("work.rs").exists(),
-        "nothing was committed or lost"
-    );
-    assert_eq!(git(&slot, &["status", "--porcelain"]), "?? work.rs");
-    assert!(matches!(pool.state(1), SlotState::Held { .. }));
+    let main = repo.git(&["rev-parse", "main"]);
+
+    let parked = pool.park(1, &here()).expect("the files get a branch of their own");
+
+    assert_eq!(parked.branch, kept_name(1));
+    assert_eq!(repo.git(&["rev-parse", "main"]), main, "the base took no WIP commit");
+    assert_eq!(repo.git(&["show", &format!("{}:work.rs", parked.branch)]).trim(), "x");
+    assert_eq!(pool.state(1), SlotState::Free);
+}
+
+#[test]
+fn a_kept_branch_name_that_is_taken_gets_a_number() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "wrong", &here());
+    repo.git(&["branch", &kept_name(1), "main"]);
+    std::fs::write(slot.join("work.rs"), "x").unwrap();
+    git(&slot, &["switch", "--quiet", "--detach", "origin/main"]);
+
+    let parked = pool.park(1, &here()).expect("a free name is found");
+
+    assert_eq!(parked.branch, format!("{}-2", kept_name(1)));
+}
+
+#[test]
+fn a_dirty_slot_on_another_branch_commits_there() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "leased", &here());
+    git(&slot, &["switch", "--quiet", "-c", "elsewhere"]);
+    std::fs::write(slot.join("work.rs"), "x").unwrap();
+
+    let parked = pool.park(1, &here()).expect("the branch it is on takes the files");
+
+    assert_eq!(parked.branch, "elsewhere");
+    assert_eq!(repo.git(&["show", "elsewhere:work.rs"]).trim(), "x");
+    assert_eq!(kept_branches(&repo), "");
+    assert_eq!(pool.state(1), SlotState::Free);
 }
 
 #[test]

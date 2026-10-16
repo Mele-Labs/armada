@@ -122,20 +122,21 @@ test("the lane draws Next up as a numbered list and the set-aside siding", async
   await expect.element(aside).toHaveTextContent("Nothing set aside.");
 });
 
-test("the one bar's third kind is Autopilot: Tab steps to it, and the panel reads the words and starts it", async () => {
+test("the Dispatch sheet's third kind is Autopilot: Tab steps to it, and the sheet reads the words and starts it", async () => {
   await cockpit();
   // The switch just pressed holds focus, and a bare key does nothing while a control does.
   (document.activeElement as HTMLElement).blur();
   await userEvent.keyboard("n");
-  const field = page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox");
+  const panel = page.getByRole("region", { name: "Dispatch", exact: true });
+  const field = panel.getByRole("textbox", { name: "Request" });
   await expect.element(field).toHaveFocus();
   await userEvent.keyboard("Work the open bugs until 7am");
-  const row = () => document.getElementById("armada-palette-row-dispatch")?.textContent ?? "";
-  for (let tries = 0; tries < 3 && !row().startsWith("Start Autopilot"); tries += 1) await userEvent.keyboard("{Tab}");
-  expect(row()).toBe("Start Autopilot with “Work the open bugs until 7am”⌘↵");
-  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-  // The panel grows from the bar. Its act reads the words as settings, and nothing starts until the next press.
-  const panel = page.getByRole("dialog", { name: "Dispatch" });
+  for (let tries = 0; tries < 3; tries += 1) {
+    if ((await panel.getByRole("tab", { name: "Autopilot" }).element().getAttribute("aria-selected")) === "true") break;
+    await userEvent.keyboard("{Tab}");
+  }
+  await expect.element(panel.getByRole("tab", { name: "Autopilot" })).toHaveAttribute("aria-selected", "true");
+  // Its act reads the words as settings, and nothing starts until the next press.
   await panel.getByRole("button", { name: "Read it" }).click();
   await expect.element(panel.getByRole("textbox", { name: "At once" })).toBeVisible();
   await panel.getByRole("button", { name: "Start Autopilot" }).click();

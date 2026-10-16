@@ -676,9 +676,16 @@ impl Delivery for FakeVcs {
         delivery.repository.clone()
     }
 
-    fn checkout_has(&self, _in_repo: &str, commit: &str) -> bool {
+    fn checkout_has(&self, _in_repo: &str, _base: &str, commit: &str) -> bool {
         let delivery = self.delivery.lock().expect("not poisoned");
         delivery.checkout.as_deref().is_none_or(|on| on == commit)
+    }
+
+    fn base_fast_forwarded(&self, _in_repo: &str, _base: &str) -> bool {
+        self.delivery
+            .lock()
+            .expect("not poisoned")
+            .base_fast_forwards
     }
 
     fn held_back(&self, _in_repo: &str, _base: &str) -> Option<adapter_traits::HeldBack> {
