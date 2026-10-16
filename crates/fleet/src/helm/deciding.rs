@@ -107,12 +107,104 @@ impl Own<'_> {
     }
 }
 
-/// [`because_in_a_session`] for a session that owns what it started.
+/// [`because_in_a_session`] for a session that owns what it started, with no folder listed.
 pub fn because_in_a_session_owning(
     asking: &AskingToRun,
     held: &[&str],
     own: Own,
 ) -> Option<Because> {
+    match guarded_in_a_session(asking, held, own, Folders::default())? {
+        Guarded::Because { because, .. } => Some(because),
+        Guarded::Blocked { .. } => Some(Because::ReachesOutside),
+    }
+}
+
+/// What the guard says about one hosted session's call, once the owner's folder list is read.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Guarded {
+    /// Put to a person, or refused by the mode, for `because`. `reaching` is the absolute path past
+    /// the slots it named first, which a card offers to the folder list. **None for a removal**: an
+    /// allowed folder lets a write in and never an `rm`.
+    Because { because: Because, reaching: Option<String> },
+    /// A folder the owner blocked holds what it names. Refused with no card.
+    Blocked { folder: String },
+}
+
+/// The owner's folder list, and the home a `~` or `$HOME` stands for.
+#[derive(Clone, Copy, Default)]
+pub struct Folders<'a> {
+    pub allow: &'a [String],
+    pub block: &'a [String],
+    pub home: &'a str,
+}
+
+/// What the list says about one path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Listed {
+    Allowed,
+    Blocked(String),
+    Unlisted,
+}
+
+impl Folders<'_> {
+    /// **The deepest entry holding `path` wins, and a block wins a tie.**
+    fn listed(&self, path: &str) -> Listed {
+        let Some(path) = resolved(path, "/") else {
+            return Listed::Unlisted;
+        };
+        let deepest = |list: &[String]| {
+            list.iter()
+                .filter_map(|entry| {
+                    let at = resolved(entry, "/")?;
+                    path.starts_with(&at).then(|| (at.components().count(), entry.clone()))
+                })
+                .max_by_key(|(depth, _)| *depth)
+        };
+        match (deepest(self.allow), deepest(self.block)) {
+            (Some((allowed, _)), Some((blocked, folder))) if blocked >= allowed => Listed::Blocked(folder),
+            (None, Some((_, folder))) => Listed::Blocked(folder),
+            (Some(_), _) => Listed::Allowed,
+            _ => Listed::Unlisted,
+        }
+    }
+
+    /// `word` as an absolute path, `~` and `$HOME` read as the home, with `.` and `..` folded.
+    /// `None` for a relative path or one spelled through another variable.
+    fn absolute(&self, word: &str) -> Option<String> {
+        let word = word.rsplit('=').next().unwrap_or(word);
+        let word = word.trim_matches(|c| c == '\'' || c == '"');
+        let whole = ["~", "${HOME}", "$HOME"]
+            .iter()
+            .find_map(|home| word.strip_prefix(home).filter(|rest| rest.is_empty() || rest.starts_with('/')))
+            .map(|rest| format!("{}{rest}", self.home.trim_end_matches('/')))
+            .unwrap_or_else(|| word.to_string());
+        if !whole.starts_with('/') || whole.contains('$') {
+            return None;
+        }
+        let mut parts: Vec<&str> = Vec::new();
+        for part in whole.split('/') {
+            match part {
+                "" | "." => {}
+                ".." => {
+                    parts.pop()?;
+                }
+                _ => parts.push(part),
+            }
+        }
+        Some(format!("/{}", parts.join("/")))
+    }
+}
+
+/// [`because_in_a_session_owning`], and the owner's folder list read first: a path in a blocked
+/// folder is refused with no card, one in an allowed folder passes the reach, and anything else is
+/// put to him with the path it named.
+pub fn guarded_in_a_session(
+    asking: &AskingToRun,
+    held: &[&str],
+    own: Own,
+    folders: Folders,
+) -> Option<Guarded> {
+    let asked = |because: Because, reaching: Option<String>| Some(Guarded::Because { because, reaching });
     let tool = asking.tool_name.as_str();
     if WRITES_A_FILE.contains(&tool) {
         let path = asking
@@ -125,24 +217,38 @@ pub fn because_in_a_session_owning(
         }) {
             return None;
         }
-        return because(asking);
+        // **Any write outside the slots and scratch is put to the owner** (16 Oct 2026), a new
+        // file as much as an overwrite.
+        let Some(reaching) = path.and_then(|path| folders.absolute(path)) else {
+            return because(asking).map(|because| Guarded::Because { because, reaching: None });
+        };
+        return match folders.listed(&reaching) {
+            Listed::Blocked(folder) => Some(Guarded::Blocked { folder }),
+            Listed::Allowed => None,
+            Listed::Unlisted => asked(because(asking).unwrap_or(Because::ReachesOutside), Some(reaching)),
+        };
     }
     if tool == "Bash" {
         let line = flattened(asking.detail().unwrap_or_default());
-        return shell_in(&line, &slots_of(held), own, true);
+        return shell_guarded(&line, &slots_of(held), own, Some(folders));
     }
     let named = ["file_path", "path"]
         .iter()
         .filter_map(|key| asking.input.get(*key)?.as_str());
     let reads = matches!(tool, "Read" | "Grep" | "Glob" | "LS");
     let walks = matches!(tool, "Grep" | "Glob");
-    if named
-        .into_iter()
-        .any(|path| reaches_outside(path) && (!reads || read_refused(path, walks)))
-    {
-        return Some(Because::ReachesOutside);
+    for path in named {
+        if !(reaches_outside(path) && (!reads || read_refused(path, walks))) {
+            continue;
+        }
+        let reaching = folders.absolute(path);
+        match reaching.as_deref().map(|at| folders.listed(at)) {
+            Some(Listed::Blocked(folder)) => return Some(Guarded::Blocked { folder }),
+            Some(Listed::Allowed) => {}
+            _ => return asked(Because::ReachesOutside, reaching),
+        }
     }
-    because(asking)
+    because(asking).map(|because| Guarded::Because { because, reaching: None })
 }
 
 /// The web pages a shell line opens in the owner's own browser: `open`,
@@ -529,23 +635,27 @@ fn writing(asking: &AskingToRun) -> Option<Because> {
 /// **Every segment, never the first word.** `cd crates && rm -rf target` has
 /// `cd` at the front of it, and a classifier reading one word would run it.
 fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
-    shell_in(line, slots, own, false)
+    match shell_guarded(line, slots, own, None)? {
+        Guarded::Because { because, .. } => Some(because),
+        Guarded::Blocked { .. } => Some(Because::ReachesOutside),
+    }
 }
 
-/// [`shell`], and for a session (`reaching`) whether a segment's words name the owner's own
+/// [`shell`], and for a session (`folders`) whether a segment's words name the owner's own
 /// files. **Read per segment, after the variables a line set are put back**, so `d=~/Music; ls $d`
 /// is read as the `ls ~/Music` it is, and the `~` of an awk script is not read as a path at all.
-fn shell_in(line: &str, slots: &[&str], own: Own, reaching: bool) -> Option<Because> {
+fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Option<Folders>) -> Option<Guarded> {
+    let only = |because: Because| Some(Guarded::Because { because, reaching: None });
     let line = line.trim();
     if line.is_empty() {
-        return Some(Because::Unreadable);
+        return only(Because::Unreadable);
     }
     if line.contains('`') || line.contains("$(") {
-        return Some(Because::Unreadable);
+        return only(Because::Unreadable);
     }
     // Every class at once, and never worth reading further.
     if word_in(line, "sudo") || word_in(line, "doas") {
-        return Some(Because::Destructive);
+        return only(Because::Destructive);
     }
     // **`&&` and `||` become separators and a lone `&` does not.** Splitting on
     // every `&` cuts `2>&1` in half and leaves a segment ending in a bare `>`,
@@ -576,8 +686,23 @@ fn shell_in(line: &str, slots: &[&str], own: Own, reaching: bool) -> Option<Beca
     // is no path.
     let whole: Vec<String> =
         with_variables(kept.iter().map(|at| whole_parts[*at].trim()).collect());
-    if reaching && whole.iter().any(|said| reaches_into_owners_files(said)) {
-        return Some(Because::ReachesOutside);
+    // The owner's files it names, and which of them the list has not answered.
+    let reached: Vec<String> = match folders {
+        Some(_) => whole.iter().flat_map(|said| reaches_into_owners_files(said)).collect(),
+        None => Vec::new(),
+    };
+    let mut unlisted: Option<Option<String>> = None;
+    if let Some(folders) = folders {
+        for word in &reached {
+            let at = folders.absolute(word);
+            match at.as_deref().map(|at| folders.listed(at)) {
+                Some(Listed::Blocked(folder)) => return Some(Guarded::Blocked { folder }),
+                Some(Listed::Allowed) => {}
+                _ => {
+                    unlisted.get_or_insert(at);
+                }
+            }
+        }
     }
     // A `cd` into the slot keeps a relative path inside it; one anywhere else,
     // or one that cannot be read, loses track of where the line is.
@@ -592,7 +717,15 @@ fn shell_in(line: &str, slots: &[&str], own: Own, reaching: bool) -> Option<Beca
             }
         }),
     });
-    segments.iter().find_map(|said| segment(said, slot, own))
+    // A redirect into a file the reach covers is that reach, put to the owner or let in by the
+    // list. **A removal is not**: an allowed folder never turns an `rm` into a run.
+    let covered: Vec<&str> = reached.iter().map(|word| word.trim_matches(|c| c == '\'' || c == '"')).collect();
+    let rest = segments.iter().find_map(|said| segment(said, slot, own, &covered));
+    match (rest, unlisted) {
+        (Some(because @ (Because::Destructive | Because::Unreadable)), _) => only(because),
+        (_, Some(reaching)) => Some(Guarded::Because { because: Because::ReachesOutside, reaching }),
+        (rest, None) => rest.map(|because| Guarded::Because { because, reaching: None }),
+    }
 }
 
 /// `line` with every `;`, `|`, `&`, `<` and `>` inside quotes turned to a
@@ -655,12 +788,11 @@ impl Slot<'_> {
 }
 
 /// One segment of a shell line, already split from the rest.
-fn segment(said: &str, slot: Option<Slot>, own: Own) -> Option<Because> {
+fn segment(said: &str, slot: Option<Slot>, own: Own, covered: &[&str]) -> Option<Because> {
     if truncating_redirect(said)
-        && !slot.is_some_and(|slot| {
-            redirect_targets(said)
-                .iter()
-                .all(|target| slot.holds(target))
+        && !redirect_targets(said).iter().all(|target| {
+            slot.is_some_and(|slot| slot.holds(target))
+                || covered.contains(&target.trim_matches(|c| c == '\'' || c == '"'))
         })
     {
         return Some(Because::Destructive);

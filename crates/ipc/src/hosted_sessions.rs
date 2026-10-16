@@ -169,6 +169,9 @@ pub struct AnswerSessionAsk {
     /// One entry per question, for an ask that carries some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
+    /// [`crate::AnswerHelmCall::folder`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
 }
 
 /// `tune_session`: what the next turn runs on. An absent model or effort is the
@@ -356,6 +359,10 @@ pub enum SessionAskState {
     RanUnasked,
     AllowedOnce,
     AllowedAndRemembered,
+    /// Allowed, and the folder put on the list every session's guard reads.
+    AlwaysAllowed,
+    /// Refused, and the folder put on the list as blocked.
+    AlwaysBlocked,
     Refused,
     /// Nobody answered inside the hold, so it was refused.
     Unanswered,
@@ -629,6 +636,15 @@ pub struct SessionSubagent {
     /// What it said last, once it has finished.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
+    /// The model it runs on, as its transcript writes the id. Absent until it has answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// What its last answer had in its window, and the window that is measured against.
+    /// Absent until it has answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u64>,
 }
 
 /// `session.row`: one row appended or replaced, by `row.id()`.

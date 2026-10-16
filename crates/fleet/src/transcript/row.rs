@@ -89,6 +89,10 @@ pub(crate) fn seen(at: &Timestamp, step: &StepId, event: &DroneEvent) -> Transcr
             DroneEvent::Thinking { estimated_tokens } => Saw::Thinking {
                 estimated_tokens: *estimated_tokens,
             },
+            // **A Drone's record is unchanged by a task being named.** `Saw` is a wire type, and
+            // these are read for a Session's ledger; a Drone's row keeps the kind it always had.
+            DroneEvent::TaskStarted { .. } => Saw::Unrecognised { kind: String::from("system/task_started") },
+            DroneEvent::TaskEnded { .. } => Saw::Unrecognised { kind: String::from("system/task_ended") },
             DroneEvent::Unrecognised { kind } => Saw::Unrecognised { kind: kind.clone() },
             DroneEvent::Unreadable { line, why } => Saw::Unreadable {
                 line: line.clone(),

@@ -46,6 +46,8 @@ const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 
 /// An answer to an ask with questions that leaves one unanswered. A 422.
 const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
+/// An "always" answer naming no folder, or one that does not hold the path asked about. A 422.
+const SESSION_ANSWER_NOT_A_FOLDER: &str = "fleet.session_answer_not_a_folder";
 /// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
 /// one, so no new kind of row reaches Bridge.
 pub(crate) const FLEET_NAME: &str = "Fleet";
@@ -89,6 +91,24 @@ pub(crate) fn mode_of(text: &str) -> SessionMode {
 pub(super) fn title_of(text: &str) -> Option<String> {
     let line = text.lines().map(str::trim).find(|line| !line.is_empty())?;
     Some(line.chars().take(60).collect())
+}
+
+/// A subagent's transcript as the wire has it. `parent` is the Session's resolved model and the
+/// window it reported, which the subagent shares when it runs on the same model id.
+fn subagent_read(thread: adapters::terminal_thread::Subagent, parent: Option<(String, u64)>) -> SessionSubagent {
+    let parent = parent.as_ref().map(|(model, window)| (model.as_str(), *window));
+    let model = thread.gauge.model;
+    SessionSubagent {
+        rows: thread.rows,
+        finished: thread.finished,
+        report: thread.report,
+        context_tokens: thread.gauge.tokens,
+        context_window: thread
+            .gauge
+            .tokens
+            .map(|tokens| adapters::terminal_thread::window_for(tokens, model.as_deref(), parent)),
+        model,
+    }
 }
 
 impl<H, V, W> HostedSessions for Fleet<H, V, W>
@@ -152,6 +172,7 @@ where
             answer: said.answer,
             note: said.note,
             answers: said.answers,
+            folder: said.folder,
         };
         self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
@@ -162,6 +183,11 @@ where
                 NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_INCOMPLETE,
                     "that ask has questions, and each needs an answer",
+                    self.run_id(),
+                )),
+                NotAnswerable::NotAFolderAbove => Refusal::Unacceptable(WireError::raised(
+                    SESSION_ANSWER_NOT_A_FOLDER,
+                    "an always answer names the folder it is for: the path asked about or one above it",
                     self.run_id(),
                 )),
                 _ => self.ask_not_waiting(),
@@ -438,6 +464,7 @@ where
         let session = id.as_str().to_string();
         let subagent_id = subagent.clone();
         let threads = self.hosts().terminals().threads();
+        let parent = self.parent_window(id.as_str()).await;
         let read = tokio::task::spawn_blocking(move || {
             adapters::terminal_thread::find_subagent(&home, &session, &subagent)
                 .map(|file| threads.subagent(&file, &session, &subagent))
@@ -460,17 +487,9 @@ where
                         },
                     })
                     .await;
-                Ok(SessionSubagent {
-                    rows: thread.rows,
-                    finished: true,
-                    report: thread.report,
-                })
+                Ok(subagent_read(thread, parent))
             }
-            Some(Ok(thread)) => Ok(SessionSubagent {
-                rows: thread.rows,
-                finished: thread.finished,
-                report: thread.report,
-            }),
+            Some(Ok(thread)) => Ok(subagent_read(thread, parent)),
             Some(Err(why)) => Err(self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string())),
             None => {
                 Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent"))
@@ -538,6 +557,15 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The model the session runs on, as its process or its mod named it, and the window it last
+    /// reported: what a subagent on the same model id is measured against. `None` unless both are known.
+    async fn parent_window(&self, id: &str) -> Option<(String, u64)> {
+        let window = self.store().lock().await.session(id).ok().flatten()?.figures.context_window?;
+        let model = self.hosts().of(id).state().resolved_model.clone();
+        let model = model.or_else(|| self.hosts().terminals().facts_of(id).and_then(|facts| facts.model))?;
+        Some((model, window))
+    }
+
     /// A plain hosted session's ledger row and its hosting. `helm` marks it as a repository's Helm
     /// (`helm_session.rs`), which no `start_session` call can: the mark is Fleet's to give.
     pub(crate) async fn started_hosted(
@@ -1261,7 +1289,8 @@ where
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {
-                    let cut = self.cut_off_subagents(id).await;
+                    let mut cut = self.cut_off_subagents(id).await;
+                    cut.extend(self.cut_off_background(id).await);
                     self.kept_restart(id, "resumed", super::cut_off::cut_off_said(&cut).as_deref())
                         .await;
                     runtime.state().cut_off = cut;

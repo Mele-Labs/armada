@@ -16,6 +16,7 @@ import type { SettingsFileOpened } from "./api";
 import { KeyboardSettings, keyboardMatches } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
 import { PhoneSettings } from "./PhoneSettings";
+import { ReachFoldersSettings } from "./ReachFoldersSettings";
 import { SchemaSection, SettingsFile } from "./SchemaSettings";
 import { ThemeSettings } from "./ThemeSettings";
 import {
@@ -101,6 +102,15 @@ export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsF
     const all = settings === null ? null : settingsIn(settings, section.id);
     const hits = all === null || !searching ? all : all.filter((one) => matches(wordsOf(one), query));
     const schema = <SchemaSection label={title} settings={hits} live={live} onSave={onSaveSettings} />;
+    // The folder list is JSON, which the schema's form does not draw.
+    if (section.id === "features") {
+      return (
+        <>
+          {schema}
+          <ReachFoldersSettings settings={settings} live={live} onSave={onSaveSettings} />
+        </>
+      );
+    }
     if (section.id !== "account" || onOpenAccount === undefined) return schema;
     return (
       <>

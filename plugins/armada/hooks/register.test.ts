@@ -12,11 +12,11 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; pullRequest?: string; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
-  const attempts = { fetches: 0, reads: 0, reports: 0 }
+  const attempts = { fetches: 0, reads: 0, reports: 0, listed: [] as string[] }
   const processes: { argv: string[] }[] = []
   const submitted: { text: string; asUser?: boolean }[] = []
   const usages: unknown[] = []
@@ -27,7 +27,18 @@ function world(
   const order: string[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user', ...options.env })
+  // Claude Code's own task store: one file per task under the list's directory.
+  on('fs.list', (_$, e) => {
+    attempts.listed.push(e.path)
+    if (options.tasksOnDisk === undefined || !e.path.includes('/.claude/tasks/')) throw new Error('no such directory')
+    return { value: Object.keys(options.tasksOnDisk).map(name => ({ name, kind: 'file' as const, size: 1, mtimeMs: 0, isLink: false })) }
+  })
   on('fs.read', (_$, e) => {
+    if (e.path.includes('/.claude/tasks/')) {
+      const text = options.tasksOnDisk?.[e.path.split('/').at(-1) ?? '']
+      if (text === undefined) throw new Error('no such file')
+      return { value: text }
+    }
     attempts.reads += 1
     if (!running()) throw new Error('no such file')
     if (e.path.endsWith('.jsonl')) return { value: options.transcript ?? '' }
@@ -1019,6 +1030,99 @@ test('the agent\'s task list is told whole by TodoWrite, and by TaskCreate and T
   ])
   expect(told[1].at(-1)).toEqual({ id: '1', text: 'Write the migration', status: 'pending' })
   expect(told[2].at(-1)).toEqual({ id: '1', text: 'Write the migration', status: 'completed' })
+})
+
+const stored = (id: string, subject: string, status: string) => JSON.stringify({ id, subject, description: 'x', status, blocks: [], blockedBy: [] })
+
+test('a subject rename is heard', async ($, on) => {
+  const { posts, clock } = world(on)
+  let made = 0
+  on('tool.call', (_$, e) => ({ result: e.tool === 'TaskCreate' ? { task: { id: String(++made) } } : {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Mock walk' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', subject: 'Mock walk: Queue for later' })
+  await clock.settle()
+
+  expect(tasksTold(posts.slice(before)).at(-1)).toEqual([{ id: '1', text: 'Mock walk: Queue for later', status: 'pending' }])
+})
+
+test('a TaskUpdate for a task this process never saw made still reaches Fleet, as the store and the change together', async ($, on) => {
+  // The process was replaced after the list was made: Claude Code kept the list on disk, the mod's memory is empty.
+  // What the disk holds here is the list as it stood before the update, so the change is applied on top of it.
+  const { posts, clock } = world(on, {
+    tasksOnDisk: {
+      '1.json': stored('1', 'Plan', 'completed'),
+      '2.json': stored('2', 'Mock walk', 'in_progress'),
+      '3.json': stored('3', 'Wire it', 'pending'),
+      '10.json': stored('10', 'Land it', 'pending'),
+      '.lock': '',
+    },
+  })
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '2', subject: 'Mock walk: renamed' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '2', status: 'completed' })
+  await clock.settle()
+
+  const told = tasksTold(posts.slice(before))
+  expect(told[0]).toEqual([
+    { id: '1', text: 'Plan', status: 'completed' },
+    { id: '2', text: 'Mock walk: renamed', status: 'in_progress' },
+    { id: '3', text: 'Wire it', status: 'pending' },
+    { id: '10', text: 'Land it', status: 'pending' },
+  ])
+  expect(told.at(-1)?.map(one => one.status)).toEqual(['completed', 'completed', 'pending', 'pending'])
+})
+
+test('the store is read once, and a TaskCreate after it keeps the tasks already there', async ($, on) => {
+  const { posts, clock, attempts } = world(on, { tasksOnDisk: { '1.json': stored('1', 'Plan', 'completed'), '2.json': stored('2', 'Build', 'pending') } })
+  on('tool.call', (_$, e) => ({ result: e.tool === 'TaskCreate' ? { task: { id: '3' } } : {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Ship', agentId: 'a1' })
+  await clock.settle()
+
+  expect(tasksTold(posts.slice(before)).at(-1)).toEqual([
+    { id: '1', text: 'Plan', status: 'completed' },
+    { id: '2', text: 'Build', status: 'pending' },
+    { id: '3', text: 'Ship', status: 'pending', by: 'a1' },
+  ])
+  expect(attempts.reads).toBeGreaterThan(0)
+})
+
+test('a list named by CLAUDE_CODE_TASK_LIST_ID is read from its own directory', async ($, on) => {
+  const { posts, clock, attempts } = world(on, { env: { CLAUDE_CODE_TASK_LIST_ID: 'team/one' }, tasksOnDisk: { '1.json': stored('1', 'Plan', 'pending') } })
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' })
+  await clock.settle()
+
+  expect(attempts.listed).toEqual(['/home/user/.claude/tasks/team-one'])
+  expect(tasksTold(posts.slice(before))).toEqual([[{ id: '1', text: 'Plan', status: 'completed' }]])
+})
+
+test('a task named by neither the process nor the harness\'s store is not invented', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '4', status: 'completed' })
+  await clock.settle()
+
+  expect(tasksTold(posts.slice(before))).toEqual([])
 })
 
 test('a subagent\'s TodoWrite is its own list and is not told, but its task calls write the session\'s', async ($, on) => {

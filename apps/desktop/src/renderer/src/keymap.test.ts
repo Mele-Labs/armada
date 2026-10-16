@@ -97,6 +97,14 @@ describe("a press, as the shipped keys answer it", () => {
     expect(pressedDigit("deck_tabs", press("3", { meta: true }))).toBe(3);
     expect(pressedDigit("deck_tabs", press("7", { meta: true }))).toBeNull();
   });
+
+  it("queues a Session on ⇧⌘Enter, and leaves ⌘Enter to send and plain Enter to start", () => {
+    expect(isPressed("queue_session", press("Enter", { meta: true, shift: true }))).toBe(true);
+    expect(isPressed("queue_session", press("Enter", { ctrl: true, shift: true }))).toBe(true);
+    expect(isPressed("queue_session", press("Enter", { meta: true }))).toBe(false);
+    expect(isPressed("queue_session", press("Enter"))).toBe(false);
+    expect(isPressed("send_message", press("Enter", { meta: true, shift: true }))).toBe(false);
+  });
 });
 
 describe("a key a person rebound", () => {

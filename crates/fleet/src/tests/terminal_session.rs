@@ -666,6 +666,7 @@ impl Rig {
                     question: "Which size?".into(),
                     chosen: vec![chosen.into()],
                 }],
+                folder: None,
             })
             .await
             .map(|_| ())

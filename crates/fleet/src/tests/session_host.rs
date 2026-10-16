@@ -746,6 +746,83 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
     drop(rig);
 }
 
+/// `#2441`'s definition of done: a guarded read in `auto` is a card with the folder answers, and
+/// Always allow on `Documents` lets the next read under it run with no card.
+#[tokio::test]
+async fn a_guarded_read_in_auto_is_a_card_and_always_allow_lets_the_next_one_run() {
+    let rig = rig();
+    let id = rig.start().await;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let read = |path: &str| -> ipc::AskingToRun {
+        let body = format!(r#"{{"tool_name":"Read","input":{{"file_path":"{path}"}}}}"#);
+        ipc::decode("an ask", body.as_bytes()).expect("an ask")
+    };
+    let card = |path: &'static str| {
+        let fleet = Arc::clone(&rig.fleet);
+        let session = id.as_str().to_string();
+        tokio::spawn(async move { fleet.session_permission(&session, read(path)).await })
+    };
+    let asked = || async {
+        let seen = Mutex::new(None);
+        eventually(|| async {
+            let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+            let some = now.is_some();
+            *seen.lock().unwrap() = now;
+            some
+        })
+        .await;
+        seen.into_inner().unwrap().unwrap()
+    };
+    let answer = |call: &str, answer: HelmCallAnswer, folder: Option<String>| AnswerSessionAsk {
+        session_id: id.clone(),
+        call: call.to_string(),
+        answer,
+        note: None,
+        answers: Vec::new(),
+        folder,
+    };
+
+    let waiting = card("~/Documents/notes-2441/x.md");
+    let ask = asked().await;
+    assert_eq!(
+        ask.offers,
+        vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse, HelmCallAnswer::AlwaysAllow, HelmCallAnswer::AlwaysBlock]
+    );
+    assert_eq!(ask.reaches, Some(format!("{home}/Documents/notes-2441/x.md")));
+    // An "always" answer names a folder that holds the path, or it is refused and the card stays.
+    for folder in [None, Some(format!("{home}/Desktop"))] {
+        let refused = rig.fleet.answer_session_ask(answer(&ask.call, HelmCallAnswer::AlwaysAllow, folder)).await;
+        assert!(matches!(refused, Err(api::Refusal::Unacceptable(_))), "{refused:?}");
+    }
+    rig.fleet
+        .answer_session_ask(answer(&ask.call, HelmCallAnswer::AlwaysAllow, Some(format!("{home}/Documents"))))
+        .await
+        .unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Allow { .. }));
+    assert!(rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Ask { state: SessionAskState::AlwaysAllowed, .. })));
+    assert_eq!(rig.fleet.reach_folders().allow, vec![format!("{home}/Documents")]);
+
+    let next = tokio::time::timeout(Duration::from_secs(5), rig.fleet.session_permission(id.as_str(), read("~/Documents/other.md")))
+        .await
+        .expect("no card is drawn")
+        .unwrap();
+    assert!(matches!(next, ipc::RunOrNot::Allow { .. }));
+
+    // Always block refuses this one and the next, with no card.
+    let waiting = card("~/Desktop/a.md");
+    let ask = asked().await;
+    rig.fleet
+        .answer_session_ask(answer(&ask.call, HelmCallAnswer::AlwaysBlock, Some(format!("{home}/Desktop"))))
+        .await
+        .unwrap();
+    assert!(matches!(waiting.await.unwrap().unwrap(), ipc::RunOrNot::Deny { .. }));
+    let next = tokio::time::timeout(Duration::from_secs(5), rig.fleet.session_permission(id.as_str(), read("~/Desktop/b.md")))
+        .await
+        .expect("no card is drawn")
+        .unwrap();
+    assert!(matches!(next, ipc::RunOrNot::Deny { message } if message.contains("blocked")));
+}
+
 #[tokio::test]
 async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call() {
     let rig = rig();
@@ -825,6 +902,7 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
             answer: HelmCallAnswer::Refuse,
             note: Some("not that".into()),
             answers: Vec::new(),
+            folder: None,
         })
         .await
         .unwrap();

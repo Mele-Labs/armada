@@ -27,11 +27,14 @@ mod session;
 mod thread;
 pub(crate) mod unanswered;
 
-pub use asking::{answering, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
+pub use asking::{answering, blocked_folder, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
 pub use brief::{brief, Brief, Voice};
 pub(crate) use brief::{shipped, worded, VOICE};
 pub use conversation::{Commanded, ConversationKey, Conversations, Input};
-pub use deciding::{because, because_in_a_session, because_in_a_session_owning, pages_opened, Because, Own};
+pub use deciding::{
+    because, because_in_a_session, because_in_a_session_owning, guarded_in_a_session, pages_opened, Because, Folders,
+    Guarded, Own,
+};
 #[cfg(test)]
 pub(crate) use hosting::REPLY_BUDGET;
 pub use hosting::{Carried, Carry, Carrying, Commander, Heard, Hosting, ProcessHost, Seat};

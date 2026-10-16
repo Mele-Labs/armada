@@ -3,7 +3,8 @@
 // word of it, so leaving it (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
 //
 //   Job        needs a repository: read from the words by Fleet, else the row of chips takes the keys. Sends `proposeFrom`.
-//   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session.
+//   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session, on the model and effort
+//              picked beside the act. Queue for later (⌘⇧↵) saves the idea in the Cockpit's Jobs and Sessions list instead and opens nothing.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
@@ -14,7 +15,7 @@
 // would draw the whole window. What depends on them, Fleet's reading and what it picks, is `usePanel`, in the sheet.
 import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { DispatchSettings, REQUEST_PLACEHOLDER, forgetKept, readKept, useKept, writeKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
+import { DispatchSettings, REQUEST_PLACEHOLDER, forgetKept, isPressed, readKept, useKept, writeKept, type DispatchKind, type DispatchSettingsValue } from "@armada/components";
 import { repositoryEntries, useRecentRepositories } from "@armada/shell";
 import { said } from "@armada/screens/src/copy";
 
@@ -28,9 +29,17 @@ import type { PanelProps, PanelReading } from "./DispatchPanel";
 import { chipsFor, optionsFor, useReading } from "./reading";
 
 const REQUEST = "dispatch:request";
+const TUNING = "dispatch:session-tuning";
+
+/** The model and effort picked for a Session. Absent is Auto. */
+type Tuning = { model?: string; effort?: string };
 
 /** The draft as it stands, for an act. */
 const wordsNow = () => readKept<string>(REQUEST) ?? "";
+const tuningNow = () => readKept<Tuning>(TUNING) ?? {};
+
+/** `queue_session`'s key in the request, rebindable: ⇧⌘Enter, with Control answering as ⌘ does everywhere in Bridge. */
+const queuesOn = (event: KeyboardEvent<HTMLElement>) => isPressed("queue_session", event);
 
 type Host = {
   state: BridgeState;
@@ -116,9 +125,9 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   const [autopilotAsked, setAutopilotAsked] = useState(false);
   const [sheetGrown, setSheetGrown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [asking, setAsking] = useState<"send" | "chip" | false>(false);
+  const [asking, setAsking] = useState<"send" | "queue" | "chip" | false>(false);
   // The act is waiting on the repository being read, and then on Fleet's answer to it.
-  const [waiting, setWaiting] = useState(false);
+  const [waiting, setWaiting] = useState<false | "start" | "queue">(false);
   const [sending, setSending] = useState(false);
   const [read, setRead] = useState<AutopilotRead>();
   const [refused, setRefused] = useState<string>();
@@ -138,6 +147,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   function clearAll() {
     stamp.current += 1;
     forgetKept(REQUEST);
+    forgetKept(TUNING);
     clearPicked();
     clearSettings();
     setAsking(false);
@@ -208,12 +218,20 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     const text = wordsNow().trim();
     recall(at);
     setSending(true);
-    void Promise.resolve(draft.start(undefined, at, text)).then((id) => {
+    void Promise.resolve(draft.start(undefined, at, text, tuningNow())).then((id) => {
       if (id === undefined) return setSending(false);
       draft.send(id, { text, files: [], sketches: [], tags: [] });
       clearAll();
       openSession(id);
     });
+  }
+
+  /** Saves the idea in the Cockpit's Jobs and Sessions list and lets the sheet go. Nothing is started and nothing opens. */
+  function queueSession(at: string) {
+    if (draft?.queue === undefined) return;
+    recall(at);
+    draft.queue({ text: wordsNow().trim(), root: at, repository: optionsFor(repositories, []).find((one) => one.root === at)?.name ?? at, ...tuningNow() });
+    clearAll();
   }
 
   function readAutopilot(at: string) {
@@ -296,6 +314,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
 
   const usePanel = (): EntryProps => {
     const [words] = useKept(REQUEST, "");
+    const [tuned, setTuned] = useKept<Tuning>(TUNING, {});
     const { reading: found, likely } = useReading(words);
     const options = optionsFor(repositories, likely);
     const by = (root: string | null | undefined) => options.find((one) => one.root === root);
@@ -316,8 +335,15 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     /** Nothing starts without a repository: a reading still out is waited for, and none found asks. */
     const act = () => {
       if (words.trim() === "") return;
-      if (root === undefined) return found.state === "detecting" ? setWaiting(true) : setAsking("send");
+      if (root === undefined) return found.state === "detecting" ? setWaiting("start") : setAsking("send");
       proceed(root);
+    };
+
+    /** Queue for later holds to the same rule: no repository, and the row asks before the idea is saved. */
+    const queue = () => {
+      if (words.trim() === "") return;
+      if (root === undefined) return found.state === "detecting" ? setWaiting("queue") : setAsking("queue");
+      queueSession(root);
     };
 
     // A reading belongs to the repository it was made for.
@@ -326,7 +352,8 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     useEffect(() => {
       if (!waiting || found.state === "detecting") return;
       setWaiting(false);
-      act();
+      if (waiting === "queue") queue();
+      else act();
       // The reading settling is the only thing this waits on.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [waiting, found.state]);
@@ -347,16 +374,34 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
       onPick: (at) => {
         if (asking === "send" && kind === "job") return sendJob(at);
         if (asking === "send" && kind === "session") return (setAsking(false), startSession(at));
+        if (asking === "queue") return (setAsking(false), queueSession(at));
         pick(at);
         if (asking === "send") (setAsking(false), readAutopilot(at));
         else setAsking(false);
       },
       act: kind === "job" ? "Dispatch" : kind === "session" ? "Start" : read === undefined ? "Read it" : "Start Autopilot",
-      sending: sending || waiting,
+      sending: sending || waiting === "start",
       onAct: act,
+      ...(kind === "session" && draft !== undefined
+        ? {
+            tuning: {
+              models: draft.models,
+              ...(draft.defaultModel === undefined ? {} : { defaultModel: draft.defaultModel }),
+              efforts: draft.efforts,
+              model: tuned.model ?? null,
+              effort: tuned.effort ?? null,
+              onTune: (next: { model: string | null; effort: string | null }) =>
+                setTuned({ ...(next.model === null ? {} : { model: next.model }), ...(next.effort === null ? {} : { effort: next.effort }) }),
+            },
+            ...(draft.queue === undefined ? {} : { onQueue: queue, queueing: waiting === "queue" }),
+          }
+        : {}),
       onCollapse: collapse,
       onFieldKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => {
-        if (event.key === "Tab" && kinds.length > 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        if (queuesOn(event) && kind === "session" && draft?.queue !== undefined) {
+          event.preventDefault();
+          if (words.trim() !== "") queue();
+        } else if (event.key === "Tab" && kinds.length > 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
           event.preventDefault();
           cycle();
         } else if (event.key === "Escape") {

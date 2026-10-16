@@ -9,6 +9,7 @@ import { DECK_TABS, SURFACE, deckTabOf, useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { useItems, type Hosts } from "../../Dashboard";
+import { useQueued } from "../../sessions-draft";
 import type { BridgeState } from "../../../../shared/bridge";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
@@ -16,6 +17,7 @@ import type { NowView } from "@armada/jobs/draft/now";
 import { bandingOf } from "./bands";
 import { AGE_MS } from "./clock";
 import { holdFor } from "./props";
+import { walkOrder } from "./queued";
 import { TILES } from "./Deck";
 import { DeckKeySheet, armChord, cycleFrom, focusPanel, panelAt, remember, stepBy, stepIn, useDeckKeys } from "./keys";
 import { OPENS, PAGE_LETTERS, panelOfSlot, type PageLetter } from "./keys-model";
@@ -135,6 +137,7 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
   const repositories = state.holds.repositories;
   const banding = useMemo(() => bandingOf(picked, repositories ?? []), [picked, repositories]);
   const listed = useMemo(() => listOf(ship, { only, needs, checks, held }, banding), [ship, only, needs, checks, held, banding]);
+  const queued = useQueued();
   const [keySheet, setKeySheet] = useState(false);
   useEffect(() => {
     const noted = (event: FocusEvent) => remember(event.target);
@@ -273,9 +276,11 @@ export function DeckHost({ state, picked, nowViews, nows, here, openJobId, hidde
       const down = step === 0 || step === 2 || event.key === "ArrowDown";
       if (panel !== undefined && panel.id !== "list") return letter ? stepBy(panel, target, down ? 1 : -1) : stepIn(panel, target, event.key);
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") return;
-      const at = listed.findIndex((one) => one.key === state.cursor);
-      const next = listed[Math.min(listed.length - 1, Math.max(0, at < 0 ? (down ? 0 : listed.length - 1) : at + (down ? 1 : -1)))];
-      if (next !== undefined) rowFocus(next.key);
+      // The ideas saved for later sit in their repository's group, ahead of its rows, and the cursor walks them in that order.
+      const order = walkOrder(listed, banding, queued, picked);
+      const at = order.findIndex((one) => one === state.cursor);
+      const next = order[Math.min(order.length - 1, Math.max(0, at < 0 ? (down ? 0 : order.length - 1) : at + (down ? 1 : -1)))];
+      if (next !== undefined) rowFocus(next);
       return;
     }
     // `o` is Enter's twin where there is a list to open from: the stage's own page keeps its `o`, and a tile or the Autopilot switch is a control, not an item.

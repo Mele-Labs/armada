@@ -71,7 +71,7 @@ pub use delivery::{
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,
 };
-pub use event::{CallDetail, DroneEvent, FileAct, Speaker, ToolUse};
+pub use event::{CallDetail, DroneEvent, FileAct, Speaker, TaskStatus, ToolUse};
 pub use harness::{
     AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
     Model, Prompt, Prompting, Repair, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,

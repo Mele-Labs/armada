@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
+import { PathPicker } from "../../primitives/PathPicker/PathPicker";
 import { Prose, ProseCommand, ProseRefs, ProseRunner, ProseWalk } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { TerminalMark } from "../../primitives/TerminalPane/TerminalPane";
@@ -70,6 +71,7 @@ export type SessionThreadRow =
       files?: readonly { id: string; name: string; src?: string }[];
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly ComposerTag[];
+      stableKey?: string;
     }
   /** Helm's `ask_person_to_approve` call, drawn as the card that asks for the press on that Job's gate. */
   | { id: string; at: string; kind: "approval"; card: HelmApprovalCard }
@@ -147,10 +149,12 @@ export type SessionThreadProps = {
   onRetry?: (rowId: string) => void;
   /**
    * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
-   * order; absent, the card offers Allow once and Deny and names neither.
+   * order; absent, the card offers Allow once and Deny and names neither. `reaches` is the path past
+   * the session's slots it asked about: the card draws it as a folder picker, and an `always_allow`
+   * or `always_block` press hands back the folder chosen.
    */
-  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
-  onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
+  asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[]; reaches?: string };
+  onAnswer: (answer?: string, answers?: QuestionAnswer[], folder?: string) => void;
   /**
    * A question the agent asked that nobody answered in time, or that was skipped, drawn as the deck under the
    * thread until it is answered or the person says anything else. Not a call: the agent is not held on it, so
@@ -543,6 +547,49 @@ function Delivery({ row }: { row: { delivery?: "sending" | "failed" } }) {
   );
 }
 
+/** What a message of the person's draws from. */
+type YourRow = Pick<Extract<SessionThreadRow, { kind: "message"; from: "you" | "agent" }>, "id" | "at" | "text" | "files" | "sketches" | "tags" | "delivery">;
+
+/**
+ * The person's own message: the band with its Delivery mark, the words, and a Retry where it did not go.
+ * **One row wherever words are sent**: a Session's thread, Helm's, and the box under a Drone's log draw this.
+ */
+export function YourMessage({ row, onRetry, forkable = false }: { row: YourRow; onRetry?: (rowId: string) => void; forkable?: boolean }) {
+  // Where the host can open what a chip in a row names (Helm's thread links them), a tag is a link.
+  const refs = useContext(ProseRefs);
+  const openTag = refs === null ? undefined : (tag: ComposerTag): void => (tag.kind === "branch" ? undefined : refs.open({ kind: tag.kind, id: tag.id, title: titleWithoutReference(tag) }));
+  const placed = placeTags(row.text, row.tags ?? [], openTag);
+  return (
+    <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
+      <div className="armada-session-you__band">
+        <span className="armada-session-you__who">You</span>
+        <Delivery row={row} />
+        <span className="armada-session-you__at">{row.at}</span>
+      </div>
+      <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
+        {placed.parts !== null ? (
+          <p className="armada-session-said">{placed.parts}</p>
+        ) : (
+          // Run is on what the agent wrote, not on what the person did.
+          <ProseRunner.Provider value={null}>
+            <ProseCommand.Provider value={null}>
+              <Prose text={row.text} />
+            </ProseCommand.Provider>
+          </ProseRunner.Provider>
+        )}
+        <Sent row={row} tags={placed.loose} />
+        {row.delivery === "failed" && onRetry !== undefined ? (
+          <div className="armada-session-you__retry">
+            <Button size="sm" variant="secondary" onClick={() => onRetry(row.id)}>
+              Retry
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 function Row({
   row,
   onOpenSession,
@@ -710,36 +757,7 @@ function Row({
   if (row.from === "you") {
     const act = actOf(row.text);
     if (act !== null) return <Did act={act} at={row.at} />;
-    const placed = placeTags(row.text, row.tags ?? [], openTag);
-    return (
-      <li className="armada-session-you" role="region" aria-label="Your message" data-delivery={row.delivery}>
-        <div className="armada-session-you__band">
-          <span className="armada-session-you__who">You</span>
-          <Delivery row={row} />
-          <span className="armada-session-you__at">{row.at}</span>
-        </div>
-        <div className="armada-session-you__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
-          {placed.parts !== null ? (
-            <p className="armada-session-said">{placed.parts}</p>
-          ) : (
-            // Run is on what the agent wrote, not on what the person did.
-            <ProseRunner.Provider value={null}>
-              <ProseCommand.Provider value={null}>
-                <Prose text={row.text} />
-              </ProseCommand.Provider>
-            </ProseRunner.Provider>
-          )}
-          <Sent row={row} tags={placed.loose} />
-          {row.delivery === "failed" && onRetry !== undefined ? (
-            <div className="armada-session-you__retry">
-              <Button size="sm" variant="secondary" onClick={() => onRetry(row.id)}>
-                Retry
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </li>
-    );
+    return <YourMessage row={row} forkable={forkable} {...(onRetry === undefined ? {} : { onRetry })} />;
   }
   const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (
@@ -795,6 +813,48 @@ function useCopyOnSelect(scope: RefObject<HTMLElement | null>) {
       document.removeEventListener("mouseup", up);
     };
   }, [scope]);
+}
+
+/** The answers that carry a folder, and so the picker's choice. */
+const FOLDER_ANSWERS = new Set(["always_allow", "always_block"]);
+
+/** A card's answers: the ones for this call in a row, then **Always** in a panel of its own, the
+ * folder picker inside it so the choice reads as what Always allow and Always block cover. Keyed
+ * by the path, so a new ask opens on its whole path. */
+function ReachAnswers({ reaches, offers, onAnswer }: { reaches: string; offers: readonly AskOffer[]; onAnswer: SessionThreadProps["onAnswer"] }) {
+  const [folder, setFolder] = useState(reaches);
+  const shown = offers.filter((offer) => offer.id !== "allow_once");
+  const once = shown.filter((offer) => !FOLDER_ANSWERS.has(offer.id));
+  const always = shown.filter((offer) => FOLDER_ANSWERS.has(offer.id));
+  const name = folder.split("/").filter((part) => part.length > 0).pop() ?? folder;
+  const covers = folder === reaches ? reaches : `${folder}/*`;
+  return (
+    <div className="armada-session-thread__reach" role="group" aria-label="Answers">
+      <div className="armada-session-thread__answers">
+        {once.map((offer) => (
+          <Tooltip key={offer.id} label={offer.means}>
+            <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id)}>
+              {offer.label}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
+      <div className="armada-session-thread__always">
+        <span className="armada-session-thread__always-head">Always applies to</span>
+        <PathPicker path={reaches} chosen={folder} onChoose={setFolder} label="Folder for always" />
+        <span className="armada-session-thread__always-covers">{covers}</span>
+        <div className="armada-session-thread__answers">
+          {always.map((offer) => (
+            <Tooltip key={offer.id} label={offer.means}>
+              <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id, undefined, folder)}>
+                {offer.label} <span className="armada-session-thread__always-folder">{name}</span>
+              </Button>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** A permission that offers Allow once draws its command as a block to run, and ▶ is that offer. */
@@ -883,6 +943,8 @@ export function SessionThread({ rows, onRetry, asked, askRef, onAnswer, lapsed, 
               onAnswer={onAnswer}
               canSkip={asked.offers === undefined || asked.offers.some((offer) => offer.id === "refuse")}
             />
+          ) : asked.reaches !== undefined && asked.offers?.some((offer) => FOLDER_ANSWERS.has(offer.id)) === true ? (
+            <ReachAnswers key={asked.reaches} reaches={asked.reaches} offers={asked.offers} onAnswer={onAnswer} />
           ) : (
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
             {asked.offers === undefined ? (

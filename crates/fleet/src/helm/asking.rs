@@ -52,6 +52,8 @@ pub struct Said {
     pub note: Option<String>,
     /// What was chosen, for a call that asked questions.
     pub answers: Vec<QuestionAnswer>,
+    /// The folder an "always" answer is for.
+    pub folder: Option<String>,
 }
 
 impl Said {
@@ -65,6 +67,7 @@ impl Said {
                 .filter(|note| !note.is_empty())
                 .map(str::to_string),
             answers: said.answers.clone(),
+            folder: said.folder.clone(),
         }
     }
 }
@@ -80,6 +83,9 @@ pub enum NotAnswerable {
     /// A question with no answer, or an answer to one that was not asked. The
     /// ask stays on the table.
     Incomplete,
+    /// An "always" answer naming no folder, or one that does not hold the path asked about. The
+    /// ask stays on the table.
+    NotAFolderAbove,
 }
 
 /// One ask, and the half of the channel its answer goes down.
@@ -128,6 +134,20 @@ impl Asks {
         asking: &AskingToRun,
         at: &Timestamp,
     ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
+        self.minted_reaching(manifest_id, asking, at, None)
+    }
+
+    /// [`Asks::minted`] for a call that reaches past a session's slots (`Some`): its card offers
+    /// the two "always" answers where the guard named the path, for it or a folder above it, and
+    /// only the two "once" answers where it named none.
+    pub fn minted_reaching(
+        &self,
+        manifest_id: &ManifestId,
+        asking: &AskingToRun,
+        at: &Timestamp,
+        reach: Option<Option<String>>,
+    ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
+        let reaches = reach.clone().flatten();
         let questions = asking.questions();
         let wording = asking
             .detail()
@@ -147,9 +167,14 @@ impl Asks {
             truncated: detail.truncated(),
             length: Some(detail.length()),
             rule: rule_for(&asking.tool_name, detail.whole().unwrap_or(detail.shown())),
-            offers: offers_for(&asking.tool_name),
+            offers: match &reach {
+                Some(Some(_)) => REACHING_OFFERS.to_vec(),
+                Some(None) => REACHING_OFFERS[..2].to_vec(),
+                None => offers_for(&asking.tool_name),
+            },
             holding_for_seconds: self.hold().as_secs(),
             questions,
+            reaches,
         };
         let (sender, receiver) = oneshot::channel();
         if let Ok(mut waiting) = self.waiting.lock() {
@@ -182,6 +207,10 @@ impl Asks {
             && !answers_every(&held.in_flight, &said.answers)
         {
             return Err(NotAnswerable::Incomplete);
+        }
+        let always = matches!(said.answer, HelmCallAnswer::AlwaysAllow | HelmCallAnswer::AlwaysBlock);
+        if always && !folder_above(said.folder.as_deref(), held.in_flight.reaches.as_deref()) {
+            return Err(NotAnswerable::NotAFolderAbove);
         }
         let held = waiting
             .remove(&said.call)
@@ -234,6 +263,30 @@ impl Asks {
         asks.sort_by(|one, two| one.asked_at.cmp(&two.asked_at));
         asks
     }
+}
+
+/// What a card over a reach past a session's slots offers. **No `AllowAndRemember`**: its rule
+/// matches a command, not a folder, and the guard never reads it.
+const REACHING_OFFERS: &[HelmCallAnswer] = &[
+    HelmCallAnswer::AllowOnce,
+    HelmCallAnswer::Refuse,
+    HelmCallAnswer::AlwaysAllow,
+    HelmCallAnswer::AlwaysBlock,
+];
+
+/// Whether `folder` is `reaches` or a folder above it, compared a part at a time. The root holds
+/// everything and is never offered, so it is never taken.
+fn folder_above(folder: Option<&str>, reaches: Option<&str>) -> bool {
+    let (Some(folder), Some(reaches)) = (folder, reaches) else {
+        return false;
+    };
+    let parts = |path: &str| -> Vec<String> {
+        path.split('/').filter(|part| !part.is_empty()).map(str::to_string).collect()
+    };
+    let (folder, reaches) = (parts(folder), parts(reaches));
+    !folder.is_empty()
+        && !folder.iter().any(|part| part == "." || part == "..")
+        && reaches.starts_with(&folder)
 }
 
 /// What a person may answer about one call, in the order a surface draws them.
@@ -298,8 +351,13 @@ pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
         HelmCallAnswer::AllowOnce if asking.tool_name == ipc::ASKS_A_QUESTION => RunOrNot::Allow {
             updated_input: asking.answered(&said.answers),
         },
-        HelmCallAnswer::AllowOnce | HelmCallAnswer::AllowAndRemember => RunOrNot::Allow {
-            updated_input: asking.input.clone(),
+        HelmCallAnswer::AllowOnce | HelmCallAnswer::AllowAndRemember | HelmCallAnswer::AlwaysAllow => {
+            RunOrNot::Allow {
+                updated_input: asking.input.clone(),
+            }
+        }
+        HelmCallAnswer::AlwaysBlock => RunOrNot::Deny {
+            message: blocked_folder(said.folder.as_deref().unwrap_or_default()),
         },
         HelmCallAnswer::Refuse => RunOrNot::Deny {
             message: match &said.note {
@@ -310,6 +368,14 @@ pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
             },
         },
     }
+}
+
+/// What a session is told for a call into a folder the owner blocked.
+pub fn blocked_folder(folder: &str) -> String {
+    format!(
+        "The owner blocked {folder} for every session, so this was not run. Do not read or write \
+         under it; say in your reply what you needed from it"
+    )
 }
 
 /// What a session is told where nobody answered inside the hold.
