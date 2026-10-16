@@ -2,12 +2,14 @@
 // change's own title, with the hunk one press away. Armada's alone, hatched, and never posted. Where a Session of his
 // holds the pull request, a finding can be sent to it. A way back to the overview is always at the head.
 
-import { ArrowLeft, Check, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
+import { ArrowLeft, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
 import { Button, PrMark, Tooltip } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
+import { changesOf } from "./changes";
 import { SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, ToolDef } from "./model";
+import { NothingFound } from "./nothing-found";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { isExplained } from "./tools";
 import { BareChanges, ThemeBlock } from "./themes";
@@ -53,9 +55,7 @@ export function ToolResults({ pr, tool, send }: { pr: ReviewPr; tool: ToolDef; s
           </span>
         </p>
       ) : mine.length === 0 ? (
-        <p className="pr-results__clean">
-          <PrMark Glyph={Check} said="Nothing found" tone="success" />
-        </p>
+        <NothingFound mark={tool.mark} changes={changesOf(pr, work).length} />
       ) : (
         <div className="pr-results__themes">
           {isExplained(work) ? (

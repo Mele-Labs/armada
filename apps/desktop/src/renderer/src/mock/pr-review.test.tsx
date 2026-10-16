@@ -125,3 +125,13 @@ test("a review the forge refuses keeps the comment and the summary, and says why
   await expect.element(yours().getByRole("list", { name: "Submitted reviews" })).toBeVisible();
   await expect.element(yours().getByRole("alert")).not.toBeInTheDocument();
 });
+
+test("a tool that found nothing draws its picture and says what it checked", async () => {
+  await reviews();
+  await row(212).click();
+  await page.getByRole("region", { name: "Flight controls" }).getByRole("button", { name: "Risks" }).click();
+  await page.getByRole("dialog", { name: "Risks" }).getByRole("button", { name: "Run" }).click();
+  const results = page.getByRole("region", { name: "Risks results" });
+  await expect.element(results.getByRole("img", { name: "Nothing found" })).toBeVisible();
+  await expect.element(results.getByText(/^No risks in \d+ changes?$/)).toBeVisible();
+});

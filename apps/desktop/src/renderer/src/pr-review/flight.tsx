@@ -32,7 +32,8 @@ export function ReviewTools() {
   const [adding, setAdding] = useState(false);
 
   const press = (tool: ToolDef) => {
-    if (pr === undefined) return;
+    // Where nothing runs yet, a tool that would run an agent is off.
+    if (pr === undefined || (tool.agent && !reviews.agentsBuilt)) return;
     const kept = work.runs[tool.id];
     // A kept result opens at once. Only a run that has not happened asks first.
     if (!tool.agent || (kept !== undefined && kept.state !== "idle")) store.runTool(pr.key, tool);
@@ -61,14 +62,15 @@ export function ReviewTools() {
         {tools.map((tool, at) => {
           const run = work.runs[tool.id];
           const running = run?.state === "running";
-          const blocked = pr === undefined;
+          const off = tool.agent && !reviews.agentsBuilt;
+          const blocked = pr === undefined || off;
           const kept = run?.state === "done" && tool.agent ? run : undefined;
           // A result is kept for the commit it ran on. A newer commit marks it out of date, and it is still shown.
           const stale = kept !== undefined && pr !== undefined && kept.head !== pr.head;
           const mark = TOOL_MARK[tool.mark];
           const source = SOURCE_MARK[tool.source];
           return (
-            <Tooltip key={tool.id} label={tool.name} shortcut={String(at + 1)} asChild>
+            <Tooltip key={tool.id} label={off ? "Not built yet" : tool.name} {...(off ? {} : { shortcut: String(at + 1) })} asChild>
               <button type="button" className="deck-tile pr-tool" aria-label={tool.name} aria-pressed={work.view === tool.id} aria-disabled={blocked || undefined} aria-busy={running || undefined} data-tool={tool.mark} data-source={tool.source} data-stale={stale || undefined} onClick={() => press(tool)}>
                 {running ? <LoaderCircle size={16} aria-hidden="true" className="pr-tool__spin" /> : <mark.Glyph size={16} aria-hidden="true" />}
                 <span className="deck-tile__text pr-tool__text">{SHORT[tool.id] ?? tool.name}</span>

@@ -35,9 +35,9 @@ export function QuickActions({ pr }: { pr: ReviewPr }) {
           <Kbd>{capOf(REVIEW_KEYS.quick)}</Kbd>
         </Tooltip>
       </h3>
-      <div className="pr-explainer__pick">
+      <div className="pr-explainer__pick" aria-disabled={!reviews.agentsBuilt || undefined}>
         <Tabs
-          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: one.checks }))}
+          items={kinds.map((one) => ({ id: one.id, label: one.name, hint: reviews.agentsBuilt ? one.checks : "Not built yet" }))}
           value={work.kind ?? ""}
           onChange={(id) => chooseQuick(store, pr, id)}
         />
@@ -285,13 +285,15 @@ const NONE: readonly never[] = [];
  */
 export function AskComposer({ pr }: { pr: ReviewPr }) {
   const store = useReviewStore()!;
-  return (
+  const built = useReviews().agentsBuilt;
+  const bar = (
     <div className="pr-ask-bar">
       <Tooltip label="Ask about this pull request" shortcut={capOf(REVIEW_KEYS.ask)}>
         <Kbd>{capOf(REVIEW_KEYS.ask)}</Kbd>
       </Tooltip>
       <SessionComposer
         working={false}
+        disabled={!built}
         bare
         label="Ask about this PR"
         send="secondary"
@@ -313,4 +315,5 @@ export function AskComposer({ pr }: { pr: ReviewPr }) {
       />
     </div>
   );
+  return built ? bar : <Tooltip label="Not built yet" asChild>{bar}</Tooltip>;
 }

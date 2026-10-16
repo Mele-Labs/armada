@@ -216,3 +216,24 @@ test("a thread is resolved at the forge and then here, and a refusal changes not
   expect(refused.store.get().work[refused.key]!.threads[0]!.resolved).toBe(false);
   expect(refused.store.get().work[refused.key]!.refused).toBe("Not allowed to resolve");
 });
+
+test("where nothing runs behind the agent half, an agent tool answers nothing and Comments stays live", async () => {
+  const { store, key } = await opened();
+  expect(store.get().agentsBuilt).toBe(false);
+  const tools = store.get().armada;
+  const risks = tools.find((one) => one.id === "risks")!;
+  const comments = tools.find((one) => one.id === "comments")!;
+  store.runTool(key, risks);
+  store.rerun(key, risks);
+  store.explain(key, tools.find((one) => one.id === "how-it-works")!);
+  store.ask(key, "Does this change anything?");
+  store.find("PRs that touch files I have touched");
+  const work = store.get().work[key]!;
+  expect(work.runs).toEqual({});
+  expect(work.findings).toEqual([]);
+  expect(work.explains).toEqual({});
+  expect(work.asks).toEqual([]);
+  expect(store.get().finds).toEqual([]);
+  store.runTool(key, comments);
+  expect(store.get().work[key]!.view).toBe("comments");
+});

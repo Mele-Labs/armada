@@ -142,6 +142,7 @@
 .pr-desc:not([data-open]) { padding-block: var(--space-1); }
 .pr-explainer__title { display: flex; align-items: center; gap: var(--space-2); }
 .pr-explainer__pick { overflow-x: auto; }
+.pr-explainer__pick[aria-disabled="true"] [role="tab"] { opacity: 0.5; cursor: default; }
 /* The questions he asked of this pull request: an index, so quiet. A row is his words in full, wrapping, with its marks at the end. */
 .pr-asked { display: flex; flex-direction: column; margin: 0; padding: var(--space-1); list-style: none; border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); }
 .pr-asked__row { display: flex; align-items: center; gap: var(--space-1); border-radius: var(--radius-sm); }
@@ -333,3 +334,11 @@
 .pr-list:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
 .pr-asked__row:focus-within { background: color-mix(in srgb, var(--fg-default) 8%, transparent); }
 .pr-tool:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+/* ---- A tool that looked and found nothing: the picture, in the border tokens with the tool's hue let in a little --------- */
+
+.pr-nothing { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-8) var(--space-4); }
+.pr-nothing__picture { width: calc(var(--space-12) * 3); height: auto; fill: none; stroke: color-mix(in srgb, var(--tool-hue, var(--border-strong)) 35%, var(--border-strong)); stroke-width: var(--border-width); stroke-linecap: round; }
+.pr-nothing__line { stroke-dasharray: var(--space-1) var(--space-1); }
+.pr-nothing__lens { fill: color-mix(in srgb, var(--tool-hue, transparent) 8%, var(--bg-sunken)); }
+.pr-nothing__said { margin: 0; color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); }

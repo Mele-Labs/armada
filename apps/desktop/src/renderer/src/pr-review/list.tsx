@@ -32,7 +32,7 @@ export const inRepository = (pr: ReviewPr, picked: RepositorySummary | null): bo
 
 export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
   const store = useReviewStore()!;
-  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking } = useReviews();
+  const { prs, tab, finds, open, fetchedAt, fetching, failed, work, searching: asking, agentsBuilt: built } = useReviews();
   const setAsking = (on: boolean) => store.setSearching(on);
   const [words, setWords] = useState("");
   // The box is drawn only when he chose it in the dropdown, in place of the list, until he sends or leaves it.
@@ -56,7 +56,7 @@ export function ReviewList({ picked }: { picked: RepositorySummary | null }) {
     ...(finds.length === 0 ? [] : [{ kind: "separator", id: "finds-rule" } as const, { kind: "label", id: "finds-label", label: "Finds" } as const]),
     ...finds.map((one): DropdownMenuEntry => ({ kind: "item", id: one.id, label: one.words, selected: here === one.id })),
     { kind: "separator", id: "ask-rule" },
-    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: REVIEW_KEYS.search },
+    { kind: "item", id: ASK, label: "Natural Search", selected: asking, shortcut: REVIEW_KEYS.search, ...(built ? {} : { disabled: true, hint: "Not built yet" }) },
   ];
   const ask = () => {
     if (words.trim() === "") return;

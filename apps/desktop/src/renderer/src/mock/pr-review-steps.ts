@@ -136,6 +136,10 @@ export const theTools: Step[] = [
   { press: inside(yours, button("Submit review")), say: "Submit posts the pending comments and the verdict together" },
   { look: inside(yours, role("list", "Submitted reviews")), say: "Recorded here" },
   { look: inside(list, role("img", "Changes requested")), say: "And on the row" },
+  { press: inside(list, button(/#212/)), say: "A pull request a tool has nothing to say about" },
+  { press: tool("Risks"), say: "Risks, on this one" },
+  { look: inside(results("Risks"), role("img", "Nothing found")), say: "Nothing found is a small picture in the tool's colour, with what was checked under it" },
+  { press: inside(results("Risks"), button("Back to the overview")), say: "Back to the overview" },
 ];
 
 /** One of his Sessions holds the pull request, so it knows why and the explanation is there at open. */

@@ -97,6 +97,7 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
   let snapshot: ReviewSnapshot = {
+    agentsBuilt: agent.built,
     prs: [],
     fetchedAt: undefined,
     fetching: false,
@@ -122,7 +123,23 @@ export function createReviewStore(source: ReviewSource, agent: AgentFixtures): R
   const prOf = (key: string) => snapshot.prs.find((one) => one.key === key);
   const mend = (key: string, by: Partial<ReviewPr>) => set({ prs: snapshot.prs.map((one) => (one.key === key ? { ...one, ...by } : one)) });
 
-  const acts = createAgentActs(agent, { get: () => snapshot, set, work, change, prOf, timers, nextId });
+  const made = createAgentActs(agent, { get: () => snapshot, set, work, change, prOf, timers, nextId });
+  // **Where nothing runs behind the agent half, nothing it would answer is asked**: a result drawn for a run that never happened is a false one.
+  const acts: AgentActs = agent.built
+    ? made
+    : {
+        ...made,
+        find: () => undefined,
+        rerunFind: () => undefined,
+        spend: () => undefined,
+        explain: () => undefined,
+        explainAgain: () => undefined,
+        show: () => undefined,
+        ask: () => undefined,
+        askAgain: () => undefined,
+        runTool: (key, tool) => (tool.agent ? undefined : change(key, { view: tool.id })),
+        rerun: () => undefined,
+      };
 
   const prOfRow = (row: PullReviewRow, lists: readonly PrList[], was: ReviewPr | undefined): ReviewPr => {
     const key = keyOf(row);
@@ -306,7 +323,7 @@ export function ReviewsFrom({ store, children }: { store: ReviewStore | undefine
 
 export const useReviewStore = (): ReviewStore | undefined => useContext(Held);
 
-const NEVER: ReviewSnapshot = { prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
+const NEVER: ReviewSnapshot = { agentsBuilt: false, prs: [], fetchedAt: undefined, fetching: false, tab: "requested", me: "", failed: undefined, finds: [], open: undefined, searching: false, askFirst: true, spending: undefined, armada: [], kit: [], repository: {}, work: {} };
 const NO_SUBSCRIPTION = () => () => undefined;
 const NO_SNAPSHOT = () => NEVER;
 

@@ -38,6 +38,7 @@ function wireThread(pr: MockPr, one: MockPr["threads"][number]): Thread {
 
 /** What the agent half of the store is driven by: the seed's tools and results, and what each pull request's agent would say. */
 export const agentOf = (seed: ReviewSeed): AgentFixtures => ({
+  built: true,
   tools: seed.tools,
   results: seed.results,
   finds: seed.finds,

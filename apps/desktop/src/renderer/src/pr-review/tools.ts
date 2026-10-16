@@ -52,4 +52,4 @@ export const ARMADA_TOOLS: readonly ToolDef[] = [
 ];
 
 /** What the agent half has to go on in a window with no mock forge behind it: Armada's own tools, and nothing found. */
-export const NO_FIXTURES: AgentFixtures = { tools: { armada: ARMADA_TOOLS, kit: [], repository: {} }, results: {}, finds: [], prs: {} };
+export const NO_FIXTURES: AgentFixtures = { built: false, tools: { armada: ARMADA_TOOLS, kit: [], repository: {} }, results: {}, finds: [], prs: {} };

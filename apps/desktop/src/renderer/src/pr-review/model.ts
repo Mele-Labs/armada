@@ -183,6 +183,8 @@ export type AgentPr = Pick<ReviewPr, "explanation" | "explainedBy" | "accounts" 
 
 /** Everything in the store that is driven by fixtures and not by Fleet. The seam wave 2 swaps. */
 export type AgentFixtures = {
+  /** Whether anything runs behind the agent half. Only the mock does until wave 2; where it does not, the tools, the quick actions, Ask and Natural Search are off and never answer. */
+  built: boolean;
   tools: ToolDefs;
   /** What each tool comes to, by pull request. A tool with none for a pull request reads clean. */
   results: Readonly<Record<string, Readonly<Record<string, readonly FindingSeed[]>>>>;
@@ -249,6 +251,8 @@ export type PrWork = {
 };
 
 export type ReviewSnapshot = {
+  /** Whether the agent half runs here (`AgentFixtures.built`). Off, the tools that would run an agent are drawn off and answer nothing. */
+  agentsBuilt: boolean;
   /** The pull requests as last fetched. Empty until the view is first opened. */
   prs: readonly ReviewPr[];
   fetchedAt: number | undefined;

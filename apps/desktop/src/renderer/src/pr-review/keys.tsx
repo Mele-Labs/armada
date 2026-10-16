@@ -131,7 +131,7 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     take();
     return document.querySelector<HTMLElement>(".pr-list__pick button")?.click();
   }
-  if (isPressed("review_search", event)) {
+  if (snap.agentsBuilt && isPressed("review_search", event)) {
     take();
     return store.setSearching(true);
   }

@@ -649,6 +649,8 @@ const mia = build({
   commits: commits([["e1f7b02", "Add the 512 and maskable icons", "mia", 118]]),
   summary: "The install prompt wants a 512 pixel icon and a maskable one, and the manifest only named 144 and 192. Both are added to the manifest and to the files the service worker caches.",
   explainedBy: "agent",
+  // Risks reads this one and finds nothing: the tool's empty picture, with what was checked under it.
+  results: { risks: [] },
   themes: [
     {
       id: "icons",
