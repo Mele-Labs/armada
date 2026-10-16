@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{Landing, PullRequestFor};
+use adapter_traits::{CiState, Landing, PullRequestFor};
 use config::{Manifest, Reloads};
 use core_model::{AutoMerge, ReviewGate};
 use ipc::{EditManifest, ManifestEdit, SaveManifestFile};
@@ -17,7 +17,7 @@ use testkit::{Delivered, FakeWorkProduct};
 
 use crate::noticing::Noticing;
 use crate::repositories::{Catalogued, Located, Locating, NotLocated, SavedWorkflow, WorkflowNotSaved};
-use crate::tests::main_ci::{Fixture, ONE, TWO};
+use crate::tests::main_ci::{pull, the_hub, Fixture, ONE, TWO};
 use crate::tests::tmp::TempDir;
 
 const KEPT: &str = "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\nchecks:\n  test:\n    run: cargo nextest run\n";
@@ -313,10 +313,7 @@ async fn a_forge_that_will_not_turn_auto_merge_on_is_recorded_on_the_pending_edi
     let edited = save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
 
     let held = fleet.first().repository().pending_edit().standing();
-    assert_eq!(
-        held.and_then(|it| it.merge_by_hand()),
-        Some(String::from("armada.yml edit #1 needs merging by hand")),
-    );
+    assert_eq!(held.and_then(|it| it.merge_by_hand()), Some(1));
 
     let gate = ManifestEdit::SetReviewGate {
         review_gate: Some(String::from("auto_if_judge_passes")),
@@ -343,6 +340,63 @@ async fn a_forge_that_turns_auto_merge_on_records_nothing() {
 
     let held = fleet.first().repository().pending_edit().standing();
     assert_eq!(held.and_then(|it| it.merge_by_hand()), None);
+}
+
+/// The numbers of the hub's pull requests that wait for a person.
+async fn marked(fleet: &Fixture) -> Vec<u64> {
+    the_hub(fleet)
+        .await
+        .pull_requests
+        .iter()
+        .filter(|one| one.merge_by_hand)
+        .map(|one| one.number)
+        .collect()
+}
+
+#[tokio::test]
+async fn a_refused_auto_merge_marks_the_edits_row_on_the_hub_and_no_other() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    fleet.vcs().now_auto_merge(Err(String::from("auto-merge is not allowed")));
+    save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    fleet.vcs().main_ci.pulls_are(Some(vec![
+        pull(7, Some(CiState::Passed), &[]),
+        pull(1, Some(CiState::Passed), &[]),
+    ]));
+    fleet.turn().await.expect("a turn");
+
+    assert_eq!(marked(&fleet).await, [1], "the edit's pull request, and not #7");
+}
+
+#[tokio::test]
+async fn an_auto_merge_the_forge_turned_on_marks_nothing() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+
+    fleet.vcs().main_ci.pulls_are(Some(vec![pull(1, Some(CiState::Passed), &[])]));
+    fleet.turn().await.expect("a turn");
+
+    assert_eq!(marked(&fleet).await, Vec::<u64>::new());
+}
+
+#[tokio::test]
+async fn a_merge_clears_the_mark_when_the_forge_stops_listing_the_pull_request() {
+    let home = TempDir::new();
+    let (fleet, _) = tracked(&home);
+    fleet.vcs().now_auto_merge(Err(String::from("auto-merge is not allowed")));
+    save(&fleet, what_a_form_reads(&fleet), auto_merge("checks-pass")).await;
+    fleet.vcs().main_ci.pulls_are(Some(vec![pull(1, Some(CiState::Passed), &[]), pull(7, None, &[])]));
+    fleet.turn().await.expect("a turn");
+    assert_eq!(marked(&fleet).await, [1]);
+
+    // Merged by hand: the forge lists it no more, while the checkout has not caught up.
+    fleet.vcs().now_landed(Landing::Merged { url: PULL.to_string() });
+    fleet.vcs().main_ci.pulls_are(Some(vec![pull(7, None, &[])]));
+    fleet.turn().await.expect("a turn");
+
+    assert_eq!(marked(&fleet).await, Vec::<u64>::new());
 }
 
 #[tokio::test]
