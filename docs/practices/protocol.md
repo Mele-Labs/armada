@@ -3243,7 +3243,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
 | `stop_session` (`POST /sessions/stop`) | `StopSession` | Ends the turn that is running, keeps the row live and the slot held. Since 23.84 |
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
-| `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
+| `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has; `model`, `context_tokens` and `context_window` from its last answer, each absent until it has answered | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
 | `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, or a permission's with its `tool`, answered at once with `TerminalAsked` `asked` and the call's id; `wait` with that call, held up to 25 seconds and answered with `answered` (the input and its `answers`), `refused`, `gone`, or `waiting` where it ran out; `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does, and none for a permission; the question and a Bridge answer are kept in the store until the mod collects them |
@@ -4217,6 +4217,21 @@ Since 16 Oct 2026. `docs/concepts/session.md`. **Additive only**: one value on `
 **Fleet never reaches the Check's process.** `armada check` runs in the Session's own process, so it tells Fleet what it printed in `chunk` calls (a quarter-second apart) and Fleet answers each with the stop a person asked for. `armada check` then ends its own process group: `SIGTERM` and `SIGKILL` after a grace period, or `SIGKILL` at once, and tells `end` as for any run. Fleet holds a running run's log in memory, up to 8 MiB, and serves it over `api::Follow`, so one reader draws a Job's Check, a merge line's and a Session's.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet that differ are refused regardless. **The event stream is untouched**, so the back-pressure risk below is neither better nor worse: the log has its own socket and reads from a cursor, so nothing on it is dropped. The lifeboat is untouched.
+
+## A Session's reach past its slots: the folder answers
+
+Since 16 Oct 2026. `docs/concepts/session.md`, *Modes*, and #2441. In `auto` a guarded read or a write outside the slots is put to the owner on the session's card, and two answers put a folder on a list the guard reads first. The protocol ID moves with the files below, and there is no number to take: `armada need --status` showed nothing standing.
+
+| Where | Side | Change |
+| --- | --- | --- |
+| `HelmCallAnswer` `always_allow`, `always_block` | Bridge sends, Fleet takes | Offered only on a card whose `reaches` is set, beside `allow_once` and `refuse` and never with `allow_and_remember`, whose rule matches a command and not a folder. Helm's dock never offers them |
+| `HelmCallInFlight.reaches?` (`session.row`, the hosted record's `asked`) | Fleet writes, Bridge reads | The absolute path the guard named first: a tool's `file_path` or `path`, a shell line's first refused word with `~` and `$HOME` read as the home. Left out for any other call |
+| `AnswerSessionAsk.folder?`, `AnswerHelmCall.folder?` (`answer_session_ask`) | Bridge sends, Fleet checks | The folder an "always" answer is for: `reaches` or a folder above it, compared a part at a time. Without one that holds `reaches` it is a 422 `fleet.session_answer_not_a_folder`, and the card stays |
+| `SessionAskState` `always_allowed`, `always_blocked` (`session.row`) | Fleet writes, Bridge reads | How a card settled where the folder went on the list |
+| `ipc::reach_folders::ReachFolders` (`features.reachFolders` in `get_settings`, `save_settings`) | Both | `{allow?, block?}`, absolute paths, a `Json` setting in Features. Fleet writes it on an "always" answer; Settings removes an entry by saving the list without it, or `null` when both are empty. Read leniently: an entry that is not an absolute path is dropped |
+| `ReachFolders`, `reachFoldersOf`, `REACH_FOLDERS_KEY`, the fields above | Bridge reads | `packages/protocol/src/reach-folders.ts`, `helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest |
+
+**Additive.** Two variants on each of two enums, three optional fields left out when empty, and one setting. No operation, event kind or route is new. A Bridge before this draws a reaching card with Allow once and Refuse, since `helmOfferedOf` drops an offer it has no words for, and reads the two settled states as words it has none for. The IDs differ, so the two are refused regardless. No migration: the list is a settings.json key. **The event stream is untouched** beyond the `session.row` and `settings.changed` an answer already publishes, so the back-pressure risk above is neither better nor worse. The lifeboat is untouched.
 
 ## Open questions
 

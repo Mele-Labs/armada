@@ -12,6 +12,7 @@ import {
   BACKGROUND,
   Button,
   ChipOwnership,
+  ContextFigure,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -31,6 +32,7 @@ import {
   SketchPreview,
   SketchReading,
   StepsPanel,
+  SubagentMarks,
   TileSheet,
   pressedSlot,
   useCodeRun,
@@ -67,9 +69,9 @@ import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-st
 import { readingOfSketch } from "./session-sketch";
 import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
 import { backgroundEntryOf } from "./session-background";
-import { SubagentThread } from "./session-subagent";
+import { SubagentThread, useSubagentRead } from "./session-subagent";
 import { useMinimized } from "./session-ledger-minimized";
-import { helmOfferedOf } from "@armada/screens/src/copy";
+import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
 import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
 import { attachmentsOf, ownerOf, owesOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
@@ -551,6 +553,8 @@ export function ReadingSheet({
       .finally(() => setPressed(undefined));
   };
   const { sentBack, sendBack } = useSendBack(sessionId, draft?.send);
+  const subagent = one?.kind === "subagent" ? one : undefined;
+  const subagentThread = useSubagentRead(sessionId, subagent, readSubagent);
   if (one?.kind === "pull_request") {
     return (
       <SessionPullRequest
@@ -597,9 +601,11 @@ export function ReadingSheet({
       floating
       floor={floor}
       title={title}
-      {...(drawnByAgent ? { size: "wide" as const } : {})}
+      {...(drawnByAgent || subagent !== undefined ? { size: "wide" as const } : {})}
+      {...(subagent?.agentType === undefined && subagentThread?.model === undefined ? {} : { subtitle: <SubagentMarks type={subagent?.agentType} model={subagentThread?.model} /> })}
       bleed={artifact !== undefined || background !== undefined || one?.kind === "subagent" || drawnByAgent}
       {...(Glyph === undefined ? {} : { leading: <Glyph size={16} strokeWidth={2} aria-hidden /> })}
+      {...(subagentThread?.context === undefined ? {} : { controls: <ContextFigure fill={subagentThread.context} /> })}
       {...(artifact !== undefined && isAddress(artifact.form)
         ? {
             controls: (
@@ -625,7 +631,7 @@ export function ReadingSheet({
           <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
         )
       ) : one?.kind === "subagent" ? (
-        <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
+        <SubagentThread sessionId={sessionId} one={one} thread={subagentThread} />
       ) : one?.kind === "background" ? (
         // The output is a file the agent's shell wrote, read as an artifact file is.
         one.output === undefined ? null : <ArtifactBody draft={draft} sessionId={sessionId} form="file" id={one.output} title={one.task} onClose={onClose} />
@@ -1125,10 +1131,11 @@ export function SessionView({ session, goes, onOpen, held, board, lines, setting
                     ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
                     ...(session.asked.offers === undefined
                       ? {}
-                      : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                      : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                    ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
                   },
                 })}
-            onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+            onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
             {...(session.lapsed === undefined || session.lapsed.id === answeredLapse
               ? {}
               : {
@@ -1310,10 +1317,11 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
                   ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
                   ...(session.asked.offers === undefined
                     ? {}
-                    : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                    : { offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                  ...(session.asked.reaches === undefined ? {} : { reaches: session.asked.reaches }),
                 },
               })}
-          onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+          onAnswer={(answer, answers, folder) => draft.answer(session.id, answer as SessionAnswer | undefined, answers, folder)}
           onOpenSession={onOpen}
         />
       </div>

@@ -7,11 +7,12 @@
 // The repository is a row of chips under the request, never a dropdown: each carries its key, ⌥1 to ⌥9, and
 // the one the words name lights as they are typed. Past nine a trailing menu holds the rest. When none is
 // chosen the act gives the row the keys (← and →, ↵ picks and sends) before anything is built.
-// State is carried by the frame (its edge and hue) and by the chosen chip's fill, not by a phrase.
+// A Session's band also holds its Model and Effort, the composer's own pair of selects, and Queue for later beside Start: ⌘⇧↵ saves the idea
+// without starting it. State is carried by the frame (its edge and hue) and by the chosen chip's fill, not by a phrase.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
-import { FolderGit2, LoaderCircle } from "lucide-react";
-import { Button, DropdownMenu, Kbd, SendKbd, Tabs, Tooltip, digitKeyFor, pressedDigit, sendsOn, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
+import { Cpu, FolderGit2, LoaderCircle, Zap } from "lucide-react";
+import { Button, DropdownMenu, Kbd, KbdChord, Pick, Select, SendKbd, Tabs, Tooltip, boundKeyFor, digitKeyFor, pressedDigit, sendsOn, useShortcutReveal, type DispatchKind, type DropdownMenuEntry } from "@armada/components";
 import { FIND_A_REPOSITORY, rootOf } from "@armada/shell";
 
 import { KIND_ICON, KIND_LABEL } from "./kinds";
@@ -51,6 +52,31 @@ const WHAT: Record<PanelReading["state"], { name: string; tip: string }> = {
   scoped: { name: "Repository", tip: "The one the rail is on" },
 };
 
+/** A Session's Model and Effort as the composer offers them. `null` is Auto. */
+export type PanelTuning = {
+  models: readonly string[];
+  /** The model a Session follows while it names none. */
+  defaultModel?: string;
+  efforts: readonly string[];
+  model: string | null;
+  effort: string | null;
+  onTune: (tuning: { model: string | null; effort: string | null }) => void;
+};
+
+/** `queue_session`'s binding drawn in Queue for later while ⌘ is held, as Start's is, in whatever key it is bound to now. */
+function QueueKbd({ available }: { available: boolean }) {
+  const revealing = useShortcutReveal();
+  const bound = boundKeyFor("queue_session");
+  if (!revealing || !available || bound === "") return null;
+  const mods = [...bound].filter((one, at) => "⌃⌥⇧⌘".includes(one) && at < 4);
+  const key = bound.slice(mods.length);
+  return (
+    <span aria-hidden>
+      <KbdChord keys={[...mods, key === "Enter" ? "↵" : key]} />
+    </span>
+  );
+}
+
 export type PanelProps = {
   /** The frame grown. Closed it is the line alone. */
   open: boolean;
@@ -74,6 +100,12 @@ export type PanelProps = {
   /** The act pressed and held until the repository is read, or until Fleet answers. */
   sending: boolean;
   onAct: () => void;
+  /** A Session's Model and Effort, beside the act. Absent for a Job and an Autopilot. */
+  tuning?: PanelTuning;
+  /** Queue for later: saves a Session's idea without starting it. Absent where the queue is not served, and for every other kind. */
+  onQueue?: () => void;
+  /** Queue for later pressed and held until the repository is read. */
+  queueing?: boolean;
   /** Esc. The draft stays. */
   onCollapse: () => void;
   /** A press on the scrim. */
@@ -104,6 +136,9 @@ export function DispatchPanel({
   act,
   sending,
   onAct,
+  tuning,
+  onQueue,
+  queueing = false,
   onCollapse,
   onDismiss,
   onFieldKeyDown,
@@ -267,8 +302,40 @@ export function DispatchPanel({
               <Tabs items={kinds.map((one) => ({ id: one, label: KIND_LABEL[one] }))} value={kind} onChange={(id) => onKind(id as DispatchKind)} />
             )}
             <span className="armada-dispatch-panel__send">
+              {tuning === undefined ? null : (
+                <span className="armada-dispatch-panel__picks">
+                  <Pick Glyph={Cpu} compact label="Model">
+                    <Select aria-label="Model" value={tuning.model ?? ""} disabled={disabled} onChange={(event) => tuning.onTune({ model: event.target.value === "" ? null : event.target.value, effort: tuning.effort })}>
+                      <option value="">{tuning.defaultModel ?? "Auto"}</option>
+                      {tuning.models.map((one) => (
+                        <option key={one} value={one}>
+                          {one}
+                        </option>
+                      ))}
+                    </Select>
+                  </Pick>
+                  <Pick Glyph={Zap} compact label="Effort">
+                    <Select aria-label="Effort" value={tuning.effort ?? ""} disabled={disabled} onChange={(event) => tuning.onTune({ model: tuning.model, effort: event.target.value === "" ? null : event.target.value })}>
+                      <option value="">Auto</option>
+                      {tuning.efforts.map((one) => (
+                        <option key={one} value={one}>
+                          {one}
+                        </option>
+                      ))}
+                    </Select>
+                  </Pick>
+                </span>
+              )}
+              {onQueue === undefined ? null : (
+                <>
+                  <QueueKbd available={words.trim() !== ""} />
+                  <Button variant="secondary" size="sm" pending={queueing} disabled={disabled || sending || words.trim() === ""} onClick={onQueue}>
+                    Queue for later
+                  </Button>
+                </>
+              )}
               <SendKbd available={words.trim() !== ""} />
-              <Button variant="primary" size="sm" pending={sending} disabled={disabled || words.trim() === ""} onClick={onAct}>
+              <Button variant="primary" size="sm" pending={sending} disabled={disabled || queueing || words.trim() === ""} onClick={onAct}>
                 {act}
               </Button>
             </span>

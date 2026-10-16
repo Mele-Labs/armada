@@ -44,8 +44,11 @@ const base = holding(
 // The fixtures' own repositories are replaced by the four, so the row of chips names exactly these.
 const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
 
+const owners = new Map(SERVED.flatMap((one) => (one.manifest === undefined ? [] : [[one.root, one.manifest.id] as const])));
+
 export const s210QuickDispatch: Scenario = {
   ...base,
   state: { ...base.state, holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) } },
-  draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, [], board, [], [], []) },
+  // A Session starts in the repository it is given and is listed under it, as Fleet lists one by the Manifest it started in.
+  draft: { ...base.draft, sessions: (board) => sessionsStore([none, none], none, [], board, [], [], [], owners) },
 };

@@ -29,6 +29,10 @@ use serde::Deserialize;
 
 use crate::acted::{self, Arguments, Body, Said};
 
+mod tasks;
+
+pub use tasks::background_form;
+
 /// How much of an unreadable line is carried back.
 ///
 /// Enough to recognise, not enough to be a second copy of the stream in a log.
@@ -104,20 +108,20 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
 
 /// A `system` line, told apart by its own subtype.
 ///
-/// Four of them matter and the rest are noise from the harness's own
+/// Seven of them matter and the rest are noise from the harness's own
 /// machinery. `init` is where the confinement is observable from inside the
 /// session: `mcp_servers` is what the Drone actually came up holding, which is
 /// the only reading that can contradict the flag Armada passed.
 ///
 /// **`background_tasks_changed` is the third and it is read as a level.** The
-/// harness spells the same fact four ways — `task_started`, `task_updated`,
-/// `task_notification` and this one — and only this one carries the whole
-/// outstanding set rather than one task's move. Reading the set is what lets
+/// harness spells the same fact four ways. This one carries the whole
+/// outstanding set rather than one task's move, which is what lets
 /// `DroneEvent::BackgroundWork` be a count instead of a fold that has to know
-/// every terminal status the harness can send. The other three stay
-/// unrecognised deliberately: they say nothing this one does not.
+/// every terminal status the harness can send. **The other three are read for
+/// what they alone carry** — which call a task belongs to, how it ended, where
+/// its output went (`tasks.rs`) — and a Drone's fold still counts from this one.
 ///
-/// **`thinking_tokens` is the fourth**, read for how much the model thought and
+/// **`thinking_tokens` is the last**, read for how much the model thought and
 /// never for what: the reasoning text is a separate block, not carried.
 fn system_event(system: SystemLine) -> DroneEvent {
     match system.subtype.as_str() {
@@ -134,6 +138,9 @@ fn system_event(system: SystemLine) -> DroneEvent {
         "background_tasks_changed" => DroneEvent::BackgroundWork {
             outstanding: system.tasks.len(),
         },
+        "task_started" => tasks::started(system),
+        "task_updated" => tasks::updated(system),
+        "task_notification" => tasks::notified(system),
         // The estimate `crate::watching` already reads for the proposer. A
         // line without its figure stays unrecognised rather than reading as a
         // call that thought nothing.
@@ -434,11 +441,26 @@ struct SystemLine {
     /// own, and how much of it is still there is the whole of what Fleet needs.
     #[serde(default)]
     tasks: Vec<Counted>,
+    /// The task lines (`tasks.rs`) and no other: which task, the call that asked for it, and what
+    /// each of the three says of it.
+    task_id: Option<String>,
+    description: Option<String>,
+    is_backgrounded: Option<bool>,
+    patch: Option<TaskPatch>,
+    status: Option<String>,
+    output_file: Option<String>,
+    summary: Option<String>,
     /// Present on `thinking_tokens` and nowhere else: the harness's estimate
     /// of how much the model has thought so far in this call. The
     /// `estimated_tokens_delta` beside it is not read; the running figure
     /// already holds it.
     estimated_tokens: Option<u64>,
+}
+
+/// What a `task_updated` changed. Only the status is read.
+#[derive(Deserialize)]
+struct TaskPatch {
+    status: Option<String>,
 }
 
 /// An entry that is counted and never read, whatever shape it arrives in.

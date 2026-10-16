@@ -54,7 +54,7 @@ export type SessionsApi = {
    * annotation layer starts on the notes' own, whatever the window has picked. **`request` is the words the person
    * dispatched**, which Fleet reads once to fill in the title, workflow, model and effort; the answer is not waited on.
    */
-  startSession: (title?: string, root?: string, request?: string) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => Promise<SessionActed>;
   /**
    * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
    * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with

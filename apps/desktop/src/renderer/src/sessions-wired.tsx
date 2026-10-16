@@ -17,9 +17,10 @@ import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
 import type { SessionHoldsReleased, SessionRunMessage } from "@armada/protocol";
-import type { SessionCommand } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
+import { hearQueuedIdeas, newIdeaId, readQueuedIdeas, writeQueuedIdeas } from "./queued-ideas";
 import { moveRefusalWords } from "./session-moved";
 import { sessionsOfPicked } from "@armada/screens/src/board";
 import { SessionMemo, rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
@@ -77,6 +78,10 @@ export class WiredStore {
   private readonly pictures = new Map<string, string>();
   private readonly fetching = new Set<string>();
 
+  /** The ideas saved to start later, replaced and never changed so a reader can tell when they moved. */
+  private queuedNow: readonly QueuedIdea[] = readQueuedIdeas();
+  private readonly starts = new Set<string>();
+
   constructor(api: BridgeApi) {
     this.api = api;
   }
@@ -86,9 +91,12 @@ export class WiredStore {
     let live = true;
     void this.api.state().then((state) => live && this.take(state));
     const off = this.api.subscribe((state) => this.take(state));
+    // Another window saved or started an idea: this one reads the queue again.
+    const heard = hearQueuedIdeas(() => this.keepQueued(readQueuedIdeas()));
     return () => {
       live = false;
       off();
+      heard();
     };
   }
 
@@ -211,9 +219,36 @@ export class WiredStore {
     return manifest === undefined ? undefined : this.inputs?.holds.repositories?.find((one) => one.manifest?.id === manifest)?.root;
   }
 
-  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string): Promise<string | undefined> {
+  /** The queue as it now stands, in this window and in storage, and whoever reads it told. */
+  private keepQueued(next: readonly QueuedIdea[]): void {
+    this.queuedNow = next;
+    this.listeners.forEach((listener) => listener());
+  }
+
+  /** Read from storage first, since another window may have changed the queue since this one last did. */
+  private changeQueued(change: (ideas: readonly QueuedIdea[]) => readonly QueuedIdea[]): void {
+    const next = change(readQueuedIdeas());
+    writeQueuedIdeas(next);
+    this.keepQueued(next);
+  }
+
+  /** Starts the Session an idea describes. The idea leaves the queue once the Session has an id, and a start Fleet refused keeps it. */
+  private async startingQueued(id: string): Promise<string | undefined> {
+    const idea = readQueuedIdeas().find((one) => one.id === id);
+    // A second press while the first is out would start the idea twice.
+    if (idea === undefined || this.starts.has(id)) return undefined;
+    this.starts.add(id);
+    const tuning = { ...(idea.model === undefined ? {} : { model: idea.model }), ...(idea.effort === undefined ? {} : { effort: idea.effort }) };
+    const started = await this.starting(undefined, idea.root, idea.text, tuning).finally(() => this.starts.delete(id));
+    if (started === undefined) return undefined;
+    this.changeQueued((ideas) => ideas.filter((one) => one.id !== id));
+    void this.sending(started, { text: idea.text, files: [], sketches: [], tags: [] });
+    return started;
+  }
+
+  private async starting(tag: SessionTag | undefined, root: string | undefined, request?: string, tuning?: { model?: string; effort?: string }): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag), request);
+    const done = await this.api.startSession(undefined, root ?? this.rootOfJob(tag), request, tuning);
     if (!done.ok) return void this.say(done.outcome);
     const id = done.value.id;
     if (tag !== undefined) this.pending.set(id, [tag]);
@@ -438,7 +473,11 @@ export class WiredStore {
     get: () => this.mapped,
     helmOf: (manifestId) => (this.helm?.manifestId === manifestId ? this.helm : undefined),
     subscribe: this.subscribe,
-    start: (tag, root, request) => this.starting(tag, root, request),
+    start: (tag, root, request, tuning) => this.starting(tag, root, request, tuning),
+    queued: () => this.queuedNow,
+    queue: (idea) => this.changeQueued((ideas) => [...ideas, { id: newIdeaId(), ...idea }]),
+    startQueued: (id) => this.startingQueued(id),
+    dropQueued: (id) => this.changeQueued((ideas) => ideas.filter((one) => one.id !== id)),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
     forkAt: (id, at) => this.forkingAt(id, at),
@@ -449,8 +488,14 @@ export class WiredStore {
     subagent: async (id, subagentId) => {
       const read = await this.api.readSessionSubagent(id, subagentId);
       if (!read.ok) return undefined;
-      const { rows, finished, report } = read.value;
-      return { rows: rowsOfThread(id, rows, () => undefined), finished, ...(report === undefined ? {} : { report }) };
+      const { rows, finished, report, model, context_tokens, context_window } = read.value;
+      return {
+        rows: rowsOfThread(id, rows, () => undefined),
+        finished,
+        ...(report === undefined ? {} : { report }),
+        ...(model === undefined ? {} : { model }),
+        ...(context_tokens === undefined || context_window === undefined ? {} : { context: { tokens: context_tokens, window: context_window } }),
+      };
     },
     close: (id) => void this.plain(this.api.closeSession(id)),
     stop: (id) => void this.plain(this.api.stopSession(id)),
@@ -519,7 +564,7 @@ export class WiredStore {
     },
     answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) =>
       this.plain(this.api.answerWaiting({ session_id: id, item_id: itemId, ...given })),
-    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => {
+    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => {
       const call = this.lookup(id)?.asked?.call;
       if (call === undefined) return;
       void this.plain(
@@ -528,6 +573,7 @@ export class WiredStore {
           call,
           answer: answer ?? "allow_once",
           ...(answers === undefined ? {} : { answers }),
+          ...(folder === undefined ? {} : { folder }),
         }),
       );
     },

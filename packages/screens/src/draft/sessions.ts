@@ -70,7 +70,8 @@ export type SessionAttachment =
    * `against` is the sketch it is read as a change to, held whole so a later replacement does not move it.
    */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch | Scene; against?: { title: string; drawing: SessionSketch | Scene } }
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
+  /** `agentType` is the type the spawning call named, such as `rust-engineer`. Absent where the ledger holds none. */
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string; agentType?: string }
   /**
    * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
    * or a Monitor watch. `task` is the call's description and `command` what it runs. `output` is the file
@@ -373,7 +374,7 @@ export type SentMessage = {
 export type SessionCommand = { name: string; says: string };
 
 /** What a person may answer a permission a Session is held on. */
-export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse";
+export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse" | "always_allow" | "always_block";
 
 /**
  * A permission a Session's agent is held on. `call` is Fleet's id for it and `offers` the answers it
@@ -385,6 +386,8 @@ export type SessionAsk = {
   offers?: readonly SessionAnswer[];
   /** The agent's own questions, where the ask is it asking the person rather than for a permission. */
   questions?: readonly SessionQuestion[];
+  /** The absolute path past the session's slots it asked about, which the "always" answers name a folder of. */
+  reaches?: string;
 };
 
 /** One question the agent put to the person. */
@@ -399,7 +402,15 @@ export type SessionQuestion = {
 export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
 /** A subagent's thread, drawn as a Session's is. */
-export type SubagentThread = { rows: SessionRow[]; finished: boolean; report?: string };
+export type SubagentThread = {
+  rows: SessionRow[];
+  finished: boolean;
+  report?: string;
+  /** The model id it runs on, as Fleet read it. Absent until it has answered. */
+  model?: string;
+  /** What its last answer had in its window. Absent until it has answered. */
+  context?: { tokens: number; window: number };
+};
 
 /** A file the panel read: its bytes and kind, or why it could not be shown. */
 export type ArtifactRead =
@@ -417,6 +428,17 @@ export type CheckoutDiffRead = { ok: true; diff: string; cut?: true } | { ok: fa
 
 /** A rect in the window's content, in CSS pixels. */
 export type PageBounds = { x: number; y: number; width: number; height: number };
+
+/** An idea saved to start later: the words, the repository it is for, and the model and effort picked for it. */
+export type QueuedIdea = {
+  id: string;
+  text: string;
+  /** The repository's root, as `start` takes it, and its name as the rail draws it. */
+  root: string;
+  repository: string;
+  model?: string;
+  effort?: string;
+};
 
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
@@ -465,8 +487,17 @@ export type SessionsDraft = {
    * `root` is the repository it starts in; absent, the picked one, or the only one Fleet serves.
    * `request` is the words the person dispatched with: Fleet reads them once to fill in the title, workflow,
    * model and effort, and the Session starts on the answer without the press waiting for it.
+   * `tuning` is a model or effort the person picked in Dispatch; it wins, and Fleet fills in only what is left out.
    */
-  start: (tag?: SessionTag, root?: string, request?: string) => string | Promise<string | undefined>;
+  start: (tag?: SessionTag, root?: string, request?: string, tuning?: { model?: string; effort?: string }) => string | Promise<string | undefined>;
+  /** Ideas saved to start later, oldest first. Absent where nothing serves them, and Dispatch offers no Queue for later. */
+  queued?: () => readonly QueuedIdea[];
+  /** Saves an idea without starting it. Absent with `queued`. */
+  queue?: (idea: Omit<QueuedIdea, "id">) => void;
+  /** Starts the Session a queued idea describes, takes the idea off the queue, and returns the Session's id as `start` does. Absent with `queued`. */
+  startQueued?: (id: string) => string | Promise<string | undefined>;
+  /** Takes an idea off the queue without starting it. Absent with `queued`. */
+  dropQueued?: (id: string) => void;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
   /**
@@ -611,7 +642,7 @@ export type SessionsDraft = {
    */
   command?: (id: string, text: string) => void;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
-  answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
+  answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[], folder?: string) => void;
 };
 
 /** Anything a chip anywhere in Bridge can name. A chip asks who owns it. */

@@ -15,7 +15,13 @@ export type Described = { label: string; description?: string };
 export type WaitingCall = { session: Session; item: WaitingItem };
 
 /** What a permission offers, as the labels the wire's permission items carry. */
-const PERMISSION: Record<SessionAnswer, string> = { allow_once: "Allow once", allow_and_remember: "Allow and remember", refuse: "Refuse" };
+const PERMISSION: Record<SessionAnswer, string> = {
+  allow_once: "Allow once",
+  allow_and_remember: "Allow and remember",
+  refuse: "Refuse",
+  always_allow: "Always allow",
+  always_block: "Always block",
+};
 const PERMISSION_OF: Record<string, SessionAnswer> = { "Allow once": "allow_once", "Allow and remember": "allow_and_remember", Refuse: "refuse" };
 
 /** The answer a permission option's label stands for, or none where it is not one of the three. */

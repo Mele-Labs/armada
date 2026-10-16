@@ -7,7 +7,7 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { QueuedIdea, Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import { withOutgoing } from "./outgoing";
 
@@ -19,6 +19,7 @@ const Acts = createContext<RepositoryActs | undefined>(undefined);
 
 const NONE: readonly Session[] = [];
 const NEVER = { get: () => NONE, subscribe: () => () => undefined };
+const NO_IDEAS: readonly QueuedIdea[] = [];
 
 /** Hand a moment's Sessions to the window. The mock's own mount is the one caller. */
 export function SessionsFrom({ held, acts, children }: { held: SessionsDraft | undefined; acts?: RepositoryActs; children: ReactNode }) {
@@ -61,4 +62,10 @@ export function useSessionsSaid(): string | undefined {
 export function useSessions(): readonly Session[] {
   const held = useContext(Held) ?? NEVER;
   return useSyncExternalStore(held.subscribe, held.get);
+}
+
+/** The ideas saved to start later, live. Empty where none are served. */
+export function useQueued(): readonly QueuedIdea[] {
+  const held = useContext(Held);
+  return useSyncExternalStore(held?.subscribe ?? NEVER.subscribe, held?.queued ?? (() => NO_IDEAS));
 }
