@@ -12,6 +12,8 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::pull_review::{ReviewComment, ReviewThreadFacts};
+
 /// Where the forge says a merge would stand against the base branch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mergeability {
@@ -156,6 +158,12 @@ pub struct PullRequestPageFacts {
     pub files: Vec<PageFile>,
     pub commits: Vec<CommitLine>,
     pub omitted: Omitted,
+    /// The commit the branch is at, whole. Absent where the forge did not say.
+    pub head: Option<String>,
+    /// The description, as the author wrote it. Absent where there is none.
+    pub body: Option<String>,
+    /// The conversations on the diff, resolved ones too, in the forge's order.
+    pub threads: Vec<ReviewThreadFacts>,
 }
 
 /// What a person writes on a pull request.
@@ -168,4 +176,13 @@ pub enum PullRequestWrite {
     Comment { body: String },
     Approve { body: Option<String> },
     RequestChanges { body: String },
+    /// One review that carries line, file and reply comments, with `verdict` as its verdict.
+    /// **Fleet builds it only with comments**, so the body may be empty here. `commit` is the
+    /// commit the person read, whole; absent is the branch as it stands.
+    Review {
+        verdict: ReviewSaid,
+        body: Option<String>,
+        comments: Vec<ReviewComment>,
+        commit: Option<String>,
+    },
 }

@@ -46,6 +46,7 @@ mod main_ci;
 mod manifest_edit;
 mod pull_request;
 mod pull_request_detail;
+mod pull_review;
 mod pull_watch;
 mod secret;
 mod setup;
@@ -88,6 +89,10 @@ pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
     PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Said,
+};
+pub use pull_review::{
+    DiffSide, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
+    ThreadSaid,
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
