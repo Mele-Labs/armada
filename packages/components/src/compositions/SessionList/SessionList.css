@@ -101,8 +101,7 @@
 
 /* ---- A Session as a tile -------------------------------------------------------------------- */
 
-.armada-session-list__row,
-.armada-session-list__queued {
+.armada-session-list__row {
   --hue: var(--fg-subtle);
   position: relative;
   display: flex;
@@ -130,20 +129,12 @@
 .armada-session-list__row[data-state="replied"] { --hue: var(--status-completed-success); }
 .armada-session-list__row[data-state="blank"] { --hue: var(--status-not-started); }
 
-.armada-session-list__row[data-state] .armada-session-mark,
-.armada-session-list__queued .armada-session-mark { color: var(--hue); }
+.armada-session-list__row[data-state] .armada-session-mark { color: var(--hue); }
 .armada-session-list__row[data-state="failing"] .armada-session-mark { color: var(--status-completed-failed); }
 /* A reply asks nothing, so its frame is an idle one; its unread mark is the one lit thing on it. */
 .armada-session-list__row[data-state="replied"] .armada-session-mark { color: var(--status-awaiting-review); }
 
-/* A saved idea, not yet a Session: the tile of a Session not started, dashed, with no press but its two. */
-.armada-session-list__queued {
-  --hue: var(--status-not-started);
-  border-style: dashed;
-}
-
-.armada-session-list__row:hover,
-.armada-session-list__queued:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
+.armada-session-list__row:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
 
 /* Waiting on the owner: lit, as a tile that needs him is on the cockpit's glass. */
 .armada-session-list__row[data-state="waiting"],
@@ -196,44 +187,6 @@
 .armada-session-list__chips {
   position: relative;
   z-index: 1;
-}
-
-/* The Queued group crosses every column, its tiles in a grid of the glass's own width. */
-.armada-session-list__queue { grid-column: 1 / -1; }
-
-.armada-session-list__queue > .armada-session-list__rows {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 6), 1fr));
-}
-
-.armada-session-list__idea {
-  display: flex;
-  flex: 1;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-/* The repository and the model: plain mono text on the tile's foot, as the open items are ruled off. */
-.armada-session-list__tags {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-}
-
-.armada-session-list__tag {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .armada-session-list__open:focus-visible { outline: none; }

@@ -45,7 +45,6 @@ import type {
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
-  QueuedRowView,
   SessionBand,
   SessionGroup,
   SessionRowView,
@@ -99,7 +98,7 @@ import { SessionPullRequest, useSendBack } from "./session-pull-request";
 import { useNumbered } from "./numbered";
 import { SessionRepositoryOf } from "./session-move";
 import { movedRowsOf } from "./session-moved";
-import { useQueued, useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
+import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 import { restartOf } from "./build-change";
 import { runnerOf } from "./session-runner";
 import { nowOf, todosOf } from "./session-activity";
@@ -427,16 +426,9 @@ export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: str
   const [query, setQuery] = useState("");
   const [view, setView] = useView();
   const retro = useRetroPress();
-  const ideas = useQueued();
   // A reply reads as unread until he has been in its Session, so the rows are read again as he goes.
   useViewedVersion();
   if (draft === undefined) return null;
-  // Queued ideas wait with the Sessions that can be acted on: on Active and on All, found by their words or repository.
-  const find = query.trim().toLowerCase();
-  const queued: QueuedRowView[] =
-    view === "active" || view === "all"
-      ? ideas.map((one) => ({ id: one.id, title: one.text.trim().split("\n")[0] ?? "", repository: one.repository, ...(one.model === undefined ? {} : { model: one.model }) })).filter((one) => find === "" || `${one.title} ${one.repository}`.toLowerCase().includes(find))
-      : [];
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
@@ -475,7 +467,7 @@ export function SessionsListing({ onOpen, startIn, bandsBy }: { onOpen: (id: str
   return (
     <>
       <Refused />
-      <SessionList groups={groups} {...(bands === undefined ? {} : { bands })} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} queued={queued} onStartQueued={(id) => draft.startQueued !== undefined && opening(draft.startQueued(id), onOpen)} onDropQueued={(id) => draft.dropQueued?.(id)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
+      <SessionList groups={groups} {...(bands === undefined ? {} : { bands })} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }

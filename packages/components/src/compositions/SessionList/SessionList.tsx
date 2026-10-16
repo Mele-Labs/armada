@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
-import { BellRing, LoaderCircle, MessageSquare, Play, Search, Trash2 } from "lucide-react";
+import { BellRing, LoaderCircle, MessageSquare, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
@@ -57,9 +57,6 @@ export type SessionRowView = {
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
 
-/** An idea saved to start later: its first line, the repository it is for, and the model picked for it where one was. */
-export type QueuedRowView = { id: string; title: string; repository: string; model?: string };
-
 /** One repository's Sessions, under its name, in the same state columns. */
 export type SessionBand = { label: string; groups: readonly SessionGroup[] };
 
@@ -83,13 +80,6 @@ export type SessionListProps = {
   startIn?: readonly { root: string; name: string }[];
   /** Writes a Session's retro. Absent where nothing serves it, and the press is left off. */
   onRetro?: (id: string) => void;
-  /**
-   * Ideas saved to start later, a **Queued** group above the Sessions, drawn only where there is one.
-   * A row has Start and Remove and no other press; nothing is counted.
-   */
-  queued?: readonly QueuedRowView[];
-  onStartQueued?: (id: string) => void;
-  onDropQueued?: (id: string) => void;
   /** The views of the list as filled tabs, no figure on any. The host holds which headings each one has. */
   views?: readonly TabsItem[];
   view?: string;
@@ -269,7 +259,7 @@ function MoreRows({ onMore }: { onMore: () => void }) {
   );
 }
 
-export function SessionList({ groups, bands, query, onQuery, onOpen, onStart, startIn, onRetro, queued, onStartQueued, onDropQueued, views, view, onView, now = Date.now() }: SessionListProps) {
+export function SessionList({ groups, bands, query, onQuery, onOpen, onStart, startIn, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the glass, the arrows across it. j and k are the surface's, which opens the next Session with them.
   useTileGrid(list, { tile: ".armada-session-list__row", cursor: ".armada-session-list__open", steps: false });
@@ -332,47 +322,6 @@ export function SessionList({ groups, bands, query, onQuery, onOpen, onStart, st
       </ul>
     </div>
   );
-  const waiting = queued === undefined || queued.length === 0 ? null : (
-    <div className="armada-session-list__group armada-session-list__queue" role="group" aria-label="Queued">
-      <h3 className="armada-session-list__eyebrow">Queued</h3>
-      <ul className="armada-session-list__rows">
-        {queued.map((idea) => (
-          <li key={idea.id} className="armada-session-list__queued" aria-label={idea.title}>
-            <div className="armada-session-list__top">
-              <span className="armada-session-list__idea">
-                <SessionMark state="blank" said="Queued" />
-                <span className="armada-session-list__title">{idea.title}</span>
-              </span>
-              <Tooltip label="Start">
-                <Button variant="ghost" size="sm" aria-label={`Start ${idea.title}`} onClick={() => onStartQueued?.(idea.id)}>
-                  <Play size={16} strokeWidth={2} aria-hidden />
-                </Button>
-              </Tooltip>
-              <Tooltip label="Remove">
-                <Button variant="ghost" size="sm" aria-label={`Remove ${idea.title}`} onClick={() => onDropQueued?.(idea.id)}>
-                  <Trash2 size={16} strokeWidth={2} aria-hidden />
-                </Button>
-              </Tooltip>
-            </div>
-            <div className="armada-session-list__tags">
-              <Tooltip label="Repository">
-                <span className="armada-session-list__tag" role="img" aria-label={`Repository ${idea.repository}`}>
-                  {idea.repository}
-                </span>
-              </Tooltip>
-              {idea.model === undefined ? null : (
-                <Tooltip label="Model">
-                  <span className="armada-session-list__tag" role="img" aria-label={`Model ${idea.model}`}>
-                    {idea.model}
-                  </span>
-                </Tooltip>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
   return (
     <section className="armada-session-list" aria-label="Sessions" ref={list}>
       <div className="armada-session-list__head">
@@ -401,7 +350,6 @@ export function SessionList({ groups, bands, query, onQuery, onOpen, onStart, st
         {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
       </div>
       <div className="armada-session-list__glass" data-banded={bands === undefined ? undefined : ""}>
-        {waiting}
         {bands === undefined
           ? drawn.map((group) => column(group))
           : drawnBands.map((band) => (
