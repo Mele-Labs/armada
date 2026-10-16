@@ -768,7 +768,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 | Bridge draws | From |
 |---|---|
-| The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
+| The ledger's slot and branch as one pair | A branch row ends in the key chip of its slot, so a slot a branch is on has no section or row of its own. A slot no branch is on keeps a row under Branches, after the branches, with the key glyph. A press on either opens the slot on Cleanup. A `slot` of 0 on a branch is unknown and draws no chip |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
 | The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |
