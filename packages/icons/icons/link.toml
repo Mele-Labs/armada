@@ -30,5 +30,5 @@
   means = "A need a Session holds on a path, in the confirmation and the answer of Release on its flight controls"
   group = "Session"
   size = "12px"
-  status = "Proposed"
-  notes = "Proposed 16 Oct 2026 for the walk `cockpit-release-holds`, for the owner to rule on. A need is a wait on something another holder may take first, which is what the Queued reason already draws. Tooltip `Need: <what it was declared for>`."
+  status = "Specified"
+  notes = "Proposed 16 Oct 2026 for the walk `cockpit-release-holds`, and kept by the owner the same day. A need is a wait on something another holder may take first, which is what the Queued reason already draws. Tooltip `Need: <what it was declared for>`."
