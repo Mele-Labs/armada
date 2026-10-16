@@ -108,6 +108,8 @@ export type OutputStyleApplied = "active" | "available" | "always";
 export type OutputStyleFacts = {
   from: OutputStyleFrom;
   applied: OutputStyleApplied;
+  /** The plugin's own name, on a `plugin` style only. */
+  plugin?: string;
 };
 
 /** Something of the right shape in the right place that would not read. */

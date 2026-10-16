@@ -116,13 +116,19 @@ export const KIT_INVENTORY: KitInventory = {
             name: "Armada",
             says: "Answers the way Armada's own sessions do: facts, no filler.",
             source: "/Users/user/.agent/plugins/cache/armada/1.0.0/output-styles/Armada.md",
-            style: { from: "plugin", applied: "available" },
+            style: { from: "plugin", applied: "available", plugin: "armada" },
           },
           {
             name: "terse-review",
             says: "Short findings for reading a diff, one line each.",
             source: "/Users/user/develop/armada/.agent/output-styles/terse-review.md",
             style: { from: "repository", applied: "available" },
+          },
+          {
+            name: "Explanatory",
+            says: "Explains the choices it makes as it works.",
+            source: "built in to An agent CLI",
+            style: { from: "built_in", applied: "available" },
           },
           {
             name: "Armada session rules",

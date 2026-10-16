@@ -166,10 +166,12 @@ impl StyleApplied {
 
 /// An output style's own facts. **Never its body**, which is the person's
 /// writing, or Armada's rules, and a row is not where either is read.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StyleFacts {
     pub from: StyleFrom,
     pub applied: StyleApplied,
+    /// The plugin's own name, on a style a plugin ships and nowhere else.
+    pub plugin: Option<String>,
 }
 
 /// Something of the right shape in the right place that would not read.

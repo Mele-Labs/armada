@@ -345,6 +345,7 @@ fn applied(items: &[SetupItem], name: &str) -> (StyleFrom, StyleApplied) {
         .find(|item| item.name == name)
         .unwrap_or_else(|| panic!("no style {name} in {items:?}"))
         .style
+        .as_ref()
         .expect("a style row carries its facts");
     (facts.from, facts.applied)
 }
@@ -371,6 +372,9 @@ fn styles_are_read_from_the_person_the_repository_and_a_plugin() {
     let items = style_items(&read);
     assert_eq!(applied(&items, "bluf").0, StyleFrom::Person);
     assert_eq!(applied(&items, "Armada").0, StyleFrom::Plugin);
+    // The plugin's name, without its marketplace.
+    let armada = items.iter().find(|item| item.name == "Armada").unwrap();
+    assert_eq!(armada.style.as_ref().unwrap().plugin.as_deref(), Some("armada"));
     // No name in the front matter: the file's own name.
     assert_eq!(applied(&items, "terse").0, StyleFrom::Repository);
     let bluf = items.iter().find(|item| item.name == "bluf").unwrap();
@@ -380,7 +384,7 @@ fn styles_are_read_from_the_person_the_repository_and_a_plugin() {
     assert_eq!(terse.source, "/work/armada/.claude/output-styles/terse.md");
     assert!(items
         .iter()
-        .all(|item| item.style.unwrap().applied == StyleApplied::Available));
+        .all(|item| item.style.as_ref().unwrap().applied == StyleApplied::Available));
 }
 
 #[test]

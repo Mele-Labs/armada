@@ -1,7 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+import { Check } from "lucide-react";
+
 import { Button } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SharedHomeBar, SyncAct, SyncMarks, SyncSheet, useSharedHome } from "./SharedHome";
 import type { SharedHome, SharedRow } from "./SharedHome";
 
@@ -75,6 +78,15 @@ export type KitSetupItem = {
   says?: string;
   /** Where it came from. Drawn small, and never a control. */
   source: string;
+  /** Output styles only: where the style came from and whether it is in force. */
+  style?: KitSetupStyle;
+};
+
+export type KitSetupStyle = {
+  from: "person" | "repository" | "plugin" | "built_in" | "armada";
+  applied: "active" | "available" | "always";
+  /** The plugin's own name, on a `plugin` style. */
+  plugin?: string;
 };
 
 export type KitSetupUnreadable = {
@@ -198,7 +210,7 @@ function Kind({
 }) {
   const lines = read.what === "read" ? linesOf(kind, read.items, shared) : [];
   // The allowlist draws no count: a count beside the list it counts is design-system hard rule 7.
-  const counted = read.what === "read" && kind !== "allowlist" && shared === undefined ? read.items.length : undefined;
+  const counted = read.what === "read" && kind !== "allowlist" && kind !== "output_styles" && shared === undefined ? read.items.length : undefined;
   return (
     // A tile on the glass: focusable, so a reading with no control in it is still reached by the keys.
     <section className="armada-kit-setup__kind" aria-label={KIND_LABEL[kind]} tabIndex={0} data-kit-tile="">
@@ -272,6 +284,67 @@ function Allowed({
       ))}
     </ul>
     </Scrolling>
+  );
+}
+
+/** Where a style came from, in words. A plugin is named by its own name. */
+function styleFrom(style: KitSetupStyle): string {
+  switch (style.from) {
+    case "person":
+      return "Yours";
+    case "repository":
+      return "This repository";
+    case "plugin":
+      return style.plugin ?? "A plugin";
+    case "built_in":
+      return "Built in";
+    case "armada":
+      return "Armada";
+  }
+}
+
+/**
+ * One output style: its name, what it says, and where it came from. **The active one is marked
+ * by a glyph and carried by weight**, so the choice reads without a count or a colour.
+ */
+function StyleRow({ item, style }: { item: KitSetupItem; style: KitSetupStyle }) {
+  const active = style.applied === "active";
+  return (
+    <li className="armada-kit-setup__style" data-applied={style.applied}>
+      <span className="armada-kit-setup__item-name">{item.name}</span>
+      {active ? (
+        <Tooltip beside label="Active">
+          <span className="armada-kit-setup__style-mark" role="img" aria-label="Active">
+            <Check size={16} strokeWidth={2} aria-hidden="true" />
+          </span>
+        </Tooltip>
+      ) : null}
+      {item.says === undefined ? null : (
+        <span className="armada-kit-setup__item-says" title={item.says}>
+          {item.says}
+        </span>
+      )}
+      <span className="armada-kit-setup__style-from">{styleFrom(style)}</span>
+    </li>
+  );
+}
+
+/**
+ * Armada's session rules, set apart from the styles. **Not a style the person picks**: it sits on
+ * top of whichever one is active in the sessions Bridge hosts, so it has no mark and a heading of
+ * its own.
+ */
+function AlwaysApplied({ rows }: { rows: { item: KitSetupItem; style: KitSetupStyle }[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="armada-kit-setup__always" aria-label="Always applied">
+      <h5 className="armada-kit-setup__always-name">Always applied</h5>
+      <ul className="armada-kit-setup__items">
+        {rows.map(({ item, style }) => (
+          <StyleRow key={item.name} item={item} style={style} />
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -354,14 +427,18 @@ function Items({
   onCompare: (row: SharedRow) => void;
   unreadable: KitSetupUnreadable[];
 }) {
+  // Output styles: the rules stand under the styles, set apart.
+  const rules = lines.flatMap(({ item }) => (item.style?.applied === "always" ? [{ item, style: item.style }] : []));
+  const picked = rules.length === 0 ? lines : lines.filter(({ item }) => item.style?.applied !== "always");
   return (
     <>
-      {lines.length === 0 && unreadable.length === 0 ? (
+      {picked.length === 0 && unreadable.length === 0 ? (
         <p className="armada-kit-setup__none">{KIND_NONE[kind]}</p>
       ) : (
         <Scrolling>
         <ul className="armada-kit-setup__items">
-          {lines.map(({ item, row }) => (
+          {picked.map(({ item, row }) =>
+            item.style === undefined ? (
             <li className="armada-kit-setup__item" key={`${item.source}/${item.name}`} data-sync={row?.state}>
               <span className="armada-kit-setup__item-name">{item.name}</span>
               {item.says === undefined ? null : (
@@ -378,10 +455,14 @@ function Items({
               )}
               <Synced row={row} shared={shared} onCompare={onCompare} />
             </li>
-          ))}
+            ) : (
+              <StyleRow key={`${item.source}/${item.name}`} item={item} style={item.style} />
+            ),
+          )}
         </ul>
         </Scrolling>
       )}
+      <AlwaysApplied rows={rules} />
       {unreadable.length === 0 ? null : (
         /* A file Armada could not describe is still one the person has, so it
            is named with the reason and nothing is offered to fix it here. */

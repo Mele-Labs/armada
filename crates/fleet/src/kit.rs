@@ -337,6 +337,7 @@ fn with_armadas_session_rules(mut seen: ipc::KitInventory) -> ipc::KitInventory 
         style: Some(ipc::OutputStyleFacts {
             from: adapter_traits::StyleFrom::Armada.as_wire().to_string(),
             applied: adapter_traits::StyleApplied::Always.as_wire().to_string(),
+            plugin: None,
         }),
     };
     if let Some(ipc::WhatWasRead::Read { items, .. }) = seen
@@ -380,6 +381,7 @@ fn what_was_read(what: adapter_traits::WhatWasRead) -> ipc::WhatWasRead {
                     style: item.style.map(|style| ipc::OutputStyleFacts {
                         from: style.from.as_wire().to_string(),
                         applied: style.applied.as_wire().to_string(),
+                        plugin: style.plugin,
                     }),
                 })
                 .collect(),

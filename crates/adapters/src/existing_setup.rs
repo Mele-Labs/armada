@@ -381,6 +381,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         } else {
                             StyleApplied::Available
                         },
+                        plugin: style.plugin.clone(),
                     }),
                 }
             })
@@ -395,6 +396,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     style: Some(StyleFacts {
                         from: StyleFrom::BuiltIn,
                         applied: StyleApplied::Active,
+                        plugin: None,
                     }),
                 });
             }
@@ -523,6 +525,8 @@ struct Found {
     from: StyleFrom,
     /// `plugin:name`, which is how a setting names a plugin's style.
     qualified: Option<String>,
+    /// The plugin that ships it, without its marketplace.
+    plugin: Option<String>,
 }
 
 impl Found {
@@ -593,6 +597,7 @@ fn styles_in(
                     let name = front.name.unwrap_or_else(|| stem.to_string());
                     found.push(Found {
                         qualified: plugin.map(|plugin| format!("{plugin}:{name}")),
+                        plugin: plugin.map(str::to_string),
                         name,
                         says: front.description.map(|said| shortened(&said)),
                         source: shown(&path),

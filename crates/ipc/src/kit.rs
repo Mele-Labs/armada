@@ -149,6 +149,9 @@ pub struct SetupItem {
 pub struct OutputStyleFacts {
     pub from: String,
     pub applied: String,
+    /// The plugin's name, on a `plugin` style only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
 }
 
 /// Something of the right shape in the right place that would not read.
